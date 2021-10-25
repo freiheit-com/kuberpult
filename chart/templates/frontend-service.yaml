@@ -1,0 +1,71 @@
+#This file is part of kuberpult.
+
+#Kuberpult is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+
+#Kuberpult is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+
+#You should have received a copy of the GNU General Public License
+#along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
+
+#Copyright 2021 freiheit.com
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kuberpult-frontend-service
+  labels:
+    app: kuberpult-frontend-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kuberpult-frontend-service
+  template:
+    metadata:
+      labels:
+        app: kuberpult-frontend-service
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: service
+        image: "{{ .Values.hub }}/{{ .Values.frontend.image }}:{{ .Values.tag }}"
+        ports:
+          - name: http
+            containerPort: 8081
+            protocol: TCP
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "100Mi"
+          requests:
+            cpu: "500m"
+            memory: "100Mi"
+        env:
+        - name: FDCCD_CDSERVER
+          value: kuberpult-cd-service:8443
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kuberpult-frontend-service
+{{- if .Values.ingress.iap.enabled }}
+  annotations:
+    cloud.google.com/backend-config: '{"default": "kuberpult"}'
+{{- end }}
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  selector:
+    app: kuberpult-frontend-service
+  type: NodePort

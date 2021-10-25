@@ -1,0 +1,167 @@
+#This file is part of kuberpult.
+
+#Kuberpult is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+
+#Kuberpult is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+
+#You should have received a copy of the GNU General Public License
+#along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
+
+#Copyright 2021 freiheit.com
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kuberpult-cd-service
+  labels:
+    app: kuberpult-cd-service
+spec:
+  serviceName: kuberpult-cd-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kuberpult-cd-service
+  template:
+    metadata:
+      labels:
+        app: kuberpult-cd-service
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: service
+        image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ .Values.tag }}"
+        ports:
+          - name: http
+            containerPort: 8080
+            protocol: TCP
+          - name: grpc
+            containerPort: 8443
+            protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+        env:
+        - name: FDCCD_GIT_URL
+          value: {{ required ".Values.git.url is required" .Values.git.url | quote }}
+        - name: FDCCD_GIT_BRANCH
+          value: {{ .Values.git.branch | quote }}
+{{- if .Values.pgp.keyRing }}
+        - name: FDCCD_PGP_KEY_RING
+          value: /keyring/keyring.gpg
+{{- end }}
+{{- if .Values.argocd.enabled }}
+        - name: FDCCD_ARGO_CD_HOST
+          value: {{ .Values.argocd.host }}
+        - name: FDCCD_ARGO_CD_USER
+          value: {{ .Values.argocd.user }}
+        - name: FDCCD_ARGO_CD_PASS
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-argocd
+              key: FDCCD_ARGO_CD_PASS
+{{- end }}
+        volumeMounts:
+        - name: repository
+          mountPath: /repository
+        - name: ssh
+          mountPath: /etc/ssh
+{{- if .Values.pgp.keyRing }}
+        - name: keyring
+          mountPath: /keyring
+{{- end }}
+      volumes:
+      - name: ssh
+        secret:
+          secretName: kuberpult-ssh
+{{- if .Values.pgp.keyRing }}
+      - name: keyring
+        configMap:
+          name: kuberpult-keyring
+{{- end }}
+  volumeClaimTemplates:
+  - metadata:
+      name: repository
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kuberpult-cd-service
+  {{- if .Values.cd.backendConfig.create }}
+  annotations:
+    cloud.google.com/backend-config: '{"default": "kuberpult-cd-service"}'
+  {{- end }}
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  - name: grpc
+    port: 8443
+    targetPort: grpc
+  selector:
+    app: kuberpult-cd-service
+  type: NodePort
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kuberpult-ssh
+data:
+  identity: {{ .Values.ssh.identity | b64enc | quote }}
+  ssh_known_hosts: {{ .Values.ssh.known_hosts | b64enc | quote }}
+---
+{{- if .Values.pgp.keyRing }}
+{{- if not (mustRegexMatch "^-----BEGIN PGP PUBLIC KEY BLOCK-----" .Values.pgp.keyRing) }}
+{{ fail "The pgp keyring is invalid. Please export it using `gpg --armor --export`"}}
+{{ end -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kuberpult-keyring
+data:
+  keyring.gpg: {{ .Values.pgp.keyRing | quote }}
+---
+{{- end }}
+{{- if .Values.cd.backendConfig.create }}
+---
+apiVersion: cloud.google.com/v1beta1
+kind: BackendConfig
+metadata:
+  name: kuberpult-cd-service
+spec:
+  healthCheck:
+    type: HTTP
+    requestPath: /health
+{{- end }}
+
+{{- if .Values.argocd.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kuberpult-argocd
+type: Opaque
+data:
+  FDCCD_ARGO_CD_PASS: {{ .Values.argocd.password | b64enc }}
+{{- end }}

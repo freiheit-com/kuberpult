@@ -1,0 +1,53 @@
+#This file is part of kuberpult.
+
+#Kuberpult is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+
+#Kuberpult is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+
+#You should have received a copy of the GNU General Public License
+#along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
+
+#Copyright 2021 freiheit.com
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/acme-challenge-type: dns01
+    cert-manager.io/cluster-issuer: letsencrypt
+  name: kuberpult
+spec:
+  rules:
+  - host: {{ required ".ingress.domainName is required" .Values.ingress.domainName | quote }}
+    http:
+      paths:
+{{- if .Values.ingress.exposeReleaseEndpoint }}
+      - path: /release
+        backend:
+          serviceName: kuberpult-cd-service
+          servicePort: http
+{{- end }}
+      - backend:
+          serviceName: kuberpult-frontend-service
+          servicePort: http
+  tls:
+  - hosts:
+    - {{ default .Values.ingress.domainName .Values.ingress.tls.host | quote}}
+    secretName: {{.Values.ingress.tls.secretName | quote}}
+---
+{{- if .Values.ingress.iap.enabled }}
+apiVersion: cloud.google.com/v1beta1
+kind: BackendConfig
+metadata:
+  name: kuberpult
+spec:
+  iap:
+    enabled: true
+    oauthclientCredentials:
+      secretName: {{ required ".ingress.iap.secretName is required" .Values.ingress.iap.secretName }}
+{{- end }}
