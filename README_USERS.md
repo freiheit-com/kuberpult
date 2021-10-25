@@ -44,16 +44,3 @@ See `k8s-jenkins-cac.tf` in your project.
 There are 2 environments involved:
 * *target*: this is where the services will be deployed (where the version changes happen).
 * *upstream*: this is where the system tests are run. It is also the source for the *versions* of the apps.
-
-### Process
-
-See file `releaseTrain.groovy` in [jenkins-shared-libraries](https://github.com/freiheit-com/jenkins-shared-libraries/tree/master/vars) for the implementation.
-
-1) *upstream* is **locked**
-1) system tests are run on *upstream*
-1) if the tests were OK, the actual release train (kuberpult) is called with *target*:
-   * All app versions are read from *upstream*
-   * A commit is created that deploys all versions that are *different* to *target*
-     (if target or an app is locked, the deployment will be queued instead)
-1) *upstream* is **un**locked
-
