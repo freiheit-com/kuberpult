@@ -1,5 +1,14 @@
 # kuberpult Readme for developers
 
+**Kuberpult** is a tool that allows you to manage Kubrnetes manifests for your services in a
+Git repository and manage the same version of those services in different environments
+with differnt configs according to the environment.
+
+kuberpult works best with [ArgoCD](https://argo-cd.readthedocs.io/en/stable/) which applies the
+manifests to your clusters and kuberpult helps you to manage those manifests in the repository.
+
+kuberpult allows you to lock some services or an entire environment, so any deployments to
+those services/environments will be queued until the lock is removed.
 ## Release a new version
 
 Building with libgit2 is tricky atm. Run `./dmake make -C services/cd-service bin/main` once to generate the binary for the cd-service.
