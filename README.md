@@ -1,33 +1,53 @@
-# kuberpult Readme for developers
+# kuberpult Readme for users
 
-## Release a new version
+## About
 
-Building with libgit2 is tricky atm. Run `./dmake make -C services/cd-service bin/main` once to generate the binary for the cd-service.
-Afterwards run `make release`. This will push the docker image, package the helm chart and create a git tag. The helm chart must be uploaded manually to the github release at the moment.
-Afterwards bump the version in the `version` file.
+**Kuberpult** is a tool that allows you to manage Kubernetes manifests for your services in a
+Git repository and manage the same version of those services in different environments
+with differnt configs according to the environment.
 
-## Install dev tools
+kuberpult works best with [ArgoCD](https://argo-cd.readthedocs.io/en/stable/) which applies the
+manifests to your clusters and kuberpult helps you to manage those manifests in the repository.
 
-- libgit2 >= 1.0
+kuberpult allows you to lock some services or an entire environment, so automatic deployments (via a typical api call) to
+those services/environments will be queued until the last lock is removed.
+Manual deployments (via the UI or a flag in the api) are always possible.
 
-  Download tar file and follow instructions here: https://github.com/libgit2/libgit2#installation
-  It worked for me to run: (the instructions are slightly different)
-  ```
-  sudo apt-get install libssl-dev
-  mkdir build && cd build
-  cmake ..
-  sudo cmake --build . --target install
-  ```
-  Afterwards, set your library path, e.g.: `export LD_LIBRARY_PATH='/usr/local/lib/'`
-- golang >= 1.16
-- protoc >=3.15
-- `go get -modfile=go.tools.mod github.com/golang/protobuf/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc`
-- buf
-- run make on the top level to install go modules:
-  `make .install`
+`kuberpult` does not actually `deploy`. That part is usually handled by argoCD.
 
-There is a dev image based on alpine in `docker/build`. You can create a shell using the `./dmake` command.
+`kuberpult` has a UI, and it can handle *locks*. When something is locked, it's version will not be changed.
+Both *environments* and *microservices* can be `locked`.
 
-## libgit2 vs. ...
+## Current Version and Queued Version
 
-The first version of this tool was written using go-git v5. Sadly the performance was abysmal. Adding a new manifest took > 20 seconds. Therefore, we switched to libgit2 which is much faster but less ergonomic.
+Every app has a current version on every env (including `nil` for no version).
+If a deployment starts while the app/env is locked,
+instead of changing the current version, the `queued_version` will be set.
+When the lock is deleted, the queued version will be deployed.
+
+There is currently no visualization for the queue in the ui,
+so it can only be seen in the manifest repo as "queued_version" symlink next to "version".
+
+The queue has a length of 0 or 1.
+Attempting to put a version into the full queue, will overwrite it instead ("last deployment wins").
+
+## Release train Overview
+
+### What is that?
+
+A release train is a concept that ensures that we deploy *often* and *regularly*.
+The idea is that the train does not wait for you - it will leave (deploy) on time, regardless of how many services/commits are ready.
+
+The train should run *often enough* to not slow down development, while also giving the testers enough time to look at changes before they go live.
+
+### Trigger
+
+The release train needs to be triggered externally - there is nothing in `kuberpult` that triggers it.
+The trigger is usually implemented as a jenkins pipeline with a cronjob.
+See `k8s-jenkins-cac.tf` in your project.
+
+### Environments
+
+There are 2 environments involved:
+* *target*: this is where the services will be deployed (where the version changes happen).
+* *upstream*: this is where the system tests are run. It is also the source for the *versions* of the apps.
