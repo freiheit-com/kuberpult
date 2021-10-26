@@ -102,7 +102,7 @@ const Main = () => {
                                 noWrap
                                 sx={{ flexGrow: 1, width: '10rem' }}>
                                 <strong>
-                                    <code>FDCCD UI</code>
+                                    <code>KUBERPULT UI</code>
                                 </strong>
                             </Typography>
                             <EnvironmentLocksDrawer data={overview} />

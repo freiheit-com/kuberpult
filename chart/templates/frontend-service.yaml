@@ -50,7 +50,7 @@ spec:
             cpu: "500m"
             memory: "100Mi"
         env:
-        - name: FDCCD_CDSERVER
+        - name: KUBERPULT_CDSERVER
           value: kuberpult-cd-service:8443
 ---
 apiVersion: v1

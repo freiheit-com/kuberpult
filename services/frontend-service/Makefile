@@ -38,7 +38,7 @@ bin/main: $(GO_FILES) | proto
 GARBAGE += bin/main
 
 run: bin/main
-	FDCCD_CDSERVER=localhost:8443 bin/main
+	KUBERPULT_CDSERVER=localhost:8443 bin/main
 
 clean:
 	git clean -Xfd

@@ -6,9 +6,9 @@ Configuration
 
 Configuration is done using environment variables. The following environment variables are supported:
 
-`FDCCD_GIT_URL` sets the git url of the remote. This can be any url understood by git but currently authentication is only implemented for ssh.
+`KUBERPULT_GIT_URL` sets the git url of the remote. This can be any url understood by git but currently authentication is only implemented for ssh.
 
-`FDCCD_PGP_KEY_RING` sets the pgp key ring. The pgp key ring is a file containing all public keys in armored form. To export a keyring use `gpg --armor --export`.
+`KUBERPULT_PGP_KEY_RING` sets the pgp key ring. The pgp key ring is a file containing all public keys in armored form. To export a keyring use `gpg --armor --export`.
 
 
 Uploading manifests
@@ -28,7 +28,7 @@ In order to have the signature verified, export all valid public keys to an armo
 $> gpg --armor --export ci@yourcompany.com > keyring.gpg 
 ```
 
-Start the cd server with the environment variable `FDCCD_PGP_KEY_RING` set to the path of the `keyring.gpg` file.
+Start the cd server with the environment variable `KUBERPULT_PGP_KEY_RING` set to the path of the `keyring.gpg` file.
 
 If you are using helm you can set the value `pgp.keyRing` to the content of the `keyring.gpg` file.
 
