@@ -32,7 +32,7 @@ Start the cd server with the environment variable `KUBERPULT_PGP_KEY_RING` set t
 
 If you are using helm you can set the value `pgp.keyRing` to the content of the `keyring.gpg` file.
 
-Fdccd will now reject all mannifests without valid signature.
+Kuberpult will now reject all mannifests without valid signature.
 
 Now sign your manifest files.
 
