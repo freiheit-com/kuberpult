@@ -58,24 +58,24 @@ spec:
             cpu: "500m"
             memory: "1Gi"
         env:
-        - name: FDCCD_GIT_URL
+        - name: KUBERPULT_GIT_URL
           value: {{ required ".Values.git.url is required" .Values.git.url | quote }}
-        - name: FDCCD_GIT_BRANCH
+        - name: KUBERPULT_GIT_BRANCH
           value: {{ .Values.git.branch | quote }}
 {{- if .Values.pgp.keyRing }}
-        - name: FDCCD_PGP_KEY_RING
+        - name: KUBERPULT_PGP_KEY_RING
           value: /keyring/keyring.gpg
 {{- end }}
 {{- if .Values.argocd.enabled }}
-        - name: FDCCD_ARGO_CD_HOST
+        - name: KUBERPULT_ARGO_CD_HOST
           value: {{ .Values.argocd.host }}
-        - name: FDCCD_ARGO_CD_USER
+        - name: KUBERPULT_ARGO_CD_USER
           value: {{ .Values.argocd.user }}
-        - name: FDCCD_ARGO_CD_PASS
+        - name: KUBERPULT_ARGO_CD_PASS
           valueFrom:
             secretKeyRef:
               name: kuberpult-argocd
-              key: FDCCD_ARGO_CD_PASS
+              key: KUBERPULT_ARGO_CD_PASS
 {{- end }}
         volumeMounts:
         - name: repository
@@ -163,5 +163,5 @@ metadata:
   name: kuberpult-argocd
 type: Opaque
 data:
-  FDCCD_ARGO_CD_PASS: {{ .Values.argocd.password | b64enc }}
+  KUBERPULT_ARGO_CD_PASS: {{ .Values.argocd.password | b64enc }}
 {{- end }}

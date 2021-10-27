@@ -1,0 +1,6 @@
+bin
+services/cd-service/repository_checkedout
+services/cd-service/repository
+.install
+.idea/
+.*.sentinel
