@@ -44,7 +44,8 @@ clean:
 	git clean -Xfd
 
 test: $(GO_FILES) proto
-	$(GO) test ./...
+	$(GO) test ./... && \
+	yarn test --watchAll=false
 
 docker: bin/main ../../version | dist
 	docker build -t ${DOCKER_REPOSITORY}/frontend-service:${VERSION} .
