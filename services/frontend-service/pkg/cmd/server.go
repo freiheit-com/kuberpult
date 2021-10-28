@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"context"
-	"log"
 	"net/http"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -36,69 +35,69 @@ type Config struct {
 	CdServer string `default:"kuberpult-cd-service:8443"`
 }
 
-
 func RunServer() {
-	ctx := logger.Start(context.Background())
-	defer logger.FromContext(ctx).Sync()
+	logger.Wrap(context.Background(), func(ctx context.Context) error {
 
-	var c Config
-	err := envconfig.Process("kuberpult", &c)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+		var c Config
+		err := envconfig.Process("kuberpult", &c)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("config.parse", zap.Error(err))
+		}
 
-	gsrv := grpc.NewServer()
-	con, err := grpc.Dial(c.CdServer, grpc.WithInsecure())
-	if err != nil {
-		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
-	}
-	gproxy := GrpcProxy{
-		LockClient:     api.NewLockServiceClient(con),
-		OverviewClient: api.NewOverviewServiceClient(con),
-		DeployClient:   api.NewDeployServiceClient(con),
-	}
-	api.RegisterLockServiceServer(gsrv, &gproxy)
-	api.RegisterOverviewServiceServer(gsrv, &gproxy)
-	api.RegisterDeployServiceServer(gsrv, &gproxy)
+		gsrv := grpc.NewServer()
+		con, err := grpc.Dial(c.CdServer, grpc.WithInsecure())
+		if err != nil {
+			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
+		}
+		gproxy := GrpcProxy{
+			LockClient:     api.NewLockServiceClient(con),
+			OverviewClient: api.NewOverviewServiceClient(con),
+			DeployClient:   api.NewDeployServiceClient(con),
+		}
+		api.RegisterLockServiceServer(gsrv, &gproxy)
+		api.RegisterOverviewServiceServer(gsrv, &gproxy)
+		api.RegisterDeployServiceServer(gsrv, &gproxy)
 
-	grpcProxy := runtime.NewServeMux()
-	err = api.RegisterLockServiceHandlerServer(ctx, grpcProxy, &gproxy)
-	if err != nil {
-		logger.FromContext(ctx).Fatal("grpc.lockService.register", zap.Error(err))
-	}
-	err = api.RegisterDeployServiceHandlerServer(ctx, grpcProxy, &gproxy)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+		grpcProxy := runtime.NewServeMux()
+		err = api.RegisterLockServiceHandlerServer(ctx, grpcProxy, &gproxy)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("grpc.lockService.register", zap.Error(err))
+		}
+		err = api.RegisterDeployServiceHandlerServer(ctx, grpcProxy, &gproxy)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("grpc.deployService.register", zap.Error(err))
+		}
 
-	mux := http.NewServeMux()
-	mux.Handle("/environments/", grpcProxy)
-	mux.Handle("/", http.FileServer(http.Dir("build")))
+		mux := http.NewServeMux()
+		mux.Handle("/environments/", grpcProxy)
+		mux.Handle("/", http.FileServer(http.Dir("build")))
 
-	httpSrv := &setup.CORSMiddleware{
-		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
-			return &setup.CORSPolicy{
-				AllowMethods:     "POST",
-				AllowHeaders:     "content-type,x-grpc-web",
-				AllowOrigin:      "*",
-				AllowCredentials: true,
-			}
-		},
-		NextHandler: &SplitGrpc{
-			GrpcServer: gsrv,
-			HttpServer: mux,
-		},
-	}
+		httpSrv := &setup.CORSMiddleware{
+			PolicyFor: func(r *http.Request) *setup.CORSPolicy {
+				return &setup.CORSPolicy{
+					AllowMethods:     "POST",
+					AllowHeaders:     "content-type,x-grpc-web",
+					AllowOrigin:      "*",
+					AllowCredentials: true,
+				}
+			},
+			NextHandler: &SplitGrpc{
+				GrpcServer: gsrv,
+				HttpServer: mux,
+			},
+		}
 
-	setup.Run(ctx, setup.Config{
-		HTTP: []setup.HTTPConfig{
-			{
-				Port: "8081",
-				Register: func(mux *http.ServeMux) {
-					mux.Handle("/", httpSrv)
+		setup.Run(ctx, setup.Config{
+			HTTP: []setup.HTTPConfig{
+				{
+					Port: "8081",
+					Register: func(mux *http.ServeMux) {
+						mux.Handle("/", httpSrv)
+					},
 				},
 			},
-		},
+		})
+		return nil
 	})
 }
 

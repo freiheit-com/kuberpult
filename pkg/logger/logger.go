@@ -41,7 +41,7 @@ func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
 	return ctxzap.ToContext(ctx, logger)
 }
 
-func Start(ctx context.Context) context.Context {
+func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
 	format := os.Getenv("LOG_FORMAT")
 	var (
 		logger *zap.Logger
@@ -54,7 +54,14 @@ func Start(ctx context.Context) context.Context {
 		logger, err = zap.NewProduction()
 	}
 	if err != nil {
-		panic(err)
+		return err
 	}
-	return WithLogger(ctx, logger)
+	defer func(){
+		syncErr := logger.Sync()
+		if err == nil {
+			err = syncErr
+		}
+	}()
+	err = inner(WithLogger(ctx, logger))
+	return err
 }
