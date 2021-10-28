@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
@@ -62,6 +63,8 @@ func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
 }
 
 func RunServer() {
+	ctx := logger.Start(context.Background())
+	defer logger.FromContext(ctx).Sync()
 	var c Config
 	err := envconfig.Process("kuberpult", &c)
 	if err != nil {
@@ -81,7 +84,6 @@ func RunServer() {
 		}
 	}
 
-	ctx := context.Background()
 	repo, err := repository.New(ctx, repository.Config{
 		URL:            c.GitUrl,
 		Path:           "./repository",
@@ -127,7 +129,7 @@ func RunServer() {
 
 	// Shutdown channel is used to terminate server side streams.
 	shutdownCh := make(chan struct{})
-	setup.Run(setup.Config{
+	setup.Run(ctx, setup.Config{
 		HTTP: []setup.HTTPConfig{
 			{
 				Port: "8080",

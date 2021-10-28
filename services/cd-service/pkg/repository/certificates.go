@@ -26,7 +26,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	git "github.com/libgit2/git2go/v31"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -81,16 +81,16 @@ func (store *certificateStore) CertificateCheckCallback(ctx context.Context) fun
 				if bytes.Compare(hsh, cert.Hostkey.HashSHA256[:]) == 0 {
 					return git.ErrOk
 				} else {
-					logger.WithFields(logrus.Fields{
-						"hostname":         hostname,
-						"hostkey.expected": fmt.Sprintf("%x", hsh),
-						"hostkey.actual":   fmt.Sprintf("%x", cert.Hostkey.HashSHA256),
-					}).Error("git.ssh.hostkeyMismatch")
+					logger.Error("git.ssh.hostkeyMismatch",
+						zap.String("hostname", hostname),
+						zap.String("hostkey.expected", fmt.Sprintf("%x", hsh)),
+						zap.String("hostkey.actual",fmt.Sprintf("%x", cert.Hostkey.HashSHA256)),
+					)
 				}
 			} else {
-				logger.WithFields(logrus.Fields{
-					"hostname": hostname,
-				}).Error("git.ssh.hostnameUnknown")
+				logger.Error("git.ssh.hostnameUnknown",
+					zap.String("hostname", hostname),
+				)
 			}
 		}
 		return git.ErrorCodeCertificate

@@ -36,6 +36,7 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/history"
+	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	billy "github.com/go-git/go-billy/v5"
@@ -74,7 +75,7 @@ type Config struct {
 	CommitterName  string
 	// default branch is master
 	Branch string
-	// 
+	//
 	GcFrequency uint
 }
 
@@ -149,7 +150,10 @@ func New(ctx context.Context, cfg Config) (*Repository, error) {
 				fetchOptions := git.FetchOptions{
 					RemoteCallbacks: git.RemoteCallbacks{
 						UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) git.ErrorCode {
-							logger.WithField("refname", refname).WithField("revision.new", b.String()).Debug("git.fetched")
+							logger.Debug("git.fetched",
+								zap.String("refname", refname),
+								zap.String("revision.new", b.String()),
+							)
 							return git.ErrOk
 						},
 						CredentialsCallback:      credentials.CredentialsCallback(ctx),
@@ -239,10 +243,14 @@ func (r *Repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 
 func (r *Repository) FetchAndReset(ctx context.Context) error {
 	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", r.config.Branch, r.config.Branch)
+	logger := logger.FromContext(ctx)
 	fetchOptions := git.FetchOptions{
 		RemoteCallbacks: git.RemoteCallbacks{
 			UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) git.ErrorCode {
-				logger.WithField("refname", refname).WithField("revision.new", b.String()).Debug("git.fetched")
+				logger.Debug("git.fetched",
+					zap.String("refname", refname),
+					zap.String("revision.new", b.String()),
+				)
 				return git.ErrOk
 			},
 			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
@@ -288,7 +296,7 @@ func (r *Repository) Apply(ctx context.Context, transformers ...Transformer) err
 	// Obtain a new worktree
 	r.writeLock.Lock()
 	defer r.writeLock.Unlock()
-	defer func(){
+	defer func() {
 		r.writesDone = r.writesDone + uint(len(transformers))
 		r.maybeGc(ctx)
 	}()
@@ -417,15 +425,15 @@ type ObjectCount struct {
 func (r *Repository) countObjects(ctx context.Context) (ObjectCount, error) {
 	var stats ObjectCount
 	/*
-	The output of `git count-objects` looks like this:
-		count: 0
-		size: 0
-		in-pack: 635
-		packs: 1
-		size-pack: 2845
-		prune-packable: 0
-		garbage: 0
-		size-garbage: 0
+		The output of `git count-objects` looks like this:
+			count: 0
+			size: 0
+			in-pack: 635
+			packs: 1
+			size-pack: 2845
+			prune-packable: 0
+			garbage: 0
+			size-garbage: 0
 	*/
 	cmd := exec.CommandContext(ctx, "git", "count-objects", "--verbose")
 	cmd.Dir = r.config.Path
@@ -440,7 +448,7 @@ func (r *Repository) countObjects(ctx context.Context) (ObjectCount, error) {
 			value uint64
 		)
 		if _, err := fmt.Sscan(scanner.Text(), &token, &value); err != nil {
-			return stats,err
+			return stats, err
 		}
 		switch token {
 		case "count:":
@@ -470,7 +478,7 @@ func (r *Repository) maybeGc(ctx context.Context) {
 	r.writesDone = 0
 	timeBefore := time.Now()
 	statsBefore, _ := r.countObjects(ctx)
-	cmd := exec.CommandContext(ctx, "git", "repack","-a", "-d")
+	cmd := exec.CommandContext(ctx, "git", "repack", "-a", "-d")
 	cmd.Dir = r.config.Path
 	err := cmd.Run()
 	if err != nil {
@@ -478,7 +486,7 @@ func (r *Repository) maybeGc(ctx context.Context) {
 		return
 	}
 	statsAfter, _ := r.countObjects(ctx)
-	log.WithField("duration.ms", time.Now().Sub(timeBefore).Milliseconds()).WithField("collected",statsBefore.Count - statsAfter.Count).Error("git.repack")
+	log.WithField("duration.ms", time.Now().Sub(timeBefore).Milliseconds()).WithField("collected", statsBefore.Count-statsAfter.Count).Error("git.repack")
 }
 
 type State struct {
@@ -717,7 +725,7 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 func (s *State) GetApplicationReleaseCommit(application string, version uint64) (*git.Commit, error) {
 	return s.History.Change(s.Commit, []string{
 		"applications", application,
-		"releases", fmt.Sprintf("%d",version),
+		"releases", fmt.Sprintf("%d", version),
 	})
 }
 

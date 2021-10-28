@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"go.uber.org/zap"
 )
 
 type Readiness struct {
@@ -48,9 +49,9 @@ func (r *Readiness) setReady(ctx context.Context, fn func() error) {
 	logger := logger.FromContext(ctx)
 	err := fn()
 	if err != nil {
-		logger.WithError(err).Error("failed to become ready")
+		logger.Error("readiness.failed", zap.Error(err))
 	} else {
-		logger.Info("ready")
+		logger.Debug("readiness.ready")
 	}
 	r.c.L.Lock()
 	defer r.c.L.Unlock()

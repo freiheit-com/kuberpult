@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"google.golang.org/grpc"
@@ -114,20 +115,20 @@ type Config struct {
 	Shutdown   func(context.Context) error
 }
 
-func Run(config Config) {
+func Run(ctx context.Context, config Config) {
 	s := &setup{}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 
 	// Start the listening on each protocol
 	for _, cfg := range config.HTTP {
-		setupHTTP(s, cfg)
+		setupHTTP(ctx, s, cfg)
 	}
 	if config.GRPC != nil {
-		setupGRPC(s, *config.GRPC)
+		setupGRPC(ctx, s, *config.GRPC)
 	}
 	if config.GRPCProxy != nil {
-		setupProxy(s, *config.GRPCProxy)
+		setupProxy(ctx, s, *config.GRPCProxy)
 	}
 	for _, task := range config.Background {
 		setupBackgroundTask(ctx, s, task)
@@ -141,14 +142,14 @@ func Run(config Config) {
 	}
 
 	// Listening for shutdown signal
-	s.listenToShutdownSignal(cancel)
+	s.listenToShutdownSignal(ctx, cancel)
 }
 
 func (s *setup) RegisterShutdown(name string, shutdownFN func(ctx context.Context) error) {
 	s.shutdown = append(s.shutdown, shutdown{name: name, fn: shutdownFN})
 }
 
-func (s *setup) listenToShutdownSignal(cancelFunc context.CancelFunc) {
+func (s *setup) listenToShutdownSignal(ctx context.Context, cancelFunc context.CancelFunc) {
 	// Wait for a signal to shutdown all servers.
 	// This should be a blocking call, because program will exit as soon as
 	// the main goroutine returns (so it doesn't wait for other goroutines).
@@ -163,10 +164,10 @@ func (s *setup) listenToShutdownSignal(cancelFunc context.CancelFunc) {
 	cancelFunc()
 
 	// call shutdown hooks
-	gracefulShutdown(s, 30*time.Second)
+	gracefulShutdown(ctx, s, 30*time.Second)
 }
 
-func gracefulShutdown(s *setup, timeout time.Duration) {
+func gracefulShutdown(ctx context.Context, s *setup, timeout time.Duration) {
 	// Instantiate background context
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -174,19 +175,19 @@ func gracefulShutdown(s *setup, timeout time.Duration) {
 	for i := len(s.shutdown) - 1; i >= 0; i-- {
 		sd := s.shutdown[i]
 		if err := sd.fn(ctx); err != nil {
-			logger.WithError(err).Errorf("could not close resource %s", sd.name)
+			logger.FromContext(ctx).Error("shutdown.failed", zap.Error(err), zap.String("handler", sd.name))
 		}
 	}
 }
 
-func setupGRPC(s *setup, config GRPCConfig) {
+func setupGRPC(ctx context.Context, s *setup, config GRPCConfig) {
 	// Get service listening port
 	addrGRPC := ":" + config.Port
 
 	// Setup a listener for gRPC port
 	grpcL, err := net.Listen("tcp", addrGRPC)
 	if err != nil {
-		logger.WithError(err).Panicf("failed to listen on %s", addrGRPC)
+		logger.FromContext(ctx).Panic("grpc.listen.error", zap.Error(err), zap.String("addr", addrGRPC))
 		return
 	}
 	s.RegisterShutdown("GRPC net listener", func(context.Context) error {
@@ -205,34 +206,34 @@ func setupGRPC(s *setup, config GRPCConfig) {
 		s.RegisterShutdown("GRPC shutdown handler", config.Shutdown)
 	}
 
-	go serveGRPC(grpcS, grpcL)
+	go serveGRPC(ctx, grpcS, grpcL)
 }
 
-func serveGRPC(grpcS *grpc.Server, grpcL net.Listener) {
+func serveGRPC(ctx context.Context, grpcS *grpc.Server, grpcL net.Listener) {
 	defer func() {
 		shutdownChannel <- true
 	}()
 
 	if err := grpcS.Serve(grpcL); err != nil {
-		logger.WithError(err).Error("error while serving grpc request")
+		logger.FromContext(ctx).Error("grpc.serve.error", zap.Error(err))
 	}
 }
 
-func setupProxy(s *setup, config GRPCProxyConfig) {
+func setupProxy(ctx context.Context, s *setup, config GRPCProxyConfig) {
 	mux := runtime.NewServeMux(runtime.WithIncomingHeaderMatcher(ForwardSessionMatcher))
 	config.Register(mux)
 
-	runHTTPHandler(s, mux, config.Port, config.BasicAuth, config.Shutdown)
+	runHTTPHandler(ctx, s, mux, config.Port, config.BasicAuth, config.Shutdown)
 }
 
-func setupHTTP(s *setup, config HTTPConfig) {
+func setupHTTP(ctx context.Context, s *setup, config HTTPConfig) {
 	mux := http.NewServeMux()
 	config.Register(mux)
 
-	runHTTPHandler(s, mux, config.Port, config.BasicAuth, config.Shutdown)
+	runHTTPHandler(ctx, s, mux, config.Port, config.BasicAuth, config.Shutdown)
 }
 
-func runHTTPHandler(s *setup, handler http.Handler, port string, basicAuth *BasicAuth, shutdown func(context.Context) error) {
+func runHTTPHandler(ctx context.Context, s *setup, handler http.Handler, port string, basicAuth *BasicAuth, shutdown func(context.Context) error) {
 
 	if basicAuth != nil {
 		handler = NewBasicAuthHandler(basicAuth, handler)
@@ -255,14 +256,14 @@ func runHTTPHandler(s *setup, handler http.Handler, port string, basicAuth *Basi
 		)
 	}
 
-	go serveHTTP(httpS, port)
+	go serveHTTP(ctx, httpS, port)
 }
 
 var shutdownHTTP = func(ctx context.Context, httpS *http.Server) error {
 	return httpS.Shutdown(ctx)
 }
 
-var serveHTTP = func(httpS *http.Server, port string) {
+var serveHTTP = func(ctx context.Context, httpS *http.Server, port string) {
 	// if this function returns, the server was stopped, so stop also all the other services
 	defer func() {
 		shutdownChannel <- true
@@ -272,12 +273,12 @@ var serveHTTP = func(httpS *http.Server, port string) {
 
 	httpL, err := net.Listen("tcp", addr)
 	if err != nil {
-		logger.WithError(err).Panicf("failed to listen on %s", addr)
+		logger.FromContext(ctx).Panic("http.listen.error",zap.Error(err),zap.String("addr", addr))
 		return
 	}
 
 	if err := httpS.Serve(httpL); err != nil && err != http.ErrServerClosed {
-		logger.WithError(err).Error("error while serving http request")
+		logger.FromContext(ctx).Error("http.serve.error",zap.Error(err))
 	}
 }
 
@@ -298,7 +299,7 @@ func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig) {
 		shutdownChannel <- true
 	}()
 	if err := config.Run(ctx); err != nil {
-		logger.WithError(err).Errorf("error while running job %s", config.Name)
+		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job",config.Name))
 	}
 }
 

@@ -27,6 +27,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/kelseyhightower/envconfig"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -35,19 +36,21 @@ type Config struct {
 	CdServer string `default:"kuberpult-cd-service:8443"`
 }
 
+
 func RunServer() {
+	ctx := logger.Start(context.Background())
+	defer logger.FromContext(ctx).Sync()
+
 	var c Config
 	err := envconfig.Process("kuberpult", &c)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	log.Printf("config: %+v\n", c)
-	ctx := context.Background()
 
 	gsrv := grpc.NewServer()
 	con, err := grpc.Dial(c.CdServer, grpc.WithInsecure())
 	if err != nil {
-		logger.WithError(err).Fatal("error dialing cd server")
+		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 	}
 	gproxy := GrpcProxy{
 		LockClient:     api.NewLockServiceClient(con),
@@ -61,7 +64,7 @@ func RunServer() {
 	grpcProxy := runtime.NewServeMux()
 	err = api.RegisterLockServiceHandlerServer(ctx, grpcProxy, &gproxy)
 	if err != nil {
-		log.Fatal(err.Error())
+		logger.FromContext(ctx).Fatal("grpc.lockService.register", zap.Error(err))
 	}
 	err = api.RegisterDeployServiceHandlerServer(ctx, grpcProxy, &gproxy)
 	if err != nil {
@@ -87,7 +90,7 @@ func RunServer() {
 		},
 	}
 
-	setup.Run(setup.Config{
+	setup.Run(ctx, setup.Config{
 		HTTP: []setup.HTTPConfig{
 			{
 				Port: "8081",
