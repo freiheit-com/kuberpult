@@ -92,10 +92,12 @@ func (o *OverviewServiceServer) getOverview(
 							app.Version = *version
 						}
 					}
-					if commit, err := s.GetEnvironmentApplicationVersionCommit(name, appName); err != nil {
-						return nil, err
-					} else {
-						app.VersionCommit = transformCommit(commit)
+					if app.Version != 0 {
+						if commit, err := s.GetEnvironmentApplicationVersionCommit(name, appName); err != nil {
+							return nil, err
+						} else {
+							app.VersionCommit = transformCommit(commit)
+						}
 					}
 					if queuedVersion, err := s.GetQueuedVersion(name, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
@@ -143,7 +145,7 @@ func (o *OverviewServiceServer) getOverview(
 							SourceCommitId: rel.SourceCommitId,
 							SourceMessage:  rel.SourceMessage,
 						}
-						if commit, err := s.GetApplicationReleaseCommit(appName,id) ; err != nil {
+						if commit, err := s.GetApplicationReleaseCommit(appName, id); err != nil {
 							return nil, err
 						} else {
 							release.Commit = transformCommit(commit)
@@ -241,12 +243,12 @@ func transformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environm
 }
 
 func transformCommit(commit *git.Commit) *api.Commit {
-	if( commit == nil ) {
+	if commit == nil {
 		return nil
 	}
 	author := commit.Author()
 	return &api.Commit{
-		AuthorName: author.Name,
+		AuthorName:  author.Name,
 		AuthorEmail: author.Email,
 		AuthorTime:  timestamppb.New(author.When),
 	}

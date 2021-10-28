@@ -231,7 +231,7 @@ func TestNew(t *testing.T) {
 					t.Fatal(err)
 				}
 				state := repo.State()
-				localRev := state.Rev.String()
+				localRev := state.Commit.Id().String()
 				if localRev != strings.TrimSpace(string(out)) {
 					t.Errorf("mismatched revision. expected %q but got %q", localRev, strings.TrimSpace(string(out)))
 				}
