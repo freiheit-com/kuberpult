@@ -140,6 +140,9 @@ func TestOverviewService(t *testing.T) {
 					if len(app.Locks) != 0 {
 						t.Errorf("test application has locks in development: %#v", app.Locks)
 					}
+					if app.VersionCommit == nil {
+						t.Errorf("test application in dev has no version commit")
+					}
 				}
 
 				// Check staging
@@ -199,6 +202,9 @@ func TestOverviewService(t *testing.T) {
 					}
 					if len(app.Locks) != 1 {
 						t.Errorf("test application has locks in production: %#v", app.Locks)
+					}
+					if app.VersionCommit != nil {
+						t.Errorf("version commit in production is not nil")
 					}
 				}
 
