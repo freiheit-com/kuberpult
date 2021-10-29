@@ -30,7 +30,7 @@ import (
 )
 
 type LockServiceServer struct {
-	Repository *repository.Repository
+	Repository repository.Repository
 }
 
 func (l *LockServiceServer) CreateEnvironmentLock(

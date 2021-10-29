@@ -34,7 +34,7 @@ func TestNew(t *testing.T) {
 		Name   string
 		Branch string
 		Setup  func(t *testing.T, remoteDir, localDir string)
-		Test   func(t *testing.T, repo *Repository, remoteDir string)
+		Test   func(t *testing.T, repo Repository, remoteDir string)
 	}{
 		{
 			Name:  "new in empty directory works",
@@ -55,7 +55,7 @@ func TestNew(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			Test: func(t *testing.T, repo *Repository, remoteDir string) {
+			Test: func(t *testing.T, repo Repository, remoteDir string) {
 				state := repo.State()
 				entries, err := state.Filesystem.ReadDir("")
 				if err != nil {
@@ -90,7 +90,7 @@ func TestNew(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			Test: func(t *testing.T, repo *Repository, remoteDir string) {
+			Test: func(t *testing.T, repo Repository, remoteDir string) {
 				state := repo.State()
 				entries, err := state.Filesystem.ReadDir("applications/foo/releases")
 				if err != nil {
@@ -125,7 +125,7 @@ func TestNew(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			Test: func(t *testing.T, repo *Repository, remoteDir string) {
+			Test: func(t *testing.T, repo Repository, remoteDir string) {
 				state := repo.State()
 				entries, err := state.Filesystem.ReadDir("applications/foo/releases")
 				if err != nil {
@@ -140,7 +140,7 @@ func TestNew(t *testing.T) {
 			Name:   "new with changed branch works",
 			Branch: "not-master",
 			Setup:  func(t *testing.T, remoteDir, localDir string) {},
-			Test: func(t *testing.T, repo *Repository, remoteDir string) {
+			Test: func(t *testing.T, repo Repository, remoteDir string) {
 				err := repo.Apply(context.Background(), &CreateApplicationVersion{
 					Application: "foo",
 					Manifests: map[string]string{
@@ -169,7 +169,7 @@ func TestNew(t *testing.T) {
 			Name:   "old with changed branch works",
 			Branch: "master",
 			Setup:  func(t *testing.T, remoteDir, localDir string) {},
-			Test: func(t *testing.T, repo *Repository, remoteDir string) {
+			Test: func(t *testing.T, repo Repository, remoteDir string) {
 				workdir := t.TempDir()
 				cmd := exec.Command("git", "clone", remoteDir, workdir) // Clone git dir
 				out, err := cmd.Output()
@@ -285,8 +285,8 @@ func TestGc(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		GcFrequencies []uint
-		CreateGarbage func(t *testing.T, repo *Repository)
-		Test          func(t *testing.T, repos []*Repository)
+		CreateGarbage func(t *testing.T, repo *repository)
+		Test          func(t *testing.T, repos []*repository)
 	}{
 		{
 			Name:          "simple",
@@ -296,7 +296,7 @@ func TestGc(t *testing.T) {
 				// we are going to perform 101 requests, that should trigger a gc
 				101,
 			},
-			CreateGarbage: func(t *testing.T, repo *Repository) {
+			CreateGarbage: func(t *testing.T, repo *repository) {
 				ctx := context.Background()
 				err := repo.Apply(ctx, &CreateEnvironment{
 					Environment: "test",
@@ -316,7 +316,7 @@ func TestGc(t *testing.T) {
 					}
 				}
 			},
-			Test: func(t *testing.T, repos []*Repository) {
+			Test: func(t *testing.T, repos []*repository) {
 				ctx := context.Background()
 				stats0, err := repos[0].countObjects(ctx)
 				if err != nil {
@@ -340,7 +340,7 @@ func TestGc(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			// create a remote
-			repos := make([]*Repository, len(tc.GcFrequencies))
+			repos := make([]*repository, len(tc.GcFrequencies))
 			for i, gcFrequency := range tc.GcFrequencies {
 				dir := t.TempDir()
 				remoteDir := path.Join(dir, "remote")
@@ -359,8 +359,9 @@ func TestGc(t *testing.T) {
 				if err != nil {
 					t.Fatalf("new: expected no error, got '%e'", err)
 				}
-				tc.CreateGarbage(t, repo)
-				repos[i] = repo
+				repoInternal := repo.(*repository)
+				tc.CreateGarbage(t, repoInternal)
+				repos[i] = repoInternal
 			}
 			tc.Test(t, repos)
 		})

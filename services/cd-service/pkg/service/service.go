@@ -51,14 +51,14 @@ var (
 )
 
 type Service struct {
-	Repository *repository.Repository
+	Repository repository.Repository
 	KeyRing    openpgp.KeyRing
 	ArgoCdHost string
 	ArgoCdUser string
 	ArgoCdPass string
 }
 
-func NewService(repository *repository.Repository) *Service {
+func NewService(repository repository.Repository) *Service {
 	return &Service{
 		Repository: repository,
 	}

@@ -18,12 +18,17 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"path"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/logger/testlogger"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testrepository"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -32,7 +37,7 @@ func TestLockingService(t *testing.T) {
 	tcs := []struct {
 		Name  string
 		Setup []repository.Transformer
-		Test  func(t *testing.T, svc *LockServiceServer)
+		Test  func(t *testing.T, ctx context.Context, svc *LockServiceServer)
 	}{
 		{
 			Name: "Locking an environment",
@@ -41,9 +46,9 @@ func TestLockingService(t *testing.T) {
 					Environment: "production",
 				},
 			},
-			Test: func(t *testing.T, svc *LockServiceServer) {
+			Test: func(t *testing.T, ctx context.Context, svc *LockServiceServer) {
 				_, err := svc.CreateEnvironmentLock(
-					context.Background(),
+					ctx,
 					&api.CreateEnvironmentLockRequest{
 						Environment: "production",
 						LockId:      "manual",
@@ -74,33 +79,36 @@ func TestLockingService(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-			repo, err := repository.NewWait(
-				context.Background(),
-				repository.Config{
-					URL:            remoteDir,
-					Path:           localDir,
-					CommitterEmail: "kuberpult@freiheit.com",
-					CommitterName:  "kuberpult",
-				},
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, tr := range tc.Setup {
-				if err := repo.Apply(context.Background(), tr); err != nil {
+			logs := testlogger.Wrap(context.Background(), func(ctx context.Context) {
+				dir := t.TempDir()
+				remoteDir := path.Join(dir, "remote")
+				localDir := path.Join(dir, "local")
+				cmd := exec.Command("git", "init", "--bare", remoteDir)
+				cmd.Start()
+				cmd.Wait()
+				repo, err := repository.NewWait(
+					context.Background(),
+					repository.Config{
+						URL:            remoteDir,
+						Path:           localDir,
+						CommitterEmail: "kuberpult@freiheit.com",
+						CommitterName:  "kuberpult",
+					},
+				)
+				if err != nil {
 					t.Fatal(err)
 				}
-			}
-			svc := &LockServiceServer{
-				Repository: repo,
-			}
-			tc.Test(t, svc)
+				for _, tr := range tc.Setup {
+					if err := repo.Apply(ctx, tr); err != nil {
+						t.Fatal(err)
+					}
+				}
+				svc := &LockServiceServer{
+					Repository: repo,
+				}
+				tc.Test(t, ctx, svc)
+			})
+			testlogger.AssertEmpty(t, logs)
 		})
 	}
 }
@@ -111,7 +119,6 @@ func TestInvalidCreateEnvironmentLockArguments(t *testing.T) {
 		Request         *api.CreateEnvironmentLockRequest
 		ExpectedCode    codes.Code
 		ExpectedMessage string
-		Test            func(t *testing.T, err *status.Status)
 	}{
 		{
 			Name: "empty environment",
@@ -154,24 +161,27 @@ func TestInvalidCreateEnvironmentLockArguments(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			svc := &LockServiceServer{}
-			_, err := svc.CreateEnvironmentLock(
-				context.Background(),
-				tc.Request,
-			)
-			if err == nil {
-				t.Fatal("expected an error, but got none")
-			}
-			if s, ok := status.FromError(err); !ok {
-				t.Fatalf("expected a status error, but got %#v", err)
-			} else {
-				if s.Code() != tc.ExpectedCode {
-					t.Errorf("invalid error code: expected %q, actual: %q", tc.ExpectedCode.String(), s.Code().String())
+			logs := testlogger.Wrap(context.Background(), func(ctx context.Context) {
+				svc := &LockServiceServer{}
+				_, err := svc.CreateEnvironmentLock(
+					ctx,
+					tc.Request,
+				)
+				if err == nil {
+					t.Fatal("expected an error, but got none")
 				}
-				if s.Message() != tc.ExpectedMessage {
-					t.Errorf("invalid error message: expected %q, actual: %q", tc.ExpectedMessage, s.Message())
+				if s, ok := status.FromError(err); !ok {
+					t.Fatalf("expected a status error, but got %#v", err)
+				} else {
+					if s.Code() != tc.ExpectedCode {
+						t.Errorf("invalid error code: expected %q, actual: %q", tc.ExpectedCode.String(), s.Code().String())
+					}
+					if s.Message() != tc.ExpectedMessage {
+						t.Errorf("invalid error message: expected %q, actual: %q", tc.ExpectedMessage, s.Message())
+					}
 				}
-			}
+			})
+			testlogger.AssertEmpty(t, logs)
 		})
 	}
 }
@@ -182,7 +192,6 @@ func TestInvalidCreateEnvironmentApplicationLockArguments(t *testing.T) {
 		Request         *api.CreateEnvironmentApplicationLockRequest
 		ExpectedCode    codes.Code
 		ExpectedMessage string
-		Test            func(t *testing.T, err *status.Status)
 	}{
 		{
 			Name: "empty environment",
@@ -229,24 +238,90 @@ func TestInvalidCreateEnvironmentApplicationLockArguments(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			svc := &LockServiceServer{}
-			_, err := svc.CreateEnvironmentApplicationLock(
-				context.Background(),
-				tc.Request,
+			logs := testlogger.Wrap(context.Background(), func(ctx context.Context) {
+				svc := &LockServiceServer{}
+				_, err := svc.CreateEnvironmentApplicationLock(
+					ctx,
+					tc.Request,
+				)
+				if err == nil {
+					t.Fatal("expected an error, but got none")
+				}
+				if s, ok := status.FromError(err); !ok {
+					t.Fatalf("expected a status error, but got %#v", err)
+				} else {
+					if s.Code() != tc.ExpectedCode {
+						t.Errorf("invalid error code: expected %q, actual: %q", tc.ExpectedCode.String(), s.Code().String())
+					}
+					if s.Message() != tc.ExpectedMessage {
+						t.Errorf("invalid error message: expected %q, actual: %q", tc.ExpectedMessage, s.Message())
+					}
+				}
+			})
+			testlogger.AssertEmpty(t, logs)
+		})
+	}
+}
+
+func TestErrorLock(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		Request         *api.CreateEnvironmentApplicationLockRequest
+		ExpectedCode    codes.Code
+		ExpectedMessage string
+	}{
+		{
+			Name: "create an environment lock",
+			Request: &api.CreateEnvironmentApplicationLockRequest{
+				Environment: "bar",
+				Application: "app",
+				LockId:      "lock",
+			},
+			ExpectedCode:    codes.Internal,
+			ExpectedMessage: "internal error",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			testerror := fmt.Errorf("testerror")
+			logs := testlogger.Wrap(context.Background(), func(ctx context.Context) {
+				svc := &LockServiceServer{
+					Repository: testrepository.Failing(testerror),
+				}
+				_, err := svc.CreateEnvironmentApplicationLock(
+					ctx,
+					tc.Request,
+				)
+				if err == nil {
+					t.Fatal("expected an error, but got none")
+				}
+				if s, ok := status.FromError(err); !ok {
+					t.Fatalf("expected a status error, but got %#v", err)
+				} else {
+					if s.Code() != tc.ExpectedCode {
+						t.Errorf("invalid error code: expected %q, actual: %q", tc.ExpectedCode.String(), s.Code().String())
+					}
+					if s.Message() != tc.ExpectedMessage {
+						t.Errorf("invalid error message: expected %q, actual: %q", tc.ExpectedMessage, s.Message())
+					}
+				}
+			})
+			testlogger.AssertLogs(t,
+				logs,
+				func(entry observer.LoggedEntry) {
+					if entry.Level != zapcore.ErrorLevel {
+						t.Errorf("expected log level %s, but got %s", zapcore.ErrorLevel, entry.Level)
+					}
+					cxmap := entry.ContextMap()
+					if err := cxmap["error"]; err == nil {
+						t.Errorf("expected error field to be set")
+					} else if err != testerror.Error() {
+						t.Errorf("expected error field to be %q, but got %q", testerror.Error(), err)
+					}
+				},
 			)
-			if err == nil {
-				t.Fatal("expected an error, but got none")
-			}
-			if s, ok := status.FromError(err); !ok {
-				t.Fatalf("expected a status error, but got %#v", err)
-			} else {
-				if s.Code() != tc.ExpectedCode {
-					t.Errorf("invalid error code: expected %q, actual: %q", tc.ExpectedCode.String(), s.Code().String())
-				}
-				if s.Message() != tc.ExpectedMessage {
-					t.Errorf("invalid error message: expected %q, actual: %q", tc.ExpectedMessage, s.Message())
-				}
-			}
 		})
 	}
 }

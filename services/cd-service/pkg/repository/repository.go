@@ -45,7 +45,16 @@ import (
 )
 
 // A Repository provides a multiple reader / single writer access to a git repository.
-type Repository struct {
+type Repository interface {
+	Apply(ctx context.Context, transformers ...Transformer) error
+	State() *State
+	SetCallback(cb func(*State))
+
+	IsReady() (bool, error)
+	WaitReady() error
+}
+
+type repository struct {
 	// Mutex gurading the writer
 	writeLock    sync.Mutex
 	writesDone   uint
@@ -55,6 +64,9 @@ type Repository struct {
 	certificates *certificateStore
 
 	repository *git.Repository
+
+	// Testing
+	nextError error
 
 	// Mutex guarding head
 	headLock     sync.Mutex
@@ -101,7 +113,7 @@ func openOrCreate(path string) (*git.Repository, error) {
 }
 
 // Opens a repository. The repository is initialized and updated in the background.
-func New(ctx context.Context, cfg Config) (*Repository, error) {
+func New(ctx context.Context, cfg Config) (Repository, error) {
 	logger := logger.FromContext(ctx)
 	if cfg.Branch == "" {
 		cfg.Branch = "master"
@@ -135,7 +147,7 @@ func New(ctx context.Context, cfg Config) (*Repository, error) {
 		if remote, err := repo2.Remotes.CreateAnonymous(cfg.URL); err != nil {
 			return nil, err
 		} else {
-			result := &Repository{
+			result := &repository{
 				remote:       remote,
 				config:       &cfg,
 				credentials:  credentials,
@@ -191,7 +203,7 @@ func New(ctx context.Context, cfg Config) (*Repository, error) {
 	}
 }
 
-func NewWait(ctx context.Context, cfg Config) (*Repository, error) {
+func NewWait(ctx context.Context, cfg Config) (Repository, error) {
 	if repo, err := New(ctx, cfg); err != nil {
 		return repo, err
 	} else {
@@ -199,7 +211,7 @@ func NewWait(ctx context.Context, cfg Config) (*Repository, error) {
 	}
 }
 
-func (r *Repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) error {
+func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) error {
 	if state, err := r.buildState(); err != nil {
 		return &InternalError{inner: err}
 	} else {
@@ -241,7 +253,7 @@ func (r *Repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	return nil
 }
 
-func (r *Repository) FetchAndReset(ctx context.Context) error {
+func (r *repository) FetchAndReset(ctx context.Context) error {
 	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", r.config.Branch, r.config.Branch)
 	logger := logger.FromContext(ctx)
 	fetchOptions := git.FetchOptions{
@@ -292,7 +304,7 @@ func (r *Repository) FetchAndReset(ctx context.Context) error {
 	return nil
 }
 
-func (r *Repository) Apply(ctx context.Context, transformers ...Transformer) error {
+func (r *repository) Apply(ctx context.Context, transformers ...Transformer) error {
 	// Obtain a new worktree
 	r.writeLock.Lock()
 	defer r.writeLock.Unlock()
@@ -337,7 +349,7 @@ func (r *Repository) Apply(ctx context.Context, transformers ...Transformer) err
 	return nil
 }
 
-func (r *Repository) afterTransform(ctx context.Context, fs billy.Filesystem) error {
+func (r *repository) afterTransform(ctx context.Context, fs billy.Filesystem) error {
 	state := State{Filesystem: fs}
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -354,7 +366,7 @@ func (r *Repository) afterTransform(ctx context.Context, fs billy.Filesystem) er
 	return nil
 }
 
-func (r *Repository) updateArgoCdApps(ctx context.Context, state *State, name string, config config.EnvironmentConfig) error {
+func (r *repository) updateArgoCdApps(ctx context.Context, state *State, name string, config config.EnvironmentConfig) error {
 	fs := state.Filesystem
 	if apps, err := state.GetEnvironmentApplications(name); err != nil {
 		return err
@@ -376,7 +388,7 @@ func (r *Repository) updateArgoCdApps(ctx context.Context, state *State, name st
 	return nil
 }
 
-func (r *Repository) buildState() (*State, error) {
+func (r *repository) buildState() (*State, error) {
 	if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
 		var gerr *git.GitError
 		if errors.As(err, &gerr) {
@@ -398,7 +410,7 @@ func (r *Repository) buildState() (*State, error) {
 	}
 }
 
-func (r *Repository) State() *State {
+func (r *repository) State() *State {
 	s, err := r.buildState()
 	if err != nil {
 		panic(err)
@@ -406,7 +418,7 @@ func (r *Repository) State() *State {
 	return s
 }
 
-func (r *Repository) SetCallback(cb func(*State)) {
+func (r *repository) SetCallback(cb func(*State)) {
 	r.headLock.Lock()
 	defer r.headLock.Unlock()
 	r.headCallback = cb
@@ -422,7 +434,7 @@ type ObjectCount struct {
 	SizeGarbage uint64
 }
 
-func (r *Repository) countObjects(ctx context.Context) (ObjectCount, error) {
+func (r *repository) countObjects(ctx context.Context) (ObjectCount, error) {
 	var stats ObjectCount
 	/*
 		The output of `git count-objects` looks like this:
@@ -470,7 +482,7 @@ func (r *Repository) countObjects(ctx context.Context) (ObjectCount, error) {
 	return stats, nil
 }
 
-func (r *Repository) maybeGc(ctx context.Context) {
+func (r *repository) maybeGc(ctx context.Context) {
 	if r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
 		return
 	}
