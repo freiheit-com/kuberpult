@@ -1,15 +1,16 @@
 import React from 'react';
 import { render } from '@testing-library/react';
-import Releases, {calculateDistanceToUpstream, sortEnvironmentsByUpstream} from '../ui/Releases';
-import { EnvSortOrder } from '../ui/Releases';
+import { Releases, calculateDistanceToUpstream, sortEnvironmentsByUpstream } from './Releases';
+import { EnvSortOrder } from './Releases';
 import {
     Environment, Environment_Application, Environment_Config_Upstream,
     GetOverviewResponse,
-    Release
-} from "../api/api";
+    Release,
+} from '../api/api';
 
-describe('Release Dialog', () => {
+describe('Releases', () => {
     const getNode = () => {
+        // given
         const dummyRelease1: Release = {
             version: 1,
             sourceCommitId: '12345687',
@@ -40,15 +41,12 @@ describe('Release Dialog', () => {
                 }
             }
         }
-        const defaultProps: any  = {
-            data: dummyOverview
-        };
 
-        return <Releases {...defaultProps} />;
+        return <Releases data={dummyOverview} />;
     };
     const getWrapper = () => render(getNode());
 
-    it('renders the release dialog', () => {
+    it('renders the releases component', () => {
         // when
         const { container } = getWrapper();
 
@@ -56,6 +54,7 @@ describe('Release Dialog', () => {
         expect(container.querySelector('.details')).toBeTruthy();
     });
 
+    // testing the sort function for environments
     const getUpstream = (env: string): Environment_Config_Upstream => {
         return env === 'latest' ?
             {
@@ -73,49 +72,60 @@ describe('Release Dialog', () => {
             }
     }
 
-    const commonEnv = (n: number, cfg: string): Environment => {
+    const getEnvironment = (name: string, upstreamEnv?: string): Environment => {
         return {
-            name: 'env' + n.toString(),
+            name: name,
             locks: {},
             applications: {},
-            config: {
-                upstream: getUpstream(cfg),
-            },
+            ...(upstreamEnv && {
+                config: {
+                    upstream: getUpstream(upstreamEnv)
+                }
+            }),
         }
     }
 
-    // original order 4, 2, 0, 1, 3
+    // original order [ 4, 2, 0, 1, 3 ]
     const getEnvs = (testcase: string): Environment[] => {
         switch (testcase) {
             case 'chain':
                 return [
-                    commonEnv(4, 'env3'),
-                    commonEnv(2, 'env1'),
-                    commonEnv(0, 'latest'),
-                    commonEnv(1, 'env0'),
-                    commonEnv(3, 'env2'),
+                    getEnvironment('env4', 'env3'),
+                    getEnvironment('env2', 'env1'),
+                    getEnvironment('env0', 'latest'),
+                    getEnvironment('env1', 'env0'),
+                    getEnvironment('env3', 'env2'),
                 ];
             case 'tree':
                 return [
-                    commonEnv(4, 'latest'),
-                    commonEnv(2, 'env3'),
-                    commonEnv(0, 'env2'),
-                    commonEnv(1, 'env2'),
-                    commonEnv(3, 'latest'),
+                    getEnvironment('env4', 'latest'),
+                    getEnvironment('env2', 'env3'),
+                    getEnvironment('env0', 'env2'),
+                    getEnvironment('env1', 'env2'),
+                    getEnvironment('env3', 'latest'),
                 ];
             case 'cycle':
                 return [
-                    commonEnv(4, 'latest'),
-                    commonEnv(2, 'env4'),
-                    commonEnv(0, 'env3'),
-                    commonEnv(1, 'env0'),
-                    commonEnv(3, 'env1'),
+                    getEnvironment('env4', 'latest'),
+                    getEnvironment('env2', 'env4'),
+                    getEnvironment('env0', 'env3'),
+                    getEnvironment('env1', 'env0'),
+                    getEnvironment('env3', 'env1'),
+                ];
+            case 'no-config':
+                return [
+                    getEnvironment('env4'),
+                    getEnvironment('env2'),
+                    getEnvironment('env0'),
+                    getEnvironment('env1'),
+                    getEnvironment('env3'),
                 ];
             default:
                 return [];
         }
     }
 
+    // Expected order / distance to upstream
     const chainOrder: EnvSortOrder = {
         'env4': 4,
         'env2': 2,
@@ -137,6 +147,13 @@ describe('Release Dialog', () => {
         'env3': 6,
         'env4': 0,
     }
+    const noConfigOrder: EnvSortOrder = {
+        'env0': 0,
+        'env1': 0,
+        'env2': 0,
+        'env3': 0,
+        'env4': 0,
+    }
 
     const data = [
         {
@@ -156,6 +173,12 @@ describe('Release Dialog', () => {
             envs: getEnvs('cycle'),
             order: cycleOrder,
             expect: ['env4', 'env2', 'env0', 'env1', 'env3'],
+        },
+        {
+            type: 'no-config',
+            envs: getEnvs('no-config'),
+            order: noConfigOrder,
+            expect: ['env0', 'env1', 'env2', 'env3', 'env4'],
         },
     ];
 

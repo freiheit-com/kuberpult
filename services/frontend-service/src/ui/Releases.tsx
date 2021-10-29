@@ -200,10 +200,10 @@ export const calculateDistanceToUpstream = (envs: Environment[]): EnvSortOrder =
     const distanceToUpstream: EnvSortOrder = {};
     let rest: Environment[] = [];
     for (const env of envs) {
-        if (env.config?.upstream?.upstream?.$case === 'latest') {
+        if (!env.config?.upstream?.upstream?.$case || env.config?.upstream?.upstream?.$case === 'latest') {
             distanceToUpstream[env.name] = 0;
         } else {
-            if (env.config) rest.push(env);
+            rest.push(env);
         }
     }
     // iterate over rest until nothing is left
