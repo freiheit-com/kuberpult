@@ -39,7 +39,7 @@ bin/main: $(GO_FILES) | proto
 GARBAGE += bin/main
 
 run: bin/main
-	KUBERPULT_CDSERVER=localhost:8443 bin/main
+	KUBERPULT_CDSERVER=172.17.0.3:8443 bin/main
 
 clean:
 	git clean -Xfd

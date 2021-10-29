@@ -33,6 +33,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 )
 
 type Config struct {
@@ -124,6 +125,8 @@ func RunServer() {
 			ArgoCdPass: c.ArgoCdPass,
 		}
 
+		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
+
 		// Shutdown channel is used to terminate server side streams.
 		shutdownCh := make(chan struct{})
 		setup.Run(ctx, setup.Config{
@@ -140,6 +143,14 @@ func RunServer() {
 			},
 			GRPC: &setup.GRPCConfig{
 				Port: "8443",
+				Opts: []grpc.ServerOption{
+					grpc.StreamInterceptor(
+						grpc_zap.StreamServerInterceptor(grpcServerLogger),
+					),
+					grpc.UnaryInterceptor(
+						grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+					),
+				},
 				Register: func(srv *grpc.Server) {
 					api.RegisterLockServiceServer(srv, lockSrv)
 

@@ -23,6 +23,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/kelseyhightower/envconfig"
@@ -44,8 +45,19 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("config.parse", zap.Error(err))
 		}
 
-		gsrv := grpc.NewServer()
-		con, err := grpc.Dial(c.CdServer, grpc.WithInsecure())
+		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
+
+		gsrv := grpc.NewServer(
+			grpc.StreamInterceptor(
+				grpc_zap.StreamServerInterceptor(grpcServerLogger),
+			),
+			grpc.UnaryInterceptor(
+				grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+			),
+		)
+		con, err := grpc.Dial(c.CdServer,
+			grpc.WithInsecure(),
+		)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 		}

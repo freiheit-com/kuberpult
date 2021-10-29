@@ -482,11 +482,11 @@ func (r *Repository) maybeGc(ctx context.Context) {
 	cmd.Dir = r.config.Path
 	err := cmd.Run()
 	if err != nil {
-		log.WithError(err).Error("git.repack.error")
+		log.Error("git.repack", zap.Error(err))
 		return
 	}
 	statsAfter, _ := r.countObjects(ctx)
-	log.WithField("duration.ms", time.Now().Sub(timeBefore).Milliseconds()).WithField("collected", statsBefore.Count-statsAfter.Count).Error("git.repack")
+	log.Info("git.repack", zap.Duration("duration", time.Now().Sub(timeBefore)), zap.Uint64("collected", statsBefore.Count-statsAfter.Count))
 }
 
 type State struct {
