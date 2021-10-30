@@ -18,13 +18,15 @@ package repository
 
 import (
 	"context"
-	"github.com/go-git/go-billy/v5/util"
+	"fmt"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/go-git/go-billy/v5/util"
 )
 
 func TestNew(t *testing.T) {
@@ -275,6 +277,92 @@ func TestNew(t *testing.T) {
 			if tc.Test != nil {
 				tc.Test(t, repo, remoteDir)
 			}
+		})
+	}
+}
+
+func TestGc(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		GcFrequencies []uint
+		CreateGarbage func(t *testing.T, repo *Repository)
+		Test          func(t *testing.T, repos []*Repository)
+	}{
+		{
+			Name:          "simple",
+			GcFrequencies: []uint{
+				// 0 disables GC entirely
+				0,
+				// we are going to perform 101 requests, that should trigger a gc
+				101,
+			},
+			CreateGarbage: func(t *testing.T, repo *Repository) {
+				ctx := context.Background()
+				err := repo.Apply(ctx, &CreateEnvironment{
+					Environment: "test",
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i := 0; i < 100; i++ {
+					err := repo.Apply(ctx, &CreateApplicationVersion{
+						Application: "test",
+						Manifests: map[string]string{
+							"test": fmt.Sprintf("test%d", i),
+						},
+					})
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+			},
+			Test: func(t *testing.T, repos []*Repository) {
+				ctx := context.Background()
+				stats0, err := repos[0].countObjects(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if stats0.Count == 0 {
+					t.Errorf("expected object count to not be 0, but got %d", stats0.Count)
+				}
+				stats1, err := repos[1].countObjects(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if stats1.Count != 0 {
+					t.Errorf("expected object count to be 0, but got %d", stats1.Count)
+				}
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// create a remote
+			repos := make([]*Repository, len(tc.GcFrequencies))
+			for i, gcFrequency := range tc.GcFrequencies {
+				dir := t.TempDir()
+				remoteDir := path.Join(dir, "remote")
+				localDir := path.Join(dir, "local")
+				cmd := exec.Command("git", "init", "--bare", remoteDir)
+				cmd.Start()
+				cmd.Wait()
+				repo, err := NewWait(
+					context.Background(),
+					Config{
+						URL:         "file://" + remoteDir,
+						Path:        localDir,
+						GcFrequency: gcFrequency,
+					},
+				)
+				if err != nil {
+					t.Fatalf("new: expected no error, got '%e'", err)
+				}
+				tc.CreateGarbage(t, repo)
+				repos[i] = repo
+			}
+			tc.Test(t, repos)
 		})
 	}
 }
