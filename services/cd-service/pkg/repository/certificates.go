@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	git "github.com/libgit2/git2go/v31"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"

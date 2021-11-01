@@ -24,8 +24,8 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 )
 
 type ApiVersion string
