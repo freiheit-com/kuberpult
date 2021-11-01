@@ -31,5 +31,5 @@ Run this, but adapt the image name first for the project (here 'nemo')
 ```shell
 make clean
 yarn
-DOCKER_REPOSITORY=eu.gcr.io/gcp-ed-rwws-nemo-shared/fdc-continuous-delivery make release
+make release
 ```

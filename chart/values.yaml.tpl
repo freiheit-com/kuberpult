@@ -9,11 +9,11 @@ git:
 hub: eu.gcr.io/freiheit-core
 tag: "$VERSION"
 cd:
-  image: fdc-continuous-delivery/cd-service
+  image: kuberpult/cd-service
   backendConfig:
     create: false # Add backend config for health checks on GKE only
 frontend:
-  image: fdc-continuous-delivery/frontend-service
+  image: kuberpult/frontend-service
 ingress:
   annotations: {}
   domainName: null

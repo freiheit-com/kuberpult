@@ -22,7 +22,7 @@ export VERSION
 
 export CGO_ENABLED=1
 
-IMAGENAME?=eu.gcr.io/freiheit-core/fdc-continuous-delivery/cd-service:${VERSION}
+IMAGENAME?=eu.gcr.io/freiheit-core/kuberpult/cd-service:${VERSION}
 
 COMPILE_WITH_DOCKER := $(shell [ -z "$$WITHOUT_DOCKER" ] && v=true || v=false; echo $$v)
 
