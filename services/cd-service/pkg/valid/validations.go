@@ -23,7 +23,7 @@ import (
 
 var (
 	applicationNameRx = regexp.MustCompile(`\A[a-z0-9]+(?:-[a-z0-9]+)*\z`)
-	envNameRx         = regexp.MustCompile(`\A[a-z0-9]{1,15}\z`)
+	envNameRx         = regexp.MustCompile(`\A[a-z0-9]{1,20}\z`)
 )
 
 // {application}-{environemnt} should be a valid dns name
