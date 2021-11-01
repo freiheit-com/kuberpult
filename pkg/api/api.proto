@@ -32,6 +32,23 @@ service LockService {
   }
 }
 
+service BatchService {
+  rpc ProcessBatch (BatchRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/batches"
+      body: "*"
+    };
+  }
+}
+
+message BatchRequest {
+  repeated CreateEnvironmentLockRequest envLocks = 1;
+  repeated DeleteEnvironmentLockRequest deleteEnvLocks = 2;
+  repeated CreateEnvironmentApplicationLockRequest appLocks = 3;
+  repeated DeleteEnvironmentApplicationLockRequest deleteAppLocks = 4;
+  repeated DeployRequest deploymentRequests = 5;
+}
+
 message CreateEnvironmentLockRequest {
   string environment = 1;
   string lock_id = 2;
@@ -49,6 +66,7 @@ message CreateEnvironmentApplicationLockRequest {
   string lock_id = 3;
   string message = 4;
 }
+
 message DeleteEnvironmentApplicationLockRequest {
   string environment = 1;
   string application = 2;
