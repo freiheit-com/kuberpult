@@ -17,12 +17,15 @@ Copyright 2021 freiheit.com*/
 package repository
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,8 +34,8 @@ import (
 	"github.com/freiheit-com/fdc-continuous-delivery/pkg/api"
 	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/argocd"
 	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/config"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/history"
 	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/fs"
+	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/history"
 
 	"github.com/freiheit-com/fdc-continuous-delivery/pkg/logger"
 	billy "github.com/go-git/go-billy/v5"
@@ -44,6 +47,7 @@ import (
 type Repository struct {
 	// Mutex gurading the writer
 	writeLock    sync.Mutex
+	writesDone   uint
 	remote       *git.Remote
 	config       *Config
 	credentials  *credentialsStore
@@ -70,6 +74,8 @@ type Config struct {
 	CommitterName  string
 	// default branch is master
 	Branch string
+	// 
+	GcFrequency uint
 }
 
 func openOrCreate(path string) (*git.Repository, error) {
@@ -282,7 +288,12 @@ func (r *Repository) Apply(ctx context.Context, transformers ...Transformer) err
 	// Obtain a new worktree
 	r.writeLock.Lock()
 	defer r.writeLock.Unlock()
+	defer func(){
+		r.writesDone = r.writesDone + uint(len(transformers))
+		r.maybeGc(ctx)
+	}()
 	err := r.ApplyTransformers(ctx, transformers...)
+
 	if err != nil {
 		return err
 	} else {
@@ -391,6 +402,83 @@ func (r *Repository) SetCallback(cb func(*State)) {
 	r.headLock.Lock()
 	defer r.headLock.Unlock()
 	r.headCallback = cb
+}
+
+type ObjectCount struct {
+	Count       uint64
+	Size        uint64
+	InPack      uint64
+	Packs       uint64
+	SizePack    uint64
+	Garbage     uint64
+	SizeGarbage uint64
+}
+
+func (r *Repository) countObjects(ctx context.Context) (ObjectCount, error) {
+	var stats ObjectCount
+	/*
+	The output of `git count-objects` looks like this:
+		count: 0
+		size: 0
+		in-pack: 635
+		packs: 1
+		size-pack: 2845
+		prune-packable: 0
+		garbage: 0
+		size-garbage: 0
+	*/
+	cmd := exec.CommandContext(ctx, "git", "count-objects", "--verbose")
+	cmd.Dir = r.config.Path
+	out, err := cmd.Output()
+	if err != nil {
+		return stats, err
+	}
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	for scanner.Scan() {
+		var (
+			token string
+			value uint64
+		)
+		if _, err := fmt.Sscan(scanner.Text(), &token, &value); err != nil {
+			return stats,err
+		}
+		switch token {
+		case "count:":
+			stats.Count = value
+		case "size:":
+			stats.Size = value
+		case "in-packs:":
+			stats.InPack = value
+		case "packs:":
+			stats.Packs = value
+		case "size-pack:":
+			stats.SizePack = value
+		case "garbage:":
+			stats.Garbage = value
+		case "size-garbage":
+			stats.SizeGarbage = value
+		}
+	}
+	return stats, nil
+}
+
+func (r *Repository) maybeGc(ctx context.Context) {
+	if r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
+		return
+	}
+	log := logger.FromContext(ctx)
+	r.writesDone = 0
+	timeBefore := time.Now()
+	statsBefore, _ := r.countObjects(ctx)
+	cmd := exec.CommandContext(ctx, "git", "repack","-a", "-d")
+	cmd.Dir = r.config.Path
+	err := cmd.Run()
+	if err != nil {
+		log.WithError(err).Error("git.repack.error")
+		return
+	}
+	statsAfter, _ := r.countObjects(ctx)
+	log.WithField("duration.ms", time.Now().Sub(timeBefore).Milliseconds()).WithField("collected",statsBefore.Count - statsAfter.Count).Error("git.repack")
 }
 
 type State struct {
