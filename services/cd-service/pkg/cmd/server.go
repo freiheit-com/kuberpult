@@ -94,6 +94,7 @@ func RunServer() {
 			KnownHostsFile: c.GitSshKnownHosts,
 		},
 		Branch: c.GitBranch,
+		GcFrequency: 20,
 	})
 	if err != nil {
 		log.Fatal(err.Error())
