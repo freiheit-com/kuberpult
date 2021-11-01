@@ -468,13 +468,17 @@ func (r *Repository) maybeGc(ctx context.Context) {
 	}
 	log := logger.FromContext(ctx)
 	r.writesDone = 0
-
+	timeBefore := time.Now()
+	statsBefore, _ := r.countObjects(ctx)
 	cmd := exec.CommandContext(ctx, "git", "repack","-a", "-d")
 	cmd.Dir = r.config.Path
 	err := cmd.Run()
 	if err != nil {
-		log.Error("git.repack.error")
+		log.WithError(err).Error("git.repack.error")
+		return
 	}
+	statsAfter, _ := r.countObjects(ctx)
+	log.WithField("duration.ms", time.Now().Sub(timeBefore).Milliseconds()).WithField("collected",statsBefore.Count - statsAfter.Count).Error("git.repack")
 }
 
 type State struct {
