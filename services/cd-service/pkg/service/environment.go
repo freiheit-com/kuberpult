@@ -25,7 +25,7 @@ import (
 )
 
 type EnvironmentServiceServer struct {
-	Repository *repository.Repository
+	Repository repository.Repository
 }
 
 func (e *EnvironmentServiceServer) CreateEnvironment(

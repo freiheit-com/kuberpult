@@ -52,6 +52,10 @@ spec:
         env:
         - name: KUBERPULT_CDSERVER
           value: kuberpult-cd-service:8443
+        - name: LOG_FORMAT
+          value: {{ .Values.log.format | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.log.level | quote }}
 ---
 apiVersion: v1
 kind: Service

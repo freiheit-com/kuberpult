@@ -18,15 +18,16 @@ package cmd
 
 import (
 	"context"
-	"log"
 	"net/http"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/kelseyhightower/envconfig"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -36,66 +37,79 @@ type Config struct {
 }
 
 func RunServer() {
-	var c Config
-	err := envconfig.Process("kuberpult", &c)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	log.Printf("config: %+v\n", c)
-	ctx := context.Background()
+	logger.Wrap(context.Background(), func(ctx context.Context) error {
 
-	gsrv := grpc.NewServer()
-	con, err := grpc.Dial(c.CdServer, grpc.WithInsecure())
-	if err != nil {
-		logger.WithError(err).Fatal("error dialing cd server")
-	}
-	gproxy := GrpcProxy{
-		LockClient:     api.NewLockServiceClient(con),
-		OverviewClient: api.NewOverviewServiceClient(con),
-		DeployClient:   api.NewDeployServiceClient(con),
-	}
-	api.RegisterLockServiceServer(gsrv, &gproxy)
-	api.RegisterOverviewServiceServer(gsrv, &gproxy)
-	api.RegisterDeployServiceServer(gsrv, &gproxy)
+		var c Config
+		err := envconfig.Process("kuberpult", &c)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("config.parse", zap.Error(err))
+		}
 
-	grpcProxy := runtime.NewServeMux()
-	err = api.RegisterLockServiceHandlerServer(ctx, grpcProxy, &gproxy)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	err = api.RegisterDeployServiceHandlerServer(ctx, grpcProxy, &gproxy)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 
-	mux := http.NewServeMux()
-	mux.Handle("/environments/", grpcProxy)
-	mux.Handle("/", http.FileServer(http.Dir("build")))
+		gsrv := grpc.NewServer(
+			grpc.StreamInterceptor(
+				grpc_zap.StreamServerInterceptor(grpcServerLogger),
+			),
+			grpc.UnaryInterceptor(
+				grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+			),
+		)
+		con, err := grpc.Dial(c.CdServer,
+			grpc.WithInsecure(),
+		)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
+		}
+		gproxy := GrpcProxy{
+			LockClient:     api.NewLockServiceClient(con),
+			OverviewClient: api.NewOverviewServiceClient(con),
+			DeployClient:   api.NewDeployServiceClient(con),
+		}
+		api.RegisterLockServiceServer(gsrv, &gproxy)
+		api.RegisterOverviewServiceServer(gsrv, &gproxy)
+		api.RegisterDeployServiceServer(gsrv, &gproxy)
 
-	httpSrv := &setup.CORSMiddleware{
-		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
-			return &setup.CORSPolicy{
-				AllowMethods:     "POST",
-				AllowHeaders:     "content-type,x-grpc-web",
-				AllowOrigin:      "*",
-				AllowCredentials: true,
-			}
-		},
-		NextHandler: &SplitGrpc{
-			GrpcServer: gsrv,
-			HttpServer: mux,
-		},
-	}
+		grpcProxy := runtime.NewServeMux()
+		err = api.RegisterLockServiceHandlerServer(ctx, grpcProxy, &gproxy)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("grpc.lockService.register", zap.Error(err))
+		}
+		err = api.RegisterDeployServiceHandlerServer(ctx, grpcProxy, &gproxy)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("grpc.deployService.register", zap.Error(err))
+		}
 
-	setup.Run(setup.Config{
-		HTTP: []setup.HTTPConfig{
-			{
-				Port: "8081",
-				Register: func(mux *http.ServeMux) {
-					mux.Handle("/", httpSrv)
+		mux := http.NewServeMux()
+		mux.Handle("/environments/", grpcProxy)
+		mux.Handle("/", http.FileServer(http.Dir("build")))
+
+		httpSrv := &setup.CORSMiddleware{
+			PolicyFor: func(r *http.Request) *setup.CORSPolicy {
+				return &setup.CORSPolicy{
+					AllowMethods:     "POST",
+					AllowHeaders:     "content-type,x-grpc-web",
+					AllowOrigin:      "*",
+					AllowCredentials: true,
+				}
+			},
+			NextHandler: &SplitGrpc{
+				GrpcServer: gsrv,
+				HttpServer: mux,
+			},
+		}
+
+		setup.Run(ctx, setup.Config{
+			HTTP: []setup.HTTPConfig{
+				{
+					Port: "8081",
+					Register: func(mux *http.ServeMux) {
+						mux.Handle("/", httpSrv)
+					},
 				},
 			},
-		},
+		})
+		return nil
 	})
 }
 

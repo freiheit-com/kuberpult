@@ -31,7 +31,7 @@ import (
 )
 
 type OverviewServiceServer struct {
-	Repository *repository.Repository
+	Repository repository.Repository
 	Shutdown   <-chan struct{}
 
 	mx       sync.Mutex

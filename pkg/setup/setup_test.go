@@ -114,7 +114,7 @@ func TestGracefulShutdown(t *testing.T) {
 			defer func() {
 				serveHTTP = backServeHTTP
 			}()
-			serveHTTP = func(httpS *http.Server, port string) {
+			serveHTTP = func(ctx context.Context, httpS *http.Server, port string) {
 				for range fakeServer {
 				}
 			}
@@ -159,7 +159,7 @@ func TestGracefulShutdown(t *testing.T) {
 
 			mainExited := make(chan bool, 1)
 			go func() {
-				Run(cfg)
+				Run(context.Background(), cfg)
 				mainExited <- true
 			}()
 

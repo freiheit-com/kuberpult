@@ -64,14 +64,14 @@ func TestServeHttpSuccess(t *testing.T) {
 		Signatures     map[string]string
 		KeyRing        openpgp.KeyRing
 		ExpectedStatus int
-		Tests          func(t *testing.T, repo *repository.Repository, resp *http.Response, remoteDir string)
+		Tests          func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string)
 	}{
 		{
 			Name:           "It accepts a set of manifests",
 			Application:    "demo",
 			Manifests:      exampleManifests,
 			ExpectedStatus: 204,
-			Tests: func(t *testing.T, repo *repository.Repository, resp *http.Response, remoteDir string) {
+			Tests: func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {
 				head := repo.State()
 				if apps, err := head.Applications(); err != nil {
 					t.Fatal(err)
@@ -112,7 +112,7 @@ func TestServeHttpSuccess(t *testing.T) {
 			SourceMessage:  "Did something",
 			SourceCommitId: "deadbeef",
 			ExpectedStatus: 204,
-			Tests: func(t *testing.T, repo *repository.Repository, resp *http.Response, remoteDir string) {
+			Tests: func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {
 				head := repo.State()
 				rel, err := head.GetApplicationRelease("demo", 1)
 				if err != nil {
@@ -136,7 +136,7 @@ func TestServeHttpSuccess(t *testing.T) {
 			SourceAuthor:   "Not an email\nbut a multiline\ntext",
 			SourceCommitId: "Not hex",
 			ExpectedStatus: 204,
-			Tests: func(t *testing.T, repo *repository.Repository, resp *http.Response, remoteDir string) {
+			Tests: func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {
 				head := repo.State()
 				rel, err := head.GetApplicationRelease("demo", 1)
 				if err != nil {
@@ -159,7 +159,7 @@ func TestServeHttpSuccess(t *testing.T) {
 			Manifests:      exampleManifests,
 			KeyRing:        exampleKeyRing,
 			ExpectedStatus: 400,
-			Tests:          func(t *testing.T, repo *repository.Repository, resp *http.Response, remoteDir string) {},
+			Tests:          func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {},
 		},
 		{
 			Name:           "Accepts valid signatures",
@@ -168,7 +168,7 @@ func TestServeHttpSuccess(t *testing.T) {
 			KeyRing:        exampleKeyRing,
 			Signatures:     exampleSignatures,
 			ExpectedStatus: 204,
-			Tests:          func(t *testing.T, repo *repository.Repository, resp *http.Response, remoteDir string) {},
+			Tests:          func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {},
 		},
 	}
 

@@ -30,7 +30,7 @@ import (
 )
 
 type DeployServiceServer struct {
-	Repository *repository.Repository
+	Repository repository.Repository
 }
 
 func (d *DeployServiceServer) Deploy(
