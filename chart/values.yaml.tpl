@@ -9,7 +9,7 @@ git:
 hub: ghcr.io/freiheit-com
 tag: "$VERSION"
 log:
-  # Other possible values are "gcp" for a gcp-optimized format and "default" for json
+  # Possible values are "gcp" for a gcp-optimized format and "default" for json
   format: ""
   # Other possible values are "DEBUG", "INFO", "ERROR"
   level: "WARN"
