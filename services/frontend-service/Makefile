@@ -38,8 +38,9 @@ bin/main: $(GO_FILES) | proto
 	$(GO) build -o bin/main ./cmd/server/
 GARBAGE += bin/main
 
+export KUBERPULT_CDSERVER?=localhost:8443
 run: bin/main
-	KUBERPULT_CDSERVER=172.17.0.3:8443 bin/main
+	./bin/main
 
 clean:
 	git clean -Xfd
