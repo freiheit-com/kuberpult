@@ -6,14 +6,14 @@ git:
   url: # git@github.com/.../...
   branch: "master"
 
-hub: eu.gcr.io/freiheit-core
+hub: ghcr.io/freiheit-com
 tag: "$VERSION"
 cd:
-  image: fdc-continuous-delivery/cd-service
+  image: kuberpult/cd-service
   backendConfig:
     create: false # Add backend config for health checks on GKE only
 frontend:
-  image: fdc-continuous-delivery/frontend-service
+  image: kuberpult/frontend-service
 ingress:
   annotations: {}
   domainName: null

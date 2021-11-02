@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/fs"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v31"
 )

@@ -28,10 +28,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/api"
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/setup"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/repository"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/service"
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
 )
 
 type Config struct {

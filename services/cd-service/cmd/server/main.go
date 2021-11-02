@@ -19,7 +19,7 @@ Copyright 2021 freiheit.com*/
 //
 package main
 
-import "github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/cmd"
+import "github.com/freiheit-com/kuberpult/services/cd-service/pkg/cmd"
 
 func main() {
 	cmd.RunServer()

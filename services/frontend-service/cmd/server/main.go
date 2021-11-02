@@ -16,7 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 package main
 
-import "github.com/freiheit-com/fdc-continuous-delivery/services/frontend-service/pkg/cmd"
+import "github.com/freiheit-com/kuberpult/services/frontend-service/pkg/cmd"
 
 func main() {
 	cmd.RunServer()

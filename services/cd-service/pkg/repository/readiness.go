@@ -20,7 +20,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 type Readiness struct {

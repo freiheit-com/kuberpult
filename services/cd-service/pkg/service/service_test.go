@@ -28,7 +28,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"golang.org/x/crypto/openpgp"
 )
 

@@ -3,7 +3,7 @@ set -eou pipefail
 set -x
 cd $( dirname "${BASH_SOURCE[0]}" )
 
-docker build -t eu.gcr.io/freiheit-core/fdc-continuous-delivery/build:latest ./docker/build
+docker build -t ghcr.io/freiheit-com/kuberpult/build:latest ./docker/build
 
 mkdir -p test
 # https://wiki.alpinelinux.org/wiki/Draft_Release_Notes_for_Alpine_3.14.0#faccessat2
@@ -17,5 +17,5 @@ exec docker run -it \
   -u "$UID" \
   --security-opt=seccomp=default.json \
   -e WITHOUT_DOCKER=true \
-  eu.gcr.io/freiheit-core/fdc-continuous-delivery/build:latest "$@"
+  ghcr.io/freiheit-com/kuberpult/build:latest "$@"
 cd -

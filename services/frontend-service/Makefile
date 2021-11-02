@@ -25,7 +25,8 @@ GO := go
 
 GO_FILES := $(shell find . -type f -name '*.go')
 
-DOCKER_REPOSITORY := eu.gcr.io/freiheit-core/fdc-continuous-delivery
+
+IMAGENAME?=ghcr.io/freiheit-com/kuberpult/frontend-service:${VERSION}
 
 GARBAGE := *.sentinel
 
@@ -52,10 +53,10 @@ test-ts:
 	yarn test --watchAll=false
 
 docker: bin/main ../../version | dist
-	docker build -t ${DOCKER_REPOSITORY}/frontend-service:${VERSION} .
+	docker build -t $(IMAGENAME) .
 
 release: docker
-	docker push ${DOCKER_REPOSITORY}/frontend-service:${VERSION}
+	docker push $(IMAGENAME}
 
 all: test docker
 

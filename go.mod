@@ -1,17 +1,16 @@
-module github.com/freiheit-com/fdc-continuous-delivery
+module github.com/freiheit-com/kuberpult
 
 go 1.16
 
 require (
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
-	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.14.6
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.4.0
 	github.com/improbable-eng/grpc-web v0.14.0
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/kylelemons/godebug v1.1.0 // indirect
+	github.com/kylelemons/godebug v1.1.0
 	github.com/libgit2/git2go/v31 v31.4.14
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/sirupsen/logrus v1.7.0

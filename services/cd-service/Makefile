@@ -22,7 +22,7 @@ export VERSION
 
 export CGO_ENABLED=1
 
-IMAGENAME?=eu.gcr.io/freiheit-core/fdc-continuous-delivery/cd-service:${VERSION}
+IMAGENAME?=ghcr.io/freiheit-com/kuberpult/cd-service:${VERSION}
 
 COMPILE_WITH_DOCKER := $(shell [ -z "$$WITHOUT_DOCKER" ] && v=true || v=false; echo $$v)
 
@@ -80,7 +80,7 @@ docker: bin/main ../../version
 
 
 # set IMAGENAME=... to the image where you want to deploy (registry of the project)
-# e.g IMAGENAME=eu.gcr.io/replace_me...cd-service:1.2.3 make release
+# e.g IMAGENAME=ghcr.io/replace_me...cd-service:1.2.3 make release
 release: docker
 	docker push $(IMAGENAME)
 
