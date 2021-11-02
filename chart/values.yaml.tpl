@@ -6,7 +6,7 @@ git:
   url: # git@github.com/.../...
   branch: "master"
 
-hub: eu.gcr.io/freiheit-core
+hub: ghcr.io/freiheit-com
 tag: "$VERSION"
 cd:
   image: kuberpult/cd-service

@@ -26,7 +26,7 @@ GO := go
 GO_FILES := $(shell find . -type f -name '*.go')
 
 
-IMAGENAME?=eu.gcr.io/freiheit-core/kuberpult/frontend-service:${VERSION}
+IMAGENAME?=ghcr.io/freiheit-com/kuberpult/frontend-service:${VERSION}
 
 GARBAGE := *.sentinel
 
