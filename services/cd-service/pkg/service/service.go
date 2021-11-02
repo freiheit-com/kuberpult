@@ -225,7 +225,7 @@ func (s *Service) ServeHTTPSync(env string, w http.ResponseWriter, r *http.Reque
 }
 
 func argocdSyncApp(name string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "argocd", "app", "sync", name)
 	_, err := cmd.Output()
