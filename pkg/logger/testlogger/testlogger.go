@@ -29,7 +29,9 @@ func AssertEmpty(t *testing.T, logs *observer.ObservedLogs) {
 	}
 }
 
-func AssertLogs(t *testing.T, logs *observer.ObservedLogs, tests ...func(observer.LoggedEntry)) {
+type LogAssertion func(*testing.T, observer.LoggedEntry)
+
+func AssertLogs(t *testing.T, logs *observer.ObservedLogs, tests ...LogAssertion) {
 	l := logs.All()
 	if len(l) > len(tests) {
 		t.Errorf("expected %d logs, but got %d\nexample: \t%#v",len(tests),len(l), l[len(tests)])
@@ -37,7 +39,7 @@ func AssertLogs(t *testing.T, logs *observer.ObservedLogs, tests ...func(observe
 		t.Errorf("expected %d logs, but got %d",len(tests),len(l))
 	} else {
 		for i, j := range l {
-			tests[i](j)
+			tests[i](t, j)
 		}
 	}
 }

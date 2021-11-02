@@ -264,11 +264,12 @@ func TestInvalidCreateEnvironmentApplicationLockArguments(t *testing.T) {
 }
 
 func TestErrorLock(t *testing.T) {
+	testerror := fmt.Errorf("testerror")
+
 	tcs := []struct {
-		Name            string
-		Request         *api.CreateEnvironmentApplicationLockRequest
-		ExpectedCode    codes.Code
-		ExpectedMessage string
+		Name          string
+		Request       *api.CreateEnvironmentApplicationLockRequest
+		LogAssertions []testlogger.LogAssertion
 	}{
 		{
 			Name: "create an environment lock",
@@ -277,40 +278,8 @@ func TestErrorLock(t *testing.T) {
 				Application: "app",
 				LockId:      "lock",
 			},
-			ExpectedCode:    codes.Internal,
-			ExpectedMessage: "internal error",
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			testerror := fmt.Errorf("testerror")
-			logs := testlogger.Wrap(context.Background(), func(ctx context.Context) {
-				svc := &LockServiceServer{
-					Repository: testrepository.Failing(testerror),
-				}
-				_, err := svc.CreateEnvironmentApplicationLock(
-					ctx,
-					tc.Request,
-				)
-				if err == nil {
-					t.Fatal("expected an error, but got none")
-				}
-				if s, ok := status.FromError(err); !ok {
-					t.Fatalf("expected a status error, but got %#v", err)
-				} else {
-					if s.Code() != tc.ExpectedCode {
-						t.Errorf("invalid error code: expected %q, actual: %q", tc.ExpectedCode.String(), s.Code().String())
-					}
-					if s.Message() != tc.ExpectedMessage {
-						t.Errorf("invalid error message: expected %q, actual: %q", tc.ExpectedMessage, s.Message())
-					}
-				}
-			})
-			testlogger.AssertLogs(t,
-				logs,
-				func(entry observer.LoggedEntry) {
+			LogAssertions: []testlogger.LogAssertion{
+				func(t *testing.T, entry observer.LoggedEntry) {
 					if entry.Level != zapcore.ErrorLevel {
 						t.Errorf("expected log level %s, but got %s", zapcore.ErrorLevel, entry.Level)
 					}
@@ -321,6 +290,25 @@ func TestErrorLock(t *testing.T) {
 						t.Errorf("expected error field to be %q, but got %q", testerror.Error(), err)
 					}
 				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			logs := testlogger.Wrap(context.Background(), func(ctx context.Context) {
+				svc := &LockServiceServer{
+					Repository: testrepository.Failing(testerror),
+				}
+				svc.CreateEnvironmentApplicationLock(
+					ctx,
+					tc.Request,
+				)
+			})
+			testlogger.AssertLogs(t,
+				logs,
+				tc.LogAssertions...,
 			)
 		})
 	}
