@@ -56,7 +56,7 @@ docker: bin/main ../../version | dist
 	docker build -t $(IMAGENAME) .
 
 release: docker
-	docker push $(IMAGENAME}
+	docker push $(IMAGENAME)
 
 all: test docker
 
@@ -66,7 +66,7 @@ all: test docker
 NODE_BIN_DIR=$(shell yarn bin)
 
 deps: .deps.sentinel
-	
+
 .deps.sentinel: package.json
 	yarn install && touch .deps.sentinel
 
@@ -82,5 +82,5 @@ dist: .dist.sentinel
 
 
 .DEFAULT_GOAL := all
-	
-.PHONY: deps	
+
+.PHONY: deps
