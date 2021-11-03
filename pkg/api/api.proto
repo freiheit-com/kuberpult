@@ -42,11 +42,17 @@ service BatchService {
 }
 
 message BatchRequest {
-  repeated CreateEnvironmentLockRequest envLocks = 1;
-  repeated DeleteEnvironmentLockRequest deleteEnvLocks = 2;
-  repeated CreateEnvironmentApplicationLockRequest appLocks = 3;
-  repeated DeleteEnvironmentApplicationLockRequest deleteAppLocks = 4;
-  repeated DeployRequest deploymentRequests = 5;
+  repeated BatchAction actions = 1;
+}
+
+message BatchAction {
+  oneof action {
+    CreateEnvironmentLockRequest create_environment_lock = 1;
+    DeleteEnvironmentLockRequest delete_environment_lock = 2;
+    CreateEnvironmentApplicationLockRequest create_application_lock = 3;
+    DeleteEnvironmentApplicationLockRequest delete_application_lock = 4;
+    DeployRequest deploy = 5;
+  }
 }
 
 message CreateEnvironmentLockRequest {
