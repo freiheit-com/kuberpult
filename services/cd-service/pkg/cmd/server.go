@@ -18,20 +18,22 @@ package cmd
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/kelseyhightower/envconfig"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/openpgp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/api"
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/setup"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/repository"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/service"
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 )
 
 type Config struct {
@@ -62,105 +64,116 @@ func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
 }
 
 func RunServer() {
-	var c Config
-	err := envconfig.Process("kuberpult", &c)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	pgpKeyRing, err := c.readPgpKeyRing()
-	if err != nil {
-		log.Printf("error reading pgp key ring: %s\n", err)
-		return
-	}
-
-	if c.ArgoCdPass != "" {
-		_, err := service.ArgocdLogin(c.ArgoCdHost, c.ArgoCdUser, c.ArgoCdPass)
+	logger.Wrap(context.Background(), func(ctx context.Context) error {
+		var c Config
+		err := envconfig.Process("kuberpult", &c)
 		if err != nil {
-			log.Fatal(err.Error())
+			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
 		}
-	}
 
-	ctx := context.Background()
-	repo, err := repository.New(ctx, repository.Config{
-		URL:            c.GitUrl,
-		Path:           "./repository",
-		CommitterEmail: c.GitCommitterEmail,
-		CommitterName:  c.GitCommitterName,
-		Credentials: repository.Credentials{
-			SshKey: c.GitSshKey,
-		},
-		Certificates: repository.Certificates{
-			KnownHostsFile: c.GitSshKnownHosts,
-		},
-		Branch: c.GitBranch,
-	})
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+		pgpKeyRing, err := c.readPgpKeyRing()
+		if err != nil {
+			logger.FromContext(ctx).Fatal("pgp.read.error", zap.Error(err))
+		}
 
-	lockSrv := &service.LockServiceServer{
-		Repository: repo,
-	}
-	deploySrv := &service.DeployServiceServer{
-		Repository: repo,
-	}
+		if c.ArgoCdPass != "" {
+			_, err := service.ArgocdLogin(c.ArgoCdHost, c.ArgoCdUser, c.ArgoCdPass)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("argocd.login.error", zap.Error(err))
+			}
+		}
 
-	grpcProxy := runtime.NewServeMux()
-	err = api.RegisterLockServiceHandlerServer(ctx, grpcProxy, lockSrv)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	err = api.RegisterDeployServiceHandlerServer(ctx, grpcProxy, deploySrv)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+		repo, err := repository.New(ctx, repository.Config{
+			URL:            c.GitUrl,
+			Path:           "./repository",
+			CommitterEmail: c.GitCommitterEmail,
+			CommitterName:  c.GitCommitterName,
+			Credentials: repository.Credentials{
+				SshKey: c.GitSshKey,
+			},
+			Certificates: repository.Certificates{
+				KnownHostsFile: c.GitSshKnownHosts,
+			},
+			Branch: c.GitBranch,
+		})
+		if err != nil {
+			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
+		}
 
-	repositoryService := &service.Service{
-		Repository: repo,
-		KeyRing:    pgpKeyRing,
-		ArgoCdHost: c.ArgoCdHost,
-		ArgoCdUser: c.ArgoCdUser,
-		ArgoCdPass: c.ArgoCdPass,
-	}
+		lockSrv := &service.LockServiceServer{
+			Repository: repo,
+		}
+		deploySrv := &service.DeployServiceServer{
+			Repository: repo,
+		}
 
-	// Shutdown channel is used to terminate server side streams.
-	shutdownCh := make(chan struct{})
-	setup.Run(setup.Config{
-		HTTP: []setup.HTTPConfig{
-			{
-				Port: "8080",
-				Register: func(mux *http.ServeMux) {
-					mux.Handle("/release", repositoryService)
-					mux.Handle("/health", repositoryService)
-					mux.Handle("/sync/", repositoryService)
-					mux.Handle("/", grpcProxy)
+		grpcProxy := runtime.NewServeMux()
+		err = api.RegisterLockServiceHandlerServer(ctx, grpcProxy, lockSrv)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("grpc.lockService.register", zap.Error(err))
+		}
+		err = api.RegisterDeployServiceHandlerServer(ctx, grpcProxy, deploySrv)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("grpc.deployService.register", zap.Error(err))
+		}
+
+		repositoryService := &service.Service{
+			Repository: repo,
+			KeyRing:    pgpKeyRing,
+			ArgoCdHost: c.ArgoCdHost,
+			ArgoCdUser: c.ArgoCdUser,
+			ArgoCdPass: c.ArgoCdPass,
+		}
+
+		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
+
+		// Shutdown channel is used to terminate server side streams.
+		shutdownCh := make(chan struct{})
+		setup.Run(ctx, setup.Config{
+			HTTP: []setup.HTTPConfig{
+				{
+					Port: "8080",
+					Register: func(mux *http.ServeMux) {
+						mux.Handle("/release", repositoryService)
+						mux.Handle("/health", repositoryService)
+						mux.Handle("/sync/", repositoryService)
+						mux.Handle("/", grpcProxy)
+					},
 				},
 			},
-		},
-		GRPC: &setup.GRPCConfig{
-			Port: "8443",
-			Register: func(srv *grpc.Server) {
-				api.RegisterLockServiceServer(srv, lockSrv)
+			GRPC: &setup.GRPCConfig{
+				Port: "8443",
+				Opts: []grpc.ServerOption{
+					grpc.StreamInterceptor(
+						grpc_zap.StreamServerInterceptor(grpcServerLogger),
+					),
+					grpc.UnaryInterceptor(
+						grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+					),
+				},
+				Register: func(srv *grpc.Server) {
+					api.RegisterLockServiceServer(srv, lockSrv)
 
-				api.RegisterDeployServiceServer(srv, deploySrv)
+					api.RegisterDeployServiceServer(srv, deploySrv)
 
-				envSrv := &service.EnvironmentServiceServer{
-					Repository: repo,
-				}
-				api.RegisterEnvironmentServiceServer(srv, envSrv)
+					envSrv := &service.EnvironmentServiceServer{
+						Repository: repo,
+					}
+					api.RegisterEnvironmentServiceServer(srv, envSrv)
 
-				overviewSrv := &service.OverviewServiceServer{
-					Repository: repo,
-					Shutdown:   shutdownCh,
-				}
-				api.RegisterOverviewServiceServer(srv, overviewSrv)
-				reflection.Register(srv)
+					overviewSrv := &service.OverviewServiceServer{
+						Repository: repo,
+						Shutdown:   shutdownCh,
+					}
+					api.RegisterOverviewServiceServer(srv, overviewSrv)
+					reflection.Register(srv)
+				},
 			},
-		},
-		Shutdown: func(ctx context.Context) error {
-			close(shutdownCh)
-			return nil
-		},
+			Shutdown: func(ctx context.Context) error {
+				close(shutdownCh)
+				return nil
+			},
+		})
+		return nil
 	})
 }

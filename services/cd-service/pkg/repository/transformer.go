@@ -25,10 +25,8 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/api"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/config"
-
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
@@ -125,13 +123,8 @@ func (c *CreateApplicationVersion) Transform(fs billy.Filesystem) (string, error
 
 			config, found := configs[env]
 			hasUpstream := false
-			if !found {
-				logger.Debugf("Warn: No config found for env %s. Using default config", env)
-			} else {
+			if found {
 				hasUpstream = config.Upstream != nil
-			}
-			if !hasUpstream {
-				logger.Debugf("Config exists but has no upstream.")
 			}
 
 			if err = fs.MkdirAll(envDir, 0777); err != nil {
@@ -165,7 +158,6 @@ func (c *CreateApplicationVersion) Transform(fs billy.Filesystem) (string, error
 		return fmt.Sprintf("released version %d of %q\n%s", lastRelease+1, c.Application, result), nil
 	}
 }
-
 
 type CleanupOldApplicationVersions struct {
 	Application string
@@ -201,7 +193,7 @@ func (c *CleanupOldApplicationVersions) Transform(fs billy.Filesystem) (string, 
 
 	if *oldestDeployedVersion <= keptVersionsOnCleanup {
 		return fmt.Sprintf("(Oldest version (%d) of app %s is still too young (<=%d) for cleanup)",
-			 *oldestDeployedVersion, c.Application, keptVersionsOnCleanup), nil
+			*oldestDeployedVersion, c.Application, keptVersionsOnCleanup), nil
 	}
 
 	// 3) remove all releases older than x
@@ -209,7 +201,7 @@ func (c *CleanupOldApplicationVersions) Transform(fs billy.Filesystem) (string, 
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
 	}
-	sort.Slice(versions, func(i,j int) bool {
+	sort.Slice(versions, func(i, j int) bool {
 		return versions[i] < versions[j]
 	})
 
@@ -219,7 +211,7 @@ func (c *CleanupOldApplicationVersions) Transform(fs billy.Filesystem) (string, 
 
 	msg := ""
 	if positionOfOldestVersion >= keptVersionsOnCleanup {
-		for _, oldRelease := range versions[0:positionOfOldestVersion-keptVersionsOnCleanup+1] {
+		for _, oldRelease := range versions[0 : positionOfOldestVersion-keptVersionsOnCleanup+1] {
 			// delete oldRelease:
 			releasesDir := releasesDirectoryWithVersion(fs, c.Application, oldRelease)
 			_, err := fs.Stat(releasesDir)
@@ -421,7 +413,7 @@ func (c *DeployApplicationVersion) Transform(fs billy.Filesystem) (string, error
 	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
 	manifestContent := []byte{}
 	if file, err := fs.Open(manifest); err != nil {
-		return "", wrapFileError(err, manifest, "could not open manifest" )
+		return "", wrapFileError(err, manifest, "could not open manifest")
 	} else {
 		if content, err := io.ReadAll(file); err != nil {
 			return "", err
@@ -492,7 +484,7 @@ func (c *DeployApplicationVersion) Transform(fs billy.Filesystem) (string, error
 		return "", err
 	}
 	d := &CleanupOldApplicationVersions{
-		Application:   c.Application,
+		Application: c.Application,
 	}
 	transform, err := d.Transform(fs)
 	if err != nil {

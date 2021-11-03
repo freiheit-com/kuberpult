@@ -29,8 +29,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/repository"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/valid"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/errors"
 	"golang.org/x/sync/errgroup"
@@ -51,14 +51,14 @@ var (
 )
 
 type Service struct {
-	Repository *repository.Repository
+	Repository repository.Repository
 	KeyRing    openpgp.KeyRing
 	ArgoCdHost string
 	ArgoCdUser string
 	ArgoCdPass string
 }
 
-func NewService(repository *repository.Repository) *Service {
+func NewService(repository repository.Repository) *Service {
 	return &Service{
 		Repository: repository,
 	}
@@ -225,7 +225,7 @@ func (s *Service) ServeHTTPSync(env string, w http.ResponseWriter, r *http.Reque
 }
 
 func argocdSyncApp(name string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "argocd", "app", "sync", name)
 	_, err := cmd.Output()

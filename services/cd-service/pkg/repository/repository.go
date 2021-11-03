@@ -17,39 +17,56 @@ Copyright 2021 freiheit.com*/
 package repository
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/api"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/argocd"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/config"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/history"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/fs"
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/history"
+	"go.uber.org/zap"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v31"
 )
 
 // A Repository provides a multiple reader / single writer access to a git repository.
-type Repository struct {
+type Repository interface {
+	Apply(ctx context.Context, transformers ...Transformer) error
+	State() *State
+	SetCallback(cb func(*State))
+
+	IsReady() (bool, error)
+	WaitReady() error
+}
+
+type repository struct {
 	// Mutex gurading the writer
 	writeLock    sync.Mutex
+	writesDone   uint
 	remote       *git.Remote
 	config       *Config
 	credentials  *credentialsStore
 	certificates *certificateStore
 
 	repository *git.Repository
+
+	// Testing
+	nextError error
 
 	// Mutex guarding head
 	headLock     sync.Mutex
@@ -70,6 +87,8 @@ type Config struct {
 	CommitterName  string
 	// default branch is master
 	Branch string
+	//
+	GcFrequency uint
 }
 
 func openOrCreate(path string) (*git.Repository, error) {
@@ -94,7 +113,7 @@ func openOrCreate(path string) (*git.Repository, error) {
 }
 
 // Opens a repository. The repository is initialized and updated in the background.
-func New(ctx context.Context, cfg Config) (*Repository, error) {
+func New(ctx context.Context, cfg Config) (Repository, error) {
 	logger := logger.FromContext(ctx)
 	if cfg.Branch == "" {
 		cfg.Branch = "master"
@@ -128,7 +147,7 @@ func New(ctx context.Context, cfg Config) (*Repository, error) {
 		if remote, err := repo2.Remotes.CreateAnonymous(cfg.URL); err != nil {
 			return nil, err
 		} else {
-			result := &Repository{
+			result := &repository{
 				remote:       remote,
 				config:       &cfg,
 				credentials:  credentials,
@@ -143,7 +162,10 @@ func New(ctx context.Context, cfg Config) (*Repository, error) {
 				fetchOptions := git.FetchOptions{
 					RemoteCallbacks: git.RemoteCallbacks{
 						UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) git.ErrorCode {
-							logger.WithField("refname", refname).WithField("revision.new", b.String()).Debug("git.fetched")
+							logger.Debug("git.fetched",
+								zap.String("refname", refname),
+								zap.String("revision.new", b.String()),
+							)
 							return git.ErrOk
 						},
 						CredentialsCallback:      credentials.CredentialsCallback(ctx),
@@ -181,7 +203,7 @@ func New(ctx context.Context, cfg Config) (*Repository, error) {
 	}
 }
 
-func NewWait(ctx context.Context, cfg Config) (*Repository, error) {
+func NewWait(ctx context.Context, cfg Config) (Repository, error) {
 	if repo, err := New(ctx, cfg); err != nil {
 		return repo, err
 	} else {
@@ -189,7 +211,7 @@ func NewWait(ctx context.Context, cfg Config) (*Repository, error) {
 	}
 }
 
-func (r *Repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) error {
+func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) error {
 	if state, err := r.buildState(); err != nil {
 		return &InternalError{inner: err}
 	} else {
@@ -231,12 +253,16 @@ func (r *Repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	return nil
 }
 
-func (r *Repository) FetchAndReset(ctx context.Context) error {
+func (r *repository) FetchAndReset(ctx context.Context) error {
 	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", r.config.Branch, r.config.Branch)
+	logger := logger.FromContext(ctx)
 	fetchOptions := git.FetchOptions{
 		RemoteCallbacks: git.RemoteCallbacks{
 			UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) git.ErrorCode {
-				logger.WithField("refname", refname).WithField("revision.new", b.String()).Debug("git.fetched")
+				logger.Debug("git.fetched",
+					zap.String("refname", refname),
+					zap.String("revision.new", b.String()),
+				)
 				return git.ErrOk
 			},
 			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
@@ -278,11 +304,16 @@ func (r *Repository) FetchAndReset(ctx context.Context) error {
 	return nil
 }
 
-func (r *Repository) Apply(ctx context.Context, transformers ...Transformer) error {
+func (r *repository) Apply(ctx context.Context, transformers ...Transformer) error {
 	// Obtain a new worktree
 	r.writeLock.Lock()
 	defer r.writeLock.Unlock()
+	defer func() {
+		r.writesDone = r.writesDone + uint(len(transformers))
+		r.maybeGc(ctx)
+	}()
 	err := r.ApplyTransformers(ctx, transformers...)
+
 	if err != nil {
 		return err
 	} else {
@@ -318,7 +349,7 @@ func (r *Repository) Apply(ctx context.Context, transformers ...Transformer) err
 	return nil
 }
 
-func (r *Repository) afterTransform(ctx context.Context, fs billy.Filesystem) error {
+func (r *repository) afterTransform(ctx context.Context, fs billy.Filesystem) error {
 	state := State{Filesystem: fs}
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -335,7 +366,7 @@ func (r *Repository) afterTransform(ctx context.Context, fs billy.Filesystem) er
 	return nil
 }
 
-func (r *Repository) updateArgoCdApps(ctx context.Context, state *State, name string, config config.EnvironmentConfig) error {
+func (r *repository) updateArgoCdApps(ctx context.Context, state *State, name string, config config.EnvironmentConfig) error {
 	fs := state.Filesystem
 	if apps, err := state.GetEnvironmentApplications(name); err != nil {
 		return err
@@ -357,7 +388,7 @@ func (r *Repository) updateArgoCdApps(ctx context.Context, state *State, name st
 	return nil
 }
 
-func (r *Repository) buildState() (*State, error) {
+func (r *repository) buildState() (*State, error) {
 	if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
 		var gerr *git.GitError
 		if errors.As(err, &gerr) {
@@ -379,7 +410,7 @@ func (r *Repository) buildState() (*State, error) {
 	}
 }
 
-func (r *Repository) State() *State {
+func (r *repository) State() *State {
 	s, err := r.buildState()
 	if err != nil {
 		panic(err)
@@ -387,10 +418,87 @@ func (r *Repository) State() *State {
 	return s
 }
 
-func (r *Repository) SetCallback(cb func(*State)) {
+func (r *repository) SetCallback(cb func(*State)) {
 	r.headLock.Lock()
 	defer r.headLock.Unlock()
 	r.headCallback = cb
+}
+
+type ObjectCount struct {
+	Count       uint64
+	Size        uint64
+	InPack      uint64
+	Packs       uint64
+	SizePack    uint64
+	Garbage     uint64
+	SizeGarbage uint64
+}
+
+func (r *repository) countObjects(ctx context.Context) (ObjectCount, error) {
+	var stats ObjectCount
+	/*
+		The output of `git count-objects` looks like this:
+			count: 0
+			size: 0
+			in-pack: 635
+			packs: 1
+			size-pack: 2845
+			prune-packable: 0
+			garbage: 0
+			size-garbage: 0
+	*/
+	cmd := exec.CommandContext(ctx, "git", "count-objects", "--verbose")
+	cmd.Dir = r.config.Path
+	out, err := cmd.Output()
+	if err != nil {
+		return stats, err
+	}
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	for scanner.Scan() {
+		var (
+			token string
+			value uint64
+		)
+		if _, err := fmt.Sscan(scanner.Text(), &token, &value); err != nil {
+			return stats, err
+		}
+		switch token {
+		case "count:":
+			stats.Count = value
+		case "size:":
+			stats.Size = value
+		case "in-packs:":
+			stats.InPack = value
+		case "packs:":
+			stats.Packs = value
+		case "size-pack:":
+			stats.SizePack = value
+		case "garbage:":
+			stats.Garbage = value
+		case "size-garbage":
+			stats.SizeGarbage = value
+		}
+	}
+	return stats, nil
+}
+
+func (r *repository) maybeGc(ctx context.Context) {
+	if r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
+		return
+	}
+	log := logger.FromContext(ctx)
+	r.writesDone = 0
+	timeBefore := time.Now()
+	statsBefore, _ := r.countObjects(ctx)
+	cmd := exec.CommandContext(ctx, "git", "repack", "-a", "-d")
+	cmd.Dir = r.config.Path
+	err := cmd.Run()
+	if err != nil {
+		log.Error("git.repack", zap.Error(err))
+		return
+	}
+	statsAfter, _ := r.countObjects(ctx)
+	log.Info("git.repack", zap.Duration("duration", time.Now().Sub(timeBefore)), zap.Uint64("collected", statsBefore.Count-statsAfter.Count))
 }
 
 type State struct {
@@ -629,7 +737,7 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 func (s *State) GetApplicationReleaseCommit(application string, version uint64) (*git.Commit, error) {
 	return s.History.Change(s.Commit, []string{
 		"applications", application,
-		"releases", fmt.Sprintf("%d",version),
+		"releases", fmt.Sprintf("%d", version),
 	})
 }
 

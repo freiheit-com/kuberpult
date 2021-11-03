@@ -19,17 +19,18 @@ package service
 import (
 	context "context"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/api"
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/logger"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/repository"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/valid"
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type LockServiceServer struct {
-	Repository *repository.Repository
+	Repository repository.Repository
 }
 
 func (l *LockServiceServer) CreateEnvironmentLock(
@@ -121,7 +122,7 @@ func (l *LockServiceServer) DeleteEnvironmentApplicationLock(
 
 func internalError(ctx context.Context, err error) error {
 	logger := logger.FromContext(ctx)
-	logger.WithError(err).Error("grpc.internal")
+	logger.Error("grpc.internal", zap.Error(err))
 	return status.Error(codes.Internal, "internal error")
 }
 

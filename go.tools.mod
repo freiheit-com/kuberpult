@@ -1,4 +1,4 @@
-module github.com/freiheit-com/fdc-continuous-delivery
+module github.com/freiheit-com/kuberpult
 
 go 1.16
 

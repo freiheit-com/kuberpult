@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/freiheit-com/fdc-continuous-delivery/pkg/api";
+option go_package = "github.com/freiheit-com/kuberpult/pkg/api";
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";

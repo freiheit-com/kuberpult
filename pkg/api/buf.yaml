@@ -15,6 +15,6 @@
 
 #Copyright 2021 freiheit.com
 version: v1beta1
-name: buf.build/freiheit-com/fdc-continuous-delivery
+name: buf.build/freiheit-com/kuberpult
 deps:
 - buf.build/beta/googleapis

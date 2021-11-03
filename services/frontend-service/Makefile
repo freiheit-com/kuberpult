@@ -25,7 +25,8 @@ GO := go
 
 GO_FILES := $(shell find . -type f -name '*.go')
 
-DOCKER_REPOSITORY := eu.gcr.io/freiheit-core/fdc-continuous-delivery
+
+IMAGENAME?=ghcr.io/freiheit-com/kuberpult/frontend-service:${VERSION}
 
 GARBAGE := *.sentinel
 
@@ -37,8 +38,9 @@ bin/main: $(GO_FILES) | proto
 	$(GO) build -o bin/main ./cmd/server/
 GARBAGE += bin/main
 
+export KUBERPULT_CDSERVER?=localhost:8443
 run: bin/main
-	KUBERPULT_CDSERVER=localhost:8443 bin/main
+	./bin/main
 
 clean:
 	git clean -Xfd
@@ -52,10 +54,10 @@ test-ts:
 	yarn test --watchAll=false
 
 docker: bin/main ../../version | dist
-	docker build -t ${DOCKER_REPOSITORY}/frontend-service:${VERSION} .
+	docker build -t $(IMAGENAME) .
 
 release: docker
-	docker push ${DOCKER_REPOSITORY}/frontend-service:${VERSION}
+	docker push $(IMAGENAME)
 
 all: test docker
 
@@ -65,7 +67,7 @@ all: test docker
 NODE_BIN_DIR=$(shell yarn bin)
 
 deps: .deps.sentinel
-	
+
 .deps.sentinel: package.json
 	yarn install && touch .deps.sentinel
 
@@ -81,5 +83,5 @@ dist: .dist.sentinel
 
 
 .DEFAULT_GOAL := all
-	
-.PHONY: deps	
+
+.PHONY: deps

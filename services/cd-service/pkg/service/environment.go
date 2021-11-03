@@ -19,13 +19,13 @@ package service
 import (
 	"context"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/api"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type EnvironmentServiceServer struct {
-	Repository *repository.Repository
+	Repository repository.Repository
 }
 
 func (e *EnvironmentServiceServer) CreateEnvironment(

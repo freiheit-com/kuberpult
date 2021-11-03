@@ -24,9 +24,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	git "github.com/libgit2/git2go/v31"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -78,10 +78,10 @@ func (c *credentialsStore) CredentialsCallback(ctx context.Context) git.Credenti
 	}
 	logger := logger.FromContext(ctx)
 	return func(url string, username_from_url string, allowed_types git.CredentialType) (*git.Credential, error) {
-		logger.WithFields(logrus.Fields{
-			"url":      url,
-			"username": username_from_url,
-		}).Debug("git.credentialsCallback")
+		logger.Debug("git.credentialsCallback",
+			zap.String("url", url),
+			zap.String("username", username_from_url),
+		)
 		if c.sshPrivateKey != "" && allowed_types|git.CredTypeSshKey != 0 {
 			return git.NewCredentialSSHKeyFromMemory(username_from_url, c.sshPublicKey, c.sshPrivateKey, "")
 		}
