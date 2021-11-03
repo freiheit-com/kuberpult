@@ -69,7 +69,7 @@ endif
 
 clean:
 	rm -rf pkg/api/api.gen.go
-	rm -rf bin/main
+	rm -rf bin
 	docker rmi $(IMAGENAME) || true
 
 test: $(GO_FILES) | proto

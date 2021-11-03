@@ -18,8 +18,8 @@ package batch
 
 import (
 	"context"
-	"github.com/freiheit-com/fdc-continuous-delivery/pkg/api"
-	"github.com/freiheit-com/fdc-continuous-delivery/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -32,6 +32,14 @@ func (d *BatchServer) ProcessBatch(
 	in *api.BatchRequest,
 ) (*emptypb.Empty, error) {
 	// your code goes here.
+	// Validation?
+
+	// Lock behavior
+
+	// Apply?  Instead of applying one transformer we apply multiple
+
+
+	// Error Handling!
 
 	return &emptypb.Empty{}, nil
 }
