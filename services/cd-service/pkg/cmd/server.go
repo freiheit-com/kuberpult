@@ -94,7 +94,8 @@ func RunServer() {
 			Certificates: repository.Certificates{
 				KnownHostsFile: c.GitSshKnownHosts,
 			},
-			Branch: c.GitBranch,
+			Branch:      c.GitBranch,
+			GcFrequency: 20,
 		})
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
