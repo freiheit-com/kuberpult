@@ -49,8 +49,8 @@ message BatchAction {
   oneof action {
     CreateEnvironmentLockRequest create_environment_lock = 1;
     DeleteEnvironmentLockRequest delete_environment_lock = 2;
-    CreateEnvironmentApplicationLockRequest create_application_lock = 3;
-    DeleteEnvironmentApplicationLockRequest delete_application_lock = 4;
+    CreateEnvironmentApplicationLockRequest create_environment_application_lock = 3;
+    DeleteEnvironmentApplicationLockRequest delete_environment_application_lock = 4;
     DeployRequest deploy = 5;
   }
 }
