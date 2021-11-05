@@ -109,7 +109,7 @@ func (d *BatchServer) processAction(
 			LockBehaviour: b,
 		}, nil
 	}
-	return nil, nil
+	return nil, status.Error(codes.InvalidArgument, "invalid action")
 }
 
 func (d *BatchServer) ProcessBatch(
