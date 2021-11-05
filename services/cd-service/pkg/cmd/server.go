@@ -127,6 +127,8 @@ func RunServer() {
 		}
 
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
+		httpServerLogger := logger.FromContext(ctx).Named("http_server")
+		grpcProxyLogger := logger.FromContext(ctx).Named("grpc_proxy")
 
 		// Shutdown channel is used to terminate server side streams.
 		shutdownCh := make(chan struct{})
@@ -135,10 +137,11 @@ func RunServer() {
 				{
 					Port: "8080",
 					Register: func(mux *http.ServeMux) {
-						mux.Handle("/release", repositoryService)
-						mux.Handle("/health", repositoryService)
-						mux.Handle("/sync/", repositoryService)
-						mux.Handle("/", grpcProxy)
+						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
+						mux.Handle("/release", handler)
+						mux.Handle("/health", handler)
+						mux.Handle("/sync/", handler)
+						mux.Handle("/", logger.WithHttpLogger(grpcProxyLogger, grpcProxy))
 					},
 				},
 			},
