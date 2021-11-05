@@ -113,7 +113,7 @@ func TestDeployService(t *testing.T) {
 				}
 				details := stat.Details()
 				if len(details) == 0 {
-					t.Fatalf("error is not a status error, but has no details: %s", err.Error())
+					t.Fatalf("error is a status error, but has no details: %s", err.Error())
 				}
 				lockErr := details[0].(*api.LockedError)
 				if _, ok := lockErr.EnvironmentLocks["a"]; !ok {
