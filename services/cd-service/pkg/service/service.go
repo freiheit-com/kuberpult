@@ -43,7 +43,7 @@ const (
 )
 
 var (
-	manifestFieldRx = regexp.MustCompile(`\Amanifests\[([a-z]{1,14})\]\z`)
+	manifestFieldRx = regexp.MustCompile(`\Amanifests\[([^]]+)\]\z`)
 	// matches hex strings with 7 - 40 chars
 	commitIdRx = regexp.MustCompile(`\A[0-9a-f]{7,40}\z`)
 	// parses anything that looks like "name <mail@host.com>"
