@@ -31,95 +31,120 @@ type BatchServer struct {
 	Repository repository.Repository
 }
 
+const maxBatchActions int = 100
+
+func ValidateEnvironmentLock(
+	actionType string, // "create" | "delete"
+	env string,
+	id string,
+) error {
+	if !valid.EnvironmentName(env) {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("cannot %s environment lock: invalid environment: '%s'", actionType, env))
+	}
+	if !valid.LockId(id) {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("cannot %s environment lock: invalid lock id: '%s'", actionType, id))
+	}
+	return nil
+}
+
+func ValidateEnvironmentApplicationLock(
+	actionType string, // "create" | "delete"
+	env string,
+	app string,
+	id string,
+) error {
+	if !valid.EnvironmentName(env) {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("cannot %s environment application lock: invalid environment: '%s'", actionType, env))
+	}
+	if !valid.ApplicationName(app) {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("cannot %s environment application lock: invalid application: '%s'", actionType, app))
+	}
+	if !valid.LockId(id) {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("cannot %s environment application lock: invalid lock id: '%s'", actionType, id))
+	}
+	return nil
+}
+
 func (d *BatchServer) processAction(
 	batchAction *api.BatchAction,
 ) (repository.Transformer , error) {
 	switch action := batchAction.Action.(type) {
 	case *api.BatchAction_CreateEnvironmentLock:
-		if !valid.EnvironmentName(action.CreateEnvironmentLock.Environment) {
-			return nil, status.Error(codes.InvalidArgument, "invalid environment")
-		}
-		if !valid.LockId(action.CreateEnvironmentLock.LockId) {
-			return nil, status.Error(codes.InvalidArgument, "invalid lock id")
+		act := action.CreateEnvironmentLock
+		err := ValidateEnvironmentLock("create", act.Environment, act.LockId)
+		if err != nil {
+			return nil, err
 		}
 		return &repository.CreateEnvironmentLock{
-			Environment: action.CreateEnvironmentLock.Environment,
-			LockId:      action.CreateEnvironmentLock.LockId,
-			Message:     action.CreateEnvironmentLock.Message,
+			Environment: act.Environment,
+			LockId:      act.LockId,
+			Message:     act.Message,
 		}, nil
 	case *api.BatchAction_DeleteEnvironmentLock:
-		if !valid.EnvironmentName(action.DeleteEnvironmentLock.Environment) {
-			return nil, status.Error(codes.InvalidArgument, "invalid environment")
-		}
-		if !valid.LockId(action.DeleteEnvironmentLock.LockId) {
-			return nil, status.Error(codes.InvalidArgument, "invalid lock id")
+		act := action.DeleteEnvironmentLock
+		err := ValidateEnvironmentLock("delete", act.Environment, act.LockId)
+		if err != nil {
+			return nil, err
 		}
 		return &repository.DeleteEnvironmentLock{
-			Environment: action.DeleteEnvironmentLock.Environment,
-			LockId:      action.DeleteEnvironmentLock.LockId,
+			Environment: act.Environment,
+			LockId:      act.LockId,
 		}, nil
 	case *api.BatchAction_CreateEnvironmentApplicationLock:
-		if !valid.EnvironmentName(action.CreateEnvironmentApplicationLock.Environment) {
-			return nil, status.Error(codes.InvalidArgument, "invalid environment")
-		}
-		if !valid.ApplicationName(action.CreateEnvironmentApplicationLock.Application) {
-			return nil, status.Error(codes.InvalidArgument, "invalid application")
-		}
-		if !valid.LockId(action.CreateEnvironmentApplicationLock.LockId) {
-			return nil, status.Error(codes.InvalidArgument, "invalid lock id")
+		act := action.CreateEnvironmentApplicationLock
+		err := ValidateEnvironmentApplicationLock("create", act.Environment, act.Application, act.LockId)
+		if err != nil {
+			return nil, err
 		}
 		return &repository.CreateEnvironmentApplicationLock{
-			Environment: action.CreateEnvironmentApplicationLock.Environment,
-			Application: action.CreateEnvironmentApplicationLock.Application,
-			LockId:      action.CreateEnvironmentApplicationLock.LockId,
-			Message:     action.CreateEnvironmentApplicationLock.Message,
+			Environment: act.Environment,
+			Application: act.Application,
+			LockId:      act.LockId,
+			Message:     act.Message,
 		}, nil
 	case *api.BatchAction_DeleteEnvironmentApplicationLock:
-		if !valid.EnvironmentName(action.DeleteEnvironmentApplicationLock.Environment) {
-			return nil, status.Error(codes.InvalidArgument, "invalid environment")
-		}
-		if !valid.ApplicationName(action.DeleteEnvironmentApplicationLock.Application) {
-			return nil, status.Error(codes.InvalidArgument, "invalid application")
-		}
-		if !valid.LockId(action.DeleteEnvironmentApplicationLock.LockId) {
-			return nil, status.Error(codes.InvalidArgument, "invalid lock id")
+		act := action.DeleteEnvironmentApplicationLock
+		err := ValidateEnvironmentApplicationLock("delete", act.Environment, act.Application, act.LockId)
+		if err != nil {
+			return nil, err
 		}
 		return &repository.DeleteEnvironmentApplicationLock{
-			Environment: action.DeleteEnvironmentApplicationLock.Environment,
-			Application: action.DeleteEnvironmentApplicationLock.Application,
-			LockId:      action.DeleteEnvironmentApplicationLock.LockId,
+			Environment: act.Environment,
+			Application: act.Application,
+			LockId:      act.LockId,
 		}, nil
 	case *api.BatchAction_Deploy:
-		if !valid.EnvironmentName(action.Deploy.Environment) {
-			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid environment %q", action.Deploy.Environment))
+		act := action.Deploy
+		if !valid.EnvironmentName(act.Environment) {
+			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot deploy environment: invalid environment name: '%s'", act.Environment))
 		}
-		if !valid.ApplicationName(action.Deploy.Application) {
-			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid application %q", action.Deploy.Application))
+		if !valid.ApplicationName(act.Application) {
+			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot deploy environment: invalid application name: '%s'", act.Application))
 		}
-		b := action.Deploy.LockBehavior
-		if action.Deploy.IgnoreAllLocks {
+		b := act.LockBehavior
+		if act.IgnoreAllLocks {
 			// the UI currently sets this to true,
 			// in that case, we still want to ignore locks (for emergency deployments)
 			b = api.LockBehavior_Ignore
 		}
 		return &repository.DeployApplicationVersion{
-			Environment:   action.Deploy.Environment,
-			Application:   action.Deploy.Application,
-			Version:       action.Deploy.Version,
+			Environment:   act.Environment,
+			Application:   act.Application,
+			Version:       act.Version,
 			LockBehaviour: b,
 		}, nil
 	}
-	return nil, status.Error(codes.InvalidArgument, "invalid action")
+	return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process action: invalid action type"))
 }
 
 func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
 ) (*emptypb.Empty, error) {
-	if len(in.GetActions())>100 {
-		return nil, status.Error(codes.InvalidArgument, "too many actions. limit is 100")
+	if len(in.GetActions())>maxBatchActions {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions))
 	}
-	transformers := make ([]repository.Transformer, 0, 100)
+	transformers := make ([]repository.Transformer, 0, maxBatchActions)
 	for _, batchAction := range in.GetActions() {
 		transformer, err := d.processAction(batchAction)
 		if err != nil {
@@ -130,8 +155,7 @@ func (d *BatchServer) ProcessBatch(
 	}
 	err := d.Repository.Apply(ctx, transformers...)
 	if err != nil {
-		// TODO TE: error handling
-		return nil, internalError(ctx, err)
+		return nil, internalError(ctx, fmt.Errorf("could not apply transformer: %w", err))
 	}
 	return &emptypb.Empty{}, nil
 }

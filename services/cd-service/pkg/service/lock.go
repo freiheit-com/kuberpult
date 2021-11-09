@@ -17,16 +17,14 @@ Copyright 2021 freiheit.com*/
 package service
 
 import (
-	context "context"
-
+	"context"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type LockServiceServer struct {
@@ -36,13 +34,11 @@ type LockServiceServer struct {
 func (l *LockServiceServer) CreateEnvironmentLock(
 	ctx context.Context,
 	in *api.CreateEnvironmentLockRequest) (*emptypb.Empty, error) {
-	if !valid.EnvironmentName(in.Environment) {
-		return nil, status.Error(codes.InvalidArgument, "invalid environment")
+	err := ValidateEnvironmentLock("create", in.Environment, in.LockId)
+	if err != nil {
+		return nil, err
 	}
-	if !valid.LockId(in.LockId) {
-		return nil, status.Error(codes.InvalidArgument, "invalid lock id")
-	}
-	err := l.Repository.Apply(ctx, &repository.CreateEnvironmentLock{
+	err = l.Repository.Apply(ctx, &repository.CreateEnvironmentLock{
 		Environment: in.Environment,
 		LockId:      in.LockId,
 		Message:     in.Message,
@@ -56,14 +52,11 @@ func (l *LockServiceServer) CreateEnvironmentLock(
 func (l *LockServiceServer) DeleteEnvironmentLock(
 	ctx context.Context,
 	in *api.DeleteEnvironmentLockRequest) (*emptypb.Empty, error) {
-
-	if !valid.EnvironmentName(in.Environment) {
-		return nil, status.Error(codes.InvalidArgument, "invalid environment")
+	err := ValidateEnvironmentLock("delete", in.Environment, in.LockId)
+	if err != nil {
+		return nil, err
 	}
-	if !valid.LockId(in.LockId) {
-		return nil, status.Error(codes.InvalidArgument, "invalid lock id")
-	}
-	err := l.Repository.Apply(ctx, &repository.DeleteEnvironmentLock{
+	err = l.Repository.Apply(ctx, &repository.DeleteEnvironmentLock{
 		Environment: in.Environment,
 		LockId:      in.LockId,
 	})
@@ -76,16 +69,11 @@ func (l *LockServiceServer) DeleteEnvironmentLock(
 func (l *LockServiceServer) CreateEnvironmentApplicationLock(
 	ctx context.Context,
 	in *api.CreateEnvironmentApplicationLockRequest) (*emptypb.Empty, error) {
-	if !valid.EnvironmentName(in.Environment) {
-		return nil, status.Error(codes.InvalidArgument, "invalid environment")
+	err := ValidateEnvironmentApplicationLock("create", in.Environment, in.Application, in.LockId)
+	if err != nil {
+		return nil, err
 	}
-	if !valid.ApplicationName(in.Application) {
-		return nil, status.Error(codes.InvalidArgument, "invalid application")
-	}
-	if !valid.LockId(in.LockId) {
-		return nil, status.Error(codes.InvalidArgument, "invalid lock id")
-	}
-	err := l.Repository.Apply(ctx, &repository.CreateEnvironmentApplicationLock{
+	err = l.Repository.Apply(ctx, &repository.CreateEnvironmentApplicationLock{
 		Environment: in.Environment,
 		Application: in.Application,
 		LockId:      in.LockId,
@@ -100,16 +88,11 @@ func (l *LockServiceServer) CreateEnvironmentApplicationLock(
 func (l *LockServiceServer) DeleteEnvironmentApplicationLock(
 	ctx context.Context,
 	in *api.DeleteEnvironmentApplicationLockRequest) (*emptypb.Empty, error) {
-	if !valid.EnvironmentName(in.Environment) {
-		return nil, status.Error(codes.InvalidArgument, "invalid environment")
+	err := ValidateEnvironmentApplicationLock("delete", in.Environment, in.Application, in.LockId)
+	if err != nil {
+		return nil, err
 	}
-	if !valid.ApplicationName(in.Application) {
-		return nil, status.Error(codes.InvalidArgument, "invalid application")
-	}
-	if !valid.LockId(in.LockId) {
-		return nil, status.Error(codes.InvalidArgument, "invalid lock id")
-	}
-	err := l.Repository.Apply(ctx, &repository.DeleteEnvironmentApplicationLock{
+	err = l.Repository.Apply(ctx, &repository.DeleteEnvironmentApplicationLock{
 		Environment: in.Environment,
 		Application: in.Application,
 		LockId:      in.LockId,

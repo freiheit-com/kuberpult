@@ -29,11 +29,80 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
+func getBatchActions () []*api.BatchAction{
+	opDeploy := &api.BatchAction_Deploy{
+		Deploy: &api.DeployRequest{
+			Environment: "production",
+			Application: "test",
+			Version:     1,
+			LockBehavior: api.LockBehavior_Fail,
+		},
+	}
+	opCreateEnvLock := &api.BatchAction_CreateEnvironmentLock{
+		CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
+			Environment: "production",
+			LockId:      "envlock",
+			Message:     "please",
+		},
+	}
+	opCreateAppLock := &api.BatchAction_CreateEnvironmentApplicationLock{
+		CreateEnvironmentApplicationLock: &api.CreateEnvironmentApplicationLockRequest{
+			Environment: "production",
+			Application: "test",
+			LockId:      "applock",
+			Message:     "please",
+		},
+	}
+	opDeleteEnvLock := &api.BatchAction_DeleteEnvironmentLock{  // this deletes the existing lock
+		DeleteEnvironmentLock: &api.DeleteEnvironmentLockRequest{
+			Environment: "production",
+			LockId:      "1234",
+		},
+	}
+	opDeleteAppLock := &api.BatchAction_DeleteEnvironmentApplicationLock{  // this deletes the existing lock
+		DeleteEnvironmentApplicationLock: &api.DeleteEnvironmentApplicationLockRequest{
+			Environment: "production",
+			Application: "test",
+			LockId:      "5678",
+		},
+	}
+	ops := []*api.BatchAction {		// it works through the batch in order
+		{Action: opDeleteEnvLock},
+		{Action: opDeleteAppLock},
+		{Action: opDeploy},
+		{Action: opCreateEnvLock},
+		{Action: opCreateAppLock},
+	}
+	return ops
+}
+
+func getNBatchActions(N int) []*api.BatchAction {
+	var ops []*api.BatchAction
+	for i := 1; i <= N; i++ {
+		deploy := api.DeployRequest{
+			Environment:  "production",
+			Application:  "test",
+			Version: 1,
+			LockBehavior: api.LockBehavior_Fail,
+		}
+		if i%2 == 0 {
+			deploy.Version = 2
+		}
+		ops = append(ops, &api.BatchAction{
+			Action: &api.BatchAction_Deploy{
+				Deploy: &deploy,
+			},
+		})
+	}
+	return ops
+}
+
 func TestBatchService(t *testing.T) {
 	tcs := []struct {
 		Name  string
+		Batch []*api.BatchAction
 		Setup []repository.Transformer
-		Test  func(t *testing.T, svc *BatchServer)
+		Test  func(t *testing.T, svc *BatchServer, actions []*api.BatchAction)
 	}{
 		{
 			Name: "5 sample actions",
@@ -60,54 +129,12 @@ func TestBatchService(t *testing.T) {
 					Message: "AppLock",
 				},
 			},
-			Test: func(t *testing.T, svc *BatchServer) {
-				opDeploy := &api.BatchAction_Deploy{
-					Deploy: &api.DeployRequest{
-						Environment: "production",
-						Application: "test",
-						Version:     1,
-						LockBehavior: api.LockBehavior_Fail,
-					},
-				}
-				opCreateEnvLock := &api.BatchAction_CreateEnvironmentLock{
-					CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
-						Environment: "production",
-						LockId:      "envlock",
-						Message:     "please",
-					},
-				}
-				opCreateAppLock := &api.BatchAction_CreateEnvironmentApplicationLock{
-					CreateEnvironmentApplicationLock: &api.CreateEnvironmentApplicationLockRequest{
-						Environment: "production",
-						Application: "test",
-						LockId:      "applock",
-						Message:     "please",
-					},
-				}
-				opDeleteEnvLock := &api.BatchAction_DeleteEnvironmentLock{
-					DeleteEnvironmentLock: &api.DeleteEnvironmentLockRequest{
-						Environment: "production",
-						LockId:      "1234",
-					},
-				}
-				opDeleteAppLock := &api.BatchAction_DeleteEnvironmentApplicationLock{
-					DeleteEnvironmentApplicationLock: &api.DeleteEnvironmentApplicationLockRequest{
-						Environment: "production",
-						Application: "test",
-						LockId:      "5678",
-					},
-				}
-				ops := []*api.BatchAction {		// it works through the batch in order
-					{Action: opDeleteEnvLock},
-					{Action: opDeleteAppLock},
-					{Action: opDeploy},
-					{Action: opCreateEnvLock},
-					{Action: opCreateAppLock},
-				}
+			Batch: getBatchActions(),
+			Test: func(t *testing.T, svc *BatchServer, actions []*api.BatchAction) {
 				_, err := svc.ProcessBatch(
 					context.Background(),
 					&api.BatchRequest{
-						Actions: ops,
+						Actions: actions,
 					},
 				)
 				if err != nil {
@@ -123,7 +150,7 @@ func TestBatchService(t *testing.T) {
 						t.Errorf("unexpected version: expected 1, actual: %d", *version)
 					}
 				}
-				// check that the envlock was created
+				// check that the envlock was created/deleted
 				{
 					envLocks, err := svc.Repository.State().GetEnvironmentLocks("production")
 					if err != nil {
@@ -141,7 +168,7 @@ func TestBatchService(t *testing.T) {
 						t.Error("lock was not deleted")
 					}
 				}
-				// check that the applock was created
+				// check that the applock was created/deleted
 				{
 					appLocks, err := svc.Repository.State().GetEnvironmentApplicationLocks("production", "test")
 					if err != nil {
@@ -162,7 +189,7 @@ func TestBatchService(t *testing.T) {
 			},
 		},
 		{
-			Name: "more than 100 actions",
+			Name: "exactly the maximum number of actions",
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "production",
@@ -181,24 +208,12 @@ func TestBatchService(t *testing.T) {
 					},
 				},
 			},
-			Test: func(t *testing.T, svc *BatchServer) {
-				ops := []*api.BatchAction {}
-				for i := uint64(1); i <= 100; i++ {	// test exactly 100 first
-					ops = append(ops, &api.BatchAction{
-						Action: &api.BatchAction_Deploy{
-							Deploy: &api.DeployRequest{
-								Environment:  "production",
-								Application:  "test",
-								Version:      2-i%2,  // alternate between 1 and 2
-								LockBehavior: api.LockBehavior_Fail,
-							},
-						},
-					})
-				}
+			Batch: getNBatchActions(maxBatchActions),
+			Test: func(t *testing.T, svc *BatchServer, actions []*api.BatchAction) {
 				_, err := svc.ProcessBatch(
 					context.Background(),
 					&api.BatchRequest{
-						Actions: ops,
+						Actions: actions,
 					},
 				)
 				if err != nil {
@@ -213,21 +228,34 @@ func TestBatchService(t *testing.T) {
 						t.Errorf("unexpected version: expected 2, actual: %d", *version)
 					}
 				}
-				// add one more action
-				ops = append(ops, &api.BatchAction{
-					Action: &api.BatchAction_Deploy{
-						Deploy: &api.DeployRequest{
-							Environment:  "production",
-							Application:  "test",
-							Version:      1,
-							LockBehavior: api.LockBehavior_Fail,
-						},
+			},
+		},
+		{
+			Name: "more than the maximum number of actions",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "production",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
 					},
-				})
-				_, err = svc.ProcessBatch(
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest2",
+					},
+				},
+			},
+			Batch: getNBatchActions(maxBatchActions + 1), // more than max
+			Test: func(t *testing.T, svc *BatchServer, actions []*api.BatchAction) {
+				_, err := svc.ProcessBatch(
 					context.Background(),
 					&api.BatchRequest{
-						Actions: ops,
+						Actions: actions,
 					},
 				)
 				if err == nil {
@@ -240,8 +268,9 @@ func TestBatchService(t *testing.T) {
 				if s.Code() != codes.InvalidArgument {
 					t.Errorf("invalid error code: expected %q, actual: %q", codes.InvalidArgument.String(), s.Code().String())
 				}
-				if s.Message() != "too many actions. limit is 100" {
-					t.Errorf("invalid error message: expected %q, actual: %q", "too many actions. limit is 100", s.Message())
+				expectedMessage := "cannot process batch: too many actions. limit is 100"
+				if s.Message() != expectedMessage {
+					t.Errorf("invalid error message: expected %q, actual: %q", expectedMessage, s.Message())
 				}
 			},
 		},
@@ -249,22 +278,7 @@ func TestBatchService(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-			repo, err := repository.NewWait(
-				context.Background(),
-				repository.Config{
-					URL:            remoteDir,
-					Path:           localDir,
-					CommitterEmail: "kuberpult@freiheit.com",
-					CommitterName:  "kuberpult",
-				},
-			)
+			repo, err := setupRepositoryTest(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -276,7 +290,30 @@ func TestBatchService(t *testing.T) {
 			svc := &BatchServer{
 				Repository: repo,
 			}
-			tc.Test(t, svc)
+			tc.Test(t, svc, tc.Batch)
 		})
 	}
+}
+
+func setupRepositoryTest (t *testing.T) (repository.Repository, error){
+	t.Parallel()
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	cmd.Start()
+	cmd.Wait()
+	repo, err := repository.NewWait(
+		context.Background(),
+		repository.Config{
+			URL:            remoteDir,
+			Path:           localDir,
+			CommitterEmail: "kuberpult@freiheit.com",
+			CommitterName:  "kuberpult",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo, nil
 }

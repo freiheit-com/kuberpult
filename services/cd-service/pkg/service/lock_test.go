@@ -19,8 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"os/exec"
-	"path"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -78,23 +76,8 @@ func TestLockingService(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
 			logs := testlogger.Wrap(context.Background(), func(ctx context.Context) {
-				dir := t.TempDir()
-				remoteDir := path.Join(dir, "remote")
-				localDir := path.Join(dir, "local")
-				cmd := exec.Command("git", "init", "--bare", remoteDir)
-				cmd.Start()
-				cmd.Wait()
-				repo, err := repository.NewWait(
-					context.Background(),
-					repository.Config{
-						URL:            remoteDir,
-						Path:           localDir,
-						CommitterEmail: "kuberpult@freiheit.com",
-						CommitterName:  "kuberpult",
-					},
-				)
+				repo, err := setupRepositoryTest(t)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -127,7 +110,7 @@ func TestInvalidCreateEnvironmentLockArguments(t *testing.T) {
 				LockId:      "lock",
 			},
 			ExpectedCode:    codes.InvalidArgument,
-			ExpectedMessage: "invalid environment",
+			ExpectedMessage: "cannot create environment lock: invalid environment: ''",
 		},
 		{
 			Name: "bad environment",
@@ -136,7 +119,7 @@ func TestInvalidCreateEnvironmentLockArguments(t *testing.T) {
 				LockId:      "lock",
 			},
 			ExpectedCode:    codes.InvalidArgument,
-			ExpectedMessage: "invalid environment",
+			ExpectedMessage: "cannot create environment lock: invalid environment: 'nöt äctually'",
 		},
 		{
 			Name: "empty lock id",
@@ -145,7 +128,7 @@ func TestInvalidCreateEnvironmentLockArguments(t *testing.T) {
 				LockId:      "",
 			},
 			ExpectedCode:    codes.InvalidArgument,
-			ExpectedMessage: "invalid lock id",
+			ExpectedMessage: "cannot create environment lock: invalid lock id: ''",
 		},
 		{
 			Name: "bad lock id",
@@ -154,7 +137,7 @@ func TestInvalidCreateEnvironmentLockArguments(t *testing.T) {
 				LockId:      "../",
 			},
 			ExpectedCode:    codes.InvalidArgument,
-			ExpectedMessage: "invalid lock id",
+			ExpectedMessage: "cannot create environment lock: invalid lock id: '../'",
 		},
 	}
 	for _, tc := range tcs {
@@ -201,7 +184,7 @@ func TestInvalidCreateEnvironmentApplicationLockArguments(t *testing.T) {
 				LockId:      "lock",
 			},
 			ExpectedCode:    codes.InvalidArgument,
-			ExpectedMessage: "invalid environment",
+			ExpectedMessage: "cannot create environment application lock: invalid environment: ''",
 		},
 		{
 			Name: "bad environment",
@@ -211,7 +194,7 @@ func TestInvalidCreateEnvironmentApplicationLockArguments(t *testing.T) {
 				LockId:      "lock",
 			},
 			ExpectedCode:    codes.InvalidArgument,
-			ExpectedMessage: "invalid environment",
+			ExpectedMessage: "cannot create environment application lock: invalid environment: 'nöt äctually'",
 		},
 		{
 			Name: "empty lock id",
@@ -221,7 +204,7 @@ func TestInvalidCreateEnvironmentApplicationLockArguments(t *testing.T) {
 				LockId:      "",
 			},
 			ExpectedCode:    codes.InvalidArgument,
-			ExpectedMessage: "invalid lock id",
+			ExpectedMessage: "cannot create environment application lock: invalid lock id: ''",
 		},
 		{
 			Name: "bad lock id",
@@ -231,7 +214,7 @@ func TestInvalidCreateEnvironmentApplicationLockArguments(t *testing.T) {
 				LockId:      "../",
 			},
 			ExpectedCode:    codes.InvalidArgument,
-			ExpectedMessage: "invalid lock id",
+			ExpectedMessage: "cannot create environment application lock: invalid lock id: '../'",
 		},
 	}
 	for _, tc := range tcs {
