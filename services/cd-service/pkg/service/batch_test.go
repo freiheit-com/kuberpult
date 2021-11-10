@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"os/exec"
@@ -97,12 +98,11 @@ func getNBatchActions(N int) []*api.BatchAction {
 	return ops
 }
 
-func TestBatchService(t *testing.T) {
+func TestBatchServiceWorks(t *testing.T) {
 	tcs := []struct {
 		Name  string
 		Batch []*api.BatchAction
 		Setup []repository.Transformer
-		Test  func(t *testing.T, svc *BatchServer, actions []*api.BatchAction)
 	}{
 		{
 			Name: "5 sample actions",
@@ -130,149 +130,6 @@ func TestBatchService(t *testing.T) {
 				},
 			},
 			Batch: getBatchActions(),
-			Test: func(t *testing.T, svc *BatchServer, actions []*api.BatchAction) {
-				_, err := svc.ProcessBatch(
-					context.Background(),
-					&api.BatchRequest{
-						Actions: actions,
-					},
-				)
-				if err != nil {
-					t.Fatal(err.Error())
-				}
-				// check deployment version
-				{
-					version, err := svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
-					if err != nil {
-						t.Fatal(err)
-					}
-					if version == nil || *version != 1 {
-						t.Errorf("unexpected version: expected 1, actual: %d", *version)
-					}
-				}
-				// check that the envlock was created/deleted
-				{
-					envLocks, err := svc.Repository.State().GetEnvironmentLocks("production")
-					if err != nil {
-						t.Fatal(err)
-					}
-					lock, exists := envLocks["envlock"]
-					if !exists {
-						t.Error("lock was not created")
-					}
-					if lock.Message != "please" {
-						t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
-					}
-					_, exists = envLocks["1234"]
-					if exists {
-						t.Error("lock was not deleted")
-					}
-				}
-				// check that the applock was created/deleted
-				{
-					appLocks, err := svc.Repository.State().GetEnvironmentApplicationLocks("production", "test")
-					if err != nil {
-						t.Fatal(err)
-					}
-					lock, exists := appLocks["applock"]
-					if !exists {
-						t.Error("lock was not created")
-					}
-					if lock.Message != "please" {
-						t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
-					}
-					_, exists = appLocks["5678"]
-					if exists {
-						t.Error("lock was not deleted")
-					}
-				}
-			},
-		},
-		{
-			Name: "exactly the maximum number of actions",
-			Setup: []repository.Transformer{
-				&repository.CreateEnvironment{
-					Environment: "production",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				},
-				&repository.CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						"production": "manifest",
-					},
-				},
-				&repository.CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						"production": "manifest2",
-					},
-				},
-			},
-			Batch: getNBatchActions(maxBatchActions),
-			Test: func(t *testing.T, svc *BatchServer, actions []*api.BatchAction) {
-				_, err := svc.ProcessBatch(
-					context.Background(),
-					&api.BatchRequest{
-						Actions: actions,
-					},
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
-				{
-					version, err := svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
-					if err != nil {
-						t.Fatal(err)
-					}
-					if version == nil || *version != 2 {
-						t.Errorf("unexpected version: expected 2, actual: %d", *version)
-					}
-				}
-			},
-		},
-		{
-			Name: "more than the maximum number of actions",
-			Setup: []repository.Transformer{
-				&repository.CreateEnvironment{
-					Environment: "production",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				},
-				&repository.CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						"production": "manifest",
-					},
-				},
-				&repository.CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						"production": "manifest2",
-					},
-				},
-			},
-			Batch: getNBatchActions(maxBatchActions + 1), // more than max
-			Test: func(t *testing.T, svc *BatchServer, actions []*api.BatchAction) {
-				_, err := svc.ProcessBatch(
-					context.Background(),
-					&api.BatchRequest{
-						Actions: actions,
-					},
-				)
-				if err == nil {
-					t.Fatal("expected an error but got none")
-				}
-				s, ok := status.FromError(err)
-				if !ok {
-					t.Fatalf("error is not a status error, got: %#v", err)
-				}
-				if s.Code() != codes.InvalidArgument {
-					t.Errorf("invalid error code: expected %q, actual: %q", codes.InvalidArgument.String(), s.Code().String())
-				}
-				expectedMessage := "cannot process batch: too many actions. limit is 100"
-				if s.Message() != expectedMessage {
-					t.Errorf("invalid error message: expected %q, actual: %q", expectedMessage, s.Message())
-				}
-			},
 		},
 	}
 	for _, tc := range tcs {
@@ -290,10 +147,157 @@ func TestBatchService(t *testing.T) {
 			svc := &BatchServer{
 				Repository: repo,
 			}
-			tc.Test(t, svc, tc.Batch)
+			_, err = svc.ProcessBatch(
+				context.Background(),
+				&api.BatchRequest{
+					Actions: actions,
+				},
+			)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			// check deployment version
+			{
+				version, err := svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if version == nil || *version != 1 {
+					t.Errorf("unexpected version: expected 1, actual: %d", *version)
+				}
+			}
+			// check that the envlock was created/deleted
+			{
+				envLocks, err := svc.Repository.State().GetEnvironmentLocks("production")
+				if err != nil {
+					t.Fatal(err)
+				}
+				lock, exists := envLocks["envlock"]
+				if !exists {
+					t.Error("lock was not created")
+				}
+				if lock.Message != "please" {
+					t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
+				}
+				_, exists = envLocks["1234"]
+				if exists {
+					t.Error("lock was not deleted")
+				}
+			}
+			// check that the applock was created/deleted
+			{
+				appLocks, err := svc.Repository.State().GetEnvironmentApplicationLocks("production", "test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				lock, exists := appLocks["applock"]
+				if !exists {
+					t.Error("lock was not created")
+				}
+				if lock.Message != "please" {
+					t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
+				}
+				_, exists = appLocks["5678"]
+				if exists {
+					t.Error("lock was not deleted")
+				}
+			}
+
 		})
 	}
 }
+
+func TestBatchServiceLimit(t *testing.T) {
+	transformers := []repository.Transformer{
+		&repository.CreateEnvironment{
+			Environment: "production",
+			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+		},
+		&repository.CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				"production": "manifest",
+			},
+		},
+		&repository.CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				"production": "manifest2",
+			},
+		},
+	}
+	var two uint64 = 2
+	tcs := []struct {
+		Name  string
+		Batch []*api.BatchAction
+		Setup []repository.Transformer
+		ShouldSucceed bool
+		ExpectedVersion *uint64
+	}{
+		{
+			Name:          "exactly the maximum number of actions",
+			Setup:         transformers,
+			ShouldSucceed: true,
+			Batch:         getNBatchActions(maxBatchActions),
+			ExpectedVersion: &two,
+		},
+		{
+			Name:          "more than the maximum number of actions",
+			Setup:         transformers,
+			ShouldSucceed: false,
+			Batch:         getNBatchActions(maxBatchActions + 1), // more than max
+			ExpectedVersion: nil,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(context.Background(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+			svc := &BatchServer{
+				Repository: repo,
+			}
+			_, err = svc.ProcessBatch(
+				context.Background(),
+				&api.BatchRequest{
+					Actions: actions,
+				},
+			)
+			if tc.ShouldSucceed {
+				if err == nil {
+					t.Fatal("expected an error but got none")
+				}
+				s, ok := status.FromError(err)
+				if !ok {
+					t.Fatalf("error is not a status error, got: %#v", err)
+				}
+				expectedMessage := fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions)
+				if s.Message() != expectedMessage {
+					t.Errorf("invalid error message: expected %q, actual: %q", expectedMessage, s.Message())
+				}
+			} else {
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			version, err := svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if version != tc.ExpectedVersion {
+				t.Errorf("unexpected version: expected %d, actual: %d", *tc.ExpectedVersion, *version)
+			}
+		})
+	}
+}
+
 
 func setupRepositoryTest (t *testing.T) (repository.Repository, error){
 	t.Parallel()
