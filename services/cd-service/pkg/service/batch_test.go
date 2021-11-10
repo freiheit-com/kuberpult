@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"os/exec"
 	"path"
@@ -150,7 +149,7 @@ func TestBatchServiceWorks(t *testing.T) {
 			_, err = svc.ProcessBatch(
 				context.Background(),
 				&api.BatchRequest{
-					Actions: actions,
+					Actions: tc.Batch,
 				},
 			)
 			if err != nil {
@@ -162,7 +161,10 @@ func TestBatchServiceWorks(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if version == nil || *version != 1 {
+				if version == nil {
+					t.Errorf("unexpected version: expected 1, actual: %d", version)
+				}
+				if *version != 1 {
 					t.Errorf("unexpected version: expected 1, actual: %d", *version)
 				}
 			}
@@ -267,10 +269,10 @@ func TestBatchServiceLimit(t *testing.T) {
 			_, err = svc.ProcessBatch(
 				context.Background(),
 				&api.BatchRequest{
-					Actions: actions,
+					Actions: tc.Batch,
 				},
 			)
-			if tc.ShouldSucceed {
+			if !tc.ShouldSucceed {
 				if err == nil {
 					t.Fatal("expected an error but got none")
 				}
@@ -286,20 +288,22 @@ func TestBatchServiceLimit(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-			}
-			version, err := svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if version != tc.ExpectedVersion {
-				t.Errorf("unexpected version: expected %d, actual: %d", *tc.ExpectedVersion, *version)
+				version, err := svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if version == nil {
+					t.Errorf("unexpected version: expected %d, actual: %d", *tc.ExpectedVersion, version)
+				}
+				if *version != *tc.ExpectedVersion {
+					t.Errorf("unexpected version: expected %d, actual: %d", *tc.ExpectedVersion, *version)
+				}
 			}
 		})
 	}
 }
 
-
-func setupRepositoryTest (t *testing.T) (repository.Repository, error){
+func setupRepositoryTest(t *testing.T) (repository.Repository, error){
 	t.Parallel()
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")

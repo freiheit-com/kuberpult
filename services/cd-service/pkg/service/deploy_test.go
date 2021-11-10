@@ -63,7 +63,10 @@ func TestDeployService(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if version == nil || *version != 1 {
+					if version == nil {
+						t.Errorf("unexpected version: expected 1, actual: %d", version)
+					}
+					if *version != 1 {
 						t.Errorf("unexpected version: expected 1, actual: %d", *version)
 					}
 				}
