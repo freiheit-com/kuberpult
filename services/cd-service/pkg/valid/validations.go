@@ -23,12 +23,12 @@ import (
 
 var (
 	applicationNameRx = regexp.MustCompile(`\A[a-z0-9]+(?:-[a-z0-9]+)*\z`)
-	envNameRx         = regexp.MustCompile(`\A[a-z0-9]{1,20}\z`)
+	envNameRx         = regexp.MustCompile(`\A[a-z0-9]+(?:-[a-z0-9]+)*\z`)
 )
 
 // {application}-{environemnt} should be a valid dns name
 func EnvironmentName(env string) bool {
-	return envNameRx.MatchString(env)
+	return len(env) < 21 && envNameRx.MatchString(env)
 }
 func ApplicationName(name string) bool {
 	return len(name) < 40 && applicationNameRx.MatchString(name)
