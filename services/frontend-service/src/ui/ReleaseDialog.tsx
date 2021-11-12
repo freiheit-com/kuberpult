@@ -45,6 +45,8 @@ import { useUnaryCallback } from './Api';
 import type { GetOverviewResponse, Application, Lock } from '../api/api';
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
+import { SimpleDialog, useBatch } from './Batch';
+import { useCallback } from 'react';
 
 type Data = { applicationName: string; version: number };
 export const Context = React.createContext<{ setData: (d: Data | null) => void }>({
@@ -204,7 +206,7 @@ export const CreateLockButton = (props: { applicationName?: string; environmentN
     }
 };
 
-const DeployButton = (props: {
+export const DeployButton = (props: {
     version: number;
     currentlyDeployedVersion: number;
     deployEnv: () => void;
@@ -265,18 +267,18 @@ const ReleaseEnvironment = (props: {
 }) => {
     const { overview, applicationName, version, environmentName } = props;
     // deploy
-    const [deployEnv, deployEnvState] = useUnaryCallback(
-        React.useCallback(
-            (api) =>
-                api.deployService().Deploy({
-                    application: applicationName,
-                    version: version,
-                    environment: environmentName,
-                    lockBehavior: LockBehavior.Ignore,
-                }),
-            [applicationName, version, environmentName]
-        )
-    );
+    const [deployEnv, deployEnvState] = useBatch({
+        action: {
+            $case: 'deploy',
+            deploy: {
+                application: applicationName,
+                version: version,
+                environment: environmentName,
+                ignoreAllLocks: false,
+                lockBehavior: LockBehavior.Ignore,
+            },
+        },
+    });
     const currentlyDeployedVersion = overview.environments[environmentName].applications[applicationName]?.version;
     const queuedVersion = overview.environments[environmentName].applications[applicationName]?.queuedVersion;
     const hasQueue = queuedVersion !== 0;
@@ -296,16 +298,32 @@ const ReleaseEnvironment = (props: {
     const envLocks = Object.entries(overview.environments[environmentName].locks ?? {});
     const appLocks = Object.entries(overview.environments[environmentName]?.applications[applicationName]?.locks ?? {});
     const locked = envLocks.length > 0 || appLocks.length > 0;
+
+    const [openInner, setOpenInner] = React.useState(false);
+
+    const handleClose = useCallback(() => {
+        setOpenInner(false);
+    }, [setOpenInner]);
+
+    const handleClickOpen = useCallback(() => {
+        setOpenInner(true);
+    }, [setOpenInner]);
+
     const button = (
-        <DeployButton
-            currentlyDeployedVersion={currentlyDeployedVersion}
-            version={version}
-            state={deployEnvState.state}
-            deployEnv={deployEnv}
-            locked={locked}
-            prefix={'Deploy '}
-            hasQueue={hasQueue}
-        />
+        <>
+            <Button onClick={handleClickOpen}>Deploy</Button>
+            <SimpleDialog
+                open={openInner}
+                onClose={handleClose}
+                currentlyDeployedVersion={currentlyDeployedVersion}
+                version={version}
+                state={deployEnvState.state}
+                deployEnv={deployEnv}
+                locked={locked}
+                prefix={'Deploy '}
+                hasQueue={hasQueue}
+            />
+        </>
     );
 
     let currentInfo;
