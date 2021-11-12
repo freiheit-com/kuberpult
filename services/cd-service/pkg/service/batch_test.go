@@ -53,13 +53,13 @@ func getBatchActions () []*api.BatchAction{
 			Message:     "please",
 		},
 	}
-	opDeleteEnvLock := &api.BatchAction_DeleteEnvironmentLock{  // this deletes the existing lock
+	opDeleteEnvLock := &api.BatchAction_DeleteEnvironmentLock{  // this deletes the existing lock in the transformers
 		DeleteEnvironmentLock: &api.DeleteEnvironmentLockRequest{
 			Environment: "production",
 			LockId:      "1234",
 		},
 	}
-	opDeleteAppLock := &api.BatchAction_DeleteEnvironmentApplicationLock{  // this deletes the existing lock
+	opDeleteAppLock := &api.BatchAction_DeleteEnvironmentApplicationLock{  // this deletes the existing lock in the transformers
 		DeleteEnvironmentApplicationLock: &api.DeleteEnvironmentApplicationLockRequest{
 			Environment: "production",
 			Application: "test",
@@ -116,12 +116,12 @@ func TestBatchServiceWorks(t *testing.T) {
 						"production": "manifest",
 					},
 				},
-				&repository.CreateEnvironmentLock{   // will be deleted
+				&repository.CreateEnvironmentLock{   // will be deleted by the batch actions
 					Environment: "production",
 					LockId: "1234",
 					Message: "EnvLock",
 				},
-				&repository.CreateEnvironmentApplicationLock{  // will be deleted
+				&repository.CreateEnvironmentApplicationLock{  // will be deleted by the batch actions
 					Environment: "production",
 					Application: "test",
 					LockId: "5678",
