@@ -19,8 +19,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
-
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
@@ -37,11 +35,8 @@ func (d *DeployServiceServer) Deploy(
 	ctx context.Context,
 	in *api.DeployRequest,
 ) (*emptypb.Empty, error) {
-	if !valid.EnvironmentName(in.Environment) {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid environment %q", in.Environment))
-	}
-	if !valid.ApplicationName(in.Application) {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid application %q", in.Application))
+	if err := ValidateDeployment(in.Environment, in.Application); err != nil {
+		return nil, err
 	}
 	b := in.LockBehavior
 	if in.IgnoreAllLocks {

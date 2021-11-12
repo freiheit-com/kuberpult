@@ -18,8 +18,6 @@ package service
 
 import (
 	"context"
-	"os/exec"
-	"path"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -65,7 +63,10 @@ func TestDeployService(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if version == nil || *version != 1 {
+					if version == nil {
+						t.Errorf("unexpected version: expected 1, actual: %d", version)
+					}
+					if *version != 1 {
 						t.Errorf("unexpected version: expected 1, actual: %d", *version)
 					}
 				}
@@ -113,7 +114,7 @@ func TestDeployService(t *testing.T) {
 				}
 				details := stat.Details()
 				if len(details) == 0 {
-					t.Fatalf("error is not a status error, but has no details: %s", err.Error())
+					t.Fatalf("error is a status error, but has no details: %s", err.Error())
 				}
 				lockErr := details[0].(*api.LockedError)
 				if _, ok := lockErr.EnvironmentLocks["a"]; !ok {
@@ -128,22 +129,7 @@ func TestDeployService(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-			repo, err := repository.NewWait(
-				context.Background(),
-				repository.Config{
-					URL:            remoteDir,
-					Path:           localDir,
-					CommitterEmail: "kuberpult@freiheit.com",
-					CommitterName:  "kuberpult",
-				},
-			)
+			repo, err := setupRepositoryTest(t)
 			if err != nil {
 				t.Fatal(err)
 			}
