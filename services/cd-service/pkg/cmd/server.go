@@ -107,6 +107,9 @@ func RunServer() {
 		deploySrv := &service.DeployServiceServer{
 			Repository: repo,
 		}
+		batchSrv := &service.BatchServer{
+			Repository: repo,
+		}
 
 		grpcProxy := runtime.NewServeMux()
 		err = api.RegisterLockServiceHandlerServer(ctx, grpcProxy, lockSrv)
@@ -116,6 +119,10 @@ func RunServer() {
 		err = api.RegisterDeployServiceHandlerServer(ctx, grpcProxy, deploySrv)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("grpc.deployService.register", zap.Error(err))
+		}
+		err = api.RegisterBatchServiceHandlerServer(ctx, grpcProxy, batchSrv)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("grpc.batchService.register", zap.Error(err))
 		}
 
 		repositoryService := &service.Service{
@@ -159,6 +166,8 @@ func RunServer() {
 					api.RegisterLockServiceServer(srv, lockSrv)
 
 					api.RegisterDeployServiceServer(srv, deploySrv)
+
+					api.RegisterBatchServiceServer(srv, batchSrv)
 
 					envSrv := &service.EnvironmentServiceServer{
 						Repository: repo,
