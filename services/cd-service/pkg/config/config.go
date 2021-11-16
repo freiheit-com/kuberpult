@@ -17,8 +17,19 @@ Copyright 2021 freiheit.com*/
 package config
 
 type EnvironmentConfig struct {
-	Upstream *EnvironmentConfigUpstream `json:"upstream,omitempty"`
-	ArgoCd   *EnvironmentConfigArgoCd   `json:"argocd,omitempty"`
+	Upstream          *EnvironmentConfigUpstream `json:"upstream,omitempty"`
+	ArgoCd            *EnvironmentConfigArgoCd   `json:"argocd,omitempty"`
+	// A list of fallbacks to use if no manifest is defined for this environment.
+	//
+	// This can be used in two scenarios:
+	//
+	//  1. Provisioning a new environment that is mostly a copy of an existing one.
+	//  2. Renaming an existing environment.
+	//
+	// When kuberpult is picking the manifests to deploy to an environment and it 
+	// cannot find manifests for the environment name, then it will also search for 
+	// manifests with a name from this list.
+	ManifestFallbacks []string                   `json:"manifestFallbacks"`
 }
 
 type EnvironmentConfigUpstream struct {

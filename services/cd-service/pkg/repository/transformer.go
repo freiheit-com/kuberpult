@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"sort"
 	"strconv"
@@ -97,8 +98,18 @@ func (c *CreateApplicationVersion) Transform(fs billy.Filesystem) (string, error
 		}
 
 		configs, err := (&State{Filesystem: fs}).GetEnvironmentConfigs()
+
 		if err != nil {
 			return "", err
+		}
+
+		aliases := map[string][]string{}
+
+		for name, config := range configs {
+			aliases[name] = append(aliases[name], name)
+			for _, alias := range config.ManifestFallbacks {
+				aliases[alias] = append(aliases[alias], name)
+			}
 		}
 
 		if c.SourceCommitId != "" {
@@ -407,20 +418,39 @@ type DeployApplicationVersion struct {
 	LockBehaviour api.LockBehavior
 }
 
-func (c *DeployApplicationVersion) Transform(fs billy.Filesystem) (string, error) {
+func (c *DeployApplicationVersion) Transform(gfs billy.Filesystem) (string, error) {
 	// Check that the release exist and fetch manifest
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
-	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
+	state := &State{Filesystem: gfs}
+	config, err := state.GetEnvironmentConfig(c.Environment)
+	if err != nil {
+		return "", err
+	}
+	releaseDir := releasesDirectoryWithVersion(gfs, c.Application, c.Version)
+	manifestSearchPath := append([]string{c.Environment}, config.ManifestFallbacks...)
+
 	manifestContent := []byte{}
-	if file, err := fs.Open(manifest); err != nil {
-		return "", wrapFileError(err, manifest, "could not open manifest")
-	} else {
-		if content, err := io.ReadAll(file); err != nil {
-			return "", err
+	manifestFound := false
+
+	for _, manifestName := range manifestSearchPath {
+		manifest := gfs.Join(releaseDir, "environments", manifestName, "manifests.yaml")
+		if file, err := gfs.Open(manifest); err != nil {
+			if !errors.Is(err, fs.ErrNotExist) {
+				return "", wrapFileError(err, manifest, "could not open manifest")
+			}
 		} else {
-			manifestContent = content
+			if content, err := io.ReadAll(file); err != nil {
+				file.Close()
+				return "", err
+			} else {
+				manifestContent = content
+				manifestFound = true
+			}
+			file.Close()
 		}
-		file.Close()
+	}
+
+	if !manifestFound {
+		return "", wrapFileError(fs.ErrNotExist, gfs.Join(releaseDir, "environments", c.Environment, "manifests.yaml"), "could not open manifest")
 	}
 
 	if c.LockBehaviour != api.LockBehavior_Ignore {
@@ -429,11 +459,11 @@ func (c *DeployApplicationVersion) Transform(fs billy.Filesystem) (string, error
 			envLocks, appLocks map[string]Lock
 			err                error
 		)
-		envLocks, err = (&State{Filesystem: fs}).GetEnvironmentLocks(c.Environment)
+		envLocks, err = state.GetEnvironmentLocks(c.Environment)
 		if err != nil {
 			return "", err
 		}
-		appLocks, err = (&State{Filesystem: fs}).GetEnvironmentApplicationLocks(c.Environment, c.Application)
+		appLocks, err = state.GetEnvironmentApplicationLocks(c.Environment, c.Application)
 		if err != nil {
 			return "", err
 		}
@@ -445,7 +475,7 @@ func (c *DeployApplicationVersion) Transform(fs billy.Filesystem) (string, error
 					Application: c.Application,
 					Version:     c.Version,
 				}
-				return q.Transform(fs)
+				return q.Transform(gfs)
 			case api.LockBehavior_Fail:
 				return "", &LockedError{
 					EnvironmentApplicationLocks: appLocks,
@@ -457,36 +487,33 @@ func (c *DeployApplicationVersion) Transform(fs billy.Filesystem) (string, error
 		}
 	}
 	// Create a symlink to the release
-	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
-	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
+	applicationDir := gfs.Join("environments", c.Environment, "applications", c.Application)
+	if err := gfs.MkdirAll(applicationDir, 0777); err != nil {
 		return "", err
 	}
-	versionFile := fs.Join(applicationDir, "version")
-	if err := fs.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+	versionFile := gfs.Join(applicationDir, "version")
+	if err := gfs.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
 	}
-	if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
+	if err := gfs.Symlink(gfs.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
 		return "", err
 	}
 	// Copy the manifest for argocd
-	manifestsDir := fs.Join(applicationDir, "manifests")
-	if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
+	manifestsDir := gfs.Join(applicationDir, "manifests")
+	if err := gfs.MkdirAll(manifestsDir, 0777); err != nil {
 		return "", err
 	}
-	if err := util.WriteFile(fs, fs.Join(manifestsDir, "manifests.yaml"), manifestContent, 0666); err != nil {
+	if err := util.WriteFile(gfs, gfs.Join(manifestsDir, "manifests.yaml"), manifestContent, 0666); err != nil {
 		return "", err
 	}
-	s := State{
-		Filesystem: fs,
-	}
-	err := s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
+	err = state.DeleteQueuedVersionIfExists(c.Environment, c.Application)
 	if err != nil {
 		return "", err
 	}
 	d := &CleanupOldApplicationVersions{
 		Application: c.Application,
 	}
-	transform, err := d.Transform(fs)
+	transform, err := d.Transform(gfs)
 	if err != nil {
 		return "", err
 	}
