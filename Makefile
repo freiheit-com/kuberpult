@@ -16,6 +16,7 @@
 #Copyright 2021 freiheit.com
 MAKEFLAGS += --no-builtin-rules
 
+SCRIPTS_BASE:=infrastructure/scripts/make
 CODE_REVIEWER_LOCATION?=$(HOME)/bin/codereviewr
 
 VERSION=$(shell cat version)
