@@ -1,10 +1,5 @@
 name: "Codereviewr Check"
-
-on:
-  pull_request:
-    branches:
-      - master
-
+on: [push]
 jobs:
   known_filenames:
     runs-on: ubuntu-latest
