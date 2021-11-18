@@ -3,7 +3,7 @@ name: "Codereviewr Submit"
 on:
   push:
     branches:
-      - master
+      - main
 
 concurrency: 'codereviewr-submit-main'
 
