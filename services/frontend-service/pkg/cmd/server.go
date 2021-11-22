@@ -65,7 +65,7 @@ func RunServer() {
 			LockClient:     api.NewLockServiceClient(con),
 			OverviewClient: api.NewOverviewServiceClient(con),
 			DeployClient:   api.NewDeployServiceClient(con),
-			BatchClient: api.NewBatchServiceClient(con),
+			BatchClient:    api.NewBatchServiceClient(con),
 		}
 		api.RegisterLockServiceServer(gsrv, &gproxy)
 		api.RegisterOverviewServiceServer(gsrv, &gproxy)
@@ -139,7 +139,7 @@ type GrpcProxy struct {
 	LockClient     api.LockServiceClient
 	OverviewClient api.OverviewServiceClient
 	DeployClient   api.DeployServiceClient
-	BatchClient		api.BatchServiceClient
+	BatchClient    api.BatchServiceClient
 }
 
 func (p *GrpcProxy) ProcessBatch(
