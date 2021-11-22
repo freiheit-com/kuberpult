@@ -88,7 +88,7 @@ func RunServer() {
 
 		mux := http.NewServeMux()
 		mux.Handle("/environments/", grpcProxy)
-		mux.Handle("/batches/", grpcProxy)
+		mux.Handle("/batches", grpcProxy)
 		mux.Handle("/", http.FileServer(http.Dir("build")))
 
 		httpSrv := &setup.CORSMiddleware{
