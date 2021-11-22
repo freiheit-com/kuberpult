@@ -1,0 +1,29 @@
+name: "Codereviewr Submit"
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency: 'codereviewr-submit-main'
+
+jobs:
+  submit_code_analysis:
+    name: Submit Codereviewr Analysis
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0 # Since codereviewer wants to analyse the whole pull-request.
+    - name: Codereviewr Download
+      env:
+        CODE_REVIEWER_LOCATION: ${{ github.workspace }}/bin
+      run: make analyze/download
+    - name: Codereviewr Submit
+      env:
+        FROM: ${{ github.event.before }}
+        CODE_REVIEWER_LOCATION: ${{ github.workspace }}/bin
+        CODEREVIEWR_TOKEN: ${{ secrets.FDC_CODE_REVIEWER_TOKEN }}
+      run: |
+        echo "analysing since commit '$FROM'"
+        make analyze/merge
