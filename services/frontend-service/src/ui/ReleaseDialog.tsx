@@ -29,24 +29,21 @@ import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import Grid from '@material-ui/core/Grid';
-import Grow from '@material-ui/core/Grow';
 import IconButton from '@material-ui/core/IconButton';
 import EqualIcon from '@material-ui/icons/DragHandle';
 import Paper from '@material-ui/core/Paper';
 import LockIcon from '@material-ui/icons/Lock';
-import AddLockIcon from '@material-ui/icons/EnhancedEncryption';
-import TextField from '@material-ui/core/TextField';
 import Tooltip from '@material-ui/core/Tooltip';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Typography from '@material-ui/core/Typography';
 
 import { useUnaryCallback } from './Api';
 
-import type { GetOverviewResponse, Application, Lock } from '../api/api';
+import type { GetOverviewResponse, Application, Lock, BatchAction } from '../api/api';
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
-import { SimpleDialog, useBatch } from './Batch';
-import { useCallback } from 'react';
+import { SimpleDialog } from './Batch';
+import { useCallback, useMemo } from 'react';
 
 type Data = { applicationName: string; version: number };
 export const Context = React.createContext<{ setData: (d: Data | null) => void }>({
@@ -131,132 +128,48 @@ export const randomLockId = () => 'ui-' + Math.random().toString(36).substring(7
 
 export const CreateLockButton = (props: { applicationName?: string; environmentName: string }) => {
     const { applicationName, environmentName } = props;
-    const [open, setOpen] = React.useState(false);
+    const [messageBox, setMessageBox] = React.useState(false);
     const [message, setMessage] = React.useState('');
-    const [lock, lockState] = useUnaryCallback(
-        React.useCallback(
-            (api) =>
-                applicationName
-                    ? api
-                          .lockService()
-                          .CreateEnvironmentApplicationLock({
-                              application: applicationName,
-                              environment: environmentName,
-                              lockId: randomLockId(),
-                              message: message,
-                          })
-                          .finally(() => setOpen(false))
-                    : api
-                          .lockService()
-                          .CreateEnvironmentLock({
-                              environment: environmentName,
-                              lockId: randomLockId(),
-                              message: message,
-                          })
-                          .finally(() => setOpen(false)),
-            [applicationName, environmentName, message, setOpen]
-        )
-    );
-    const updateMessage = React.useCallback((e) => setMessage(e.target.value), [setMessage]);
-    const openInput = React.useCallback(() => setOpen(true), [setOpen]);
-    switch (lockState.state) {
-        case 'waiting':
-        case 'resolved':
-            if (open) {
-                return (
-                    <Grow in={open} style={{ transformOrigin: 'right center' }}>
-                        {applicationName ? (
-                            <ButtonGroup className="overlay">
-                                <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
-                                <IconButton onClick={lock} disabled={message === ''}>
-                                    <AddLockIcon />
-                                </IconButton>
-                            </ButtonGroup>
-                        ) : (
-                            <ButtonGroup className="overlay">
-                                <Button onClick={lock} disabled={message === ''}>
-                                    Add Lock
-                                </Button>
-                                <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
-                            </ButtonGroup>
-                        )}
-                    </Grow>
-                );
-            } else {
-                return applicationName ? (
-                    <Tooltip title="Add lock">
-                        <IconButton onClick={openInput}>
-                            <AddLockIcon />
-                        </IconButton>
-                    </Tooltip>
-                ) : (
-                    <Button onClick={openInput}>Add Lock</Button>
-                );
-            }
-        case 'pending':
-            return applicationName ? (
-                <IconButton disabled>
-                    <AddLockIcon />
-                </IconButton>
-            ) : (
-                <Button disabled>Add Lock</Button>
-            );
-        case 'rejected':
-            return applicationName ? <IconButton>Failed</IconButton> : <Button>Failed</Button>;
-    }
-};
 
-export const DeployButton = (props: {
-    version: number;
-    currentlyDeployedVersion: number;
-    deployEnv: () => void;
-    state: string;
-    locked: boolean;
-    prefix: string;
-    hasQueue: boolean;
-}) => {
-    const { version, currentlyDeployedVersion, deployEnv, state, locked, prefix, hasQueue } = props;
-    const queueMessage = hasQueue ? 'Deploying will also remove the Queue' : '';
-    if (version === currentlyDeployedVersion) {
-        return (
-            <Button variant="contained" disabled>
-                {prefix + currentlyDeployedVersion}
-            </Button>
-        );
-    } else {
-        switch (state) {
-            case 'waiting':
-                return (
-                    <Tooltip title={queueMessage}>
-                        <Button variant="contained" onClick={deployEnv} className={locked ? 'warning' : ''}>
-                            {prefix + version}
-                        </Button>
-                    </Tooltip>
-                );
-            case 'pending':
-                return (
-                    <Button variant="contained" disabled>
-                        <CircularProgress size={20} />
-                    </Button>
-                );
-            case 'resolved':
-                return (
-                    <Tooltip title={queueMessage}>
-                        <Button variant="contained" disabled>
-                            {prefix + currentlyDeployedVersion}
-                        </Button>
-                    </Tooltip>
-                );
-            case 'rejected':
-                return (
-                    <Button variant="contained" disabled>
-                        Failed
-                    </Button>
-                );
-            default:
-                return null;
-        }
-    }
+    const act: BatchAction = useMemo(
+        () => ({
+            action: applicationName
+                ? {
+                      $case: 'createEnvironmentApplicationLock',
+                      createEnvironmentApplicationLock: {
+                          application: applicationName,
+                          environment: environmentName,
+                          lockId: randomLockId(),
+                          message: message,
+                      },
+                  }
+                : {
+                      $case: 'createEnvironmentLock',
+                      createEnvironmentLock: {
+                          environment: environmentName,
+                          lockId: randomLockId(),
+                          message: message,
+                      },
+                  },
+        }),
+        [applicationName, environmentName, message]
+    );
+
+    const fin = useCallback(() => {
+        setMessageBox(false);
+    }, [setMessageBox]);
+
+    return (
+        <SimpleDialog
+            action={act}
+            message={message}
+            setMessage={setMessage}
+            messageBox={messageBox}
+            setMessageBox={setMessageBox}
+            applicationName={applicationName}
+            fin={fin}
+        />
+    );
 };
 
 const ReleaseEnvironment = (props: {
@@ -267,18 +180,21 @@ const ReleaseEnvironment = (props: {
 }) => {
     const { overview, applicationName, version, environmentName } = props;
     // deploy
-    const [deployEnv, deployEnvState] = useBatch({
-        action: {
-            $case: 'deploy',
-            deploy: {
-                application: applicationName,
-                version: version,
-                environment: environmentName,
-                ignoreAllLocks: false,
-                lockBehavior: LockBehavior.Ignore,
+    const act: BatchAction = useMemo(
+        () => ({
+            action: {
+                $case: 'deploy',
+                deploy: {
+                    application: applicationName,
+                    version: version,
+                    environment: environmentName,
+                    ignoreAllLocks: false,
+                    lockBehavior: LockBehavior.Ignore,
+                },
             },
-        },
-    });
+        }),
+        [applicationName, version, environmentName]
+    );
     const currentlyDeployedVersion = overview.environments[environmentName].applications[applicationName]?.version;
     const queuedVersion = overview.environments[environmentName].applications[applicationName]?.queuedVersion;
     const hasQueue = queuedVersion !== 0;
@@ -299,31 +215,13 @@ const ReleaseEnvironment = (props: {
     const appLocks = Object.entries(overview.environments[environmentName]?.applications[applicationName]?.locks ?? {});
     const locked = envLocks.length > 0 || appLocks.length > 0;
 
-    const [openInner, setOpenInner] = React.useState(false);
-
-    const handleClose = useCallback(() => {
-        setOpenInner(false);
-    }, [setOpenInner]);
-
-    const handleClickOpen = useCallback(() => {
-        setOpenInner(true);
-    }, [setOpenInner]);
-
     const button = (
-        <>
-            <Button onClick={handleClickOpen}>Deploy</Button>
-            <SimpleDialog
-                open={openInner}
-                onClose={handleClose}
-                currentlyDeployedVersion={currentlyDeployedVersion}
-                version={version}
-                state={deployEnvState.state}
-                deployEnv={deployEnv}
-                locked={locked}
-                prefix={'Deploy '}
-                hasQueue={hasQueue}
-            />
-        </>
+        <SimpleDialog
+            currentlyDeployedVersion={currentlyDeployedVersion}
+            locked={locked}
+            action={act}
+            hasQueue={hasQueue}
+        />
     );
 
     let currentInfo;
