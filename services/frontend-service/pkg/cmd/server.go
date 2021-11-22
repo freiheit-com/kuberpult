@@ -65,10 +65,12 @@ func RunServer() {
 			LockClient:     api.NewLockServiceClient(con),
 			OverviewClient: api.NewOverviewServiceClient(con),
 			DeployClient:   api.NewDeployServiceClient(con),
+			BatchClient:    api.NewBatchServiceClient(con),
 		}
 		api.RegisterLockServiceServer(gsrv, &gproxy)
 		api.RegisterOverviewServiceServer(gsrv, &gproxy)
 		api.RegisterDeployServiceServer(gsrv, &gproxy)
+		api.RegisterBatchServiceServer(gsrv, &gproxy)
 
 		grpcProxy := runtime.NewServeMux()
 		err = api.RegisterLockServiceHandlerServer(ctx, grpcProxy, &gproxy)
@@ -79,9 +81,14 @@ func RunServer() {
 		if err != nil {
 			logger.FromContext(ctx).Fatal("grpc.deployService.register", zap.Error(err))
 		}
+		err = api.RegisterBatchServiceHandlerServer(ctx, grpcProxy, &gproxy)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("grpc.batchService.register", zap.Error(err))
+		}
 
 		mux := http.NewServeMux()
 		mux.Handle("/environments/", grpcProxy)
+		mux.Handle("/batches", grpcProxy)
 		mux.Handle("/", http.FileServer(http.Dir("build")))
 
 		httpSrv := &setup.CORSMiddleware{
@@ -132,6 +139,13 @@ type GrpcProxy struct {
 	LockClient     api.LockServiceClient
 	OverviewClient api.OverviewServiceClient
 	DeployClient   api.DeployServiceClient
+	BatchClient    api.BatchServiceClient
+}
+
+func (p *GrpcProxy) ProcessBatch(
+	ctx context.Context,
+	in *api.BatchRequest) (*emptypb.Empty, error) {
+	return p.BatchClient.ProcessBatch(ctx, in)
 }
 
 func (p *GrpcProxy) CreateEnvironmentLock(
