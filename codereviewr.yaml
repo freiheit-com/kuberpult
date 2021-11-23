@@ -129,7 +129,7 @@ languagesConfig:
     tabs: 1
     spaces: 4
   Plain Text:
-    ext: ["OWNERS", "OWNER", ".txt", "VERSION"]
+    ext: ["OWNERS", "OWNER", ".txt", "VERSION", "version"]
     tabs: 1
     spaces: 1
   YAML:
