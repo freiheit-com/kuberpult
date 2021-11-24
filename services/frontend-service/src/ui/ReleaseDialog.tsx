@@ -42,8 +42,10 @@ import { useUnaryCallback } from './Api';
 import type { GetOverviewResponse, Application, Lock, BatchAction } from '../api/api';
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
-import { SimpleDialog } from './Batch';
+import { ConfirmationDialogProvider } from './Batch';
 import { useCallback, useMemo } from 'react';
+import { Grow, TextField } from '@material-ui/core';
+import AddLockIcon from '@material-ui/icons/EnhancedEncryption';
 
 type Data = { applicationName: string; version: number };
 export const Context = React.createContext<{ setData: (d: Data | null) => void }>({
@@ -126,11 +128,152 @@ const QueueDiff = (props: { queued: number; current: number }) => {
 
 export const randomLockId = () => 'ui-' + Math.random().toString(36).substring(7);
 
+const LockButtonGroup = (props: {
+    applicationName?: string;
+    openDialog?: () => void;
+    state?: string;
+    message: string;
+    setMessage: (e: string) => void;
+    open: boolean;
+    setOpen: (e: boolean) => void;
+}) => {
+    const { applicationName, openDialog, state, message, setMessage, setOpen, open } = props;
+    const updateMessage = React.useCallback((e) => setMessage(e.target.value), [setMessage]);
+    const openInput = React.useCallback(() => setOpen(true), [setOpen]);
+    switch (state) {
+        case 'waiting':
+        case 'resolved':
+            if (open) {
+                return (
+                    <Grow in={open} style={{ transformOrigin: 'right center' }}>
+                        {applicationName ? (
+                            <ButtonGroup className="overlay">
+                                <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
+                                <IconButton onClick={openDialog} disabled={message === ''}>
+                                    <AddLockIcon />
+                                </IconButton>
+                            </ButtonGroup>
+                        ) : (
+                            <ButtonGroup className="overlay">
+                                <Button onClick={openDialog} disabled={message === ''}>
+                                    Add Lock
+                                </Button>
+                                <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
+                            </ButtonGroup>
+                        )}
+                    </Grow>
+                );
+            } else {
+                return applicationName ? (
+                    <Tooltip title="Add lock">
+                        <IconButton onClick={openInput}>
+                            <AddLockIcon />
+                        </IconButton>
+                    </Tooltip>
+                ) : (
+                    <Button onClick={openInput}>Add Lock</Button>
+                );
+            }
+        case 'pending':
+            return applicationName ? (
+                <IconButton disabled>
+                    <AddLockIcon />
+                </IconButton>
+            ) : (
+                <Button disabled>Add Lock</Button>
+            );
+        case 'rejected':
+            return applicationName ? <IconButton>Failed</IconButton> : <Button>Failed</Button>;
+    }
+    return null;
+};
+
+const ReleaseLockButtonGroup = (props: {
+    lock: Lock;
+    state?: string;
+    openDialog?: () => void;
+    queueHint?: boolean;
+}) => {
+    const { lock, queueHint, state, openDialog } = props;
+
+    const msg = queueHint ? 'When you unlock the last lock the queue will be deployed!' : '';
+    switch (state) {
+        case 'waiting':
+            return (
+                <Tooltip arrow title={'Locked with message "' + lock.message + '". Click to unlock. ' + msg}>
+                    <IconButton onClick={openDialog}>
+                        <LockIcon />
+                    </IconButton>
+                </Tooltip>
+            );
+        case 'pending':
+            return (
+                <IconButton disabled>
+                    <CircularProgress size={20} />
+                </IconButton>
+            );
+        default:
+            return null;
+    }
+};
+
+const DeployButton = (props: {
+    version: number;
+    currentlyDeployedVersion: number;
+    openDialog?: () => void;
+    state?: string;
+    locked: boolean;
+    prefix: string;
+    hasQueue: boolean;
+}) => {
+    const { version, currentlyDeployedVersion, openDialog, state, locked, prefix, hasQueue } = props;
+    const queueMessage = hasQueue ? 'Deploying will also remove the Queue' : '';
+    if (version === currentlyDeployedVersion) {
+        return (
+            <Button variant="contained" disabled>
+                {prefix + currentlyDeployedVersion}
+            </Button>
+        );
+    } else {
+        switch (state) {
+            case 'waiting':
+                return (
+                    <Tooltip title={queueMessage}>
+                        <Button variant="contained" onClick={openDialog} className={locked ? 'warning' : ''}>
+                            {prefix + version}
+                        </Button>
+                    </Tooltip>
+                );
+            case 'pending':
+                return (
+                    <Button variant="contained" disabled>
+                        <CircularProgress size={20} />
+                    </Button>
+                );
+            case 'resolved':
+                return (
+                    <Tooltip title={queueMessage}>
+                        <Button variant="contained" disabled>
+                            {prefix + currentlyDeployedVersion}
+                        </Button>
+                    </Tooltip>
+                );
+            case 'rejected':
+                return (
+                    <Button variant="contained" disabled>
+                        Failed
+                    </Button>
+                );
+            default:
+                return null;
+        }
+    }
+};
+
 export const CreateLockButton = (props: { applicationName?: string; environmentName: string }) => {
     const { applicationName, environmentName } = props;
     const [messageBox, setMessageBox] = React.useState(false);
     const [message, setMessage] = React.useState('');
-
     const act: BatchAction = useMemo(
         () => ({
             action: applicationName
@@ -160,15 +303,52 @@ export const CreateLockButton = (props: { applicationName?: string; environmentN
     }, [setMessageBox]);
 
     return (
-        <SimpleDialog
-            action={act}
-            message={message}
-            setMessage={setMessage}
-            messageBox={messageBox}
-            setMessageBox={setMessageBox}
-            applicationName={applicationName}
-            fin={fin}
-        />
+        <ConfirmationDialogProvider action={act} fin={fin}>
+            <LockButtonGroup
+                open={messageBox}
+                message={message}
+                setMessage={setMessage}
+                setOpen={setMessageBox}
+                applicationName={applicationName}
+            />
+        </ConfirmationDialogProvider>
+    );
+};
+
+export const ReleaseLockButton = (props: {
+    applicationName?: string;
+    environmentName: string;
+    lockId: string;
+    lock: Lock;
+    queueHint?: boolean;
+}) => {
+    const { applicationName, environmentName, lock, lockId, queueHint } = props;
+
+    const act: BatchAction = useMemo(
+        () => ({
+            action: applicationName
+                ? {
+                      $case: 'deleteEnvironmentApplicationLock',
+                      deleteEnvironmentApplicationLock: {
+                          application: applicationName,
+                          environment: environmentName,
+                          lockId: lockId,
+                      },
+                  }
+                : {
+                      $case: 'deleteEnvironmentLock',
+                      deleteEnvironmentLock: {
+                          environment: environmentName,
+                          lockId: lockId,
+                      },
+                  },
+        }),
+        [applicationName, environmentName, lockId]
+    );
+    return (
+        <ConfirmationDialogProvider action={act}>
+            <ReleaseLockButtonGroup lock={lock} queueHint={queueHint} />
+        </ConfirmationDialogProvider>
     );
 };
 
@@ -216,12 +396,15 @@ const ReleaseEnvironment = (props: {
     const locked = envLocks.length > 0 || appLocks.length > 0;
 
     const button = (
-        <SimpleDialog
-            currentlyDeployedVersion={currentlyDeployedVersion}
-            locked={locked}
-            action={act}
-            hasQueue={hasQueue}
-        />
+        <ConfirmationDialogProvider action={act}>
+            <DeployButton
+                currentlyDeployedVersion={currentlyDeployedVersion}
+                version={version}
+                locked={locked}
+                prefix={'deploy '}
+                hasQueue={hasQueue}
+            />
+        </ConfirmationDialogProvider>
     );
 
     let currentInfo;
@@ -295,47 +478,6 @@ const ReleaseEnvironment = (props: {
             <div className="buttons">{button}</div>
         </Paper>
     );
-};
-
-export const ReleaseLockButton = (props: {
-    applicationName?: string;
-    environmentName: string;
-    lockId: string;
-    lock: Lock;
-    queueHint?: boolean;
-}) => {
-    const { applicationName, environmentName, lock, lockId, queueHint } = props;
-    const [unlock, unlockState] = useUnaryCallback(
-        React.useCallback(
-            (api) =>
-                applicationName
-                    ? api.lockService().DeleteEnvironmentApplicationLock({
-                          application: applicationName,
-                          environment: environmentName,
-                          lockId: lockId,
-                      })
-                    : api.lockService().DeleteEnvironmentLock({
-                          environment: environmentName,
-                          lockId: lockId,
-                      }),
-            [applicationName, environmentName, lockId]
-        )
-    );
-    const msg = queueHint ? 'When you unlock the last lock the queue will be deployed!' : '';
-    switch (unlockState.state) {
-        case 'waiting':
-            return (
-                <Tooltip arrow title={'Locked with message "' + lock.message + '". Click to unlock. ' + msg}>
-                    <IconButton onClick={unlock}>
-                        <LockIcon />
-                    </IconButton>
-                </Tooltip>
-            );
-        case 'pending':
-            return <CircularProgress />;
-        default:
-            return null;
-    }
 };
 
 const useStyle = makeStyles((theme) => ({
