@@ -39,6 +39,86 @@ const (
 	additionalVersions = 7
 )
 
+// Tests various error cases in the release train, specifically the error messages returned.
+func TestReleaseTrainErrors(t *testing.T) {
+	tcs := []struct {
+		Name         string
+		Transformers []Transformer
+		expectedError string
+		expectedCommitMsg string
+		shouldSucceed bool
+	}{
+		{
+			Name:         "Access non-existent environment",
+			Transformers:  []Transformer{
+				&ReleaseTrain{
+					Environment: "doesnotexistenvironment",
+				},
+			},
+			expectedError: "could not find environment config for 'doesnotexistenvironment'",
+			expectedCommitMsg: "",
+			shouldSucceed: false,
+		},
+		{
+			Name:         "Environment is locked",
+			Transformers:  []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      true,
+						},
+					},
+				},
+				&CreateEnvironmentLock{
+					Environment: envAcceptance,
+					Message:     "don't",
+					LockId:      "care",
+				},
+				&ReleaseTrain{
+					Environment: envAcceptance,
+				},
+			},
+			shouldSucceed: true,
+			expectedError: "",
+			expectedCommitMsg: "Target Environment 'acceptance' is locked - exiting.",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			commitMsg, _, err := repo.ApplyTransformersInternal(tc.Transformers...)
+			// note that we only check the LAST error here:
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				actualMsg := commitMsg[len(commitMsg)-1]
+				if actualMsg != tc.expectedCommitMsg {
+					t.Fatalf("expected a different message.\nExpected: %q\nGot %q", tc.expectedCommitMsg, actualMsg)
+				}
+
+			} else {
+				if err == nil {
+					t.Fatalf("Expected an error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestTransformer(t *testing.T) {
 	c1 := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}}
 
@@ -1368,4 +1448,26 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 		})
 	}
 	return res
+}
+
+func setupRepositoryTest(t *testing.T) (Repository, error){
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	cmd.Start()
+	cmd.Wait()
+	repo, err := NewWait(
+		context.Background(),
+		Config{
+			URL:            remoteDir,
+			Path:           localDir,
+			CommitterEmail: "kuberpult@freiheit.com",
+			CommitterName:  "kuberpult",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo, nil
 }

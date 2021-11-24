@@ -508,7 +508,7 @@ func (c *ReleaseTrain) Transform(fs billy.Filesystem) (string, error) {
 	}
 	envConfig, ok := configs[targetEnvName]
 	if !ok {
-		return "", errors.New(fmt.Sprintf("Could not find environment config for %q", targetEnvName))
+		return "", fmt.Errorf("could not find environment config for '%v'", targetEnvName)
 	}
 	if envConfig.Upstream == nil {
 		return fmt.Sprintf("Environment %q does not have upstream configured - exiting.", targetEnvName), nil
@@ -527,10 +527,7 @@ func (c *ReleaseTrain) Transform(fs billy.Filesystem) (string, error) {
 		return "", fmt.Errorf("could not get lock for environment %q: %w", targetEnvName, err)
 	}
 	if len(envLocks) > 0 {
-		e := &LockedError{
-			EnvironmentLocks: envLocks,
-		}
-		return fmt.Sprintf("Target Environment '%s' is locked - exiting.", e.String()), nil
+		return fmt.Sprintf("Target Environment '%s' is locked - exiting.", targetEnvName), nil
 	}
 
 	apps, err := state.GetEnvironmentApplications(upstreamEnvName)

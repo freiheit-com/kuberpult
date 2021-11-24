@@ -47,6 +47,7 @@ import (
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
+	ApplyTransformersInternal(transformers ...Transformer) ([]string, *State, error)
 	State() *State
 	SetCallback(cb func(*State))
 
@@ -211,44 +212,52 @@ func NewWait(ctx context.Context, cfg Config) (Repository, error) {
 	}
 }
 
-func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) error {
+func (r *repository) ApplyTransformersInternal(transformers ...Transformer) ([]string, *State, error) {
 	if state, err := r.buildState(); err != nil {
-		return &InternalError{inner: err}
+		return nil, nil, &InternalError{inner: err}
 	} else {
 		commitMsg := []string{}
 		for _, t := range transformers {
 			if msg, err := t.Transform(state.Filesystem); err != nil {
-				return err
+				return nil, nil, err
 			} else {
 				commitMsg = append(commitMsg, msg)
 			}
 		}
-		if err := r.afterTransform(ctx, state.Filesystem); err != nil {
-			return &InternalError{inner: err}
-		}
-		treeId, err := state.Filesystem.(*fs.TreeBuilderFS).Insert()
-		if err != nil {
-			return &InternalError{inner: err}
-		}
-		committer := &git.Signature{
-			Name:  r.config.CommitterName,
-			Email: r.config.CommitterEmail,
-			When:  time.Now(),
-		}
-		var rev *git.Oid
-		if state.Commit != nil {
-			rev = state.Commit.Id()
-		}
-		if _, err := r.repository.CreateCommitFromIds(
-			fmt.Sprintf("refs/heads/%s", r.config.Branch),
-			committer,
-			committer,
-			strings.Join(commitMsg, "\n"),
-			treeId,
-			rev,
-		); err != nil {
-			return &InternalError{inner: err}
-		}
+		return commitMsg, state, nil
+	}
+}
+
+func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) error {
+	commitMsg, state, err := r.ApplyTransformersInternal(transformers...)
+	if err != nil {
+		return err
+	}
+	if err := r.afterTransform(ctx, state.Filesystem); err != nil {
+		return &InternalError{inner: err}
+	}
+	treeId, err := state.Filesystem.(*fs.TreeBuilderFS).Insert()
+	if err != nil {
+		return &InternalError{inner: err}
+	}
+	committer := &git.Signature{
+		Name:  r.config.CommitterName,
+		Email: r.config.CommitterEmail,
+		When:  time.Now(),
+	}
+	var rev *git.Oid
+	if state.Commit != nil {
+		rev = state.Commit.Id()
+	}
+	if _, err := r.repository.CreateCommitFromIds(
+		fmt.Sprintf("refs/heads/%s", r.config.Branch),
+		committer,
+		committer,
+		strings.Join(commitMsg, "\n"),
+		treeId,
+		rev,
+	); err != nil {
+		return &InternalError{inner: err}
 	}
 	return nil
 }
