@@ -12,6 +12,7 @@ import {
     TextField,
     Tooltip,
     CircularProgress,
+    Snackbar,
 } from '@material-ui/core';
 import { useCallback } from 'react';
 import { Close } from '@material-ui/icons';
@@ -47,77 +48,105 @@ export interface SimpleDialogProps {
 export const SimpleDialog = (props: SimpleDialogProps) => {
     const { action, currentlyDeployedVersion, locked, hasQueue } = props;
     const { messageBox, setMessageBox, message, setMessage, applicationName, fin } = props;
-    const [open, setOpen] = React.useState(false);
-    const [doAction, doActionState] = useBatch(action, fin);
+    const [openDialog, setOpenDialog] = React.useState(false);
+    const [openNotify, setOpenNotify] = React.useState(false);
 
     const handleClose = useCallback(() => {
-        setOpen(false);
-    }, [setOpen]);
+        setOpenDialog(false);
+    }, [setOpenDialog]);
 
     const handleOpen = useCallback(() => {
-        setOpen(true);
-    }, [setOpen]);
+        setOpenDialog(true);
+    }, [setOpenDialog]);
+
+    const openNotification = useCallback(() => {
+        setOpenNotify(true);
+    }, [setOpenNotify]);
+
+    const closeNotification = useCallback(
+        (event: React.SyntheticEvent | React.MouseEvent, reason?: string) => {
+            if (reason === 'clickaway') {
+                return;
+            }
+            setOpenNotify(false);
+        },
+        [setOpenNotify]
+    );
+
+    const closeWhenDone = useCallback(() => {
+        if (fin) fin();
+        handleClose();
+        openNotification();
+    }, [fin, handleClose, openNotification]);
+
+    const [doAction, doActionState] = useBatch(action, closeWhenDone);
+
+    const closeIcon = (
+        <IconButton size="small" aria-label="close" color="inherit" onClick={closeNotification}>
+            <Close fontSize="small" />
+        </IconButton>
+    );
+
+    let openButton = <></>;
+    let title = '';
 
     switch (action.action?.$case) {
         case 'deploy':
-            return (
-                <>
-                    <Button onClick={handleOpen}>Deploy</Button>
-                    <Dialog onClose={handleClose} open={open}>
-                        <DialogTitle>
-                            <Typography variant="subtitle1" component="div" className="confirm">
-                                <span>Are you sure you want to deploy this version?</span>
-                                <IconButton onClick={handleClose}>
-                                    <Close />
-                                </IconButton>
-                            </Typography>
-                        </DialogTitle>
-                        <span style={{ alignSelf: 'end' }}>
-                            <Button onClick={handleClose}>Cancel</Button>
-                            <DeployButton
-                                currentlyDeployedVersion={currentlyDeployedVersion!}
-                                version={action.action.deploy.version}
-                                state={doActionState.state}
-                                deployEnv={doAction}
-                                locked={locked!}
-                                prefix={'deploy '}
-                                hasQueue={hasQueue!}
-                            />
-                        </span>
-                    </Dialog>
-                </>
+            title = 'Are you sure you want to deploy this version?';
+            openButton = (
+                <DeployButton
+                    currentlyDeployedVersion={currentlyDeployedVersion!}
+                    version={action.action.deploy.version}
+                    state={doActionState.state}
+                    deployEnv={handleOpen}
+                    locked={locked!}
+                    prefix={'deploy '}
+                    hasQueue={hasQueue!}
+                />
             );
+            break;
         case 'createEnvironmentLock':
         case 'createEnvironmentApplicationLock':
-            return (
-                <>
-                    <Button onClick={handleOpen}>Lock</Button>
-                    <Dialog onClose={handleClose} open={open}>
-                        <DialogTitle>
-                            <Typography variant="subtitle1" component="div" className="confirm">
-                                <span>Are you sure you want to add this lock?</span>
-                                <IconButton onClick={handleClose}>
-                                    <Close />
-                                </IconButton>
-                            </Typography>
-                        </DialogTitle>
-                        <span style={{ alignSelf: 'end' }}>
-                            <Button onClick={handleClose}>Cancel</Button>
-                            <CreateLockButtonButton
-                                lock={doAction}
-                                state={doActionState.state}
-                                open={messageBox!}
-                                message={message!}
-                                setMessage={setMessage!}
-                                setOpen={setMessageBox!}
-                                applicationName={applicationName}
-                            />
-                        </span>
-                    </Dialog>
-                </>
+            title = 'Are you sure you want to add this lock?';
+            openButton = (
+                <CreateLockButtonButton
+                    lock={handleOpen}
+                    state={doActionState.state}
+                    open={messageBox!}
+                    message={message!}
+                    setMessage={setMessage!}
+                    setOpen={setMessageBox!}
+                    applicationName={applicationName}
+                />
             );
+            break;
     }
-    return null;
+    return (
+        <>
+            {openButton}
+            <Dialog onClose={handleClose} open={openDialog}>
+                <DialogTitle>
+                    <Typography variant="subtitle1" component="div" className="confirm">
+                        <span>{title}</span>
+                        <IconButton aria-label="close" color="inherit" onClick={handleClose}>
+                            <Close fontSize="small" />
+                        </IconButton>
+                    </Typography>
+                </DialogTitle>
+                <span style={{ alignSelf: 'end' }}>
+                    <Button onClick={handleClose}>Cancel</Button>
+                    <Button onClick={doAction}>Yes</Button>
+                </span>
+            </Dialog>
+            <Snackbar
+                open={openNotify}
+                autoHideDuration={6000}
+                onClose={closeNotification}
+                message="The action is done!"
+                action={closeIcon}
+            />
+        </>
+    );
 };
 
 const CreateLockButtonButton = (props: {
