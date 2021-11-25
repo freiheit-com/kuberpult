@@ -18,6 +18,10 @@ func (fr *failingRepository) Apply(ctx context.Context, transformers ...reposito
 	return fr.err
 }
 
+func (fr *failingRepository) ApplyTransformersInternal(transformers ...repository.Transformer) ([]string, *repository.State, error) {
+	return nil, nil, fr.err
+}
+
 func (fr *failingRepository) State() *repository.State {
 	return &repository.State{}
 }
