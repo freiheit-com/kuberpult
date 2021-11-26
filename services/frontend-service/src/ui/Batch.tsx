@@ -5,7 +5,7 @@ import { Button, Dialog, DialogTitle, IconButton, Typography, Snackbar } from '@
 import { useCallback } from 'react';
 import { Close } from '@material-ui/icons';
 
-export const useBatch = (act: BatchAction, fin?: () => void) =>
+export const callbacks = {useBatch : (act: BatchAction, fin?: () => void) =>
     useUnaryCallback(
         React.useCallback(
             (api) =>
@@ -17,7 +17,7 @@ export const useBatch = (act: BatchAction, fin?: () => void) =>
                     .finally(fin),
             [act, fin]
         )
-    );
+    )};
 
 export interface ConfirmationDialogProviderProps {
     children: React.ReactElement;
@@ -59,7 +59,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         handleClose();
     }, [fin, handleClose, openNotification]);
 
-    const [doAction, doActionState] = useBatch(action, closeWhenDone);
+    const [doAction, doActionState] = callbacks.useBatch(action, closeWhenDone);
 
     console.log(doAction, doActionState);
 
