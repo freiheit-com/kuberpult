@@ -61,67 +61,23 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
 
     const [doAction, doActionState] = useBatch(action, closeWhenDone);
 
+    console.log(doAction, doActionState);
+
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
             <Close fontSize="small" />
         </IconButton>
     );
 
-    let title = '';
-    let notMessageSuccess = '';
-    let notMessageFail = '';
-
-    switch (action.action?.$case) {
-        case 'deploy':
-            title = 'Are you sure you want to deploy this version?';
-            notMessageSuccess =
-                'Version ' +
-                action.action?.deploy.version +
-                ' was successfully deployed to ' +
-                action.action?.deploy.environment;
-            notMessageFail = 'Deployment failed';
-            break;
-        case 'createEnvironmentLock':
-            title = 'Are you sure you want to add this environment lock?';
-            notMessageSuccess =
-                'New environment lock on ' +
-                action.action?.createEnvironmentLock.environment +
-                ' was successfully created with message: ' +
-                action.action?.createEnvironmentLock.message;
-            notMessageFail = 'Creating new environment lock failed';
-            break;
-        case 'createEnvironmentApplicationLock':
-            title = 'Are you sure you want to add this application lock?';
-            notMessageSuccess =
-                'New application lock on ' +
-                action.action?.createEnvironmentApplicationLock.environment +
-                ' was successfully created with message: ' +
-                action.action?.createEnvironmentApplicationLock.message;
-            notMessageFail = 'Creating new application lock failed';
-            break;
-        case 'deleteEnvironmentLock':
-            title = 'Are you sure you want to delete this environment lock?';
-            notMessageSuccess =
-                'Environment lock on ' + action.action?.deleteEnvironmentLock.environment + ' was successfully deleted';
-            notMessageFail = 'Deleting environment lock failed';
-            break;
-        case 'deleteEnvironmentApplicationLock':
-            title = 'Are you sure you want to delete this application lock?';
-            notMessageSuccess =
-                'Application lock on ' +
-                action.action?.deleteEnvironmentApplicationLock.environment +
-                ' was successfully deleted';
-            notMessageFail = 'Deleting application lock failed';
-            break;
-    }
+    const actionMessages = getMessages(action);
 
     return (
         <>
             {React.cloneElement(props.children, { state: doActionState.state, openDialog: handleOpen })}
             <Dialog onClose={handleClose} open={openDialog}>
                 <DialogTitle>
-                    <Typography variant="subtitle1" component="div" className="confirm">
-                        <span>{title}</span>
+                    <Typography variant="subtitle1" component="div" className="confirmation-title">
+                        <span>{actionMessages!.title}</span>
                         <IconButton aria-label="close" color="inherit" onClick={handleClose}>
                             <Close fontSize="small" />
                         </IconButton>
@@ -136,9 +92,66 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 open={openNotify}
                 autoHideDuration={6000}
                 onClose={closeNotification}
-                message={doActionState.state === 'resolved' ? notMessageSuccess : notMessageFail}
+                message={
+                    doActionState.state === 'resolved'
+                        ? actionMessages!.notMessageSuccess
+                        : actionMessages!.notMessageFail
+                }
                 action={closeIcon}
             />
         </>
     );
+};
+
+const getMessages = (action: BatchAction) => {
+    switch (action.action?.$case) {
+        case 'deploy':
+            return {
+                title: 'Are you sure you want to deploy this version?',
+                notMessageSuccess:
+                    'Version ' +
+                    action.action?.deploy.version +
+                    ' was successfully deployed to ' +
+                    action.action?.deploy.environment,
+                notMessageFail: 'Deployment failed',
+            };
+        case 'createEnvironmentLock':
+            return {
+                title: 'Are you sure you want to add this environment lock?',
+                notMessageSuccess:
+                    'New environment lock on ' +
+                    action.action?.createEnvironmentLock.environment +
+                    ' was successfully created with message: ' +
+                    action.action?.createEnvironmentLock.message,
+                notMessageFail: 'Creating new environment lock failed',
+            };
+        case 'createEnvironmentApplicationLock':
+            return {
+                title: 'Are you sure you want to add this application lock?',
+                notMessageSuccess:
+                    'New application lock on ' +
+                    action.action?.createEnvironmentApplicationLock.environment +
+                    ' was successfully created with message: ' +
+                    action.action?.createEnvironmentApplicationLock.message,
+                notMessageFail: 'Creating new application lock failed',
+            };
+        case 'deleteEnvironmentLock':
+            return {
+                title: 'Are you sure you want to delete this environment lock?',
+                notMessageSuccess:
+                    'Environment lock on ' +
+                    action.action?.deleteEnvironmentLock.environment +
+                    ' was successfully deleted',
+                notMessageFail: 'Deleting environment lock failed',
+            };
+        case 'deleteEnvironmentApplicationLock':
+            return {
+                title: 'Are you sure you want to delete this application lock?',
+                notMessageSuccess:
+                    'Application lock on ' +
+                    action.action?.deleteEnvironmentApplicationLock.environment +
+                    ' was successfully deleted',
+                notMessageFail: 'Deleting application lock failed',
+            };
+    }
 };
