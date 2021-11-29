@@ -311,6 +311,7 @@ func TestOverviewService(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
 			repo, err := setupRepositoryTest(t)
 			if err != nil {
 				t.Fatal(err)
@@ -322,8 +323,10 @@ func TestOverviewService(t *testing.T) {
 			}
 			svc := &OverviewServiceServer{
 				Repository: repo,
+				Shutdown: shutdown,
 			}
 			tc.Test(t, svc)
+			close(shutdown)
 		})
 	}
 }

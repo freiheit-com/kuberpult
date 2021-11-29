@@ -36,6 +36,7 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/history"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -49,7 +50,8 @@ type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
 	ApplyTransformersInternal(transformers ...Transformer) ([]string, *State, error)
 	State() *State
-	SetCallback(cb func(*State))
+
+	Notify() *notify.Notify
 
 	IsReady() (bool, error)
 	WaitReady() error
@@ -71,7 +73,8 @@ type repository struct {
 
 	// Mutex guarding head
 	headLock     sync.Mutex
-	headCallback func(*State)
+
+	notify       notify.Notify
 
 	// Signaling readyness to allow fetching in the background
 	*Readiness
@@ -350,9 +353,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 				return &InternalError{inner: err}
 			}
 		}
-		if r.headCallback != nil {
-			r.headCallback(r.State())
-		}
+		r.notify.Notify()
 	}
 
 	return nil
@@ -427,10 +428,8 @@ func (r *repository) State() *State {
 	return s
 }
 
-func (r *repository) SetCallback(cb func(*State)) {
-	r.headLock.Lock()
-	defer r.headLock.Unlock()
-	r.headCallback = cb
+func (r *repository) Notify() *notify.Notify {
+	return &r.notify
 }
 
 type ObjectCount struct {

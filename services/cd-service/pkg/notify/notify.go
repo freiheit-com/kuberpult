@@ -14,28 +14,42 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-package logger
+package notify
 
-import (
-	"net/http"
+import "sync"
 
-	"go.uber.org/zap"
-)
-
-type injectLogger struct {
-	logger *zap.Logger
-	inner   http.Handler
+type Notify struct {
+	mx       sync.Mutex
+	listener map[chan struct{}]struct{}
 }
 
-func (i *injectLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := WithLogger(r.Context(), i.logger)
-	r2  := r.Clone(ctx)
-	i.inner.ServeHTTP(w, r2)
+type Unsubscribe = func()
+
+func (n *Notify) Subscribe() (<-chan struct{}, Unsubscribe) {
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+
+	n.mx.Lock()
+	defer n.mx.Unlock()
+	if n.listener == nil {
+		n.listener = map[chan struct{}]struct{}{}
+	}
+
+	n.listener[ch] = struct{}{}
+	return ch, func() {
+		n.mx.Lock()
+		defer n.mx.Unlock()
+		delete(n.listener, ch)
+	}
 }
 
-func WithHttpLogger(logger *zap.Logger, inner http.Handler) http.Handler {
-	return &injectLogger{
-		logger: logger,
-		inner: inner,
+func (n *Notify) Notify() {
+	n.mx.Lock()
+	defer n.mx.Unlock()
+	for ch := range n.listener {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
 	}
 }

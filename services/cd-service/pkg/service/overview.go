@@ -25,6 +25,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	git "github.com/libgit2/git2go/v31"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -34,8 +35,7 @@ type OverviewServiceServer struct {
 	Repository repository.Repository
 	Shutdown   <-chan struct{}
 
-	mx       sync.Mutex
-	listener map[chan struct{}]struct{}
+	notify notify.Notify
 
 	init     sync.Once
 	response atomic.Value
@@ -180,29 +180,29 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 	}
 }
 
-type unsubscribe = func()
-
-func (o *OverviewServiceServer) subscribe() (<-chan struct{}, unsubscribe) {
+func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe) {
 	o.init.Do(func() {
-		o.Repository.SetCallback(o.update)
-		o.update(o.Repository.State())
+		ch, unsub := o.Repository.Notify().Subscribe()
+		// Channels obtained from subscribe are by default triggered
+		//
+		// This means, we have to wait here until the first overview is loaded.
+		select {
+		case <-ch:
+			o.update(o.Repository.State())
+		}
+		go func() {
+			defer unsub()
+			for {
+				select {
+				case <-o.Shutdown:
+					return
+				case <-ch:
+					o.update(o.Repository.State())
+				}
+			}
+		}()
 	})
-
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
-
-	o.mx.Lock()
-	defer o.mx.Unlock()
-	if o.listener == nil {
-		o.listener = map[chan struct{}]struct{}{}
-	}
-
-	o.listener[ch] = struct{}{}
-	return ch, func() {
-		o.mx.Lock()
-		defer o.mx.Unlock()
-		delete(o.listener, ch)
-	}
+	return o.notify.Subscribe()
 }
 
 func (o *OverviewServiceServer) update(s *repository.State) {
@@ -211,14 +211,7 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 		panic(err)
 	}
 	o.response.Store(r)
-	o.mx.Lock()
-	defer o.mx.Unlock()
-	for ch := range o.listener {
-		select {
-		case ch <- struct{}{}:
-		default:
-		}
-	}
+	o.notify.Notify()
 }
 
 func transformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environment_Config_Upstream {
