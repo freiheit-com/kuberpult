@@ -184,10 +184,3 @@ func (d *BatchServer) ProcessBatch(
 }
 
 var _ api.BatchServiceServer = (*BatchServer)(nil)
-
-
-/*
-TODO SU
- * test 1: make sure the flag is written
- * test 2: when read, is the flag returned to UI?
- */
