@@ -71,17 +71,17 @@ type CreateApplicationVersion struct {
 	SourceMessage  string
 }
 
-func (c *CreateApplicationVersion) Transform(fs billy.Filesystem) (string, error) {
+func getLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 	var err error
-	releasesDir := releasesDirectory(fs, c.Application)
+	releasesDir := releasesDirectory(fs, application)
 	err = fs.MkdirAll(releasesDir, 0777)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 	if entries, err := fs.ReadDir(releasesDir); err != nil {
-		return "", err
+		return 0, err
 	} else {
-		var lastRelease uint64
+		var lastRelease uint64 = 0
 		for _, e := range entries {
 			if i, err := strconv.ParseUint(e.Name(), 10, 64); err != nil {
 				//TODO(HVG): decide what to do with bad named releases
@@ -91,72 +91,80 @@ func (c *CreateApplicationVersion) Transform(fs billy.Filesystem) (string, error
 				}
 			}
 		}
-		releaseDir := fs.Join(releasesDir, strconv.FormatUint(lastRelease+1, 10))
-		if err = fs.MkdirAll(releaseDir, 0777); err != nil {
-			return "", err
-		}
-
-		configs, err := (&State{Filesystem: fs}).GetEnvironmentConfigs()
-		if err != nil {
-			return "", err
-		}
-
-		if c.SourceCommitId != "" {
-			if err := util.WriteFile(fs, fs.Join(releaseDir, "source_commit_id"), []byte(c.SourceCommitId), 0666); err != nil {
-				return "", err
-			}
-		}
-		if c.SourceAuthor != "" {
-			if err := util.WriteFile(fs, fs.Join(releaseDir, "source_author"), []byte(c.SourceAuthor), 0666); err != nil {
-				return "", err
-			}
-		}
-		if c.SourceMessage != "" {
-			if err := util.WriteFile(fs, fs.Join(releaseDir, "source_message"), []byte(c.SourceMessage), 0666); err != nil {
-				return "", err
-			}
-		}
-
-		result := ""
-		for env, man := range c.Manifests {
-			envDir := fs.Join(releaseDir, "environments", env)
-
-			config, found := configs[env]
-			hasUpstream := false
-			if found {
-				hasUpstream = config.Upstream != nil
-			}
-
-			if err = fs.MkdirAll(envDir, 0777); err != nil {
-				return "", err
-			}
-			if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
-				return "", err
-			}
-
-			if hasUpstream && config.Upstream.Latest {
-				d := &DeployApplicationVersion{
-					Environment: env,
-					Application: c.Application,
-					Version:     lastRelease + 1,
-					// the train should queue deployments, instead of giving up:
-					LockBehaviour: api.LockBehavior_Queue,
-				}
-				deployResult, err := d.Transform(fs)
-				if err != nil {
-					_, ok := err.(*LockedError)
-					if ok {
-						continue // locked error are expected
-					} else {
-						return "", err
-					}
-				}
-				result = result + deployResult + "\n"
-			}
-		}
-
-		return fmt.Sprintf("released version %d of %q\n%s", lastRelease+1, c.Application, result), nil
+		return lastRelease, nil
 	}
+}
+
+func (c *CreateApplicationVersion) Transform(fs billy.Filesystem) (string, error) {
+	lastRelease, err := getLastRelease(fs, c.Application)
+	if err != nil {
+		return "", err
+	}
+	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
+	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
+		return "", err
+	}
+
+	configs, err := (&State{Filesystem: fs}).GetEnvironmentConfigs()
+	if err != nil {
+		return "", err
+	}
+
+	if c.SourceCommitId != "" {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_commit_id"), []byte(c.SourceCommitId), 0666); err != nil {
+			return "", err
+		}
+	}
+	if c.SourceAuthor != "" {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_author"), []byte(c.SourceAuthor), 0666); err != nil {
+			return "", err
+		}
+	}
+	if c.SourceMessage != "" {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_message"), []byte(c.SourceMessage), 0666); err != nil {
+			return "", err
+		}
+	}
+
+	result := ""
+	for env, man := range c.Manifests {
+		envDir := fs.Join(releaseDir, "environments", env)
+
+		config, found := configs[env]
+		hasUpstream := false
+		if found {
+			hasUpstream = config.Upstream != nil
+		}
+
+		if err = fs.MkdirAll(envDir, 0777); err != nil {
+			return "", err
+		}
+		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
+			return "", err
+		}
+
+		if hasUpstream && config.Upstream.Latest {
+			d := &DeployApplicationVersion{
+				Environment: env,
+				Application: c.Application,
+				Version:     lastRelease + 1,
+				// the train should queue deployments, instead of giving up:
+				LockBehaviour: api.LockBehavior_Queue,
+			}
+			deployResult, err := d.Transform(fs)
+			if err != nil {
+				_, ok := err.(*LockedError)
+				if ok {
+					continue // locked error are expected
+				} else {
+					return "", err
+				}
+			}
+			result = result + deployResult + "\n"
+		}
+	}
+
+	return fmt.Sprintf("released version %d of %q\n%s", lastRelease+1, c.Application, result), nil
 }
 
 type CleanupOldApplicationVersions struct {
