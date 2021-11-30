@@ -705,10 +705,15 @@ func (s *State) GetApplicationReleases(application string) ([]uint64, error) {
 }
 
 type Release struct {
-	Version        uint64
-	SourceAuthor   string
-	SourceCommitId string
-	SourceMessage  string
+	Version        	uint64
+	/**
+	 "UndeployVersion=true" means that this version is empty, and has no manifest that could be deployed.
+	 It is intended to help cleanup old services within the normal release cycle (e.g. dev->staging->production).
+	 */
+	UndeployVersion bool
+	SourceAuthor   	string
+	SourceCommitId 	string
+	SourceMessage  	string
 }
 
 func (s *State) GetApplicationRelease(application string, version uint64) (*Release, error) {
@@ -738,6 +743,14 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		}
 	} else {
 		release.SourceMessage = string(cnt)
+	}
+	if _, err := readFile(s.Filesystem, s.Filesystem.Join(base, "undeploy")); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+		release.UndeployVersion = false
+	} else {
+		release.UndeployVersion = true
 	}
 	return &release, nil
 }

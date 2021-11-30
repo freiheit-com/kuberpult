@@ -164,7 +164,83 @@ func (c *CreateApplicationVersion) Transform(fs billy.Filesystem) (string, error
 		}
 	}
 
-	return fmt.Sprintf("released version %d of %q\n%s", lastRelease+1, c.Application, result), nil
+	return fmt.Sprintf("created version %d of %q\n%s", lastRelease+1, c.Application, result), nil
+}
+
+type CreateUndeployApplicationVersion struct {
+	Application    string
+}
+
+func (c *CreateUndeployApplicationVersion) Transform(fs billy.Filesystem) (string, error) {
+	lastRelease, err := getLastRelease(fs, c.Application)
+	if err != nil {
+		return "", err
+	}
+	if lastRelease == 0 {
+		return "", fmt.Errorf("cannot undeploy non-existing application '%v'", c.Application)
+	}
+	s := State{
+		Filesystem: fs,
+	}
+	release, err := s.GetApplicationRelease(c.Application, lastRelease)
+	if err != nil {
+		return "", fmt.Errorf("cannot undeploy: could not get latest release for application '%v'", c.Application)
+	}
+	if release.UndeployVersion {
+		return "", fmt.Errorf("cannot undeploy: the latest release is already undeploy for application '%v'", c.Application)
+	}
+	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
+	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
+		return "", err
+	}
+
+	configs, err := (&State{Filesystem: fs}).GetEnvironmentConfigs()
+	if err != nil {
+		return "", err
+	}
+	// this is a flag to indicate that this is the specia "undeploy" version
+	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
+		return "", err
+	}
+	result := ""
+	for env := range configs {
+		envDir := fs.Join(releaseDir, "environments", env)
+
+		config, found := configs[env]
+		hasUpstream := false
+		if found {
+			hasUpstream = config.Upstream != nil
+		}
+
+		if err = fs.MkdirAll(envDir, 0777); err != nil {
+			return "", err
+		}
+		// note that the manifest is empty here!
+		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(""), 0666); err != nil {
+			return "", err
+		}
+
+		if hasUpstream && config.Upstream.Latest {
+			d := &DeployApplicationVersion{
+				Environment: env,
+				Application: c.Application,
+				Version:     lastRelease + 1,
+				// the train should queue deployments, instead of giving up:
+				LockBehaviour: api.LockBehavior_Queue,
+			}
+			deployResult, err := d.Transform(fs)
+			if err != nil {
+				_, ok := err.(*LockedError)
+				if ok {
+					continue // locked error are expected
+				} else {
+					return "", err
+				}
+			}
+			result = result + deployResult + "\n"
+		}
+	}
+	return fmt.Sprintf("created undeploy-version %d of '%v'\n%s", lastRelease+1, c.Application, result), nil
 }
 
 type CleanupOldApplicationVersions struct {

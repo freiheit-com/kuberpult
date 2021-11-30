@@ -39,6 +39,98 @@ const (
 	additionalVersions = 7
 )
 
+// Tests various error cases in the Undeploy endpoint, specifically the error messages returned.
+func TestUndeployErrors(t *testing.T) {
+	tcs := []struct {
+		Name         string
+		Transformers []Transformer
+		expectedError string
+		expectedCommitMsg string
+		shouldSucceed bool
+	}{
+		{
+			Name:         "Access non-existent application",
+			Transformers:  []Transformer{
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			expectedError: "cannot undeploy non-existing application 'app1'",
+			expectedCommitMsg: "",
+			shouldSucceed: false,
+		},
+		{
+			Name:         "Success",
+			Transformers:  []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			expectedError: "",
+			expectedCommitMsg: "created undeploy-version 2 of 'app1'\n",
+			shouldSucceed: true,
+		},
+		{
+			Name:         "Undeploy twice should fail",
+			Transformers:  []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			shouldSucceed: false,
+			expectedError: "cannot undeploy: the latest release is already undeploy for application 'app1'",
+			expectedCommitMsg: "",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			commitMsg, _, err := repo.ApplyTransformersInternal(tc.Transformers...)
+			// note that we only check the LAST error here:
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				actualMsg := commitMsg[len(commitMsg)-1]
+				if actualMsg != tc.expectedCommitMsg {
+					t.Fatalf("expected a different message.\nExpected: %q\nGot %q", tc.expectedCommitMsg, actualMsg)
+				}
+			} else {
+				if err == nil {
+					t.Fatalf("Expected an error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
+				}
+			}
+		})
+	}
+}
+
+
 // Tests various error cases in the release train, specifically the error messages returned.
 func TestReleaseTrainErrors(t *testing.T) {
 	tcs := []struct {

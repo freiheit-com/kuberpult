@@ -52,6 +52,7 @@ message BatchAction {
     CreateEnvironmentApplicationLockRequest create_environment_application_lock = 3;
     DeleteEnvironmentApplicationLockRequest delete_environment_application_lock = 4;
     DeployRequest deploy = 5;
+    PrepareUndeployRequest prepare_undeploy = 6;
   }
 }
 
@@ -81,7 +82,6 @@ message DeleteEnvironmentApplicationLockRequest {
 
 service DeployService {
   rpc Deploy (DeployRequest) returns (google.protobuf.Empty) {}
-//  rpc ReleaseTrain (ReleaseTrainRequest) returns (google.protobuf.Empty) {}
   rpc ReleaseTrain (ReleaseTrainRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       put: "/environments/{environment}/releasetrain"
@@ -101,6 +101,13 @@ message DeployRequest {
   string application = 2;
   uint64 version = 3;
   bool ignoreAllLocks = 4 [deprecated = true];
+  LockBehavior lockBehavior = 5;
+}
+
+message PrepareUndeployRequest {
+  string environment = 1;
+  string application = 2;
+  uint64 version = 3;
   LockBehavior lockBehavior = 5;
 }
 
@@ -155,6 +162,7 @@ message Environment {
     map<string, Lock> locks = 3;
     uint64 queuedVersion = 4;
     Commit versionCommit = 5;
+    bool undeployVersion = 6;
   }
 
   string name = 1;
@@ -169,6 +177,7 @@ message Release {
   string source_author = 3;
   string source_message = 4;
   Commit commit = 5;
+  bool undeployVersion = 6;
 }
 
 message Application {
