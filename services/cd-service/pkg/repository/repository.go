@@ -43,6 +43,8 @@ import (
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v31"
+
+	"github.com/cenkalti/backoff/v4"
 )
 
 // A Repository provides a multiple reader / single writer access to a git repository.
@@ -72,9 +74,9 @@ type repository struct {
 	nextError error
 
 	// Mutex guarding head
-	headLock     sync.Mutex
+	headLock sync.Mutex
 
-	notify       notify.Notify
+	notify notify.Notify
 
 	// Signaling readyness to allow fetching in the background
 	*Readiness
@@ -329,13 +331,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	if err != nil {
 		return err
 	} else {
-		pushOptions := git.PushOptions{
-			RemoteCallbacks: git.RemoteCallbacks{
-				CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
-				CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
-			},
-		}
-		if err := r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions); err != nil {
+		if err := r.push(ctx); err != nil {
 			gerr := err.(*git.GitError)
 			if gerr.Code == git.ErrorCodeNonFastForward {
 				err = r.FetchAndReset(ctx)
@@ -346,7 +342,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 				if err != nil {
 					return err
 				}
-				if err := r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions); err != nil {
+				if err := r.push(ctx); err != nil {
 					return &InternalError{inner: err}
 				}
 			} else {
@@ -357,6 +353,34 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	}
 
 	return nil
+}
+
+func (r *repository) push(ctx context.Context) error {
+	pushOptions := git.PushOptions{
+		RemoteCallbacks: git.RemoteCallbacks{
+			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
+			CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
+		},
+	}
+	log := logger.FromContext(ctx)
+	eb := backoff.NewExponentialBackOff()
+	return backoff.RetryNotify(
+		func() error{
+			err := r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
+			if err != nil {
+				gerr := err.(*git.GitError)
+				if gerr.Code == git.ErrorCodeNonFastForward {
+					return backoff.Permanent(err)
+				}
+			}
+			return err
+		},
+		backoff.WithMaxRetries(eb,3),
+		func(err error, elapsed time.Duration) {
+			panic(err)
+			log.DPanic("git.retry", zap.Error(err))
+		},
+	)
 }
 
 func (r *repository) afterTransform(ctx context.Context, fs billy.Filesystem) error {

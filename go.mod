@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/blendle/zapdriver v1.3.1
+	github.com/cenkalti/backoff/v4 v4.1.2 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
