@@ -24,6 +24,7 @@ import (
 type ObjectMeta struct {
 	Name        string            `json:"name"`
 	Annotations map[string]string `json:"annotations,omitempty"`
+	Finalizers  []string          `json:"finalizers,omitempty"`
 }
 
 // This file is a subset of https://github.com/argoproj/argo-cd/blob/v1.8.7/pkg/apis/application/v1alpha1/types.go

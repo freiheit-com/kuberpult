@@ -19,7 +19,6 @@ package argocd
 import (
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"sigs.k8s.io/yaml"
@@ -32,14 +31,19 @@ type ApiVersion string
 
 const V1Alpha1 ApiVersion = "v1alpha1"
 
+type AppData struct {
+	AppName           string
+	IsUndeployVersion bool
+}
+
 var ApiVersions []ApiVersion = []ApiVersion{V1Alpha1}
 
-func Render(gitUrl string, gitBranch string, config config.EnvironmentConfig, env string, apps []string) (map[ApiVersion][]byte, error) {
+func Render(gitUrl string, gitBranch string, config config.EnvironmentConfig, env string, appsData []AppData) (map[ApiVersion][]byte, error) {
 	if config.ArgoCd == nil {
 		return nil, fmt.Errorf("no ArgoCd configured for environment %s", env)
 	}
 	result := map[ApiVersion][]byte{}
-	if content, err := RenderV1Alpha1(gitUrl, gitBranch, config, env, apps); err != nil {
+	if content, err := RenderV1Alpha1(gitUrl, gitBranch, config, env, appsData); err != nil {
 		return nil, err
 	} else {
 		result[V1Alpha1] = content
@@ -47,7 +51,7 @@ func Render(gitUrl string, gitBranch string, config config.EnvironmentConfig, en
 	return result, nil
 }
 
-func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentConfig, env string, apps []string) ([]byte, error) {
+func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentConfig, env string, appsData []AppData) ([]byte, error) {
 	destination := v1alpha1.ApplicationDestination{
 		Name:      config.ArgoCd.Destination.Name,
 		Namespace: config.ArgoCd.Destination.Namespace,
@@ -95,36 +99,56 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 	for index, value := range config.ArgoCd.IgnoreDifferences {
 		ignoreDifferences[index] = v1alpha1.ResourceIgnoreDifferences(value)
 	}
-	sort.Strings(apps)
-	for _, name := range apps {
-		app := v1alpha1.Application{
-			TypeMeta: v1alpha1.ApplicationTypeMeta,
-			ObjectMeta: v1alpha1.ObjectMeta{
-				Name:        fmt.Sprintf("%s-%s", env, name),
-				Annotations: config.ArgoCd.ApplicationAnnotations,
-			},
-			Spec: v1alpha1.ApplicationSpec{
-				Project: env,
-				Source: v1alpha1.ApplicationSource{
-					RepoURL:        gitUrl,
-					Path:           filepath.Join("environments", env, "applications", name, "manifests"),
-					TargetRevision: gitBranch,
-				},
-				Destination: destination,
-				SyncPolicy: &v1alpha1.SyncPolicy{
-					Automated: &v1alpha1.SyncPolicyAutomated{
-						Prune:    true,
-						SelfHeal: true,
-					},
-				},
-				IgnoreDifferences: ignoreDifferences,
-			},
-		}
-		if content, err := yaml.Marshal(&app); err != nil {
+	for _, appData := range appsData {
+		appManifest, err := RenderApp(gitUrl, gitBranch, config.ArgoCd.ApplicationAnnotations, env, appData, destination, ignoreDifferences)
+		if err != nil {
 			return nil, err
-		} else {
-			buf = append(buf, string(content))
 		}
+		buf = append(buf, appManifest)
 	}
 	return ([]byte)(strings.Join(buf, "---\n")), nil
+}
+
+func RenderApp(gitUrl string, gitBranch string, applicationAnnotations map[string]string, env string, appData AppData, destination v1alpha1.ApplicationDestination, ignoreDifferences []v1alpha1.ResourceIgnoreDifferences) (string, error) {
+	name := appData.AppName
+	app := v1alpha1.Application{
+		TypeMeta: v1alpha1.ApplicationTypeMeta,
+		ObjectMeta: v1alpha1.ObjectMeta{
+			Name:        fmt.Sprintf("%s-%s", env, name),
+			Annotations: applicationAnnotations,
+			Finalizers:  calculateFinalizers(appData.IsUndeployVersion),
+		},
+		Spec: v1alpha1.ApplicationSpec{
+			Project: env,
+			Source: v1alpha1.ApplicationSource{
+				RepoURL:        gitUrl,
+				Path:           filepath.Join("environments", env, "applications", name, "manifests"),
+				TargetRevision: gitBranch,
+			},
+			Destination: destination,
+			SyncPolicy: &v1alpha1.SyncPolicy{
+				Automated: &v1alpha1.SyncPolicyAutomated{
+					Prune:    true,
+					SelfHeal: true,
+					// In general, empty manifests are an indication of an error.
+					// But in the undeployVersion, we need to allow empty manifests
+					AllowEmpty: appData.IsUndeployVersion,
+				},
+			},
+			IgnoreDifferences: ignoreDifferences,
+		},
+	}
+	if content, err := yaml.Marshal(&app); err != nil {
+		return "", err
+	} else {
+		return string(content), nil
+	}
+}
+
+func calculateFinalizers(isUndeployVersion bool) []string {
+	finalizers := []string{}
+	if isUndeployVersion {
+		finalizers = append(finalizers, "resources-finalizer.argocd.argoproj.io")
+	}
+	return finalizers
 }

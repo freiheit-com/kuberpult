@@ -71,7 +71,7 @@ type CreateApplicationVersion struct {
 	SourceMessage  string
 }
 
-func getLastRelease(fs billy.Filesystem, application string) (uint64, error) {
+func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 	var err error
 	releasesDir := releasesDirectory(fs, application)
 	err = fs.MkdirAll(releasesDir, 0777)
@@ -96,7 +96,7 @@ func getLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 }
 
 func (c *CreateApplicationVersion) Transform(fs billy.Filesystem) (string, error) {
-	lastRelease, err := getLastRelease(fs, c.Application)
+	lastRelease, err := GetLastRelease(fs, c.Application)
 	if err != nil {
 		return "", err
 	}
@@ -172,23 +172,14 @@ type CreateUndeployApplicationVersion struct {
 }
 
 func (c *CreateUndeployApplicationVersion) Transform(fs billy.Filesystem) (string, error) {
-	lastRelease, err := getLastRelease(fs, c.Application)
+	lastRelease, err := GetLastRelease(fs, c.Application)
 	if err != nil {
 		return "", err
 	}
 	if lastRelease == 0 {
 		return "", fmt.Errorf("cannot undeploy non-existing application '%v'", c.Application)
 	}
-	s := State{
-		Filesystem: fs,
-	}
-	release, err := s.GetApplicationRelease(c.Application, lastRelease)
-	if err != nil {
-		return "", fmt.Errorf("cannot undeploy: could not get latest release for application '%v'", c.Application)
-	}
-	if release.UndeployVersion {
-		return "", fmt.Errorf("cannot undeploy: the latest release is already undeploy for application '%v'", c.Application)
-	}
+
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
 	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
 		return "", err
@@ -198,7 +189,7 @@ func (c *CreateUndeployApplicationVersion) Transform(fs billy.Filesystem) (strin
 	if err != nil {
 		return "", err
 	}
-	// this is a flag to indicate that this is the specia "undeploy" version
+	// this is a flag to indicate that this is the special "undeploy" version
 	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
 		return "", err
 	}
@@ -557,7 +548,8 @@ func (c *DeployApplicationVersion) Transform(fs billy.Filesystem) (string, error
 	if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
 		return "", err
 	}
-	if err := util.WriteFile(fs, fs.Join(manifestsDir, "manifests.yaml"), manifestContent, 0666); err != nil {
+	manifestFilename := fs.Join(manifestsDir, "manifests.yaml")
+	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
 		return "", err
 	}
 	s := State{

@@ -93,7 +93,7 @@ func TestServeHttpSuccess(t *testing.T) {
 
 				expectedMsg := "Author: kuberpult <kuberpult@freiheit.com>\n" +
 					"Committer: kuberpult <kuberpult@freiheit.com>\n" +
-					"released version 1 of \"demo\"\n\n"
+					"created version 1 of \"demo\"\n\n"
 				cmd := exec.Command("git", "--git-dir="+remoteDir, "log", "--format=Author: %an <%ae>%nCommitter: %cn <%ce>%n%B", "-n", "1", "HEAD")
 				if out, err := cmd.Output(); err != nil {
 					t.Fatal(err)

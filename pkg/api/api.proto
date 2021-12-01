@@ -105,10 +105,7 @@ message DeployRequest {
 }
 
 message PrepareUndeployRequest {
-  string environment = 1;
-  string application = 2;
-  uint64 version = 3;
-  LockBehavior lockBehavior = 5;
+  string application = 1;
 }
 
 message ReleaseTrainRequest {
