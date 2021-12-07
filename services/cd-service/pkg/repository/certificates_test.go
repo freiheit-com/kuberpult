@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	git "github.com/libgit2/git2go/v31"
+	git "github.com/libgit2/git2go/v33"
 )
 
 const example_known_hosts = "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
@@ -34,27 +34,28 @@ func TestCertificateStore(t *testing.T) {
 		KnownHosts string
 		Host       string
 		HashSHA256 [32]byte
-		Expected   git.ErrorCode
+		Expected   error
 	}{
 		{
 			Name:       "github.com working example",
 			KnownHosts: example_known_hosts,
 			Host:       "github.com",
 			HashSHA256: [32]uint8{0x9d, 0x38, 0x5b, 0x83, 0xa9, 0x17, 0x52, 0x92, 0x56, 0x1a, 0x5e, 0xc4, 0xd4, 0x81, 0x8e, 0xa, 0xca, 0x51, 0xa2, 0x64, 0xf1, 0x74, 0x20, 0x11, 0x2e, 0xf8, 0x8a, 0xc3, 0xa1, 0x39, 0x49, 0x8f},
+			Expected:   nil,
 		},
 		{
 			Name:       "github.com bad hash",
 			KnownHosts: example_known_hosts,
 			Host:       "github.com",
 			HashSHA256: [32]uint8{},
-			Expected:   git.ErrorCodeCertificate,
+			Expected:   fmt.Errorf("certificates error"),
 		},
 		{
 			Name:       "github.com wrong hostname",
 			KnownHosts: example_known_hosts,
 			Host:       "gitlab.com",
 			HashSHA256: [32]uint8{0x9d, 0x38, 0x5b, 0x83, 0xa9, 0x17, 0x52, 0x92, 0x56, 0x1a, 0x5e, 0xc4, 0xd4, 0x81, 0x8e, 0xa, 0xca, 0x51, 0xa2, 0x64, 0xf1, 0x74, 0x20, 0x11, 0x2e, 0xf8, 0x8a, 0xc3, 0xa1, 0x39, 0x49, 0x8f},
-			Expected:   git.ErrorCodeCertificate,
+			Expected:   fmt.Errorf("certificates error"),
 		},
 	}
 	for _, tc := range tcs {
@@ -77,7 +78,10 @@ func TestCertificateStore(t *testing.T) {
 			}
 			cb := store.CertificateCheckCallback(context.Background())
 			result := cb(&cert, false, tc.Host)
-			if result != tc.Expected {
+			if result == nil && tc.Expected != nil {
+				t.Errorf(" Expected an error but got nil %s", tc.Expected)
+			}
+			if tc.Expected != nil && result != nil && result.Error() != tc.Expected.Error() {
 				t.Errorf("wrong check result: expected %s, actual %s", tc.Expected, result)
 			}
 		})

@@ -13,7 +13,7 @@ require (
 	github.com/improbable-eng/grpc-web v0.14.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/libgit2/git2go/v31 v31.4.14
+	github.com/libgit2/git2go/v33 v33.0.4
 	github.com/rs/cors v1.7.0 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b

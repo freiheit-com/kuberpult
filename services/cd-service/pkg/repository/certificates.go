@@ -25,7 +25,7 @@ import (
 	"os"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	git "github.com/libgit2/git2go/v31"
+	git "github.com/libgit2/git2go/v33"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 )
@@ -68,23 +68,23 @@ type certificateStore struct {
 	sha256Hashes map[string][]byte
 }
 
-func (store *certificateStore) CertificateCheckCallback(ctx context.Context) func(cert *git.Certificate, valid bool, hostname string) git.ErrorCode {
+func (store *certificateStore) CertificateCheckCallback(ctx context.Context) func(cert *git.Certificate, valid bool, hostname string) error {
 	if store == nil {
-		return func(cert *git.Certificate, valid bool, hostname string) git.ErrorCode {
-			return git.ErrorCodeCertificate // should never be called
+		return func(cert *git.Certificate, valid bool, hostname string) error {
+			return fmt.Errorf("certificates error") // should never be called
 		}
 	}
 	logger := logger.FromContext(ctx)
-	return func(cert *git.Certificate, valid bool, hostname string) git.ErrorCode {
+	return func(cert *git.Certificate, valid bool, hostname string) error {
 		if cert.Kind == git.CertificateHostkey {
 			if hsh, ok := store.sha256Hashes[hostname]; ok {
 				if bytes.Compare(hsh, cert.Hostkey.HashSHA256[:]) == 0 {
-					return git.ErrOk
+					return nil
 				} else {
 					logger.Error("git.ssh.hostkeyMismatch",
 						zap.String("hostname", hostname),
 						zap.String("hostkey.expected", fmt.Sprintf("%x", hsh)),
-						zap.String("hostkey.actual",fmt.Sprintf("%x", cert.Hostkey.HashSHA256)),
+						zap.String("hostkey.actual", fmt.Sprintf("%x", cert.Hostkey.HashSHA256)),
 					)
 				}
 			} else {
@@ -93,6 +93,6 @@ func (store *certificateStore) CertificateCheckCallback(ctx context.Context) fun
 				)
 			}
 		}
-		return git.ErrorCodeCertificate
+		return fmt.Errorf("certificates error")
 	}
 }

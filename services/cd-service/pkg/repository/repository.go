@@ -42,7 +42,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
-	git "github.com/libgit2/git2go/v31"
+	git "github.com/libgit2/git2go/v33"
 )
 
 // A Repository provides a multiple reader / single writer access to a git repository.
@@ -72,9 +72,9 @@ type repository struct {
 	nextError error
 
 	// Mutex guarding head
-	headLock     sync.Mutex
+	headLock sync.Mutex
 
-	notify       notify.Notify
+	notify notify.Notify
 
 	// Signaling readyness to allow fetching in the background
 	*Readiness
@@ -165,12 +165,12 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
 				fetchOptions := git.FetchOptions{
 					RemoteCallbacks: git.RemoteCallbacks{
-						UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) git.ErrorCode {
+						UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
 							logger.Debug("git.fetched",
 								zap.String("refname", refname),
 								zap.String("revision.new", b.String()),
 							)
-							return git.ErrOk
+							return nil
 						},
 						CredentialsCallback:      credentials.CredentialsCallback(ctx),
 						CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
@@ -270,12 +270,12 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 	logger := logger.FromContext(ctx)
 	fetchOptions := git.FetchOptions{
 		RemoteCallbacks: git.RemoteCallbacks{
-			UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) git.ErrorCode {
+			UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
 				logger.Debug("git.fetched",
 					zap.String("refname", refname),
 					zap.String("revision.new", b.String()),
 				)
-				return git.ErrOk
+				return nil
 			},
 			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
 			CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),

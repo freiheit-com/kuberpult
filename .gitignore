@@ -1,6 +1,9 @@
 bin
 services/cd-service/repository_checkedout
+services/cd-service/repository_remote
 services/cd-service/repository
+.DS_Store
 .install
 .idea/
 .*.sentinel
+build/

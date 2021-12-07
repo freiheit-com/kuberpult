@@ -25,7 +25,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/go-git/go-billy/v5/util"
-	git "github.com/libgit2/git2go/v31"
+	git "github.com/libgit2/git2go/v33"
 )
 
 type testCommit struct {
@@ -163,7 +163,7 @@ func TestHistory(t *testing.T) {
 						"foo/baz": "bar",
 					},
 				},
-                                {
+				{
 					Files: map[string]string{
 						"foo/bar": "boz",
 					},
@@ -188,7 +188,7 @@ func TestHistory(t *testing.T) {
 				},
 				{
 					Files: map[string]string{
-						"foo/bar": "baz",
+						"foo/bar":             "baz",
 						"foo/1/2/3/4/5/6/bar": "baz",
 					},
 				},
