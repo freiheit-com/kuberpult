@@ -26,6 +26,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -381,7 +382,19 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, name st
 	if apps, err := state.GetEnvironmentApplications(name); err != nil {
 		return err
 	} else {
-		if manifests, err := argocd.Render(r.config.URL, r.config.Branch, config, name, apps); err != nil {
+		appData := []argocd.AppData{}
+		sort.Strings(apps)
+		for _, appName := range apps {
+			isUndeployVersion, err := state.IsLatestUndeployVersion(appName)
+			if err != nil {
+				return err
+			}
+			appData = append(appData, argocd.AppData{
+				AppName:           appName,
+				IsUndeployVersion: isUndeployVersion,
+			})
+		}
+		if manifests, err := argocd.Render(r.config.URL, r.config.Branch, config, name, appData); err != nil {
 			return err
 		} else {
 			for apiVersion, content := range manifests {
@@ -705,10 +718,49 @@ func (s *State) GetApplicationReleases(application string) ([]uint64, error) {
 }
 
 type Release struct {
-	Version        uint64
-	SourceAuthor   string
-	SourceCommitId string
-	SourceMessage  string
+	Version        	uint64
+	/**
+	 "UndeployVersion=true" means that this version is empty, and has no manifest that could be deployed.
+	 It is intended to help cleanup old services within the normal release cycle (e.g. dev->staging->production).
+	 */
+	UndeployVersion bool
+	SourceAuthor   	string
+	SourceCommitId 	string
+	SourceMessage  	string
+}
+
+func (s *State) IsLatestUndeployVersion(application string) (bool, error) {
+	version, err := GetLastRelease(s.Filesystem, application)
+	if err != nil {
+		return false, err
+	}
+	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
+	_, err = s.Filesystem.Stat(base)
+	if err != nil {
+		return false, wrapFileError(err, base, "could not call stat")
+	}
+	if _, err := readFile(s.Filesystem, s.Filesystem.Join(base, "undeploy")); err != nil {
+		if !os.IsNotExist(err) {
+			return false, err
+		}
+		return false, nil
+	}
+	return true, nil
+}
+
+func (s *State) IsUndeployVersion(application string, version uint64) (bool, error) {
+	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
+	_, err := s.Filesystem.Stat(base)
+	if err != nil {
+		return false, wrapFileError(err, base, "could not call stat")
+	}
+	if _, err := readFile(s.Filesystem, s.Filesystem.Join(base, "undeploy")); err != nil {
+		if !os.IsNotExist(err) {
+			return false, err
+		}
+		return false, nil
+	}
+	return true, nil
 }
 
 func (s *State) GetApplicationRelease(application string, version uint64) (*Release, error) {
@@ -739,6 +791,11 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 	} else {
 		release.SourceMessage = string(cnt)
 	}
+	isUndeploy, err := s.IsUndeployVersion(application, version)
+	if err != nil {
+		return nil, err
+	}
+	release.UndeployVersion = isUndeploy
 	return &release, nil
 }
 

@@ -83,7 +83,8 @@ func (o *OverviewServiceServer) getOverview(
 						Name:  appName,
 						Locks: map[string]*api.Lock{},
 					}
-					if version, err := s.GetEnvironmentApplicationVersion(name, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
+					var version *uint64
+					if version, err = s.GetEnvironmentApplicationVersion(name, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
 						if version == nil {
@@ -106,6 +107,14 @@ func (o *OverviewServiceServer) getOverview(
 							app.QueuedVersion = 0
 						} else {
 							app.QueuedVersion = *queuedVersion
+						}
+					}
+					app.UndeployVersion = false
+					if version != nil {
+						if release, err := s.GetApplicationRelease(appName, *version); err != nil && !errors.Is(err, os.ErrNotExist) {
+							return nil, err
+						} else if release != nil {
+							app.UndeployVersion = release.UndeployVersion
 						}
 					}
 					if appLocks, err := s.GetEnvironmentApplicationLocks(name, appName); err != nil {
@@ -140,10 +149,11 @@ func (o *OverviewServiceServer) getOverview(
 						return nil, err
 					} else {
 						release := &api.Release{
-							Version:        id,
-							SourceAuthor:   rel.SourceAuthor,
-							SourceCommitId: rel.SourceCommitId,
-							SourceMessage:  rel.SourceMessage,
+							Version:         id,
+							SourceAuthor:    rel.SourceAuthor,
+							SourceCommitId:  rel.SourceCommitId,
+							SourceMessage:   rel.SourceMessage,
+							UndeployVersion: rel.UndeployVersion,
 						}
 						if commit, err := s.GetApplicationReleaseCommit(appName, id); err != nil {
 							return nil, err

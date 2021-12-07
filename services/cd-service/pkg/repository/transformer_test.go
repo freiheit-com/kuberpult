@@ -39,29 +39,144 @@ const (
 	additionalVersions = 7
 )
 
+// Tests various error cases in the Undeploy endpoint, specifically the error messages returned.
+func TestUndeployErrors(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		expectedError     string
+		expectedCommitMsg string
+		shouldSucceed     bool
+	}{
+		{
+			Name: "Access non-existent application",
+			Transformers: []Transformer{
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			expectedError:     "cannot undeploy non-existing application 'app1'",
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+		{
+			Name: "Success",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "created undeploy-version 2 of 'app1'\n",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "Deploy after Undeploy should work",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateApplicationVersion{
+					Application:    "app1",
+					Manifests:      nil,
+					SourceCommitId: "",
+					SourceAuthor:   "",
+					SourceMessage:  "",
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "created version 3 of \"app1\"\n",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "Undeploy twice should succeed",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			shouldSucceed:     true,
+			expectedError:     "",
+			expectedCommitMsg: "created undeploy-version 3 of 'app1'\n",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			commitMsg, _, err := repo.ApplyTransformersInternal(tc.Transformers...)
+			// note that we only check the LAST error here:
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				actualMsg := commitMsg[len(commitMsg)-1]
+				if actualMsg != tc.expectedCommitMsg {
+					t.Fatalf("expected a different message.\nExpected: %q\nGot %q", tc.expectedCommitMsg, actualMsg)
+				}
+			} else {
+				if err == nil {
+					t.Fatalf("Expected an error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
+				}
+			}
+		})
+	}
+}
+
 // Tests various error cases in the release train, specifically the error messages returned.
 func TestReleaseTrainErrors(t *testing.T) {
 	tcs := []struct {
-		Name         string
-		Transformers []Transformer
-		expectedError string
+		Name              string
+		Transformers      []Transformer
+		expectedError     string
 		expectedCommitMsg string
-		shouldSucceed bool
+		shouldSucceed     bool
 	}{
 		{
-			Name:         "Access non-existent environment",
-			Transformers:  []Transformer{
+			Name: "Access non-existent environment",
+			Transformers: []Transformer{
 				&ReleaseTrain{
 					Environment: "doesnotexistenvironment",
 				},
 			},
-			expectedError: "could not find environment config for 'doesnotexistenvironment'",
+			expectedError:     "could not find environment config for 'doesnotexistenvironment'",
 			expectedCommitMsg: "",
-			shouldSucceed: false,
+			shouldSucceed:     false,
 		},
 		{
-			Name:         "Environment is locked",
-			Transformers:  []Transformer{
+			Name: "Environment is locked",
+			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance,
 					Config: config.EnvironmentConfig{
@@ -80,8 +195,8 @@ func TestReleaseTrainErrors(t *testing.T) {
 					Environment: envAcceptance,
 				},
 			},
-			shouldSucceed: true,
-			expectedError: "",
+			shouldSucceed:     true,
+			expectedError:     "",
 			expectedCommitMsg: "Target Environment 'acceptance' is locked - exiting.",
 		},
 	}
@@ -986,11 +1101,11 @@ spec:
 						ClusterResourceWhitelist: []config.AccessEntry{
 							{
 								Group: "*",
-								Kind: "MyClusterWideResource",
+								Kind:  "MyClusterWideResource",
 							},
 							{
 								Group: "*",
-								Kind: "ClusterSecretStore",
+								Kind:  "ClusterSecretStore",
 							},
 						},
 					},
@@ -1108,7 +1223,7 @@ spec:
       selfHeal: true
 `, repoURL, repoURL)
 				if string(content) != expected {
-					t.Fatalf("unexpected argocd manifest:\nexpected:\n%s\n\nactual:\n%s", expected, string(content))
+					t.Fatalf("unexpected argocd manifest:\n%s", godebug.Diff(expected, string(content)))
 				}
 			},
 		},
@@ -1179,7 +1294,7 @@ spec:
       selfHeal: true
 `, repoURL)
 				if string(content) != expected {
-					t.Fatalf("unexpected argocd manifest:\nexpected:\n%s\n\nactual:\n%s", expected, string(content))
+					t.Fatalf("unexpected argocd manifest:\ndiff:\n%s\n\n", godebug.Diff(expected, string(content)))
 				}
 			},
 		},
@@ -1257,7 +1372,7 @@ spec:
       selfHeal: true
 `, repoURL)
 				if string(content) != expected {
-					t.Fatalf("unexpected argocd manifest:\nexpected:\n%s\n\nactual:\n%s", expected, string(content))
+					t.Fatalf("unexpected argocd manifest:\ndiff:\n%s\n\n", godebug.Diff(expected, string(content)))
 				}
 			},
 		},
@@ -1450,7 +1565,7 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 	return res
 }
 
-func setupRepositoryTest(t *testing.T) (Repository, error){
+func setupRepositoryTest(t *testing.T) (Repository, error) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")

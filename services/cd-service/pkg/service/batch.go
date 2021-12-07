@@ -78,6 +78,15 @@ func ValidateDeployment(
 	return nil
 }
 
+func ValidatePrepareUndeploy(
+	app string,
+) error {
+	if !valid.ApplicationName(app) {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create undeploy version: invalid application: '%s'", app))
+	}
+	return nil
+}
+
 func (d *BatchServer) processAction(
 	batchAction *api.BatchAction,
 ) (repository.Transformer , error) {
@@ -121,6 +130,14 @@ func (d *BatchServer) processAction(
 			Environment: act.Environment,
 			Application: act.Application,
 			LockId:      act.LockId,
+		}, nil
+	case *api.BatchAction_PrepareUndeploy:
+		act := action.PrepareUndeploy
+		if err := ValidatePrepareUndeploy(act.Application); err != nil {
+			return nil, err
+		}
+		return &repository.CreateUndeployApplicationVersion{
+			Application:   act.Application,
 		}, nil
 	case *api.BatchAction_Deploy:
 		act := action.Deploy
