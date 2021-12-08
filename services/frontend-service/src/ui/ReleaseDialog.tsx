@@ -15,6 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { makeStyles } from '@material-ui/core/styles';
 
@@ -39,11 +40,10 @@ import Typography from '@material-ui/core/Typography';
 
 import { useUnaryCallback } from './Api';
 
-import type { GetOverviewResponse, Application, Lock, BatchAction } from '../api/api';
+import type { Application, BatchAction, GetOverviewResponse, Lock } from '../api/api';
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
 import { ConfirmationDialogProvider } from './Batch';
-import { useCallback, useMemo } from 'react';
 import { Grow, TextField } from '@material-ui/core';
 import AddLockIcon from '@material-ui/icons/EnhancedEncryption';
 
@@ -267,6 +267,34 @@ const DeployButton = (props: {
             default:
                 return null;
         }
+    }
+};
+
+const UndeployButton = (props: {
+    openDialog?: () => void; //
+    state?: string; //
+    applicationName: string; //
+}) => {
+    const buttonMsg = 'Prepare to Undeploy';
+    const tooltipMsg =
+        'This will create a new version that is empty. Use this only for services that are not needed anymore.';
+    switch (props.state) {
+        case 'waiting':
+            return (
+                <Tooltip title={tooltipMsg}>
+                    <Button variant="contained" onClick={props.openDialog}>
+                        {buttonMsg}
+                    </Button>
+                </Tooltip>
+            );
+        case 'pending':
+            return <div>..waiting...</div>;
+        case 'resolved':
+            return <div>Resolved</div>;
+        case 'rejected':
+            return <div>Rejected</div>;
+        default:
+            return <div>Unknown</div>;
     }
 };
 
@@ -611,6 +639,23 @@ const ReleaseDialog = (props: {
         ''
     );
 
+    const undeployAction: BatchAction = useMemo(
+        () => ({
+            action: {
+                $case: 'prepareUndeploy',
+                prepareUndeploy: {
+                    application: applicationName,
+                },
+            },
+        }),
+        [applicationName]
+    );
+    const undeployButton = (
+        <ConfirmationDialogProvider action={undeployAction}>
+            <UndeployButton applicationName={applicationName} />
+        </ConfirmationDialogProvider>
+    );
+
     return (
         <Dialog open fullWidth={true} maxWidth="lg">
             <DialogTitle className={classes.title}>
@@ -627,6 +672,7 @@ const ReleaseDialog = (props: {
                     {timestamp}
                     <div className="commitId">{release?.sourceCommitId}</div>
                 </div>
+                <div style={{ display: 'inline-block' }}>{undeployButton}</div>
                 <IconButton onClick={prevDialog} className="arrowPrev" disabled={!hasPrevRelease}>
                     <ArrowRightIcon />
                 </IconButton>

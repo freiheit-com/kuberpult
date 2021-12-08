@@ -33,6 +33,7 @@ import Tooltip from '@material-ui/core/Tooltip';
 import { ReleaseDialogProvider, useOpen } from './ReleaseDialog';
 
 import type { Application, Environment, Release, GetOverviewResponse } from '../api/api';
+import { Warnings } from './Warnings';
 export type EnvSortOrder = { [index: string]: number };
 
 const useStyles = makeStyles((theme) => ({
@@ -159,10 +160,13 @@ const ApplicationBox: React.FC<any> = (props: {
     }
     const releases = application.releases;
     releases?.sort((a, b) => b.version - a.version);
-
+    const warnings = <Warnings name={name} environments={environments} releases={releases} />;
     return (
         <TableRow className="application">
-            <TableCell className="applicationCard">{name}</TableCell>
+            <TableCell className="applicationCard">
+                {warnings}
+                {name}
+            </TableCell>
             <TableCell className="releases">
                 {releases?.map((release) => (
                     <ReleaseBox
