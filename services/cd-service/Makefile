@@ -50,10 +50,10 @@ ifeq ($(COMPILE_WITH_DOCKER),true)
 # note repository must be named repository otherwise kuberpult cannot see the repository
 run: docker
 	echo $(shell pwd)
-	docker run --rm -e KUBERPULT_GIT_URL="/repository" -e KUBERPULT_GIT_BRANCH=master -p 8080:8080 -p 8443:8443 -v $(shell pwd)/repository:/repository $(IMAGENAME)
+	docker run --rm -e KUBERPULT_GIT_URL="/repository_remote" -e KUBERPULT_GIT_BRANCH=master -p 8080:8080 -p 8443:8443 -v $(shell pwd)/repository_remote:/repository_remote $(IMAGENAME)
 else
 run: build
-	KUBERPULT_GIT_URL="./repository" KUBERPULT_GIT_BRANCH=master ./bin/main
+	KUBERPULT_GIT_URL="./repository_remote" KUBERPULT_GIT_BRANCH=master ./bin/main
 endif
 
 bin/main: bin/ $(GO_FILES) | proto
