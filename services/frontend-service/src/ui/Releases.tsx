@@ -38,6 +38,7 @@ import { BatchAction } from '../api/api';
 import { useMemo } from 'react';
 import { ConfirmationDialogProvider } from './Batch';
 import Button from '@material-ui/core/Button';
+import { Spinner } from './App';
 export type EnvSortOrder = { [index: string]: number };
 
 const useStyles = makeStyles((theme) => ({
@@ -162,7 +163,7 @@ const UndeployButton = (props: {
         case 'waiting':
             return btn(false);
         case 'pending':
-            return <div>..waiting...</div>;
+            return <Spinner />;
         case 'resolved':
             return btn(true);
         case 'rejected':
