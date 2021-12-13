@@ -270,34 +270,6 @@ const DeployButton = (props: {
     }
 };
 
-const UndeployButton = (props: {
-    openDialog?: () => void; //
-    state?: string; //
-    applicationName: string; //
-}) => {
-    const buttonMsg = 'Prepare to Undeploy';
-    const tooltipMsg =
-        'This will create a new version that is empty. Use this only for services that are not needed anymore.';
-    switch (props.state) {
-        case 'waiting':
-            return (
-                <Tooltip title={tooltipMsg}>
-                    <Button variant="contained" onClick={props.openDialog}>
-                        {buttonMsg}
-                    </Button>
-                </Tooltip>
-            );
-        case 'pending':
-            return <div>..waiting...</div>;
-        case 'resolved':
-            return <div>Resolved</div>;
-        case 'rejected':
-            return <div>Rejected</div>;
-        default:
-            return <div>Unknown</div>;
-    }
-};
-
 export const CreateLockButton = (props: { applicationName?: string; environmentName: string }) => {
     const { applicationName, environmentName } = props;
     const [messageBox, setMessageBox] = React.useState(false);
@@ -639,23 +611,6 @@ const ReleaseDialog = (props: {
         ''
     );
 
-    const undeployAction: BatchAction = useMemo(
-        () => ({
-            action: {
-                $case: 'prepareUndeploy',
-                prepareUndeploy: {
-                    application: applicationName,
-                },
-            },
-        }),
-        [applicationName]
-    );
-    const undeployButton = (
-        <ConfirmationDialogProvider action={undeployAction}>
-            <UndeployButton applicationName={applicationName} />
-        </ConfirmationDialogProvider>
-    );
-
     return (
         <Dialog open fullWidth={true} maxWidth="lg">
             <DialogTitle className={classes.title}>
@@ -672,7 +627,6 @@ const ReleaseDialog = (props: {
                     {timestamp}
                     <div className="commitId">{release?.sourceCommitId}</div>
                 </div>
-                <div style={{ display: 'inline-block' }}>{undeployButton}</div>
                 <IconButton onClick={prevDialog} className="arrowPrev" disabled={!hasPrevRelease}>
                     <ArrowRightIcon />
                 </IconButton>

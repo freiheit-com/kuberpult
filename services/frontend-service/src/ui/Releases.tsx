@@ -34,6 +34,10 @@ import { ReleaseDialogProvider, useOpen } from './ReleaseDialog';
 
 import type { Application, Environment, Release, GetOverviewResponse } from '../api/api';
 import { Warnings } from './Warnings';
+import { BatchAction } from '../api/api';
+import { useMemo } from 'react';
+import { ConfirmationDialogProvider } from './Batch';
+import Button from '@material-ui/core/Button';
 export type EnvSortOrder = { [index: string]: number };
 
 const useStyles = makeStyles((theme) => ({
@@ -139,6 +143,35 @@ const ReleaseBox = (props: { name: string; release: Release; envs: Array<Environ
     );
 };
 
+const UndeployButton = (props: {
+    openDialog?: () => void; //
+    state?: string; //
+    applicationName: string; //
+}) => {
+    const buttonMsg = 'Prepare to Undeploy';
+    const tooltipMsg =
+        'This will create a new version that is empty. Use this only for services that are not needed anymore.';
+    const btn = (disabled: boolean) => (
+        <Tooltip title={tooltipMsg}>
+            <Button variant="contained" onClick={props.openDialog} disabled={disabled}>
+                <span style={{ fontSize: '0.5rem' }}>{buttonMsg}</span>
+            </Button>
+        </Tooltip>
+    );
+    switch (props.state) {
+        case 'waiting':
+            return btn(false);
+        case 'pending':
+            return <div>..waiting...</div>;
+        case 'resolved':
+            return btn(true);
+        case 'rejected':
+            return btn(false);
+        default:
+            return <div>Unknown</div>;
+    }
+};
+
 const ApplicationBox: React.FC<any> = (props: {
     name: string;
     environments: { [name: string]: Environment };
@@ -161,11 +194,29 @@ const ApplicationBox: React.FC<any> = (props: {
     const releases = application.releases;
     releases?.sort((a, b) => b.version - a.version);
     const warnings = <Warnings name={name} environments={environments} releases={releases} />;
+    const undeployAction: BatchAction = useMemo(
+        () => ({
+            action: {
+                $case: 'prepareUndeploy',
+                prepareUndeploy: {
+                    application: name,
+                },
+            },
+        }),
+        [name]
+    );
+    const undeployButton = (
+        <ConfirmationDialogProvider action={undeployAction}>
+            <UndeployButton applicationName={name} />
+        </ConfirmationDialogProvider>
+    );
+
     return (
         <TableRow className="application">
             <TableCell className="applicationCard">
                 {warnings}
                 {name}
+                {undeployButton}
             </TableCell>
             <TableCell className="releases">
                 {releases?.map((release) => (
