@@ -77,12 +77,13 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
             <Dialog onClose={handleClose} open={openDialog}>
                 <DialogTitle>
                     <Typography variant="subtitle1" component="div" className="confirmation-title">
-                        <span>{actionMessages!.title}</span>
+                        <span>{actionMessages.title}</span>
                         <IconButton aria-label="close" color="inherit" onClick={handleClose}>
                             <Close fontSize="small" />
                         </IconButton>
                     </Typography>
                 </DialogTitle>
+                <div style={{ margin: '16px 24px' }}>{actionMessages.description}</div>
                 <span style={{ alignSelf: 'end' }}>
                     <Button onClick={handleClose}>Cancel</Button>
                     <Button onClick={doAction}>Yes</Button>
@@ -94,8 +95,8 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 onClose={closeNotification}
                 message={
                     doActionState.state === 'resolved'
-                        ? actionMessages!.notMessageSuccess
-                        : actionMessages!.notMessageFail
+                        ? actionMessages.notMessageSuccess
+                        : actionMessages.notMessageFail
                 }
                 action={closeIcon}
             />
@@ -103,7 +104,14 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
     );
 };
 
-const getMessages = (action: BatchAction) => {
+type BatchMessage = {
+    title: string;
+    notMessageSuccess: string;
+    notMessageFail: string;
+    description?: string;
+};
+
+const getMessages = (action: BatchAction): BatchMessage => {
     switch (action.action?.$case) {
         case 'deploy':
             return {
@@ -152,6 +160,25 @@ const getMessages = (action: BatchAction) => {
                     action.action?.deleteEnvironmentApplicationLock.environment +
                     ' was successfully deleted',
                 notMessageFail: 'Deleting application lock failed',
+            };
+        case 'prepareUndeploy':
+            return {
+                title: 'Are you sure you want to start undeploy?',
+                description:
+                    'The new version will go through the same cycle as any other versions' +
+                    ' (e.g. development->staging->production). ' +
+                    'The behavior is similar to any other version that is created normally.',
+                notMessageSuccess:
+                    'Undeploy version for Application ' +
+                    action.action?.prepareUndeploy.application +
+                    ' was successfully created',
+                notMessageFail: 'Undeploy version failed',
+            };
+        default:
+            return {
+                title: 'invalid',
+                notMessageSuccess: 'invalid',
+                notMessageFail: 'invalid',
             };
     }
 };

@@ -15,6 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { makeStyles } from '@material-ui/core/styles';
 
@@ -39,11 +40,10 @@ import Typography from '@material-ui/core/Typography';
 
 import { useUnaryCallback } from './Api';
 
-import type { GetOverviewResponse, Application, Lock, BatchAction } from '../api/api';
+import type { Application, BatchAction, GetOverviewResponse, Lock } from '../api/api';
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
 import { ConfirmationDialogProvider } from './Batch';
-import { useCallback, useMemo } from 'react';
 import { Grow, TextField } from '@material-ui/core';
 import AddLockIcon from '@material-ui/icons/EnhancedEncryption';
 

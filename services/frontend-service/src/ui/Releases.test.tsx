@@ -32,12 +32,14 @@ describe('Releases', () => {
             sourceCommitId: '12345687',
             sourceAuthor: 'testing test',
             sourceMessage: 'this is a test',
+            undeployVersion: false,
         }
         const dummyApp1: Environment_Application = {
             name: 'app1',
             version: 1,
             queuedVersion: 0,
             locks: {},
+            undeployVersion: false,
         }
         const dummyEnv: Environment = {
             name: 'env1',
