@@ -85,7 +85,7 @@ func RunServer() {
 
 		repo, err := repository.New(ctx, repository.Config{
 			URL:            c.GitUrl,
-			Path:           "./repository",
+			Path:           "./repository_remote",
 			CommitterEmail: c.GitCommitterEmail,
 			CommitterName:  c.GitCommitterName,
 			Credentials: repository.Credentials{

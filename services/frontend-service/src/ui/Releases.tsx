@@ -86,12 +86,35 @@ const useStyles = makeStyles((theme) => ({
             width: '100%',
             height: '40px',
             borderBottom: '5px solid ' + theme.palette.divider,
-            background: theme.palette.grey[700],
             borderRadius: '' + theme.shape.borderRadius + 'px ' + theme.shape.borderRadius + 'px 0 0',
             display: 'flex',
             justifyContent: 'center',
+        },
+        '& .release .details-new': {
+            background: '#81d4fa',
             '& .commitId': {
-                color: theme.palette.grey[500],
+                color: theme.palette.grey[900],
+                fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace',
+            },
+        },
+        '& .release .details-medium': {
+            background: '#1a237e',
+            '& .commitId': {
+                color: theme.palette.grey[300],
+                fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace',
+            },
+        },
+        '& .release .details-old': {
+            background: '#4e342e',
+            '& .commitId': {
+                color: theme.palette.grey[400],
+                fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace',
+            },
+        },
+        '& .release .details-history': {
+            background: theme.palette.grey[700],
+            '& .commitId': {
+                color: theme.palette.grey[400],
                 fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace',
             },
         },
@@ -122,6 +145,22 @@ const useStyles = makeStyles((theme) => ({
     },
 }));
 
+const getFreshnessColor = (authorTime?: Date): string => {
+    if (!authorTime) return 'details-history';
+    const diff = Date.now().valueOf() - authorTime.valueOf();
+    const HOUR = 60 * 60 * 1000;
+    if (diff.valueOf() < 2 * HOUR) {
+        return 'details-new';
+    }
+    if (diff.valueOf() < 24 * HOUR) {
+        return 'details-medium';
+    }
+    if (diff.valueOf() < 24 * 7 * HOUR) {
+        return 'details-old';
+    }
+    return 'details-history';
+};
+
 const ReleaseBox = (props: { name: string; release: Release; envs: Array<Environment>; sortOrder: EnvSortOrder }) => {
     const { name, release, envs, sortOrder } = props;
     const openReleaseBox = useOpen(name, release.version);
@@ -130,7 +169,7 @@ const ReleaseBox = (props: { name: string; release: Release; envs: Array<Environ
     return (
         <Tooltip title={release.sourceMessage} arrow>
             <Paper key={release.version} className="release" onClick={openReleaseBox}>
-                <div className="details">
+                <div className={'details ' + getFreshnessColor(release.commit?.authorTime)}>
                     <span className="commitId">{release.sourceCommitId}</span>
                 </div>
                 <Avatar className="version"></Avatar>

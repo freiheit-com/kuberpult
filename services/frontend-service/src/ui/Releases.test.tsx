@@ -16,53 +16,67 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import React from 'react';
 import { render } from '@testing-library/react';
-import { Releases, calculateDistanceToUpstream, sortEnvironmentsByUpstream } from './Releases';
-import { EnvSortOrder } from './Releases';
+import { Releases, calculateDistanceToUpstream, sortEnvironmentsByUpstream, EnvSortOrder } from './Releases';
 import {
-    Environment, Environment_Application, Environment_Config_Upstream,
+    Environment,
+    Environment_Application,
+    Environment_Config_Upstream,
     GetOverviewResponse,
     Release,
 } from '../api/api';
 
 describe('Releases', () => {
-    const getNode = () => {
-        // given
-        const dummyRelease1: Release = {
+    const getRelease = (t?: Date) => {
+        const r: Release = {
             version: 1,
             sourceCommitId: '12345687',
             sourceAuthor: 'testing test',
             sourceMessage: 'this is a test',
             undeployVersion: false,
+        };
+        if (t) {
+            r.commit = {
+                authorEmail: 'randomemail@example.com',
+                authorName: 'random',
+                authorTime: t,
+            };
         }
-        const dummyApp1: Environment_Application = {
-            name: 'app1',
-            version: 1,
-            queuedVersion: 0,
-            locks: {},
-            undeployVersion: false,
-        }
-        const dummyEnv: Environment = {
-            name: 'env1',
-            locks: {},
-            applications: {
-                'app1': dummyApp1
-            },
-        }
-        const dummyOverview: GetOverviewResponse = {
-            environments: {
-                'env1': dummyEnv,
-            },
-            applications: {
-                'app1':  {
-                    name: 'app1',
-                    releases: [dummyRelease1],
-                }
-            }
-        }
-
-        return <Releases data={dummyOverview} />;
+        return r;
     };
-    const getWrapper = () => render(getNode());
+    const dummyApp1: Environment_Application = {
+        name: 'app1',
+        version: 1,
+        queuedVersion: 0,
+        locks: {},
+        undeployVersion: false,
+    };
+    const dummyEnv: Environment = {
+        name: 'env1',
+        locks: {},
+        applications: {
+            app1: dummyApp1,
+        },
+    };
+    const getDummyOverview = (t?: Date) => {
+        const r: GetOverviewResponse = {
+            environments: {
+                env1: dummyEnv,
+            },
+            applications: {
+                app1: {
+                    name: 'app1',
+                    releases: [getRelease(t)],
+                },
+            },
+        };
+        return r;
+    };
+
+    const getNode = (overrides?: { data: GetOverviewResponse }) => {
+        const defaultProps = { data: getDummyOverview() };
+        return <Releases {...defaultProps} {...overrides} />;
+    };
+    const getWrapper = (overrides?: { data: GetOverviewResponse }) => render(getNode(overrides));
 
     it('renders the releases component', () => {
         // when
@@ -72,36 +86,68 @@ describe('Releases', () => {
         expect(container.querySelector('.details')).toBeTruthy();
     });
 
-    // testing the sort function for environments
-    const getUpstream = (env: string): Environment_Config_Upstream => {
-        return env === 'latest' ?
-            {
-                upstream: {
-                    $case: 'latest',
-                    latest: true,
-                }
-            }
-            :
-            {
-                upstream: {
-                    $case: 'environment',
-                    environment: env,
-                }
-            }
-    }
+    it('colors the different releases based on freshness', () => {
+        // given
+        const now = new Date();
+        const hr = 60 * 60 * 1000;
 
-    const getEnvironment = (name: string, upstreamEnv?: string): Environment => {
-        return {
-            name: name,
-            locks: {},
-            applications: {},
-            ...(upstreamEnv && {
-                config: {
-                    upstream: getUpstream(upstreamEnv)
-                }
-            }),
-        }
-    }
+        // when - just created
+        const { container, rerender } = getWrapper({ data: getDummyOverview(now) });
+        // then - new
+        expect(container.querySelector('.releases .details-new')).toBeTruthy();
+
+        // when - one hour old
+        rerender(getNode({ data: getDummyOverview(new Date(now.valueOf() - hr)) }));
+        // then - new
+        expect(container.querySelector('.releases .details-new')).toBeTruthy();
+
+        // when - 12 hours old
+        rerender(getNode({ data: getDummyOverview(new Date(now.valueOf() - 12 * hr)) }));
+        // then - medium
+        expect(container.querySelector('.releases .details-medium')).toBeTruthy();
+
+        // when - 2 days old
+        rerender(getNode({ data: getDummyOverview(new Date(now.valueOf() - 48 * hr)) }));
+        // then - old
+        expect(container.querySelector('.releases .details-old')).toBeTruthy();
+
+        // when - 10 days old
+        rerender(getNode({ data: getDummyOverview(new Date(now.valueOf() - 10 * 24 * hr)) }));
+        // then - history
+        expect(container.querySelector('.releases .details-history')).toBeTruthy();
+
+        // when - not specified
+        rerender(getNode());
+        // then - history
+        expect(container.querySelector('.releases .details-history')).toBeTruthy();
+    });
+
+    // testing the sort function for environments
+    const getUpstream = (env: string): Environment_Config_Upstream =>
+        env === 'latest'
+            ? {
+                  upstream: {
+                      $case: 'latest',
+                      latest: true,
+                  },
+              }
+            : {
+                  upstream: {
+                      $case: 'environment',
+                      environment: env,
+                  },
+              };
+
+    const getEnvironment = (name: string, upstreamEnv?: string): Environment => ({
+        name: name,
+        locks: {},
+        applications: {},
+        ...(upstreamEnv && {
+            config: {
+                upstream: getUpstream(upstreamEnv),
+            },
+        }),
+    });
 
     // original order [ 4, 2, 0, 1, 3 ]
     const getEnvs = (testcase: string): Environment[] => {
@@ -141,37 +187,37 @@ describe('Releases', () => {
             default:
                 return [];
         }
-    }
+    };
 
     // Expected order / distance to upstream
     const chainOrder: EnvSortOrder = {
-        'env4': 4,
-        'env2': 2,
-        'env0': 0,
-        'env1': 1,
-        'env3': 3,
-    }
+        env4: 4,
+        env2: 2,
+        env0: 0,
+        env1: 1,
+        env3: 3,
+    };
     const treeOrder: EnvSortOrder = {
-        'env0': 2,
-        'env1': 2,
-        'env2': 1,
-        'env3': 0,
-        'env4': 0,
-    }
+        env0: 2,
+        env1: 2,
+        env2: 1,
+        env3: 0,
+        env4: 0,
+    };
     const cycleOrder: EnvSortOrder = {
-        'env0': 6,
-        'env1': 6,
-        'env2': 1,
-        'env3': 6,
-        'env4': 0,
-    }
+        env0: 6,
+        env1: 6,
+        env2: 1,
+        env3: 6,
+        env4: 0,
+    };
     const noConfigOrder: EnvSortOrder = {
-        'env0': 0,
-        'env1': 0,
-        'env2': 0,
-        'env3': 0,
-        'env4': 0,
-    }
+        env0: 0,
+        env1: 0,
+        env2: 0,
+        env3: 0,
+        env4: 0,
+    };
 
     const data = [
         {
@@ -204,7 +250,7 @@ describe('Releases', () => {
         it(`with expected ${testcase.type} order`, () => {
             const sortedEnvs = sortEnvironmentsByUpstream(testcase.envs, testcase.order);
             const sortOrder = calculateDistanceToUpstream(testcase.envs);
-            const sortedList = sortedEnvs.map(a => a.name);
+            const sortedList = sortedEnvs.map((a) => a.name);
             expect(sortOrder).toStrictEqual(testcase.order);
             expect(sortedList).toStrictEqual(testcase.expect);
         });
