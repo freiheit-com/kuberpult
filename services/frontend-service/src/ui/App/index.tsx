@@ -15,64 +15,28 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-// import logo from '../assets/logo.svg';
 
 import Box from '@material-ui/core/Box';
 import AppBar from '@material-ui/core/AppBar';
-// import Toolbar from '@material-ui/core/Toolbar';
 import Typography from '@material-ui/core/Typography';
+import { ThemeProvider } from '@material-ui/core/styles';
+import CircularProgress from '@material-ui/core/CircularProgress';
 
-import { makeStyles, createTheme, ThemeProvider, ThemeOptions } from '@material-ui/core/styles';
+import Releases from '../Releases';
+import * as api from '../../api/api';
+import { GrpcProvider, useObservable } from '../Api';
+import { EnvironmentLocksDrawer } from '../AppDrawer';
 
-import Releases from './Releases';
-import { GrpcProvider, useObservable } from './Api';
+import { useStyles, theme } from './styles';
 
-import * as api from '../api/api';
-import { EnvironmentLocksDrawer } from './AppDrawer';
-
-export const theme = createTheme({
-    palette: {
-        mode: 'dark',
-        primary: {
-            main: '#b9ff00',
-            contrastText: '#0c423f',
-        },
-        secondary: {
-            main: '#ff00ff',
-            contrastText: '#e9e9e9',
-        },
-        error: {
-            main: '#ff4035',
-        },
-        success: {
-            main: '#00c150',
-        },
-    },
-    typography: {
-        subtitle1: {
-            color: '#c9c9c9',
-        },
-    },
-} as ThemeOptions);
-
-const useStyles = makeStyles((theme) => ({
-    '@global': {
-        body: {
-            backgroundColor: theme.palette.background.default,
-        },
-    },
-    main: {
-        backgroundColor: theme.palette.background.default,
-        color: theme.palette.text.primary,
-        height: '100vh',
-        width: '100vw',
-        overflow: 'auto',
-        '& > *': {
-            height: '100vh',
-            paddingTop: '48px',
-        },
-    },
-}));
+export const Spinner: React.FC<any> = (props: any) => {
+    const classes = useStyles();
+    return (
+        <div className={classes.loading}>
+            <CircularProgress size={81} />
+        </div>
+    );
+};
 
 const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Element }): JSX.Element | null => {
     const getOverview = React.useCallback((api) => api.overviewService().StreamOverview({}), []);
@@ -82,6 +46,8 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
             return props.children(overview.result);
         case 'rejected':
             return <div>Error: {JSON.stringify(overview.error)}</div>;
+        case 'pending':
+            return <Spinner />;
         default:
             return null;
     }
