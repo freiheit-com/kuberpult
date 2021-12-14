@@ -86,40 +86,49 @@ describe('Releases', () => {
         expect(container.querySelector('.details')).toBeTruthy();
     });
 
-    it('colors the different releases based on freshness', () => {
-        // given
-        const now = new Date();
-        const hr = 60 * 60 * 1000;
+    // given
+    const hr = 60 * 60 * 1000;
+    const releasesWithDatesData = [
+        {
+            type: 'just created',
+            overview: getDummyOverview(new Date()),
+            expectedClassname: '.details-new',
+        },
+        {
+            type: 'one hour old',
+            overview: getDummyOverview(new Date(Date.now() - hr)),
+            expectedClassname: '.details-new',
+        },
+        {
+            type: '12 hours old',
+            overview: getDummyOverview(new Date(Date.now() - 12 * hr)),
+            expectedClassname: '.details-medium',
+        },
+        {
+            type: '2 days old',
+            overview: getDummyOverview(new Date(Date.now() - 48 * hr)),
+            expectedClassname: '.details-old',
+        },
+        {
+            type: '10 days old',
+            overview: getDummyOverview(new Date(Date.now() - 10 * 24 * hr)),
+            expectedClassname: '.details-history',
+        },
+        {
+            type: 'un-specified date',
+            overview: getDummyOverview(),
+            expectedClassname: '.details-history',
+        },
+    ];
 
-        // when - just created
-        const { container, rerender } = getWrapper({ data: getDummyOverview(now) });
-        // then - new
-        expect(container.querySelector('.releases .details-new')).toBeTruthy();
+    describe.each(releasesWithDatesData)(`Releases with commit dates`, (testcase) => {
+        it(`when ${testcase.type}`, () => {
+            // when
+            const { container } = getWrapper({ data: testcase.overview });
 
-        // when - one hour old
-        rerender(getNode({ data: getDummyOverview(new Date(now.valueOf() - hr)) }));
-        // then - new
-        expect(container.querySelector('.releases .details-new')).toBeTruthy();
-
-        // when - 12 hours old
-        rerender(getNode({ data: getDummyOverview(new Date(now.valueOf() - 12 * hr)) }));
-        // then - medium
-        expect(container.querySelector('.releases .details-medium')).toBeTruthy();
-
-        // when - 2 days old
-        rerender(getNode({ data: getDummyOverview(new Date(now.valueOf() - 48 * hr)) }));
-        // then - old
-        expect(container.querySelector('.releases .details-old')).toBeTruthy();
-
-        // when - 10 days old
-        rerender(getNode({ data: getDummyOverview(new Date(now.valueOf() - 10 * 24 * hr)) }));
-        // then - history
-        expect(container.querySelector('.releases .details-history')).toBeTruthy();
-
-        // when - not specified
-        rerender(getNode());
-        // then - history
-        expect(container.querySelector('.releases .details-history')).toBeTruthy();
+            // then
+            expect(container.querySelector('.releases ' + testcase.expectedClassname)).toBeTruthy();
+        });
     });
 
     // testing the sort function for environments
