@@ -91,32 +91,32 @@ describe('Releases', () => {
     const releasesWithDatesData = [
         {
             type: 'just created',
-            overview: getDummyOverview(new Date()),
+            date: new Date(),
             expectedClassname: '.details-new',
         },
         {
             type: 'one hour old',
-            overview: getDummyOverview(new Date(Date.now() - hr)),
+            date: new Date(Date.now() - hr),
             expectedClassname: '.details-new',
         },
         {
             type: '12 hours old',
-            overview: getDummyOverview(new Date(Date.now() - 12 * hr)),
+            date: new Date(Date.now() - 12 * hr),
             expectedClassname: '.details-medium',
         },
         {
             type: '2 days old',
-            overview: getDummyOverview(new Date(Date.now() - 48 * hr)),
+            date: new Date(Date.now() - 48 * hr),
             expectedClassname: '.details-old',
         },
         {
             type: '10 days old',
-            overview: getDummyOverview(new Date(Date.now() - 10 * 24 * hr)),
+            date: new Date(Date.now() - 10 * 24 * hr),
             expectedClassname: '.details-history',
         },
         {
             type: 'un-specified date',
-            overview: getDummyOverview(),
+            date: undefined,
             expectedClassname: '.details-history',
         },
     ];
@@ -124,7 +124,7 @@ describe('Releases', () => {
     describe.each(releasesWithDatesData)(`Releases with commit dates`, (testcase) => {
         it(`when ${testcase.type}`, () => {
             // when
-            const { container } = getWrapper({ data: testcase.overview });
+            const { container } = getWrapper({ data: getDummyOverview(testcase.date) });
 
             // then
             expect(container.querySelector('.releases ' + testcase.expectedClassname)).toBeTruthy();
