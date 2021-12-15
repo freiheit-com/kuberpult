@@ -85,7 +85,7 @@ const useStyles = makeStyles((theme) => ({
         '& .release .details': {
             width: '100%',
             height: '40px',
-            background: theme.palette.grey[800],
+            background: theme.palette.grey[700],
             borderBottom: '5px solid ' + theme.palette.divider,
             borderRadius: '' + theme.shape.borderRadius + 'px ' + theme.shape.borderRadius + 'px 0 0',
             display: 'flex',
