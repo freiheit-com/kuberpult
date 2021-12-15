@@ -18,12 +18,15 @@ package history
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
+	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v33"
 )
@@ -293,4 +296,89 @@ func assertChangedAtNthCommit(t *testing.T, actualCommit *git.Commit, expectedPo
 		}
 	}
 	t.Errorf("wrong changed commit, expected %d, actually not any known commit", expectedPosition)
+}
+
+func BenchmarkHistoryNew(b *testing.B){
+	benchmarkHistory(b, false)
+}
+
+func BenchmarkHistoryOld(b *testing.B){
+	benchmarkHistory(b, true)
+}
+
+func benchmarkHistory(b *testing.B, useOldAlg bool) {
+	names := []string{"a", "b", "c", "d", "e", "f"}
+	dir := b.TempDir()
+	repo, err := git.InitRepository(dir, true)
+	if err != nil {
+		b.Fatal(err)
+	}
+	parent := []*git.Oid{}
+	tree := fs.NewEmptyTreeBuildFS(repo)
+	for i := 0; i < 100; i++ {
+	sig := git.Signature{
+		Name:  "test",
+		Email: "test@test.com",
+		When:  time.Unix(int64(i), 0),
+	}
+		for _, name := range names {
+
+			err := tree.MkdirAll(tree.Join("applications", name, "versions", strconv.Itoa(i)), 0755)
+			if err != nil {
+				b.Fatal(err)
+			}
+			err = util.WriteFile(tree, tree.Join("applications", name, "versions", strconv.Itoa(i), "manifest"), []byte{1}, 0644)
+			if err != nil {
+				b.Fatal(err)
+			}
+			oid, err := tree.Insert()
+			if err != nil {
+				b.Fatal(err)
+			}
+			p, err := repo.CreateCommitFromIds("", &sig, &sig, "test", oid, parent...)
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			parent = []*git.Oid{p}
+		}
+	}
+	commit, err := repo.LookupCommit(parent[0])
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+
+	// Test it!
+	for n := 0; n < b.N; n++ {
+		h := NewHistory(repo)
+		h.useOldAlg = useOldAlg
+		for i := 0; i < 100; i++ {
+			for _, name := range names {
+				_, err = h.Change(commit, []string{"applications", name,"versions", strconv.Itoa(i), "manifest"})
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	}
+}
+
+func dumpFs(t *testing.B, fs billy.Filesystem, indent string) {
+	infos, err := fs.ReadDir(".")
+	if err != nil {
+		t.Logf("%s err: %q\n", indent, err)
+	} else {
+		for _, i := range infos {
+			t.Logf("%s - %s\n", indent, i.Name())
+			if i.Mode()&os.ModeSymlink != 0 {
+				lnk, _ := fs.Readlink(i.Name())
+				t.Logf("%s   linked to: %s\n", indent, lnk)
+			}
+			if i.IsDir() {
+				ch, _ := fs.Chroot(i.Name())
+				dumpFs(t, ch, indent+"  ")
+			}
+		}
+	}
 }
