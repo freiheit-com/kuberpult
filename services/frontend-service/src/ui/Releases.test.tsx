@@ -92,32 +92,32 @@ describe('Releases', () => {
         {
             type: 'just created',
             date: new Date(),
-            expectedClassname: '.details-new',
+            expectedClassname: '.version-new',
         },
         {
             type: 'one hour old',
             date: new Date(Date.now() - hr),
-            expectedClassname: '.details-new',
+            expectedClassname: '.version-new',
         },
         {
             type: '12 hours old',
             date: new Date(Date.now() - 12 * hr),
-            expectedClassname: '.details-medium',
+            expectedClassname: '.version-medium',
         },
         {
             type: '2 days old',
             date: new Date(Date.now() - 48 * hr),
-            expectedClassname: '.details-old',
+            expectedClassname: '.version-old',
         },
         {
             type: '10 days old',
             date: new Date(Date.now() - 10 * 24 * hr),
-            expectedClassname: '.details-history',
+            expectedClassname: '.version-history',
         },
         {
             type: 'un-specified date',
             date: undefined,
-            expectedClassname: '.details-history',
+            expectedClassname: '.version-history',
         },
     ];
 
