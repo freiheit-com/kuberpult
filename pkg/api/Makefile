@@ -15,7 +15,7 @@
 
 #Copyright 2021 freiheit.com
 
-api_grpc.pb.go api.pb.go api.pb.gw.go: api.proto buf.yaml buf.gen.yaml buf.lock
+api_grpc.pb.go api.pb.go api.pb.gw.go: api.proto buf.yaml buf.gen.yaml
 	buf generate
 
 clean:
