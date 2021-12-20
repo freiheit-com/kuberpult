@@ -136,9 +136,9 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
         }
         nwLocks.sort((a: ILocks, b: ILocks) => {
             if (!a.commit?.authorTime || !b.commit?.authorTime) return 0;
-            if (a.commit.authorTime < b.commit.authorTime) return -1;
+            if (a.commit.authorTime < b.commit.authorTime) return 1;
             if (a.commit.authorTime === b.commit.authorTime) return 0;
-            return 1;
+            return -1;
         });
         setLocks(nwLocks);
     }, [data, calcAge]);
