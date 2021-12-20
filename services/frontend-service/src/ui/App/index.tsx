@@ -17,17 +17,15 @@ Copyright 2021 freiheit.com*/
 import * as React from 'react';
 
 import Box from '@material-ui/core/Box';
-import AppBar from '@material-ui/core/AppBar';
-import Typography from '@material-ui/core/Typography';
 import { ThemeProvider } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
 
 import Releases from '../Releases';
 import * as api from '../../api/api';
 import { GrpcProvider, useObservable } from '../Api';
-import { EnvironmentLocksDrawer } from '../AppDrawer';
 
 import { useStyles, theme } from './styles';
+import { Header } from '../AppBar';
 
 export const Spinner: React.FC<any> = (props: any) => {
     const classes = useStyles();
@@ -59,21 +57,7 @@ const Main = () => {
         <GetOverview>
             {(overview) => (
                 <Box sx={{ display: 'flex' }}>
-                    <AppBar>
-                        <Box sx={{ display: 'flex' }}>
-                            <Typography
-                                component="h1"
-                                variant="h6"
-                                color="inherit"
-                                noWrap
-                                sx={{ flexGrow: 1, width: '10rem' }}>
-                                <strong>
-                                    <code>KUBERPULT UI</code>
-                                </strong>
-                            </Typography>
-                            <EnvironmentLocksDrawer data={overview} />
-                        </Box>
-                    </AppBar>
+                    <Header overview={overview} />
                     <Box component="main" className={classes.main}>
                         <Releases data={overview} />
                     </Box>

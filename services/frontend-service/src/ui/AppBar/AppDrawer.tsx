@@ -15,13 +15,13 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { GetOverviewResponse, Lock } from '../api/api';
-import { theme } from './App/styles';
-import { calculateDistanceToUpstream, sortEnvironmentsByUpstream } from './Releases';
+import { GetOverviewResponse, Lock } from '../../api/api';
+import { theme } from '../App/styles';
+import { calculateDistanceToUpstream, sortEnvironmentsByUpstream } from '../Releases';
 import { makeStyles } from '@material-ui/core/styles';
 import { Button, Box, Drawer, Grid, Paper, Typography, Divider, List, ButtonGroup } from '@material-ui/core';
 import { ExpandMoreRounded } from '@material-ui/icons';
-import { CreateLockButton, ReleaseLockButton } from './ReleaseDialog';
+import { CreateLockButton, ReleaseLockButton } from '../ReleaseDialog';
 
 const useStyles = makeStyles((theme) => ({
     environments: {
@@ -101,8 +101,8 @@ const EnvironmentLocks = (props: { data: GetOverviewResponse }) => {
     );
 };
 
-export const EnvironmentLocksDrawer = (props: { data: GetOverviewResponse }) => {
-    const { data } = props;
+export const AppDrawer = (props: { data: GetOverviewResponse; title: String }) => {
+    const { data, title } = props;
     const [state, setState] = React.useState({ isOpen: false });
     const toggleDrawer = (open: boolean) => (event: React.KeyboardEvent | React.MouseEvent) => {
         if (
@@ -120,12 +120,12 @@ export const EnvironmentLocksDrawer = (props: { data: GetOverviewResponse }) => 
                 sx={{ color: theme.palette.grey[900], width: '100%' }}
                 variant={'contained'}
                 onClick={toggleDrawer(true)}>
-                <strong>Environment Locks</strong>
+                <strong>{title}</strong>
                 <ExpandMoreRounded />
             </Button>
             <Drawer anchor={'top'} open={state['isOpen']} onClose={toggleDrawer(false)}>
                 <Box sx={{ width: 'auto' }} role="presentation">
-                    <EnvironmentLocks data={data} />
+                    {title === 'enviroment' ? <EnvironmentLocks data={data} /> : <EnvironmentLocks data={data} />}
                 </Box>
             </Drawer>
         </>
