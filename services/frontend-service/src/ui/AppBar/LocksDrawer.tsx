@@ -106,6 +106,7 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
     const { data } = props;
     const [state, setState] = React.useState({ isOpen: false });
     const [locks, setLocks] = React.useState<Locks[]>([]);
+
     const [outDatedLocks, setOutDatedLocks] = React.useState<boolean>(false);
 
     const toggleDrawer = (open: boolean) => (event: React.KeyboardEvent | React.MouseEvent) => {
@@ -129,6 +130,7 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
 
     useEffect(() => {
         let nwLocks: Locks[] = [];
+
         for (const env of Object.values(data.environments)) {
             nwLocks = [
                 ...nwLocks,
@@ -152,6 +154,7 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
                 ];
             }
         }
+
         nwLocks.sort((a: Locks, b: Locks) => {
             if (!a.commit?.authorTime || !b.commit?.authorTime) return 0;
             if (a.commit.authorTime < b.commit.authorTime) return 1;
