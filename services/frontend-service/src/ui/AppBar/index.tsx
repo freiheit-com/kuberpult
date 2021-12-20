@@ -20,11 +20,10 @@ import AppBar from '@material-ui/core/AppBar';
 import Typography from '@material-ui/core/Typography';
 import { AppDrawer } from './AppDrawer';
 import * as api from '../../api/api';
+import { LocksDrawer } from './LocksDrawer';
 
 export const Header: React.FC<any> = (props: { overview: api.GetOverviewResponse }) => {
     const { overview } = props;
-    // eslint-disable-next-line no-console
-    console.log({ overview });
     return (
         <AppBar>
             <Box sx={{ display: 'flex' }}>
@@ -34,7 +33,11 @@ export const Header: React.FC<any> = (props: { overview: api.GetOverviewResponse
                     </strong>
                 </Typography>
                 <AppDrawer data={overview} />
+<<<<<<< HEAD
                 <AppDrawer data={overview} />
+=======
+                <LocksDrawer data={overview} />
+>>>>>>> a70d92f ( add All locks drawer)
             </Box>
         </AppBar>
     );
