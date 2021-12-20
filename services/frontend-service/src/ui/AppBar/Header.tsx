@@ -22,7 +22,7 @@ import { AppDrawer } from './AppDrawer';
 import * as api from '../../api/api';
 import { LocksDrawer } from './LocksDrawer';
 
-export const Header: React.FC<any> = (props: { overview: api.GetOverviewResponse }) => {
+const Header: React.FC<any> = (props: { overview: api.GetOverviewResponse }) => {
     const { overview } = props;
     return (
         <AppBar>
@@ -38,3 +38,5 @@ export const Header: React.FC<any> = (props: { overview: api.GetOverviewResponse
         </AppBar>
     );
 };
+
+export default Header;

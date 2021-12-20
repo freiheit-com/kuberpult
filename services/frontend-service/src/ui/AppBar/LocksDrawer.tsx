@@ -25,15 +25,15 @@ import { theme } from '../App/styles';
 
 import { useStyles } from './styles';
 
-interface ILocks {
+interface Locks {
     id: string;
     message: string;
     commit?: Commit;
-    type?: string;
-    age?: number;
+    type: string;
+    age: number;
 }
 
-const AllLocks = (props: { locks: ILocks[]; onClick: (event: React.KeyboardEvent | React.MouseEvent) => void }) => {
+const AllLocks = (props: { locks: Locks[]; onClick: (event: React.KeyboardEvent | React.MouseEvent) => void }) => {
     const { locks, onClick } = props;
     const classes = useStyles();
 
@@ -47,40 +47,50 @@ const AllLocks = (props: { locks: ILocks[]; onClick: (event: React.KeyboardEvent
 
     return (
         <List className={classes.environments} sx={{ width: 'auto' }}>
-            {locks.map((lock) => (
-                <>
-                    <Grid item xs={12} key={lock.id} onClick={onClick}>
-                        <Paper className="environment">
-                            {(!!lock.age && lock.age) > 2 && <WarningRoundedIcon color="error" />}
-                            <Typography noWrap variant="h5" component="div" className="name" width="10%" align="center">
-                                {`${lock.age} days ago`}
-                            </Typography>
-                            <Typography noWrap variant="h5" component="div" className="name" width="10%">
-                                {lock.id}
-                            </Typography>
-                            <Typography
-                                noWrap
-                                variant="h5"
-                                component="div"
-                                className="name"
-                                width="40%"
-                                sx={{ textTransform: 'capitalize' }}>
-                                {lock.type}
-                            </Typography>
-                            <Typography
-                                noWrap
-                                variant="h5"
-                                component="div"
-                                className="name"
-                                width="50%"
-                                sx={{ textTransform: 'capitalize' }}>
-                                {lock.message}
-                            </Typography>
-                        </Paper>
-                    </Grid>
-                    <Divider />
-                </>
-            ))}
+            {locks.map((lock) => {
+                const isLockOld = lock.age > 2 || lock.age === -1;
+                const Warning = isLockOld ? <WarningRoundedIcon color="error" /> : null;
+                return (
+                    <>
+                        <Grid item xs={12} key={lock.id} onClick={onClick}>
+                            <Paper className="environment">
+                                {Warning}
+                                <Typography
+                                    noWrap
+                                    variant="h5"
+                                    component="div"
+                                    className="name"
+                                    width="10%"
+                                    align="center">
+                                    {`${lock.age} days ago`}
+                                </Typography>
+                                <Typography noWrap variant="h5" component="div" className="name" width="10%">
+                                    {lock.id}
+                                </Typography>
+                                <Typography
+                                    noWrap
+                                    variant="h5"
+                                    component="div"
+                                    className="name"
+                                    width="40%"
+                                    sx={{ textTransform: 'capitalize' }}>
+                                    {lock.type}
+                                </Typography>
+                                <Typography
+                                    noWrap
+                                    variant="h5"
+                                    component="div"
+                                    className="name"
+                                    width="50%"
+                                    sx={{ textTransform: 'capitalize' }}>
+                                    {lock.message}
+                                </Typography>
+                            </Paper>
+                        </Grid>
+                        <Divider />
+                    </>
+                );
+            })}
         </List>
     );
 };
@@ -88,7 +98,7 @@ const AllLocks = (props: { locks: ILocks[]; onClick: (event: React.KeyboardEvent
 export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
     const { data } = props;
     const [state, setState] = React.useState({ isOpen: false });
-    const [locks, setLocks] = React.useState<ILocks[]>([]);
+    const [locks, setLocks] = React.useState<Locks[]>([]);
     const [outDatedLocks, setOutDatedLocks] = React.useState<boolean>(false);
 
     const toggleDrawer = (open: boolean) => (event: React.KeyboardEvent | React.MouseEvent) => {
@@ -105,12 +115,13 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
         if (!time) return -1;
         const curTime = new Date().getTime();
         const diffTime = curTime - time;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const msPerDay = 1000 * 60 * 60 * 24;
+        const diffDays = Math.ceil(diffTime / msPerDay);
         return diffDays;
     }, []);
 
     useEffect(() => {
-        let nwLocks: ILocks[] = [];
+        let nwLocks: Locks[] = [];
         for (const env of Object.values(data.environments)) {
             nwLocks = [
                 ...nwLocks,
@@ -134,7 +145,7 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
                 ];
             }
         }
-        nwLocks.sort((a: ILocks, b: ILocks) => {
+        nwLocks.sort((a: Locks, b: Locks) => {
             if (!a.commit?.authorTime || !b.commit?.authorTime) return 0;
             if (a.commit.authorTime < b.commit.authorTime) return 1;
             if (a.commit.authorTime === b.commit.authorTime) return 0;
