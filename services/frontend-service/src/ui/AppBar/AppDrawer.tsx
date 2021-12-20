@@ -89,7 +89,7 @@ export const AppDrawer = (props: { data: GetOverviewResponse }) => {
                 sx={{ color: theme.palette.grey[900], width: '100%' }}
                 variant={'contained'}
                 onClick={toggleDrawer(true)}>
-                <strong>KUBERPULT UI</strong>
+                <strong>Environment</strong>
                 <ExpandMoreRounded />
             </Button>
             <Drawer anchor={'top'} open={state['isOpen']} onClose={toggleDrawer(false)}>
