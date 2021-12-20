@@ -70,8 +70,15 @@ func (o *OverviewServiceServer) getOverview(
 				return nil, err
 			} else {
 				for lockId, lock := range locks {
+					lockCommit := (*api.Commit)(nil)
+					if commit, err := s.GetEnvironmentLocksCommit(name, lockId); err != nil {
+						return nil, err
+					} else {
+						lockCommit = transformCommit(commit)
+					}
 					env.Locks[lockId] = &api.Lock{
 						Message: lock.Message,
+						Commit:  lockCommit,
 					}
 				}
 			}
@@ -121,8 +128,15 @@ func (o *OverviewServiceServer) getOverview(
 						return nil, err
 					} else {
 						for lockId, lock := range appLocks {
+							lockCommit := (*api.Commit)(nil)
+							if commit, err := s.GetEnvironmentApplicationLocksCommit(name, appName, lockId); err != nil {
+								return nil, err
+							} else {
+								lockCommit = transformCommit(commit)
+							}
 							app.Locks[lockId] = &api.Lock{
 								Message: lock.Message,
+								Commit:  lockCommit,
 							}
 						}
 					}

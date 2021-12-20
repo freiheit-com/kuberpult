@@ -608,6 +608,29 @@ func (s *State) GetEnvironmentApplicationVersionCommit(environment, application 
 			})
 	}
 }
+func (s *State) GetEnvironmentApplicationLocksCommit(environment, application string, lockId string) (*git.Commit, error) {
+	if s.Commit == nil {
+		return nil, nil
+	} else {
+		return s.History.Change(s.Commit,
+			[]string{
+				"environments", environment,
+				"applications", application,
+				"locks", lockId,
+			})
+	}
+}
+func (s *State) GetEnvironmentLocksCommit(environment, lockId string) (*git.Commit, error) {
+	if s.Commit == nil {
+		return nil, nil
+	} else {
+		return s.History.Change(s.Commit,
+			[]string{
+				"environments", environment,
+				"locks", lockId,
+			})
+	}
+}
 
 func (s *State) GetEnvironmentApplicationLocks(environment, application string) (map[string]Lock, error) {
 	base := s.Filesystem.Join("environments", environment, "applications", application, "locks")
@@ -718,15 +741,15 @@ func (s *State) GetApplicationReleases(application string) ([]uint64, error) {
 }
 
 type Release struct {
-	Version        	uint64
+	Version uint64
 	/**
-	 "UndeployVersion=true" means that this version is empty, and has no manifest that could be deployed.
-	 It is intended to help cleanup old services within the normal release cycle (e.g. dev->staging->production).
-	 */
+	"UndeployVersion=true" means that this version is empty, and has no manifest that could be deployed.
+	It is intended to help cleanup old services within the normal release cycle (e.g. dev->staging->production).
+	*/
 	UndeployVersion bool
-	SourceAuthor   	string
-	SourceCommitId 	string
-	SourceMessage  	string
+	SourceAuthor    string
+	SourceCommitId  string
+	SourceMessage   string
 }
 
 func (s *State) IsLatestUndeployVersion(application string) (bool, error) {
