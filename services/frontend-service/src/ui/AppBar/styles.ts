@@ -11,7 +11,10 @@ export const useStyles = makeStyles((theme) => ({
             padding: '0px 12px',
             minHeight: '52px',
             '& .name': {
-                width: '20%',
+                width: '15%',
+            },
+            '& .big-name': {
+                width: '50%',
             },
             '& .locks': {
                 '& .overlay': {
@@ -30,5 +33,8 @@ export const useStyles = makeStyles((theme) => ({
                 },
             },
         },
+    },
+    hide: {
+        opacity: 1,
     },
 }));

@@ -18,6 +18,7 @@ import React, { useCallback, useEffect } from 'react';
 import Badge from '@material-ui/core/Badge';
 import WarningRoundedIcon from '@material-ui/icons/WarningRounded';
 import ExpandMoreRounded from '@material-ui/icons/ExpandMoreRounded';
+import LockIcon from '@material-ui/icons/Lock';
 import { Button, Box, Drawer, Grid, Paper, Typography, Divider, List } from '@material-ui/core';
 
 import { GetOverviewResponse, Commit } from '../../api/api';
@@ -37,6 +38,11 @@ const AllLocks = (props: { locks: Locks[]; onClick: (event: React.KeyboardEvent 
     const { locks, onClick } = props;
     const classes = useStyles();
 
+    const calcLockAge = useCallback((age: number): string => {
+        if (age <= 1) return `${age === 0 ? '< 1' : '1'} day ago`;
+        return `${age} days ago`;
+    }, []);
+
     if (locks.length === 0) {
         return (
             <Typography noWrap variant="h5" component="div" className="name" width="100%" align="center">
@@ -49,7 +55,8 @@ const AllLocks = (props: { locks: Locks[]; onClick: (event: React.KeyboardEvent 
         <List className={classes.environments} sx={{ width: 'auto' }}>
             {locks.map((lock) => {
                 const isLockOld = lock.age > 2 || lock.age === -1;
-                const Warning = isLockOld ? <WarningRoundedIcon color="error" /> : null;
+                const Warning = isLockOld ? <WarningRoundedIcon color="error" /> : <LockIcon color="primary" />;
+                const lockAge = calcLockAge(lock.age);
                 return (
                     <>
                         <Grid item xs={12} key={lock.id} onClick={onClick}>
@@ -62,7 +69,7 @@ const AllLocks = (props: { locks: Locks[]; onClick: (event: React.KeyboardEvent 
                                     className="name"
                                     width="10%"
                                     align="center">
-                                    {`${lock.age} days ago`}
+                                    {lockAge}
                                 </Typography>
                                 <Typography noWrap variant="h5" component="div" className="name" width="10%">
                                     {lock.id}
@@ -80,10 +87,10 @@ const AllLocks = (props: { locks: Locks[]; onClick: (event: React.KeyboardEvent 
                                     noWrap
                                     variant="h5"
                                     component="div"
-                                    className="name"
-                                    width="50%"
+                                    className="big-name"
+                                    width="70%"
                                     sx={{ textTransform: 'capitalize' }}>
-                                    {lock.message}
+                                    {lock.message + lock.message + lock.message}
                                 </Typography>
                             </Paper>
                         </Grid>
@@ -116,7 +123,7 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
         const curTime = new Date().getTime();
         const diffTime = curTime - time;
         const msPerDay = 1000 * 60 * 60 * 24;
-        const diffDays = Math.ceil(diffTime / msPerDay);
+        const diffDays = Math.floor(diffTime / msPerDay);
         return diffDays;
     }, []);
 
