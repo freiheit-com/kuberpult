@@ -15,46 +15,15 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { GetOverviewResponse, Lock } from '../api/api';
-import { theme } from './App/styles';
-import { calculateDistanceToUpstream, sortEnvironmentsByUpstream } from './Releases';
-import { makeStyles } from '@material-ui/core/styles';
+import ExpandMoreRounded from '@material-ui/icons/ExpandMoreRounded';
 import { Button, Box, Drawer, Grid, Paper, Typography, Divider, List, ButtonGroup } from '@material-ui/core';
-import { ExpandMoreRounded } from '@material-ui/icons';
-import { CreateLockButton, ReleaseLockButton } from './ReleaseDialog';
 
-const useStyles = makeStyles((theme) => ({
-    environments: {
-        background: theme.palette.background.default,
-        padding: theme.spacing(1),
-        '& .environment': {
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            padding: '0px 12px',
-            minHeight: '52px',
-            '& .name': {
-                width: '20%',
-            },
-            '& .locks': {
-                '& .overlay': {
-                    width: '400px',
-                    '& .MuiTextField-root': {
-                        width: '100%',
-                    },
-                    '& .MuiButtonBase-root': {
-                        minWidth: '91px',
-                        padding: '4px 6px',
-                        margin: '2px 6px 2px 0px',
-                    },
-                },
-                '& .MuiSvgIcon-root': {
-                    color: theme.palette.primary.main,
-                },
-            },
-        },
-    },
-}));
+import { GetOverviewResponse, Lock } from '../../api/api';
+import { theme } from '../App/styles';
+import { calculateDistanceToUpstream, sortEnvironmentsByUpstream } from '../Releases';
+import { CreateLockButton, ReleaseLockButton } from '../ReleaseDialog';
+
+import { useStyles } from './styles';
 
 const EnvironmentLocks = (props: { data: GetOverviewResponse }) => {
     const { data } = props;
@@ -101,7 +70,7 @@ const EnvironmentLocks = (props: { data: GetOverviewResponse }) => {
     );
 };
 
-export const EnvironmentLocksDrawer = (props: { data: GetOverviewResponse }) => {
+export const AppDrawer = (props: { data: GetOverviewResponse }) => {
     const { data } = props;
     const [state, setState] = React.useState({ isOpen: false });
     const toggleDrawer = (open: boolean) => (event: React.KeyboardEvent | React.MouseEvent) => {
@@ -120,7 +89,7 @@ export const EnvironmentLocksDrawer = (props: { data: GetOverviewResponse }) => 
                 sx={{ color: theme.palette.grey[900], width: '100%' }}
                 variant={'contained'}
                 onClick={toggleDrawer(true)}>
-                <strong>Environment Locks</strong>
+                <strong>Environment</strong>
                 <ExpandMoreRounded />
             </Button>
             <Drawer anchor={'top'} open={state['isOpen']} onClose={toggleDrawer(false)}>
