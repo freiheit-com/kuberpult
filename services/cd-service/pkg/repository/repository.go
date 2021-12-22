@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cenkalti/backoff/v4"
 	"io"
 	"os"
 	"os/exec"
@@ -330,13 +331,8 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	if err != nil {
 		return err
 	} else {
-		pushOptions := git.PushOptions{
-			RemoteCallbacks: git.RemoteCallbacks{
-				CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
-				CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
-			},
-		}
-		if err := r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions); err != nil {
+
+		if err := r.push(ctx); err != nil {
 			gerr := err.(*git.GitError)
 			if gerr.Code == git.ErrorCodeNonFastForward {
 				err = r.FetchAndReset(ctx)
@@ -347,7 +343,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 				if err != nil {
 					return err
 				}
-				if err := r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions); err != nil {
+				if err := r.push(ctx); err != nil {
 					return &InternalError{inner: err}
 				}
 			} else {
@@ -358,6 +354,37 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	}
 
 	return nil
+}
+
+func (r *repository) push(ctx context.Context) error {
+	pushOptions := git.PushOptions{
+		RemoteCallbacks: git.RemoteCallbacks{
+			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
+			CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
+		},
+	}
+	log := logger.FromContext(ctx)
+	eb := backoff.NewExponentialBackOff()
+	eb.MaxElapsedTime = 7 * time.Second
+	fmt.Println(r.config)
+	return backoff.RetryNotifyWithTimer(
+		func() error {
+			err := r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
+
+			if err != nil {
+				gerr := err.(*git.GitError)
+				if gerr.Code == git.ErrorCodeNonFastForward {
+					return backoff.Permanent(err)
+				}
+			}
+			return err
+		},
+		backoff.WithMaxRetries(eb, 6),
+		func(err error, elapsed time.Duration) {
+			log.DPanic("git.retry", zap.Error(err))
+		},
+		nil,
+	)
 }
 
 func (r *repository) afterTransform(ctx context.Context, fs billy.Filesystem) error {
