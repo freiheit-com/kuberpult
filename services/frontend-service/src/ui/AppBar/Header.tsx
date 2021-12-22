@@ -27,7 +27,7 @@ const Header: React.FC<any> = (props: { overview: api.GetOverviewResponse }) => 
     return (
         <AppBar>
             <Box sx={{ display: 'flex' }}>
-                <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1, width: '12rem' }}>
+                <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1, width: '24rem' }}>
                     <strong>
                         <code>KUBERPULT UI</code>
                     </strong>
