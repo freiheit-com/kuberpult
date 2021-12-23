@@ -15,10 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-<<<<<<< HEAD
 
-=======
->>>>>>> a70d92f ( add All locks drawer)
 import ExpandMoreRounded from '@material-ui/icons/ExpandMoreRounded';
 import { Button, Box, Drawer, Grid, Paper, Typography, Divider, List, ButtonGroup } from '@material-ui/core';
 
@@ -76,10 +73,6 @@ const EnvironmentLocks = (props: { data: GetOverviewResponse }) => {
 
 export const AppDrawer = (props: { data: GetOverviewResponse }) => {
     const { data } = props;
-<<<<<<< HEAD
-
-=======
->>>>>>> a70d92f ( add All locks drawer)
     const [state, setState] = React.useState({ isOpen: false });
     const toggleDrawer = (open: boolean) => (event: React.KeyboardEvent | React.MouseEvent) => {
         if (
@@ -97,12 +90,8 @@ export const AppDrawer = (props: { data: GetOverviewResponse }) => {
                 sx={{ color: theme.palette.grey[900], width: '100%' }}
                 variant={'contained'}
                 onClick={toggleDrawer(true)}>
-<<<<<<< HEAD
                 <strong>Environment</strong>
 
-=======
-                <strong>KUBERPULT UI</strong>
->>>>>>> a70d92f ( add All locks drawer)
                 <ExpandMoreRounded />
             </Button>
             <Drawer anchor={'top'} open={state['isOpen']} onClose={toggleDrawer(false)}>
