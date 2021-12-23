@@ -90,7 +90,7 @@ const AllLocks = (props: { locks: Locks[]; onClick: (event: React.KeyboardEvent 
                                     className="big-name"
                                     width="70%"
                                     sx={{ textTransform: 'capitalize' }}>
-                                    {lock.message + lock.message + lock.message}
+                                    {lock.message}
                                 </Typography>
                             </Paper>
                         </Grid>
