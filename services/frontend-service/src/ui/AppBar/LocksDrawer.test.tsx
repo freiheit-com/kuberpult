@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import React from 'react';
+import React, { useCallback } from 'react';
 import { fireEvent, getByText, render, screen } from '@testing-library/react';
 
 import { LocksDrawer } from './LocksDrawer';
@@ -130,5 +130,73 @@ describe('All locks drawer', () => {
         const { container } = getWrapper({ data });
         // then
         expect(container.querySelector('.MuiBadge-invisible')).toBeTruthy();
+    });
+});
+
+describe('Calc Lock Age', () => {
+    interface dataT {
+        act: {
+            action: {
+                age: number;
+            };
+        };
+        fin?: () => void;
+        expect: {
+            text: string;
+        };
+    }
+
+    const data: dataT[] = [
+        {
+            act: {
+                action: {
+                    age: 0,
+                },
+            },
+            expect: {
+                text: '< 1 day ago',
+            },
+        },
+        {
+            act: {
+                action: {
+                    age: 1,
+                },
+            },
+            expect: {
+                text: '1 day ago',
+            },
+        },
+        {
+            act: {
+                action: {
+                    age: 2,
+                },
+            },
+            expect: {
+                text: '2 days ago',
+            },
+        },
+        {
+            act: {
+                action: {
+                    age: 14,
+                },
+            },
+            expect: {
+                text: '14 days ago',
+            },
+        },
+    ];
+
+    describe.each(data)('Age lock calculator', (testcase: dataT) => {
+        it(`Lock age ${testcase.act.action.age}`, () => {
+            const calcLockAge = (age: number): string => {
+                if (age <= 1) return `${age === 0 ? '< 1' : '1'} day ago`;
+                return `${age} days ago`;
+            };
+
+            expect(calcLockAge(testcase.act.action.age)).toStrictEqual(testcase.expect.text);
+        });
     });
 });
