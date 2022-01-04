@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '16.x'
       - name: Install dependencies
-        working-director: ./services/frontend-service/
+        working-directory: ./services/frontend-service/
       - run: yarn --frozen-lockfile
       - run: yarn run build
       - run: yarn run test
