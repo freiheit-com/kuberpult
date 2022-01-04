@@ -8,8 +8,9 @@ on:
 
 jobs:
   build:
-
+    name: Run front end tests
     runs-on: ubuntu-latest
+    script: "cd services/frontend-service/"
 
     steps:
       - uses: actions/checkout@v2
@@ -18,7 +19,6 @@ jobs:
         with:
           node-version: '16.x'
       - name: Install dependencies
-        working-directory: ./services/frontend-service/
       - run: yarn --frozen-lockfile
       - run: yarn run build
       - run: yarn run test
