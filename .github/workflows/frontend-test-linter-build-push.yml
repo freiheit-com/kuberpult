@@ -1,4 +1,4 @@
-name: "frontend test-format"
+name: "Frontend test-format"
 
 on:
   push:
@@ -18,8 +18,7 @@ jobs:
         with:
           node-version: '16.x'
       - name: Install dependencies
-        run: |
-          cd services/frontend-service/
+        working-director: ./services/frontend-service/
       - run: yarn --frozen-lockfile
       - run: yarn run build
       - run: yarn run test
