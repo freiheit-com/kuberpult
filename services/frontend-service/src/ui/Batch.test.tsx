@@ -7,13 +7,14 @@ import { BatchAction, LockBehavior } from '../api/api';
 
 const mock_useBatch = Spy.mock(callbacks, 'useBatch');
 
-const ChildButton = (props: {
-    state?: string;
-    openDialog?: () => void;
-}) => {
+const ChildButton = (props: { state?: string; openDialog?: () => void }) => {
     const { openDialog } = props;
-    return <Button id={'dialog-opener'} onClick={openDialog}>ClickMe</Button>
-}
+    return (
+        <Button id={'dialog-opener'} onClick={openDialog}>
+            ClickMe
+        </Button>
+    );
+};
 
 const doActionSpy = Spy('doActionSpy');
 const finallySpy = Spy('.finally');
@@ -21,15 +22,13 @@ const finallySpy = Spy('.finally');
 describe('Confirmation Dialog Provider', () => {
     const getNode = (overrides?: Partial<ConfirmationDialogProviderProps>) => {
         const defaultProps: ConfirmationDialogProviderProps = {
-            children: <ChildButton/>,
+            children: <ChildButton />,
             action: {},
         };
-        return (
-            <ConfirmationDialogProvider {...defaultProps} {...overrides} />
-        );
+        return <ConfirmationDialogProvider {...defaultProps} {...overrides} />;
     };
 
-    const getWrapper = (overrides?: Partial<ConfirmationDialogProviderProps>) => render(getNode({...overrides}));
+    const getWrapper = (overrides?: Partial<ConfirmationDialogProviderProps>) => render(getNode({ ...overrides }));
 
     interface dataT {
         type: string;
@@ -37,7 +36,7 @@ describe('Confirmation Dialog Provider', () => {
         fin?: () => void;
         expect: {
             title: string;
-        }
+        };
     }
 
     const data: dataT[] = [
@@ -142,10 +141,10 @@ describe('Confirmation Dialog Provider', () => {
     ];
 
     describe.each(data)(`Batch Action Types`, (testcase: dataT) => {
-        it(`${testcase.type}`,  () => {
+        it(`${testcase.type}`, () => {
             // given
             mock_useBatch.useBatch.returns([doActionSpy, { state: 'waiting' }]);
-            const { container } = getWrapper({action: testcase.act, fin: testcase.fin});
+            const { container } = getWrapper({ action: testcase.act, fin: testcase.fin });
 
             // when - open the confirmation dialog
             expect(container.querySelector('#dialog-opener')!.textContent).toBe('ClickMe');
@@ -157,13 +156,13 @@ describe('Confirmation Dialog Provider', () => {
             mock_useBatch.useBatch.wasCalledWith(testcase.act, Spy.IGNORE);
 
             // do the actions that useBatch is expected to do
-            act (() => {
+            act(() => {
                 mock_useBatch.useBatch.getCallArguments()[1]();
             });
 
             // when - clicking yes
             const d = document.querySelector('.MuiDialog-root');
-            fireEvent.click(getByText(d! as HTMLElement ,'Yes').closest('button')!);
+            fireEvent.click(getByText(d! as HTMLElement, 'Yes').closest('button')!);
 
             // then
             doActionSpy.wasCalled();
@@ -171,7 +170,7 @@ describe('Confirmation Dialog Provider', () => {
             if (testcase.fin) {
                 // when a finally function is provided
                 finallySpy.wasCalled();
-            }else {
+            } else {
                 // when a finally function is not provided
                 finallySpy.wasNotCalled();
             }
