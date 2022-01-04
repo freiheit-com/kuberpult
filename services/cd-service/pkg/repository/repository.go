@@ -366,11 +366,9 @@ func (r *repository) push(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	eb := backoff.NewExponentialBackOff()
 	eb.MaxElapsedTime = 7 * time.Second
-	fmt.Println(r.config)
-	return backoff.RetryNotifyWithTimer(
+	return backoff.RetryNotify(
 		func() error {
 			err := r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
-
 			if err != nil {
 				gerr := err.(*git.GitError)
 				if gerr.Code == git.ErrorCodeNonFastForward {
@@ -383,7 +381,6 @@ func (r *repository) push(ctx context.Context) error {
 		func(err error, elapsed time.Duration) {
 			log.DPanic("git.retry", zap.Error(err))
 		},
-		nil,
 	)
 }
 

@@ -19,14 +19,13 @@ package repository
 import (
 	"context"
 	"fmt"
+	"github.com/go-git/go-billy/v5/util"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/go-git/go-billy/v5/util"
 )
 
 func TestNew(t *testing.T) {
@@ -289,7 +288,7 @@ func TestGc(t *testing.T) {
 		Test          func(t *testing.T, repos []*repository)
 	}{
 		{
-			Name:          "simple",
+			Name: "simple",
 			GcFrequencies: []uint{
 				// 0 disables GC entirely
 				0,
@@ -364,6 +363,60 @@ func TestGc(t *testing.T) {
 				repos[i] = repoInternal
 			}
 			tc.Test(t, repos)
+		})
+	}
+}
+
+func TestRetrySsh(t *testing.T) {
+	tcs := []struct {
+		Name   string
+		Branch string
+		Setup  func(t *testing.T, remoteDir, localDir string)
+	}{
+		{
+			Name:   "Test 1",
+			Branch: "master",
+			Setup: func(t *testing.T, remoteDir, localDir string) {
+				// run the initialization code once
+				_, err := NewWait(
+					context.Background(),
+					Config{
+						URL:  "file://" + remoteDir,
+						Path: localDir,
+					},
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+			tc.Setup(t, remoteDir, localDir)
+			repo, err := New(
+				context.Background(),
+				Config{
+					URL:    "file://" + remoteDir,
+					Path:   localDir,
+					Branch: tc.Branch,
+				},
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%e'", err)
+			}
+			if waitErr := repo.WaitReady(); waitErr != nil {
+				t.Fatalf("wait: expected no error, got '%s'", waitErr)
+			}
 		})
 	}
 }
