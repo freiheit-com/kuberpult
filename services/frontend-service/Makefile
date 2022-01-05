@@ -51,6 +51,7 @@ test-go: $(GO_FILES) proto
 	$(GO) test ./...
 
 test-ts: src/api/api.ts
+	ls
 	yarn test --watchAll=false
 
 docker: bin/main ../../version | dist
