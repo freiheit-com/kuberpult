@@ -33,16 +33,17 @@ jobs:
         # the reason why hardcoded the dependencies instead of running "make .install" is that make .install throws an error related to go mod
         run: |
           go get -modfile=go.tools.mod github.com/golang/protobuf/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
-          go get google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
-          go get github.com/ghodss/yaml@v1.0.0 && \
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
-          go get github.com/libgit2/git2go/v33 && \
-          go install \
-            github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-            github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
-            google.golang.org/protobuf/cmd/protoc-gen-go \
-            google.golang.org/grpc/cmd/protoc-gen-go-grpc \
-            github.com/grpc-ecosystem/grpc-gateway/v2/internal/descriptor
+          make .install
+#          go get google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
+#          go get github.com/ghodss/yaml@v1.0.0 && \
+#          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
+#          go get github.com/libgit2/git2go/v33 && \
+#          go install \
+#            github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
+#            github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
+#            google.golang.org/protobuf/cmd/protoc-gen-go \
+#            google.golang.org/grpc/cmd/protoc-gen-go-grpc \
+#            github.com/grpc-ecosystem/grpc-gateway/v2/internal/descriptor
       - name: Run tests
         env:
           LD_LIBRARY_PATH: '/usr/local/lib'

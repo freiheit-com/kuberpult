@@ -32,6 +32,7 @@ MAKEDIRS := services/cd-service services/frontend-service chart pkg/api
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
 		google.golang.org/protobuf/cmd/protoc-gen-go \
 		google.golang.org/grpc/cmd/protoc-gen-go-grpc
+	go mod tidy
 	touch .install
 
 $(addsuffix /release,$(MAKEDIRS)):

@@ -25,9 +25,7 @@ import * as api from '../../api/api';
 import Header from '../AppBar/Header';
 import { GrpcProvider, useObservable } from '../Api';
 
-import {
-    useStyles,
-    theme} from './styles';
+import { useStyles, theme } from './styles';
 
 export const Spinner: React.FC<any> = (props: any) => {
     const classes = useStyles();
