@@ -1,0 +1,49 @@
+name: build-test
+'on':
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.17'
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v0.6.0
+      - name: Install libgit2
+        run: |
+          sudo apt-get install libssh2-1-dev libssl-dev cmake && \
+          wget https://github.com/libgit2/libgit2/archive/refs/tags/v1.3.0.tar.gz && \
+          tar xzf v1.3.0.tar.gz && \
+          cd libgit2-1.3.0/ && \
+          mkdir build && cd build && \
+          cmake .. && \
+          make && \
+          sudo make install
+
+      - name: Install dependencies
+        # the reason why hardcoded the dependencies instead of running "make .install" is that make .install throws an error related to go mod
+        run: |
+          go get -modfile=go.tools.mod github.com/golang/protobuf/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
+          go get google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
+          go get github.com/ghodss/yaml@v1.0.0 && \
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
+          go get github.com/libgit2/git2go/v33 && \
+          go install \
+            github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
+            github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
+            google.golang.org/protobuf/cmd/protoc-gen-go \
+            google.golang.org/grpc/cmd/protoc-gen-go-grpc \
+            github.com/grpc-ecosystem/grpc-gateway/v2/internal/descriptor
+      - name: Run tests
+        env:
+          LD_LIBRARY_PATH: '/usr/local/lib'
+        run: make test
