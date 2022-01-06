@@ -51,7 +51,8 @@ test-go: $(GO_FILES) proto
 	$(GO) test ./...
 
 test-ts: src/api/api.ts
-	yarn eslint && yarn test --watchAll=false
+	yarn eslint
+	yarn test --watchAll=false
 
 docker: bin/main ../../version | dist
 	docker build -t $(IMAGENAME) .
