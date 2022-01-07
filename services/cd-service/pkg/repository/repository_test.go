@@ -415,7 +415,7 @@ func TestRetrySsh(t *testing.T) {
 			repo := &repository{}
 			counter := 0
 
-			resp := repo.Push(context.Background(), func(*repository, git.PushOptions) error {
+			resp := repo.Push(context.Background(), func() error {
 				counter++
 				if counter > tc.NumOfFailures {
 					return nil

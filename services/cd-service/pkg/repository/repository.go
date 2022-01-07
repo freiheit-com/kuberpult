@@ -50,7 +50,7 @@ import (
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
-	Push(ctx context.Context, pushAction func(*repository, git.PushOptions) error) error
+	Push(ctx context.Context, pushAction func() error) error
 	ApplyTransformersInternal(transformers ...Transformer) ([]string, *State, error)
 	State() *State
 
@@ -329,7 +329,14 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	}()
 	err := r.ApplyTransformers(ctx, transformers...)
 
-	pushAction := func(r *repository, pushOptions git.PushOptions) error {
+	pushOptions := git.PushOptions{
+		RemoteCallbacks: git.RemoteCallbacks{
+			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
+			CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
+		},
+	}
+
+	pushAction := func() error {
 		return r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
 	}
 
@@ -361,18 +368,12 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	return nil
 }
 
-func (r *repository) Push(ctx context.Context, pushAction func(*repository, git.PushOptions) error) error {
-	pushOptions := git.PushOptions{
-		RemoteCallbacks: git.RemoteCallbacks{
-			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
-			CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
-		},
-	}
+func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 	eb := backoff.NewExponentialBackOff()
 	eb.MaxElapsedTime = 7 * time.Second
 	return backoff.Retry(
 		func() error {
-			err := pushAction(r, pushOptions)
+			err := pushAction()
 			if err != nil {
 				gerr := err.(*git.GitError)
 				if gerr.Code == git.ErrorCodeNonFastForward {
