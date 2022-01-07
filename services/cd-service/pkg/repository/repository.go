@@ -50,6 +50,7 @@ import (
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
+	Push(ctx context.Context, pushAction func(*repository, git.PushOptions) error) error
 	ApplyTransformersInternal(transformers ...Transformer) ([]string, *State, error)
 	State() *State
 
@@ -328,11 +329,15 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	}()
 	err := r.ApplyTransformers(ctx, transformers...)
 
+	pushAction := func(r *repository, pushOptions git.PushOptions) error {
+		return r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
+	}
+
 	if err != nil {
 		return err
 	} else {
 
-		if err := r.push(ctx); err != nil {
+		if err := r.Push(ctx, pushAction); err != nil {
 			gerr := err.(*git.GitError)
 			if gerr.Code == git.ErrorCodeNonFastForward {
 				err = r.FetchAndReset(ctx)
@@ -343,7 +348,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 				if err != nil {
 					return err
 				}
-				if err := r.push(ctx); err != nil {
+				if err := r.Push(ctx, pushAction); err != nil {
 					return &InternalError{inner: err}
 				}
 			} else {
@@ -356,19 +361,18 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	return nil
 }
 
-func (r *repository) push(ctx context.Context) error {
+func (r *repository) Push(ctx context.Context, pushAction func(*repository, git.PushOptions) error) error {
 	pushOptions := git.PushOptions{
 		RemoteCallbacks: git.RemoteCallbacks{
 			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
 			CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
 		},
 	}
-	log := logger.FromContext(ctx)
 	eb := backoff.NewExponentialBackOff()
 	eb.MaxElapsedTime = 7 * time.Second
-	return backoff.RetryNotify(
+	return backoff.Retry(
 		func() error {
-			err := r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
+			err := pushAction(r, pushOptions)
 			if err != nil {
 				gerr := err.(*git.GitError)
 				if gerr.Code == git.ErrorCodeNonFastForward {
@@ -378,9 +382,6 @@ func (r *repository) push(ctx context.Context) error {
 			return err
 		},
 		backoff.WithMaxRetries(eb, 6),
-		func(err error, elapsed time.Duration) {
-			log.DPanic("git.retry", zap.Error(err))
-		},
 	)
 }
 
