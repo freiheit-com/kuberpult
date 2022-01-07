@@ -17,4 +17,4 @@
 version: v1beta1
 name: buf.build/freiheit-com/kuberpult
 deps:
-- buf.build/beta/googleapis
+- buf.build/googleapis/googleapis
