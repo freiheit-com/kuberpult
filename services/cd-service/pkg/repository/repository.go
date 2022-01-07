@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cenkalti/backoff/v4"
 	"io"
 	"os"
 	"os/exec"
@@ -49,6 +50,7 @@ import (
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
+	Push(ctx context.Context, pushAction func() error) error
 	ApplyTransformersInternal(transformers ...Transformer) ([]string, *State, error)
 	State() *State
 
@@ -327,16 +329,22 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	}()
 	err := r.ApplyTransformers(ctx, transformers...)
 
+	pushOptions := git.PushOptions{
+		RemoteCallbacks: git.RemoteCallbacks{
+			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
+			CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
+		},
+	}
+
+	pushAction := func() error {
+		return r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
+	}
+
 	if err != nil {
 		return err
 	} else {
-		pushOptions := git.PushOptions{
-			RemoteCallbacks: git.RemoteCallbacks{
-				CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
-				CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
-			},
-		}
-		if err := r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions); err != nil {
+
+		if err := r.Push(ctx, pushAction); err != nil {
 			gerr := err.(*git.GitError)
 			if gerr.Code == git.ErrorCodeNonFastForward {
 				err = r.FetchAndReset(ctx)
@@ -347,7 +355,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 				if err != nil {
 					return err
 				}
-				if err := r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions); err != nil {
+				if err := r.Push(ctx, pushAction); err != nil {
 					return &InternalError{inner: err}
 				}
 			} else {
@@ -358,6 +366,24 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	}
 
 	return nil
+}
+
+func (r *repository) Push(ctx context.Context, pushAction func() error) error {
+	eb := backoff.NewExponentialBackOff()
+	eb.MaxElapsedTime = 7 * time.Second
+	return backoff.Retry(
+		func() error {
+			err := pushAction()
+			if err != nil {
+				gerr := err.(*git.GitError)
+				if gerr.Code == git.ErrorCodeNonFastForward {
+					return backoff.Permanent(err)
+				}
+			}
+			return err
+		},
+		backoff.WithMaxRetries(eb, 6),
+	)
 }
 
 func (r *repository) afterTransform(ctx context.Context, fs billy.Filesystem) error {

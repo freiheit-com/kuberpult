@@ -19,14 +19,14 @@ package repository
 import (
 	"context"
 	"fmt"
+	"github.com/go-git/go-billy/v5/util"
+	git "github.com/libgit2/git2go/v33"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/go-git/go-billy/v5/util"
 )
 
 func TestNew(t *testing.T) {
@@ -289,7 +289,7 @@ func TestGc(t *testing.T) {
 		Test          func(t *testing.T, repos []*repository)
 	}{
 		{
-			Name:          "simple",
+			Name: "simple",
 			GcFrequencies: []uint{
 				// 0 disables GC entirely
 				0,
@@ -364,6 +364,82 @@ func TestGc(t *testing.T) {
 				repos[i] = repoInternal
 			}
 			tc.Test(t, repos)
+		})
+	}
+}
+
+func TestRetrySsh(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		NumOfFailures     int
+		ExpectedNumOfCall int
+		ExpectedResponse  error
+		CustomResponse    error
+	}{
+		{
+			Name:              "No retries success from 1st try",
+			NumOfFailures:     0,
+			ExpectedNumOfCall: 1,
+			ExpectedResponse:  nil,
+			CustomResponse:    nil,
+		}, {
+			Name:              "Success after the 4th attempt",
+			NumOfFailures:     4,
+			ExpectedNumOfCall: 5,
+			ExpectedResponse:  nil,
+			CustomResponse:    &git.GitError{Message: "mock error"},
+		}, {
+			Name:              "Fail after the 6th attempt",
+			NumOfFailures:     6,
+			ExpectedNumOfCall: 6,
+			ExpectedResponse:  &git.GitError{Message: "max number of retries exceeded error"},
+			CustomResponse:    &git.GitError{Message: "max number of retries exceeded error"},
+		}, {
+			Name:              "Do not retry after a permanent error",
+			NumOfFailures:     1,
+			ExpectedNumOfCall: 1,
+			ExpectedResponse:  &git.GitError{Message: "permanent error"},
+			CustomResponse:    &git.GitError{Message: "permanent error", Code: git.ErrorCodeNonFastForward},
+		}, {
+			Name:              "Fail after the 6th attempt = Max number of retries ",
+			NumOfFailures:     12,
+			ExpectedNumOfCall: 6,
+			ExpectedResponse:  &git.GitError{Message: "max number of retries exceeded error"},
+			CustomResponse:    nil,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := &repository{}
+			counter := 0
+
+			resp := repo.Push(context.Background(), func() error {
+				counter++
+				if counter > tc.NumOfFailures {
+					return nil
+				}
+				if counter == tc.NumOfFailures { //  Custom response
+					return tc.CustomResponse
+				}
+				if counter == 6 { // max number of retries
+					return &git.GitError{Message: "max number of retries exceeded error"}
+				}
+				return &git.GitError{Message: "mock error"}
+			})
+
+			if resp == nil || tc.ExpectedResponse == nil {
+				if resp != tc.ExpectedResponse {
+					t.Fatalf("new: expected '%e',  got '%e'", tc.ExpectedResponse, resp)
+				}
+			} else if resp.Error() != tc.ExpectedResponse.Error() {
+				t.Fatalf("new: expected '%e',  got '%e'", tc.ExpectedResponse, resp)
+			}
+			if counter != tc.ExpectedNumOfCall {
+				t.Fatalf("new: expected number of calls  '%d',  got '%d'", tc.ExpectedNumOfCall, counter)
+			}
+
 		})
 	}
 }
