@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"context"
+	"github.com/caarlos0/env/v6"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"net/http"
 	"os"
 
@@ -48,6 +50,7 @@ type Config struct {
 	ArgoCdHost        string `default:"localhost:8080" split_words:"true"`
 	ArgoCdUser        string `default:"admin" split_words:"true"`
 	ArgoCdPass        string `default:"" split_words:"true"`
+	EnvConfig
 }
 
 func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
@@ -63,9 +66,51 @@ func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
 
 }
 
+// EnvConfig the server config that can be configured with env variables
+type EnvConfig struct {
+	//ProjectID       string `env:"GOOGLE_PROJECT_ID,required"`
+	EnvironmentName string `env:"ENV_NAME" envDefault:"local"`
+	TracingEnable   bool   `env:"TRACING_ENABLE" envDefault:"false"`
+	//ServiceAccountLoginPassword string `env:"SERVICE_ACCOUNT_LOGIN_PASSWORD,required"`
+	//ECDSAPublicKey              string `env:"JWT_PUBLIC_KEY,required"`
+	//CloudStorageBucketName      string `env:"CLOUD_STORAGE_BUCKET_NAME,required"`
+}
+
+// IsProduction true if this configuration is used in production, false otherwise
+func (s EnvConfig) IsProduction() bool {
+	return s.EnvironmentName == "production"
+}
+
+// IsStaging true if this configuration is used in staging, false otherwise
+func (s EnvConfig) IsStaging() bool {
+	return s.EnvironmentName == "staging"
+}
+
+// IsLocal true if this configuration is used locally, false otherwise
+func (s EnvConfig) IsLocal() bool {
+	return s.EnvironmentName == "local"
+}
+
+// IsTracingEnabled true if tracing should be enabled, false otherwise
+func (s EnvConfig) IsTracingEnabled() bool {
+	return (s.IsProduction() || s.IsStaging()) && s.TracingEnable
+}
+
 func RunServer() {
 	logger.Wrap(context.Background(), func(ctx context.Context) error {
 		var c Config
+		// datadog
+		errParse := env.Parse(&c)
+
+		if errParse != nil {
+			logger.FromContext(ctx).Fatal("error parsing config", zap.Error(errParse))
+		}
+
+		if c.IsTracingEnabled() {
+			tracer.Start()
+			defer tracer.Stop()
+		}
+
 		err := envconfig.Process("kuberpult", &c)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
