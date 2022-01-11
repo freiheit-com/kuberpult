@@ -129,7 +129,6 @@ func (o *OverviewServiceServer) getOverview(
 					} else {
 						for lockId, lock := range appLocks {
 							var lockCommit *api.Commit = nil
-
 							if commit, err := s.GetEnvironmentApplicationLocksCommit(name, appName, lockId); err != nil {
 								return nil, err
 							} else {

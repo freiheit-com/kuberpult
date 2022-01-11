@@ -73,7 +73,6 @@ const EnvironmentLocks = (props: { data: GetOverviewResponse }) => {
 
 export const AppDrawer = (props: { data: GetOverviewResponse }) => {
     const { data } = props;
-
     const [state, setState] = React.useState({ isOpen: false });
     const toggleDrawer = (open: boolean) => (event: React.KeyboardEvent | React.MouseEvent) => {
         if (
