@@ -96,7 +96,7 @@ spec:
             fieldRef:
               fieldPath: metadata.labels['tags.datadoghq.com/version']
         - name: ENABLE_TRACING
-          value: true
+          value: "{{ .Values.datadogTracing.enabled }}"
 {{- end }}
 {{- if .Values.pgp.keyRing }}
         - name: KUBERPULT_PGP_KEY_RING
