@@ -44,4 +44,7 @@ argocd:
   user: admin
   host: argo-cd-argocd-server
 
+datadogTracing:
+  enabled: false
+
 imagePullSecrets: []

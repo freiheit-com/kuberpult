@@ -21,6 +21,11 @@ metadata:
   name: kuberpult-cd-service
   labels:
     app: kuberpult-cd-service
+{{- if .Values.datadogTracing.enabled }}
+    tags.datadoghq.com/service: kuberpult-cd-service
+    tags.datadoghq.com/version: {{ .Values.tag }}
+    tags.datadoghq.com/env: shared
+{{- end }}
 spec:
   serviceName: kuberpult-cd-service
   replicas: 1
@@ -31,6 +36,13 @@ spec:
     metadata:
       labels:
         app: kuberpult-cd-service
+{{- if .Values.datadogTracing.enabled }}
+        tags.datadoghq.com/env: shared
+        tags.datadoghq.com/service: kuberpult-cd-service
+        tags.datadoghq.com/version: {{ .Values.tag }}
+      annotations:
+        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"shared","DD_VERSION":"{{ .Values.tag }}"}'
+{{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -66,6 +78,26 @@ spec:
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
           value: {{ .Values.log.level | quote }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_AGENT_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: DD_ENV
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/env']
+        - name: DD_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/service']
+        - name: DD_VERSION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/version']
+        - name: ENABLE_TRACING
+          value: true
+{{- end }}
 {{- if .Values.pgp.keyRing }}
         - name: KUBERPULT_PGP_KEY_RING
           value: /keyring/keyring.gpg
