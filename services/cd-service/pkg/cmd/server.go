@@ -18,17 +18,15 @@ package cmd
 
 import (
 	"context"
-	"github.com/caarlos0/env/v6"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"net/http"
-	"os"
-
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/openpgp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"net/http"
+	"os"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -50,7 +48,7 @@ type Config struct {
 	ArgoCdHost        string `default:"localhost:8080" split_words:"true"`
 	ArgoCdUser        string `default:"admin" split_words:"true"`
 	ArgoCdPass        string `default:"" split_words:"true"`
-	EnvConfig
+	EnableTracing     bool   `default:"false" split_words:"true""`
 }
 
 func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
@@ -66,31 +64,10 @@ func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
 
 }
 
-// EnvConfig the server config that can be configured with env variables
-type EnvConfig struct {
-	EnvironmentName string `env:"ENV_NAME" envDefault:"local"`
-	EnableTracing   bool   `env:"ENABLE_TRACING" envDefault:"false"`
-}
-
-// IsTracingEnabled true if tracing should be enabled, false otherwise
-func (s EnvConfig) IsTracingEnabled() bool {
-	return s.EnableTracing
-}
-
 func RunServer() {
 	logger.Wrap(context.Background(), func(ctx context.Context) error {
+
 		var c Config
-		// datadog
-		errParse := env.Parse(&c)
-
-		if errParse != nil {
-			logger.FromContext(ctx).Fatal("error parsing config", zap.Error(errParse))
-		}
-
-		if c.IsTracingEnabled() {
-			tracer.Start()
-			defer tracer.Stop()
-		}
 
 		err := envconfig.Process("kuberpult", &c)
 		if err != nil {
@@ -107,6 +84,11 @@ func RunServer() {
 			if err != nil {
 				logger.FromContext(ctx).Fatal("argocd.login.error", zap.Error(err))
 			}
+		}
+
+		if c.EnableTracing {
+			tracer.Start()
+			defer tracer.Stop()
 		}
 
 		repo, err := repository.New(ctx, repository.Config{

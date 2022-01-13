@@ -4,7 +4,6 @@ go 1.17
 
 require (
 	github.com/blendle/zapdriver v1.3.1
-	github.com/caarlos0/env/v6 v6.9.1
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
