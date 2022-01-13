@@ -46,5 +46,6 @@ argocd:
 
 datadogTracing:
   enabled: false
+  debugging: false
 
 imagePullSecrets: []
