@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cenkalti/backoff/v4"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"os"
 	"os/exec"
@@ -369,10 +370,21 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 }
 
 func (r *repository) Push(ctx context.Context, pushAction func() error) error {
+
+	span, ok := tracer.SpanFromContext(ctx)
+	if ok {
+		span.SetTag("Apply", "Apply")
+		defer span.Finish()
+	}
 	eb := backoff.NewExponentialBackOff()
 	eb.MaxElapsedTime = 7 * time.Second
 	return backoff.Retry(
 		func() error {
+			span, ok := tracer.SpanFromContext(ctx)
+			if ok {
+				span.SetTag("try to Push", fmt.Sprintf("try at: %v", eb.GetElapsedTime()))
+				defer span.Finish()
+			}
 			err := pushAction()
 			if err != nil {
 				gerr := err.(*git.GitError)

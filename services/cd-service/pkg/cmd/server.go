@@ -91,6 +91,11 @@ func RunServer() {
 			defer tracer.Stop()
 		}
 
+		span, ok := tracer.SpanFromContext(ctx)
+		if ok {
+			span.SetTag("Start server", "Start server")
+		}
+
 		repo, err := repository.New(ctx, repository.Config{
 			URL:            c.GitUrl,
 			Path:           "./repository",
@@ -144,6 +149,10 @@ func RunServer() {
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 		httpServerLogger := logger.FromContext(ctx).Named("http_server")
 		grpcProxyLogger := logger.FromContext(ctx).Named("grpc_proxy")
+
+		if ok {
+			span.Finish()
+		}
 
 		// Shutdown channel is used to terminate server side streams.
 		shutdownCh := make(chan struct{})
