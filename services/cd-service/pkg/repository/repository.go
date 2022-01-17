@@ -371,14 +371,15 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 
 func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 
-	span, _ := tracer.StartSpanFromContext(ctx, "Apply")
+	span, ctx := tracer.StartSpanFromContext(ctx, "Apply")
 	defer span.Finish()
 
 	eb := backoff.NewExponentialBackOff()
 	eb.MaxElapsedTime = 7 * time.Second
 	return backoff.Retry(
 		func() error {
-			span, _ := tracer.StartSpanFromContext(ctx, fmt.Sprintf("try to Push at: %v", eb.GetElapsedTime()))
+			span, _ := tracer.StartSpanFromContext(ctx, "Push")
+			span.SetTag("elapsedTime", eb.GetElapsedTime())
 			defer span.Finish()
 			err := pushAction()
 			if err != nil {

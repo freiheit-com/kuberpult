@@ -90,8 +90,8 @@ func RunServer() {
 			tracer.Start()
 			defer tracer.Stop()
 		}
-
-		span, _ := tracer.StartSpanFromContext(ctx, "Start server")
+		// If the tracer is not started, calling this function is a no-op.
+		span, ctx := tracer.StartSpanFromContext(ctx, "Start server")
 
 		repo, err := repository.New(ctx, repository.Config{
 			URL:            c.GitUrl,
