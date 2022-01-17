@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/auth"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"os"
@@ -252,6 +253,13 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		Email: r.config.CommitterEmail,
 		When:  time.Now(),
 	}
+	// Add Author to Commit MSG
+	actionAuthor := auth.Extract(ctx)
+	if actionAuthor != nil {
+		authMsg := fmt.Sprintf("Authored by:\nEmail: %s\nUsername: %s\n", actionAuthor.Email, actionAuthor.Username)
+		commitMsg = append(commitMsg, authMsg)
+	}
+
 	var rev *git.Oid
 	if state.Commit != nil {
 		rev = state.Commit.Id()

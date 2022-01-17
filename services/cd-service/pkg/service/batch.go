@@ -89,7 +89,7 @@ func ValidatePrepareUndeploy(
 
 func (d *BatchServer) processAction(
 	batchAction *api.BatchAction,
-) (repository.Transformer , error) {
+) (repository.Transformer, error) {
 	switch action := batchAction.Action.(type) {
 	case *api.BatchAction_CreateEnvironmentLock:
 		act := action.CreateEnvironmentLock
@@ -137,7 +137,7 @@ func (d *BatchServer) processAction(
 			return nil, err
 		}
 		return &repository.CreateUndeployApplicationVersion{
-			Application:   act.Application,
+			Application: act.Application,
 		}, nil
 	case *api.BatchAction_Deploy:
 		act := action.Deploy
@@ -164,10 +164,10 @@ func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
 ) (*emptypb.Empty, error) {
-	if len(in.GetActions())>maxBatchActions {
+	if len(in.GetActions()) > maxBatchActions {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions))
 	}
-	transformers := make ([]repository.Transformer, 0, maxBatchActions)
+	transformers := make([]repository.Transformer, 0, maxBatchActions)
 	for _, batchAction := range in.GetActions() {
 		transformer, err := d.processAction(batchAction)
 		if err != nil {

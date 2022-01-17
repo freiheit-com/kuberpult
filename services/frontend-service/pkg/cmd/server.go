@@ -18,11 +18,10 @@ package cmd
 
 import (
 	"context"
-	"net/http"
-
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/auth"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
@@ -30,6 +29,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"net/http"
 )
 
 type Config struct {
@@ -100,9 +100,11 @@ func RunServer() {
 					AllowCredentials: true,
 				}
 			},
-			NextHandler: &SplitGrpc{
-				GrpcServer: gsrv,
-				HttpServer: mux,
+			NextHandler: &auth.Auth{
+				HttpServer: &SplitGrpc{
+					GrpcServer: gsrv,
+					HttpServer: mux,
+				},
 			},
 		}
 
