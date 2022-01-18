@@ -255,7 +255,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	}
 
 	author := &git.Signature{
-		Name:  auth.Extract(ctx).Username,
+		Name:  auth.Extract(ctx).Name,
 		Email: auth.Extract(ctx).Email,
 		When:  time.Now(),
 	}

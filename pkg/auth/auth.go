@@ -1,3 +1,19 @@
+/*This file is part of kuberpult.
+
+Kuberpult is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Kuberpult is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright 2021 freiheit.com*/
 package auth
 
 import (
@@ -11,8 +27,8 @@ type ctxMarker struct{}
 var (
 	ctxMarkerKey = &ctxMarker{}
 	defaultUser  = &User{
-		Email:    "local@freiheit.com",
-		Username: "Local User",
+		Email: "local.user@freiheit.com",
+		Name:  "defaultUser",
 	}
 )
 
@@ -31,9 +47,9 @@ func Extract(ctx context.Context) *User {
 
 	// if no username was specified, use email as username
 	if md.Get("author-username") == nil {
-		u.Username = md.Get("author-email")[0]
+		u.Name = md.Get("author-email")[0]
 	} else {
-		u.Username = md.Get("author-username")[0]
+		u.Name = md.Get("author-username")[0]
 	}
 
 	return u
@@ -42,7 +58,10 @@ func Extract(ctx context.Context) *User {
 // ToContext adds the User to the context for extraction later.
 // Returning the new context that has been created.
 func ToContext(ctx context.Context, u *User) context.Context {
-	ctx = metadata.AppendToOutgoingContext(ctx, "author-email", u.Email, "author-username", u.Username)
+	if u == nil {
+		u = defaultUser
+	}
+	ctx = metadata.AppendToOutgoingContext(ctx, "author-email", u.Email, "author-username", u.Name)
 	return context.WithValue(ctx, ctxMarkerKey, u)
 }
 
@@ -52,8 +71,8 @@ type Auth struct {
 }
 
 type User struct {
-	Email    string
-	Username string
+	Email string
+	Name  string
 }
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {

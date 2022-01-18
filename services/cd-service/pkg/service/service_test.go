@@ -91,7 +91,7 @@ func TestServeHttpSuccess(t *testing.T) {
 					t.Fatalf("expected manifest to be the same as the example manifests, got %#v", manifests)
 				}
 
-				expectedMsg := "Author: kuberpult <kuberpult@freiheit.com>\n" +
+				expectedMsg := "Author: defaultUser <local.user@freiheit.com>\n" +
 					"Committer: kuberpult <kuberpult@freiheit.com>\n" +
 					"created version 1 of \"demo\"\n\n"
 				cmd := exec.Command("git", "--git-dir="+remoteDir, "log", "--format=Author: %an <%ae>%nCommitter: %cn <%ce>%n%B", "-n", "1", "HEAD")
