@@ -40,9 +40,13 @@ func Extract(ctx context.Context) *User {
 	if !ok {
 		// check if User is in Metadata
 		md, _ := metadata.FromIncomingContext(ctx)
-		u = &User{
-			Email: md.Get("author-email")[0],
-			Name:  md.Get("author-username")[0],
+		if md.Get("author-email") == nil {
+			u = defaultUser
+		} else {
+			u = &User{
+				Email: md.Get("author-email")[0],
+				Name:  md.Get("author-username")[0],
+			}
 		}
 	}
 	return u
