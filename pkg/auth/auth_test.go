@@ -18,7 +18,6 @@ package auth
 
 import (
 	"context"
-	"google.golang.org/grpc/metadata"
 	"reflect"
 	"testing"
 )
@@ -65,11 +64,8 @@ func TestAuthContextFunctions(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := ToContext(context.Background(), tc.Author)
-
 			u := Extract(ctx)
 			if !reflect.DeepEqual(u, tc.ExpectedUser) {
-				mx, _ := metadata.FromIncomingContext(ctx)
-				t.Fatalf("%#v", mx)
 				t.Fatalf("Unexpected User was extracted from context.\nexpected: %#v \nrecieved: %#v \n", tc.ExpectedUser, u)
 			}
 		})
