@@ -10,9 +10,9 @@ type ctxMarker struct{}
 
 var (
 	ctxMarkerKey = &ctxMarker{}
-	defUser      = &User{
+	defaultUser  = &User{
 		Email:    "local@freiheit.com",
-		Username: "local@freiheit.com",
+		Username: "Local User",
 	}
 )
 
@@ -20,7 +20,7 @@ var (
 // It always returns a User
 func Extract(ctx context.Context) *User {
 	md, _ := metadata.FromIncomingContext(ctx)
-	u := defUser
+	u := defaultUser
 
 	// if no user was specified, use default user
 	if md.Get("author-email") == nil {
@@ -64,5 +64,5 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func getActionAuthor() *User {
 	// Local
-	return defUser
+	return defaultUser
 }

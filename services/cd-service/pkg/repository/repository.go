@@ -24,7 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cenkalti/backoff/v4"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"os"
@@ -253,11 +253,11 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		Email: r.config.CommitterEmail,
 		When:  time.Now(),
 	}
-	// Add Author to Commit MSG
-	actionAuthor := auth.Extract(ctx)
-	if actionAuthor != nil {
-		authMsg := fmt.Sprintf("Authored by:\nEmail: %s\nUsername: %s\n", actionAuthor.Email, actionAuthor.Username)
-		commitMsg = append(commitMsg, authMsg)
+
+	author := &git.Signature{
+		Name:  auth.Extract(ctx).Username,
+		Email: auth.Extract(ctx).Email,
+		When:  time.Now(),
 	}
 
 	var rev *git.Oid
@@ -266,7 +266,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	}
 	if _, err := r.repository.CreateCommitFromIds(
 		fmt.Sprintf("refs/heads/%s", r.config.Branch),
-		committer,
+		author,
 		committer,
 		strings.Join(commitMsg, "\n"),
 		treeId,
