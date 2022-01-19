@@ -19,7 +19,6 @@ package auth
 import (
 	"context"
 	"google.golang.org/grpc/metadata"
-	"net/http"
 )
 
 type ctxMarker struct{}
@@ -66,23 +65,12 @@ func ToContext(ctx context.Context, u *User) context.Context {
 	return context.WithValue(ctx, ctxMarkerKey, u)
 }
 
-// splits of grpc-traffic
-type Auth struct {
-	HttpServer http.Handler
-}
-
 type User struct {
 	Email string
 	Name  string
 }
 
-func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c := r.Context()
-	u := getActionAuthor()
-	p.HttpServer.ServeHTTP(w, r.WithContext(ToContext(c, u)))
-}
-
-func getActionAuthor() *User {
+func GetActionAuthor() *User {
 	// Local
 	return defaultUser
 }
