@@ -22,7 +22,7 @@ CODE_REVIEWER_LOCATION?=$(HOME)/bin/codereviewr
 VERSION=$(shell cat version)
 export VERSION
 
-MAKEDIRS := services/cd-service services/frontend-service chart pkg/api
+MAKEDIRS := services/cd-service services/frontend-service chart pkg/api pkg
 
 .install: go.tools.mod go.tools.sum
 	go mod download google.golang.org/grpc/cmd/protoc-gen-go-grpc
