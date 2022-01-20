@@ -18,9 +18,8 @@ package cmd
 
 import (
 	"context"
-	"net/http"
-
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
@@ -30,6 +29,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"net/http"
 )
 
 type Config struct {
@@ -100,9 +100,11 @@ func RunServer() {
 					AllowCredentials: true,
 				}
 			},
-			NextHandler: &SplitGrpc{
-				GrpcServer: gsrv,
-				HttpServer: mux,
+			NextHandler: &Auth{
+				HttpServer: &SplitGrpc{
+					GrpcServer: gsrv,
+					HttpServer: mux,
+				},
 			},
 		}
 
@@ -118,6 +120,16 @@ func RunServer() {
 		})
 		return nil
 	})
+}
+
+type Auth struct {
+	HttpServer http.Handler
+}
+
+func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	c := r.Context()
+	u := auth.GetActionAuthor()
+	p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(c, u)))
 }
 
 // splits of grpc-traffic
