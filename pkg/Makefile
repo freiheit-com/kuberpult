@@ -31,4 +31,7 @@ test: $(GO_FILES)
 
 all: test
 
-.PHONY: all test
+release: #no-op
+clean: #no op
+
+.PHONY: all clean release test
