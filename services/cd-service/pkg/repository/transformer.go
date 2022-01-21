@@ -105,7 +105,8 @@ func (c *CreateApplicationVersion) Transform(fs billy.Filesystem) (string, error
 		return "", err
 	}
 
-	configs, err := (&State{Filesystem: fs}).GetEnvironmentConfigs()
+	s := &State{Filesystem: fs}
+	configs, err := s.GetEnvironmentConfigs()
 	if err != nil {
 		return "", err
 	}
@@ -164,7 +165,13 @@ func (c *CreateApplicationVersion) Transform(fs billy.Filesystem) (string, error
 		}
 	}
 
-	return fmt.Sprintf("created version %d of %q\n%s", lastRelease+1, c.Application, result), nil
+	version := lastRelease+1
+	release, err := s.GetApplicationRelease(c.Application, version)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("created version %d/%s of %q\n%s", version, release.SourceCommitId, c.Application, result), nil
 }
 
 type CreateUndeployApplicationVersion struct {
@@ -567,7 +574,12 @@ func (c *DeployApplicationVersion) Transform(fs billy.Filesystem) (string, error
 		return "", err
 	}
 
-	return fmt.Sprintf("deployed version %d of %q to %q\n%s", c.Version, c.Application, c.Environment, transform), nil
+	release, err := s.GetApplicationRelease(c.Application, c.Version)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("deployed version %d/%q of %q to %q\n%s", c.Version, release.SourceCommitId, c.Application, c.Environment, transform), nil
 }
 
 type ReleaseTrain struct {
