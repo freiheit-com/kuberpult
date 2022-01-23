@@ -167,7 +167,6 @@ func (c *CreateApplicationVersion) Transform(fs billy.Filesystem) (string, error
 			result = result + deployResult + "\n"
 		}
 	}
-
 	return fmt.Sprintf("created version %d of %q\n%s", lastRelease+1, c.Application, result), nil
 }
 
@@ -269,7 +268,7 @@ func (u *UndeployApplication) Transform(fs billy.Filesystem) (string, error) {
 		undeployFile := fs.Join(appDir, "version", "undeploy")
 
 		if entries, _ := fs.ReadDir(locksDir); entries != nil {
-			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' unlock the application lock in the '%v' release first", u.Application, env)
+			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' unlock the application lock in the '%v' environment first", u.Application, env)
 		}
 
 		if _, err := fs.Stat(undeployFile); err != nil && errors.Is(err, os.ErrNotExist) {

@@ -79,19 +79,20 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			shouldSucceed:     true,
 		},
 		{
-			Name: "Undeploy application where there is an application locks shouldn't work",
+			Name: "Undeploy application where there is an application lock shouldn't work",
 			Transformers: []Transformer{
 				&CreateEnvironment{
-					Environment: "dev",
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
-						envProduction: "productionmanifest",
+						envAcceptance: "acceptance",
 					},
 				},
 				&CreateEnvironmentApplicationLock{
-					Environment: "dev",
+					Environment: "acceptance",
 					Application: "app1",
 					LockId:      "22133",
 					Message:     "test",
@@ -103,24 +104,55 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' unlock the application lock in the 'dev' release first",
+			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' unlock the application lock in the 'acceptance' environment first",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
 		},
 		{
-			Name: "Undeploy application where there current releases are not undeploy  shouldn't work",
+			Name: "Undeploy application where there is an application lock created after the un-deploy version creation shouldn't work",
 			Transformers: []Transformer{
 				&CreateEnvironment{
-					Environment: "dev",
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
-						envProduction: "productionmanifest",
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "acceptance",
+					Application: "app1",
+					LockId:      "22133",
+					Message:     "test",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' unlock the application lock in the 'acceptance' environment first",
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+		{
+			Name: "Undeploy application where there current releases are not undeploy shouldn't work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
 					},
 				},
 				&CreateEnvironmentLock{
-					Environment: "dev",
+					Environment: "acceptance",
 					LockId:      "22133",
 					Message:     "test",
 				},
@@ -131,9 +163,38 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' the release 'dev' is not un-deployed",
+			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
+		},
+		{
+			Name: "Undeploy application where there is an environment lock should work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateEnvironmentLock{
+					Environment: "acceptance",
+					LockId:      "22133",
+					Message:     "test",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "application 'app1' was deleted successfully",
+			shouldSucceed:     true,
 		},
 		{
 			Name: "Undeploy application where the last release is not Undeploy shouldn't work",
