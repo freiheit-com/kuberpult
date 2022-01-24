@@ -39,6 +39,224 @@ const (
 	additionalVersions = 7
 )
 
+func TestUndeployApplicationErrors(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		expectedError     string
+		expectedCommitMsg string
+		shouldSucceed     bool
+	}{
+		{
+			Name: "Delete non-existent application",
+			Transformers: []Transformer{
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError:     "UndeployApplication: error cannot undeploy non-existing application 'app1'",
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+		{
+			Name: "Success",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "application 'app1' was deleted successfully",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "Undeploy application where there is an application lock shouldn't work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "acceptance",
+					Application: "app1",
+					LockId:      "22133",
+					Message:     "test",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' unlock the application lock in the 'acceptance' environment first",
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+		{
+			Name: "Undeploy application where there is an application lock created after the un-deploy version creation shouldn't work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "acceptance",
+					Application: "app1",
+					LockId:      "22133",
+					Message:     "test",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' unlock the application lock in the 'acceptance' environment first",
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+		{
+			Name: "Undeploy application where there current releases are not undeploy shouldn't work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateEnvironmentLock{
+					Environment: "acceptance",
+					LockId:      "22133",
+					Message:     "test",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed",
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+		{
+			Name: "Undeploy application where there is an environment lock should work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateEnvironmentLock{
+					Environment: "acceptance",
+					LockId:      "22133",
+					Message:     "test",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "application 'app1' was deleted successfully",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "Undeploy application where the last release is not Undeploy shouldn't work",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&CreateApplicationVersion{
+					Application:    "app1",
+					Manifests:      nil,
+					SourceCommitId: "",
+					SourceAuthor:   "",
+					SourceMessage:  "",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError:     "UndeployApplication: error last release is not un-deployed application version of 'app1'",
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			commitMsg, _, err := repo.ApplyTransformersInternal(tc.Transformers...)
+			// note that we only check the LAST error here:
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				actualMsg := commitMsg[len(commitMsg)-1]
+				if actualMsg != tc.expectedCommitMsg {
+					t.Fatalf("expected a different message.\nExpected: %q\nGot %q", tc.expectedCommitMsg, actualMsg)
+				}
+			} else {
+				if err == nil {
+					t.Fatalf("Expected an error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
+				}
+			}
+		})
+	}
+}
+
 // Tests various error cases in the Undeploy endpoint, specifically the error messages returned.
 func TestUndeployErrors(t *testing.T) {
 	tcs := []struct {

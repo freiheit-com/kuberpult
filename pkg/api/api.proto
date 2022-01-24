@@ -53,6 +53,7 @@ message BatchAction {
     DeleteEnvironmentApplicationLockRequest delete_environment_application_lock = 4;
     DeployRequest deploy = 5;
     PrepareUndeployRequest prepare_undeploy = 6;
+    UndeployRequest undeploy = 7;
   }
 }
 
@@ -105,6 +106,10 @@ message DeployRequest {
 }
 
 message PrepareUndeployRequest {
+  string application = 1;
+}
+
+message UndeployRequest {
   string application = 1;
 }
 

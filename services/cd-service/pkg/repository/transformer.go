@@ -46,6 +46,10 @@ func releasesDirectory(fs billy.Filesystem, application string) string {
 	return fs.Join("applications", application, "releases")
 }
 
+func environmentApplicationDirectory(fs billy.Filesystem, environment, application string) string {
+	return fs.Join("environments", environment, "applications", application)
+}
+
 func releasesDirectoryWithVersion(fs billy.Filesystem, application string, version uint64) string {
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
 }
@@ -163,12 +167,11 @@ func (c *CreateApplicationVersion) Transform(fs billy.Filesystem) (string, error
 			result = result + deployResult + "\n"
 		}
 	}
-
 	return fmt.Sprintf("created version %d of %q\n%s", lastRelease+1, c.Application, result), nil
 }
 
 type CreateUndeployApplicationVersion struct {
-	Application    string
+	Application string
 }
 
 func (c *CreateUndeployApplicationVersion) Transform(fs billy.Filesystem) (string, error) {
@@ -232,6 +235,62 @@ func (c *CreateUndeployApplicationVersion) Transform(fs billy.Filesystem) (strin
 		}
 	}
 	return fmt.Sprintf("created undeploy-version %d of '%v'\n%s", lastRelease+1, c.Application, result), nil
+}
+
+type UndeployApplication struct {
+	Application string
+}
+
+func (u *UndeployApplication) Transform(fs billy.Filesystem) (string, error) {
+	lastRelease, err := GetLastRelease(fs, u.Application)
+	if err != nil {
+		return "", err
+	}
+	if lastRelease == 0 {
+		return "", fmt.Errorf("UndeployApplication: error cannot undeploy non-existing application '%v'", u.Application)
+	}
+
+	isUndeploy, err := (&State{Filesystem: fs}).IsUndeployVersion(u.Application, lastRelease)
+	if err != nil {
+		return "", err
+	}
+	if !isUndeploy {
+		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
+	}
+
+	releaseDir := releasesDirectoryWithVersion(fs, u.Application, lastRelease)
+
+	configs, err := (&State{Filesystem: fs}).GetEnvironmentConfigs()
+
+	for env := range configs {
+		appDir := environmentApplicationDirectory(fs, env, u.Application)
+		locksDir := fs.Join(appDir, "locks")
+		undeployFile := fs.Join(appDir, "version", "undeploy")
+
+		if entries, _ := fs.ReadDir(locksDir); entries != nil {
+			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' unlock the application lock in the '%v' environment first", u.Application, env)
+		}
+
+		if _, err := fs.Stat(undeployFile); err != nil && errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' the release '%v' is not un-deployed", u.Application, env)
+		}
+	}
+
+	// remove application
+	if err = fs.Remove(releaseDir); err != nil {
+		return "", err
+	}
+
+	for env := range configs {
+		appDir := environmentApplicationDirectory(fs, env, u.Application)
+
+		// remove environment application
+		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
+		}
+
+	}
+	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }
 
 type CleanupOldApplicationVersions struct {
