@@ -19,6 +19,35 @@ import { getByLabelText, getByText, render } from '@testing-library/react';
 import { UndeployBtn } from './Warnings';
 
 describe('Undeploy Button', () => {
+    interface dataT {
+        name: string;
+        state?: string;
+        selector: (container: HTMLElement) => HTMLElement | null;
+    }
+
+    const data: dataT[] = [
+        {
+            name: 'renders the UndeployBtn component',
+            state: 'waiting',
+            selector: (container) => getByLabelText(container, /This app is ready to un-deploy./i),
+        },
+        {
+            name: 'renders the UndeployBtn component with undefined state',
+            state: 'undefined state',
+            selector: (container) => getByText(container, /Unknown/i),
+        },
+        {
+            name: 'renders the UndeployBtn component with resolved state',
+            state: 'resolved',
+            selector: (container) => container.querySelector('.Mui-disabled'),
+        },
+        {
+            name: 'renders the UndeployBtn component with pending state',
+            state: 'pending',
+            selector: (container) => container.querySelector('.MuiCircularProgress-root'),
+        },
+    ];
+
     const getNode = (overrides?: {}): JSX.Element | any => {
         // given
         const defaultProps: any = {
@@ -30,31 +59,12 @@ describe('Undeploy Button', () => {
     };
     const getWrapper = (overrides?: { state?: string }) => render(getNode(overrides));
 
-    it('renders the UndeployBtn component', () => {
-        // when
-        const { container } = getWrapper({ state: 'waiting' });
-        // then
-        expect(getByLabelText(container, /This app is ready to un-deploy./i)).toBeTruthy();
-    });
-
-    it('renders the UndeployBtn component with undefined state', () => {
-        // when
-        const { container } = getWrapper();
-        // then
-        expect(getByText(container, /Unknown/i)).toBeTruthy();
-    });
-
-    it('renders the UndeployBtn component with resolved state', () => {
-        // when
-        const { container } = getWrapper({ state: 'resolved' });
-        // then
-        expect(container.querySelector('.Mui-disabled')).toBeTruthy();
-    });
-
-    it('renders the UndeployBtn component with pending state', () => {
-        // when
-        const { container } = getWrapper({ state: 'pending' });
-        // then
-        expect(container.querySelector('.MuiCircularProgress-root')).toBeTruthy();
+    describe.each(data)(`Undeploy Button with state`, (testcase) => {
+        it(testcase.name, () => {
+            // when
+            const { container } = getWrapper({ state: testcase.state });
+            // then
+            expect(testcase.selector(container)).toBeTruthy();
+        });
     });
 });
