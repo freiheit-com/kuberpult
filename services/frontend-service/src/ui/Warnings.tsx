@@ -34,7 +34,6 @@ export function getDeployState(name: string, environments: { [name: string]: Env
     let allNormal = true;
     let allUndeploy = true;
     for (const envName in environments) {
-        if (envName === 'integration') continue;
         const application = environments[envName].applications[name];
         if (application) {
             if (application.undeployVersion) {
