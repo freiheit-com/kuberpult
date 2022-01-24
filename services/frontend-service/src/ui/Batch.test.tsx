@@ -59,6 +59,20 @@ describe('Confirmation Dialog Provider', () => {
             },
         },
         {
+            type: 'Un Deploy',
+            act: {
+                action: {
+                    $case: 'undeploy',
+                    undeploy: {
+                        application: 'dummy application',
+                    },
+                },
+            },
+            expect: {
+                title: 'Are you sure you want to undeploy this application?',
+            },
+        },
+        {
             type: 'Create Environment Lock',
             act: {
                 action: {

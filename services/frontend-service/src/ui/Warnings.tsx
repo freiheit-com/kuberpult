@@ -34,6 +34,7 @@ export function getDeployState(name: string, environments: { [name: string]: Env
     let allNormal = true;
     let allUndeploy = true;
     for (const envName in environments) {
+        if (envName === 'integration') continue;
         const application = environments[envName].applications[name];
         if (application) {
             if (application.undeployVersion) {
@@ -52,30 +53,29 @@ export function getDeployState(name: string, environments: { [name: string]: Env
     return DeployState.Mixed;
 }
 
-const UndeployBtn = (props: {
+export const UndeployBtn = (props: {
     openDialog?: () => void; //
     state?: string; //
     applicationName: string; //
 }) => {
     const tooltip = 'This app is ready to un-deploy.';
-    const btn = (btnProps: { onClick?: () => void | undefined }, disabled: { disabled?: boolean }) => (
+    const btn = (btnProps: { onClick?: () => void | undefined }, disabled: boolean) => (
         <div className={'warning-prepare-undeploy-done'} {...btnProps}>
-            <Tooltip title={tooltip} arrow={true}>
-                <IconButton {...disabled}>
+            <IconButton disabled={disabled}>
+                <Tooltip title={tooltip} arrow={true}>
                     <DeleteForeverIcon color={'primary'} />
-                </IconButton>
-            </Tooltip>
+                </Tooltip>
+            </IconButton>
         </div>
     );
     switch (props.state) {
         case 'waiting':
-            return btn({ onClick: props.openDialog }, {});
+        case 'rejected':
+            return btn({ onClick: props.openDialog }, false);
         case 'pending':
             return <Spinner />;
         case 'resolved':
-            return btn({}, {});
-        case 'rejected':
-            return btn({}, { disabled: true });
+            return btn({}, true);
         default:
             return <div>Unknown</div>;
     }

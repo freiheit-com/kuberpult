@@ -176,7 +176,7 @@ const getMessages = (action: BatchAction): BatchMessage => {
             };
         case 'undeploy':
             return {
-                title: 'Are you sure you want to undeploy this application ?',
+                title: 'Are you sure you want to undeploy this application?',
                 description: 'This application will be deleted permanently',
                 notMessageSuccess:
                     'Application ' + action.action?.undeploy.application + ' was successfully un-deployed',

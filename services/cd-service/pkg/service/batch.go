@@ -139,6 +139,14 @@ func (d *BatchServer) processAction(
 		return &repository.CreateUndeployApplicationVersion{
 			Application: act.Application,
 		}, nil
+	case *api.BatchAction_Undeploy:
+		act := action.Undeploy
+		if err := ValidatePrepareUndeploy(act.Application); err != nil {
+			return nil, err
+		}
+		return &repository.UndeployApplication{
+			Application: act.Application,
+		}, nil
 	case *api.BatchAction_Deploy:
 		act := action.Deploy
 		if err := ValidateDeployment(act.Environment, act.Application); err != nil {
