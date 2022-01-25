@@ -17,8 +17,12 @@ Copyright 2021 freiheit.com*/
 import * as React from 'react';
 import DeleteForeverIcon from '@material-ui/icons/DeleteForever';
 import DeleteOutlineIcon from '@material-ui/icons/DeleteOutline';
-import type { Environment, Release } from '../api/api';
+import type { Environment, Release, BatchAction } from '../api/api';
 import { Tooltip } from '@material-ui/core';
+import { useMemo } from 'react';
+import { ConfirmationDialogProvider } from './Batch';
+import { Spinner } from './App';
+import IconButton from '@material-ui/core/IconButton';
 
 export enum DeployState {
     Normal,
@@ -48,20 +52,64 @@ export function getDeployState(name: string, environments: { [name: string]: Env
     return DeployState.Mixed;
 }
 
-const UndeployRunningWarning: React.FC<any> = (props: { deployState: DeployState }) => {
+export const UndeployBtn = (props: {
+    openDialog?: () => void; //
+    state?: string; //
+    applicationName: string; //
+}) => {
+    const tooltip = 'This app is ready to un-deploy.';
+    const btn = (btnProps: { onClick?: () => void | undefined }, disabled: boolean) => (
+        <div className={'warning-prepare-undeploy-done'} {...btnProps}>
+            <IconButton disabled={disabled}>
+                <Tooltip title={tooltip} arrow={true}>
+                    <DeleteForeverIcon color={'primary'} />
+                </Tooltip>
+            </IconButton>
+        </div>
+    );
+    switch (props.state) {
+        case 'waiting':
+        case 'rejected':
+            return btn({ onClick: props.openDialog }, false);
+        case 'pending':
+            return <Spinner />;
+        case 'resolved':
+            return btn({}, true);
+        default:
+            return <div>Unknown</div>;
+    }
+};
+
+const UndeployRunningWarning: React.FC<any> = (props: { deployState: DeployState; name: string }) => {
     const tooltip = 'This app is in the process of deletion';
     const undeployHint = (
-        <div className={'warning-undeploy-running'}>
-            <Tooltip title={tooltip}>
+        <div className={'warning-undeploy-running'} title={tooltip}>
+            <IconButton disabled>
                 <DeleteOutlineIcon />
-            </Tooltip>
+            </IconButton>
         </div>
+    );
+    const undeploy: BatchAction = useMemo(
+        () => ({
+            action: {
+                $case: 'undeploy',
+                undeploy: {
+                    application: props.name,
+                },
+            },
+        }),
+        [props.name]
+    );
+    const Undeploy = (
+        <ConfirmationDialogProvider action={undeploy}>
+            <UndeployBtn applicationName={props.name} />
+        </ConfirmationDialogProvider>
     );
     switch (props.deployState) {
         case DeployState.Normal:
             return null;
         case DeployState.Undeploy:
-            return undeployHint;
+            return Undeploy;
         case DeployState.Mixed:
             return undeployHint;
     }
@@ -81,7 +129,9 @@ const UndeployInconsistencyWarning: React.FC<any> = () => {
     const tooltip = 'Deletion of this app was interrupted.';
     return (
         <div className={'warning-inconsistent'} title={tooltip}>
-            <DeleteForeverIcon />
+            <IconButton disabled>
+                <DeleteForeverIcon color={'error'} />
+            </IconButton>
         </div>
     );
 };
@@ -97,5 +147,5 @@ export const Warnings: React.FC<any> = (props: WarningsProps) => {
         return <UndeployInconsistencyWarning />;
     }
     const deployState = getDeployState(props.name, props.environments);
-    return <UndeployRunningWarning deployState={deployState} />;
+    return <UndeployRunningWarning deployState={deployState} name={props.name} />;
 };

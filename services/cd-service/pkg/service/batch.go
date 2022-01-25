@@ -78,7 +78,7 @@ func ValidateDeployment(
 	return nil
 }
 
-func ValidatePrepareUndeploy(
+func ValidateApplication(
 	app string,
 ) error {
 	if !valid.ApplicationName(app) {
@@ -133,10 +133,18 @@ func (d *BatchServer) processAction(
 		}, nil
 	case *api.BatchAction_PrepareUndeploy:
 		act := action.PrepareUndeploy
-		if err := ValidatePrepareUndeploy(act.Application); err != nil {
+		if err := ValidateApplication(act.Application); err != nil {
 			return nil, err
 		}
 		return &repository.CreateUndeployApplicationVersion{
+			Application: act.Application,
+		}, nil
+	case *api.BatchAction_Undeploy:
+		act := action.Undeploy
+		if err := ValidateApplication(act.Application); err != nil {
+			return nil, err
+		}
+		return &repository.UndeployApplication{
 			Application: act.Application,
 		}, nil
 	case *api.BatchAction_Deploy:
