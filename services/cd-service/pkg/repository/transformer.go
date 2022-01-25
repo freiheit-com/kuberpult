@@ -279,6 +279,13 @@ func (u *UndeployApplication) Transform(fs billy.Filesystem) (string, error) {
 	if err = fs.Remove(appDir); err != nil {
 		return "", err
 	}
+	for env := range configs {
+		appDir := environmentApplicationDirectory(fs, env, u.Application)
+		// remove environment application
+		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
+		}
+	}
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }
 
