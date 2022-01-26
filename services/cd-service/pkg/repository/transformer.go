@@ -46,6 +46,10 @@ func releasesDirectory(fs billy.Filesystem, application string) string {
 	return fs.Join("applications", application, "releases")
 }
 
+func applicationDirectory(fs billy.Filesystem, application string) string {
+	return fs.Join("applications", application)
+}
+
 func environmentApplicationDirectory(fs billy.Filesystem, environment, application string) string {
 	return fs.Join("environments", environment, "applications", application)
 }
@@ -249,7 +253,6 @@ func (u *UndeployApplication) Transform(fs billy.Filesystem) (string, error) {
 	if lastRelease == 0 {
 		return "", fmt.Errorf("UndeployApplication: error cannot undeploy non-existing application '%v'", u.Application)
 	}
-
 	isUndeploy, err := (&State{Filesystem: fs}).IsUndeployVersion(u.Application, lastRelease)
 	if err != nil {
 		return "", err
@@ -257,15 +260,12 @@ func (u *UndeployApplication) Transform(fs billy.Filesystem) (string, error) {
 	if !isUndeploy {
 		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
 	}
-
-	releaseDir := releasesDirectoryWithVersion(fs, u.Application, lastRelease)
-
+	appDir := applicationDirectory(fs, u.Application)
 	configs, err := (&State{Filesystem: fs}).GetEnvironmentConfigs()
-
 	for env := range configs {
-		appDir := environmentApplicationDirectory(fs, env, u.Application)
-		locksDir := fs.Join(appDir, "locks")
-		undeployFile := fs.Join(appDir, "version", "undeploy")
+		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
+		locksDir := fs.Join(envAppDir, "locks")
+		undeployFile := fs.Join(envAppDir, "version", "undeploy")
 
 		if entries, _ := fs.ReadDir(locksDir); entries != nil {
 			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' unlock the application lock in the '%v' environment first", u.Application, env)
@@ -275,20 +275,16 @@ func (u *UndeployApplication) Transform(fs billy.Filesystem) (string, error) {
 			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' the release '%v' is not un-deployed", u.Application, env)
 		}
 	}
-
 	// remove application
-	if err = fs.Remove(releaseDir); err != nil {
+	if err = fs.Remove(appDir); err != nil {
 		return "", err
 	}
-
 	for env := range configs {
 		appDir := environmentApplicationDirectory(fs, env, u.Application)
-
 		// remove environment application
 		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
 		}
-
 	}
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }

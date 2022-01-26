@@ -79,7 +79,30 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			shouldSucceed:     true,
 		},
 		{
-			Name: "Undeploy application where there is an application lock shouldn't work",
+			Name: "Create un-deploy Version for un-deployed application should not work",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			expectedError:     "cannot undeploy non-existing application 'app1'",
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+		{
+			Name: "Undeploy application where there is an application lock should not work",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "acceptance",
@@ -257,7 +280,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 	}
 }
 
-// Tests various error cases in the Undeploy endpoint, specifically the error messages returned.
+// Tests various error cases in the prepare-Undeploy endpoint, specifically the error messages returned.
 func TestUndeployErrors(t *testing.T) {
 	tcs := []struct {
 		Name              string
