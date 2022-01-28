@@ -39,7 +39,7 @@ $(addsuffix /release,$(MAKEDIRS)):
 
 release: $(addsuffix /release,$(MAKEDIRS)) version
 	git tag $(VERSION)
-	
+
 $(addsuffix /clean,$(MAKEDIRS)):
 	make -C $(dir $@) clean
 
@@ -73,7 +73,4 @@ analyze/merge: $(CODE_REVIEWER_LOCATION)
 analyze/pull-request: $(CODE_REVIEWER_LOCATION)
 	${SCRIPTS_BASE}/analyze.sh --dry-run ${FROM}
 
-
-
 .PHONY: release  $(addsuffix /release,$(MAKEDIRS)) all $(addsuffix /all,$(MAKEDIRS)) clean $(addsuffix /clean,$(MAKEDIRS))
-

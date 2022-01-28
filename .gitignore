@@ -7,3 +7,6 @@ services/cd-service/repository
 .idea/
 .*.sentinel
 build/
+
+# used by envrc https://direnv.net/
+.envrc
