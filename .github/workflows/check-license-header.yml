@@ -1,4 +1,4 @@
-name: "Codereviewr Check"
+name: "License header Check"
 
 on:
   pull_request:
@@ -15,4 +15,4 @@ jobs:
     - name: License Header Check
       run: |
         echo "Checking license header"
-        bash check.sh
+        bash check.sh || echo run `bash check.sh` locally, commit the result and push
