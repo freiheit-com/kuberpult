@@ -1,0 +1,18 @@
+name: "Codereviewr Check"
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check_license_header:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: License Header Check
+      run: |
+        echo "Checking license header"
+        bash check.sh

@@ -34,6 +34,7 @@ YAML_COPY_RIGHT="#This file is part of kuberpult.
 
 #Copyright 2021 freiheit.com"
 
+RET_CODE=0
 
 check_file() {
     x=$(head -n 16 $1 | wc -l)
@@ -66,6 +67,7 @@ fix_file() {
     check_file $1 1
     if [ $? -ne 0 ];
     then
+        RET_CODE=1
         FILE=$(cat $1)
         cat > $1 <<- EOF
 /*This file is part of kuberpult.
@@ -93,6 +95,7 @@ fix_file_yaml_make() {
     check_file $1 2
     if [ $? -ne 0 ];
     then
+        RET_CODE=1
         FILE=$(cat $1)
         cat > $1 <<- EOF
 #This file is part of kuberpult.
@@ -160,3 +163,5 @@ for make_file in $make_files
 do
     fix_file_yaml_make $make_file
 done
+
+exit $RET_CODE
