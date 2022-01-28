@@ -15,4 +15,4 @@ jobs:
     - name: License Header Check
       run: |
         echo "Checking license header"
-        bash check.sh || echo run `bash check.sh` locally, commit the result and push
+        bash check.sh || (echo run "bash check.sh" locally, commit the result and push; exit 1)
