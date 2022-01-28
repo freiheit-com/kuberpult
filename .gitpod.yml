@@ -1,0 +1,30 @@
+tasks:
+  - init: |
+      sudo apt install -y protobuf-compiler libssh2-1-dev libssl-dev cmake gettext
+      PREFIX="/usr/local" && \
+      VERSION="1.0.0-rc11" && \
+        curl -sSL \
+          "https://github.com/bufbuild/buf/releases/download/v${VERSION}/buf-$(uname -s)-$(uname -m).tar.gz" | \
+          sudo tar -xvzf - -C "${PREFIX}" --strip-components 1
+      curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      wget https://github.com/libgit2/libgit2/archive/refs/tags/v1.3.0.tar.gz && \
+          tar xzf v1.3.0.tar.gz && \
+          cd libgit2-1.3.0/ && \
+          mkdir build && cd build && \
+          cmake .. && \
+          make && \
+          sudo make install
+      go get -modfile=go.tools.mod github.com/golang/protobuf/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
+          go get google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
+          go get github.com/ghodss/yaml@v1.0.0 && \
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
+          go get github.com/libgit2/git2go/v33 && \
+          go install \
+            github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
+            github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
+            google.golang.org/protobuf/cmd/protoc-gen-go \
+            google.golang.org/grpc/cmd/protoc-gen-go-grpc \
+            github.com/grpc-ecosystem/grpc-gateway/v2/internal/descriptor
+vscode:
+  extensions:
+    - golang.go
