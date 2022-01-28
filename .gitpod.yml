@@ -15,7 +15,7 @@ tasks:
           make && \
           sudo make install
       rm -rf v1.3.0.tar.gz libgit2-1.3.0
-      cd ../.. \
+      cd ../..
       go get -modfile=go.tools.mod github.com/golang/protobuf/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
           go get google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
           go get github.com/ghodss/yaml@v1.0.0 && \
