@@ -183,7 +183,7 @@ func TestServeHttpSuccess(t *testing.T) {
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
 			cmd.Start()
 			cmd.Wait()
-			repo, err := repository.NewWait(
+			repo, err := repository.New(
 				context.Background(),
 				repository.Config{
 					URL:            remoteDir,

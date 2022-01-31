@@ -44,7 +44,7 @@ func TestNew(t *testing.T) {
 			Name: "new in initialized repository works",
 			Setup: func(t *testing.T, remoteDir, localDir string) {
 				// run the initialization code once
-				_, err := NewWait(
+				_, err := New(
 					context.Background(),
 					Config{
 						URL:  "file://" + remoteDir,
@@ -70,7 +70,7 @@ func TestNew(t *testing.T) {
 			Name: "new in initialized repository with data works",
 			Setup: func(t *testing.T, remoteDir, localDir string) {
 				// run the initialization code once
-				repo, err := NewWait(
+				repo, err := New(
 					context.Background(),
 					Config{
 						URL:  remoteDir,
@@ -105,7 +105,7 @@ func TestNew(t *testing.T) {
 			Name: "new with empty repository but non-empty remote works",
 			Setup: func(t *testing.T, remoteDir, localDir string) {
 				// run the initialization code once
-				repo, err := NewWait(
+				repo, err := New(
 					context.Background(),
 					Config{
 						URL:  remoteDir,
@@ -271,9 +271,6 @@ func TestNew(t *testing.T) {
 			if err != nil {
 				t.Fatalf("new: expected no error, got '%e'", err)
 			}
-			if waitErr := repo.WaitReady(); waitErr != nil {
-				t.Fatalf("wait: expected no error, got '%s'", waitErr)
-			}
 			if tc.Test != nil {
 				tc.Test(t, repo, remoteDir)
 			}
@@ -348,7 +345,7 @@ func TestGc(t *testing.T) {
 				cmd := exec.Command("git", "init", "--bare", remoteDir)
 				cmd.Start()
 				cmd.Wait()
-				repo, err := NewWait(
+				repo, err := New(
 					context.Background(),
 					Config{
 						URL:         "file://" + remoteDir,

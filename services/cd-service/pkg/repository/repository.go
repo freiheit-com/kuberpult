@@ -57,9 +57,6 @@ type Repository interface {
 	State() *State
 
 	Notify() *notify.Notify
-
-	IsReady() (bool, error)
-	WaitReady() error
 }
 
 type repository struct {
@@ -80,9 +77,6 @@ type repository struct {
 	headLock sync.Mutex
 
 	notify notify.Notify
-
-	// Signaling readyness to allow fetching in the background
-	*Readiness
 }
 
 type Config struct {
@@ -162,61 +156,51 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				credentials:  credentials,
 				certificates: certificates,
 				repository:   repo2,
-				Readiness:    newReadiness(),
 			}
 			result.headLock.Lock()
-			go result.Readiness.setReady(ctx, func() error {
-				defer result.headLock.Unlock()
-				fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
-				fetchOptions := git.FetchOptions{
-					RemoteCallbacks: git.RemoteCallbacks{
-						UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-							logger.Debug("git.fetched",
-								zap.String("refname", refname),
-								zap.String("revision.new", b.String()),
-							)
-							return nil
-						},
-						CredentialsCallback:      credentials.CredentialsCallback(ctx),
-						CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+
+			defer result.headLock.Unlock()
+			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+			fetchOptions := git.FetchOptions{
+				RemoteCallbacks: git.RemoteCallbacks{
+					UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
+						logger.Debug("git.fetched",
+							zap.String("refname", refname),
+							zap.String("revision.new", b.String()),
+						)
+						return nil
 					},
-				}
-				err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
-				if err != nil {
-					return err
-				}
-				var zero git.Oid
-				var rev *git.Oid = &zero
-				if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
-					var gerr *git.GitError
-					if errors.As(err, &gerr) && gerr.Code == git.ErrNotFound {
-						// not found
-						// nothing to do
-					} else {
-						return err
-					}
+					CredentialsCallback:      credentials.CredentialsCallback(ctx),
+					CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+				},
+			}
+			err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+			if err != nil {
+				return nil, err
+			}
+			var zero git.Oid
+			var rev *git.Oid = &zero
+			if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
+				var gerr *git.GitError
+				if errors.As(err, &gerr) && gerr.Code == git.ErrNotFound {
+					// not found
+					// nothing to do
 				} else {
-					rev = remoteRef.Target()
-					if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
-						return err
-					}
+					return nil, err
 				}
-				// check that we can build the current state
-				if _, err := result.buildState(); err != nil {
-					return err
+			} else {
+				rev = remoteRef.Target()
+				if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
+					return nil, err
 				}
-				return nil
-			})
+			}
+			// check that we can build the current state
+			if _, err := result.buildState(); err != nil {
+				return nil, err
+			}
+
 			return result, nil
 		}
-	}
-}
-
-func NewWait(ctx context.Context, cfg Config) (Repository, error) {
-	if repo, err := New(ctx, cfg); err != nil {
-		return repo, err
-	} else {
-		return repo, repo.WaitReady()
 	}
 }
 

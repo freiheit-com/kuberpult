@@ -29,12 +29,12 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
-func getBatchActions () []*api.BatchAction{
+func getBatchActions() []*api.BatchAction {
 	opDeploy := &api.BatchAction_Deploy{
 		Deploy: &api.DeployRequest{
-			Environment: "production",
-			Application: "test",
-			Version:     1,
+			Environment:  "production",
+			Application:  "test",
+			Version:      1,
 			LockBehavior: api.LockBehavior_Fail,
 		},
 	}
@@ -53,20 +53,20 @@ func getBatchActions () []*api.BatchAction{
 			Message:     "please",
 		},
 	}
-	opDeleteEnvLock := &api.BatchAction_DeleteEnvironmentLock{  // this deletes the existing lock in the transformers
+	opDeleteEnvLock := &api.BatchAction_DeleteEnvironmentLock{ // this deletes the existing lock in the transformers
 		DeleteEnvironmentLock: &api.DeleteEnvironmentLockRequest{
 			Environment: "production",
 			LockId:      "1234",
 		},
 	}
-	opDeleteAppLock := &api.BatchAction_DeleteEnvironmentApplicationLock{  // this deletes the existing lock in the transformers
+	opDeleteAppLock := &api.BatchAction_DeleteEnvironmentApplicationLock{ // this deletes the existing lock in the transformers
 		DeleteEnvironmentApplicationLock: &api.DeleteEnvironmentApplicationLockRequest{
 			Environment: "production",
 			Application: "test",
 			LockId:      "5678",
 		},
 	}
-	ops := []*api.BatchAction {		// it works through the batch in order
+	ops := []*api.BatchAction{ // it works through the batch in order
 		{Action: opDeleteEnvLock},
 		{Action: opDeleteAppLock},
 		{Action: opDeploy},
@@ -82,7 +82,7 @@ func getNBatchActions(N int) []*api.BatchAction {
 		deploy := api.DeployRequest{
 			Environment:  "production",
 			Application:  "test",
-			Version: 1,
+			Version:      1,
 			LockBehavior: api.LockBehavior_Fail,
 		}
 		if i%2 == 0 {
@@ -116,16 +116,16 @@ func TestBatchServiceWorks(t *testing.T) {
 						"production": "manifest",
 					},
 				},
-				&repository.CreateEnvironmentLock{   // will be deleted by the batch actions
+				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
 					Environment: "production",
-					LockId: "1234",
-					Message: "EnvLock",
+					LockId:      "1234",
+					Message:     "EnvLock",
 				},
-				&repository.CreateEnvironmentApplicationLock{  // will be deleted by the batch actions
+				&repository.CreateEnvironmentApplicationLock{ // will be deleted by the batch actions
 					Environment: "production",
 					Application: "test",
-					LockId: "5678",
-					Message: "AppLock",
+					LockId:      "5678",
+					Message:     "AppLock",
 				},
 			},
 			Batch: getBatchActions(),
@@ -230,24 +230,24 @@ func TestBatchServiceLimit(t *testing.T) {
 	}
 	var two uint64 = 2
 	tcs := []struct {
-		Name  string
-		Batch []*api.BatchAction
-		Setup []repository.Transformer
-		ShouldSucceed bool
+		Name            string
+		Batch           []*api.BatchAction
+		Setup           []repository.Transformer
+		ShouldSucceed   bool
 		ExpectedVersion *uint64
 	}{
 		{
-			Name:          "exactly the maximum number of actions",
-			Setup:         transformers,
-			ShouldSucceed: true,
-			Batch:         getNBatchActions(maxBatchActions),
+			Name:            "exactly the maximum number of actions",
+			Setup:           transformers,
+			ShouldSucceed:   true,
+			Batch:           getNBatchActions(maxBatchActions),
 			ExpectedVersion: &two,
 		},
 		{
-			Name:          "more than the maximum number of actions",
-			Setup:         transformers,
-			ShouldSucceed: false,
-			Batch:         getNBatchActions(maxBatchActions + 1), // more than max
+			Name:            "more than the maximum number of actions",
+			Setup:           transformers,
+			ShouldSucceed:   false,
+			Batch:           getNBatchActions(maxBatchActions + 1), // more than max
 			ExpectedVersion: nil,
 		},
 	}
@@ -303,7 +303,7 @@ func TestBatchServiceLimit(t *testing.T) {
 	}
 }
 
-func setupRepositoryTest(t *testing.T) (repository.Repository, error){
+func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 	t.Parallel()
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
@@ -311,7 +311,7 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error){
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
 	cmd.Start()
 	cmd.Wait()
-	repo, err := repository.NewWait(
+	repo, err := repository.New(
 		context.Background(),
 		repository.Config{
 			URL:            remoteDir,
