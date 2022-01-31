@@ -78,14 +78,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) ServeHTTPHealth(w http.ResponseWriter, r *http.Request) {
-	err := s.checkHealth()
-	if err == nil {
-		w.WriteHeader(200)
-		fmt.Fprintf(w, "ok\n")
-	} else {
-		w.WriteHeader(500)
-		fmt.Fprintf(w, "not ok\n")
-	}
+	w.WriteHeader(200)
+	fmt.Fprintf(w, "ok\n")
 }
 
 func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.Request) {
@@ -250,10 +244,6 @@ func ArgocdLogin(host string, username string, password string) (string, error) 
 		return "", wrapArgoError(err, "login", "Cannot login to ArgoCD")
 	}
 	return "", nil
-}
-
-func (s *Service) checkHealth() error {
-	return nil
 }
 
 func wrapArgoError(e error, app string, message string) error {
