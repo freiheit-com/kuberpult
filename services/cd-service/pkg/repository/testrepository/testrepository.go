@@ -50,11 +50,3 @@ func (fr *failingRepository) State() *repository.State {
 func (fr *failingRepository) Notify() *notify.Notify {
 	return &fr.notify
 }
-
-func (fr *failingRepository) WaitReady() error {
-	return nil
-}
-
-func (fr *failingRepository) IsReady() (bool, error) {
-	return true, nil
-}

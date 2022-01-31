@@ -57,9 +57,6 @@ type Repository interface {
 	State() *State
 
 	Notify() *notify.Notify
-
-	IsReady() (bool, error)
-	WaitReady() error
 }
 
 type repository struct {
@@ -80,9 +77,6 @@ type repository struct {
 	headLock sync.Mutex
 
 	notify notify.Notify
-
-	// Signaling readyness to allow fetching in the background
-	*Readiness
 }
 
 type Config struct {
@@ -162,7 +156,6 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				credentials:  credentials,
 				certificates: certificates,
 				repository:   repo2,
-				Readiness:    newReadiness(),
 			}
 			result.headLock.Lock()
 
@@ -208,14 +201,6 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 
 			return result, nil
 		}
-	}
-}
-
-func NewWait(ctx context.Context, cfg Config) (Repository, error) {
-	if repo, err := New(ctx, cfg); err != nil {
-		return repo, err
-	} else {
-		return repo, repo.WaitReady()
 	}
 }
 

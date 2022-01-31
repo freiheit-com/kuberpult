@@ -1628,7 +1628,7 @@ spec:
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
 			cmd.Start()
 			cmd.Wait()
-			repo, err := NewWait(
+			repo, err := New(
 				context.Background(),
 				Config{
 					URL:            remoteDir,
@@ -1813,7 +1813,7 @@ func setupRepositoryTest(t *testing.T) (Repository, error) {
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
 	cmd.Start()
 	cmd.Wait()
-	repo, err := NewWait(
+	repo, err := New(
 		context.Background(),
 		Config{
 			URL:            remoteDir,
