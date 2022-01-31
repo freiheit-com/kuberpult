@@ -58,6 +58,12 @@ spec:
           - name: grpc
             containerPort: 8443
             protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
         livenessProbe:
           httpGet:
             path: /health

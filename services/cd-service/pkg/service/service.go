@@ -253,15 +253,6 @@ func ArgocdLogin(host string, username string, password string) (string, error) 
 }
 
 func (s *Service) checkHealth() error {
-	if ok, err := s.Repository.IsReady(); ok && err != nil {
-		return err
-	}
-	if s.ArgoCdPass != "" {
-		_, er := ArgocdLogin(s.ArgoCdHost, s.ArgoCdUser, s.ArgoCdPass)
-		if er != nil {
-			return er
-		}
-	}
 	return nil
 }
 
