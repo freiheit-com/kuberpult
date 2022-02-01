@@ -1,5 +1,17 @@
 # Change Log
 
+## 0.4.0
+
+**released 2022-02-01**
+## Added
+- Support deleting applications [#71](https://github.com/freiheit-com/kuberpult/pull/71) [#72](https://github.com/freiheit-com/kuberpult/pull/72)
+- Persist Action Authors in Manifest repo [#69](https://github.com/freiheit-com/kuberpult/pull/69)
+
+## Changed
+ 
+- health check improvement [#76](https://github.com/freiheit-com/kuberpult/pull/76) 
+- Reimplement History.Change in a much faster way [#47](https://github.com/freiheit-com/kuberpult/pull/47)
+
 ## 0.2.5
 
 **released 2021-11-02**
