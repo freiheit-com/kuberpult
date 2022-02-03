@@ -26,12 +26,11 @@ MAKEDIRS := services/cd-service services/frontend-service chart pkg/api pkg
 
 .install: go.tools.mod go.tools.sum
 	go mod download google.golang.org/grpc/cmd/protoc-gen-go-grpc
-	go install -x github.com/ghodss/yaml@v1.0.0
+	go get github.com/ghodss/yaml@v1.0.0
 	go install \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
-		google.golang.org/protobuf/cmd/protoc-gen-go \
-		google.golang.org/grpc/cmd/protoc-gen-go-grpc
+		google.golang.org/protobuf/cmd/protoc-gen-go
 	touch .install
 
 $(addsuffix /release,$(MAKEDIRS)):
