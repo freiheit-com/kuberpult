@@ -32,8 +32,9 @@ jobs:
       - name: Install dependencies
         # the reason why hardcoded the dependencies instead of running "make .install" is that make .install throws an error related to go mod
         run: |
+          go mod init github.com/freiheit-com/kuberpult && \
           go install -modfile=go.tools.mod github.com/golang/protobuf/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
-          go install -x github.com/ghodss/yaml@v1.0.0 && \
+          go install github.com/ghodss/yaml@v1.0.0 && \
           go install github.com/libgit2/git2go/v33 && \
           go install \
             github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
