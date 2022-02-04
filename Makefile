@@ -22,7 +22,7 @@ CODE_REVIEWER_LOCATION?=$(HOME)/bin/codereviewr
 VERSION=$(shell cat version)
 export VERSION
 
-MAKEDIRS := services/cd-service services/frontend-service chart pkg/api pkg
+MAKEDIRS := services/cd-service services/frontend-service charts/kuberpult pkg/api pkg
 
 .install: go.tools.mod go.tools.sum
 	 go install -modfile=go.tools.mod github.com/golang/protobuf/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc && \

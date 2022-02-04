@@ -22,3 +22,8 @@ version: $VERSION
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
 appVersion: "$VERSION"
+
+maintainers:
+ - name: medo-freiheit
+ - name: mouhsen-ibrahim
+ - name: sven-urbanski-freiheit-com

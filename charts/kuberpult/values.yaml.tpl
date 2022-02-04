@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 git:
-  url: # git@github.com/.../...
+  url:  # git@github.com/.../...
   branch: "master"
 
 hub: ghcr.io/freiheit-com
@@ -17,7 +17,7 @@ log:
 cd:
   image: kuberpult-cd-service
   backendConfig:
-    create: false # Add backend config for health checks on GKE only
+    create: false  # Add backend config for health checks on GKE only
 frontend:
   image: kuberpult-frontend-service
 ingress:
