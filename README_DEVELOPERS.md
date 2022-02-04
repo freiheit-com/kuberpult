@@ -21,7 +21,7 @@ Afterwards bump the version in the `version` file.
   Afterwards, set your library path, e.g.: `export LD_LIBRARY_PATH='/usr/local/lib/'`
 - golang >= 1.16
 - protoc >=3.15
-- `go get -modfile=go.tools.mod github.com/golang/protobuf/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc`
+- `go install -modfile=go.tools.mod github.com/golang/protobuf/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc`
 - buf
 - run make on the top level to install go modules:
   `make .install`
