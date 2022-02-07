@@ -113,7 +113,8 @@ ignoredFiles: [
     "*/AUTH_SERVICE_JWT_RS512_PUBLIC_KEY",
     "*/AUTH_SERVICE_EDDI_IDP_JWT_PUBLIC_KEY",
     "*/multi_line_config",
-    "charts/*"
+    "charts/*",
+    "chart/*"
   ] #ignored file extensions
 testFiles: ["_test.go", "_test.dart"]
 languagesConfig:
