@@ -47,7 +47,7 @@ spec:
             cpu: "500m"
             memory: "100Mi"
           requests:
-            cpu: "500m"
+            cpu: "200m"
             memory: "100Mi"
         env:
         - name: KUBERPULT_CDSERVER

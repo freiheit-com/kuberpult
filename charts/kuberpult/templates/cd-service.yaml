@@ -70,7 +70,7 @@ spec:
             port: http
         resources:
           limits:
-            cpu: "1"
+            cpu: "500m"
             memory: "512Mi"
           requests:
             cpu: "500m"
