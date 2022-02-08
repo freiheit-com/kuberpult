@@ -36,10 +36,10 @@ jobs:
 
       - name: Run chart-testing (lint)
         run: ct lint --target-branch main
-# TODO: Public registry for Kuberpult
-#      - name: Create kind cluster
-#        uses: helm/kind-action@v1.2.0
-#        if: steps.list-changed.outputs.changed == 'true'
 
-#      - name: Run chart-testing (install)
-#        run: ct install --debug --target-branch main --helm-extra-args "--debug --set git.url=test --set ingress.domainName=kuberpult.example.com --set ingress.exposeReleaseEndpoint=true"
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.2.0
+        if: steps.list-changed.outputs.changed == 'true'
+
+      - name: Run chart-testing (install)
+        run: ct install --debug --target-branch main --helm-extra-args "--debug --set git.url=test --set ingress.domainName=kuberpult.example.com --set ingress.exposeReleaseEndpoint=true"

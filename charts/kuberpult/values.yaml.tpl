@@ -6,7 +6,7 @@ git:
   url:  # git@github.com/.../...
   branch: "master"
 
-hub: ghcr.io/freiheit-com
+hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry
 tag: "$VERSION"
 
 log:
