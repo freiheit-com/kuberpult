@@ -6,7 +6,7 @@ git:
   url:  # git@github.com/.../...
   branch: "master"
 
-hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry
+hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 tag: "$VERSION"
 
 log:
