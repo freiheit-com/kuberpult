@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 git:
-  url:  # git@github.com/.../...
+  url: "/repository" # git@github.com/.../...
   branch: "master"
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
@@ -22,8 +22,8 @@ frontend:
   image: kuberpult-frontend-service
 ingress:
   annotations: {}
-  domainName: null
-  exposeReleaseEndpoint: false
+  domainName: kuberpult.example.com
+  exposeReleaseEndpoint: true
   iap:
     enabled: false
     secretName: null
