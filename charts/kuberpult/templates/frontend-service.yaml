@@ -44,10 +44,10 @@ spec:
             protocol: TCP
         resources:
           limits:
-            cpu: "500m"
+            cpu: "250m"
             memory: "100Mi"
           requests:
-            cpu: "500m"
+            cpu: "250m"
             memory: "100Mi"
         env:
         - name: KUBERPULT_CDSERVER

@@ -16,13 +16,13 @@
 #Copyright 2021 freiheit.com
 MAKEFLAGS += --no-builtin-rules
 
-VERSION=$(shell cat ../version)
+VERSION=$(shell cat ../../version)
 export VERSION
 
-Chart.yaml: Chart.yaml.tpl ../version
+Chart.yaml: Chart.yaml.tpl ../../version
 	envsubst < Chart.yaml.tpl > $@
 
-values.yaml: values.yaml.tpl ../version
+values.yaml: values.yaml.tpl ../../version
 	envsubst < values.yaml.tpl > $@
 
 kuberpult-$(VERSION).tgz: Chart.yaml values.yaml templates/*

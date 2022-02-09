@@ -3,10 +3,11 @@
 # Declare variables to be passed into your templates.
 
 git:
-  url: # git@github.com/.../...
+  # the url should not have a default value. We only give it a value here, because ct in combination with helm install does not allow to set values (without crashing at teardown)
+  url: "/repository"  # git@github.com/.../...
   branch: "master"
 
-hub: ghcr.io/freiheit-com
+hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 tag: "$VERSION"
 
 log:
@@ -17,12 +18,12 @@ log:
 cd:
   image: kuberpult-cd-service
   backendConfig:
-    create: false # Add backend config for health checks on GKE only
+    create: false  # Add backend config for health checks on GKE only
 frontend:
   image: kuberpult-frontend-service
 ingress:
   annotations: {}
-  domainName: null
+  domainName: kuberpult.example.com
   exposeReleaseEndpoint: false
   iap:
     enabled: false
