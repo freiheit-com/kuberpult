@@ -71,10 +71,10 @@ spec:
         resources:
           limits:
             cpu: "500m"
-            memory: "900Mi"
+            memory: "1Gi"
           requests:
             cpu: "500m"
-            memory: "900Mi"
+            memory: "1Gi"
         env:
         - name: KUBERPULT_GIT_URL
           value: {{ required ".Values.git.url is required" .Values.git.url | quote }}
