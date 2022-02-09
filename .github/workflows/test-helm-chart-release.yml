@@ -42,4 +42,4 @@ jobs:
         if: steps.list-changed.outputs.changed == 'true'
 
       - name: Run chart-testing (install)
-        run: ct install --debug --target-branch main
+        run: ct install --debug --target-branch main --helm-extra-args " --timeout 1m "
