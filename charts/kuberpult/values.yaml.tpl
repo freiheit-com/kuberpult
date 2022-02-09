@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 git:
-  url: "/repository" # git@github.com/.../...
+  url: "/repository"  # git@github.com/.../...
   branch: "master"
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
