@@ -102,7 +102,7 @@ spec:
             fieldRef:
               fieldPath: metadata.labels['tags.datadoghq.com/version']
         - name: KUBERPULT_ENABLE_TRACING
-          value: "{{ .Values.datadogTracing.enabled }}"
+          value: {{ .Values.datadogTracing.enabled }}
 {{- end }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_TRACE_DEBUG
