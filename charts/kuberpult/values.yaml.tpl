@@ -18,9 +18,23 @@ log:
 cd:
   image: kuberpult-cd-service
   backendConfig:
-    create: false  # Add backend config for health checks on GKE only
+    create: false # Add backend config for health checks on GKE only
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
 frontend:
   image: kuberpult-frontend-service
+  resources:
+    limits:
+      cpu: 250m
+      memory: 100Mi
+    requests:
+      cpu: 250m
+      memory: 100Mi
 ingress:
   annotations: {}
   domainName: kuberpult.example.com

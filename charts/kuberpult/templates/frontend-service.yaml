@@ -44,11 +44,11 @@ spec:
             protocol: TCP
         resources:
           limits:
-            cpu: "250m"
-            memory: "100Mi"
+            cpu: "{{ .Values.frontend.resources.limits.cpu }}"
+            memory: "{{ .Values.frontend.resources.limits.memory }}"
           requests:
-            cpu: "250m"
-            memory: "100Mi"
+            cpu: "{{ .Values.frontend.resources.requests.cpu }}"
+            memory: "{{ .Values.frontend.resources.requests.memory }}"
         env:
         - name: KUBERPULT_CDSERVER
           value: kuberpult-cd-service:8443
