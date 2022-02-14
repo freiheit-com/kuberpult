@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"context"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
@@ -49,6 +50,7 @@ type Config struct {
 	ArgoCdPass        string `default:"" split_words:"true"`
 	EnableTracing     bool   `default:"false" split_words:"true""`
 	EnableMetrics     bool   `default:"false" split_words:"true""`
+	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true""`
 }
 
 func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
@@ -89,7 +91,15 @@ func RunServer() {
 			tracer.Start()
 			defer tracer.Stop()
 		}
-		ctx = context.WithValue(ctx, "EnableMetrics", c.EnableMetrics)
+
+		if c.EnableMetrics {
+			ddMetrics, err := statsd.New(c.DogstatsdAddr, statsd.WithNamespace("Kuberpult"))
+			if err != nil {
+				logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
+			}
+			ctx = context.WithValue(ctx, "ddMetrics", ddMetrics)
+		}
+
 		// If the tracer is not started, calling this function is a no-op.
 		span, ctx := tracer.StartSpanFromContext(ctx, "Start server")
 

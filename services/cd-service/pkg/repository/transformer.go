@@ -414,6 +414,18 @@ type CreateEnvironmentLock struct {
 	Message     string
 }
 
+func SetEnvLockMetric(fs billy.Filesystem, env string) {
+	if ddMetrics != nil {
+		ddMetrics.Set("env_lock_count", fmt.Sprintf("%d", GetEnvironmentLocksCount(fs, env)), []string{"env:" + env}, 1)
+	}
+}
+
+func SetEnvAppLockMetric(fs billy.Filesystem, env, app string) {
+	if ddMetrics != nil {
+		ddMetrics.Set("app_lock_count", fmt.Sprintf("%d", GetEnvironmentApplicationLocksCount(fs, env, app)), []string{"app:" + app, "env:" + env}, 1)
+	}
+}
+
 func (c *CreateEnvironmentLock) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
@@ -425,9 +437,7 @@ func (c *CreateEnvironmentLock) Transform(ctx context.Context, fs billy.Filesyst
 			if err := createLock(chroot, c.LockId, c.Message); err != nil {
 				return "", err
 			} else {
-				if ddMetrics != nil {
-					ddMetrics.Set("env_lock_count", fmt.Sprintf("%d", GetEnvironmentLocksCount(fs, c.Environment)), []string{"env:" + c.Environment}, 1)
-				}
+				SetEnvLockMetric(fs, c.Environment)
 				return fmt.Sprintf("created lock %q on environment %q", c.LockId, c.Environment), nil
 			}
 		}
@@ -475,9 +485,7 @@ func (c *DeleteEnvironmentLock) Transform(ctx context.Context, fs billy.Filesyst
 				additionalMessageFromDeployment = additionalMessageFromDeployment + "\n" + queueMessage
 			}
 		}
-		if ddMetrics != nil {
-			ddMetrics.Set("env_lock_count", fmt.Sprintf("%d", GetEnvironmentLocksCount(fs, c.Environment)), []string{"env:" + c.Environment}, 1)
-		}
+		SetEnvLockMetric(fs, c.Environment)
 		return fmt.Sprintf("unlocked environment %q%s", c.Environment, additionalMessageFromDeployment), nil
 	}
 }
@@ -505,9 +513,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, fs bil
 			if err := createLock(chroot, c.LockId, c.Message); err != nil {
 				return "", err
 			} else {
-				if ddMetrics != nil {
-					ddMetrics.Set("app_lock_count", fmt.Sprintf("%d", GetEnvironmentApplicationLocksCount(fs, c.Environment, c.Application)), []string{"app:" + c.Application, "env:" + c.Environment}, 1)
-				}
+				SetEnvAppLockMetric(fs, c.Environment, c.Application)
 				return fmt.Sprintf("created lock %q on environment %q for application %q", c.LockId, c.Environment, c.Application), nil
 			}
 		}
@@ -532,9 +538,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, fs bil
 		if err != nil {
 			return "", err
 		}
-		if ddMetrics != nil {
-			ddMetrics.Set("app_lock_count", fmt.Sprintf("%d", GetEnvironmentApplicationLocksCount(fs, c.Environment, c.Application)), []string{"app:" + c.Application, "env:" + c.Environment}, 1)
-		}
+		SetEnvAppLockMetric(fs, c.Environment, c.Application)
 		return fmt.Sprintf("unlocked application %q in environment %q%q", c.Application, c.Environment, queueMessage), nil
 	}
 }

@@ -124,13 +124,9 @@ func openOrCreate(path string) (*git.Repository, error) {
 func New(ctx context.Context, cfg Config) (Repository, error) {
 	logger := logger.FromContext(ctx)
 
-	isMetricsEnabeld := ctx.Value("EnableMetrics")
-	if isMetricsEnabeld != nil && isMetricsEnabeld.(bool) {
-		var err error = nil
-		ddMetrics, err = statsd.New("127.0.0.1:8125", statsd.WithNamespace("Kuperbult"))
-		if err != nil {
-			logger.Fatal("datadog.metrics.error", zap.Error(err))
-		}
+	ddMetricsFromCtx := ctx.Value("ddMetrics")
+	if ddMetricsFromCtx != nil {
+		ddMetrics = ddMetricsFromCtx.(*statsd.Client)
 	}
 
 	if cfg.Branch == "" {
@@ -241,11 +237,9 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	if err != nil {
 		return err
 	}
-	if ddMetrics != nil {
-		err := UpdateDatadogMetrics(state.Filesystem)
-		if err != nil {
-			return err
-		}
+	err = UpdateDatadogMetrics(state.Filesystem)
+	if err != nil {
+		return err
 	}
 	if err := r.afterTransform(ctx, state.Filesystem); err != nil {
 		return &InternalError{inner: err}
