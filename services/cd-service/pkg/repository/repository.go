@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -53,11 +54,15 @@ import (
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
-	ApplyTransformersInternal(transformers ...Transformer) ([]string, *State, error)
+	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error)
 	State() *State
 
 	Notify() *notify.Notify
 }
+
+var (
+	ddMetrics *statsd.Client
+)
 
 type repository struct {
 	// Mutex gurading the writer
@@ -118,6 +123,15 @@ func openOrCreate(path string) (*git.Repository, error) {
 // Opens a repository. The repository is initialized and updated in the background.
 func New(ctx context.Context, cfg Config) (Repository, error) {
 	logger := logger.FromContext(ctx)
+
+	if ctx.Value("EnableMetrics").(bool) {
+		var err error = nil
+		ddMetrics, err = statsd.New("127.0.0.1:8125", statsd.WithNamespace("Kuperbult"))
+		if err != nil {
+			logger.Fatal("datadog.metrics.error", zap.Error(err))
+		}
+	}
+
 	if cfg.Branch == "" {
 		cfg.Branch = "master"
 	}
@@ -204,13 +218,13 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 	}
 }
 
-func (r *repository) ApplyTransformersInternal(transformers ...Transformer) ([]string, *State, error) {
+func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error) {
 	if state, err := r.buildState(); err != nil {
 		return nil, nil, &InternalError{inner: err}
 	} else {
 		commitMsg := []string{}
 		for _, t := range transformers {
-			if msg, err := t.Transform(state.Filesystem); err != nil {
+			if msg, err := t.Transform(ctx, state.Filesystem); err != nil {
 				return nil, nil, err
 			} else {
 				commitMsg = append(commitMsg, msg)
@@ -221,9 +235,17 @@ func (r *repository) ApplyTransformersInternal(transformers ...Transformer) ([]s
 }
 
 func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) error {
-	commitMsg, state, err := r.ApplyTransformersInternal(transformers...)
+	commitMsg, state, err := r.ApplyTransformersInternal(ctx, transformers...)
+	//
 	if err != nil {
 		return err
+	}
+	if ddMetrics != nil {
+		fmt.Println("Hello")
+		err := UpdateDatadogMetrics(state.Filesystem)
+		if err != nil {
+			return err
+		}
 	}
 	if err := r.afterTransform(ctx, state.Filesystem); err != nil {
 		return &InternalError{inner: err}
@@ -889,7 +911,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 // ProcessQueue checks if there is something in the queue
 // deploys if necessary
 // deletes the queue
-func (s *State) ProcessQueue(fs billy.Filesystem, environment string, application string) (string, error) {
+func (s *State) ProcessQueue(ctx context.Context, fs billy.Filesystem, environment string, application string) (string, error) {
 	queuedVersion, err := s.GetQueuedVersion(environment, application)
 	queueDeploymentMessage := ""
 	if err != nil {
@@ -919,7 +941,7 @@ func (s *State) ProcessQueue(fs billy.Filesystem, environment string, applicatio
 				Version:       *queuedVersion,
 				LockBehaviour: api.LockBehavior_Fail,
 			}
-			transform, err := d.Transform(fs)
+			transform, err := d.Transform(ctx, fs)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {

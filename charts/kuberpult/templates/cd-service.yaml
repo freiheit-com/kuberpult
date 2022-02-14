@@ -108,6 +108,10 @@ spec:
         - name: DD_TRACE_DEBUG
           value: "{{ .Values.datadogTracing.debugging }}"
 {{- end }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_TRACE_DEBUG
+          value: "{{ .Values.datadogTracing.debugging }}"
+{{- end }}
 {{- if .Values.pgp.keyRing }}
         - name: KUBERPULT_PGP_KEY_RING
           value: /keyring/keyring.gpg

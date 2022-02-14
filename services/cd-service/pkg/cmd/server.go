@@ -48,6 +48,7 @@ type Config struct {
 	ArgoCdUser        string `default:"admin" split_words:"true"`
 	ArgoCdPass        string `default:"" split_words:"true"`
 	EnableTracing     bool   `default:"false" split_words:"true""`
+	EnableMetrics     bool   `default:"false" split_words:"true""`
 }
 
 func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
@@ -60,7 +61,6 @@ func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
 	}
 	defer file.Close()
 	return openpgp.ReadArmoredKeyRing(file)
-
 }
 
 func RunServer() {
@@ -89,6 +89,7 @@ func RunServer() {
 			tracer.Start()
 			defer tracer.Stop()
 		}
+		ctx = context.WithValue(ctx, "EnableMetrics", c.EnableMetrics)
 		// If the tracer is not started, calling this function is a no-op.
 		span, ctx := tracer.StartSpanFromContext(ctx, "Start server")
 

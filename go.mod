@@ -26,6 +26,7 @@ require (
 
 require (
 	github.com/DataDog/datadog-go v4.4.0+incompatible // indirect
+	github.com/DataDog/datadog-go/v5 v5.0.2 // indirect
 	github.com/DataDog/sketches-go v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
