@@ -61,6 +61,9 @@ argocd:
 datadogTracing:
   enabled: false
   debugging: false
-  metrics: false
+
+dogstatsdMetrics:
+  enabled: false
+  address: "127.0.0.1:8125"
 
 imagePullSecrets: []
