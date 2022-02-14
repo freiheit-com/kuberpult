@@ -124,7 +124,7 @@ func openOrCreate(path string) (*git.Repository, error) {
 func New(ctx context.Context, cfg Config) (Repository, error) {
 	logger := logger.FromContext(ctx)
 
-	if ctx.Value("EnableMetrics").(bool) {
+	if ctx.Value("EnableMetrics") != nil && ctx.Value("EnableMetrics").(bool) {
 		var err error = nil
 		ddMetrics, err = statsd.New("127.0.0.1:8125", statsd.WithNamespace("Kuperbult"))
 		if err != nil {
@@ -241,7 +241,6 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		return err
 	}
 	if ddMetrics != nil {
-		fmt.Println("Hello")
 		err := UpdateDatadogMetrics(state.Filesystem)
 		if err != nil {
 			return err

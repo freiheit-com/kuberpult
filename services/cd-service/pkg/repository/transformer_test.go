@@ -256,7 +256,8 @@ func TestUndeployApplicationErrors(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			commitMsg, _, err := repo.ApplyTransformersInternal(tc.Transformers...)
+			ctx := context.Background()
+			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -370,8 +371,8 @@ func TestUndeployErrors(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-
-			commitMsg, _, err := repo.ApplyTransformersInternal(tc.Transformers...)
+			ctx := context.Background()
+			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -449,8 +450,8 @@ func TestReleaseTrainErrors(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-
-			commitMsg, _, err := repo.ApplyTransformersInternal(tc.Transformers...)
+			ctx := context.Background()
+			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
