@@ -3,8 +3,7 @@
 # Declare variables to be passed into your templates.
 
 git:
-  # the url should not have a default value. We only give it a value here, because ct in combination with helm install does not allow to set values (without crashing at teardown)
-  url: "/repository"  # git@github.com/.../...
+  url:  # git@github.com/.../...
   branch: "master"
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
@@ -37,7 +36,7 @@ frontend:
       memory: 100Mi
 ingress:
   annotations: {}
-  domainName: kuberpult.example.com
+  domainName: null
   exposeReleaseEndpoint: false
   iap:
     enabled: false
