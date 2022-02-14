@@ -17,7 +17,7 @@ log:
 cd:
   image: kuberpult-cd-service
   backendConfig:
-    create: false # Add backend config for health checks on GKE only
+    create: false  # Add backend config for health checks on GKE only
   resources:
     limits:
       cpu: 1
