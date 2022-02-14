@@ -124,7 +124,8 @@ func openOrCreate(path string) (*git.Repository, error) {
 func New(ctx context.Context, cfg Config) (Repository, error) {
 	logger := logger.FromContext(ctx)
 
-	if ctx.Value("EnableMetrics") != nil && ctx.Value("EnableMetrics").(bool) {
+	isMetricsEnabeld := ctx.Value("EnableMetrics")
+	if isMetricsEnabeld != nil && isMetricsEnabeld.(bool) {
 		var err error = nil
 		ddMetrics, err = statsd.New("127.0.0.1:8125", statsd.WithNamespace("Kuperbult"))
 		if err != nil {
