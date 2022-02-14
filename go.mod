@@ -3,6 +3,7 @@ module github.com/freiheit-com/kuberpult
 go 1.17
 
 require (
+	github.com/DataDog/datadog-go/v5 v5.0.2
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/go-git/go-billy/v5 v5.3.1

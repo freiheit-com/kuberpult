@@ -7,7 +7,7 @@ git:
   branch: "master"
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-tag: "0.4.2"
+tag: "0.4.3"
 
 log:
   # Possible values are "gcp" for a gcp-optimized format and "default" for json
@@ -61,5 +61,6 @@ argocd:
 datadogTracing:
   enabled: false
   debugging: false
+  metrics: false
 
 imagePullSecrets: []
