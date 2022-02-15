@@ -19,18 +19,11 @@ import * as React from 'react';
 import { Avatar, Box, Button, Drawer, List, ListItem, ListItemAvatar, ListItemText } from '@material-ui/core';
 
 import { theme } from '../App/styles';
-import {
-    DeleteForeverRounded,
-    DeleteOutlineRounded,
-    LockOpenRounded,
-    LockRounded,
-    MoveToInboxRounded,
-    PlaylistAddCheck,
-} from '@material-ui/icons';
+import { PlaylistAddCheck } from '@material-ui/icons';
 import { useContext } from 'react';
 import { ActionsCartContext } from '../App';
 import { BatchAction } from '../../api/api';
-import { callbacks } from '../Batch';
+import { callbacks, GetActionDetails } from '../Batch';
 import Typography from '@material-ui/core/Typography';
 
 const ActionsList = () => {
@@ -52,9 +45,9 @@ const ActionsList = () => {
                 {actions.map((act: BatchAction) => (
                     <ListItem>
                         <ListItemAvatar>
-                            <Avatar>{getListAction(act).icon}</Avatar>
+                            <Avatar>{GetActionDetails(act).icon}</Avatar>
                         </ListItemAvatar>
-                        <ListItemText primary={getListAction(act).name} secondary={getListAction(act).message} />
+                        <ListItemText primary={GetActionDetails(act).name} secondary={GetActionDetails(act).summary} />
                     </ListItem>
                 ))}
             </List>
@@ -91,76 +84,4 @@ export const ActionsCart = () => {
             </Drawer>
         </>
     );
-};
-
-type ListAction = {
-    name: string;
-    message: string;
-    icon?: React.ReactElement;
-};
-
-const getListAction = (action: BatchAction): ListAction => {
-    switch (action.action?.$case) {
-        case 'deploy':
-            return {
-                name: 'Deploy',
-                message: 'Deploy version ' + action.action?.deploy.version + ' to ' + action.action?.deploy.environment,
-                icon: <MoveToInboxRounded />,
-            };
-        case 'createEnvironmentLock':
-            return {
-                name: 'Create Env Lock',
-                message:
-                    'Create new environment lock on ' +
-                    action.action?.createEnvironmentLock.environment +
-                    '. | Lock Message: ' +
-                    action.action?.createEnvironmentLock.message,
-                icon: <LockRounded />,
-            };
-        case 'createEnvironmentApplicationLock':
-            return {
-                name: 'Create App Lock',
-                message:
-                    'Lock "' +
-                    action.action?.createEnvironmentApplicationLock.application +
-                    '" on ' +
-                    action.action?.createEnvironmentApplicationLock.environment +
-                    '. | Lock Message: ' +
-                    action.action?.createEnvironmentApplicationLock.message,
-                icon: <LockRounded />,
-            };
-        case 'deleteEnvironmentLock':
-            return {
-                name: 'Delete Env Lock',
-                message: 'Delete environment lock on ' + action.action?.deleteEnvironmentLock.environment,
-                icon: <LockOpenRounded />,
-            };
-        case 'deleteEnvironmentApplicationLock':
-            return {
-                name: 'Delete App Lock',
-                message:
-                    'Unlock "' +
-                    action.action?.deleteEnvironmentApplicationLock.application +
-                    '" on ' +
-                    action.action?.deleteEnvironmentApplicationLock.environment,
-                icon: <LockOpenRounded />,
-            };
-        case 'prepareUndeploy':
-            return {
-                name: 'Prepare Undeploy',
-                message: 'Prepare undeploy version for Application ' + action.action?.prepareUndeploy.application,
-                icon: <DeleteOutlineRounded />,
-            };
-        case 'undeploy':
-            return {
-                name: 'Undeploy',
-                message: 'Undeploy and delete Application ' + action.action?.undeploy.application,
-                icon: <DeleteForeverRounded />,
-            };
-        default:
-            return {
-                name: 'invalid',
-                message: 'invalid',
-            };
-    }
 };
