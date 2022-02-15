@@ -93,7 +93,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         </IconButton>
     );
 
-    const exists = actions.find((e) => e === action) !== undefined;
+    const exists = actions ? actions.find((e) => e === action) !== undefined : false;
 
     return (
         <>
