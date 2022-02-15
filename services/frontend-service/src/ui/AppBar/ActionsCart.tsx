@@ -16,23 +16,53 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
 
-import { Avatar, Box, Button, Drawer, List, ListItem, ListItemAvatar, ListItemText } from '@material-ui/core';
+import {
+    Avatar,
+    Box,
+    Button,
+    Drawer,
+    IconButton,
+    List,
+    ListItem,
+    ListItemAvatar,
+    ListItemText,
+} from '@material-ui/core';
 
 import { theme } from '../App/styles';
-import { PlaylistAddCheck } from '@material-ui/icons';
-import { useContext } from 'react';
+import { ClearRounded, PlaylistAddCheck } from '@material-ui/icons';
+import { useCallback, useContext } from 'react';
 import { ActionsCartContext } from '../App';
 import { BatchAction } from '../../api/api';
 import { callbacks, GetActionDetails } from '../Batch';
 import Typography from '@material-ui/core/Typography';
 
-const ActionsList = () => {
-    const { actions } = useContext(ActionsCartContext);
-    const [doActions] = callbacks.useBatch(actions);
+const ActionListItem = (props: { act: BatchAction; index: number }) => {
+    const { act, index } = props;
+    const { actions, setActions } = useContext(ActionsCartContext);
+    const removeItem = useCallback(() => {
+        setActions([...actions.slice(0, index), ...actions.slice(index + 1)]);
+    }, [actions, setActions, index]);
 
-    if (actions.length === 0) {
-        return <div>Cart Empty</div>;
-    }
+    return (
+        <ListItem divider={true}>
+            <ListItemAvatar>
+                <Avatar>{GetActionDetails(act).icon}</Avatar>
+            </ListItemAvatar>
+            <ListItemText primary={GetActionDetails(act).name} secondary={GetActionDetails(act).summary} />
+            <IconButton onClick={removeItem}>
+                <ClearRounded />
+            </IconButton>
+        </ListItem>
+    );
+};
+
+const ActionsList = () => {
+    const { actions, setActions } = useContext(ActionsCartContext);
+    const clearList = useCallback(() => {
+        setActions([]);
+    }, [setActions]);
+    const [doActions] = callbacks.useBatch(actions, clearList);
+
     return (
         <div
             style={{
@@ -42,18 +72,22 @@ const ActionsList = () => {
                 height: '100vh',
             }}>
             <List className="actions" sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}>
-                {actions.map((act: BatchAction) => (
-                    <ListItem>
-                        <ListItemAvatar>
-                            <Avatar>{GetActionDetails(act).icon}</Avatar>
-                        </ListItemAvatar>
-                        <ListItemText primary={GetActionDetails(act).name} secondary={GetActionDetails(act).summary} />
-                    </ListItem>
+                {actions.map((act: BatchAction, index: number) => (
+                    <ActionListItem act={act} index={index} />
                 ))}
             </List>
-            <Button sx={{ display: 'flex', height: '5%' }} onClick={doActions} variant={'contained'}>
+            {actions.length === 0 ? (
+                <Typography variant="h6" whiteSpace={'pre-line'} align={'center'} padding={'20px'}>
+                    {'Cart Is Currently Empty,\nPlease Add Actions!'}
+                </Typography>
+            ) : null}
+            <Button
+                sx={{ display: 'flex', height: '5%' }}
+                onClick={doActions}
+                variant={'contained'}
+                disabled={actions.length === 0}>
                 <Typography variant="h6">
-                    <strong>Checkout</strong>
+                    <strong>Apply</strong>
                 </Typography>
             </Button>
         </div>

@@ -144,7 +144,13 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                     ' was successfully deployed to ' +
                     action.action?.deploy.environment,
                 notMessageFail: 'Deployment failed',
-                summary: 'Deploy version ' + action.action?.deploy.version + ' to ' + action.action?.deploy.environment,
+                summary:
+                    'Deploy version ' +
+                    action.action?.deploy.version +
+                    ' of "' +
+                    action.action?.deploy.application +
+                    '" to ' +
+                    action.action?.deploy.environment,
                 icon: <MoveToInboxRounded />,
             };
         case 'createEnvironmentLock':
