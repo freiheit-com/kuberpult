@@ -62,9 +62,8 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
 const Main = () => {
     const classes = useStyles();
     const [actions, setActions] = useState([] as BatchAction[]);
-    const value = { actions, setActions };
     return (
-        <ActionsCartContext.Provider value={value}>
+        <ActionsCartContext.Provider value={{ actions, setActions }}>
             <GetOverview>
                 {(overview) => (
                     <Box sx={{ display: 'flex' }}>

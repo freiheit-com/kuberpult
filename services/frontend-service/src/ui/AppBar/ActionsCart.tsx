@@ -40,7 +40,7 @@ const ActionListItem = (props: { act: BatchAction; index: number }) => {
     const { act, index } = props;
     const { actions, setActions } = useContext(ActionsCartContext);
     const removeItem = useCallback(() => {
-        setActions([...actions.slice(0, index), ...actions.slice(index + 1)]);
+        setActions(actions.filter((_, i) => i !== index));
     }, [actions, setActions, index]);
 
     return (
@@ -111,7 +111,7 @@ export const ActionsCart = () => {
             <Button sx={{ color: theme.palette.grey[900] }} onClick={toggleDrawer(true)} variant={'contained'}>
                 <PlaylistAddCheck />
             </Button>
-            <Drawer anchor={'right'} open={state['isOpen']} onClose={toggleDrawer(false)}>
+            <Drawer className="cart-drawer" anchor={'right'} open={state['isOpen']} onClose={toggleDrawer(false)}>
                 <Box sx={{ width: 'auto' }} role="presentation">
                     <ActionsList />
                 </Box>
