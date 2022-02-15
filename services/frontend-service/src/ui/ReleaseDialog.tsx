@@ -35,7 +35,6 @@ import EqualIcon from '@material-ui/icons/DragHandle';
 import Paper from '@material-ui/core/Paper';
 import LockIcon from '@material-ui/icons/Lock';
 import Tooltip from '@material-ui/core/Tooltip';
-import CircularProgress from '@material-ui/core/CircularProgress';
 import Typography from '@material-ui/core/Typography';
 
 import { useUnaryCallback } from './Api';
@@ -141,8 +140,7 @@ const LockButtonGroup = (props: {
     const updateMessage = React.useCallback((e) => setMessage(e.target.value), [setMessage]);
     const openInput = React.useCallback(() => setOpen(true), [setOpen]);
     switch (state) {
-        case 'waiting':
-        case 'resolved':
+        case 'not-in-cart':
             if (open) {
                 return (
                     <Grow in={open} style={{ transformOrigin: 'right center' }}>
@@ -174,7 +172,7 @@ const LockButtonGroup = (props: {
                     <Button onClick={openInput}>Add Lock</Button>
                 );
             }
-        case 'pending':
+        case 'in-cart':
             return applicationName ? (
                 <IconButton disabled>
                     <AddLockIcon />
@@ -182,8 +180,6 @@ const LockButtonGroup = (props: {
             ) : (
                 <Button disabled>Add Lock</Button>
             );
-        case 'rejected':
-            return applicationName ? <IconButton>Failed</IconButton> : <Button>Failed</Button>;
     }
     return null;
 };
@@ -198,7 +194,7 @@ const ReleaseLockButtonGroup = (props: {
 
     const msg = queueHint ? 'When you unlock the last lock the queue will be deployed!' : '';
     switch (state) {
-        case 'waiting':
+        case 'not-in-cart':
             return (
                 <Tooltip arrow title={'Locked with message "' + lock.message + '". Click to unlock. ' + msg}>
                     <IconButton onClick={openDialog}>
@@ -206,15 +202,14 @@ const ReleaseLockButtonGroup = (props: {
                     </IconButton>
                 </Tooltip>
             );
-        case 'pending':
+        case 'in-cart':
             return (
                 <IconButton disabled>
-                    <CircularProgress size={20} />
+                    <LockIcon />
                 </IconButton>
             );
-        default:
-            return null;
     }
+    return null;
 };
 
 const DeployButton = (props: {
@@ -236,7 +231,7 @@ const DeployButton = (props: {
         );
     } else {
         switch (state) {
-            case 'waiting':
+            case 'not-in-cart':
                 return (
                     <Tooltip title={queueMessage}>
                         <Button variant="contained" onClick={openDialog} className={locked ? 'warning' : ''}>
@@ -244,30 +239,15 @@ const DeployButton = (props: {
                         </Button>
                     </Tooltip>
                 );
-            case 'pending':
+            case 'in-cart':
                 return (
                     <Button variant="contained" disabled>
-                        <CircularProgress size={20} />
+                        {prefix + version}
                     </Button>
                 );
-            case 'resolved':
-                return (
-                    <Tooltip title={queueMessage}>
-                        <Button variant="contained" disabled>
-                            {prefix + currentlyDeployedVersion}
-                        </Button>
-                    </Tooltip>
-                );
-            case 'rejected':
-                return (
-                    <Button variant="contained" disabled>
-                        Failed
-                    </Button>
-                );
-            default:
-                return null;
         }
     }
+    return null;
 };
 
 export const CreateLockButton = (props: { applicationName?: string; environmentName: string }) => {

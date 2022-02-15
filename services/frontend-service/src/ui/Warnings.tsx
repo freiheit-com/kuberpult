@@ -21,7 +21,6 @@ import type { Environment, Release, BatchAction } from '../api/api';
 import { Tooltip } from '@material-ui/core';
 import { useMemo } from 'react';
 import { ConfirmationDialogProvider } from './Batch';
-import { Spinner } from './App';
 import IconButton from '@material-ui/core/IconButton';
 
 export enum DeployState {
@@ -68,16 +67,12 @@ export const UndeployBtn = (props: {
         </div>
     );
     switch (props.state) {
-        case 'waiting':
-        case 'rejected':
+        case 'not-in-cart':
             return btn({ onClick: props.openDialog }, false);
-        case 'pending':
-            return <Spinner />;
-        case 'resolved':
+        case 'in-cart':
             return btn({}, true);
-        default:
-            return <div>Unknown</div>;
     }
+    return null;
 };
 
 const UndeployRunningWarning: React.FC<any> = (props: { deployState: DeployState; name: string }) => {

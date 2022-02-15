@@ -93,9 +93,11 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         </IconButton>
     );
 
+    const exists = actions.find((e) => e === action) !== undefined;
+
     return (
         <>
-            {React.cloneElement(props.children, { state: 'waiting', openDialog: handleOpen })}
+            {React.cloneElement(props.children, { state: exists ? 'in-cart' : 'not-in-cart', openDialog: handleOpen })}
             <Dialog onClose={handleClose} open={openDialog}>
                 <DialogTitle>
                     <Typography variant="subtitle1" component="div" className="confirmation-title">

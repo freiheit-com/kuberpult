@@ -38,7 +38,6 @@ import { BatchAction } from '../api/api';
 import { useMemo } from 'react';
 import { ConfirmationDialogProvider } from './Batch';
 import Button from '@material-ui/core/Button';
-import { Spinner } from './App';
 export type EnvSortOrder = { [index: string]: number };
 
 const useStyles = makeStyles((theme) => ({
@@ -188,17 +187,12 @@ const UndeployButton = (props: {
         </Tooltip>
     );
     switch (props.state) {
-        case 'waiting':
+        case 'not-in-cart':
             return btn(false);
-        case 'pending':
-            return <Spinner />;
-        case 'resolved':
+        case 'in-cart':
             return btn(true);
-        case 'rejected':
-            return btn(false);
-        default:
-            return <div>Unknown</div>;
     }
+    return null;
 };
 
 const ApplicationBox: React.FC<any> = (props: {
