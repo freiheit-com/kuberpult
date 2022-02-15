@@ -7,7 +7,7 @@ git:
   branch: "master"
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-tag: "0.4.3"
+tag: "0.4.4"
 
 log:
   # Possible values are "gcp" for a gcp-optimized format and "default" for json
@@ -61,6 +61,11 @@ argocd:
 datadogTracing:
   enabled: false
   debugging: false
-  metrics: false
+
+dogstatsdMetrics:
+  enabled: false
+  #  dogstatsD listens on port udp:8125 by default.
+  #  https://docs.datadoghq.com/developers/dogstatsd/?tab=hostagent#agent
+  address: "127.0.0.1:8125"
 
 imagePullSecrets: []

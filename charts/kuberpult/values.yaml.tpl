@@ -61,6 +61,11 @@ argocd:
 datadogTracing:
   enabled: false
   debugging: false
-  metrics: false
+
+dogstatsdMetrics:
+  enabled: false
+  #  dogstatsD listens on port udp:8125 by default.
+  #  https://docs.datadoghq.com/developers/dogstatsd/?tab=hostagent#agent
+  address: "127.0.0.1:8125"
 
 imagePullSecrets: []
