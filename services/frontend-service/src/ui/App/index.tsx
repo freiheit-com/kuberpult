@@ -26,6 +26,14 @@ import Header from '../AppBar/Header';
 import { GrpcProvider, useObservable } from '../Api';
 
 import { useStyles, theme } from './styles';
+import { BatchAction } from '../../api/api';
+import { useState } from 'react';
+
+type ActionsCartContextType = {
+    actions: BatchAction[];
+    setActions: React.Dispatch<React.SetStateAction<BatchAction[]>>;
+};
+export const ActionsCartContext = React.createContext<ActionsCartContextType>({} as any);
 
 export const Spinner: React.FC<any> = (props: any) => {
     const classes = useStyles();
@@ -53,17 +61,21 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
 
 const Main = () => {
     const classes = useStyles();
+    const [actions, setActions] = useState([] as BatchAction[]);
+    const value = { actions, setActions };
     return (
-        <GetOverview>
-            {(overview) => (
-                <Box sx={{ display: 'flex' }}>
-                    <Header overview={overview} />
-                    <Box component="main" className={classes.main}>
-                        <Releases data={overview} />
+        <ActionsCartContext.Provider value={value}>
+            <GetOverview>
+                {(overview) => (
+                    <Box sx={{ display: 'flex' }}>
+                        <Header overview={overview} />
+                        <Box component="main" className={classes.main}>
+                            <Releases data={overview} />
+                        </Box>
                     </Box>
-                </Box>
-            )}
-        </GetOverview>
+                )}
+            </GetOverview>
+        </ActionsCartContext.Provider>
     );
 };
 

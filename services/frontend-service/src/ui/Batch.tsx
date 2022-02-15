@@ -18,21 +18,22 @@ import { BatchAction } from '../api/api';
 import { useUnaryCallback } from './Api';
 import * as React from 'react';
 import { Button, Dialog, DialogTitle, IconButton, Typography, Snackbar } from '@material-ui/core';
-import { useCallback } from 'react';
+import { useCallback, useContext } from 'react';
 import { Close } from '@material-ui/icons';
+import { ActionsCartContext } from './App';
 
 export const callbacks = {
-    useBatch: (act: BatchAction, fin?: () => void) =>
+    useBatch: (acts: BatchAction[], fin?: () => void) =>
         useUnaryCallback(
             React.useCallback(
                 (api) =>
                     api
                         .batchService()
                         .ProcessBatch({
-                            actions: [act],
+                            actions: acts,
                         })
                         .finally(fin),
-                [act, fin]
+                [acts, fin]
             )
         ),
 };
@@ -47,6 +48,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
     const { action, fin } = props;
     const [openNotify, setOpenNotify] = React.useState(false);
     const [openDialog, setOpenDialog] = React.useState(false);
+    const { actions, setActions } = useContext(ActionsCartContext);
 
     const openNotification = useCallback(() => {
         setOpenNotify(true);
@@ -75,9 +77,8 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         openNotification();
         if (fin) fin();
         handleClose();
-    }, [fin, handleClose, openNotification]);
-
-    const [doAction, doActionState] = callbacks.useBatch(action, closeWhenDone);
+        setActions([...actions, action]);
+    }, [fin, handleClose, openNotification, action, actions, setActions]);
 
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
@@ -89,7 +90,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
 
     return (
         <>
-            {React.cloneElement(props.children, { state: doActionState.state, openDialog: handleOpen })}
+            {React.cloneElement(props.children, { state: 'waiting', openDialog: handleOpen })}
             <Dialog onClose={handleClose} open={openDialog}>
                 <DialogTitle>
                     <Typography variant="subtitle1" component="div" className="confirmation-title">
@@ -102,18 +103,14 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 <div style={{ margin: '16px 24px' }}>{actionMessages.description}</div>
                 <span style={{ alignSelf: 'end' }}>
                     <Button onClick={handleClose}>Cancel</Button>
-                    <Button onClick={doAction}>Yes</Button>
+                    <Button onClick={closeWhenDone}>Yes</Button>
                 </span>
             </Dialog>
             <Snackbar
                 open={openNotify}
                 autoHideDuration={6000}
                 onClose={closeNotification}
-                message={
-                    doActionState.state === 'resolved'
-                        ? actionMessages.notMessageSuccess
-                        : actionMessages.notMessageFail
-                }
+                message={'Action added to cart successfully!'}
                 action={closeIcon}
             />
         </>
