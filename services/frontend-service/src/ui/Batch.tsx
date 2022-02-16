@@ -52,7 +52,7 @@ export interface ConfirmationDialogProviderProps {
 }
 
 const InCart = (actions: BatchAction[], action: BatchAction) =>
-    actions.find((act) => JSON.stringify(act.action) === JSON.stringify(action.action));
+    actions ? actions.find((act) => JSON.stringify(act.action) === JSON.stringify(action.action)) : false;
 
 export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProps) => {
     const { action, fin } = props;
