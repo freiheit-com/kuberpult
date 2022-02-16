@@ -51,6 +51,9 @@ export interface ConfirmationDialogProviderProps {
     fin?: () => void;
 }
 
+const InCart = (actions: BatchAction[], action: BatchAction) =>
+    actions.find((act) => JSON.stringify(act.action) === JSON.stringify(action.action));
+
 export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProps) => {
     const { action, fin } = props;
     const [openNotify, setOpenNotify] = React.useState(false);
@@ -84,7 +87,9 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         openNotification();
         if (fin) fin();
         handleClose();
-        setActions([...actions, action]);
+        if (!InCart(actions, action)) {
+            setActions([...actions, action]);
+        }
     }, [fin, handleClose, openNotification, action, actions, setActions]);
 
     const closeIcon = (
@@ -93,11 +98,12 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         </IconButton>
     );
 
-    const exists = actions ? actions.find((e) => e === action) !== undefined : false;
-
     return (
         <>
-            {React.cloneElement(props.children, { state: exists ? 'in-cart' : 'not-in-cart', openDialog: handleOpen })}
+            {React.cloneElement(props.children, {
+                state: InCart(actions, action) ? 'in-cart' : 'not-in-cart',
+                openDialog: handleOpen,
+            })}
             <Dialog onClose={handleClose} open={openDialog}>
                 <DialogTitle>
                     <Typography variant="subtitle1" component="div" className="confirmation-title">

@@ -15,6 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
+import { useState } from 'react';
 
 import Box from '@material-ui/core/Box';
 import { ThemeProvider } from '@material-ui/core/styles';
@@ -22,12 +23,11 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 
 import Releases from '../Releases';
 import * as api from '../../api/api';
+import { BatchAction } from '../../api/api';
 import Header from '../AppBar/Header';
 import { GrpcProvider, useObservable } from '../Api';
 
-import { useStyles, theme } from './styles';
-import { BatchAction } from '../../api/api';
-import { useState } from 'react';
+import { theme, useStyles } from './styles';
 
 type ActionsCartContextType = {
     actions: BatchAction[];

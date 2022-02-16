@@ -20,6 +20,7 @@ import {
     Avatar,
     Box,
     Button,
+    CircularProgress,
     Drawer,
     IconButton,
     List,
@@ -61,7 +62,7 @@ const ActionsList = () => {
     const clearList = useCallback(() => {
         setActions([]);
     }, [setActions]);
-    const [doActions] = callbacks.useBatch(actions, clearList);
+    const [doActions, doActionsState] = callbacks.useBatch(actions, clearList);
 
     return (
         <div
@@ -73,7 +74,7 @@ const ActionsList = () => {
             }}>
             <List className="actions" sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}>
                 {actions.map((act: BatchAction, index: number) => (
-                    <ActionListItem act={act} index={index} />
+                    <ActionListItem act={act} index={index} key={index} />
                 ))}
             </List>
             {actions.length === 0 ? (
@@ -81,17 +82,51 @@ const ActionsList = () => {
                     {'Cart Is Currently Empty,\nPlease Add Actions!'}
                 </Typography>
             ) : null}
-            <Button
-                sx={{ display: 'flex', height: '5%' }}
-                onClick={doActions}
-                variant={'contained'}
-                disabled={actions.length === 0}>
+            <ApplyButton actions={actions} doActions={doActions} state={doActionsState.state} />
+        </div>
+    );
+};
+
+const ApplyButton = (props: { actions: BatchAction[]; doActions: () => void; state: string }) => {
+    const { actions, doActions, state } = props;
+    if (actions.length === 0) {
+        return (
+            <Button sx={{ display: 'flex', height: '5%' }} variant={'contained'} disabled>
                 <Typography variant="h6">
                     <strong>Apply</strong>
                 </Typography>
             </Button>
-        </div>
-    );
+        );
+    } else {
+        switch (state) {
+            case 'waiting':
+                return (
+                    <Button
+                        sx={{ display: 'flex', height: '5%' }}
+                        onClick={doActions}
+                        variant={'contained'}
+                        disabled={actions.length === 0}>
+                        <Typography variant="h6">
+                            <strong>Apply</strong>
+                        </Typography>
+                    </Button>
+                );
+            case 'pending':
+                return (
+                    <Button sx={{ display: 'flex', height: '5%' }} variant={'contained'} disabled>
+                        <CircularProgress size={20} />
+                    </Button>
+                );
+            case 'rejected':
+                return (
+                    <Button sx={{ display: 'flex', height: '5%' }} variant={'contained'} disabled>
+                        Failed
+                    </Button>
+                );
+            default:
+                return null;
+        }
+    }
 };
 
 export const ActionsCart = () => {
