@@ -24,7 +24,7 @@ import { ActionsCartContext } from './App';
 const ChildButton = (props: { state?: string; openDialog?: () => void }) => {
     const { openDialog } = props;
     return (
-        <Button id={'dialog-opener'} onClick={openDialog}>
+        <Button id={'dialog-opener'} onClick={openDialog} disabled={props.state === 'in-cart'}>
             ClickMe
         </Button>
     );
@@ -34,12 +34,12 @@ const mock_setActions = Spy('setActions');
 const finallySpy = Spy('.finally');
 
 describe('Confirmation Dialog Provider', () => {
-    const getNode = (overrides?: Partial<ConfirmationDialogProviderProps>) => {
+    const getNode = (overrides?: Partial<ConfirmationDialogProviderProps>, presetActions?: BatchAction[]) => {
         const defaultProps: ConfirmationDialogProviderProps = {
             children: <ChildButton />,
             action: {},
         };
-        const value = { actions: [], setActions: mock_setActions };
+        const value = { actions: presetActions ?? [], setActions: mock_setActions };
         return (
             <ActionsCartContext.Provider value={value}>
                 <ConfirmationDialogProvider {...defaultProps} {...overrides} />;
@@ -47,7 +47,8 @@ describe('Confirmation Dialog Provider', () => {
         );
     };
 
-    const getWrapper = (overrides?: Partial<ConfirmationDialogProviderProps>) => render(getNode({ ...overrides }));
+    const getWrapper = (overrides?: Partial<ConfirmationDialogProviderProps>, presetActions?: BatchAction[]) =>
+        render(getNode({ ...overrides }, presetActions));
 
     interface dataT {
         type: string;
@@ -200,6 +201,18 @@ describe('Confirmation Dialog Provider', () => {
                 // when a finally function is not provided
                 finallySpy.wasNotCalled();
             }
+        });
+    });
+
+    describe('Action Is Disabled', () => {
+        it("disables a button if it's in the cart already", () => {
+            // given
+            const { container } = getWrapper({ action: data[0].act }, [data[0].act]);
+
+            // when - open the confirmation dialog
+            const b = container.querySelector('#dialog-opener');
+            expect(b!.textContent).toBe('ClickMe');
+            expect(b).toBeDisabled();
         });
     });
 });
