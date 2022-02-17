@@ -31,6 +31,7 @@ kuberpult-$(VERSION).tgz: Chart.yaml values.yaml templates/*
 test: kuberpult-$(VERSION).tgz
 	helm lint kuberpult-$(VERSION).tgz --set git.url=test --set ingress.domainName=kuberpult.example.com
 	helm lint kuberpult-$(VERSION).tgz --set git.url=test --set ingress.domainName=kuberpult.example.com --set ingress.exposeReleaseEndpoint=true
+	ct lint --target-branch main --all --chart-dirs ../ --chart-yaml-schema ci/chart_schema.yaml --lint-conf ci/lintconf.yaml
 
 clean:
 	rm -f Chart.yaml values.yaml

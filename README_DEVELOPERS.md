@@ -19,10 +19,13 @@ Afterwards bump the version in the `version` file.
   sudo cmake --build . --target install
   ```
   Afterwards, set your library path, e.g.: `export LD_LIBRARY_PATH='/usr/local/lib/'`
+- Chart Testing: 
+  - install `helm`, `Yamale`, `Yamllint` as prerequisites to `ct` from https://github.com/helm/chart-testing#installation 
+  - then follow the instructions to install `ct`
 - golang >= 1.16
 - protoc >=3.15
 - `go install -modfile=go.tools.mod github.com/golang/protobuf/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc`
-- buf
+- buf from https://docs.buf.build/installation
 - run make on the top level to install go modules:
   `make .install`
 
