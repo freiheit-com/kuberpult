@@ -101,8 +101,8 @@ describe('Actions Cart', () => {
             mock_useBatch.useBatch.returns([doActionsSpy, { state: 'waiting' }]);
             const { container } = getWrapper(testcase.cart);
 
-            // when opening the cart drawer
-            fireEvent.click(container.querySelector('button')!);
+            // when rendered
+            expect(getByText(container, /planned actions/i)).toBeTruthy();
 
             // then
             const list = document.querySelector('.actions');

@@ -15,10 +15,10 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
+import { useCallback, useContext } from 'react';
 
 import {
     Avatar,
-    Box,
     Button,
     CircularProgress,
     Drawer,
@@ -27,15 +27,15 @@ import {
     ListItem,
     ListItemAvatar,
     ListItemText,
+    Paper,
 } from '@material-ui/core';
 
-import { theme } from '../App/styles';
-import { ClearRounded, PlaylistAddCheck } from '@material-ui/icons';
-import { useCallback, useContext } from 'react';
+import { ClearRounded } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
 import { BatchAction } from '../../api/api';
 import { callbacks, GetActionDetails } from '../Batch';
 import Typography from '@material-ui/core/Typography';
+import { theme } from '../App/styles';
 
 const ActionListItem = (props: { act: BatchAction; index: number }) => {
     const { act, index } = props;
@@ -72,13 +72,13 @@ const ActionsList = () => {
                 justifyContent: 'space-between',
                 height: '100vh',
             }}>
-            <List className="actions" sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}>
+            <List className="actions" sx={{ width: '100%', bgcolor: 'background.paper' }}>
                 {actions.map((act: BatchAction, index: number) => (
                     <ActionListItem act={act} index={index} key={index} />
                 ))}
             </List>
             {actions.length === 0 ? (
-                <Typography variant="h6" whiteSpace={'pre-line'} align={'center'} padding={'20px'}>
+                <Typography variant="h6" whiteSpace={'pre-line'} align={'center'}>
                     {'Cart Is Currently Empty,\nPlease Add Actions!'}
                 </Typography>
             ) : null}
@@ -129,28 +129,24 @@ const ApplyButton = (props: { actions: BatchAction[]; doActions: () => void; sta
     }
 };
 
-export const ActionsCart = () => {
-    const [state, setState] = React.useState({ isOpen: false });
-    const toggleDrawer = (open: boolean) => (event: React.KeyboardEvent | React.MouseEvent) => {
-        if (
-            event.type === 'keydown' &&
-            ((event as React.KeyboardEvent).key === 'Tab' || (event as React.KeyboardEvent).key === 'Shift')
-        ) {
-            return;
-        }
-        setState({ isOpen: open });
-    };
-
-    return (
-        <>
-            <Button sx={{ color: theme.palette.grey[900] }} onClick={toggleDrawer(true)} variant={'contained'}>
-                <PlaylistAddCheck />
-            </Button>
-            <Drawer className="cart-drawer" anchor={'right'} open={state['isOpen']} onClose={toggleDrawer(false)}>
-                <Box sx={{ width: 'auto' }} role="presentation">
-                    <ActionsList />
-                </Box>
-            </Drawer>
-        </>
-    );
-};
+export const ActionsCart = () => (
+    <Drawer
+        className="cart-drawer"
+        anchor={'right'}
+        variant={'permanent'}
+        sx={{
+            width: '14%',
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+                width: '14%',
+                boxSizing: 'border-box',
+            },
+        }}>
+        <Paper sx={{ background: theme.palette.primary.main }} square>
+            <Typography variant="h6" align={'center'} color={theme.palette.grey[900]} padding={'3px'}>
+                <strong>Planned Actions</strong>
+            </Typography>
+        </Paper>
+        <ActionsList />
+    </Drawer>
+);

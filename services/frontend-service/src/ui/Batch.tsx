@@ -116,7 +116,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 <div style={{ margin: '16px 24px' }}>{GetActionDetails(action).description}</div>
                 <span style={{ alignSelf: 'end' }}>
                     <Button onClick={handleClose}>Cancel</Button>
-                    <Button onClick={closeWhenDone}>Yes</Button>
+                    <Button onClick={closeWhenDone}>Add to cart</Button>
                 </span>
             </Dialog>
             <Snackbar

@@ -66,7 +66,7 @@ const Main = () => {
         <ActionsCartContext.Provider value={{ actions, setActions }}>
             <GetOverview>
                 {(overview) => (
-                    <Box sx={{ display: 'flex' }}>
+                    <Box sx={{ display: 'flex', marginRight: '14%' }}>
                         <Header overview={overview} />
                         <Box component="main" className={classes.main}>
                             <Releases data={overview} />

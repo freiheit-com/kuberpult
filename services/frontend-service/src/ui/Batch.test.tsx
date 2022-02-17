@@ -189,7 +189,7 @@ describe('Confirmation Dialog Provider', () => {
 
             // when - clicking yes
             const d = document.querySelector('.MuiDialog-root');
-            fireEvent.click(getByText(d! as HTMLElement, 'Yes').closest('button')!);
+            fireEvent.click(getByText(d! as HTMLElement, 'Add to cart').closest('button')!);
 
             // then
             mock_setActions.wasCalledWith([testcase.act], Spy.IGNORE);
