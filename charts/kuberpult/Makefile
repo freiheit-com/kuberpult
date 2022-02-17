@@ -28,7 +28,14 @@ values.yaml: values.yaml.tpl ../../version
 kuberpult-$(VERSION).tgz: Chart.yaml values.yaml templates/*
 	helm package .
 
-test: kuberpult-$(VERSION).tgz
+ct-test:
+ifeq ($(CI),true)
+	@echo "running on CI no need to test this again! Check chart testing action."
+else
+	ct lint --target-branch main --all --chart-dirs ../ --chart-yaml-schema ci/chart_schema.yaml --lint-conf ci/lintconf.yaml
+endif
+
+test: ct-test kuberpult-$(VERSION).tgz
 	helm lint kuberpult-$(VERSION).tgz --set git.url=test --set ingress.domainName=kuberpult.example.com
 	helm lint kuberpult-$(VERSION).tgz --set git.url=test --set ingress.domainName=kuberpult.example.com --set ingress.exposeReleaseEndpoint=true
 
