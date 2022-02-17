@@ -107,7 +107,7 @@ describe('Actions Cart', () => {
             // then
             const list = document.querySelector('.actions');
             expect(list?.children.length).toBe(testcase.cart.length);
-            mock_useBatch.useBatch.wasCalledWith(testcase.cart, Spy.IGNORE);
+            mock_useBatch.useBatch.wasCalledWith(testcase.cart, Spy.IGNORE, Spy.IGNORE);
 
             // when
             const a = getByText(document.querySelector('.cart-drawer')! as HTMLElement, /apply/i).closest('button');

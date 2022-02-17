@@ -67,7 +67,7 @@ const ActionsList = (props: { openNotification: (msg: string) => void }) => {
     }, [setActions, openNotification]);
     const actionsFailed = useCallback(() => {
         openNotification('Actions were not applied. Please try again!');
-    }, [setActions, openNotification]);
+    }, [openNotification]);
     const [doActions, doActionsState] = callbacks.useBatch(actions, actionsSucceeded, actionsFailed);
 
     return (
