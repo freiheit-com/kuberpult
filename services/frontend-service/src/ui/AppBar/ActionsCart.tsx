@@ -28,9 +28,10 @@ import {
     ListItemAvatar,
     ListItemText,
     Paper,
+    Snackbar,
 } from '@material-ui/core';
 
-import { ClearRounded } from '@material-ui/icons';
+import { ClearRounded, Close } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
 import { BatchAction } from '../../api/api';
 import { callbacks, GetActionDetails } from '../Batch';
@@ -57,12 +58,17 @@ const ActionListItem = (props: { act: BatchAction; index: number }) => {
     );
 };
 
-const ActionsList = () => {
+const ActionsList = (props: { openNotification: (msg: string) => void }) => {
+    const { openNotification } = props;
     const { actions, setActions } = useContext(ActionsCartContext);
-    const clearList = useCallback(() => {
+    const actionsSucceeded = useCallback(() => {
         setActions([]);
-    }, [setActions]);
-    const [doActions, doActionsState] = callbacks.useBatch(actions, clearList);
+        openNotification('Actions were applied successfully!');
+    }, [setActions, openNotification]);
+    const actionsFailed = useCallback(() => {
+        openNotification('Actions were not applied. Please try again!');
+    }, [setActions, openNotification]);
+    const [doActions, doActionsState] = callbacks.useBatch(actions, actionsSucceeded, actionsFailed);
 
     return (
         <div
@@ -99,6 +105,8 @@ const ApplyButton = (props: { actions: BatchAction[]; doActions: () => void; sta
         );
     } else {
         switch (state) {
+            case 'rejected':
+            case 'resolved':
             case 'waiting':
                 return (
                     <Button
@@ -117,36 +125,71 @@ const ApplyButton = (props: { actions: BatchAction[]; doActions: () => void; sta
                         <CircularProgress size={20} />
                     </Button>
                 );
-            case 'rejected':
+            default:
                 return (
                     <Button sx={{ display: 'flex', height: '5%' }} variant={'contained'} disabled>
                         Failed
                     </Button>
                 );
-            default:
-                return null;
         }
     }
 };
 
-export const ActionsCart = () => (
-    <Drawer
-        className="cart-drawer"
-        anchor={'right'}
-        variant={'permanent'}
-        sx={{
-            width: '14%',
-            flexShrink: 0,
-            '& .MuiDrawer-paper': {
-                width: '14%',
-                boxSizing: 'border-box',
-            },
-        }}>
-        <Paper sx={{ background: theme.palette.primary.main }} square>
-            <Typography variant="h6" align={'center'} color={theme.palette.grey[900]} padding={'3px'}>
-                <strong>Planned Actions</strong>
-            </Typography>
-        </Paper>
-        <ActionsList />
-    </Drawer>
-);
+export const ActionsCart = () => {
+    const [openNotify, setOpenNotify] = React.useState(false);
+    const [notifyMessage, setNotifyMessage] = React.useState('');
+    const openNotification = useCallback(
+        (msg: string) => {
+            setNotifyMessage(msg);
+            setOpenNotify(true);
+        },
+        [setOpenNotify, setNotifyMessage]
+    );
+
+    const closeNotification = useCallback(
+        (event: React.SyntheticEvent | React.MouseEvent, reason?: string) => {
+            if (reason === 'clickaway') {
+                return;
+            }
+            setOpenNotify(false);
+        },
+        [setOpenNotify]
+    );
+
+    const closeIcon = (
+        <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
+            <Close fontSize="small" />
+        </IconButton>
+    );
+
+    return (
+        <>
+            <Drawer
+                className="cart-drawer"
+                anchor={'right'}
+                variant={'permanent'}
+                sx={{
+                    width: '14%',
+                    flexShrink: 0,
+                    '& .MuiDrawer-paper': {
+                        width: '14%',
+                        boxSizing: 'border-box',
+                    },
+                }}>
+                <Paper sx={{ background: theme.palette.primary.main }} square>
+                    <Typography variant="h6" align={'center'} color={theme.palette.grey[900]} padding={'3px'}>
+                        <strong>Planned Actions</strong>
+                    </Typography>
+                </Paper>
+                <ActionsList openNotification={openNotification} />
+            </Drawer>
+            <Snackbar
+                open={openNotify}
+                autoHideDuration={6000}
+                onClose={closeNotification}
+                message={notifyMessage}
+                action={closeIcon}
+            />
+        </>
+    );
+};

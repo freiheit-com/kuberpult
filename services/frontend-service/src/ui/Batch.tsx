@@ -30,7 +30,7 @@ import {
 import { ActionsCartContext } from './App';
 
 export const callbacks = {
-    useBatch: (acts: BatchAction[], fin?: () => void) =>
+    useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
         useUnaryCallback(
             React.useCallback(
                 (api) =>
@@ -39,8 +39,9 @@ export const callbacks = {
                         .ProcessBatch({
                             actions: acts,
                         })
-                        .finally(fin),
-                [acts, fin]
+                        .then(success)
+                        .catch(fail),
+                [acts, success, fail]
             )
         ),
 };
