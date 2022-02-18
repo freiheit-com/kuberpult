@@ -139,6 +139,11 @@ spec:
         - name: keyring
           mountPath: /keyring
 {{- end }}
+{{- if .Values.dogstatsdMetrics.enabled }}
+        - name: dsdsocket
+          mountPath: {{ .Values.dogstatsdMetrics.hostSocketPath }}
+          readOnly: true
+{{- end }}
       volumes:
       - name: ssh
         secret:
@@ -147,6 +152,11 @@ spec:
       - name: keyring
         configMap:
           name: kuberpult-keyring
+{{- end }}
+{{- if .Values.dogstatsdMetrics.enabled }}
+      - name: dsdsocket
+        hostPath:
+          path: {{ .Values.dogstatsdMetrics.hostSocketPath }}
 {{- end }}
   volumeClaimTemplates:
   - metadata:
