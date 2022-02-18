@@ -23,15 +23,19 @@ export VERSION
 export CGO_ENABLED=1
 
 GO := go
+GOLANGCI_LINT := golangci-lint
 
 GO_FILES := $(shell find . -type f -name '*.go')
 
 test: $(GO_FILES)
 	$(GO) test  ./...
 
-all: test
+lint: $(GO_FILES)
+	$(GOLANGCI_LINT) run  ./...
+
+all: lint test
 
 release: #no-op
 clean: #no op
 
-.PHONY: all clean release test
+.PHONY: all clean release test lint

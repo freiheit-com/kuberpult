@@ -28,8 +28,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"golang.org/x/crypto/openpgp"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
 func TestServeHttpSuccess(t *testing.T) {
@@ -250,5 +251,4 @@ func TestServeHttpSuccess(t *testing.T) {
 			}
 		})
 	}
-
 }

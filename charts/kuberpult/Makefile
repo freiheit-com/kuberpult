@@ -52,6 +52,8 @@ test: ct-test kuberpult-$(VERSION).tgz
 	helm lint kuberpult-$(VERSION).tgz --set git.url=test --set ingress.domainName=kuberpult.example.com
 	helm lint kuberpult-$(VERSION).tgz --set git.url=test --set ingress.domainName=kuberpult.example.com --set ingress.exposeReleaseEndpoint=true
 
+lint:
+
 clean:
 	rm -f Chart.yaml values.yaml
 	rm -f kuberpult-*.tgz
@@ -60,6 +62,6 @@ release: test kuberpult-$(VERSION).tgz
 	@echo "Please upload cd-$(VERSION).tgz to the github release"
 	gsutil cp kuberpult-$(VERSION).tgz gs://fdc-charts
 	
-.PHONY: clean
+.PHONY: clean release test lint
 
 all: Chart.yaml values.yaml

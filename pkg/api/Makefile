@@ -23,7 +23,8 @@ clean:
 
 release: #no-op
 test: #no op
+lint:
 
 all: api_grpc.pb.go
 
-.PHONY: clean all release
+.PHONY: clean all release test lint

@@ -74,5 +74,4 @@ func (check *CORSMiddleware) ServeHTTP(rw http.ResponseWriter, req *http.Request
 		rw.Header().Add("Access-Control-Allow-Credentials", "true")
 	}
 	check.NextHandler.ServeHTTP(rw, req)
-
 }

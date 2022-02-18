@@ -17,9 +17,11 @@ Copyright 2021 freiheit.com*/
 package argocd
 
 import (
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
-	godebug "github.com/kylelemons/godebug/diff"
 	"testing"
+
+	godebug "github.com/kylelemons/godebug/diff"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
 )
 
 func TestRender(t *testing.T) {

@@ -19,12 +19,14 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 )
 
 type BatchServer struct {

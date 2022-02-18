@@ -108,7 +108,6 @@ func TestGracefulShutdown(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
-
 			fakeServer := make(chan interface{}, 1)
 			backServeHTTP := serveHTTP
 			defer func() {
@@ -174,10 +173,9 @@ func TestGracefulShutdown(t *testing.T) {
 			}
 		})
 	}
-
 }
 
-//helper
+// helper
 
 type testChainHandler struct {
 	called bool

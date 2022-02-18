@@ -29,11 +29,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/errors"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 )
 
 const (

@@ -35,9 +35,9 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -234,7 +234,6 @@ func setupHTTP(ctx context.Context, s *setup, config HTTPConfig) {
 }
 
 func runHTTPHandler(ctx context.Context, s *setup, handler http.Handler, port string, basicAuth *BasicAuth, shutdown func(context.Context) error) {
-
 	if basicAuth != nil {
 		handler = NewBasicAuthHandler(basicAuth, handler)
 	}
@@ -283,7 +282,6 @@ var serveHTTP = func(ctx context.Context, httpS *http.Server, port string) {
 }
 
 func setupBackgroundTask(ctx context.Context, s *setup, config BackgroundTaskConfig) {
-
 	if config.Shutdown != nil {
 		s.RegisterShutdown(
 			fmt.Sprintf("shutdown handler for %s", config.Name),

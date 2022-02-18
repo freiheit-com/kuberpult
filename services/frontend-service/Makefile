@@ -22,6 +22,7 @@ export VERSION
 export CGO_ENABLED=0
 
 GO := go
+GOLANGCI_LINT := golangci-lint
 
 GO_FILES := $(shell find . -type f -name '*.go')
 
@@ -57,15 +58,18 @@ test-ts: src/api/api.ts
 	yarn eslint
 	yarn test --watchAll=false
 
+lint: $(GO_FILES) | proto
+	$(GOLANGCI_LINT) run  ./...
+
 docker: bin/main ../../version | dist
 	docker build -t $(IMAGENAME) .
 
 release: docker
 	docker push $(IMAGENAME)
 
-all: test docker
+all: lint test docker
 
-.PHONY: all release test docker clean
+.PHONY: all release test docker clean lint
 
 ## Node part
 NODE_BIN_DIR=$(shell yarn bin)

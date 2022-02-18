@@ -19,14 +19,15 @@ package repository
 import (
 	"context"
 	"fmt"
-	"github.com/go-git/go-billy/v5/util"
-	git "github.com/libgit2/git2go/v33"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/go-git/go-billy/v5/util"
+	git "github.com/libgit2/git2go/v33"
 )
 
 func TestNew(t *testing.T) {
@@ -180,7 +181,7 @@ func TestNew(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				if err := os.WriteFile(filepath.Join(workdir, "hello.txt"), []byte("hello"), 0666); err != nil {
+				if err := os.WriteFile(filepath.Join(workdir, "hello.txt"), []byte("hello"), 0o666); err != nil {
 					t.Fatal(err)
 				}
 				cmd = exec.Command("git", "add", "hello.txt") // Add a new file to git
@@ -436,7 +437,6 @@ func TestRetrySsh(t *testing.T) {
 			if counter != tc.ExpectedNumOfCall {
 				t.Fatalf("new: expected number of calls  '%d',  got '%d'", tc.ExpectedNumOfCall, counter)
 			}
-
 		})
 	}
 }

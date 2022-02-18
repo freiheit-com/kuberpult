@@ -118,7 +118,7 @@ func (b *treeBuilderBlob) osInfo() os.FileInfo {
 	return &fileInfo{
 		name: b.name,
 		size: int64(len(b.content)),
-		mode: 0666,
+		mode: 0o666,
 	}
 }
 
@@ -309,11 +309,11 @@ func (t *TreeBuilderFS) osInfo() os.FileInfo {
 }
 
 func (t *TreeBuilderFS) Create(filename string) (billy.File, error) {
-	return t.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0666)
+	return t.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0o666)
 }
 
 func (t *TreeBuilderFS) Open(filename string) (billy.File, error) {
-	return t.OpenFile(filename, os.O_RDONLY, 0666)
+	return t.OpenFile(filename, os.O_RDONLY, 0o666)
 }
 
 func (t *TreeBuilderFS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
@@ -475,7 +475,6 @@ func (t *TreeBuilderFS) ReadDir(dir string) ([]os.FileInfo, error) {
 		result = append(result, entry.osInfo())
 	}
 	return result, nil
-
 }
 
 func (t *TreeBuilderFS) MkdirAll(dir string, perm os.FileMode) error {

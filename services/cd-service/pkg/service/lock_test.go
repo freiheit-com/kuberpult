@@ -21,14 +21,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/pkg/logger/testlogger"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testrepository"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/logger/testlogger"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testrepository"
 )
 
 func TestLockingService(t *testing.T) {

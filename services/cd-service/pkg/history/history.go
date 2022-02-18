@@ -95,6 +95,7 @@ func (c *Cache) getOrAdd(commitId [20]byte) *resultNode {
 		return node
 	}
 }
+
 func (c *Cache) get(commitId [20]byte) *resultNode {
 	if c == nil {
 		return nil
@@ -124,9 +125,7 @@ func (n *NotExists) Unwrap() error {
 	return n.inner
 }
 
-var (
-	_ error = (*NotExists)(nil)
-)
+var _ error = (*NotExists)(nil)
 
 func NewHistory(repo *git.Repository) *History {
 	if repo == nil {
@@ -287,8 +286,10 @@ func (t *treeNode) seek(r *git.Repository, i int, path []string) (*git.Commit, e
 	return child.seek(r, i+1, path)
 }
 
-var oidZero git.Oid = [20]byte{0}
-var zeroEntry git.TreeEntry = git.TreeEntry{Id: &oidZero}
+var (
+	oidZero   = git.Oid([20]byte{0})
+	zeroEntry = git.TreeEntry{Id: &oidZero}
+)
 
 func (t *treeNode) push(commit *git.Commit, entry *git.TreeEntry, cache *resultNode) {
 	if entry == nil {

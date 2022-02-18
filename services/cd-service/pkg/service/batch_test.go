@@ -19,10 +19,11 @@ package service
 import (
 	"context"
 	"fmt"
-	"google.golang.org/grpc/status"
 	"os/exec"
 	"path"
 	"testing"
+
+	"google.golang.org/grpc/status"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -204,7 +205,6 @@ func TestBatchServiceWorks(t *testing.T) {
 					t.Error("lock was not deleted")
 				}
 			}
-
 		})
 	}
 }

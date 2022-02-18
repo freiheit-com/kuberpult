@@ -27,10 +27,11 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/go-git/go-billy/v5/util"
 	godebug "github.com/kylelemons/godebug/diff"
+
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 )
 
 const (
@@ -842,7 +843,8 @@ func TestTransformer(t *testing.T) {
 					}
 				}
 			},
-		}, {
+		},
+		{
 			Name: "Auto Deploy version to second env",
 			Transformers: []Transformer{
 				&CreateEnvironment{Environment: "one", Config: c1},

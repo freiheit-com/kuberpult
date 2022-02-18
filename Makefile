@@ -46,6 +46,11 @@ $(addsuffix /clean,$(MAKEDIRS)):
 
 clean: $(addsuffix /clean,$(MAKEDIRS))
 
+$(addsuffix /lint,$(MAKEDIRS)):
+	make -C $(dir $@) lint
+
+lint: $(addsuffix /lint,$(MAKEDIRS))
+
 $(addsuffix /test,$(MAKEDIRS)):
 	make -C $(dir $@) test
 
@@ -74,4 +79,4 @@ analyze/merge: $(CODE_REVIEWER_LOCATION)
 analyze/pull-request: $(CODE_REVIEWER_LOCATION)
 	${SCRIPTS_BASE}/analyze.sh --dry-run ${FROM}
 
-.PHONY: release  $(addsuffix /release,$(MAKEDIRS)) all $(addsuffix /all,$(MAKEDIRS)) clean $(addsuffix /clean,$(MAKEDIRS))
+.PHONY: release  $(addsuffix /release,$(MAKEDIRS)) all $(addsuffix /all,$(MAKEDIRS)) clean $(addsuffix /clean,$(MAKEDIRS)) test $(addsuffix /test,$(MAKEDIRS)) lint $(addsuffix /lint,$(MAKEDIRS))
