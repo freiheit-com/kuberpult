@@ -36,7 +36,7 @@ import (
 const (
 	queueFileName = "queued_version"
 	// number of old releases that will ALWAYS be kept in addition to the ones that are deployed:
-	keptVersionsOnCleanup = 10
+	keptVersionsOnCleanup = 20
 )
 
 func versionToString(Version uint64) string {
