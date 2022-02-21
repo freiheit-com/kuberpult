@@ -14,37 +14,41 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import React from 'react';
-import { act, fireEvent, getByText, render } from '@testing-library/react';
-import { callbacks, ConfirmationDialogProvider, ConfirmationDialogProviderProps } from './Batch';
+import { fireEvent, getByText, render } from '@testing-library/react';
+import { ConfirmationDialogProvider, ConfirmationDialogProviderProps } from './Batch';
 import { Button } from '@material-ui/core';
 import { Spy } from 'spy4js';
 import { BatchAction, LockBehavior } from '../api/api';
-
-const mock_useBatch = Spy.mock(callbacks, 'useBatch');
+import { ActionsCartContext } from './App';
 
 const ChildButton = (props: { state?: string; openDialog?: () => void }) => {
     const { openDialog } = props;
     return (
-        <Button id={'dialog-opener'} onClick={openDialog}>
+        <Button id={'dialog-opener'} onClick={openDialog} disabled={props.state === 'in-cart'}>
             ClickMe
         </Button>
     );
 };
 
-const doActionSpy = Spy('doActionSpy');
+const mock_setActions = Spy('setActions');
 const finallySpy = Spy('.finally');
 
 describe('Confirmation Dialog Provider', () => {
-    const getNode = (overrides?: Partial<ConfirmationDialogProviderProps>) => {
+    const getNode = (overrides?: Partial<ConfirmationDialogProviderProps>, presetActions?: BatchAction[]) => {
         const defaultProps: ConfirmationDialogProviderProps = {
             children: <ChildButton />,
             action: {},
         };
-        return <ConfirmationDialogProvider {...defaultProps} {...overrides} />;
+        const value = { actions: presetActions ?? [], setActions: mock_setActions };
+        return (
+            <ActionsCartContext.Provider value={value}>
+                <ConfirmationDialogProvider {...defaultProps} {...overrides} />;
+            </ActionsCartContext.Provider>
+        );
     };
 
-    const getWrapper = (overrides?: Partial<ConfirmationDialogProviderProps>) => render(getNode({ ...overrides }));
+    const getWrapper = (overrides?: Partial<ConfirmationDialogProviderProps>, presetActions?: BatchAction[]) =>
+        render(getNode({ ...overrides }, presetActions));
 
     interface dataT {
         type: string;
@@ -173,7 +177,6 @@ describe('Confirmation Dialog Provider', () => {
     describe.each(data)(`Batch Action Types`, (testcase: dataT) => {
         it(`${testcase.type}`, () => {
             // given
-            mock_useBatch.useBatch.returns([doActionSpy, { state: 'waiting' }]);
             const { container } = getWrapper({ action: testcase.act, fin: testcase.fin });
 
             // when - open the confirmation dialog
@@ -183,19 +186,13 @@ describe('Confirmation Dialog Provider', () => {
             // then
             const title = document.querySelector('.confirmation-title');
             expect(title!.textContent).toBe(testcase.expect.title);
-            mock_useBatch.useBatch.wasCalledWith(testcase.act, Spy.IGNORE);
-
-            // do the actions that useBatch is expected to do
-            act(() => {
-                mock_useBatch.useBatch.getCallArguments()[1]();
-            });
 
             // when - clicking yes
             const d = document.querySelector('.MuiDialog-root');
-            fireEvent.click(getByText(d! as HTMLElement, 'Yes').closest('button')!);
+            fireEvent.click(getByText(d! as HTMLElement, 'Add to cart').closest('button')!);
 
             // then
-            doActionSpy.wasCalled();
+            mock_setActions.wasCalledWith([testcase.act], Spy.IGNORE);
 
             if (testcase.fin) {
                 // when a finally function is provided
@@ -204,6 +201,18 @@ describe('Confirmation Dialog Provider', () => {
                 // when a finally function is not provided
                 finallySpy.wasNotCalled();
             }
+        });
+    });
+
+    describe('Action Is Disabled', () => {
+        it("disables a button if it's in the cart already", () => {
+            // given
+            const { container } = getWrapper({ action: data[0].act }, [data[0].act]);
+
+            // when - open the confirmation dialog
+            const b = container.querySelector('#dialog-opener');
+            expect(b!.textContent).toBe('ClickMe');
+            expect(b).toBeDisabled();
         });
     });
 });

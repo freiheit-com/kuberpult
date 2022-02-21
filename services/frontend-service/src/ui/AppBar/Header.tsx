@@ -21,6 +21,7 @@ import Typography from '@material-ui/core/Typography';
 import { AppDrawer } from './AppDrawer';
 import * as api from '../../api/api';
 import { LocksDrawer } from './LocksDrawer';
+import { ActionsCart } from './ActionsCart';
 
 const Header: React.FC<any> = (props: { overview: api.GetOverviewResponse }) => {
     const { overview } = props;
@@ -34,6 +35,7 @@ const Header: React.FC<any> = (props: { overview: api.GetOverviewResponse }) => 
                 </Typography>
                 <AppDrawer data={overview} />
                 <LocksDrawer data={overview} />
+                <ActionsCart />
             </Box>
         </AppBar>
     );

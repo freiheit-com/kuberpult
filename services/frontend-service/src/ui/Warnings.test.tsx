@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import React from 'react';
-import { getByLabelText, getByText, render } from '@testing-library/react';
+import { getByLabelText, render } from '@testing-library/react';
 import { UndeployBtn } from './Warnings';
 
 describe('Undeploy Button', () => {
@@ -28,23 +28,13 @@ describe('Undeploy Button', () => {
     const data: dataT[] = [
         {
             name: 'renders the UndeployBtn component',
-            state: 'waiting',
+            state: 'not-in-cart',
             selector: (container) => getByLabelText(container, /This app is ready to un-deploy./i),
         },
         {
-            name: 'renders the UndeployBtn component with undefined state',
-            state: 'undefined state',
-            selector: (container) => getByText(container, /Unknown/i),
-        },
-        {
             name: 'renders the UndeployBtn component with resolved state',
-            state: 'resolved',
+            state: 'in-cart',
             selector: (container) => container.querySelector('.Mui-disabled'),
-        },
-        {
-            name: 'renders the UndeployBtn component with pending state',
-            state: 'pending',
-            selector: (container) => container.querySelector('.MuiCircularProgress-root'),
         },
     ];
 

@@ -15,6 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
+import { useState } from 'react';
 
 import Box from '@material-ui/core/Box';
 import { ThemeProvider } from '@material-ui/core/styles';
@@ -22,10 +23,17 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 
 import Releases from '../Releases';
 import * as api from '../../api/api';
+import { BatchAction } from '../../api/api';
 import Header from '../AppBar/Header';
 import { GrpcProvider, useObservable } from '../Api';
 
-import { useStyles, theme } from './styles';
+import { theme, useStyles } from './styles';
+
+type ActionsCartContextType = {
+    actions: BatchAction[];
+    setActions: React.Dispatch<React.SetStateAction<BatchAction[]>>;
+};
+export const ActionsCartContext = React.createContext<ActionsCartContextType>({} as any);
 
 export const Spinner: React.FC<any> = (props: any) => {
     const classes = useStyles();
@@ -53,17 +61,20 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
 
 const Main = () => {
     const classes = useStyles();
+    const [actions, setActions] = useState([] as BatchAction[]);
     return (
-        <GetOverview>
-            {(overview) => (
-                <Box sx={{ display: 'flex' }}>
-                    <Header overview={overview} />
-                    <Box component="main" className={classes.main}>
-                        <Releases data={overview} />
+        <ActionsCartContext.Provider value={{ actions, setActions }}>
+            <GetOverview>
+                {(overview) => (
+                    <Box sx={{ display: 'flex', marginRight: '14%' }}>
+                        <Header overview={overview} />
+                        <Box component="main" className={classes.main}>
+                            <Releases data={overview} />
+                        </Box>
                     </Box>
-                </Box>
-            )}
-        </GetOverview>
+                )}
+            </GetOverview>
+        </ActionsCartContext.Provider>
     );
 };
 
