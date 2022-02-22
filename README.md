@@ -56,7 +56,7 @@ There are 2 environments involved:
 
 ### Creating a new environment
 
-The first thing you need to do after installing kuberpult is creating an environment. There is no currently UI component for doing this.
+The first thing you need to do after installing kuberpult is creating an environment. There is currently no UI component for doing this.
 
 Since kuberpult uses a git repository as its database, you only need to create a folder under `environments`. The folder name is the environment name.
 Kuberpult doesn't care too much how you name your environment but to make sure that apps in argocd are easy to recognize, environment names are limited to alpha numeric characters and dash and its length may not exceed 21 characters.
@@ -93,7 +93,7 @@ You can add more details to the release using the form fields `source_commit_id`
 
 ### Environments
 
-In an environment's comfig.json file the following top-level options are recognized.
+In an environment's config.json file the following top-level options are recognized.
 
 `upstream`: configures the automatic deployment for this environment. Valid values are either `{"latest": true}` to indicate that this environment is supposed to always run on the latest version of an application or `{"environment":"<upstream env>"}` to indicate that this environment should be deployed from `upstream env` when using the release train.
 
