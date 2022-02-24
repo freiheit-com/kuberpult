@@ -376,7 +376,7 @@ const ReleaseEnvironment = (props: {
     const locked = envLocks.length > 0 || appLocks.length > 0;
 
     const button = (
-        <ConfirmationDialogProvider action={act}>
+        <ConfirmationDialogProvider action={act} locks={[...envLocks, ...appLocks]}>
             <DeployButton
                 currentlyDeployedVersion={currentlyDeployedVersion}
                 version={version}

@@ -18,7 +18,7 @@ import { fireEvent, getByText, render } from '@testing-library/react';
 import { ConfirmationDialogProvider, ConfirmationDialogProviderProps } from './Batch';
 import { Button } from '@material-ui/core';
 import { Spy } from 'spy4js';
-import { BatchAction, LockBehavior } from '../api/api';
+import { BatchAction, Lock, LockBehavior } from '../api/api';
 import { ActionsCartContext } from './App';
 
 const ChildButton = (props: { state?: string; openDialog?: () => void }) => {
@@ -50,10 +50,24 @@ describe('Confirmation Dialog Provider', () => {
     const getWrapper = (overrides?: Partial<ConfirmationDialogProviderProps>, presetActions?: BatchAction[]) =>
         render(getNode({ ...overrides }, presetActions));
 
+    const sampleDeployAction: BatchAction = {
+        action: {
+            $case: 'deploy',
+            deploy: {
+                application: 'dummy application',
+                version: 22,
+                environment: 'dummy environment',
+                ignoreAllLocks: false,
+                lockBehavior: LockBehavior.Ignore,
+            },
+        },
+    };
+
     interface dataT {
         type: string;
         act: BatchAction;
         fin?: () => void;
+        locks?: [string, Lock][];
         expect: {
             title: string;
         };
@@ -62,18 +76,7 @@ describe('Confirmation Dialog Provider', () => {
     const data: dataT[] = [
         {
             type: 'Deploy',
-            act: {
-                action: {
-                    $case: 'deploy',
-                    deploy: {
-                        application: 'dummy application',
-                        version: 22,
-                        environment: 'dummy environment',
-                        ignoreAllLocks: false,
-                        lockBehavior: LockBehavior.Ignore,
-                    },
-                },
-            },
+            act: sampleDeployAction,
             expect: {
                 title: 'Are you sure you want to deploy this version?',
             },
@@ -172,12 +175,31 @@ describe('Confirmation Dialog Provider', () => {
                 title: 'Are you sure you want to delete this environment lock?',
             },
         },
+        {
+            type: 'Deploy Action With Locks Warning',
+            act: sampleDeployAction,
+            locks: [
+                ['id_1234', { message: 'random lock message' }],
+                ['id_5678', { message: 'this is a lock' }],
+            ],
+            expect: {
+                title: 'Are you sure you want to deploy this version?',
+            },
+        },
+        {
+            type: 'Deploy Action With No Locks Warning',
+            act: sampleDeployAction,
+            locks: [],
+            expect: {
+                title: 'Are you sure you want to deploy this version?',
+            },
+        },
     ];
 
     describe.each(data)(`Batch Action Types`, (testcase: dataT) => {
         it(`${testcase.type}`, () => {
             // given
-            const { container } = getWrapper({ action: testcase.act, fin: testcase.fin });
+            const { container } = getWrapper({ action: testcase.act, fin: testcase.fin, locks: testcase.locks });
 
             // when - open the confirmation dialog
             expect(container.querySelector('#dialog-opener')!.textContent).toBe('ClickMe');
@@ -200,6 +222,18 @@ describe('Confirmation Dialog Provider', () => {
             } else {
                 // when a finally function is not provided
                 finallySpy.wasNotCalled();
+            }
+
+            if (testcase.locks) {
+                if (testcase.locks.length > 0) {
+                    // when there are locks the warning should appear
+                    const d = document.querySelector('.MuiOutlinedInput-root');
+                    expect(d?.textContent).toContain(testcase.locks[0][0]);
+                } else {
+                    // when there are no locks the warning should not appear
+                    const d = document.querySelector('.MuiOutlinedInput-root');
+                    expect(d).not.toBeTruthy();
+                }
             }
         });
     });
