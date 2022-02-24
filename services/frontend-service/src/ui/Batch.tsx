@@ -14,10 +14,10 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { BatchAction } from '../api/api';
+import { BatchAction, Lock } from '../api/api';
 import { useUnaryCallback } from './Api';
 import * as React from 'react';
-import { Button, Dialog, DialogTitle, IconButton, Typography, Snackbar } from '@material-ui/core';
+import { Button, Dialog, DialogTitle, IconButton, Typography, Snackbar, TextField } from '@material-ui/core';
 import { useCallback, useContext } from 'react';
 import {
     Close,
@@ -49,6 +49,7 @@ export const callbacks = {
 export interface ConfirmationDialogProviderProps {
     children: React.ReactElement;
     action: BatchAction;
+    locks?: [string, Lock][];
     fin?: () => void;
 }
 
@@ -56,7 +57,7 @@ const InCart = (actions: BatchAction[], action: BatchAction) =>
     actions ? actions.find((act) => JSON.stringify(act.action) === JSON.stringify(action.action)) : false;
 
 export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProps) => {
-    const { action, fin } = props;
+    const { action, locks, fin } = props;
     const [openNotify, setOpenNotify] = React.useState(false);
     const [openDialog, setOpenDialog] = React.useState(false);
     const { actions, setActions } = useContext(ActionsCartContext);
@@ -99,6 +100,22 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         </IconButton>
     );
 
+    const deployLocks =
+        locks?.map((lock) => (
+            <TextField
+                error
+                id="outlined-error-textarea-read-only-input"
+                label="Warning: This Lock Will Be Ignored!"
+                defaultValue={'Lock ID: ' + lock[0] + ' | Message: ' + lock[1].message}
+                multiline
+                sx={{ m: 1 }}
+                InputProps={{
+                    readOnly: true,
+                }}
+                key={lock[0]}
+            />
+        )) ?? null;
+
     return (
         <>
             {React.cloneElement(props.children, {
@@ -115,6 +132,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                     </Typography>
                 </DialogTitle>
                 <div style={{ margin: '16px 24px' }}>{GetActionDetails(action).description}</div>
+                {deployLocks}
                 <span style={{ alignSelf: 'end' }}>
                     <Button onClick={handleClose}>Cancel</Button>
                     <Button onClick={closeWhenDone}>Add to cart</Button>
