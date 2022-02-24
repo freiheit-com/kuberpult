@@ -178,10 +178,7 @@ describe('Confirmation Dialog Provider', () => {
         {
             type: 'Deploy Action With Locks Warning',
             act: sampleDeployAction,
-            locks: [
-                ['id_1234', { message: 'random lock message' }],
-                ['id_5678', { message: 'this is a lock' }],
-            ],
+            locks: [['id_1234', { message: 'random lock message' }]],
             expect: {
                 title: 'Are you sure you want to deploy this version?',
             },

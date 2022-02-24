@@ -100,24 +100,21 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         </IconButton>
     );
 
-    let locksWarning = '';
-    locks?.forEach((lock) => {
-        locksWarning += '- Lock ID: ' + lock[0] + ' | Message: ' + lock[1].message + '\n';
-    });
-
-    const deployLocks = locks?.length ? (
-        <TextField
-            error
-            id="outlined-error-textarea-read-only-input"
-            label="Warning: The Following Locks Will Be Ignored!"
-            defaultValue={locksWarning}
-            multiline
-            sx={{ m: 1 }}
-            InputProps={{
-                readOnly: true,
-            }}
-        />
-    ) : null;
+    const deployLocks =
+        locks?.map((lock) => (
+            <TextField
+                error
+                id="outlined-error-textarea-read-only-input"
+                label="Warning: This Lock Will Be Ignored!"
+                defaultValue={'Lock ID: ' + lock[0] + ' | Message: ' + lock[1].message}
+                multiline
+                sx={{ m: 1 }}
+                InputProps={{
+                    readOnly: true,
+                }}
+                key={lock[0]}
+            />
+        )) ?? null;
 
     return (
         <>
