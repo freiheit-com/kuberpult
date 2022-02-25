@@ -1,0 +1,24 @@
+name: docker-build-test
+'on':
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/freiheit-com/kuberpult-dependencies
+      credentials:
+        username: ${{ github.actor }}
+        passowrd: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install dependencies
+        run: make .install
+      - name: Run tests
+        env:
+          LD_LIBRARY_PATH: '/usr/local/lib'
+        run: make test
