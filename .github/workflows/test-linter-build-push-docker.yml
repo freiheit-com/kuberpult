@@ -7,13 +7,13 @@ name: docker-build-test
     branches:
       - main
 jobs:
-  container:
+  docker-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/freiheit-com/kuberpult-dependencies
-      credentials:
-        username: ${{ github.actor }}
-        passowrd: ${{ secrets.GITHUB_TOKEN }}
+      image: alpine:3.15
+#     credentials:
+#       username: ${{ github.actor }}
+#       passowrd: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v2
       - name: Install dependencies
