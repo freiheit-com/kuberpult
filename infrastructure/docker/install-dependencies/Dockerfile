@@ -7,3 +7,6 @@ RUN wget https://github.com/bufbuild/buf/releases/download/v1.0.0/buf-Linux-x86_
 RUN wget https://get.helm.sh/helm-v3.8.0-linux-amd64.tar.gz
 RUN tar -zxvf helm-v3.8.0-linux-amd64.tar.gz
 RUN mv linux-amd64/helm /usr/local/bin/helm
+
+# adding go/bin to the PATH variable so that golang plug-ins can work.
+ENV PATH $PATH:/root/go/bin
