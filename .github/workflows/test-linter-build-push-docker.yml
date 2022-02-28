@@ -10,7 +10,7 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/freiheit-com/kuberpult-dependencies
+      image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-dependencies:0.1.0
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}

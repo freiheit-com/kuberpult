@@ -1,5 +1,4 @@
 FROM alpine:3.15
-LABEL org.opencontainers.image.source https://github.com/freiheit-com/kuberpult
 
 RUN apk --update add --no-cache libgit2 libgit2-dev go protoc make pkgconfig git cmake yarn gettext
 RUN tar --version
