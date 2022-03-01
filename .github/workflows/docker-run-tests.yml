@@ -14,9 +14,8 @@ jobs:
       LD_LIBRARY_PATH: '/usr/local/lib'
       CI: true
     steps:
-      - run: ln -s /root $HOME # Create Symlink /github/home
       - uses: actions/checkout@v2
-      - name: Install go dependencies
-        run: make .install
-      - name: Run tests (charts are not tested here)
-        run: make test
+      - name: Install go dependencies and run tests (charts are not tested here)
+        env:
+          HOME: root/
+        run: make .install && make test
