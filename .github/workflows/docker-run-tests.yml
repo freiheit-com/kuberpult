@@ -14,10 +14,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: Run tests (charts are not tested here)
         run: echo $PATH
-      - name: test
-        run: make .install
-      - name: 2
-        run: echo $PATH
-      - name: 3
-        run: cd /root/go/bin && ls
+      - run: make .install
+      - run: echo $PATH
+      - run: cd / && ls
+      - run: go env GOPATH
 
