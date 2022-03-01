@@ -17,5 +17,5 @@ jobs:
       - uses: actions/checkout@v2
       - name: Install go dependencies and run tests (charts are not tested here)
         env:
-          HOME: /root
+          HOME: /root # set the HOME variable to access the real GOPATH. See: https://github.com/actions/runner/issues/1146
         run: make .install && make test
