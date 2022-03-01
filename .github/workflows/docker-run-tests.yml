@@ -17,5 +17,5 @@ jobs:
       - uses: actions/checkout@v2
       - name: Install go dependencies and run tests (charts are not tested here)
         env:
-          HOME: root/
+          HOME: /root
         run: make .install && make test
