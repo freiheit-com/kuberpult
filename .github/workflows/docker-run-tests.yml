@@ -13,8 +13,8 @@ jobs:
     env:
       LD_LIBRARY_PATH: '/usr/local/lib'
       CI: true
-      HOME: /root
     steps:
+      - run: ln -s /root $HOME # Create Symlink /github/home
       - uses: actions/checkout@v2
       - name: Install go dependencies
         run: make .install
