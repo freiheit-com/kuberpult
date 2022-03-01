@@ -16,11 +16,7 @@ jobs:
       HOME: /root
     steps:
       - uses: actions/checkout@v2
-      - run: echo $PATH
-      - run: make .install
-      - run: echo $PATH
-      - run: echo $PATH
-      - run: cd / && ls
-      - run: go env GOPATH
-
-
+      - name: Install go dependencies
+        run: make .install
+      - name: Run tests (charts are not tested here)
+        run: make test
