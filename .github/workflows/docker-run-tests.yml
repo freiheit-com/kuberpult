@@ -9,7 +9,7 @@ name: docker-build-test
 jobs:
   docker-build-test:
     runs-on: ubuntu-latest
-    container: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-dependencies:0.1.0
+    container: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-dependencies:0.1.1
     steps:
       - uses: actions/checkout@v2
       - name: Install go dependencies
