@@ -12,10 +12,8 @@ jobs:
     container: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-dependencies:0.1.1
     steps:
       - uses: actions/checkout@v2
-      - name: Install go dependencies
-        run: make .install
       - name: Run tests (charts are not tested here)
         env:
           LD_LIBRARY_PATH: '/usr/local/lib'
           CI: true
-        run: make test
+        run: make .install && make test
