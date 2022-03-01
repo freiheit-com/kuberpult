@@ -10,13 +10,15 @@ jobs:
   docker-build-test:
     runs-on: ubuntu-latest
     container: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-dependencies:0.1.1
+    env:
+      LD_LIBRARY_PATH: '/usr/local/lib'
+      CI: true
     steps:
       - uses: actions/checkout@v2
       - name: Run tests (charts are not tested here)
-        env:
-          LD_LIBRARY_PATH: '/usr/local/lib'
-          CI: true
         run: echo $PATH
       - name: test
-        run: export PATH="$PATH:/root/go/bin"
+        run: make .install
+      - name: 2
+        run: echo $PATH
 
