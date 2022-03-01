@@ -16,4 +16,7 @@ jobs:
         env:
           LD_LIBRARY_PATH: '/usr/local/lib'
           CI: true
-        run: make .install && make test
+        run: echo $PATH
+      - name: test
+        run: export PATH="$PATH:/root/go/bin"
+
