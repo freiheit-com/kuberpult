@@ -109,6 +109,10 @@ const IsConflictingAction = (cartActions: BatchAction[], newAction: BatchAction)
     return false;
 };
 
+export const exportedForTesting = {
+    IsConflictingAction,
+};
+
 export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProps) => {
     const { action, locks, fin } = props;
     const [openNotify, setOpenNotify] = React.useState(false);

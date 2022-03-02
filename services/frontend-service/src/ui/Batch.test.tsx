@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { fireEvent, getByText, render } from '@testing-library/react';
-import { ConfirmationDialogProvider, ConfirmationDialogProviderProps } from './Batch';
+import { ConfirmationDialogProvider, ConfirmationDialogProviderProps, exportedForTesting } from './Batch';
 import { Button } from '@material-ui/core';
 import { Spy } from 'spy4js';
 import { BatchAction, Lock, LockBehavior } from '../api/api';
@@ -193,6 +193,31 @@ describe('Confirmation Dialog Provider', () => {
         },
     ];
 
+    const sampleCartActions: BatchAction[] = [
+        sampleDeployAction,
+        {
+            action: {
+                $case: 'createEnvironmentLock',
+                createEnvironmentLock: {
+                    environment: 'dummy environment',
+                    lockId: '1234',
+                    message: 'hello',
+                },
+            },
+        },
+        {
+            action: {
+                $case: 'createEnvironmentApplicationLock',
+                createEnvironmentApplicationLock: {
+                    environment: 'dummy environment',
+                    application: 'dummy application',
+                    lockId: '1234',
+                    message: 'hello',
+                },
+            },
+        },
+    ];
+
     describe.each(data)(`Batch Action Types`, (testcase: dataT) => {
         it(`${testcase.type}`, () => {
             // given
@@ -244,6 +269,45 @@ describe('Confirmation Dialog Provider', () => {
             const b = container.querySelector('#dialog-opener');
             expect(b!.textContent).toBe('ClickMe');
             expect(b).toBeDisabled();
+        });
+    });
+
+    describe('Conflicts detection', () => {
+        it('returns a flag when newAct is conflicting with cart', () => {
+            // given
+            sampleCartActions.forEach((newAct) => {
+                // when adding the same action should be flagged as conflict
+                const res = exportedForTesting.IsConflictingAction(sampleCartActions, newAct);
+                // then
+                expect(res).toBe(true);
+            });
+
+            // when adding another deploy-type action it's a conflict
+            const actConflictsWithDeploy: BatchAction = {
+                action: {
+                    $case: 'undeploy',
+                    undeploy: {
+                        application: 'dummy application',
+                    },
+                },
+            };
+            let res = exportedForTesting.IsConflictingAction(sampleCartActions, actConflictsWithDeploy);
+            // then
+            expect(res).toBe(true);
+
+            // when adding any other action it's not a conflict
+            const actNoConflict: BatchAction = {
+                action: {
+                    $case: 'deleteEnvironmentLock',
+                    deleteEnvironmentLock: {
+                        environment: 'dummy environment',
+                        lockId: '1234',
+                    },
+                },
+            };
+            res = exportedForTesting.IsConflictingAction(sampleCartActions, actNoConflict);
+            // then
+            expect(res).toBe(false);
         });
     });
 });
