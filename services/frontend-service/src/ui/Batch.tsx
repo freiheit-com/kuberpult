@@ -23,11 +23,23 @@ import {
     Close,
     DeleteForeverRounded,
     DeleteOutlineRounded,
+    Error,
     LockOpenRounded,
     LockRounded,
     MoveToInboxRounded,
 } from '@material-ui/icons';
 import { ActionsCartContext } from './App';
+
+enum ActionTypes {
+    Deploy,
+    PrepareUndeploy,
+    Undeploy,
+    CreateEnvironmentLock,
+    DeleteEnvironmentLock,
+    CreateApplicationLock,
+    DeleteApplicationLock,
+    UNKNOWN,
+}
 
 export const callbacks = {
     useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
@@ -56,9 +68,51 @@ export interface ConfirmationDialogProviderProps {
 const InCart = (actions: BatchAction[], action: BatchAction) =>
     actions ? actions.find((act) => JSON.stringify(act.action) === JSON.stringify(action.action)) : false;
 
+const IsDeployment = (t: ActionTypes) =>
+    t === ActionTypes.Deploy || t === ActionTypes.PrepareUndeploy || t === ActionTypes.Undeploy;
+
+const IsConflictingAction = (cartActions: BatchAction[], newAction: BatchAction) => {
+    for (const action of cartActions) {
+        const act = GetActionDetails(action);
+        const newAct = GetActionDetails(newAction);
+
+        if (IsDeployment(newAct.type) && IsDeployment(act.type)) {
+            if (newAct.application === act.application) {
+                // same app
+                if (newAct.type === ActionTypes.Deploy && newAct.type === act.type) {
+                    // both are deploy actions check env
+                    if (newAct.environment === act.environment) {
+                        // conflict, version doesn't matter
+                        return true;
+                    }
+                } else {
+                    // either one or both are Un-deploying the same app
+                    return true;
+                }
+            }
+        }
+
+        if (newAct.type === ActionTypes.CreateEnvironmentLock && act.type === newAct.type) {
+            if (newAct.environment === act.environment) {
+                // conflict, locking the same env twice
+                return true;
+            }
+        }
+
+        if (newAct.type === ActionTypes.CreateApplicationLock && act.type === newAct.type) {
+            if (newAct.environment === act.environment && newAct.application === act.application) {
+                // conflict, locking the same app/env twice
+                return true;
+            }
+        }
+    }
+    return false;
+};
+
 export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProps) => {
     const { action, locks, fin } = props;
     const [openNotify, setOpenNotify] = React.useState(false);
+    const [conflict, setConflict] = React.useState(false);
     const [openDialog, setOpenDialog] = React.useState(false);
     const { actions, setActions } = useContext(ActionsCartContext);
 
@@ -79,7 +133,8 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
     const handleOpen = useCallback(() => {
         setOpenDialog(true);
         setOpenNotify(false);
-    }, [setOpenDialog, setOpenNotify]);
+        setConflict(IsConflictingAction(actions, action));
+    }, [setOpenDialog, setOpenNotify, setConflict, actions, action]);
 
     const handleClose = useCallback(() => {
         setOpenDialog(false);
@@ -116,6 +171,20 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
             />
         )) ?? null;
 
+    const conflictMessage = conflict ? (
+        <TextField
+            error
+            id="outlined-error-textarea-read-only-input"
+            label="Warning!"
+            defaultValue="Possible conflict with actions already in cart!"
+            multiline
+            sx={{ m: 1 }}
+            InputProps={{
+                readOnly: true,
+            }}
+        />
+    ) : null;
+
     return (
         <>
             {React.cloneElement(props.children, {
@@ -133,9 +202,14 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 </DialogTitle>
                 <div style={{ margin: '16px 24px' }}>{GetActionDetails(action).description}</div>
                 {deployLocks}
+                {conflictMessage}
                 <span style={{ alignSelf: 'end' }}>
                     <Button onClick={handleClose}>Cancel</Button>
-                    <Button onClick={closeWhenDone}>Add to cart</Button>
+                    {!conflict ? (
+                        <Button onClick={closeWhenDone}>Add to cart</Button>
+                    ) : (
+                        <Button onClick={closeWhenDone}>Add anyway</Button>
+                    )}
                 </span>
             </Dialog>
             <Snackbar
@@ -150,19 +224,28 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
 };
 
 type ActionDetails = {
+    type: ActionTypes;
     name: string;
     summary: string;
     dialogTitle: string;
     notMessageSuccess: string;
     notMessageFail: string;
     description?: string;
-    icon?: React.ReactElement;
+    icon: React.ReactElement;
+
+    // action details optional
+    environment?: string;
+    application?: string;
+    lockId?: string;
+    lockMessage?: string;
+    version?: number;
 };
 
 export const GetActionDetails = (action: BatchAction): ActionDetails => {
     switch (action.action?.$case) {
         case 'deploy':
             return {
+                type: ActionTypes.Deploy,
                 name: 'Deploy',
                 dialogTitle: 'Are you sure you want to deploy this version?',
                 notMessageSuccess:
@@ -179,9 +262,13 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                     '" to ' +
                     action.action?.deploy.environment,
                 icon: <MoveToInboxRounded />,
+                environment: action.action?.deploy.environment,
+                application: action.action?.deploy.application,
+                version: action.action?.deploy.version,
             };
         case 'createEnvironmentLock':
             return {
+                type: ActionTypes.CreateEnvironmentLock,
                 name: 'Create Env Lock',
                 dialogTitle: 'Are you sure you want to add this environment lock?',
                 notMessageSuccess:
@@ -196,9 +283,13 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                     '. | Lock Message: ' +
                     action.action?.createEnvironmentLock.message,
                 icon: <LockRounded />,
+                environment: action.action?.createEnvironmentLock.environment,
+                lockId: action.action?.createEnvironmentLock.lockId,
+                lockMessage: action.action?.createEnvironmentLock.message,
             };
         case 'createEnvironmentApplicationLock':
             return {
+                type: ActionTypes.CreateApplicationLock,
                 name: 'Create App Lock',
                 dialogTitle: 'Are you sure you want to add this application lock?',
                 notMessageSuccess:
@@ -215,9 +306,14 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                     '. | Lock Message: ' +
                     action.action?.createEnvironmentApplicationLock.message,
                 icon: <LockRounded />,
+                environment: action.action?.createEnvironmentApplicationLock.environment,
+                application: action.action?.createEnvironmentApplicationLock.application,
+                lockId: action.action?.createEnvironmentApplicationLock.lockId,
+                lockMessage: action.action?.createEnvironmentApplicationLock.message,
             };
         case 'deleteEnvironmentLock':
             return {
+                type: ActionTypes.DeleteEnvironmentLock,
                 name: 'Delete Env Lock',
                 dialogTitle: 'Are you sure you want to delete this environment lock?',
                 notMessageSuccess:
@@ -227,9 +323,12 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                 notMessageFail: 'Deleting environment lock failed',
                 summary: 'Delete environment lock on ' + action.action?.deleteEnvironmentLock.environment,
                 icon: <LockOpenRounded />,
+                environment: action.action?.deleteEnvironmentLock.environment,
+                lockId: action.action?.deleteEnvironmentLock.lockId,
             };
         case 'deleteEnvironmentApplicationLock':
             return {
+                type: ActionTypes.DeleteApplicationLock,
                 name: 'Delete App Lock',
                 dialogTitle: 'Are you sure you want to delete this application lock?',
                 notMessageSuccess:
@@ -243,9 +342,13 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                     '" on ' +
                     action.action?.deleteEnvironmentApplicationLock.environment,
                 icon: <LockOpenRounded />,
+                environment: action.action?.deleteEnvironmentApplicationLock.environment,
+                application: action.action?.deleteEnvironmentApplicationLock.application,
+                lockId: action.action?.deleteEnvironmentApplicationLock.lockId,
             };
         case 'prepareUndeploy':
             return {
+                type: ActionTypes.PrepareUndeploy,
                 name: 'Prepare Undeploy',
                 dialogTitle: 'Are you sure you want to start undeploy?',
                 description:
@@ -259,9 +362,11 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                 notMessageFail: 'Undeploy version failed',
                 summary: 'Prepare undeploy version for Application ' + action.action?.prepareUndeploy.application,
                 icon: <DeleteOutlineRounded />,
+                application: action.action?.prepareUndeploy.application,
             };
         case 'undeploy':
             return {
+                type: ActionTypes.Undeploy,
                 name: 'Undeploy',
                 dialogTitle: 'Are you sure you want to undeploy this application?',
                 description: 'This application will be deleted permanently',
@@ -270,14 +375,17 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                 notMessageFail: 'Undeploy application failed',
                 summary: 'Undeploy and delete Application ' + action.action?.undeploy.application,
                 icon: <DeleteForeverRounded />,
+                application: action.action?.undeploy.application,
             };
         default:
             return {
+                type: ActionTypes.UNKNOWN,
                 name: 'invalid',
                 dialogTitle: 'invalid',
                 notMessageSuccess: 'invalid',
                 notMessageFail: 'invalid',
                 summary: 'invalid',
+                icon: <Error />,
             };
     }
 };
