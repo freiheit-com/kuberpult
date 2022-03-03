@@ -65,18 +65,18 @@ export interface ConfirmationDialogProviderProps {
     fin?: () => void;
 }
 
-const InCart = (actions: BatchAction[], action: BatchAction) =>
+const inCart = (actions: BatchAction[], action: BatchAction) =>
     actions ? actions.find((act) => JSON.stringify(act.action) === JSON.stringify(action.action)) : false;
 
-const IsDeployment = (t: ActionTypes) =>
+const isDeployment = (t: ActionTypes) =>
     t === ActionTypes.Deploy || t === ActionTypes.PrepareUndeploy || t === ActionTypes.Undeploy;
 
-const IsConflictingAction = (cartActions: BatchAction[], newAction: BatchAction) => {
+const isConflictingAction = (cartActions: BatchAction[], newAction: BatchAction) => {
     for (const action of cartActions) {
         const act = GetActionDetails(action);
         const newAct = GetActionDetails(newAction);
 
-        if (IsDeployment(newAct.type) && IsDeployment(act.type)) {
+        if (isDeployment(newAct.type) && isDeployment(act.type)) {
             if (newAct.application === act.application) {
                 // same app
                 if (newAct.type === ActionTypes.Deploy && newAct.type === act.type) {
@@ -110,7 +110,7 @@ const IsConflictingAction = (cartActions: BatchAction[], newAction: BatchAction)
 };
 
 export const exportedForTesting = {
-    IsConflictingAction,
+    isConflictingAction: isConflictingAction,
 };
 
 export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProps) => {
@@ -137,7 +137,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
     const handleOpen = useCallback(() => {
         setOpenDialog(true);
         setOpenNotify(false);
-        setConflict(IsConflictingAction(actions, action));
+        setConflict(isConflictingAction(actions, action));
     }, [setOpenDialog, setOpenNotify, setConflict, actions, action]);
 
     const handleClose = useCallback(() => {
@@ -148,7 +148,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         openNotification();
         if (fin) fin();
         handleClose();
-        if (!InCart(actions, action)) {
+        if (!inCart(actions, action)) {
             setActions([...actions, action]);
         }
     }, [fin, handleClose, openNotification, action, actions, setActions]);
@@ -192,7 +192,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
     return (
         <>
             {React.cloneElement(props.children, {
-                state: InCart(actions, action) ? 'in-cart' : 'not-in-cart',
+                state: inCart(actions, action) ? 'in-cart' : 'not-in-cart',
                 openDialog: handleOpen,
             })}
             <Dialog onClose={handleClose} open={openDialog}>

@@ -277,7 +277,7 @@ describe('Confirmation Dialog Provider', () => {
             // given
             sampleCartActions.forEach((newAct) => {
                 // when adding the same action should be flagged as conflict
-                const res = exportedForTesting.IsConflictingAction(sampleCartActions, newAct);
+                const res = exportedForTesting.isConflictingAction(sampleCartActions, newAct);
                 // then
                 expect(res).toBe(true);
             });
@@ -291,7 +291,7 @@ describe('Confirmation Dialog Provider', () => {
                     },
                 },
             };
-            let res = exportedForTesting.IsConflictingAction(sampleCartActions, actConflictsWithDeploy);
+            let res = exportedForTesting.isConflictingAction(sampleCartActions, actConflictsWithDeploy);
             // then
             expect(res).toBe(true);
 
@@ -305,7 +305,7 @@ describe('Confirmation Dialog Provider', () => {
                     },
                 },
             };
-            res = exportedForTesting.IsConflictingAction(sampleCartActions, actNoConflict);
+            res = exportedForTesting.isConflictingAction(sampleCartActions, actNoConflict);
             // then
             expect(res).toBe(false);
         });
