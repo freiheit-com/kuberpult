@@ -249,7 +249,7 @@ describe('Confirmation Dialog Provider', () => {
             if (testcase.locks) {
                 if (testcase.locks.length > 0) {
                     // when there are locks the warning should appear
-                    const d = document.querySelector('.MuiOutlinedInput-root');
+                    const d = document.querySelector('.MuiAlert-message');
                     expect(d?.textContent).toContain(testcase.locks[0][0]);
                 } else {
                     // when there are no locks the warning should not appear
