@@ -129,7 +129,7 @@ type Auth struct {
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c := r.Context()
-	u := auth.GetActionAuthor()
+	u := auth.GetActionAuthor(r)
 	p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(c, u)))
 }
 

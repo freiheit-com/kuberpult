@@ -19,6 +19,8 @@ package auth
 import (
 	"context"
 	"google.golang.org/grpc/metadata"
+	"net/http"
+	"strings"
 )
 
 type ctxMarker struct{}
@@ -70,7 +72,28 @@ type User struct {
 	Name  string
 }
 
-func GetActionAuthor() *User {
-	// Local
-	return defaultUser
+func GetActionAuthor(r *http.Request) *User {
+	jwtToken := r.Header.Get("X-Goog-IAP-JWT-Assertion")
+	if jwtToken == "" {
+		// not using iap (local), default user
+		return defaultUser
+	}
+
+	// Request header Content-Type: application/json must be present
+
+	// the jwtToken should be decoded as well.
+
+	// Extract user email from header
+	var userEmail = r.Header.Get("X-Goog-Authenticated-User-Email")
+	if userEmail != "" {
+		userEmail = strings.ReplaceAll(userEmail, "accounts.google.com:", "")
+	}
+
+	// we can use People api here
+
+	// Get the currently authenticated Google user
+	u := &User{
+		Email: userEmail,
+	}
+	return u
 }
