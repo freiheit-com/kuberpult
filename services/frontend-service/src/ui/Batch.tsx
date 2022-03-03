@@ -209,11 +209,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 {conflictMessage}
                 <span style={{ alignSelf: 'end' }}>
                     <Button onClick={handleClose}>Cancel</Button>
-                    {!conflict ? (
-                        <Button onClick={closeWhenDone}>Add to cart</Button>
-                    ) : (
-                        <Button onClick={closeWhenDone}>Add anyway</Button>
-                    )}
+                    <Button onClick={closeWhenDone}>{conflict ? 'Add anyway' : 'Add to cart'}</Button>
                 </span>
             </Dialog>
             <Snackbar
