@@ -17,7 +17,7 @@ Copyright 2021 freiheit.com*/
 import { BatchAction, Lock } from '../api/api';
 import { useUnaryCallback } from './Api';
 import * as React from 'react';
-import { Button, Dialog, DialogTitle, IconButton, Typography, Snackbar, TextField } from '@material-ui/core';
+import { Button, Dialog, DialogTitle, IconButton, Typography, Snackbar, Alert, AlertTitle } from '@material-ui/core';
 import { useCallback, useContext } from 'react';
 import {
     Close,
@@ -159,34 +159,21 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         </IconButton>
     );
 
-    const deployLocks =
-        locks?.map((lock) => (
-            <TextField
-                error
-                id="outlined-error-textarea-read-only-input"
-                label="Warning: This Lock Will Be Ignored!"
-                defaultValue={'Lock ID: ' + lock[0] + ' | Message: ' + lock[1].message}
-                multiline
-                sx={{ m: 1 }}
-                InputProps={{
-                    readOnly: true,
-                }}
-                key={lock[0]}
-            />
-        )) ?? null;
-
+    const deployLocks = locks?.length ? (
+        <Alert variant="outlined" sx={{ m: 1 }} severity="info">
+            <AlertTitle>Warning: this application or environment is currently locked!</AlertTitle>
+            {locks?.map((lock) => (
+                <div style={{ display: 'flex', alignItems: 'center' }} key={lock[0]}>
+                    <LockRounded />
+                    <strong>{'Lock ID: ' + lock[0] + ' | Message: ' + lock[1].message}</strong>
+                </div>
+            ))}
+        </Alert>
+    ) : null;
     const conflictMessage = conflict ? (
-        <TextField
-            error
-            id="outlined-error-textarea-read-only-input"
-            label="Warning!"
-            defaultValue="Possible conflict with actions already in cart!"
-            multiline
-            sx={{ m: 1 }}
-            InputProps={{
-                readOnly: true,
-            }}
-        />
+        <Alert variant="outlined" sx={{ m: 1 }} severity="error">
+            <strong>Possible conflict with actions already in cart!</strong>
+        </Alert>
     ) : null;
 
     return (
@@ -196,13 +183,22 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 openDialog: handleOpen,
             })}
             <Dialog onClose={handleClose} open={openDialog}>
-                <DialogTitle>
+                <DialogTitle sx={{ m: 0, p: 2 }}>
                     <Typography variant="subtitle1" component="div" className="confirmation-title">
                         <span>{GetActionDetails(action).dialogTitle}</span>
-                        <IconButton aria-label="close" color="inherit" onClick={handleClose}>
-                            <Close fontSize="small" />
-                        </IconButton>
                     </Typography>
+                    <IconButton
+                        sx={{
+                            position: 'absolute',
+                            right: 8,
+                            top: 8,
+                            color: (theme) => theme.palette.grey[500],
+                        }}
+                        aria-label="close"
+                        color="inherit"
+                        onClick={handleClose}>
+                        <Close fontSize="small" />
+                    </IconButton>
                 </DialogTitle>
                 <div style={{ margin: '16px 24px' }}>{GetActionDetails(action).description}</div>
                 {deployLocks}
