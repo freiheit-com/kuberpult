@@ -18,9 +18,10 @@ package auth
 
 import (
 	"context"
+	"fmt"
+	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc/metadata"
 	"net/http"
-	"strings"
 )
 
 type ctxMarker struct{}
@@ -31,6 +32,11 @@ var (
 		Email: "local.user@freiheit.com",
 		Name:  "defaultUser",
 	}
+)
+
+const (
+	projectNumber = "123456789"
+	projectID     = "your-project-id"
 )
 
 // Extract takes the User from middleware.
@@ -72,28 +78,27 @@ type User struct {
 	Name  string
 }
 
-func GetActionAuthor(r *http.Request) *User {
-	jwtToken := r.Header.Get("X-Goog-IAP-JWT-Assertion")
-	if jwtToken == "" {
+func GetActionAuthor(ctx context.Context, r *http.Request) *User {
+	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
+	if iapJWT == "" {
 		// not using iap (local), default user
 		return defaultUser
 	}
 
-	// Request header Content-Type: application/json must be present
-
-	// the jwtToken should be decoded as well.
-
-	// Extract user email from header
-	var userEmail = r.Header.Get("X-Goog-Authenticated-User-Email")
-	if userEmail != "" {
-		userEmail = strings.ReplaceAll(userEmail, "accounts.google.com:", "")
+	aud := fmt.Sprintf("/projects/%s/apps/%s", projectNumber, projectID)
+	payload, err := idtoken.Validate(ctx, iapJWT, aud)
+	if err != nil {
+		return &User{
+			Name:  "Error: " + fmt.Sprintf("idtoken.Validate: %v", err),
+			Email: defaultUser.Email,
+		}
 	}
 
-	// we can use People api here
+	// here, we can use People api later to get the full name
 
-	// Get the currently authenticated Google user
+	// get the authenticated email
 	u := &User{
-		Email: userEmail,
+		Email: payload.Claims["email"].(string),
 	}
 	return u
 }
