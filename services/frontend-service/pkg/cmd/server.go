@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"google.golang.org/api/idtoken"
 	"net/http"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -34,7 +36,9 @@ import (
 )
 
 type Config struct {
-	CdServer string `default:"kuberpult-cd-service:8443"`
+	CdServer            string `default:"kuberpult-cd-service:8443"`
+	GoogleProjectNumber string `default:"" split_words:"true"`
+	GoogleProjectID     string `default:"" split_words:"true"`
 }
 
 func RunServer() {
@@ -127,8 +131,39 @@ type Auth struct {
 	HttpServer http.Handler
 }
 
+func getRequestAuthor(r *http.Request) *auth.User {
+	ctx := r.Context()
+
+	var c Config
+
+	err := envconfig.Process("kuberpult", &c)
+	if err != nil {
+		return auth.DefaultUser
+	}
+
+	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
+	if iapJWT == "" {
+		// not using iap (local), default user
+		return auth.DefaultUser
+	}
+
+	aud := fmt.Sprintf("/projects/%s/apps/%s", c.GoogleProjectNumber, c.GoogleProjectID)
+	payload, err := idtoken.Validate(ctx, iapJWT, aud)
+	if err != nil {
+		return auth.DefaultUser
+	}
+
+	// here, we can use People api later to get the full name
+
+	// get the authenticated email
+	u := &auth.User{
+		Email: payload.Claims["email"].(string),
+	}
+	return u
+}
+
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	u := auth.GetActionAuthor(r)
+	u := getRequestAuthor(r)
 	p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(r.Context(), u)))
 }
 
