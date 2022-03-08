@@ -19,6 +19,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"github.com/kelseyhightower/envconfig"
 	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc/metadata"
 	"net/http"
@@ -34,10 +35,11 @@ var (
 	}
 )
 
-const (
-	projectNumber = "123456789"
-	projectID     = "your-project-id"
-)
+type Config struct {
+	// these will be mapped to "KUBERPULT_GIT_URL", etc.
+	ProjectNumber string `default:"" split_words:"true"`
+	ProjectID     string `default:"" split_words:"true"`
+}
 
 // Extract takes the User from middleware.
 // It always returns a User
@@ -78,20 +80,26 @@ type User struct {
 	Name  string
 }
 
-func GetActionAuthor(ctx context.Context, r *http.Request) *User {
+func GetActionAuthor(r *http.Request) *User {
+	ctx := r.Context()
+
+	var c Config
+
+	err := envconfig.Process("kuberpult", &c)
+	if err != nil {
+		return defaultUser
+	}
+
 	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
 	if iapJWT == "" {
 		// not using iap (local), default user
 		return defaultUser
 	}
 
-	aud := fmt.Sprintf("/projects/%s/apps/%s", projectNumber, projectID)
+	aud := fmt.Sprintf("/projects/%s/apps/%s", c.ProjectNumber, c.ProjectID)
 	payload, err := idtoken.Validate(ctx, iapJWT, aud)
 	if err != nil {
-		return &User{
-			Name:  "Error: " + fmt.Sprintf("idtoken.Validate: %v", err),
-			Email: defaultUser.Email,
-		}
+		return defaultUser
 	}
 
 	// here, we can use People api later to get the full name

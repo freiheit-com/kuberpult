@@ -128,9 +128,8 @@ type Auth struct {
 }
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	u := auth.GetActionAuthor(ctx, r)
-	p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(ctx, u)))
+	u := auth.GetActionAuthor(r)
+	p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(r.Context(), u)))
 }
 
 // splits of grpc-traffic
