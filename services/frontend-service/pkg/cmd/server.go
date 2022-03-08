@@ -131,7 +131,7 @@ type Auth struct {
 	HttpServer http.Handler
 }
 
-func getActionAuthor(r *http.Request) *auth.User {
+func getRequestAuthor(r *http.Request) *auth.User {
 	ctx := r.Context()
 
 	var c Config
@@ -163,7 +163,7 @@ func getActionAuthor(r *http.Request) *auth.User {
 }
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	u := getActionAuthor(r)
+	u := getRequestAuthor(r)
 	p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(r.Context(), u)))
 }
 
