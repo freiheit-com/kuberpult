@@ -71,13 +71,15 @@ const ActionsList = (props: { openNotification: (msg: string) => void }) => {
     const [doActions, doActionsState] = callbacks.useBatch(actions, actionsSucceeded, actionsFailed);
 
     useEffect(() => {
-        window.onbeforeunload = (e: BeforeUnloadEvent) => {
-            // Cancel the event
-            e.preventDefault();
-            if (e) e.returnValue = '';
-            return '';
-        };
-    });
+        if (actions.length) {
+            window.onbeforeunload = (e: BeforeUnloadEvent) => {
+                // Cancel the event
+                e.preventDefault();
+                if (e) e.returnValue = '';
+                return '';
+            };
+        }
+    }, [actions]);
 
     return (
         <div
