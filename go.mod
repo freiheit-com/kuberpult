@@ -17,6 +17,7 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+	google.golang.org/api v0.30.0
 	google.golang.org/genproto v0.0.0-20210505142820-a42aa055cf76
 	google.golang.org/grpc v1.37.0
 	google.golang.org/protobuf v1.26.0
@@ -26,6 +27,7 @@ require (
 )
 
 require (
+	cloud.google.com/go v0.65.0 // indirect
 	github.com/DataDog/datadog-go v4.4.0+incompatible // indirect
 	github.com/DataDog/sketches-go v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
@@ -33,6 +35,7 @@ require (
 	github.com/go-logr/logr v0.4.0 // indirect
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -44,14 +47,17 @@ require (
 	github.com/philhofer/fwd v1.1.1 // indirect
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/tinylib/msgp v1.1.2 // indirect
+	go.opencensus.io v0.22.6 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/net v0.0.0-20210323141857-08027d57d8cf // indirect
+	golang.org/x/oauth2 v0.0.0-20210427180440-81ed05c6b58c // indirect
 	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c // indirect
 	golang.org/x/term v0.0.0-20210406210042-72f3dc4e9b72 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	google.golang.org/appengine v1.6.6 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/klog/v2 v2.8.0 // indirect
