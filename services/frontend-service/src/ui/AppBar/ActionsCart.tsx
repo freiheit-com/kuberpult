@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { useCallback, useContext } from 'react';
+import { useCallback, useContext, useEffect } from 'react';
 
 import {
     Avatar,
@@ -69,6 +69,15 @@ const ActionsList = (props: { openNotification: (msg: string) => void }) => {
         openNotification('Actions were not applied. Please try again!');
     }, [openNotification]);
     const [doActions, doActionsState] = callbacks.useBatch(actions, actionsSucceeded, actionsFailed);
+
+    useEffect(() => {
+        window.onbeforeunload = (e: BeforeUnloadEvent) => {
+            // Cancel the event
+            e.preventDefault();
+            if (e) e.returnValue = '';
+            return '';
+        };
+    });
 
     return (
         <div
