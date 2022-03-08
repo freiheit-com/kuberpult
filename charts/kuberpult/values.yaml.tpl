@@ -72,3 +72,7 @@ dogstatsdMetrics:
   hostSocketPath: /var/run/datadog
 
 imagePullSecrets: []
+
+gcp:
+  project_id: ""
+  project_number: ""

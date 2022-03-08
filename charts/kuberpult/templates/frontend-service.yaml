@@ -56,6 +56,11 @@ spec:
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
           value: {{ .Values.log.level | quote }}
+        - name: KUBERPULT_GOOGLE_PROJECT_ID
+          value: "{{ .Values.gcp.project_id }}"
+        - name: KUBERPULT_GOOGLE_PROJECT_NUMBER
+          value: "{{ .Values.gcp.project_number }}"
+
 ---
 apiVersion: v1
 kind: Service
