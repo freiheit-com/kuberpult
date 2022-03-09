@@ -16,7 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
 import { useCallback, useContext } from 'react';
-
+import { useBeforeunload } from 'react-beforeunload';
 import {
     Avatar,
     Button,
@@ -69,6 +69,12 @@ const ActionsList = (props: { openNotification: (msg: string) => void }) => {
         openNotification('Actions were not applied. Please try again!');
     }, [openNotification]);
     const [doActions, doActionsState] = callbacks.useBatch(actions, actionsSucceeded, actionsFailed);
+
+    useBeforeunload((e) => {
+        if (actions.length) {
+            e.preventDefault();
+        }
+    });
 
     return (
         <div
