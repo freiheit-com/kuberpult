@@ -129,99 +129,94 @@ export const randomLockId = () => 'ui-' + Math.random().toString(36).substring(7
 
 const LockButtonGroup = (props: {
     applicationName?: string;
-    openDialog?: () => void;
-    state?: string;
+    addToCart?: () => void;
+    inCart?: boolean;
     message: string;
     setMessage: (e: string) => void;
     open: boolean;
     setOpen: (e: boolean) => void;
 }) => {
-    const { applicationName, openDialog, state, message, setMessage, setOpen, open } = props;
+    const { applicationName, addToCart, inCart, message, setMessage, setOpen, open } = props;
     const updateMessage = React.useCallback((e) => setMessage(e.target.value), [setMessage]);
     const openInput = React.useCallback(() => setOpen(true), [setOpen]);
-    switch (state) {
-        case 'not-in-cart':
-            if (open) {
-                return (
-                    <Grow in={open} style={{ transformOrigin: 'right center' }}>
-                        {applicationName ? (
-                            <ButtonGroup className="overlay">
-                                <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
-                                <IconButton onClick={openDialog} disabled={message === ''}>
-                                    <AddLockIcon />
-                                </IconButton>
-                            </ButtonGroup>
-                        ) : (
-                            <ButtonGroup className="overlay">
-                                <Button onClick={openDialog} disabled={message === ''}>
-                                    Add Lock
-                                </Button>
-                                <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
-                            </ButtonGroup>
-                        )}
-                    </Grow>
-                );
-            } else {
-                return applicationName ? (
-                    <Tooltip title="Add lock">
-                        <IconButton onClick={openInput}>
-                            <AddLockIcon />
-                        </IconButton>
-                    </Tooltip>
-                ) : (
-                    <Button onClick={openInput}>Add Lock</Button>
-                );
-            }
-        case 'in-cart':
-            return applicationName ? (
-                <IconButton disabled>
-                    <AddLockIcon />
-                </IconButton>
-            ) : (
-                <Button disabled>Add Lock</Button>
+    if (!inCart) {
+        if (open) {
+            return (
+                <Grow in={open} style={{ transformOrigin: 'right center' }}>
+                    {applicationName ? (
+                        <ButtonGroup className="overlay">
+                            <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
+                            <IconButton onClick={addToCart} disabled={message === ''}>
+                                <AddLockIcon />
+                            </IconButton>
+                        </ButtonGroup>
+                    ) : (
+                        <ButtonGroup className="overlay">
+                            <Button onClick={addToCart} disabled={message === ''}>
+                                Add Lock
+                            </Button>
+                            <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
+                        </ButtonGroup>
+                    )}
+                </Grow>
             );
+        } else {
+            return applicationName ? (
+                <Tooltip title="Add lock">
+                    <IconButton onClick={openInput}>
+                        <AddLockIcon />
+                    </IconButton>
+                </Tooltip>
+            ) : (
+                <Button onClick={openInput}>Add Lock</Button>
+            );
+        }
+    } else {
+        return applicationName ? (
+            <IconButton disabled>
+                <AddLockIcon />
+            </IconButton>
+        ) : (
+            <Button disabled>Add Lock</Button>
+        );
     }
-    return null;
 };
 
 const ReleaseLockButtonGroup = (props: {
     lock: Lock;
-    state?: string;
-    openDialog?: () => void;
+    inCart?: boolean;
+    addToCart?: () => void;
     queueHint?: boolean;
 }) => {
-    const { lock, queueHint, state, openDialog } = props;
-
+    const { lock, queueHint, inCart, addToCart } = props;
     const msg = queueHint ? 'When you unlock the last lock the queue will be deployed!' : '';
-    switch (state) {
-        case 'not-in-cart':
-            return (
-                <Tooltip arrow title={'Locked with message "' + lock.message + '". Click to unlock. ' + msg}>
-                    <IconButton onClick={openDialog}>
-                        <LockIcon />
-                    </IconButton>
-                </Tooltip>
-            );
-        case 'in-cart':
-            return (
-                <IconButton disabled>
+    if (!inCart) {
+        return (
+            <Tooltip arrow title={'Locked with message "' + lock.message + '". Click to unlock. ' + msg}>
+                <IconButton onClick={addToCart}>
                     <LockIcon />
                 </IconButton>
-            );
+            </Tooltip>
+        );
+    } else {
+        return (
+            <IconButton disabled>
+                <LockIcon />
+            </IconButton>
+        );
     }
-    return null;
 };
 
 const DeployButton = (props: {
     version: number;
     currentlyDeployedVersion: number;
-    openDialog?: () => void;
-    state?: string;
+    addToCart?: () => void;
+    inCart?: boolean;
     locked: boolean;
     prefix: string;
     hasQueue: boolean;
 }) => {
-    const { version, currentlyDeployedVersion, openDialog, state, locked, prefix, hasQueue } = props;
+    const { version, currentlyDeployedVersion, addToCart, inCart, locked, prefix, hasQueue } = props;
     const queueMessage = hasQueue ? 'Deploying will also remove the Queue' : '';
     if (version === currentlyDeployedVersion) {
         return (
@@ -230,24 +225,22 @@ const DeployButton = (props: {
             </Button>
         );
     } else {
-        switch (state) {
-            case 'not-in-cart':
-                return (
-                    <Tooltip title={queueMessage}>
-                        <Button variant="contained" onClick={openDialog} className={locked ? 'warning' : ''}>
-                            {prefix + version}
-                        </Button>
-                    </Tooltip>
-                );
-            case 'in-cart':
-                return (
-                    <Button variant="contained" disabled>
+        if (!inCart) {
+            return (
+                <Tooltip title={queueMessage}>
+                    <Button variant="contained" onClick={addToCart} className={locked ? 'warning' : ''}>
                         {prefix + version}
                     </Button>
-                );
+                </Tooltip>
+            );
+        } else {
+            return (
+                <Button variant="contained" disabled>
+                    {prefix + version}
+                </Button>
+            );
         }
     }
-    return null;
 };
 
 export const CreateLockButton = (props: { applicationName?: string; environmentName: string }) => {

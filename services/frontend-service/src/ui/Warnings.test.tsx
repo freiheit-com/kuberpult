@@ -21,19 +21,19 @@ import { UndeployBtn } from './Warnings';
 describe('Undeploy Button', () => {
     interface dataT {
         name: string;
-        state?: string;
+        inCart?: boolean;
         selector: (container: HTMLElement) => HTMLElement | null;
     }
 
     const data: dataT[] = [
         {
             name: 'renders the UndeployBtn component',
-            state: 'not-in-cart',
+            inCart: false,
             selector: (container) => getByLabelText(container, /This app is ready to un-deploy./i),
         },
         {
             name: 'renders the UndeployBtn component with resolved state',
-            state: 'in-cart',
+            inCart: true,
             selector: (container) => container.querySelector('.Mui-disabled'),
         },
     ];
@@ -42,17 +42,17 @@ describe('Undeploy Button', () => {
         // given
         const defaultProps: any = {
             children: null,
-            state: 'no state', //
+            inCart: false, //
             applicationName: 'app1', //
         };
         return <UndeployBtn {...defaultProps} {...overrides} />;
     };
-    const getWrapper = (overrides?: { state?: string }) => render(getNode(overrides));
+    const getWrapper = (overrides?: { inCart?: boolean }) => render(getNode(overrides));
 
     describe.each(data)(`Undeploy Button with state`, (testcase) => {
         it(testcase.name, () => {
             // when
-            const { container } = getWrapper({ state: testcase.state });
+            const { container } = getWrapper({ inCart: testcase.inCart });
             // then
             expect(testcase.selector(container)).toBeTruthy();
         });

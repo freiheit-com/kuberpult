@@ -21,17 +21,119 @@ import { Spy } from 'spy4js';
 import { BatchAction, Lock, LockBehavior } from '../api/api';
 import { ActionsCartContext } from './App';
 
-const ChildButton = (props: { state?: string; openDialog?: () => void }) => {
-    const { openDialog } = props;
+const mock_setActions = Spy('setActions');
+const finallySpy = Spy('.finally');
+
+const sampleDeployAction: BatchAction = {
+    action: {
+        $case: 'deploy',
+        deploy: {
+            application: 'dummy application',
+            version: 22,
+            environment: 'dummy environment',
+            ignoreAllLocks: false,
+            lockBehavior: LockBehavior.Ignore,
+        },
+    },
+};
+
+const newVersionDeploy: BatchAction = {
+    action: {
+        $case: 'deploy',
+        deploy: {
+            application: 'dummy application',
+            version: 30,
+            environment: 'dummy environment',
+            ignoreAllLocks: false,
+            lockBehavior: LockBehavior.Ignore,
+        },
+    },
+};
+
+const sampleUndeployAction: BatchAction = {
+    action: {
+        $case: 'undeploy',
+        undeploy: {
+            application: 'dummy application',
+        },
+    },
+};
+
+const sampleCreateEnvLock: BatchAction = {
+    action: {
+        $case: 'createEnvironmentLock',
+        createEnvironmentLock: {
+            environment: 'dummy environment',
+            lockId: '1234',
+            message: 'hello',
+        },
+    },
+};
+
+const newIdEnvLock: BatchAction = {
+    action: {
+        $case: 'createEnvironmentLock',
+        createEnvironmentLock: {
+            environment: 'dummy environment',
+            lockId: 'newid',
+            message: 'hello',
+        },
+    },
+};
+
+const sampleDeleteEnvLock: BatchAction = {
+    action: {
+        $case: 'deleteEnvironmentLock',
+        deleteEnvironmentLock: {
+            environment: 'dummy environment',
+            lockId: '1234',
+        },
+    },
+};
+
+const sampleCreateAppLock: BatchAction = {
+    action: {
+        $case: 'createEnvironmentApplicationLock',
+        createEnvironmentApplicationLock: {
+            application: 'dummy application',
+            environment: 'dummy environment',
+            lockId: '1111',
+            message: 'hi',
+        },
+    },
+};
+
+const newIdAppLock: BatchAction = {
+    action: {
+        $case: 'createEnvironmentApplicationLock',
+        createEnvironmentApplicationLock: {
+            application: 'dummy application',
+            environment: 'dummy environment',
+            lockId: 'newid',
+            message: 'hi',
+        },
+    },
+};
+
+const sampleDeleteAppLock: BatchAction = {
+    action: {
+        $case: 'deleteEnvironmentApplicationLock',
+        deleteEnvironmentApplicationLock: {
+            application: 'dummy application',
+            environment: 'dummy environment',
+            lockId: '1111',
+        },
+    },
+};
+
+const ChildButton = (props: { inCart?: boolean; addToCart?: () => void }) => {
+    const { addToCart, inCart } = props;
     return (
-        <Button id={'dialog-opener'} onClick={openDialog} disabled={props.state === 'in-cart'}>
+        <Button id={'dummy-button'} onClick={addToCart} disabled={inCart}>
             ClickMe
         </Button>
     );
 };
-
-const mock_setActions = Spy('setActions');
-const finallySpy = Spy('.finally');
 
 describe('Confirmation Dialog Provider', () => {
     const getNode = (overrides?: Partial<ConfirmationDialogProviderProps>, presetActions?: BatchAction[]) => {
@@ -50,25 +152,13 @@ describe('Confirmation Dialog Provider', () => {
     const getWrapper = (overrides?: Partial<ConfirmationDialogProviderProps>, presetActions?: BatchAction[]) =>
         render(getNode({ ...overrides }, presetActions));
 
-    const sampleDeployAction: BatchAction = {
-        action: {
-            $case: 'deploy',
-            deploy: {
-                application: 'dummy application',
-                version: 22,
-                environment: 'dummy environment',
-                ignoreAllLocks: false,
-                lockBehavior: LockBehavior.Ignore,
-            },
-        },
-    };
-
     interface dataT {
         type: string;
         act: BatchAction;
         fin?: () => void;
         locks?: [string, Lock][];
         expect: {
+            conflict: boolean;
             title: string;
         };
     }
@@ -78,100 +168,56 @@ describe('Confirmation Dialog Provider', () => {
             type: 'Deploy',
             act: sampleDeployAction,
             expect: {
+                conflict: true,
                 title: 'Are you sure you want to deploy this version?',
             },
         },
         {
             type: 'Un Deploy',
-            act: {
-                action: {
-                    $case: 'undeploy',
-                    undeploy: {
-                        application: 'dummy application',
-                    },
-                },
-            },
+            act: sampleUndeployAction,
             expect: {
+                conflict: true,
                 title: 'Are you sure you want to undeploy this application?',
             },
         },
         {
             type: 'Create Environment Lock',
-            act: {
-                action: {
-                    $case: 'createEnvironmentLock',
-                    createEnvironmentLock: {
-                        environment: 'dummy environment',
-                        lockId: '1234',
-                        message: 'hello',
-                    },
-                },
-            },
+            act: sampleCreateEnvLock,
             expect: {
+                conflict: true,
                 title: 'Are you sure you want to add this environment lock?',
             },
         },
         {
             type: 'Delete Environment Lock',
-            act: {
-                action: {
-                    $case: 'deleteEnvironmentLock',
-                    deleteEnvironmentLock: {
-                        environment: 'dummy environment',
-                        lockId: '1234',
-                    },
-                },
-            },
+            act: sampleDeleteEnvLock,
             expect: {
+                conflict: false,
                 title: 'Are you sure you want to delete this environment lock?',
             },
         },
         {
             type: 'Create Environment Application Lock',
-            act: {
-                action: {
-                    $case: 'createEnvironmentApplicationLock',
-                    createEnvironmentApplicationLock: {
-                        application: 'dummy application',
-                        environment: 'dummy environment',
-                        lockId: '1111',
-                        message: 'hi',
-                    },
-                },
-            },
+            act: sampleCreateAppLock,
             expect: {
+                conflict: true,
                 title: 'Are you sure you want to add this application lock?',
             },
         },
         {
             type: 'Delete Environment Application Lock',
-            act: {
-                action: {
-                    $case: 'deleteEnvironmentApplicationLock',
-                    deleteEnvironmentApplicationLock: {
-                        application: 'dummy application',
-                        environment: 'dummy environment',
-                        lockId: '1111',
-                    },
-                },
-            },
+            act: sampleDeleteAppLock,
             expect: {
+                conflict: false,
                 title: 'Are you sure you want to delete this application lock?',
             },
         },
         {
             type: 'With finally function',
-            act: {
-                action: {
-                    $case: 'deleteEnvironmentLock',
-                    deleteEnvironmentLock: {
-                        environment: 'dummy environment',
-                        lockId: '1234',
-                    },
-                },
-            },
+            act: sampleDeleteEnvLock,
             fin: finallySpy,
             expect: {
+                conflict: false,
                 title: 'Are you sure you want to delete this environment lock?',
             },
         },
@@ -180,6 +226,7 @@ describe('Confirmation Dialog Provider', () => {
             act: sampleDeployAction,
             locks: [['id_1234', { message: 'random lock message' }]],
             expect: {
+                conflict: true,
                 title: 'Are you sure you want to deploy this version?',
             },
         },
@@ -188,74 +235,66 @@ describe('Confirmation Dialog Provider', () => {
             act: sampleDeployAction,
             locks: [],
             expect: {
+                conflict: true,
                 title: 'Are you sure you want to deploy this version?',
             },
         },
     ];
 
-    const sampleCartActions: BatchAction[] = [
-        sampleDeployAction,
-        {
-            action: {
-                $case: 'createEnvironmentLock',
-                createEnvironmentLock: {
-                    environment: 'dummy environment',
-                    lockId: '1234',
-                    message: 'hello',
-                },
-            },
-        },
-        {
-            action: {
-                $case: 'createEnvironmentApplicationLock',
-                createEnvironmentApplicationLock: {
-                    environment: 'dummy environment',
-                    application: 'dummy application',
-                    lockId: '1234',
-                    message: 'hello',
-                },
-            },
-        },
-    ];
+    const sampleCartActions: BatchAction[] = [newVersionDeploy, newIdEnvLock, newIdAppLock];
 
     describe.each(data)(`Batch Action Types`, (testcase: dataT) => {
         it(`${testcase.type}`, () => {
             // given
-            const { container } = getWrapper({ action: testcase.act, fin: testcase.fin, locks: testcase.locks });
+            const { container } = getWrapper(
+                { action: testcase.act, fin: testcase.fin, locks: testcase.locks },
+                sampleCartActions
+            );
 
-            // when - open the confirmation dialog
-            expect(container.querySelector('#dialog-opener')!.textContent).toBe('ClickMe');
-            fireEvent.click(container.querySelector('#dialog-opener')!);
+            // when - clicking the button
+            expect(container.querySelector('#dummy-button')!.textContent).toBe('ClickMe');
+            fireEvent.click(container.querySelector('#dummy-button')!);
 
+            // test for conflicts
+            // when adding the same action should be flagged as conflict
+            const res = exportedForTesting.isConflictingAction(sampleCartActions, testcase.act);
             // then
-            const title = document.querySelector('.confirmation-title');
-            expect(title!.textContent).toBe(testcase.expect.title);
+            expect(res).toBe(testcase.expect.conflict);
 
-            // when - clicking yes
-            const d = document.querySelector('.MuiDialog-root');
-            fireEvent.click(getByText(d! as HTMLElement, 'Add to cart').closest('button')!);
+            if (testcase.expect.conflict) {
+                // then a dialog shows up
+                const title = document.querySelector('.confirmation-title');
+                expect(title!.textContent).toBe(testcase.expect.title);
 
-            // then
-            mock_setActions.wasCalledWith([testcase.act], Spy.IGNORE);
+                // when - clicking yes
+                const d = document.querySelector('.MuiDialog-root');
+                fireEvent.click(getByText(d! as HTMLElement, 'Add anyway').closest('button')!);
 
+                // then
+                mock_setActions.wasCalledWith([...sampleCartActions, testcase.act], Spy.IGNORE);
+
+                if (testcase.locks) {
+                    if (testcase.locks.length > 0) {
+                        // when there are locks the warning should appear
+                        const d = document.querySelector('.MuiAlert-message');
+                        expect(d?.textContent).toContain(testcase.locks[0][0]);
+                    } else {
+                        // when there are no locks the warning should not appear
+                        const d = document.querySelector('.MuiOutlinedInput-root');
+                        expect(d).not.toBeTruthy();
+                    }
+                }
+            } else {
+                // then no dialog will show up
+                expect(document.querySelector('.confirmation-title')).not.toBeTruthy();
+                mock_setActions.wasCalledWith([...sampleCartActions, testcase.act], Spy.IGNORE);
+            }
             if (testcase.fin) {
                 // when a finally function is provided
                 finallySpy.wasCalled();
             } else {
                 // when a finally function is not provided
                 finallySpy.wasNotCalled();
-            }
-
-            if (testcase.locks) {
-                if (testcase.locks.length > 0) {
-                    // when there are locks the warning should appear
-                    const d = document.querySelector('.MuiAlert-message');
-                    expect(d?.textContent).toContain(testcase.locks[0][0]);
-                } else {
-                    // when there are no locks the warning should not appear
-                    const d = document.querySelector('.MuiOutlinedInput-root');
-                    expect(d).not.toBeTruthy();
-                }
             }
         });
     });
@@ -266,48 +305,9 @@ describe('Confirmation Dialog Provider', () => {
             const { container } = getWrapper({ action: data[0].act }, [data[0].act]);
 
             // when - open the confirmation dialog
-            const b = container.querySelector('#dialog-opener');
+            const b = container.querySelector('#dummy-button');
             expect(b!.textContent).toBe('ClickMe');
             expect(b).toBeDisabled();
-        });
-    });
-
-    describe('Conflicts detection', () => {
-        it('returns a flag when newAct is conflicting with cart', () => {
-            // given
-            sampleCartActions.forEach((newAct) => {
-                // when adding the same action should be flagged as conflict
-                const res = exportedForTesting.isConflictingAction(sampleCartActions, newAct);
-                // then
-                expect(res).toBe(true);
-            });
-
-            // when adding another deploy-type action it's a conflict
-            const actConflictsWithDeploy: BatchAction = {
-                action: {
-                    $case: 'undeploy',
-                    undeploy: {
-                        application: 'dummy application',
-                    },
-                },
-            };
-            let res = exportedForTesting.isConflictingAction(sampleCartActions, actConflictsWithDeploy);
-            // then
-            expect(res).toBe(true);
-
-            // when adding any other action it's not a conflict
-            const actNoConflict: BatchAction = {
-                action: {
-                    $case: 'deleteEnvironmentLock',
-                    deleteEnvironmentLock: {
-                        environment: 'dummy environment',
-                        lockId: '1234',
-                    },
-                },
-            };
-            res = exportedForTesting.isConflictingAction(sampleCartActions, actNoConflict);
-            // then
-            expect(res).toBe(false);
         });
     });
 });

@@ -52,27 +52,18 @@ export function getDeployState(name: string, environments: { [name: string]: Env
 }
 
 export const UndeployBtn = (props: {
-    openDialog?: () => void; //
-    state?: string; //
+    addToCart?: () => void; //
+    inCart?: boolean; //
     applicationName: string; //
 }) => {
     const tooltip = 'This app is ready to un-deploy.';
-    const btn = (btnProps: { onClick?: () => void | undefined }, disabled: boolean) => (
-        <div className={'warning-prepare-undeploy-done'} {...btnProps}>
-            <IconButton disabled={disabled}>
-                <Tooltip title={tooltip} arrow={true}>
-                    <DeleteForeverIcon color={'primary'} />
-                </Tooltip>
-            </IconButton>
-        </div>
+    return (
+        <IconButton className={'warning-prepare-undeploy-done'} disabled={props.inCart} onClick={props.addToCart}>
+            <Tooltip title={tooltip} arrow={true}>
+                <DeleteForeverIcon color={'primary'} />
+            </Tooltip>
+        </IconButton>
     );
-    switch (props.state) {
-        case 'not-in-cart':
-            return btn({ onClick: props.openDialog }, false);
-        case 'in-cart':
-            return btn({}, true);
-    }
-    return null;
 };
 
 const UndeployRunningWarning: React.FC<any> = (props: { deployState: DeployState; name: string }) => {
