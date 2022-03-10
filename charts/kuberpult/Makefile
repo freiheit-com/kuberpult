@@ -45,7 +45,7 @@ ct-test:
 ifeq ($(CI),true)
 	@echo "running on CI no need to test this again! Check chart testing action."
 else
-	$(CT) lint --chart-dirs=.. --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --target-branch=main --all
+	$(CT) lint --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --target-branch=main --chart-dirs=. --charts=.
 endif
 
 test: ct-test kuberpult-$(VERSION).tgz
