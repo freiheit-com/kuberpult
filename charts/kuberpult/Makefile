@@ -16,6 +16,11 @@
 #Copyright 2021 freiheit.com
 MAKEFLAGS += --no-builtin-rules
 
+# Container image as recommended by https://github.com/helm/chart-testing#installation
+#CT := podman run -ti quay.io/helmpack/chart-testing:v3.5.0 ct
+# Manual / local installation
+CT := ct
+
 VERSION=$(shell cat ../../version)
 export VERSION
 
@@ -32,7 +37,7 @@ ct-test:
 ifeq ($(CI),true)
 	@echo "running on CI no need to test this again! Check chart testing action."
 else
-	ct lint --target-branch main --all --chart-dirs ../ --chart-yaml-schema ci/chart_schema.yaml --lint-conf ci/lintconf.yaml
+	$(CT) lint --target-branch main --all --chart-dirs ../ --chart-yaml-schema ci/chart_schema.yaml --lint-conf ci/lintconf.yaml
 endif
 
 test: ct-test kuberpult-$(VERSION).tgz
