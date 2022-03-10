@@ -62,6 +62,8 @@ release: docker
 
 all: test docker
 
+build: bin/main dist
+
 .PHONY: all release test docker clean
 
 ## Node part

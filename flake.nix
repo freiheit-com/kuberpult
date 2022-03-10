@@ -25,25 +25,21 @@
 		overlays = [ gomod2nix.overlay ];
 	};
         protoc-gen-grpc-gateway = pkgs.callPackage ./nix/grpc-gateway/default.nix { inherit pkgs; };
+	protoc-gen-ts-proto = (pkgs.callPackage ./nix/ts-proto/default.nix { pkgs = pkgs_; nodejs = pkgs_.nodejs; } ).ts-proto;
 
 	# Native Build inputs
         nativeBuildInputs = [
 	    # go build
-            pkgs.go
 	    pkgs.pkgconfig
 	    pkgs.gnumake
 	    pkgs.gomod2nix
+	    pkgs.go_1_17
 	    
-	    # protobuf generation
-	    pkgs.buf
-	    pkgs.protoc-gen-go
-	    pkgs.protoc-gen-go-grpc
-	    protoc-gen-grpc-gateway
-
 	    # nodejs build
 	    pkgs.yarn
 	    pkgs.yarn2nix
 	    pkgs.nodejs-slim
+	    pkgs.nodePackages.node2nix
 
 	    # chart build
 	    pkgs.kubernetes-helm
@@ -62,13 +58,11 @@
 	src  = pkgs.nix-gitignore.gitignoreSource [] ./.;
 
 	# cd-service
-	cd-service = pkgs.stdenv.mkDerivation {
+	cd-service = pkgs.buildGoApplication {
 	  name = "cd-service";
+	  modules = ./gomod2nix.toml;
 	  inherit src buildInputs nativeBuildInputs;
 	  buildPhase = ''
-	    export GOPATH=$TMPDIR/gopath
-	    export GOCACHE=$TMPDIR/gocache
-	    export XDG_CACHE_HOME=$TMPDIR/.cache
 	    make -C services/cd-service bin/main 
 	  '';
 	  installPhase = ''
@@ -78,16 +72,14 @@
 	};
 
 	# frontend-service
-	frontend-service = pkgs.stdenv.mkDerivation {
+	frontend-service = pkgs.buildGoApplication {
 	  name = "frontend-service";
+	  modules = ./gomod2nix.toml;
 	  inherit src buildInputs nativeBuildInputs;
 	  buildPhase = ''
 	    export GOPATH=$TMPDIR/gopath
 	    export GOCACHE=$TMPDIR/gocache
 	    export XDG_CACHE_HOME=$TMPDIR/.cache
-	    export YARN_CACHE_FOLDER=$TMPDIR/yarn
-	    echo "disable-self-update-check true" > $TMPDIR/.yarnrc
-	    export YARN_OPTS=--use-yarnrc=$TMPDIR/.yarnrc
 	    make -C services/frontend-service build
 	  '';
 	  installPhase = ''
@@ -96,22 +88,73 @@
 	  '';
 	};
 
-	version = builtins.replaceStrings ["\n"] [""] (builtins.readFile ./version);
-      in rec {
+	# protos
+	protos = pkgs.stdenv.mkDerivation {
+	  name = "protos";
+	  inherit src;
+
+	  buildInputs = [
+	    # protobuf generation
+	    pkgs.buf
+	    pkgs.protoc-gen-go
+	    pkgs.protoc-gen-go-grpc
+	    protoc-gen-grpc-gateway
+	    protoc-gen-ts-proto
+	  ];
+
+	  buildPhase = ''
+	    mkdir $TMPDIR/out
+	    buf generate --output $TMPDIR/out
+	  '';
+	  installPhase = ''
+	    cp -r $TMPDIR/out $out
+	  '';
+	};
+	update-protos = pkgs.writeShellApplication {
+	  name = "update-protos";
+
+	  runtimeInputs = [
+	    # protobuf generation
+	    pkgs.buf
+	    pkgs.protoc-gen-go
+	    pkgs.protoc-gen-go-grpc
+	    protoc-gen-grpc-gateway
+	    protoc-gen-ts-proto
+	  ];
+
+	  text = "buf generate";
+	};
+
+	# frontend-service
+	ui = pkgs.mkYarnPackage {
+	  name = "ui";
+	  src  = pkgs.nix-gitignore.gitignoreSource [] ./services/frontend-service;
+	  inherit buildInputs nativeBuildInputs;
+
+    buildPhase = ''
+    ls -la
+      make src/api/api.ts
+      yarn --offline build
+    '';
+	};
+ 
+        in rec {
+
         packages = {
 	  "protoc-gen-grpc-gateway" = protoc-gen-grpc-gateway;
 	  "services/cd-service" = cd-service;
-	  "services/cd-service/docker" = pkgs.dockerTools.streamLayeredImage {
+	  "services/cd-service:docker" = pkgs.dockerTools.streamLayeredImage {
             name = "cd-service";
-	    tag  = version;
 	    contents = [ self.packages.x86_64-linux."services/cd-service" pkgs.tzdata ];
 	  };
           "services/frontend-service" = frontend-service;
-	  "services/frontend-service/docker" = pkgs.dockerTools.streamLayeredImage {
+	  "services/frontend-service:docker" = pkgs.dockerTools.streamLayeredImage {
             name = "frontend-service";
-	    tag  = version;
 	    contents = [ self.packages.x86_64-linux."services/frontend-service" pkgs.tzdata ];
 	  };
+	  "ui" = ui;
+	  "protos" = protos;
+	  "update-protos" = update-protos;
         };
 	apps = {
 	  "services/cd-service/docker" = {
@@ -121,6 +164,10 @@
           "services/frontend-service/docker" = {
 	    type = "app";
 	    program = "${self.packages.${system}."services/frontend-service/docker"}";
+	  };
+	  "buf" = {
+            type = "app";
+	    program = "${update-protos}/bin/update-protos";
 	  };
 	};
 	# Creates a dev shell that has all dependencies preloaded

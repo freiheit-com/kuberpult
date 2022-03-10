@@ -17,15 +17,22 @@
 version: v1beta1
 plugins:
   - name: go
-    out: .
+    out: pkg/api
     opt:
       - paths=source_relative
   - name: go-grpc
-    out: .
+    out: pkg/api
     opt:
       - require_unimplemented_servers=false
       - paths=source_relative
   - name: grpc-gateway
-    out: .
+    out: pkg/api
     opt:
       - paths=source_relative
+  - name: ts_proto
+    out: services/frontend
+    opt:
+    - oneof=unions
+    - useOptionals=messages
+    - esModuleInterop=true
+    - outputClientImpl=grpc-web
