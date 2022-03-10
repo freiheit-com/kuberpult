@@ -25,7 +25,7 @@ REL_DIR := $(subst $(TOP_DIR)/,,$(CURDIR))
 
 # Run from container image, as recommended by https://github.com/helm/chart-testing#installation
 # `ct` analyses the Git history, so we need to mount the whole repository.
-CT := podman run --mount=type=bind,source=$(TOP_DIR),target=/src,readonly,relabel=shared --workdir=/src/$(REL_DIR) quay.io/helmpack/chart-testing:v3.5.0 ct
+CT := docker run --mount=type=bind,source=$(TOP_DIR),target=/src,readonly,relabel=shared --workdir=/src/$(REL_DIR) quay.io/helmpack/chart-testing:v3.5.0 ct
 # Manual / local installation
 #CT := ct
 
