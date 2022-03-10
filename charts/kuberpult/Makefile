@@ -16,6 +16,19 @@
 #Copyright 2021 freiheit.com
 MAKEFLAGS += --no-builtin-rules
 
+top_dir = \
+	$(if $(wildcard $1/.git), \
+		$1, \
+		$(call top_dir,$(patsubst %/,%,$(dir $1))))
+TOP_DIR := $(realpath $(call top_dir,$(CURDIR)))
+REL_DIR := $(subst $(TOP_DIR)/,,$(CURDIR))
+
+# Run from container image, as recommended by https://github.com/helm/chart-testing#installation
+# `ct` analyses the Git history, so we need to mount the whole repository.
+CT := docker run --mount=type=bind,source=$(TOP_DIR),target=/src,readonly,relabel=shared --workdir=/src/$(REL_DIR) quay.io/helmpack/chart-testing:v3.5.0 ct
+# Manual / local installation
+#CT := ct
+
 VERSION=$(shell cat ../../version)
 export VERSION
 
@@ -32,7 +45,7 @@ ct-test:
 ifeq ($(CI),true)
 	@echo "running on CI no need to test this again! Check chart testing action."
 else
-	ct lint --target-branch main --all --chart-dirs ../ --chart-yaml-schema ci/chart_schema.yaml --lint-conf ci/lintconf.yaml
+	$(CT) lint --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --target-branch=main --chart-dirs=. --charts=.
 endif
 
 test: ct-test kuberpult-$(VERSION).tgz
