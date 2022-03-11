@@ -42,7 +42,7 @@ import { useUnaryCallback } from './Api';
 import type { Application, BatchAction, GetOverviewResponse, Lock } from '../api/api';
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
-import { ConfirmationDialogProvider } from './Batch';
+import { ConfirmationDialogProvider } from './ConfirmationDialog';
 import { Grow, TextField } from '@material-ui/core';
 import AddLockIcon from '@material-ui/icons/EnhancedEncryption';
 

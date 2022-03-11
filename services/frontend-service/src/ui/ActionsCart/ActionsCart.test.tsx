@@ -16,11 +16,10 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import React from 'react';
 import { act, fireEvent, getByText, render } from '@testing-library/react';
-import { callbacks } from '../Batch';
+import { callbacks, ActionsCart } from './ActionsCart';
 import { Spy } from 'spy4js';
 import { BatchAction, LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
-import { ActionsCart } from './ActionsCart';
 
 const mock_useBatch = Spy.mock(callbacks, 'useBatch');
 

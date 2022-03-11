@@ -15,7 +15,6 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { BatchAction, Lock } from '../api/api';
-import { useUnaryCallback } from './Api';
 import * as React from 'react';
 import { Button, Dialog, DialogTitle, IconButton, Typography, Snackbar, Alert, AlertTitle } from '@material-ui/core';
 import { useCallback, useContext } from 'react';
@@ -39,30 +38,6 @@ enum ActionTypes {
     CreateApplicationLock,
     DeleteApplicationLock,
     UNKNOWN,
-}
-
-export const callbacks = {
-    useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
-        useUnaryCallback(
-            React.useCallback(
-                (api) =>
-                    api
-                        .batchService()
-                        .ProcessBatch({
-                            actions: acts,
-                        })
-                        .then(success)
-                        .catch(fail),
-                [acts, success, fail]
-            )
-        ),
-};
-
-export interface ConfirmationDialogProviderProps {
-    children: React.ReactElement;
-    action: BatchAction;
-    locks?: [string, Lock][];
-    fin?: () => void;
 }
 
 const inCart = (actions: BatchAction[], action: BatchAction) =>
@@ -112,6 +87,13 @@ const isConflictingAction = (cartActions: BatchAction[], newAction: BatchAction)
 export const exportedForTesting = {
     isConflictingAction: isConflictingAction,
 };
+
+export interface ConfirmationDialogProviderProps {
+    children: React.ReactElement;
+    action: BatchAction;
+    locks?: [string, Lock][];
+    fin?: () => void;
+}
 
 export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProps) => {
     const { action, locks, fin } = props;
@@ -174,6 +156,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
             <strong>Possible conflict with actions already in cart!</strong>
         </Alert>
     );
+
     return (
         <>
             {React.cloneElement(props.children, {

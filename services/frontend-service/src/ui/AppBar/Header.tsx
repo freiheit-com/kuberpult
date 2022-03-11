@@ -21,7 +21,7 @@ import Typography from '@material-ui/core/Typography';
 import { AppDrawer } from './AppDrawer';
 import * as api from '../../api/api';
 import { LocksDrawer } from './LocksDrawer';
-import { ActionsCart } from './ActionsCart';
+import { ActionsCart } from '../ActionsCart/ActionsCart';
 
 const Header: React.FC<any> = (props: { overview: api.GetOverviewResponse }) => {
     const { overview } = props;

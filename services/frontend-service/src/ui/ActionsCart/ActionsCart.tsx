@@ -29,14 +29,32 @@ import {
     ListItemText,
     Paper,
     Snackbar,
+    Typography,
 } from '@material-ui/core';
 
 import { ClearRounded, Close } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
 import { BatchAction } from '../../api/api';
-import { callbacks, GetActionDetails } from '../Batch';
-import Typography from '@material-ui/core/Typography';
+import { GetActionDetails } from '../ConfirmationDialog';
 import { theme } from '../App/styles';
+import { useUnaryCallback } from '../Api';
+
+export const callbacks = {
+    useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
+        useUnaryCallback(
+            React.useCallback(
+                (api) =>
+                    api
+                        .batchService()
+                        .ProcessBatch({
+                            actions: acts,
+                        })
+                        .then(success)
+                        .catch(fail),
+                [acts, success, fail]
+            )
+        ),
+};
 
 const ActionListItem = (props: { act: BatchAction; index: number }) => {
     const { act, index } = props;
