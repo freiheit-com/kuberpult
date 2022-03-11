@@ -139,45 +139,44 @@ const LockButtonGroup = (props: {
     const { applicationName, addToCart, inCart, message, setMessage, setOpen, open } = props;
     const updateMessage = React.useCallback((e) => setMessage(e.target.value), [setMessage]);
     const openInput = React.useCallback(() => setOpen(true), [setOpen]);
-    if (!inCart) {
-        if (open) {
-            return (
-                <Grow in={open} style={{ transformOrigin: 'right center' }}>
-                    {applicationName ? (
-                        <ButtonGroup className="overlay">
-                            <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
-                            <IconButton onClick={addToCart} disabled={message === ''}>
-                                <AddLockIcon />
-                            </IconButton>
-                        </ButtonGroup>
-                    ) : (
-                        <ButtonGroup className="overlay">
-                            <Button onClick={addToCart} disabled={message === ''}>
-                                Add Lock
-                            </Button>
-                            <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
-                        </ButtonGroup>
-                    )}
-                </Grow>
-            );
-        } else {
-            return applicationName ? (
-                <Tooltip title="Add lock">
-                    <IconButton onClick={openInput}>
-                        <AddLockIcon />
-                    </IconButton>
-                </Tooltip>
-            ) : (
-                <Button onClick={openInput}>Add Lock</Button>
-            );
-        }
-    } else {
+    if (inCart) {
         return applicationName ? (
             <IconButton disabled>
                 <AddLockIcon />
             </IconButton>
         ) : (
             <Button disabled>Add Lock</Button>
+        );
+    }
+    if (open) {
+        return (
+            <Grow in={open} style={{ transformOrigin: 'right center' }}>
+                {applicationName ? (
+                    <ButtonGroup className="overlay">
+                        <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
+                        <IconButton onClick={addToCart} disabled={message === ''}>
+                            <AddLockIcon />
+                        </IconButton>
+                    </ButtonGroup>
+                ) : (
+                    <ButtonGroup className="overlay">
+                        <Button onClick={addToCart} disabled={message === ''}>
+                            Add Lock
+                        </Button>
+                        <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
+                    </ButtonGroup>
+                )}
+            </Grow>
+        );
+    } else {
+        return applicationName ? (
+            <Tooltip title="Add lock">
+                <IconButton onClick={openInput}>
+                    <AddLockIcon />
+                </IconButton>
+            </Tooltip>
+        ) : (
+            <Button onClick={openInput}>Add Lock</Button>
         );
     }
 };
@@ -224,22 +223,21 @@ const DeployButton = (props: {
                 {prefix + currentlyDeployedVersion}
             </Button>
         );
-    } else {
-        if (!inCart) {
-            return (
-                <Tooltip title={queueMessage}>
-                    <Button variant="contained" onClick={addToCart} className={locked ? 'warning' : ''}>
-                        {prefix + version}
-                    </Button>
-                </Tooltip>
-            );
-        } else {
-            return (
-                <Button variant="contained" disabled>
+    }
+    if (!inCart) {
+        return (
+            <Tooltip title={queueMessage}>
+                <Button variant="contained" onClick={addToCart} className={locked ? 'warning' : ''}>
                     {prefix + version}
                 </Button>
-            );
-        }
+            </Tooltip>
+        );
+    } else {
+        return (
+            <Button variant="contained" disabled>
+                {prefix + version}
+            </Button>
+        );
     }
 };
 

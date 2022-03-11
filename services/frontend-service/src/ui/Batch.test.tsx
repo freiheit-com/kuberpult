@@ -37,12 +37,25 @@ const sampleDeployAction: BatchAction = {
     },
 };
 
-const newVersionDeploy: BatchAction = {
+const sampleDeployActionOtherVersion: BatchAction = {
     action: {
         $case: 'deploy',
         deploy: {
             application: 'dummy application',
             version: 30,
+            environment: 'dummy environment',
+            ignoreAllLocks: false,
+            lockBehavior: LockBehavior.Ignore,
+        },
+    },
+};
+
+const sampleDeployActionOtherApplication: BatchAction = {
+    action: {
+        $case: 'deploy',
+        deploy: {
+            application: 'dummy application two',
+            version: 1,
             environment: 'dummy environment',
             ignoreAllLocks: false,
             lockBehavior: LockBehavior.Ignore,
@@ -70,7 +83,7 @@ const sampleCreateEnvLock: BatchAction = {
     },
 };
 
-const newIdEnvLock: BatchAction = {
+const sampleCreateEnvLockOtherId: BatchAction = {
     action: {
         $case: 'createEnvironmentLock',
         createEnvironmentLock: {
@@ -103,7 +116,7 @@ const sampleCreateAppLock: BatchAction = {
     },
 };
 
-const newIdAppLock: BatchAction = {
+const sampleCreateAppLockOtherId: BatchAction = {
     action: {
         $case: 'createEnvironmentApplicationLock',
         createEnvironmentApplicationLock: {
@@ -223,7 +236,7 @@ describe('Confirmation Dialog Provider', () => {
         },
         {
             type: 'Deploy Action With Locks Warning',
-            act: sampleDeployAction,
+            act: sampleDeployActionOtherApplication,
             locks: [['id_1234', { message: 'random lock message' }]],
             expect: {
                 conflict: true,
@@ -232,16 +245,20 @@ describe('Confirmation Dialog Provider', () => {
         },
         {
             type: 'Deploy Action With No Locks Warning',
-            act: sampleDeployAction,
+            act: sampleDeployActionOtherApplication,
             locks: [],
             expect: {
-                conflict: true,
+                conflict: false,
                 title: 'Are you sure you want to deploy this version?',
             },
         },
     ];
 
-    const sampleCartActions: BatchAction[] = [newVersionDeploy, newIdEnvLock, newIdAppLock];
+    const sampleCartActions: BatchAction[] = [
+        sampleDeployActionOtherVersion,
+        sampleCreateEnvLockOtherId,
+        sampleCreateAppLockOtherId,
+    ];
 
     describe.each(data)(`Batch Action Types`, (testcase: dataT) => {
         it(`${testcase.type}`, () => {
@@ -258,8 +275,8 @@ describe('Confirmation Dialog Provider', () => {
             // test for conflicts
             // when adding the same action should be flagged as conflict
             const res = exportedForTesting.isConflictingAction(sampleCartActions, testcase.act);
-            // then
-            expect(res).toBe(testcase.expect.conflict);
+            // then ( this function only checks for conflicting actions. checking for locks is not part of it )
+            if (!testcase.locks) expect(res).toBe(testcase.expect.conflict);
 
             if (testcase.expect.conflict) {
                 // then a dialog shows up
@@ -272,22 +289,21 @@ describe('Confirmation Dialog Provider', () => {
 
                 // then
                 mock_setActions.wasCalledWith([...sampleCartActions, testcase.act], Spy.IGNORE);
-
-                if (testcase.locks) {
-                    if (testcase.locks.length > 0) {
-                        // when there are locks the warning should appear
-                        const d = document.querySelector('.MuiAlert-message');
-                        expect(d?.textContent).toContain(testcase.locks[0][0]);
-                    } else {
-                        // when there are no locks the warning should not appear
-                        const d = document.querySelector('.MuiOutlinedInput-root');
-                        expect(d).not.toBeTruthy();
-                    }
-                }
             } else {
                 // then no dialog will show up
                 expect(document.querySelector('.confirmation-title')).not.toBeTruthy();
                 mock_setActions.wasCalledWith([...sampleCartActions, testcase.act], Spy.IGNORE);
+            }
+            if (testcase.locks) {
+                if (testcase.locks.length > 0) {
+                    // when there are locks the warning should appear
+                    const d = document.querySelector('.MuiAlert-message');
+                    expect(d?.textContent).toContain(testcase.locks[0][0]);
+                } else {
+                    // when there are no locks the warning should not appear
+                    const d = document.querySelector('.MuiAlert-message');
+                    expect(d?.textContent).not.toBeTruthy();
+                }
             }
             if (testcase.fin) {
                 // when a finally function is provided
