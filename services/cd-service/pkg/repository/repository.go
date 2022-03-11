@@ -68,6 +68,7 @@ type repository struct {
 	// Mutex gurading the writer
 	writeLock    sync.Mutex
 	writesDone   uint
+	queue        queue
 	remote       *git.Remote
 	config       *Config
 	credentials  *credentialsStore
@@ -75,9 +76,6 @@ type repository struct {
 
 	repository *git.Repository
 	history    *history.History
-
-	// Testing
-	nextError error
 
 	// Mutex guarding head
 	headLock sync.Mutex
@@ -169,6 +167,7 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				certificates: certificates,
 				repository:   repo2,
 				history:      history.NewHistory(repo2),
+				queue:        makeQueue(),
 			}
 			result.headLock.Lock()
 
@@ -211,10 +210,86 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 			if _, err := result.buildState(); err != nil {
 				return nil, err
 			}
-
+			go result.work(ctx)
 			return result, nil
 		}
 	}
+}
+
+func (r *repository) work(ctx context.Context) {
+	defer func() {
+		close(r.queue.elements)
+		for e := range r.queue.elements {
+			e.result <- nil
+		}
+	}()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case e := <-r.queue.elements:
+			r.workOnce(e)
+		}
+	}
+}
+
+func (r *repository) workOnce(e element) {
+	var err error
+	elements := []element{e}
+	defer func() {
+		for _, el := range elements {
+			el.result <- err
+		}
+	}()
+	pushOptions := git.PushOptions{
+		RemoteCallbacks: git.RemoteCallbacks{
+			CredentialsCallback:      r.credentials.CredentialsCallback(e.ctx),
+			CertificateCheckCallback: r.certificates.CertificateCheckCallback(e.ctx),
+		},
+	}
+	pushAction := func() error {
+		return r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
+	}
+
+	err = r.ApplyTransformers(e.ctx, e.transformers...)
+	if err != nil {
+		return
+	}
+more:
+	for {
+		select {
+		case f := <-r.queue.elements:
+			errf := r.ApplyTransformers(f.ctx, f.transformers...)
+			if errf != nil {
+				f.result <- errf
+				break more
+			}
+			elements = append(elements, f)
+		default:
+			break more
+		}
+	}
+
+	err = r.Push(e.ctx, pushAction)
+	if err != nil {
+		gerr := err.(*git.GitError)
+		if gerr.Code == git.ErrorCodeNonFastForward {
+			err = r.FetchAndReset(e.ctx)
+			if err != nil {
+				return
+			}
+			err = r.ApplyTransformers(e.ctx, e.transformers...)
+			if err != nil {
+				return
+			}
+			if err := r.Push(e.ctx, pushAction); err != nil {
+				err = &InternalError{inner: err}
+			}
+		} else {
+			err = &InternalError{inner: err}
+		}
+	}
+	r.notify.Notify()
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error) {
@@ -331,52 +406,21 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 }
 
 func (r *repository) Apply(ctx context.Context, transformers ...Transformer) error {
-	// Obtain a new worktree
-	r.writeLock.Lock()
-	defer r.writeLock.Unlock()
 	defer func() {
 		r.writesDone = r.writesDone + uint(len(transformers))
 		r.maybeGc(ctx)
 	}()
-	err := r.ApplyTransformers(ctx, transformers...)
-
-	pushOptions := git.PushOptions{
-		RemoteCallbacks: git.RemoteCallbacks{
-			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
-			CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
-		},
-	}
-
-	pushAction := func() error {
-		return r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
-	}
-
-	if err != nil {
+	eCh := r.applyDeferred(ctx, transformers...)
+	select {
+	case err := <-eCh:
 		return err
-	} else {
-
-		if err := r.Push(ctx, pushAction); err != nil {
-			gerr := err.(*git.GitError)
-			if gerr.Code == git.ErrorCodeNonFastForward {
-				err = r.FetchAndReset(ctx)
-				if err != nil {
-					return err
-				}
-				err = r.ApplyTransformers(ctx, transformers...)
-				if err != nil {
-					return err
-				}
-				if err := r.Push(ctx, pushAction); err != nil {
-					return &InternalError{inner: err}
-				}
-			} else {
-				return &InternalError{inner: err}
-			}
-		}
-		r.notify.Notify()
+	case <-ctx.Done():
+		return ctx.Err()
 	}
+}
 
-	return nil
+func (r *repository) applyDeferred(ctx context.Context, transformers ...Transformer) <-chan error {
+	return r.queue.add(ctx, transformers)
 }
 
 func (r *repository) Push(ctx context.Context, pushAction func() error) error {

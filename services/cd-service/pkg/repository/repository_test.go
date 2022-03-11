@@ -440,3 +440,50 @@ func TestRetrySsh(t *testing.T) {
 		})
 	}
 }
+/*
+func TestApplyQueue(t *testing.T) {
+	type SlowTransformer struct {
+		halt chan struct{}
+		ch chan struct{}
+	}
+	func (s *SlowTransformer) Transform(ctx context.Context, fs billy.Filesystem) error {
+		s.ch <- struct{}{}
+		<-s.halt
+		return nil
+	}
+
+	tcs := []struct {
+		Name          string
+	}{
+		{
+			Name: "simple",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+			repo, err := New(
+				t.Context(),
+				Config{
+					URL:         "file://" + remoteDir,
+					Path:        localDir,
+				},
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%e'", err)
+			}
+			halt := make(chan struct{})
+			ch := make(chan struct{},1)
+			slowTransformer := SlowTransformer{halt, ch}
+		})
+	}
+}
+*/
