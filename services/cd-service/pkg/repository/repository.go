@@ -241,6 +241,18 @@ func (r *repository) workOnce(e element) {
 			el.result <- err
 		}
 	}()
+
+	// Try to fetch more items from the queue in order to push more things together
+dispatchmore:
+	for {
+		select {
+		case f := <-r.queue.elements:
+			elements = append(elements, f)
+		default:
+			break dispatchmore
+		}
+	}
+
 	pushOptions := git.PushOptions{
 		RemoteCallbacks: git.RemoteCallbacks{
 			CredentialsCallback:      r.credentials.CredentialsCallback(e.ctx),
@@ -251,23 +263,19 @@ func (r *repository) workOnce(e element) {
 		return r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
 	}
 
-	err = r.ApplyTransformers(e.ctx, e.transformers...)
-	if err != nil {
-		return
-	}
-more:
-	for {
-		select {
-		case f := <-r.queue.elements:
-			errf := r.ApplyTransformers(f.ctx, f.transformers...)
-			if errf != nil {
-				f.result <- errf
-				break more
-			}
-			elements = append(elements, f)
-		default:
-			break more
+	// Apply the items
+	for i := 0 ; i < len(elements) ; {
+		e := elements[i]
+		applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
+		if applyErr != nil {
+			e.result <- applyErr
+			elements = append(elements[:i], elements[i+1:]...)
+		} else {
+			i++
 		}
+	}
+	if( len(elements) == 0 ){
+		return
 	}
 
 	err = r.Push(e.ctx, pushAction)
@@ -278,12 +286,22 @@ more:
 			if err != nil {
 				return
 			}
-			err = r.ApplyTransformers(e.ctx, e.transformers...)
-			if err != nil {
+			// Apply the items
+			for i := 0 ; i < len(elements) ; {
+				e := elements[i]
+				applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
+				if applyErr != nil {
+					e.result <- applyErr
+					elements = append(elements[:i], elements[i+1:]...)
+				} else {
+					i++
+				}
+			}
+			if( len(elements) == 0 ){
 				return
 			}
-			if err := r.Push(e.ctx, pushAction); err != nil {
-				err = &InternalError{inner: err}
+			if pushErr := r.Push(e.ctx, pushAction); pushErr != nil {
+				err = &InternalError{inner: pushErr}
 			}
 		} else {
 			err = &InternalError{inner: err}
