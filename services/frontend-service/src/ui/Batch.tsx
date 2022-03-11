@@ -116,8 +116,7 @@ export const exportedForTesting = {
 export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProps) => {
     const { action, locks, fin } = props;
     const [openNotify, setOpenNotify] = React.useState(false);
-    const [conflict, setConflict] = React.useState(false);
-    const [openDialog, setOpenDialog] = React.useState(false);
+    const [dialogOpen, setDialogOpen] = React.useState(false);
     const { actions, setActions } = useContext(ActionsCartContext);
 
     const openNotification = useCallback(() => {
@@ -134,24 +133,24 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         [setOpenNotify]
     );
 
-    const handleOpen = useCallback(() => {
-        setOpenDialog(true);
-        setOpenNotify(false);
-        setConflict(isConflictingAction(actions, action));
-    }, [setOpenDialog, setOpenNotify, setConflict, actions, action]);
+    const closeDialog = useCallback(() => {
+        setDialogOpen(false);
+    }, [setDialogOpen]);
 
-    const handleClose = useCallback(() => {
-        setOpenDialog(false);
-    }, [setOpenDialog]);
-
-    const closeWhenDone = useCallback(() => {
+    const addAction = useCallback(() => {
         openNotification();
         if (fin) fin();
-        handleClose();
-        if (!inCart(actions, action)) {
-            setActions([...actions, action]);
+        closeDialog();
+        setActions([...actions, action]);
+    }, [fin, closeDialog, openNotification, action, actions, setActions]);
+
+    const handleAddToCart = useCallback(() => {
+        if (isConflictingAction(actions, action) || locks?.length) {
+            setDialogOpen(true);
+        } else {
+            addAction();
         }
-    }, [fin, handleClose, openNotification, action, actions, setActions]);
+    }, [setDialogOpen, addAction, locks, actions, action]);
 
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
@@ -170,19 +169,18 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
             ))}
         </Alert>
     ) : null;
-    const conflictMessage = conflict ? (
+    const conflictMessage = isConflictingAction(actions, action) && (
         <Alert variant="outlined" sx={{ m: 1 }} severity="error">
             <strong>Possible conflict with actions already in cart!</strong>
         </Alert>
-    ) : null;
-
+    );
     return (
         <>
             {React.cloneElement(props.children, {
-                state: inCart(actions, action) ? 'in-cart' : 'not-in-cart',
-                openDialog: handleOpen,
+                inCart: inCart(actions, action),
+                addToCart: handleAddToCart,
             })}
-            <Dialog onClose={handleClose} open={openDialog}>
+            <Dialog onClose={closeDialog} open={dialogOpen}>
                 <DialogTitle sx={{ m: 0, p: 2 }}>
                     <Typography variant="subtitle1" component="div" className="confirmation-title">
                         <span>{GetActionDetails(action).dialogTitle}</span>
@@ -196,7 +194,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                         }}
                         aria-label="close"
                         color="inherit"
-                        onClick={handleClose}>
+                        onClick={closeDialog}>
                         <Close fontSize="small" />
                     </IconButton>
                 </DialogTitle>
@@ -204,8 +202,8 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 {deployLocks}
                 {conflictMessage}
                 <span style={{ alignSelf: 'end' }}>
-                    <Button onClick={handleClose}>Cancel</Button>
-                    <Button onClick={closeWhenDone}>{conflict ? 'Add anyway' : 'Add to cart'}</Button>
+                    <Button onClick={closeDialog}>Cancel</Button>
+                    <Button onClick={addAction}>Add anyway</Button>
                 </span>
             </Dialog>
             <Snackbar

@@ -172,27 +172,20 @@ const ReleaseBox = (props: { name: string; release: Release; envs: Array<Environ
 };
 
 const UndeployButton = (props: {
-    openDialog?: () => void; //
-    state?: string; //
+    addToCart?: () => void; //
+    inCart?: boolean; //
     applicationName: string; //
 }) => {
     const buttonMsg = 'Prepare to Undeploy';
     const tooltipMsg =
         'This will create a new version that is empty. Use this only for services that are not needed anymore.';
-    const btn = (disabled: boolean) => (
+    return (
         <Tooltip title={tooltipMsg}>
-            <Button variant="contained" onClick={props.openDialog} disabled={disabled}>
+            <Button variant="contained" onClick={props.addToCart} disabled={props.inCart}>
                 <span style={{ fontSize: '0.5rem' }}>{buttonMsg}</span>
             </Button>
         </Tooltip>
     );
-    switch (props.state) {
-        case 'not-in-cart':
-            return btn(false);
-        case 'in-cart':
-            return btn(true);
-    }
-    return null;
 };
 
 const ApplicationBox: React.FC<any> = (props: {
