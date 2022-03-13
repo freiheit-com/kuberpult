@@ -18,43 +18,23 @@ import * as React from 'react';
 import { useCallback, useContext } from 'react';
 import { useBeforeunload } from 'react-beforeunload';
 import {
+    AppBar,
     Avatar,
-    Button,
-    CircularProgress,
     Drawer,
     IconButton,
     List,
     ListItem,
     ListItemAvatar,
     ListItemText,
-    Paper,
-    Snackbar,
     Typography,
 } from '@material-ui/core';
 
-import { ClearRounded, Close } from '@material-ui/icons';
+import { ClearRounded } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
 import { BatchAction } from '../../api/api';
 import { GetActionDetails } from '../ConfirmationDialog';
 import { theme } from '../App/styles';
-import { useUnaryCallback } from '../Api';
-
-export const callbacks = {
-    useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
-        useUnaryCallback(
-            React.useCallback(
-                (api) =>
-                    api
-                        .batchService()
-                        .ProcessBatch({
-                            actions: acts,
-                        })
-                        .then(success)
-                        .catch(fail),
-                [acts, success, fail]
-            )
-        ),
-};
+import { CheckoutCart } from './CheckoutDialog';
 
 const ActionListItem = (props: { act: BatchAction; index: number }) => {
     const { act, index } = props;
@@ -76,17 +56,8 @@ const ActionListItem = (props: { act: BatchAction; index: number }) => {
     );
 };
 
-const ActionsList = (props: { openNotification: (msg: string) => void }) => {
-    const { openNotification } = props;
-    const { actions, setActions } = useContext(ActionsCartContext);
-    const actionsSucceeded = useCallback(() => {
-        setActions([]);
-        openNotification('Actions were applied successfully!');
-    }, [setActions, openNotification]);
-    const actionsFailed = useCallback(() => {
-        openNotification('Actions were not applied. Please try again!');
-    }, [openNotification]);
-    const [doActions, doActionsState] = callbacks.useBatch(actions, actionsSucceeded, actionsFailed);
+const ActionsList = () => {
+    const { actions } = useContext(ActionsCartContext);
 
     useBeforeunload((e) => {
         if (actions.length) {
@@ -101,6 +72,7 @@ const ActionsList = (props: { openNotification: (msg: string) => void }) => {
                 flexDirection: 'column',
                 justifyContent: 'space-between',
                 height: '100vh',
+                paddingTop: '30px',
             }}>
             <List className="actions" sx={{ width: '100%', bgcolor: 'background.paper' }}>
                 {actions.map((act: BatchAction, index: number) => (
@@ -112,108 +84,29 @@ const ActionsList = (props: { openNotification: (msg: string) => void }) => {
                     {'Cart Is Currently Empty,\nPlease Add Actions!'}
                 </Typography>
             ) : null}
-            <ApplyButton actions={actions} doActions={doActions} state={doActionsState.state} />
+            <CheckoutCart />
         </div>
     );
 };
 
-const ApplyButton = (props: { actions: BatchAction[]; doActions: () => void; state: string }) => {
-    const { actions, doActions, state } = props;
-    if (actions.length === 0) {
-        return (
-            <Button sx={{ display: 'flex', height: '5%' }} variant={'contained'} disabled>
-                <Typography variant="h6">
-                    <strong>Apply</strong>
-                </Typography>
-            </Button>
-        );
-    } else {
-        switch (state) {
-            case 'rejected':
-            case 'resolved':
-            case 'waiting':
-                return (
-                    <Button
-                        sx={{ display: 'flex', height: '5%' }}
-                        onClick={doActions}
-                        variant={'contained'}
-                        disabled={actions.length === 0}>
-                        <Typography variant="h6">
-                            <strong>Apply</strong>
-                        </Typography>
-                    </Button>
-                );
-            case 'pending':
-                return (
-                    <Button sx={{ display: 'flex', height: '5%' }} variant={'contained'} disabled>
-                        <CircularProgress size={20} />
-                    </Button>
-                );
-            default:
-                return (
-                    <Button sx={{ display: 'flex', height: '5%' }} variant={'contained'} disabled>
-                        Failed
-                    </Button>
-                );
-        }
-    }
-};
-
-export const ActionsCart = () => {
-    const [openNotify, setOpenNotify] = React.useState(false);
-    const [notifyMessage, setNotifyMessage] = React.useState('');
-    const openNotification = useCallback(
-        (msg: string) => {
-            setNotifyMessage(msg);
-            setOpenNotify(true);
-        },
-        [setOpenNotify, setNotifyMessage]
-    );
-
-    const closeNotification = useCallback(
-        (event: React.SyntheticEvent | React.MouseEvent, reason?: string) => {
-            if (reason === 'clickaway') {
-                return;
-            }
-            setOpenNotify(false);
-        },
-        [setOpenNotify]
-    );
-
-    const closeIcon = (
-        <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
-            <Close fontSize="small" />
-        </IconButton>
-    );
-
-    return (
-        <>
-            <Drawer
-                className="cart-drawer"
-                anchor={'right'}
-                variant={'permanent'}
-                sx={{
-                    width: '14%',
-                    flexShrink: 0,
-                    '& .MuiDrawer-paper': {
-                        width: '14%',
-                        boxSizing: 'border-box',
-                    },
-                }}>
-                <Paper sx={{ background: theme.palette.primary.main }} square>
-                    <Typography variant="h6" align={'center'} color={theme.palette.grey[900]} padding={'3px'}>
-                        <strong>Planned Actions</strong>
-                    </Typography>
-                </Paper>
-                <ActionsList openNotification={openNotification} />
-            </Drawer>
-            <Snackbar
-                open={openNotify}
-                autoHideDuration={6000}
-                onClose={closeNotification}
-                message={notifyMessage}
-                action={closeIcon}
-            />
-        </>
-    );
-};
+export const ActionsCart = () => (
+    <Drawer
+        className="cart-drawer"
+        anchor={'right'}
+        variant={'permanent'}
+        sx={{
+            width: '14%',
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+                width: '14%',
+                boxSizing: 'border-box',
+            },
+        }}>
+        <AppBar sx={{ width: 'inherit' }}>
+            <Typography variant="h6" align={'center'} noWrap color={theme.palette.grey[900]} padding={'3px'}>
+                <strong>{'Planned Actions'}</strong>
+            </Typography>
+        </AppBar>
+        <ActionsList />
+    </Drawer>
+);

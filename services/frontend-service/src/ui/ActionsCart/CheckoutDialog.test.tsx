@@ -15,25 +15,23 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import React from 'react';
-import { fireEvent, getByText, render } from '@testing-library/react';
-import { ActionsCart } from './ActionsCart';
+import { act, fireEvent, getByText, render } from '@testing-library/react';
 import { Spy } from 'spy4js';
 import { BatchAction, LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
-//import { callbacks } from './CheckoutDialog';
+import { callbacks, CheckoutCart } from './CheckoutDialog';
 
-//const mock_useBatch = Spy.mock(callbacks, 'useBatch');
+const mock_useBatch = Spy.mock(callbacks, 'useBatch');
 
-Spy.mockReactComponents('./CheckoutDialog', 'CheckoutCart');
 const mock_setActions = Spy('setActions');
-//const doActionsSpy = Spy('doActionsSpy');
+const doActionsSpy = Spy('doActionsSpy');
 
-describe('Actions Cart', () => {
+describe('Checkout Dialog', () => {
     const getNode = (actions?: BatchAction[]) => {
         const value = { actions: actions ?? [], setActions: mock_setActions };
         return (
             <ActionsCartContext.Provider value={value}>
-                <ActionsCart />
+                <CheckoutCart />
             </ActionsCartContext.Provider>
         );
     };
@@ -42,9 +40,6 @@ describe('Actions Cart', () => {
     interface dataT {
         type: string;
         cart: BatchAction[];
-        expect: {
-            cartEmptyMessage?: string;
-        };
     }
 
     const data: dataT[] = [
@@ -85,57 +80,43 @@ describe('Actions Cart', () => {
                     },
                 },
             ],
-            expect: {},
         },
         {
             type: 'No actions',
             cart: [],
-            expect: {
-                cartEmptyMessage: 'Cart Is Currently Empty,\nPlease Add Actions!',
-            },
         },
     ];
 
-    describe.each(data)(`Cart with`, (testcase: dataT) => {
+    describe.each(data)(`Checkout with`, (testcase: dataT) => {
         it(`${testcase.type}`, () => {
             // given
-            //mock_useBatch.useBatch.returns([doActionsSpy, { state: 'waiting' }]);
+            mock_useBatch.useBatch.returns([doActionsSpy, { state: 'waiting' }]);
             const { container } = getWrapper(testcase.cart);
 
-            // when rendered
-            expect(getByText(container, /planned actions/i)).toBeTruthy();
-
-            // then
-            const list = document.querySelector('.actions');
-            expect(list?.children.length).toBe(testcase.cart.length);
-            //mock_useBatch.useBatch.wasCalledWith(testcase.cart, Spy.IGNORE, Spy.IGNORE);
-
-            // when
-            //const a = getByText(document.querySelector('.cart-drawer')! as HTMLElement, /checkout/i).closest('button');
             if (testcase.cart.length === 0) {
-                expect(document.querySelector('.cart-drawer')?.textContent).toContain(testcase.expect.cartEmptyMessage);
-                //expect(a).toBeDisabled();
+                expect(getByText(container, /checkout/i).closest('button')).toBeDisabled();
             } else {
-                // when deleting an item from cart
-                const item1 = list?.children[1];
-                fireEvent.click(item1?.querySelector('button')!);
+                // when open dialog
+                expect(getByText(container, /checkout/i).closest('button')).not.toBeDisabled();
+                fireEvent.click(getByText(container, /checkout/i)!);
 
                 // then
-                mock_setActions.wasCalledWith(testcase.cart.filter((_, i) => i !== 1));
+                mock_useBatch.useBatch.wasCalledWith(testcase.cart, Spy.IGNORE, Spy.IGNORE);
 
-                // when clicking apply
-                //expect(a).not.toBeDisabled();
-                //fireEvent.click(a!);
+                // when click yes
+                const d = document.querySelector('.MuiDialog-root');
+                const y = getByText(d! as HTMLElement, /yes/i).closest('button');
+                fireEvent.click(y!);
 
                 // then
-                //doActionsSpy.wasCalled();
+                doActionsSpy.wasCalled();
 
                 // when do the actions that useBatch is expected to do
-                //act(() => {
-                //    mock_useBatch.useBatch.getCallArguments()[1]();
-                //});
+                act(() => {
+                    mock_useBatch.useBatch.getCallArguments()[1]();
+                });
                 // then
-                //mock_setActions.wasCalledWith([]);
+                mock_setActions.wasCalledWith([]);
             }
         });
     });
