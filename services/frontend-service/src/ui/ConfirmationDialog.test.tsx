@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { fireEvent, getByText, render } from '@testing-library/react';
-import { ConfirmationDialogProvider, ConfirmationDialogProviderProps, exportedForTesting } from './Batch';
+import { ConfirmationDialogProvider, ConfirmationDialogProviderProps, exportedForTesting } from './ConfirmationDialog';
 import { Button } from '@material-ui/core';
 import { Spy } from 'spy4js';
 import { BatchAction, Lock, LockBehavior } from '../api/api';

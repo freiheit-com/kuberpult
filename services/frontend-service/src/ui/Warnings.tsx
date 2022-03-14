@@ -20,7 +20,7 @@ import DeleteOutlineIcon from '@material-ui/icons/DeleteOutline';
 import type { Environment, Release, BatchAction } from '../api/api';
 import { Tooltip } from '@material-ui/core';
 import { useMemo } from 'react';
-import { ConfirmationDialogProvider } from './Batch';
+import { ConfirmationDialogProvider } from './ConfirmationDialog';
 import IconButton from '@material-ui/core/IconButton';
 
 export enum DeployState {

@@ -36,7 +36,7 @@ import type { Application, Environment, Release, GetOverviewResponse } from '../
 import { Warnings } from './Warnings';
 import { BatchAction } from '../api/api';
 import { useMemo } from 'react';
-import { ConfirmationDialogProvider } from './Batch';
+import { ConfirmationDialogProvider } from './ConfirmationDialog';
 import Button from '@material-ui/core/Button';
 export type EnvSortOrder = { [index: string]: number };
 
