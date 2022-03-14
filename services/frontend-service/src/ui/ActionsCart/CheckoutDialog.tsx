@@ -117,7 +117,7 @@ export const CheckoutCart = () => {
             variant={'contained'}
             disabled={actions.length === 0 || dialogOpen}>
             <Typography variant="h6">
-                <strong>Checkout</strong>
+                <strong>Apply</strong>
             </Typography>
         </Button>
     );

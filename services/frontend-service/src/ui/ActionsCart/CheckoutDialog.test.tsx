@@ -93,12 +93,13 @@ describe('Checkout Dialog', () => {
             mock_useBatch.useBatch.returns([doActionsSpy, { state: 'waiting' }]);
             const { container } = getWrapper(testcase.cart);
 
+            const applyButton = getByText(container, /apply/i).closest('button');
             if (testcase.cart.length === 0) {
-                expect(getByText(container, /checkout/i).closest('button')).toBeDisabled();
+                expect(applyButton).toBeDisabled();
             } else {
                 // when open dialog
-                expect(getByText(container, /checkout/i).closest('button')).not.toBeDisabled();
-                fireEvent.click(getByText(container, /checkout/i)!);
+                expect(applyButton).not.toBeDisabled();
+                fireEvent.click(applyButton!);
 
                 // then
                 mock_useBatch.useBatch.wasCalledWith(testcase.cart, Spy.IGNORE, Spy.IGNORE);
