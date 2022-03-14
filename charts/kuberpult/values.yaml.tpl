@@ -73,6 +73,6 @@ dogstatsdMetrics:
 
 imagePullSecrets: []
 
-gcp:
-  project_id: ""
+gke:
+  backend_service_id: ""
   project_number: ""

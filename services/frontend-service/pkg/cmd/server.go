@@ -37,18 +37,21 @@ import (
 
 type Config struct {
 	CdServer            string `default:"kuberpult-cd-service:8443"`
-	GoogleProjectNumber string `default:"" split_words:"true"`
-	GoogleProjectID     string `default:"" split_words:"true"`
+	GKEProjectNumber    string `default:"" split_words:"true"`
+	GKEBackendServiceID string `default:"" split_words:"true"`
 }
+
+var c Config
 
 func RunServer() {
 	logger.Wrap(context.Background(), func(ctx context.Context) error {
-
-		var c Config
 		err := envconfig.Process("kuberpult", &c)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse", zap.Error(err))
 		}
+
+		logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
+		logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
 
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 
@@ -131,25 +134,24 @@ type Auth struct {
 	HttpServer http.Handler
 }
 
-func getRequestAuthor(r *http.Request) *auth.User {
-	ctx := r.Context()
-
-	var c Config
-
-	err := envconfig.Process("kuberpult", &c)
-	if err != nil {
-		return auth.DefaultUser
-	}
-
+func getRequestAuthor(ctx context.Context, r *http.Request) *auth.User {
 	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
 	if iapJWT == "" {
 		// not using iap (local), default user
+		logger.FromContext(ctx).Info("iap.jwt header was not found or doesn't exist")
 		return auth.DefaultUser
 	}
 
-	aud := fmt.Sprintf("/projects/%s/apps/%s", c.GoogleProjectNumber, c.GoogleProjectID)
+	if c.GKEProjectNumber == "" || c.GKEBackendServiceID == "" {
+		// environment variables not set up correctly
+		logger.FromContext(ctx).Info("iap.jke environment variables are not set up correctly")
+		return auth.DefaultUser
+	}
+
+	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
 	payload, err := idtoken.Validate(ctx, iapJWT, aud)
 	if err != nil {
+		logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
 		return auth.DefaultUser
 	}
 
@@ -163,8 +165,11 @@ func getRequestAuthor(r *http.Request) *auth.User {
 }
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	u := getRequestAuthor(r)
-	p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(r.Context(), u)))
+	logger.Wrap(r.Context(), func(ctx context.Context) error {
+		u := getRequestAuthor(ctx, r)
+		p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(ctx, u)))
+		return nil
+	})
 }
 
 // splits of grpc-traffic
