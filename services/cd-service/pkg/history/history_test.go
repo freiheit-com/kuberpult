@@ -298,15 +298,11 @@ func assertChangedAtNthCommit(t *testing.T, actualCommit *git.Commit, expectedPo
 	t.Errorf("wrong changed commit, expected %d, actually not any known commit", expectedPosition)
 }
 
-func BenchmarkHistoryNew(b *testing.B){
-	benchmarkHistory(b, false)
+func BenchmarkHistory(b *testing.B){
+	benchmarkHistory(b)
 }
 
-func BenchmarkHistoryOld(b *testing.B){
-	benchmarkHistory(b, true)
-}
-
-func benchmarkHistory(b *testing.B, useOldAlg bool) {
+func benchmarkHistory(b *testing.B) {
 	names := []string{"a", "b", "c", "d", "e", "f"}
 	dir := b.TempDir()
 	repo, err := git.InitRepository(dir, true)
@@ -352,7 +348,6 @@ func benchmarkHistory(b *testing.B, useOldAlg bool) {
 	// Test it!
 	for n := 0; n < b.N; n++ {
 		h := NewHistory(repo)
-		h.useOldAlg = useOldAlg
 		for i := 0; i < 100; i++ {
 			for _, name := range names {
 				_, err = h.Change(commit, []string{"applications", name,"versions", strconv.Itoa(i), "manifest"})
