@@ -23,9 +23,75 @@ import (
 	git "github.com/libgit2/git2go/v33"
 )
 
+type cacheNode struct {
+	children  map[string]*cacheNode
+	changedAt *git.Commit
+	cost      uint
+	reads     uint
+	hits      uint
+}
+
+func (c *cacheNode) get(name string) *cacheNode {
+	if c == nil {
+		return nil
+	}
+	child := c.children[name]
+	if child == nil {
+		child = newCacheNode()
+		c.children[name] = child
+	}
+	child.reads = child.reads + 1
+	return child
+}
+
+func (c *cacheNode) found(commit *git.Commit, cost uint) {
+	c.changedAt = commit
+	c.cost = cost
+}
+
+func (c *cacheNode) changed() *git.Commit {
+	if c == nil {
+		return nil
+	}
+	if c.changedAt != nil {
+		c.hits = c.hits + 1
+	}
+	return c.changedAt
+}
+
+func newCacheNode() *cacheNode {
+	return &cacheNode{
+		children: map[string]*cacheNode{},
+	}
+}
+
+type Cache struct {
+	roots map[[20]byte]*cacheNode
+}
+
+func (c *Cache) put(commitId [20]byte) *cacheNode {
+	if c == nil {
+		return newCacheNode()
+	}
+	node := newCacheNode()
+	c.roots[commitId] = node
+	return node
+}
+func (c *Cache) get(commitId [20]byte) *cacheNode {
+	if c == nil {
+		return nil
+	}
+	root := c.roots[commitId]
+	if root != nil {
+		root.reads = root.reads + 1
+	}
+	return root
+}
+
 type History struct {
 	repository *git.Repository
 	commits    map[git.Oid]*CommitHistory
+	cache      *Cache
 }
 
 type NotExists struct {
@@ -50,7 +116,7 @@ func (h *History) Change(from *git.Commit, path []string) (*git.Commit, error) {
 	var err error
 	ch := h.commits[*from.Id()]
 	if ch == nil {
-		ch, err = NewCommitHistory(h.repository, from)
+		ch, err = NewCommitHistory(h.repository, from, h.cache)
 		if err != nil {
 			return nil, err
 		}
@@ -66,6 +132,9 @@ func NewHistory(repo *git.Repository) *History {
 	return &History{
 		repository: repo,
 		commits:    map[git.Oid]*CommitHistory{},
+		cache: &Cache{
+			roots: map[[20]byte]*cacheNode{},
+		},
 	}
 }
 
@@ -74,15 +143,16 @@ type CommitHistory struct {
 	commit     *git.Commit
 	current    *git.Commit
 	root       *treeNode
+	cache      *Cache
 }
 
-func NewCommitHistory(repo *git.Repository, commit *git.Commit) (*CommitHistory, error) {
+func NewCommitHistory(repo *git.Repository, commit *git.Commit, cache *Cache) (*CommitHistory, error) {
 	entry := git.TreeEntry{
 		Id:       commit.TreeId(),
 		Type:     git.ObjectTree,
 		Filemode: git.FilemodeTree,
 	}
-	root, err := newTreeNode(repo, &entry)
+	root, err := newTreeNode(repo, &entry, cache.put(*commit.Id()))
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +161,7 @@ func NewCommitHistory(repo *git.Repository, commit *git.Commit) (*CommitHistory,
 		commit:     commit,
 		current:    commit,
 		root:       root,
+		cache:      cache,
 	}, nil
 }
 
@@ -109,11 +180,12 @@ func (h *CommitHistory) Change(path []string) (*git.Commit, error) {
 			if parent != nil {
 				parentTreeId = parent.TreeId()
 			}
+			cache := h.cache.get(*h.current.Id())
 			h.root.push(h.current, &git.TreeEntry{
 				Id:       parentTreeId,
 				Type:     git.ObjectTree,
 				Filemode: git.FilemodeTree,
-			})
+			}, cache)
 			h.current = parent
 		}
 	}
@@ -127,16 +199,19 @@ type treeEntry struct {
 type queueEntry struct {
 	commit *git.Commit
 	entry  *git.TreeEntry
+	cache  *cacheNode
 }
 
 type treeNode struct {
-	entry    *git.TreeEntry
-	children map[string]*treeNode
-	queue    []queueEntry
-	commit   *git.Commit
+	entry      *git.TreeEntry
+	children   map[string]*treeNode
+	queue      []queueEntry
+	commit     *git.Commit
+	writeCache *cacheNode
+	cost       uint
 }
 
-func newTreeNode(r *git.Repository, t *git.TreeEntry) (*treeNode, error) {
+func newTreeNode(r *git.Repository, t *git.TreeEntry, writeCache *cacheNode) (*treeNode, error) {
 	var children map[string]*treeNode
 	if t.Type == git.ObjectTree {
 		tree, err := r.LookupTree(t.Id)
@@ -146,18 +221,18 @@ func newTreeNode(r *git.Repository, t *git.TreeEntry) (*treeNode, error) {
 		children = make(map[string]*treeNode, tree.EntryCount())
 		for i := uint64(0); i < tree.EntryCount(); i++ {
 			entry := tree.EntryByIndex(i)
-			child, err := newTreeNode(r, entry)
+			child, err := newTreeNode(r, entry, writeCache.get(entry.Name))
 			if err != nil {
 				return nil, err
 			}
 			children[entry.Name] = child
-
 		}
 	}
 	return &treeNode{
-		entry:    t,
-		children: children,
-		queue:    []queueEntry{},
+		entry:      t,
+		children:   children,
+		queue:      []queueEntry{},
+		writeCache: writeCache,
 	}, nil
 }
 
@@ -170,7 +245,7 @@ func (t *treeNode) work(r *git.Repository) error {
 	for i, q := range queue {
 		if q.entry.Id == &oidZero {
 			for _, node := range t.children {
-				node.push(q.commit, nil)
+				node.push(q.commit, nil, nil)
 			}
 		} else {
 			tree, err := r.LookupTree(q.entry.Id)
@@ -180,7 +255,7 @@ func (t *treeNode) work(r *git.Repository) error {
 			}
 			for name, node := range t.children {
 				entry := tree.EntryByName(name)
-				node.push(q.commit, entry)
+				node.push(q.commit, entry, q.cache.get(name))
 			}
 		}
 	}
@@ -204,17 +279,24 @@ func (t *treeNode) seek(r *git.Repository, i int, path []string) (*git.Commit, e
 }
 
 var oidZero git.Oid = [20]byte{0}
+var zeroEntry git.TreeEntry = git.TreeEntry{Id: &oidZero}
 
-func (t *treeNode) push(commit *git.Commit, entry *git.TreeEntry) {
+func (t *treeNode) push(commit *git.Commit, entry *git.TreeEntry, cache *cacheNode) {
 	if entry == nil {
-		entry = &git.TreeEntry{Id: &oidZero}
+		entry = &zeroEntry
 	}
+	t.cost = t.cost + 1
 	if t.commit == nil {
 		if !t.entry.Id.Equal(entry.Id) {
 			t.commit = commit
+			t.writeCache.found(commit, t.cost)
+		}
+		if c := cache.changed(); c != nil {
+			t.commit = c
 		}
 	}
 	if t.entry.Filemode == git.FilemodeTree {
+		if cache == nil {
 		if len(t.queue) == 0 {
 			if t.entry.Id.Equal(entry.Id) {
 				return
@@ -222,9 +304,11 @@ func (t *treeNode) push(commit *git.Commit, entry *git.TreeEntry) {
 		} else if t.queue[len(t.queue)-1].entry.Id == entry.Id {
 			return
 		}
+	}
 		t.queue = append(t.queue, queueEntry{
 			commit: commit,
 			entry:  entry,
+			cache:  cache,
 		})
 	}
 }

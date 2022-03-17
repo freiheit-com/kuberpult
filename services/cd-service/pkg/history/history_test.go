@@ -298,11 +298,15 @@ func assertChangedAtNthCommit(t *testing.T, actualCommit *git.Commit, expectedPo
 	t.Errorf("wrong changed commit, expected %d, actually not any known commit", expectedPosition)
 }
 
-func BenchmarkHistory(b *testing.B){
-	benchmarkHistory(b)
+func BenchmarkHistoryNoCache(b *testing.B) {
+	benchmarkHistory(b, false)
 }
 
-func benchmarkHistory(b *testing.B) {
+func BenchmarkHistoryCache(b *testing.B) {
+	benchmarkHistory(b, true)
+}
+
+func benchmarkHistory(b *testing.B, cache bool) {
 	names := []string{"a", "b", "c", "d", "e", "f"}
 	dir := b.TempDir()
 	repo, err := git.InitRepository(dir, true)
@@ -312,11 +316,11 @@ func benchmarkHistory(b *testing.B) {
 	parent := []*git.Oid{}
 	tree := fs.NewEmptyTreeBuildFS(repo)
 	for i := 0; i < 100; i++ {
-	sig := git.Signature{
-		Name:  "test",
-		Email: "test@test.com",
-		When:  time.Unix(int64(i), 0),
-	}
+		sig := git.Signature{
+			Name:  "test",
+			Email: "test@test.com",
+			When:  time.Unix(int64(i), 0),
+		}
 		for _, name := range names {
 
 			err := tree.MkdirAll(tree.Join("applications", name, "versions", strconv.Itoa(i)), 0755)
@@ -343,19 +347,40 @@ func benchmarkHistory(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	b.ResetTimer()
 
-	// Test it!
-	for n := 0; n < b.N; n++ {
-		h := NewHistory(repo)
-		for i := 0; i < 100; i++ {
+	warmup := NewHistory(repo)
+
+	if cache {
+		p := commit.Parent(0)
+		for i := 0; i < 99; i++ {
 			for _, name := range names {
-				_, err = h.Change(commit, []string{"applications", name,"versions", strconv.Itoa(i), "manifest"})
+				_, err = warmup.Change(p, []string{"applications", name, "versions", strconv.Itoa(i), "manifest"})
 				if err != nil {
 					b.Fatal(err)
 				}
 			}
 		}
+	}
+
+	b.ResetTimer()
+
+	// Test it!
+	for n := 0; n < b.N; n++ {
+		h := NewHistory(repo)
+		if cache {
+			h.cache = warmup.cache
+		} else {
+			h.cache = nil
+		}
+		for i := 0; i < 100; i++ {
+			for _, name := range names {
+				_, err = h.Change(commit, []string{"applications", name, "versions", strconv.Itoa(i), "manifest"})
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+		//dumpCosts(b, h.commits[*commit.Id()])
 	}
 }
 
@@ -375,5 +400,21 @@ func dumpFs(t *testing.B, fs billy.Filesystem, indent string) {
 				dumpFs(t, ch, indent+"  ")
 			}
 		}
+	}
+}
+func dumpCosts(t *testing.B, ch *CommitHistory) {
+	t.Logf("Cost: %d", ch.root.cost)
+}
+
+func dumpCacheNode(t *testing.B, ch *cacheNode, indent string) {
+	for name, node := range ch.children {
+		t.Logf("%s%s ( c=%d, h=%d, r=%d )\n", indent, name, node.cost, node.hits, node.reads)
+		dumpCacheNode(t, node, indent+"  ")
+	}
+}
+func dumpCache(t *testing.B, ch *Cache) {
+	for id, node := range ch.roots {
+		t.Logf("%x\n", id)
+		dumpCacheNode(t, node, " ")
 	}
 }
