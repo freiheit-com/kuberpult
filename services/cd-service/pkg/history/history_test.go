@@ -402,19 +402,7 @@ func dumpFs(t *testing.B, fs billy.Filesystem, indent string) {
 		}
 	}
 }
+
 func dumpCosts(t *testing.B, ch *CommitHistory) {
 	t.Logf("Cost: %d", ch.root.cost)
-}
-
-func dumpCacheNode(t *testing.B, ch *cacheNode, indent string) {
-	for name, node := range ch.children {
-		t.Logf("%s%s ( c=%d, h=%d, r=%d )\n", indent, name, node.cost, node.hits, node.reads)
-		dumpCacheNode(t, node, indent+"  ")
-	}
-}
-func dumpCache(t *testing.B, ch *Cache) {
-	for id, node := range ch.roots {
-		t.Logf("%x\n", id)
-		dumpCacheNode(t, node, " ")
-	}
 }

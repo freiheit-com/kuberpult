@@ -19,32 +19,36 @@ package history
 import (
 	"fmt"
 	"strings"
+	"sync"
 
+	"github.com/hashicorp/golang-lru"
 	git "github.com/libgit2/git2go/v33"
 )
 
 type cacheNode struct {
+	mx        sync.Mutex
 	children  map[string]*cacheNode
 	changedAt *git.Commit
 	cost      uint
-	reads     uint
-	hits      uint
 }
 
 func (c *cacheNode) get(name string) *cacheNode {
 	if c == nil {
 		return nil
 	}
+	c.mx.Lock()
+	defer c.mx.Unlock()
 	child := c.children[name]
 	if child == nil {
 		child = newCacheNode()
 		c.children[name] = child
 	}
-	child.reads = child.reads + 1
 	return child
 }
 
 func (c *cacheNode) found(commit *git.Commit, cost uint) {
+	c.mx.Lock()
+	defer c.mx.Unlock()
 	c.changedAt = commit
 	c.cost = cost
 }
@@ -53,9 +57,8 @@ func (c *cacheNode) changed() *git.Commit {
 	if c == nil {
 		return nil
 	}
-	if c.changedAt != nil {
-		c.hits = c.hits + 1
-	}
+	c.mx.Lock()
+	defer c.mx.Unlock()
 	return c.changedAt
 }
 
@@ -66,7 +69,7 @@ func newCacheNode() *cacheNode {
 }
 
 type Cache struct {
-	roots map[[20]byte]*cacheNode
+	roots *lru.Cache
 }
 
 func (c *Cache) put(commitId [20]byte) *cacheNode {
@@ -74,18 +77,22 @@ func (c *Cache) put(commitId [20]byte) *cacheNode {
 		return newCacheNode()
 	}
 	node := newCacheNode()
-	c.roots[commitId] = node
-	return node
+	previous, ok, _ := c.roots.PeekOrAdd(commitId, node)
+	if ok {
+		return previous.(*cacheNode)
+	} else {
+		return node
+	}
 }
 func (c *Cache) get(commitId [20]byte) *cacheNode {
 	if c == nil {
 		return nil
 	}
-	root := c.roots[commitId]
-	if root != nil {
-		root.reads = root.reads + 1
+	root, ok := c.roots.Get(commitId)
+	if ok {
+		return root.(*cacheNode)
 	}
-	return root
+	return nil
 }
 
 type History struct {
@@ -129,13 +136,22 @@ func NewHistory(repo *git.Repository) *History {
 	if repo == nil {
 		panic("nil repository passed to NewHistory")
 	}
+	roots, err := lru.New(10)
+	if err != nil {
+		// lru.New returns an error when size is negative
+		panic(err)
+	}
 	return &History{
 		repository: repo,
 		commits:    map[git.Oid]*CommitHistory{},
 		cache: &Cache{
-			roots: map[[20]byte]*cacheNode{},
+			roots: roots,
 		},
 	}
+}
+
+func (h *History) Of(from *git.Commit) (*CommitHistory, error) {
+	return NewCommitHistory(h.repository, from, h.cache)
 }
 
 type CommitHistory struct {
@@ -206,7 +222,6 @@ type treeNode struct {
 	entry      *git.TreeEntry
 	children   map[string]*treeNode
 	queue      []queueEntry
-	commit     *git.Commit
 	writeCache *cacheNode
 	cost       uint
 }
@@ -268,7 +283,7 @@ func (t *treeNode) seek(r *git.Repository, i int, path []string) (*git.Commit, e
 		return nil, err
 	}
 	if len(path) == i {
-		return t.commit, nil
+		return t.writeCache.changed(), nil
 	}
 	needle := path[i]
 	child := t.children[needle]
@@ -286,13 +301,12 @@ func (t *treeNode) push(commit *git.Commit, entry *git.TreeEntry, cache *cacheNo
 		entry = &zeroEntry
 	}
 	t.cost = t.cost + 1
-	if t.commit == nil {
+	if t.writeCache.changed() == nil {
 		if !t.entry.Id.Equal(entry.Id) {
-			t.commit = commit
 			t.writeCache.found(commit, t.cost)
 		}
 		if c := cache.changed(); c != nil {
-			t.commit = c
+			t.writeCache.found(commit, t.cost)
 		}
 	}
 	if t.entry.Filemode == git.FilemodeTree {
