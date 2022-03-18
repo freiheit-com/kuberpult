@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.4.11
+
+**released 2022-03-18**
+
+## Added
+* Added support in helm chart to customize the size of cd servcie PVC disk. [#116](https://github.com/freiheit-com/kuberpult/pull/116)
+
 ## 0.4.0
 
 **released 2022-02-01**
@@ -8,8 +15,8 @@
 - Persist Action Authors in Manifest repo [#69](https://github.com/freiheit-com/kuberpult/pull/69)
 
 ## Changed
- 
-- health check improvement [#76](https://github.com/freiheit-com/kuberpult/pull/76) 
+
+- health check improvement [#76](https://github.com/freiheit-com/kuberpult/pull/76)
 - Reimplement History.Change in a much faster way [#47](https://github.com/freiheit-com/kuberpult/pull/47)
 
 ## 0.2.5
