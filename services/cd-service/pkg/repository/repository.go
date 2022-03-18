@@ -247,7 +247,12 @@ dispatchmore:
 	for {
 		select {
 		case f := <-r.queue.elements:
-			elements = append(elements, f)
+			// Check that the item is not already cancelled
+			select {
+			case <-f.ctx.Done():
+			default:
+				elements = append(elements, f)
+			}
 		default:
 			break dispatchmore
 		}
@@ -278,9 +283,11 @@ dispatchmore:
 		return
 	}
 
+	// Try pushing once
 	err = r.Push(e.ctx, pushAction)
 	if err != nil {
 		gerr := err.(*git.GitError)
+		// If it doesn't work because the branch diverged, try reset and apply again.
 		if gerr.Code == git.ErrorCodeNonFastForward {
 			err = r.FetchAndReset(e.ctx)
 			if err != nil {

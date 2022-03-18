@@ -19,14 +19,16 @@ package repository
 import (
 	"context"
 	"fmt"
-	"github.com/go-git/go-billy/v5/util"
-	git "github.com/libgit2/git2go/v33"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
+	git "github.com/libgit2/git2go/v33"
 )
 
 func TestNew(t *testing.T) {
@@ -440,20 +442,22 @@ func TestRetrySsh(t *testing.T) {
 		})
 	}
 }
-/*
+
+type SlowTransformer struct {
+	finished chan struct{}
+	started  chan struct{}
+}
+
+func (s *SlowTransformer) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
+	s.started <- struct{}{}
+	<-s.finished
+	return "ok", nil
+}
+
 func TestApplyQueue(t *testing.T) {
-	type SlowTransformer struct {
-		halt chan struct{}
-		ch chan struct{}
-	}
-	func (s *SlowTransformer) Transform(ctx context.Context, fs billy.Filesystem) error {
-		s.ch <- struct{}{}
-		<-s.halt
-		return nil
-	}
 
 	tcs := []struct {
-		Name          string
+		Name string
 	}{
 		{
 			Name: "simple",
@@ -471,19 +475,53 @@ func TestApplyQueue(t *testing.T) {
 			cmd.Start()
 			cmd.Wait()
 			repo, err := New(
-				t.Context(),
+				context.Background(),
 				Config{
-					URL:         "file://" + remoteDir,
-					Path:        localDir,
+					URL:  "file://" + remoteDir,
+					Path: localDir,
 				},
 			)
 			if err != nil {
 				t.Fatalf("new: expected no error, got '%e'", err)
 			}
-			halt := make(chan struct{})
-			ch := make(chan struct{},1)
-			slowTransformer := SlowTransformer{halt, ch}
+			repoInternal := repo.(*repository)
+			// Block the worker so that we have multiple items in the queue
+			finished := make(chan struct{})
+			started := make(chan struct{}, 1)
+			go func() {
+				repo.Apply(context.Background(), &SlowTransformer{finished, started})
+			}()
+			<-started
+			// The worker go routine is now blocked. We can move some items into the queue now.
+			e1 := repoInternal.applyDeferred(context.Background(), &CreateApplicationVersion{
+				Application: "foo",
+				Manifests: map[string]string{
+					"development": "1",
+				},
+			})
+			e2 := repoInternal.applyDeferred(context.Background(), &CreateApplicationVersion{
+				Application: "foo",
+				Manifests: map[string]string{
+					"development": "2",
+				},
+			})
+			e3 := repoInternal.applyDeferred(context.Background(), &CreateApplicationVersion{
+				Application: "foo",
+				Manifests: map[string]string{
+					"development": "3",
+				},
+			})
+			// Now release the 
+			finished <- struct{}{}
+			if err := <-e1; err != nil {
+				t.Errorf("e1 error is not nil but got %v", err)
+			}
+			if err := <-e2; err != nil {
+				t.Errorf("e2 error is not nil but got %v", err)
+			}
+			if err := <-e3; err != nil {
+				t.Errorf("e3 error is not nil but got %v", err)
+			}
 		})
 	}
 }
-*/
