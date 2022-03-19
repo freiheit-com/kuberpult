@@ -10,3 +10,6 @@ build/
 
 # used by envrc https://direnv.net/
 .envrc
+
+# nix
+result

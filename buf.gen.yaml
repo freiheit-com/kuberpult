@@ -30,7 +30,7 @@ plugins:
     opt:
       - paths=source_relative
   - name: ts_proto
-    out: services/frontend
+    out: services/frontend-service/src/api
     opt:
     - oneof=unions
     - useOptionals=messages

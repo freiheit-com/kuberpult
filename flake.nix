@@ -132,9 +132,13 @@
 	  inherit buildInputs nativeBuildInputs;
 
     buildPhase = ''
-    ls -la
-      make src/api/api.ts
-      yarn --offline build
+    cd deps/kuberpult
+    cp -r ${protos}/services/frontend-service/src/api/ src/api/
+    export CACHE_DIR=$TMPDIR
+    yarn --offline build
+    '';
+    preDist = ''
+    export CACHE_DIR=$TMPDIR
     '';
 	};
  
