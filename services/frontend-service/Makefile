@@ -72,7 +72,7 @@ NODE_BIN_DIR=$(shell yarn bin)
 deps: .deps.sentinel
 
 .deps.sentinel: package.json
-	yarn install && touch .deps.sentinel
+	yarn install $(YARNFLAGS) && touch .deps.sentinel
 
 src/api/api.ts: ../../pkg/api/api.proto | deps
 	mkdir -p src/api
@@ -82,7 +82,12 @@ dist: .dist.sentinel
 
 .dist.sentinel: src/api/api.ts $(shell find public src -type f)
 	rm -rf build/*
-	yarn build && touch .dist.sentinel
+	yarn $(YARNFLAGS) build && touch .dist.sentinel
+
+install: bin/main dist
+	mkdir -p $(DESTDIR)
+	cp bin/main $(DESTDIR)/bin/main
+	cp -r build $(DESTDIR)/build
 
 
 .DEFAULT_GOAL := all

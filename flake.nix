@@ -48,6 +48,13 @@
 
 	    # build tools
 	    pkgs.jq
+
+	    # protobuf generation
+	    pkgs.buf
+	    pkgs.protoc-gen-go
+	    pkgs.protoc-gen-go-grpc
+	    protoc-gen-grpc-gateway
+	    protoc-gen-ts-proto
 	];
 
 	# Target Build inputs
@@ -90,6 +97,12 @@
 	    export GOPATH=$TMPDIR/gopath
 	    export GOCACHE=$TMPDIR/gocache
 	    export XDG_CACHE_HOME=$TMPDIR/.cache
+	    cp -r ${protos} .
+	    rm -rf services/frontend-service/node_modules
+	    ln -s ${node_modules}/deps/kuberpult/node_modules services/frontend-service/node_modules
+	    ln -s ${node_modules}/node_modules node_modules
+	    touch services/frontend-service/.deps.sentinel
+	    export YARNFLAGS=--offline
 	    make -C services/frontend-service build
 	  '';
 	  installPhase = ''
@@ -134,22 +147,6 @@
 
 	  text = "buf generate";
 	};
-
-	# frontend-service
-	ui = pkgs.mkYarnPackage {
-	  name = "ui";
-	  src  = pkgs.nix-gitignore.gitignoreSource [] ./services/frontend-service;
-	  inherit buildInputs nativeBuildInputs;
-
-    buildPhase = ''
-    cp -r ${protos}/services/frontend-service/src/api/ deps/kuberpult/src/api/
-    export CACHE_DIR=$TMPDIR
-    yarn --offline build
-    '';
-    preDist = ''
-    export CACHE_DIR=$TMPDIR
-    '';
-	};
  
         in rec {
 
@@ -165,7 +162,6 @@
             name = "frontend-service";
 	    contents = [ self.packages.x86_64-linux."services/frontend-service" pkgs.tzdata ];
 	  };
-	  "ui" = ui;
 	  "node_modules" = node_modules;
 	  "protos" = protos;
 	  "update-protos" = update-protos;
@@ -173,11 +169,11 @@
 	apps = {
 	  "services/cd-service/docker" = {
 	    type = "app";
-	    program = "${self.packages.${system}."services/cd-service/docker"}";
+	    program = "${self.packages.${system}."services/cd-service:docker"}";
 	  };
           "services/frontend-service/docker" = {
 	    type = "app";
-	    program = "${self.packages.${system}."services/frontend-service/docker"}";
+	    program = "${self.packages.${system}."services/frontend-service:docker"}";
 	  };
 	  "buf" = {
             type = "app";
