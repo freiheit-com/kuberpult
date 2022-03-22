@@ -24,6 +24,7 @@
 		inherit system;
 		overlays = [ gomod2nix.overlay ];
 	};
+	version = pkgs.readFile ./version;
         protoc-gen-grpc-gateway = pkgs.callPackage ./nix/grpc-gateway/default.nix { inherit pkgs; };
 	protoc-gen-ts-proto = (pkgs.callPackage ./nix/ts-proto/default.nix { pkgs = pkgs_; nodejs = pkgs_.nodejs; } ).ts-proto;
 
@@ -72,6 +73,15 @@
 	};
 
 	# frontend-service
+	node_modules = pkgs.mkYarnModules {
+	  name = "node_modules";
+	  pname = "kuberpult";
+	  inherit version;
+          packageJSON = ./services/frontend-service/package.json;
+          yarnLock = ./services/frontend-service/yarn.lock;
+          yarnNix = ./services/frontend-service/yarn.nix;
+	};
+
 	frontend-service = pkgs.buildGoApplication {
 	  name = "frontend-service";
 	  modules = ./gomod2nix.toml;
@@ -132,8 +142,7 @@
 	  inherit buildInputs nativeBuildInputs;
 
     buildPhase = ''
-    cd deps/kuberpult
-    cp -r ${protos}/services/frontend-service/src/api/ src/api/
+    cp -r ${protos}/services/frontend-service/src/api/ deps/kuberpult/src/api/
     export CACHE_DIR=$TMPDIR
     yarn --offline build
     '';
@@ -157,6 +166,7 @@
 	    contents = [ self.packages.x86_64-linux."services/frontend-service" pkgs.tzdata ];
 	  };
 	  "ui" = ui;
+	  "node_modules" = node_modules;
 	  "protos" = protos;
 	  "update-protos" = update-protos;
         };
