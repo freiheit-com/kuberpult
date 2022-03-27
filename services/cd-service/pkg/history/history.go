@@ -128,15 +128,6 @@ var (
 	_ error = (*NotExists)(nil)
 )
 
-// Returns the first commit after a certain path was changed.
-func (h *History) Change(from *git.Commit, path []string) (*git.Commit, error) {
-	ch, err := NewCommitHistory(h.repository, from, h.cache)
-	if err != nil {
-		return nil, err
-	}
-	return ch.Change(path)
-}
-
 func NewHistory(repo *git.Repository) *History {
 	if repo == nil {
 		panic("nil repository passed to NewHistory")

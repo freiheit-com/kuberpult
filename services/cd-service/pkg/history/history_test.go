@@ -60,7 +60,11 @@ func TestHistory(t *testing.T) {
 				head := commits[len(commits)-1]
 				// Verify that we get the correct error for missing files
 				{
-					c, err := h.Change(head, []string{"non_existing"})
+					ch, err := h.Of(head)
+					if err != nil {
+						t.Fatal(err)
+					}
+					c, err := ch.Change([]string{"non_existing"})
 					if c != nil {
 						t.Errorf("commit mismatch, expected nil, but got %q", c.Id())
 					}
@@ -76,7 +80,11 @@ func TestHistory(t *testing.T) {
 				}
 				// Verify that we get the correct error for wrong file types
 				{
-					c, err := h.Change(head, []string{"foo", "non_existing"})
+					ch, err := h.Of(head)
+					if err != nil {
+						t.Fatal(err)
+					}
+					c, err := ch.Change([]string{"foo", "non_existing"})
 					if c != nil {
 						t.Errorf("commit mismatch, expected nil, but got %q", c.Id())
 					}
@@ -260,7 +268,11 @@ func TestHistory(t *testing.T) {
 				// Run all tests once without cache
 				for name, changedAt := range tc.AssertChangedAt {
 					h := NewHistory(repo)
-					c, err := h.Change(commits[len(commits)-1], strings.Split(name, "/"))
+					ch, err := h.Of(commits[len(commits)-1])
+					if err != nil {
+						t.Fatal(err)
+					}
+					c, err := ch.Change(strings.Split(name, "/"))
 					if err != nil {
 						t.Errorf("unexpected error: %q", err)
 					}
@@ -270,12 +282,20 @@ func TestHistory(t *testing.T) {
 				h := NewHistory(repo)
 				// Warm cache before doing the actual run
 				for _, commit := range commits {
+					ch, err := h.Of(commit)
+					if err != nil {
+						t.Fatal(err)
+					}
 					for name := range tc.AssertChangedAt {
-						h.Change(commit, strings.Split(name, "/"))
+						ch.Change(strings.Split(name, "/"))
 					}
 				}
 				for name, changedAt := range tc.AssertChangedAt {
-					c, err := h.Change(commits[len(commits)-1], strings.Split(name, "/"))
+					ch, err := h.Of(commits[len(commits)-1])
+					if err != nil {
+						t.Fatal(err)
+					}
+					c, err := ch.Change(strings.Split(name, "/"))
 					if err != nil {
 						t.Errorf("unexpected error: %q", err)
 					}
@@ -370,7 +390,11 @@ func benchmarkHistory(b *testing.B, cache bool) {
 		p := commit.Parent(0)
 		for i := 0; i < 99; i++ {
 			for _, name := range names {
-				_, err = warmup.Change(p, []string{"applications", name, "versions", strconv.Itoa(i), "manifest"})
+				ch, err := warmup.Of(p)
+				if err != nil {
+					b.Fatal(err)
+				}
+				_, err = ch.Change([]string{"applications", name, "versions", strconv.Itoa(i), "manifest"})
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -390,7 +414,11 @@ func benchmarkHistory(b *testing.B, cache bool) {
 		}
 		for i := 0; i < 100; i++ {
 			for _, name := range names {
-				_, err = h.Change(commit, []string{"applications", name, "versions", strconv.Itoa(i), "manifest"})
+				ch, err := h.Of(commit)
+				if err != nil {
+					b.Fatal(err)
+				}
+				_, err = ch.Change([]string{"applications", name, "versions", strconv.Itoa(i), "manifest"})
 				if err != nil {
 					b.Fatal(err)
 				}
