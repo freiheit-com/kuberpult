@@ -25,14 +25,13 @@ import (
 	git "github.com/libgit2/git2go/v33"
 )
 
-type cacheNode struct {
+type resultNode struct {
 	mx        sync.Mutex
-	children  map[string]*cacheNode
+	children  map[string]*resultNode
 	changedAt *git.Commit
-	cost      uint
 }
 
-func (c *cacheNode) get(name string) *cacheNode {
+func (c *resultNode) get(name string) *resultNode {
 	if c == nil {
 		return nil
 	}
@@ -46,14 +45,13 @@ func (c *cacheNode) get(name string) *cacheNode {
 	return child
 }
 
-func (c *cacheNode) found(commit *git.Commit, cost uint) {
+func (c *resultNode) found(commit *git.Commit) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	c.changedAt = commit
-	c.cost = cost
 }
 
-func (c *cacheNode) changed() *git.Commit {
+func (c *resultNode) changed() *git.Commit {
 	if c == nil {
 		return nil
 	}
@@ -62,9 +60,9 @@ func (c *cacheNode) changed() *git.Commit {
 	return c.changedAt
 }
 
-func newCacheNode() *cacheNode {
-	return &cacheNode{
-		children: map[string]*cacheNode{},
+func newCacheNode() *resultNode {
+	return &resultNode{
+		children: map[string]*resultNode{},
 	}
 }
 
@@ -72,25 +70,25 @@ type Cache struct {
 	roots *lru.Cache
 }
 
-func (c *Cache) put(commitId [20]byte) *cacheNode {
+func (c *Cache) put(commitId [20]byte) *resultNode {
 	if c == nil {
 		return newCacheNode()
 	}
 	node := newCacheNode()
 	previous, ok, _ := c.roots.PeekOrAdd(commitId, node)
 	if ok {
-		return previous.(*cacheNode)
+		return previous.(*resultNode)
 	} else {
 		return node
 	}
 }
-func (c *Cache) get(commitId [20]byte) *cacheNode {
+func (c *Cache) get(commitId [20]byte) *resultNode {
 	if c == nil {
 		return nil
 	}
 	root, ok := c.roots.Get(commitId)
 	if ok {
-		return root.(*cacheNode)
+		return root.(*resultNode)
 	}
 	return nil
 }
@@ -215,18 +213,17 @@ type treeEntry struct {
 type queueEntry struct {
 	commit *git.Commit
 	entry  *git.TreeEntry
-	cache  *cacheNode
+	cache  *resultNode
 }
 
 type treeNode struct {
-	entry      *git.TreeEntry
-	children   map[string]*treeNode
-	queue      []queueEntry
-	writeCache *cacheNode
-	cost       uint
+	entry    *git.TreeEntry
+	children map[string]*treeNode
+	queue    []queueEntry
+	result   *resultNode
 }
 
-func newTreeNode(r *git.Repository, t *git.TreeEntry, writeCache *cacheNode) (*treeNode, error) {
+func newTreeNode(r *git.Repository, t *git.TreeEntry, writeCache *resultNode) (*treeNode, error) {
 	var children map[string]*treeNode
 	if t.Type == git.ObjectTree {
 		tree, err := r.LookupTree(t.Id)
@@ -244,10 +241,10 @@ func newTreeNode(r *git.Repository, t *git.TreeEntry, writeCache *cacheNode) (*t
 		}
 	}
 	return &treeNode{
-		entry:      t,
-		children:   children,
-		queue:      []queueEntry{},
-		writeCache: writeCache,
+		entry:    t,
+		children: children,
+		queue:    []queueEntry{},
+		result:   writeCache,
 	}, nil
 }
 
@@ -283,7 +280,7 @@ func (t *treeNode) seek(r *git.Repository, i int, path []string) (*git.Commit, e
 		return nil, err
 	}
 	if len(path) == i {
-		return t.writeCache.changed(), nil
+		return t.result.changed(), nil
 	}
 	needle := path[i]
 	child := t.children[needle]
@@ -296,29 +293,28 @@ func (t *treeNode) seek(r *git.Repository, i int, path []string) (*git.Commit, e
 var oidZero git.Oid = [20]byte{0}
 var zeroEntry git.TreeEntry = git.TreeEntry{Id: &oidZero}
 
-func (t *treeNode) push(commit *git.Commit, entry *git.TreeEntry, cache *cacheNode) {
+func (t *treeNode) push(commit *git.Commit, entry *git.TreeEntry, cache *resultNode) {
 	if entry == nil {
 		entry = &zeroEntry
 	}
-	t.cost = t.cost + 1
-	if t.writeCache.changed() == nil {
+	if t.result.changed() == nil {
 		if !t.entry.Id.Equal(entry.Id) {
-			t.writeCache.found(commit, t.cost)
+			t.result.found(commit)
 		}
 		if c := cache.changed(); c != nil {
-			t.writeCache.found(commit, t.cost)
+			t.result.found(commit)
 		}
 	}
 	if t.entry.Filemode == git.FilemodeTree {
 		if cache == nil {
-		if len(t.queue) == 0 {
-			if t.entry.Id.Equal(entry.Id) {
+			if len(t.queue) == 0 {
+				if t.entry.Id.Equal(entry.Id) {
+					return
+				}
+			} else if t.queue[len(t.queue)-1].entry.Id == entry.Id {
 				return
 			}
-		} else if t.queue[len(t.queue)-1].entry.Id == entry.Id {
-			return
 		}
-	}
 		t.queue = append(t.queue, queueEntry{
 			commit: commit,
 			entry:  entry,

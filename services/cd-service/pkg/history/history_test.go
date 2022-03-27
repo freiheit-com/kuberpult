@@ -402,7 +402,3 @@ func dumpFs(t *testing.B, fs billy.Filesystem, indent string) {
 		}
 	}
 }
-
-func dumpCosts(t *testing.B, ch *CommitHistory) {
-	t.Logf("Cost: %d", ch.root.cost)
-}
