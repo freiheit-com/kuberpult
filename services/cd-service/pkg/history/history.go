@@ -25,13 +25,16 @@ import (
 	git "github.com/libgit2/git2go/v33"
 )
 
+// A resultNode stores the result of calcuating the last changed commit of a file or directory.
+//
+// This datastructure is thread-safe a intended to be shared and cached between mutliple calculations.
 type resultNode struct {
 	mx        sync.Mutex
 	children  map[string]*resultNode
 	changedAt *git.Commit
 }
 
-func (c *resultNode) get(name string) *resultNode {
+func (c *resultNode) getChild(name string) *resultNode {
 	if c == nil {
 		return nil
 	}
@@ -39,19 +42,19 @@ func (c *resultNode) get(name string) *resultNode {
 	defer c.mx.Unlock()
 	child := c.children[name]
 	if child == nil {
-		child = newCacheNode()
+		child = newResultNode()
 		c.children[name] = child
 	}
 	return child
 }
 
-func (c *resultNode) found(commit *git.Commit) {
+func (c *resultNode) store(commit *git.Commit) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	c.changedAt = commit
 }
 
-func (c *resultNode) changed() *git.Commit {
+func (c *resultNode) load() *git.Commit {
 	if c == nil {
 		return nil
 	}
@@ -60,21 +63,31 @@ func (c *resultNode) changed() *git.Commit {
 	return c.changedAt
 }
 
-func newCacheNode() *resultNode {
+func (c *resultNode) isEmpty() bool {
+	if c == nil {
+		return true
+	}
+	c.mx.Lock()
+	defer c.mx.Unlock()
+	return c.changedAt == nil
+}
+
+func newResultNode() *resultNode {
 	return &resultNode{
 		children: map[string]*resultNode{},
 	}
 }
 
+// A simple LRU cache that stores the last few history results.
 type Cache struct {
 	roots *lru.Cache
 }
 
-func (c *Cache) put(commitId [20]byte) *resultNode {
+func (c *Cache) getOrAdd(commitId [20]byte) *resultNode {
 	if c == nil {
-		return newCacheNode()
+		return newResultNode()
 	}
-	node := newCacheNode()
+	node := newResultNode()
 	previous, ok, _ := c.roots.PeekOrAdd(commitId, node)
 	if ok {
 		return previous.(*resultNode)
@@ -95,7 +108,6 @@ func (c *Cache) get(commitId [20]byte) *resultNode {
 
 type History struct {
 	repository *git.Repository
-	commits    map[git.Oid]*CommitHistory
 	cache      *Cache
 }
 
@@ -118,14 +130,9 @@ var (
 
 // Returns the first commit after a certain path was changed.
 func (h *History) Change(from *git.Commit, path []string) (*git.Commit, error) {
-	var err error
-	ch := h.commits[*from.Id()]
-	if ch == nil {
-		ch, err = NewCommitHistory(h.repository, from, h.cache)
-		if err != nil {
-			return nil, err
-		}
-		h.commits[*from.Id()] = ch
+	ch, err := NewCommitHistory(h.repository, from, h.cache)
+	if err != nil {
+		return nil, err
 	}
 	return ch.Change(path)
 }
@@ -141,7 +148,6 @@ func NewHistory(repo *git.Repository) *History {
 	}
 	return &History{
 		repository: repo,
-		commits:    map[git.Oid]*CommitHistory{},
 		cache: &Cache{
 			roots: roots,
 		},
@@ -166,7 +172,7 @@ func NewCommitHistory(repo *git.Repository, commit *git.Commit, cache *Cache) (*
 		Type:     git.ObjectTree,
 		Filemode: git.FilemodeTree,
 	}
-	root, err := newTreeNode(repo, &entry, cache.put(*commit.Id()))
+	root, err := newTreeNode(repo, &entry, cache.getOrAdd(*commit.Id()))
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +239,7 @@ func newTreeNode(r *git.Repository, t *git.TreeEntry, writeCache *resultNode) (*
 		children = make(map[string]*treeNode, tree.EntryCount())
 		for i := uint64(0); i < tree.EntryCount(); i++ {
 			entry := tree.EntryByIndex(i)
-			child, err := newTreeNode(r, entry, writeCache.get(entry.Name))
+			child, err := newTreeNode(r, entry, writeCache.getChild(entry.Name))
 			if err != nil {
 				return nil, err
 			}
@@ -267,7 +273,7 @@ func (t *treeNode) work(r *git.Repository) error {
 			}
 			for name, node := range t.children {
 				entry := tree.EntryByName(name)
-				node.push(q.commit, entry, q.cache.get(name))
+				node.push(q.commit, entry, q.cache.getChild(name))
 			}
 		}
 	}
@@ -280,7 +286,7 @@ func (t *treeNode) seek(r *git.Repository, i int, path []string) (*git.Commit, e
 		return nil, err
 	}
 	if len(path) == i {
-		return t.result.changed(), nil
+		return t.result.load(), nil
 	}
 	needle := path[i]
 	child := t.children[needle]
@@ -297,12 +303,12 @@ func (t *treeNode) push(commit *git.Commit, entry *git.TreeEntry, cache *resultN
 	if entry == nil {
 		entry = &zeroEntry
 	}
-	if t.result.changed() == nil {
+	if t.result.isEmpty() {
 		if !t.entry.Id.Equal(entry.Id) {
-			t.result.found(commit)
+			t.result.store(commit)
 		}
-		if c := cache.changed(); c != nil {
-			t.result.found(commit)
+		if cachedCommit := cache.load(); cachedCommit != nil {
+			t.result.store(cachedCommit)
 		}
 	}
 	if t.entry.Filemode == git.FilemodeTree {

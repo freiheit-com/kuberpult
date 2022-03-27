@@ -257,13 +257,29 @@ func TestHistory(t *testing.T) {
 				commits[i] = commit
 			}
 			if tc.AssertChangedAt != nil {
+				// Run all tests once without cache
+				for name, changedAt := range tc.AssertChangedAt {
+					h := NewHistory(repo)
+					c, err := h.Change(commits[len(commits)-1], strings.Split(name, "/"))
+					if err != nil {
+						t.Errorf("unexpected error: %q", err)
+					}
+					assertChangedAtNthCommit(t, name, c, changedAt, commits)
+				}
+				// Run all tests once with cache
 				h := NewHistory(repo)
+				// Warm cache before doing the actual run
+				for _, commit := range commits {
+					for name := range tc.AssertChangedAt {
+						h.Change(commit, strings.Split(name, "/"))
+					}
+				}
 				for name, changedAt := range tc.AssertChangedAt {
 					c, err := h.Change(commits[len(commits)-1], strings.Split(name, "/"))
 					if err != nil {
 						t.Errorf("unexpected error: %q", err)
 					}
-					assertChangedAtNthCommit(t, c, changedAt, commits)
+					assertChangedAtNthCommit(t, name, c, changedAt, commits)
 				}
 			}
 			if tc.Test != nil {
@@ -281,7 +297,8 @@ func nthParent(t *testing.T, from *git.Commit, offset int) *git.Commit {
 	return current
 }
 
-func assertChangedAtNthCommit(t *testing.T, actualCommit *git.Commit, expectedPosition int, commits []*git.Commit) {
+func assertChangedAtNthCommit(t *testing.T, name string, actualCommit *git.Commit, expectedPosition int, commits []*git.Commit) {
+	t.Helper()
 	if actualCommit == nil {
 		t.Errorf("commit was nil, but expected non-nil")
 		return
@@ -289,13 +306,12 @@ func assertChangedAtNthCommit(t *testing.T, actualCommit *git.Commit, expectedPo
 	for i, c := range commits {
 		if c.Id().Equal(actualCommit.Id()) {
 			if i != expectedPosition {
-				t.Errorf("wrong changed commit, expected %d, actual %d", expectedPosition, i)
-			} else {
-				return
+				t.Errorf("wrong changed commit for %q, expected %d, actual %d", name, expectedPosition, i)
 			}
+			return
 		}
 	}
-	t.Errorf("wrong changed commit, expected %d, actually not any known commit", expectedPosition)
+	t.Errorf("wrong changed commit for %q, expected %d, actually not any known commit", name, expectedPosition)
 }
 
 func BenchmarkHistoryNoCache(b *testing.B) {
@@ -380,7 +396,6 @@ func benchmarkHistory(b *testing.B, cache bool) {
 				}
 			}
 		}
-		//dumpCosts(b, h.commits[*commit.Id()])
 	}
 }
 
