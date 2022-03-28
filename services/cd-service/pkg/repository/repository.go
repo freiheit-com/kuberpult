@@ -223,6 +223,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 	} else {
 		commitMsg := []string{}
 		for _, t := range transformers {
+			fmt.Println(t)
 			if msg, err := t.Transform(ctx, state.Filesystem); err != nil {
 				return nil, nil, err
 			} else {

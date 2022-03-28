@@ -134,6 +134,7 @@ type CreateApplicationVersion struct {
 	SourceCommitId string
 	SourceAuthor   string
 	SourceMessage  string
+	Configuration  string
 }
 
 func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
