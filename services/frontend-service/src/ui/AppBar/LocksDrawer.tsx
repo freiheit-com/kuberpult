@@ -78,16 +78,16 @@ const headerCells: readonly HeaderCell[] = [
         label: 'Date Added',
     },
     {
-        id: 'author',
-        label: 'Author',
-    },
-    {
         id: 'environment',
         label: 'Environment',
     },
     {
         id: 'application',
         label: 'Application',
+    },
+    {
+        id: 'author',
+        label: 'Author',
     },
     {
         id: 'message',
@@ -126,14 +126,13 @@ const LocksTableHeader = (props: LocksTableHeaderProps) => {
                     headerCell.id === 'application' && type === 'env' ? null : (
                         <TableCell
                             key={headerCell.id}
-                            align={'left'}
                             padding={'normal'}
                             sortDirection={orderBy === headerCell.id ? order : false}>
                             <TableSortLabel
                                 active={orderBy === headerCell.id}
                                 direction={orderBy === headerCell.id ? order : 'asc'}
                                 onClick={createSortHandler(headerCell.id)}>
-                                {headerCell.label}
+                                <strong>{headerCell.label}</strong>
                             </TableSortLabel>
                         </TableCell>
                     )
@@ -168,6 +167,8 @@ const calcLockAge = (time: number): number => {
     return Math.floor(diffTime / msPerDay);
 };
 
+const isOutdated = (dateAdded: number): boolean => calcLockAge(dateAdded) > 2 || dateAdded === -1;
+
 const AllLocks = (props: { locks: LocksRow[]; type: 'env' | 'app' }) => {
     const { locks, type } = props;
     const [order, setOrder] = React.useState<Order>('asc');
@@ -183,62 +184,50 @@ const AllLocks = (props: { locks: LocksRow[]; type: 'env' | 'app' }) => {
     );
 
     return (
-        <Box sx={{ width: '100%' }}>
-            <Paper sx={{ width: '100%', mb: 2 }}>
-                <TableContainer>
-                    <Table sx={{ minWidth: 750 }} aria-labelledby="locksTableTitle" size={'small'}>
-                        <LocksTableHeader
-                            order={order}
-                            orderBy={orderBy}
-                            onRequestSort={handleRequestSort}
-                            type={type}
-                        />
-                        <TableBody>
-                            {locks
-                                .slice()
-                                .sort(getComparator(order, orderBy))
-                                .map((row, index) => (
-                                    <TableRow hover tabIndex={-1} key={row.id}>
-                                        <TableCell component="th" id={`locks-table-${index}`} scope="row">
-                                            <Tooltip title={getFullDate(row.dateAdded)} placement={'top-start'}>
-                                                <Typography
-                                                    color={
-                                                        calcLockAge(row.dateAdded) > 2 || row.dateAdded === -1
-                                                            ? 'error'
-                                                            : undefined
-                                                    }>
-                                                    {daysToString(calcLockAge(row.dateAdded))}
-                                                </Typography>
-                                            </Tooltip>
-                                        </TableCell>
-                                        <TableCell align="left">
-                                            <Tooltip title={row.authorEmail} placement={'left-end'}>
-                                                <Typography>{row.author}</Typography>
-                                            </Tooltip>
-                                        </TableCell>
-                                        <TableCell align="left">{row.environment}</TableCell>
-                                        {type === 'app' && <TableCell align="left">{row.application}</TableCell>}
-                                        <TableCell align="left">
-                                            <Tooltip title={row.id} placement={'left-end'}>
-                                                <Typography>{row.message}</Typography>
-                                            </Tooltip>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            {!locks.length && (
-                                <TableRow>
-                                    <TableCell align={'center'} padding={'normal'} colSpan={5}>
-                                        <Typography variant="subtitle1" component="div" className="locks-table-empty">
-                                            There are no locks here yet!
-                                        </Typography>
+        <Paper sx={{ width: '100%', mb: 2 }}>
+            <TableContainer>
+                <Table sx={{ minWidth: 750 }} aria-labelledby="locksTableTitle" size={'small'}>
+                    <LocksTableHeader order={order} orderBy={orderBy} onRequestSort={handleRequestSort} type={type} />
+                    <TableBody>
+                        {locks
+                            .slice()
+                            .sort(getComparator(order, orderBy))
+                            .map((row, index) => (
+                                <TableRow hover key={row.id}>
+                                    <TableCell component="th" id={`locks-table-${index}`} scope="row">
+                                        <Tooltip title={getFullDate(row.dateAdded)} placement={'top-start'}>
+                                            <Typography color={isOutdated(row.dateAdded) ? 'error' : ''}>
+                                                {daysToString(calcLockAge(row.dateAdded))}
+                                            </Typography>
+                                        </Tooltip>
+                                    </TableCell>
+                                    <TableCell>{row.environment}</TableCell>
+                                    {type === 'app' && <TableCell>{row.application}</TableCell>}
+                                    <TableCell>
+                                        <Tooltip title={row.authorEmail} placement={'left-end'}>
+                                            <Typography>{row.author}</Typography>
+                                        </Tooltip>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Tooltip title={row.id} placement={'left-end'}>
+                                            <Typography>{row.message}</Typography>
+                                        </Tooltip>
                                     </TableCell>
                                 </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            </Paper>
-        </Box>
+                            ))}
+                        {!locks.length && (
+                            <TableRow>
+                                <TableCell align={'center'} padding={'normal'} colSpan={5}>
+                                    <Typography variant="subtitle1" component="div" className="locks-table-empty">
+                                        There are no locks here yet!
+                                    </Typography>
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </Paper>
     );
 };
 
@@ -289,9 +278,9 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
         }
     }
 
-    const outdatedEnvLocks = envLocks.filter((lock) => calcLockAge(lock.dateAdded) > 2 || lock.dateAdded === -1);
-    const outdatedAppLocks = appLocks.filter((lock) => calcLockAge(lock.dateAdded) > 2 || lock.dateAdded === -1);
-    const isOutdated = outdatedAppLocks.length + outdatedEnvLocks.length > 0;
+    const outdated =
+        envLocks.filter((lock) => isOutdated(lock.dateAdded)).length > 0 ||
+        appLocks.filter((lock) => isOutdated(lock.dateAdded)).length > 0;
 
     return (
         <>
@@ -299,7 +288,7 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
                 sx={{ color: theme.palette.grey[900], width: '100%' }}
                 variant={'contained'}
                 onClick={toggleDrawer(true)}>
-                {isOutdated && <WarningRounded color="error" />}
+                {outdated && <WarningRounded color="error" />}
                 <strong>Locks</strong>
                 <ExpandMoreRounded />
             </Button>
