@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import React from 'react';
-import { fireEvent, getByText, render, screen } from '@testing-library/react';
+import { fireEvent, getAllByText, getByText, render } from '@testing-library/react';
 
 import { LocksDrawer } from './LocksDrawer';
 import { GetOverviewResponse } from '../../api/api';
@@ -63,14 +63,14 @@ describe('All locks drawer', () => {
         // when
         const { container } = getWrapper();
         // then
-        expect(getByText(container, /all locks/i)).toBeTruthy();
+        expect(getByText(container, /locks/i)).toBeTruthy();
     });
 
     it('LocksDrawer badge show warning at least one lock older than 2 days ', () => {
         // when
         const { container } = getWrapper();
         // then
-        expect(container.querySelector('.MuiBadge-invisible')).not.toBeTruthy();
+        expect(container.querySelector('.MuiSvgIcon-colorError')).toBeTruthy();
     });
 
     const noLocks: GetOverviewResponse = {
@@ -84,16 +84,16 @@ describe('All locks drawer', () => {
             },
         },
     };
-    it('LocksDrawer should show "No Locks" if there is no locks ', () => {
+    it('LocksDrawer should show message if there are no locks ', () => {
         // when
         const { container } = getWrapper({ data: noLocks });
 
         //fire event
         fireEvent.click(container.querySelector('.MuiButton-root')!);
 
-        const d = screen.queryByText('No locks!');
+        const d = document.querySelector('.MuiDrawer-root') as HTMLElement;
         // then
-        expect(getByText(d!, /No locks!/i)).toBeTruthy();
+        expect(getAllByText(d, /There are no locks here yet!/i).length).toBe(2);
     });
 
     const data: GetOverviewResponse = {
@@ -129,7 +129,7 @@ describe('All locks drawer', () => {
         // when
         const { container } = getWrapper({ data });
         // then
-        expect(container.querySelector('.MuiBadge-invisible')).toBeTruthy();
+        expect(container.querySelector('.MuiSvgIcon-colorError')).not.toBeTruthy();
     });
 });
 
