@@ -60,7 +60,11 @@ func TestHistory(t *testing.T) {
 				head := commits[len(commits)-1]
 				// Verify that we get the correct error for missing files
 				{
-					c, err := h.Change(head, []string{"non_existing"})
+					ch, err := h.Of(head)
+					if err != nil {
+						t.Fatal(err)
+					}
+					c, err := ch.Change([]string{"non_existing"})
 					if c != nil {
 						t.Errorf("commit mismatch, expected nil, but got %q", c.Id())
 					}
@@ -76,7 +80,11 @@ func TestHistory(t *testing.T) {
 				}
 				// Verify that we get the correct error for wrong file types
 				{
-					c, err := h.Change(head, []string{"foo", "non_existing"})
+					ch, err := h.Of(head)
+					if err != nil {
+						t.Fatal(err)
+					}
+					c, err := ch.Change([]string{"foo", "non_existing"})
 					if c != nil {
 						t.Errorf("commit mismatch, expected nil, but got %q", c.Id())
 					}
@@ -257,13 +265,41 @@ func TestHistory(t *testing.T) {
 				commits[i] = commit
 			}
 			if tc.AssertChangedAt != nil {
-				h := NewHistory(repo)
+				// Run all tests once without cache
 				for name, changedAt := range tc.AssertChangedAt {
-					c, err := h.Change(commits[len(commits)-1], strings.Split(name, "/"))
+					h := NewHistory(repo)
+					ch, err := h.Of(commits[len(commits)-1])
+					if err != nil {
+						t.Fatal(err)
+					}
+					c, err := ch.Change(strings.Split(name, "/"))
 					if err != nil {
 						t.Errorf("unexpected error: %q", err)
 					}
-					assertChangedAtNthCommit(t, c, changedAt, commits)
+					assertChangedAtNthCommit(t, name, c, changedAt, commits)
+				}
+				// Run all tests once with cache
+				h := NewHistory(repo)
+				// Warm cache before doing the actual run
+				for _, commit := range commits {
+					ch, err := h.Of(commit)
+					if err != nil {
+						t.Fatal(err)
+					}
+					for name := range tc.AssertChangedAt {
+						ch.Change(strings.Split(name, "/"))
+					}
+				}
+				for name, changedAt := range tc.AssertChangedAt {
+					ch, err := h.Of(commits[len(commits)-1])
+					if err != nil {
+						t.Fatal(err)
+					}
+					c, err := ch.Change(strings.Split(name, "/"))
+					if err != nil {
+						t.Errorf("unexpected error: %q", err)
+					}
+					assertChangedAtNthCommit(t, name, c, changedAt, commits)
 				}
 			}
 			if tc.Test != nil {
@@ -281,7 +317,8 @@ func nthParent(t *testing.T, from *git.Commit, offset int) *git.Commit {
 	return current
 }
 
-func assertChangedAtNthCommit(t *testing.T, actualCommit *git.Commit, expectedPosition int, commits []*git.Commit) {
+func assertChangedAtNthCommit(t *testing.T, name string, actualCommit *git.Commit, expectedPosition int, commits []*git.Commit) {
+	t.Helper()
 	if actualCommit == nil {
 		t.Errorf("commit was nil, but expected non-nil")
 		return
@@ -289,24 +326,23 @@ func assertChangedAtNthCommit(t *testing.T, actualCommit *git.Commit, expectedPo
 	for i, c := range commits {
 		if c.Id().Equal(actualCommit.Id()) {
 			if i != expectedPosition {
-				t.Errorf("wrong changed commit, expected %d, actual %d", expectedPosition, i)
-			} else {
-				return
+				t.Errorf("wrong changed commit for %q, expected %d, actual %d", name, expectedPosition, i)
 			}
+			return
 		}
 	}
-	t.Errorf("wrong changed commit, expected %d, actually not any known commit", expectedPosition)
+	t.Errorf("wrong changed commit for %q, expected %d, actually not any known commit", name, expectedPosition)
 }
 
-func BenchmarkHistoryNew(b *testing.B){
+func BenchmarkHistoryNoCache(b *testing.B) {
 	benchmarkHistory(b, false)
 }
 
-func BenchmarkHistoryOld(b *testing.B){
+func BenchmarkHistoryCache(b *testing.B) {
 	benchmarkHistory(b, true)
 }
 
-func benchmarkHistory(b *testing.B, useOldAlg bool) {
+func benchmarkHistory(b *testing.B, cache bool) {
 	names := []string{"a", "b", "c", "d", "e", "f"}
 	dir := b.TempDir()
 	repo, err := git.InitRepository(dir, true)
@@ -316,11 +352,11 @@ func benchmarkHistory(b *testing.B, useOldAlg bool) {
 	parent := []*git.Oid{}
 	tree := fs.NewEmptyTreeBuildFS(repo)
 	for i := 0; i < 100; i++ {
-	sig := git.Signature{
-		Name:  "test",
-		Email: "test@test.com",
-		When:  time.Unix(int64(i), 0),
-	}
+		sig := git.Signature{
+			Name:  "test",
+			Email: "test@test.com",
+			When:  time.Unix(int64(i), 0),
+		}
 		for _, name := range names {
 
 			err := tree.MkdirAll(tree.Join("applications", name, "versions", strconv.Itoa(i)), 0755)
@@ -347,15 +383,42 @@ func benchmarkHistory(b *testing.B, useOldAlg bool) {
 	if err != nil {
 		b.Fatal(err)
 	}
+
+	warmup := NewHistory(repo)
+
+	if cache {
+		p := commit.Parent(0)
+		for i := 0; i < 99; i++ {
+			for _, name := range names {
+				ch, err := warmup.Of(p)
+				if err != nil {
+					b.Fatal(err)
+				}
+				_, err = ch.Change([]string{"applications", name, "versions", strconv.Itoa(i), "manifest"})
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	}
+
 	b.ResetTimer()
 
 	// Test it!
 	for n := 0; n < b.N; n++ {
 		h := NewHistory(repo)
-		h.useOldAlg = useOldAlg
+		if cache {
+			h.cache = warmup.cache
+		} else {
+			h.cache = nil
+		}
 		for i := 0; i < 100; i++ {
 			for _, name := range names {
-				_, err = h.Change(commit, []string{"applications", name,"versions", strconv.Itoa(i), "manifest"})
+				ch, err := h.Of(commit)
+				if err != nil {
+					b.Fatal(err)
+				}
+				_, err = ch.Change([]string{"applications", name, "versions", strconv.Itoa(i), "manifest"})
 				if err != nil {
 					b.Fatal(err)
 				}

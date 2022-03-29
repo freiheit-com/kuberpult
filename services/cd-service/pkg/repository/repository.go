@@ -74,6 +74,7 @@ type repository struct {
 	certificates *certificateStore
 
 	repository *git.Repository
+	history    *history.History
 
 	// Testing
 	nextError error
@@ -167,6 +168,7 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				credentials:  credentials,
 				certificates: certificates,
 				repository:   repo2,
+				history:      history.NewHistory(repo2),
 			}
 			result.headLock.Lock()
 
@@ -467,10 +469,15 @@ func (r *repository) buildState() (*State, error) {
 		if err != nil {
 			return nil, err
 		}
+		commitHistory, err := r.history.Of(commit)
+		if err != nil {
+			return nil, err
+		}
 		return &State{
-			Filesystem: fs.NewTreeBuildFS(r.repository, commit.TreeId()),
-			Commit:     commit,
-			History:    history.NewHistory(r.repository),
+			Filesystem:    fs.NewTreeBuildFS(r.repository, commit.TreeId()),
+			Commit:        commit,
+			History:       r.history,
+			CommitHistory: commitHistory,
 		}, nil
 	}
 }
@@ -565,9 +572,10 @@ func (r *repository) maybeGc(ctx context.Context) {
 }
 
 type State struct {
-	Filesystem billy.Filesystem
-	Commit     *git.Commit
-	History    *history.History
+	Filesystem    billy.Filesystem
+	Commit        *git.Commit
+	History       *history.History
+	CommitHistory *history.CommitHistory
 }
 
 func (s *State) Applications() ([]string, error) {
@@ -642,7 +650,7 @@ func (s *State) GetEnvironmentApplicationVersionCommit(environment, application 
 	if s.Commit == nil {
 		return nil, nil
 	} else {
-		return s.History.Change(s.Commit,
+		return s.CommitHistory.Change(
 			[]string{
 				"environments", environment,
 				"applications", application,
@@ -654,7 +662,7 @@ func (s *State) GetEnvironmentApplicationLocksCommit(environment, application st
 	if s.Commit == nil {
 		return nil, nil
 	} else {
-		return s.History.Change(s.Commit,
+		return s.CommitHistory.Change(
 			[]string{
 				"environments", environment,
 				"applications", application,
@@ -666,7 +674,7 @@ func (s *State) GetEnvironmentLocksCommit(environment, lockId string) (*git.Comm
 	if s.Commit == nil {
 		return nil, nil
 	} else {
-		return s.History.Change(s.Commit,
+		return s.CommitHistory.Change(
 			[]string{
 				"environments", environment,
 				"locks", lockId,
@@ -865,7 +873,7 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 }
 
 func (s *State) GetApplicationReleaseCommit(application string, version uint64) (*git.Commit, error) {
-	return s.History.Change(s.Commit, []string{
+	return s.CommitHistory.Change([]string{
 		"applications", application,
 		"releases", fmt.Sprintf("%d", version),
 	})
