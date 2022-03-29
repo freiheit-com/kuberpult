@@ -191,7 +191,9 @@ const ReleaseLockButtonGroup = (props: {
     const msg = queueHint ? 'When you unlock the last lock the queue will be deployed!' : '';
     if (!inCart) {
         return (
-            <Tooltip arrow title={'Locked with message "' + lock.message + '". Click to unlock. ' + msg}>
+            <Tooltip
+                arrow
+                title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. ' + msg}>
                 <IconButton onClick={addToCart}>
                     <LockIcon />
                 </IconButton>
@@ -428,7 +430,7 @@ const ReleaseEnvironment = (props: {
             </Typography>
             <ButtonGroup className="locks">
                 {envLocks.map(([key, lock]) => (
-                    <Tooltip arrow key={key} title={lock.message}>
+                    <Tooltip arrow key={key} title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"'}>
                         <IconButton>
                             <LockIcon />
                         </IconButton>

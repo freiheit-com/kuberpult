@@ -120,6 +120,7 @@ message ReleaseTrainRequest {
 message Lock {
   string message = 1;
   Commit commit = 2;
+  string lock_id = 3;
 }
 
 message LockedError {
