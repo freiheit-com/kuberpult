@@ -79,6 +79,7 @@ func (o *OverviewServiceServer) getOverview(
 					env.Locks[lockId] = &api.Lock{
 						Message: lock.Message,
 						Commit:  lockCommit,
+						LockId:  lockId,
 					}
 				}
 			}
@@ -137,6 +138,7 @@ func (o *OverviewServiceServer) getOverview(
 							app.Locks[lockId] = &api.Lock{
 								Message: lock.Message,
 								Commit:  lockCommit,
+								LockId:  lockId,
 							}
 						}
 					}
