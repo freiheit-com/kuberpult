@@ -1,5 +1,18 @@
 # Change Log
 
+## 0.4.12
+
+**released 2022-03-30**
+
+### Added
+
+* Add locks table [#118](https://github.com/freiheit-com/kuberpult/pull/118)
+* Add lock id to overview request and to release dialog [#119](https://github.com/freiheit-com/kuberpult/pull/119)
+
+### Changed
+
+* Optimize history calculation to reuse previously computed results [#115](https://github.com/freiheit-com/kuberpult/pull/115)
+
 ## 0.4.11
 
 **released 2022-03-18**
