@@ -28,13 +28,15 @@ spec:
       paths:
 {{- if .Values.ingress.exposeReleaseEndpoint }}
       - path: /release
+        pathType: ImplementationSpecific
         backend:
           service:
             name: kuberpult-cd-service
             port:
               name: http
 {{- end }}
-      - backend:
+      - pathType: ImplementationSpecific
+        backend:
           service:
             name: kuberpult-frontend-service
             port:
