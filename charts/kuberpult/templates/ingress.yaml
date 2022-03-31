@@ -14,7 +14,7 @@
 #along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 #Copyright 2021 freiheit.com
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
@@ -28,13 +28,19 @@ spec:
       paths:
 {{- if .Values.ingress.exposeReleaseEndpoint }}
       - path: /release
+        pathType: ImplementationSpecific
         backend:
-          serviceName: kuberpult-cd-service
-          servicePort: http
+          service:
+            name: kuberpult-cd-service
+            port:
+              name: http
 {{- end }}
-      - backend:
-          serviceName: kuberpult-frontend-service
-          servicePort: http
+      - pathType: ImplementationSpecific
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              name: http
   tls:
   - hosts:
     - {{ default .Values.ingress.domainName .Values.ingress.tls.host | quote}}
