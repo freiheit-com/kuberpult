@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.4.13
+
+**released 2022-04-01**
+
+### Changed
+
+* Use `networking.k8s.io/v1` API Version for ingress. [#121](https://github.com/freiheit-com/kuberpult/pull/121)
+
 ## 0.4.12
 
 **released 2022-03-30**
