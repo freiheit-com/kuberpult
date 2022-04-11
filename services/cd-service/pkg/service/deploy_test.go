@@ -18,12 +18,18 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	envAcceptance = "acceptance"
+	envProduction = "production"
 )
 
 func TestDeployService(t *testing.T) {
@@ -142,6 +148,152 @@ func TestDeployService(t *testing.T) {
 				Repository: repo,
 			}
 			tc.Test(t, svc)
+		})
+	}
+}
+
+func TestReleaseTrainErrors(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []repository.Transformer
+		expectedError     string
+		expectedCommitMsg string
+		shouldSucceed     bool
+	}{
+
+		{
+			Name: "release train all teams ",
+			Transformers: []repository.Transformer{
+				&repository.ReleaseTrain{
+					Environment: envProduction,
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "The release train deployed 3 services from 'acceptance' to 'production'",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "release train for team1 ",
+			Transformers: []repository.Transformer{
+				&repository.ReleaseTrain{
+					Environment: envProduction,
+					Owner:       "team1",
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "The release train deployed 1 services from 'acceptance' to 'production'",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "release train for team2 ",
+			Transformers: []repository.Transformer{
+				&repository.ReleaseTrain{
+					Environment: envProduction,
+					Owner:       "team2",
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "The release train deployed 1 services from 'acceptance' to 'production'",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "release train for team3 ( not exists)  ",
+			Transformers: []repository.Transformer{
+				&repository.ReleaseTrain{
+					Environment: envProduction,
+					Owner:       "team3",
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "The release train deployed 0 services from 'acceptance' to 'production'",
+			shouldSucceed:     true,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			//t.Parallel()
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			ctx := context.Background()
+			initTransformers := []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&repository.CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+						envProduction: "production",
+					},
+					Configuration: `{ "Owner": "team1"  }`,
+				},
+				&repository.CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "production",
+					},
+					Configuration: `{ "Owner": "team1"  }`,
+				},
+				&repository.CreateApplicationVersion{
+					Application: "app2",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+						envProduction: "production",
+					},
+					Configuration: `{ "Owner": "team2"  }`,
+				},
+				&repository.CreateApplicationVersion{
+					Application: "app2",
+					Manifests: map[string]string{
+						envProduction: "production",
+					},
+					Configuration: `{ "Owner": "team2"  }`,
+				},
+				&repository.CreateApplicationVersion{
+					Application: "app3",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+						envProduction: "production",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "app3",
+					Manifests: map[string]string{
+						envProduction: "production",
+					},
+				},
+			}
+			transformers := append(initTransformers, tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, transformers...)
+			// note that we only check the LAST error here:
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				actualMsg := commitMsg[len(commitMsg)-1]
+				Msgs := strings.Split(actualMsg, "\n") // ignoring deploying messages
+				if Msgs[0] != tc.expectedCommitMsg {
+					t.Fatalf("expected a different message.\nExpected: %q\nGot %q", tc.expectedCommitMsg, Msgs[0])
+				}
+			} else {
+				if err == nil {
+					t.Fatalf("Expected an error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
+				}
+			}
 		})
 	}
 }

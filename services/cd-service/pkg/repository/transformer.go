@@ -167,6 +167,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Files
 		return "", err
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
+	appDir := applicationDirectory(fs, c.Application)
 	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
 		return "", err
 	}
@@ -191,7 +192,11 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Files
 			return "", err
 		}
 	}
-
+	if c.Configuration != "" {
+		if err := util.WriteFile(fs, fs.Join(appDir, "config.json"), []byte(c.Configuration), 0666); err != nil {
+			return "", err
+		}
+	}
 	result := ""
 	for env, man := range c.Manifests {
 		envDir := fs.Join(releaseDir, "environments", env)
@@ -690,6 +695,7 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, fs billy.Files
 
 type ReleaseTrain struct {
 	Environment string
+	Owner       string
 }
 
 func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
@@ -733,6 +739,21 @@ func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (stri
 	numServices := 0
 	completeMessage := ""
 	for _, appName := range apps {
+		if c.Owner != "" {
+			appDir := applicationDirectory(fs, appName)
+			appConfigFile := fs.Join(appDir, "config.json")
+			var config config.ApplicationConfig
+			if err := decodeJsonFile(fs, appConfigFile, &config); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					continue
+				} else {
+					return "", fmt.Errorf("error while decoding config Json file for application %v found: %w", appName, err)
+				}
+			}
+			if c.Owner != config.Owner {
+				continue
+			}
+		}
 		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(targetEnvName, appName)
 		if err != nil {
 			return "", fmt.Errorf("could not get version of application %q in env %q: %w", appName, targetEnvName, err)

@@ -87,8 +87,12 @@ func (d *DeployServiceServer) ReleaseTrain(
 	if !valid.EnvironmentName(in.Environment) {
 		return nil, status.Error(codes.InvalidArgument, "invalid environment")
 	}
+	if in.Team != "" && !valid.TeamName(in.Team) {
+		return nil, status.Error(codes.InvalidArgument, "invalid Team name")
+	}
 	err := d.Repository.Apply(ctx, &repository.ReleaseTrain{
 		Environment: in.Environment,
+		Owner:       in.Team,
 	})
 	if err != nil {
 		return nil, internalError(ctx, err)

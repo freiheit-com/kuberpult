@@ -159,7 +159,6 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 
 	if configuration, ok := form.Value["configuration"]; ok {
 		if len(configuration) == 1 {
-			fmt.Println(configuration[0])
 			tf.Configuration = configuration[0]
 		}
 	}
