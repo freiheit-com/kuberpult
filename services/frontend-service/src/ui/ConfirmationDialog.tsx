@@ -46,7 +46,8 @@ const inCart = (actions: BatchAction[], action: BatchAction) =>
 const isDeployment = (t: ActionTypes) =>
     t === ActionTypes.Deploy || t === ActionTypes.PrepareUndeploy || t === ActionTypes.Undeploy;
 
-const isConflictingAction = (cartActions: BatchAction[], newAction: BatchAction) => {
+const getCartConflicts = (cartActions: BatchAction[], newAction: BatchAction) => {
+    const conflicts = new Set<BatchAction>();
     for (const action of cartActions) {
         const act = GetActionDetails(action);
         const newAct = GetActionDetails(newAction);
@@ -58,11 +59,11 @@ const isConflictingAction = (cartActions: BatchAction[], newAction: BatchAction)
                     // both are deploy actions check env
                     if (newAct.environment === act.environment) {
                         // conflict, version doesn't matter
-                        return true;
+                        conflicts.add(action);
                     }
                 } else {
                     // either one or both are Un-deploying the same app
-                    return true;
+                    conflicts.add(action);
                 }
             }
         }
@@ -70,22 +71,22 @@ const isConflictingAction = (cartActions: BatchAction[], newAction: BatchAction)
         if (newAct.type === ActionTypes.CreateEnvironmentLock && act.type === newAct.type) {
             if (newAct.environment === act.environment) {
                 // conflict, locking the same env twice
-                return true;
+                conflicts.add(action);
             }
         }
 
         if (newAct.type === ActionTypes.CreateApplicationLock && act.type === newAct.type) {
             if (newAct.environment === act.environment && newAct.application === act.application) {
                 // conflict, locking the same app/env twice
-                return true;
+                conflicts.add(action);
             }
         }
     }
-    return false;
+    return conflicts;
 };
 
 export const exportedForTesting = {
-    isConflictingAction: isConflictingAction,
+    getCartConflicts: getCartConflicts,
 };
 
 export interface ConfirmationDialogProviderProps {
@@ -126,13 +127,22 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         setActions([...actions, action]);
     }, [fin, closeDialog, openNotification, action, actions, setActions]);
 
+    const conflicts = getCartConflicts(actions, action);
+
+    const replaceAction = useCallback(() => {
+        openNotification();
+        if (fin) fin();
+        closeDialog();
+        setActions([...actions.filter((v) => !conflicts.has(v)), action]);
+    }, [fin, closeDialog, openNotification, action, actions, setActions, conflicts]);
+
     const handleAddToCart = useCallback(() => {
-        if (isConflictingAction(actions, action) || locks?.length) {
+        if (conflicts.size || locks?.length) {
             setDialogOpen(true);
         } else {
             addAction();
         }
-    }, [setDialogOpen, addAction, locks, actions, action]);
+    }, [setDialogOpen, addAction, locks, conflicts]);
 
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
@@ -151,7 +161,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
             ))}
         </Alert>
     ) : null;
-    const conflictMessage = isConflictingAction(actions, action) && (
+    const conflictMessage = conflicts.size > 0 && (
         <Alert variant="outlined" sx={{ m: 1 }} severity="error">
             <strong>Possible conflict with actions already in cart!</strong>
         </Alert>
@@ -187,6 +197,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 <span style={{ alignSelf: 'end' }}>
                     <Button onClick={closeDialog}>Cancel</Button>
                     <Button onClick={addAction}>Add anyway</Button>
+                    {conflicts.size > 0 && <Button onClick={replaceAction}>Replace</Button>}
                 </span>
             </Dialog>
             <Snackbar

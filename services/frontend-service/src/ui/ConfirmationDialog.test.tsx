@@ -142,7 +142,7 @@ const sampleDeleteAppLock: BatchAction = {
 const ChildButton = (props: { inCart?: boolean; addToCart?: () => void }) => {
     const { addToCart, inCart } = props;
     return (
-        <Button id={'dummy-button'} onClick={addToCart} disabled={inCart}>
+        <Button id={'dummy-button'} onClick={addToCart} disabled={inCart ? true : false}>
             ClickMe
         </Button>
     );
@@ -171,7 +171,7 @@ describe('Confirmation Dialog Provider', () => {
         fin?: () => void;
         locks?: [string, Lock][];
         expect: {
-            conflict: boolean;
+            conflict: Set<BatchAction>;
             title: string;
         };
     }
@@ -181,7 +181,7 @@ describe('Confirmation Dialog Provider', () => {
             type: 'Deploy',
             act: sampleDeployAction,
             expect: {
-                conflict: true,
+                conflict: new Set([sampleDeployActionOtherVersion]),
                 title: 'Are you sure you want to deploy this version?',
             },
         },
@@ -189,7 +189,7 @@ describe('Confirmation Dialog Provider', () => {
             type: 'Un Deploy',
             act: sampleUndeployAction,
             expect: {
-                conflict: true,
+                conflict: new Set([sampleDeployActionOtherVersion]),
                 title: 'Are you sure you want to undeploy this application?',
             },
         },
@@ -197,7 +197,7 @@ describe('Confirmation Dialog Provider', () => {
             type: 'Create Environment Lock',
             act: sampleCreateEnvLock,
             expect: {
-                conflict: true,
+                conflict: new Set([sampleCreateEnvLockOtherId]),
                 title: 'Are you sure you want to add this environment lock?',
             },
         },
@@ -205,7 +205,7 @@ describe('Confirmation Dialog Provider', () => {
             type: 'Delete Environment Lock',
             act: sampleDeleteEnvLock,
             expect: {
-                conflict: false,
+                conflict: new Set(),
                 title: 'Are you sure you want to delete this environment lock?',
             },
         },
@@ -213,7 +213,7 @@ describe('Confirmation Dialog Provider', () => {
             type: 'Create Environment Application Lock',
             act: sampleCreateAppLock,
             expect: {
-                conflict: true,
+                conflict: new Set([sampleCreateAppLockOtherId]),
                 title: 'Are you sure you want to add this application lock?',
             },
         },
@@ -221,7 +221,7 @@ describe('Confirmation Dialog Provider', () => {
             type: 'Delete Environment Application Lock',
             act: sampleDeleteAppLock,
             expect: {
-                conflict: false,
+                conflict: new Set(),
                 title: 'Are you sure you want to delete this application lock?',
             },
         },
@@ -230,16 +230,16 @@ describe('Confirmation Dialog Provider', () => {
             act: sampleDeleteEnvLock,
             fin: finallySpy,
             expect: {
-                conflict: false,
+                conflict: new Set(),
                 title: 'Are you sure you want to delete this environment lock?',
             },
         },
         {
             type: 'Deploy Action With Locks Warning',
             act: sampleDeployActionOtherApplication,
-            locks: [['id_1234', { message: 'random lock message' }]],
+            locks: [['id_1234', { lockId: 'id_1234', message: 'random lock message' }]],
             expect: {
-                conflict: true,
+                conflict: new Set([sampleDeployActionOtherVersion]),
                 title: 'Are you sure you want to deploy this version?',
             },
         },
@@ -248,7 +248,7 @@ describe('Confirmation Dialog Provider', () => {
             act: sampleDeployActionOtherApplication,
             locks: [],
             expect: {
-                conflict: false,
+                conflict: new Set(),
                 title: 'Are you sure you want to deploy this version?',
             },
         },
@@ -274,11 +274,11 @@ describe('Confirmation Dialog Provider', () => {
 
             // test for conflicts
             // when adding the same action should be flagged as conflict
-            const res = exportedForTesting.isConflictingAction(sampleCartActions, testcase.act);
+            const res = exportedForTesting.getCartConflicts(sampleCartActions, testcase.act);
             // then ( this function only checks for conflicting actions. checking for locks is not part of it )
-            if (!testcase.locks) expect(res).toBe(testcase.expect.conflict);
+            if (!testcase.locks) expect(res).toStrictEqual(testcase.expect.conflict);
 
-            if (testcase.expect.conflict) {
+            if (testcase.expect.conflict.size) {
                 // then a dialog shows up
                 const title = document.querySelector('.confirmation-title');
                 expect(title!.textContent).toBe(testcase.expect.title);
