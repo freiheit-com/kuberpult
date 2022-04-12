@@ -92,7 +92,7 @@ func (d *DeployServiceServer) ReleaseTrain(
 	}
 	err := d.Repository.Apply(ctx, &repository.ReleaseTrain{
 		Environment: in.Environment,
-		Owner:       in.Team,
+		Team:        in.Team,
 	})
 	if err != nil {
 		return nil, internalError(ctx, err)

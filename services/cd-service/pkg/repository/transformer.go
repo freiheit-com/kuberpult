@@ -695,7 +695,7 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, fs billy.Files
 
 type ReleaseTrain struct {
 	Environment string
-	Owner       string
+	Team        string
 }
 
 func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
@@ -739,7 +739,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (stri
 	numServices := 0
 	completeMessage := ""
 	for _, appName := range apps {
-		if c.Owner != "" {
+		if c.Team != "" {
 			appDir := applicationDirectory(fs, appName)
 			appConfigFile := fs.Join(appDir, "config.json")
 			var config config.ApplicationConfig
@@ -750,7 +750,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (stri
 					return "", fmt.Errorf("error while decoding config Json file for application %v found: %w", appName, err)
 				}
 			}
-			if c.Owner != config.Owner {
+			if c.Team != config.Team {
 				continue
 			}
 		}

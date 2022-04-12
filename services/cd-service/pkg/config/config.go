@@ -17,7 +17,7 @@ Copyright 2021 freiheit.com*/
 package config
 
 type ApplicationConfig struct {
-	Owner string `json:"owner"`
+	Team string `json:"team"`
 }
 
 type EnvironmentConfig struct {

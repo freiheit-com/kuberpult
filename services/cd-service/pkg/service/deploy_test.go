@@ -177,7 +177,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 			Transformers: []repository.Transformer{
 				&repository.ReleaseTrain{
 					Environment: envProduction,
-					Owner:       "team1",
+					Team:        "team1",
 				},
 			},
 			expectedError:     "",
@@ -189,7 +189,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 			Transformers: []repository.Transformer{
 				&repository.ReleaseTrain{
 					Environment: envProduction,
-					Owner:       "team2",
+					Team:        "team2",
 				},
 			},
 			expectedError:     "",
@@ -197,11 +197,11 @@ func TestReleaseTrainErrors(t *testing.T) {
 			shouldSucceed:     true,
 		},
 		{
-			Name: "release train for team3 ( not exists)  ",
+			Name: "release train for team3 ( not exists )  ",
 			Transformers: []repository.Transformer{
 				&repository.ReleaseTrain{
 					Environment: envProduction,
-					Owner:       "team3",
+					Team:        "team3",
 				},
 			},
 			expectedError:     "",
@@ -234,14 +234,14 @@ func TestReleaseTrainErrors(t *testing.T) {
 						envAcceptance: "acceptance",
 						envProduction: "production",
 					},
-					Configuration: `{ "Owner": "team1"  }`,
+					Configuration: `{ "Team": "team1"  }`,
 				},
 				&repository.CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
 						envProduction: "production",
 					},
-					Configuration: `{ "Owner": "team1"  }`,
+					Configuration: `{ "Team": "team1"  }`,
 				},
 				&repository.CreateApplicationVersion{
 					Application: "app2",
@@ -249,14 +249,14 @@ func TestReleaseTrainErrors(t *testing.T) {
 						envAcceptance: "acceptance",
 						envProduction: "production",
 					},
-					Configuration: `{ "Owner": "team2"  }`,
+					Configuration: `{ "Team": "team2"  }`,
 				},
 				&repository.CreateApplicationVersion{
 					Application: "app2",
 					Manifests: map[string]string{
 						envProduction: "production",
 					},
-					Configuration: `{ "Owner": "team2"  }`,
+					Configuration: `{ "Team": "team2"  }`,
 				},
 				&repository.CreateApplicationVersion{
 					Application: "app3",
