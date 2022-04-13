@@ -743,7 +743,6 @@ func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (stri
 			appDir := applicationDirectory(fs, appName)
 			appTeam := fs.Join(appDir, "team")
 			if team, err := readFile(fs, appTeam); err != nil {
-				fmt.Println(string(team), err)
 				if os.IsNotExist(err) {
 					continue
 				} else {
