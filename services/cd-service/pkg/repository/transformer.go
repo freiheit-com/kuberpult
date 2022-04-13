@@ -134,7 +134,7 @@ type CreateApplicationVersion struct {
 	SourceCommitId string
 	SourceAuthor   string
 	SourceMessage  string
-	Configuration  string
+	Team           string
 }
 
 func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
@@ -192,8 +192,8 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Files
 			return "", err
 		}
 	}
-	if c.Configuration != "" {
-		if err := util.WriteFile(fs, fs.Join(appDir, "config.json"), []byte(c.Configuration), 0666); err != nil {
+	if c.Team != "" {
+		if err := util.WriteFile(fs, fs.Join(appDir, "team"), []byte(c.Team), 0666); err != nil {
 			return "", err
 		}
 	}
@@ -741,16 +741,15 @@ func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (stri
 	for _, appName := range apps {
 		if c.Team != "" {
 			appDir := applicationDirectory(fs, appName)
-			appConfigFile := fs.Join(appDir, "config.json")
-			var config config.ApplicationConfig
-			if err := decodeJsonFile(fs, appConfigFile, &config); err != nil {
-				if errors.Is(err, os.ErrNotExist) {
+			appTeam := fs.Join(appDir, "team")
+			if team, err := readFile(fs, appTeam); err != nil {
+				fmt.Println(string(team), err)
+				if os.IsNotExist(err) {
 					continue
 				} else {
-					return "", fmt.Errorf("error while decoding config Json file for application %v found: %w", appName, err)
+					return "", fmt.Errorf("error while reading team owner file for application %v found: %w", appName, err)
 				}
-			}
-			if c.Team != config.Team {
+			} else if c.Team != string(team) {
 				continue
 			}
 		}

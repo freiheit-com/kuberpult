@@ -157,9 +157,9 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if configuration, ok := form.Value["configuration"]; ok {
-		if len(configuration) == 1 {
-			tf.Configuration = configuration[0]
+	if team, ok := form.Value["team"]; ok {
+		if len(team) == 1 {
+			tf.Team = team[0]
 		}
 	}
 

@@ -234,14 +234,13 @@ func TestReleaseTrainErrors(t *testing.T) {
 						envAcceptance: "acceptance",
 						envProduction: "production",
 					},
-					Configuration: `{ "Team": "team1"  }`,
 				},
 				&repository.CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
 						envProduction: "production",
 					},
-					Configuration: `{ "Team": "team1"  }`,
+					Team: "team1",
 				},
 				&repository.CreateApplicationVersion{
 					Application: "app2",
@@ -249,14 +248,13 @@ func TestReleaseTrainErrors(t *testing.T) {
 						envAcceptance: "acceptance",
 						envProduction: "production",
 					},
-					Configuration: `{ "Team": "team2"  }`,
 				},
 				&repository.CreateApplicationVersion{
 					Application: "app2",
 					Manifests: map[string]string{
 						envProduction: "production",
 					},
-					Configuration: `{ "Team": "team2"  }`,
+					Team: "team2",
 				},
 				&repository.CreateApplicationVersion{
 					Application: "app3",
