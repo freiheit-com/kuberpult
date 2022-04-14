@@ -134,6 +134,7 @@ type CreateApplicationVersion struct {
 	SourceCommitId string
 	SourceAuthor   string
 	SourceMessage  string
+	Team           string
 }
 
 func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
@@ -166,6 +167,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Files
 		return "", err
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
+	appDir := applicationDirectory(fs, c.Application)
 	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
 		return "", err
 	}
@@ -190,7 +192,11 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Files
 			return "", err
 		}
 	}
-
+	if c.Team != "" {
+		if err := util.WriteFile(fs, fs.Join(appDir, "team"), []byte(c.Team), 0666); err != nil {
+			return "", err
+		}
+	}
 	result := ""
 	for env, man := range c.Manifests {
 		envDir := fs.Join(releaseDir, "environments", env)
@@ -689,6 +695,7 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, fs billy.Files
 
 type ReleaseTrain struct {
 	Environment string
+	Team        string
 }
 
 func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
@@ -732,6 +739,19 @@ func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (stri
 	numServices := 0
 	completeMessage := ""
 	for _, appName := range apps {
+		if c.Team != "" {
+			appDir := applicationDirectory(fs, appName)
+			appTeam := fs.Join(appDir, "team")
+			if team, err := readFile(fs, appTeam); err != nil {
+				if os.IsNotExist(err) {
+					continue
+				} else {
+					return "", fmt.Errorf("error while reading team owner file for application %v found: %w", appName, err)
+				}
+			} else if c.Team != string(team) {
+				continue
+			}
+		}
 		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(targetEnvName, appName)
 		if err != nil {
 			return "", fmt.Errorf("could not get version of application %q in env %q: %w", appName, targetEnvName, err)

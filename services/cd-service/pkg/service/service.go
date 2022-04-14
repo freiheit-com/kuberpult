@@ -157,6 +157,12 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 		return
 	}
 
+	if team, ok := form.Value["team"]; ok {
+		if len(team) == 1 {
+			tf.Team = team[0]
+		}
+	}
+
 	if source_commit_id, ok := form.Value["source_commit_id"]; ok {
 		if len(source_commit_id) == 1 && isCommitId(source_commit_id[0]) {
 			tf.SourceCommitId = source_commit_id[0]

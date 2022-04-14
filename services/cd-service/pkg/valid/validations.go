@@ -23,6 +23,7 @@ import (
 
 var (
 	applicationNameRx = regexp.MustCompile(`\A[a-z0-9]+(?:-[a-z0-9]+)*\z`)
+	teamNameRx        = regexp.MustCompile(`\A[a-z0-9]+(?:-[a-z0-9]+)*\z`)
 	envNameRx         = regexp.MustCompile(`\A[a-z0-9]+(?:-[a-z0-9]+)*\z`)
 )
 
@@ -32,6 +33,10 @@ func EnvironmentName(env string) bool {
 }
 func ApplicationName(name string) bool {
 	return len(name) < 40 && applicationNameRx.MatchString(name)
+}
+
+func TeamName(name string) bool {
+	return len(name) < 21 && teamNameRx.MatchString(name)
 }
 
 // Lock names must be valid file names
