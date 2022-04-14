@@ -1,0 +1,29 @@
+services:
+  backend:
+    build: infrastructure/docker/backend
+    container_name: kuberpult-cd-service
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    volumes:
+      - .:/code
+  frontend:
+    build: infrastructure/docker/frontend
+    container_name: kuberpult-frontend-service
+    environment:
+      - KUBERPULT_CD_SERVER=kuberpult-cd-service:8443
+    ports:
+      - "8081:8081"
+    depends_on:
+      - backend
+    volumes:
+      - .:/code
+  ui:
+    build: infrastructure/docker/ui
+    ports:
+      - "3000:3000"
+    depends_on:
+      - frontend
+      - backend
+    volumes:
+      - .:/code

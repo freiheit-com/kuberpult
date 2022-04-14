@@ -63,6 +63,11 @@ func RunServer() {
 				grpc_zap.UnaryServerInterceptor(grpcServerLogger),
 			),
 		)
+
+		fmt.Println(c.CdServer)
+
+		c.CdServer = "kuberpult-cd-service:8443"
+
 		con, err := grpc.Dial(c.CdServer,
 			grpc.WithInsecure(),
 		)
