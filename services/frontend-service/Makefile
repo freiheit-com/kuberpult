@@ -30,7 +30,7 @@ IMAGENAME?=ghcr.io/freiheit-com/kuberpult-frontend-service:${VERSION}
 
 GARBAGE := *.sentinel
 
-proto:
+proto: src/api/api.ts
 	$(MAKE) -C../../pkg/api all
 
 bin/main: $(GO_FILES) | proto
