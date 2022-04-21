@@ -7,7 +7,7 @@ git:
   branch: "master"
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-tag: "0.4.13"
+tag: "0.4.14"
 
 log:
   # Possible values are "gcp" for a gcp-optimized format and "default" for json
