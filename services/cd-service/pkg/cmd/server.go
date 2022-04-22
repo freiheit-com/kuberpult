@@ -48,9 +48,9 @@ type Config struct {
 	ArgoCdHost        string `default:"localhost:8080" split_words:"true"`
 	ArgoCdUser        string `default:"admin" split_words:"true"`
 	ArgoCdPass        string `default:"" split_words:"true"`
-	EnableTracing     bool   `default:"false" split_words:"true""`
-	EnableMetrics     bool   `default:"false" split_words:"true""`
-	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true""`
+	EnableTracing     bool   `default:"false" split_words:"true"`
+	EnableMetrics     bool   `default:"false" split_words:"true"`
+	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true"`
 }
 
 func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
