@@ -1,10 +1,5 @@
 #!/bin/sh
 
-cd /code
-make .install
+cd /ui/kuberpult/services/frontend-service
 
-cd /code/services/frontend-service
-
-yarn
-
-yarn start
+make start
