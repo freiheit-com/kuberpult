@@ -11,7 +11,7 @@ services:
     build: infrastructure/docker/frontend
     container_name: kuberpult-frontend-service
     environment:
-      - KUBERPULT_CD_SERVER=kuberpult-cd-service:8443
+      - KUBERPULT_CDSERVER=kuberpult-cd-service:8443
     ports:
       - "8081:8081"
     depends_on:

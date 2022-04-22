@@ -64,10 +64,6 @@ func RunServer() {
 			),
 		)
 
-		fmt.Println(c.CdServer)
-
-		c.CdServer = "kuberpult-cd-service:8443"
-
 		con, err := grpc.Dial(c.CdServer,
 			grpc.WithInsecure(),
 		)
