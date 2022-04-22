@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { makeStyles } from '@material-ui/core/styles';
 
@@ -43,7 +43,6 @@ import type { Application, BatchAction, GetOverviewResponse, Lock } from '../api
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
-import { Grow, TextField } from '@material-ui/core';
 import AddLockIcon from '@material-ui/icons/EnhancedEncryption';
 
 type Data = { applicationName: string; version: number };
@@ -127,18 +126,9 @@ const QueueDiff = (props: { queued: number; current: number }) => {
 
 export const randomLockId = () => 'ui-' + Math.random().toString(36).substring(7);
 
-const LockButtonGroup = (props: {
-    applicationName?: string;
-    addToCart?: () => void;
-    inCart?: boolean;
-    message: string;
-    setMessage: (e: string) => void;
-    open: boolean;
-    setOpen: (e: boolean) => void;
-}) => {
-    const { applicationName, addToCart, inCart, message, setMessage, setOpen, open } = props;
-    const updateMessage = React.useCallback((e) => setMessage(e.target.value), [setMessage]);
-    const openInput = React.useCallback(() => setOpen(true), [setOpen]);
+const LockButtonGroup = (props: { applicationName?: string; addToCart?: () => void; inCart?: boolean }) => {
+    const { applicationName, addToCart, inCart } = props;
+
     if (inCart) {
         return applicationName ? (
             <IconButton disabled>
@@ -148,37 +138,15 @@ const LockButtonGroup = (props: {
             <Button disabled>Add Lock</Button>
         );
     }
-    if (open) {
-        return (
-            <Grow in={open} style={{ transformOrigin: 'right center' }}>
-                {applicationName ? (
-                    <ButtonGroup className="overlay">
-                        <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
-                        <IconButton onClick={addToCart} disabled={message === ''}>
-                            <AddLockIcon />
-                        </IconButton>
-                    </ButtonGroup>
-                ) : (
-                    <ButtonGroup className="overlay">
-                        <Button onClick={addToCart} disabled={message === ''}>
-                            Add Lock
-                        </Button>
-                        <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
-                    </ButtonGroup>
-                )}
-            </Grow>
-        );
-    } else {
-        return applicationName ? (
-            <Tooltip title="Add lock">
-                <IconButton onClick={openInput}>
-                    <AddLockIcon />
-                </IconButton>
-            </Tooltip>
-        ) : (
-            <Button onClick={openInput}>Add Lock</Button>
-        );
-    }
+    return applicationName ? (
+        <Tooltip title="Add lock">
+            <IconButton onClick={addToCart}>
+                <AddLockIcon />
+            </IconButton>
+        </Tooltip>
+    ) : (
+        <Button onClick={addToCart}>Add Lock</Button>
+    );
 };
 
 const ReleaseLockButtonGroup = (props: {
@@ -245,8 +213,7 @@ const DeployButton = (props: {
 
 export const CreateLockButton = (props: { applicationName?: string; environmentName: string }) => {
     const { applicationName, environmentName } = props;
-    const [messageBox, setMessageBox] = React.useState(false);
-    const [message, setMessage] = React.useState('');
+
     const act: BatchAction = useMemo(
         () => ({
             action: applicationName
@@ -256,7 +223,7 @@ export const CreateLockButton = (props: { applicationName?: string; environmentN
                           application: applicationName,
                           environment: environmentName,
                           lockId: randomLockId(),
-                          message: message,
+                          message: 'default-lock',
                       },
                   }
                 : {
@@ -264,26 +231,16 @@ export const CreateLockButton = (props: { applicationName?: string; environmentN
                       createEnvironmentLock: {
                           environment: environmentName,
                           lockId: randomLockId(),
-                          message: message,
+                          message: 'default-lock',
                       },
                   },
         }),
-        [applicationName, environmentName, message]
+        [applicationName, environmentName]
     );
 
-    const fin = useCallback(() => {
-        setMessageBox(false);
-    }, [setMessageBox]);
-
     return (
-        <ConfirmationDialogProvider action={act} fin={fin}>
-            <LockButtonGroup
-                open={messageBox}
-                message={message}
-                setMessage={setMessage}
-                setOpen={setMessageBox}
-                applicationName={applicationName}
-            />
+        <ConfirmationDialogProvider action={act}>
+            <LockButtonGroup applicationName={applicationName} />
         </ConfirmationDialogProvider>
     );
 };

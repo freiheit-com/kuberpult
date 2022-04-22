@@ -29,7 +29,7 @@ import {
 } from '@material-ui/icons';
 import { ActionsCartContext } from './App';
 
-enum ActionTypes {
+export enum ActionTypes {
     Deploy,
     PrepareUndeploy,
     Undeploy,
