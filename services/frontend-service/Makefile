@@ -30,7 +30,7 @@ IMAGENAME?=ghcr.io/freiheit-com/kuberpult-frontend-service:${VERSION}
 
 GARBAGE := *.sentinel
 
-proto: src/api/api.ts
+proto:
 	$(MAKE) -C../../pkg/api all
 
 bin/main: $(GO_FILES) | proto
@@ -41,6 +41,9 @@ GARBAGE += bin/main
 export KUBERPULT_CDSERVER?=localhost:8443
 run: bin/main
 	./bin/main
+
+start: src/api/api.ts
+	yarn && yarn start
 
 clean:
 	git clean -Xfd
