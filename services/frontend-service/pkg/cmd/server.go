@@ -63,7 +63,6 @@ func RunServer() {
 				grpc_zap.UnaryServerInterceptor(grpcServerLogger),
 			),
 		)
-
 		con, err := grpc.Dial(c.CdServer,
 			grpc.WithInsecure(),
 		)
