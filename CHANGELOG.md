@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.4.14
+
+**released 2022-04-21**
+
+### Added
+
+* Custom configuration per application ( Owner )  [#123](https://github.com/freiheit-com/kuberpult/pull/123)
+* Add option to replace actions on conflict [#124](https://github.com/freiheit-com/kuberpult/pull/124)
+
 ## 0.4.13
 
 **released 2022-04-01**
