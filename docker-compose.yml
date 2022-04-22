@@ -6,7 +6,7 @@ services:
       - "8080:8080"
       - "8443:8443"
     volumes:
-      - .:/code
+      - .:/kp/kuberpult
   frontend:
     build: infrastructure/docker/frontend
     container_name: kuberpult-frontend-service
@@ -17,7 +17,7 @@ services:
     depends_on:
       - backend
     volumes:
-      - .:/code
+      - .:/kp/kuberpult
   ui:
     build: infrastructure/docker/ui
     container_name: kuberpult-ui
@@ -26,4 +26,4 @@ services:
     depends_on:
       - frontend
     volumes:
-      - .:/ui/kuberpult
+      - .:/kp/kuberpult

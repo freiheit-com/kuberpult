@@ -5,12 +5,12 @@ RUN wget https://github.com/bufbuild/buf/releases/download/v1.0.0/buf-Linux-x86_
 
 EXPOSE 3000
 
-RUN adduser --disabled-password --gecos "" --home "/ui" --uid 1000 ui
+RUN adduser --disabled-password --gecos "" --home "/kp" --uid 1000 kp
 
-RUN chown -R ui:ui /ui
+RUN chown -R kp:kp /kp
 
-COPY start.sh /ui/start.sh
-RUN chmod +x /ui/start.sh
+COPY start.sh /kp/start.sh
+RUN chmod +x /kp/start.sh
 
-USER ui
-CMD [ "/ui/start.sh" ]
+USER kp
+CMD [ "/kp/start.sh" ]

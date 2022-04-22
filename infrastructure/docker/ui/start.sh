@@ -1,5 +1,5 @@
 #!/bin/sh
 
-cd /ui/kuberpult/services/frontend-service
+cd /kp/kuberpult/services/frontend-service
 
 make start
