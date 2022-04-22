@@ -42,6 +42,9 @@ export KUBERPULT_CDSERVER?=localhost:8443
 run: bin/main
 	./bin/main
 
+start: src/api/api.ts
+	yarn && yarn start
+
 clean:
 	git clean -Xfd
 
