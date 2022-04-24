@@ -129,23 +129,16 @@ export const randomLockId = () => 'ui-' + Math.random().toString(36).substring(7
 const LockButtonGroup = (props: { applicationName?: string; addToCart?: () => void; inCart?: boolean }) => {
     const { applicationName, addToCart, inCart } = props;
 
-    if (inCart) {
-        return applicationName ? (
-            <IconButton disabled>
-                <AddLockIcon />
-            </IconButton>
-        ) : (
-            <Button disabled>Add Lock</Button>
-        );
-    }
     return applicationName ? (
-        <Tooltip title="Add lock">
-            <IconButton onClick={addToCart}>
+        <Tooltip title="Add lock" hidden={inCart}>
+            <IconButton onClick={addToCart} disabled={inCart}>
                 <AddLockIcon />
             </IconButton>
         </Tooltip>
     ) : (
-        <Button onClick={addToCart}>Add Lock</Button>
+        <Button onClick={addToCart} disabled={inCart}>
+            Add Lock
+        </Button>
     );
 };
 
@@ -157,23 +150,16 @@ const ReleaseLockButtonGroup = (props: {
 }) => {
     const { lock, queueHint, inCart, addToCart } = props;
     const msg = queueHint ? 'When you unlock the last lock the queue will be deployed!' : '';
-    if (!inCart) {
-        return (
-            <Tooltip
-                arrow
-                title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. ' + msg}>
-                <IconButton onClick={addToCart}>
-                    <LockIcon />
-                </IconButton>
-            </Tooltip>
-        );
-    } else {
-        return (
-            <IconButton disabled>
+    return (
+        <Tooltip
+            arrow
+            title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. ' + msg}
+            hidden={inCart}>
+            <IconButton onClick={addToCart} disabled={inCart}>
                 <LockIcon />
             </IconButton>
-        );
-    }
+        </Tooltip>
+    );
 };
 
 const DeployButton = (props: {

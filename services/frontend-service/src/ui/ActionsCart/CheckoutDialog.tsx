@@ -35,7 +35,7 @@ import { ActionTypes, GetActionDetails } from '../ConfirmationDialog';
 export const callbacks = {
     useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
         useUnaryCallback(
-            React.useCallback(
+            useCallback(
                 (api) =>
                     api
                         .batchService()
@@ -49,40 +49,10 @@ export const callbacks = {
         ),
 };
 
-const ApplyButton = (props: {
-    openNotification: (msg: string) => void;
-    closeDialog: () => void;
-    lockMessage: string;
-}) => {
-    const { openNotification, closeDialog, lockMessage } = props;
-    const { actions, setActions } = useContext(ActionsCartContext);
+const ApplyButton = (props: { doActions: () => void; state: string }) => {
+    const { doActions, state } = props;
 
-    const actionsSucceeded = useCallback(() => {
-        setActions([]);
-        closeDialog();
-        openNotification('Actions were applied successfully!');
-    }, [setActions, openNotification, closeDialog]);
-    const actionsFailed = useCallback(() => {
-        closeDialog();
-        openNotification('Actions were not applied. Please try again!');
-    }, [openNotification, closeDialog]);
-
-    const newActions = [...actions];
-    for (const act of newActions) {
-        switch (act.action?.$case) {
-            case 'createEnvironmentLock':
-                act.action.createEnvironmentLock.message = lockMessage;
-                break;
-            case 'createEnvironmentApplicationLock':
-                act.action.createEnvironmentApplicationLock.message = lockMessage;
-                break;
-            default:
-        }
-    }
-    setActions(newActions);
-    const [doActions, doActionsState] = callbacks.useBatch(newActions, actionsSucceeded, actionsFailed);
-
-    switch (doActionsState.state) {
+    switch (state) {
         case 'rejected':
         case 'resolved':
         case 'waiting':
@@ -106,61 +76,83 @@ const ApplyButton = (props: {
     }
 };
 
-const LockMessageBox = (props: { setMessage: (m: string) => void }) => {
-    const { actions, setActions } = useContext(ActionsCartContext);
-    const updateMessage = React.useCallback(
-        (e) => {
-            /*const newActions = actions;
-            for (const act of newActions) {
-                switch (act.action?.$case) {
-                    case 'createEnvironmentLock':
-                        act.action.createEnvironmentLock.message = e.target.value;
-                        break;
-                    case 'createEnvironmentApplicationLock':
-                        act.action.createEnvironmentApplicationLock.message = e.target.value;
-                        break;
-                    default:
-                }
-            }
-            setActions(newActions);*/
-            props.setMessage(e.target.value);
-        },
-        [actions, setActions]
-    );
-    let createLocks = false;
+const includesCreateLockActions = (actions: BatchAction[]) => {
     for (const act of actions) {
         const t = GetActionDetails(act).type;
         if (t === ActionTypes.CreateEnvironmentLock || t === ActionTypes.CreateApplicationLock) {
-            createLocks = true;
+            return true;
         }
     }
+    return false;
+};
 
-    if (!createLocks) {
-        return null;
+/*
+const getActionsWithMessages = (actions: BatchAction[], m: string): BatchAction[] => {
+    if (!actions.length) return [];
+    const res: BatchAction[] = [];
+    for (const act of actions) {
+        switch (act.action?.$case) {
+            case 'createEnvironmentLock':
+                res.push({
+                    action: {
+                        ...act.action,
+                        createEnvironmentLock: {
+                            ...act.action.createEnvironmentLock,
+                            message: m,
+                        },
+                    },
+                });
+                break;
+            case 'createEnvironmentApplicationLock':
+                res.push({
+                    action: {
+                        ...act.action,
+                        createEnvironmentApplicationLock: {
+                            ...act.action.createEnvironmentApplicationLock,
+                            message: m,
+                        },
+                    },
+                });
+                break;
+            default:
+                res.push(act);
+        }
     }
+    return res;
+};
+*/
+
+const CheckoutButton = (props: { openDialog: () => void; disabled: boolean; setLockMessage: (m: string) => void }) => {
+    const { openDialog, disabled, setLockMessage } = props;
+    const { actions } = useContext(ActionsCartContext);
+    const updateMessage = useCallback((e) => setLockMessage(e.target.value), [setLockMessage]);
+
     return (
-        <TextField
-            label="Lock Message"
-            variant="outlined"
-            sx={{ m: 1 }}
-            placeholder="default-lock"
-            onChange={updateMessage}
-        />
+        <>
+            {includesCreateLockActions(actions) && (
+                <TextField
+                    label="Lock Message"
+                    variant="outlined"
+                    sx={{ m: 1 }}
+                    placeholder="default-lock"
+                    onChange={updateMessage}
+                />
+            )}
+            <Button sx={{ display: 'flex' }} onClick={openDialog} variant={'contained'} disabled={disabled}>
+                <Typography variant="h6">
+                    <strong>Apply</strong>
+                </Typography>
+            </Button>
+        </>
     );
 };
-export const CheckoutCart = () => {
-    const [openNotify, setOpenNotify] = React.useState(false);
-    const [dialogOpen, setDialogOpen] = React.useState(false);
-    const [notifyMessage, setNotifyMessage] = React.useState('');
-    const { actions } = useContext(ActionsCartContext);
-    const [lockMessage, setLockMessage] = useState('default-lock');
 
-    const updateLockMessage = useCallback(
-        (m: string) => {
-            setLockMessage(m);
-        },
-        [setLockMessage]
-    );
+export const CheckoutCart = () => {
+    const [openNotify, setOpenNotify] = useState(false);
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [notifyMessage, setNotifyMessage] = useState('');
+    const { actions, setActions } = useContext(ActionsCartContext);
+    const [lockMessage, setLockMessage] = useState('');
 
     const openNotification = useCallback(
         (msg: string) => {
@@ -188,17 +180,30 @@ export const CheckoutCart = () => {
         setDialogOpen(false);
     }, [setDialogOpen]);
 
-    const checkoutButton = (
-        <Button
-            sx={{ display: 'flex' }}
-            onClick={openDialog}
-            variant={'contained'}
-            disabled={actions.length === 0 || dialogOpen}>
-            <Typography variant="h6">
-                <strong>Apply</strong>
-            </Typography>
-        </Button>
-    );
+    const actionsSucceeded = useCallback(() => {
+        setActions([]);
+        closeDialog();
+        setLockMessage('');
+        openNotification('Actions were applied successfully!');
+    }, [setActions, openNotification, closeDialog, setLockMessage]);
+    const actionsFailed = useCallback(() => {
+        closeDialog();
+        openNotification('Actions were not applied. Please try again!');
+    }, [openNotification, closeDialog]);
+
+    for (const act of actions) {
+        switch (act.action?.$case) {
+            case 'createEnvironmentLock':
+                act.action.createEnvironmentLock.message = lockMessage;
+                break;
+            case 'createEnvironmentApplicationLock':
+                act.action.createEnvironmentApplicationLock.message = lockMessage;
+                break;
+            default:
+        }
+    }
+
+    const [doActions, doActionsState] = callbacks.useBatch(actions, actionsSucceeded, actionsFailed);
 
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
@@ -212,8 +217,11 @@ export const CheckoutCart = () => {
                 display: 'flex',
                 flexDirection: 'column',
             }}>
-            <LockMessageBox setMessage={updateLockMessage} />
-            {checkoutButton}
+            <CheckoutButton
+                openDialog={openDialog}
+                disabled={actions.length === 0 || dialogOpen}
+                setLockMessage={setLockMessage}
+            />
             <Dialog onClose={closeDialog} open={dialogOpen}>
                 <DialogTitle sx={{ m: 0, p: 2 }}>
                     <Typography variant="subtitle1" component="div" className="checkout-title">
@@ -222,11 +230,7 @@ export const CheckoutCart = () => {
                 </DialogTitle>
                 <span style={{ alignSelf: 'end' }}>
                     <Button onClick={closeDialog}>Cancel</Button>
-                    <ApplyButton
-                        openNotification={openNotification}
-                        closeDialog={closeDialog}
-                        lockMessage={lockMessage}
-                    />
+                    <ApplyButton doActions={doActions} state={doActionsState.state} />
                 </span>
             </Dialog>
             <Snackbar
