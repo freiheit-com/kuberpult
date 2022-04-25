@@ -18,6 +18,9 @@ package cmd
 
 import (
 	"context"
+	"net/http"
+	"os"
+
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -32,8 +35,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"net/http"
-	"os"
 )
 
 type Config struct {
