@@ -273,12 +273,12 @@ var serveHTTP = func(ctx context.Context, httpS *http.Server, port string) {
 
 	httpL, err := net.Listen("tcp", addr)
 	if err != nil {
-		logger.FromContext(ctx).Panic("http.listen.error",zap.Error(err),zap.String("addr", addr))
+		logger.FromContext(ctx).Panic("http.listen.error", zap.Error(err), zap.String("addr", addr))
 		return
 	}
 
 	if err := httpS.Serve(httpL); err != nil && err != http.ErrServerClosed {
-		logger.FromContext(ctx).Error("http.serve.error",zap.Error(err))
+		logger.FromContext(ctx).Error("http.serve.error", zap.Error(err))
 	}
 }
 
@@ -299,7 +299,7 @@ func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig) {
 		shutdownChannel <- true
 	}()
 	if err := config.Run(ctx); err != nil {
-		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job",config.Name))
+		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job", config.Name))
 	}
 }
 
