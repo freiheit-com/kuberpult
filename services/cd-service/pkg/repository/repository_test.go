@@ -455,12 +455,50 @@ func (s *SlowTransformer) Transform(ctx context.Context, fs billy.Filesystem) (s
 }
 
 func TestApplyQueue(t *testing.T) {
-
+	testError := fmt.Errorf("test error")
+	type action struct {
+		CancelBeforeAdd bool
+		CancelAfterAdd  bool
+		Transformer     Transformer
+		// Tests
+		ExpectedError   error
+	}
 	tcs := []struct {
-		Name string
+		Name    string
+		Actions []action
 	}{
 		{
 			Name: "simple",
+			Actions: []action{
+				{}, {}, {},
+			},
+		},
+		{
+			Name: "cancellation in the middle",
+			Actions: []action{
+				{}, {
+					CancelAfterAdd: true,
+					ExpectedError: context.Canceled,
+				}, {},
+			},
+		},
+		{
+			Name: "cancellation at the start",
+			Actions: []action{
+				{
+					CancelAfterAdd: true,
+					ExpectedError: context.Canceled,
+				}, {}, {},
+			},
+		},
+		{
+			Name: "error in the middle",
+			Actions: []action{
+				{
+					CancelAfterAdd: true,
+					ExpectedError: context.Canceled,
+				}, {}, {},
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -493,34 +531,32 @@ func TestApplyQueue(t *testing.T) {
 			}()
 			<-started
 			// The worker go routine is now blocked. We can move some items into the queue now.
-			e1 := repoInternal.applyDeferred(context.Background(), &CreateApplicationVersion{
-				Application: "foo",
-				Manifests: map[string]string{
-					"development": "1",
-				},
-			})
-			e2 := repoInternal.applyDeferred(context.Background(), &CreateApplicationVersion{
-				Application: "foo",
-				Manifests: map[string]string{
-					"development": "2",
-				},
-			})
-			e3 := repoInternal.applyDeferred(context.Background(), &CreateApplicationVersion{
-				Application: "foo",
-				Manifests: map[string]string{
-					"development": "3",
-				},
-			})
-			// Now release the 
+			results := make([]<-chan error, len(tc.Actions))
+			for i, action := range tc.Actions {
+				ctx, cancel := context.WithCancel(context.Background())
+				if action.CancelBeforeAdd {
+					cancel()
+				}
+				tf := &CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[string]string{
+						"development": fmt.Sprintf("%d", i),
+					},
+				}
+				if action.Transformer != nil {
+				}
+				results[i] = repoInternal.applyDeferred(ctx, )
+				if action.CancelAfterAdd {
+					cancel()
+				}
+			}
+			// Now release the slow transformer
 			finished <- struct{}{}
-			if err := <-e1; err != nil {
-				t.Errorf("e1 error is not nil but got %v", err)
-			}
-			if err := <-e2; err != nil {
-				t.Errorf("e2 error is not nil but got %v", err)
-			}
-			if err := <-e3; err != nil {
-				t.Errorf("e3 error is not nil but got %v", err)
+			// Check for the correct errors
+			for i, action := range tc.Actions {
+				if err := <-results[i]; err != action.ExpectedError {
+					t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, action.ExpectedError, err)
+				}
 			}
 		})
 	}

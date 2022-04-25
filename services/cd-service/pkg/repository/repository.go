@@ -241,7 +241,12 @@ func (r *repository) workOnce(e element) {
 			el.result <- err
 		}
 	}()
-
+	// Check that the first element is not already canceled
+	select {
+	case <-e.ctx.Done():
+		e.result <- e.ctx.Err()
+	default:
+	}
 	// Try to fetch more items from the queue in order to push more things together
 dispatchmore:
 	for {
@@ -250,6 +255,7 @@ dispatchmore:
 			// Check that the item is not already cancelled
 			select {
 			case <-f.ctx.Done():
+				f.result <- f.ctx.Err()
 			default:
 				elements = append(elements, f)
 			}
@@ -269,7 +275,7 @@ dispatchmore:
 	}
 
 	// Apply the items
-	for i := 0 ; i < len(elements) ; {
+	for i := 0; i < len(elements); {
 		e := elements[i]
 		applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
 		if applyErr != nil {
@@ -279,7 +285,7 @@ dispatchmore:
 			i++
 		}
 	}
-	if( len(elements) == 0 ){
+	if len(elements) == 0 {
 		return
 	}
 
@@ -294,7 +300,7 @@ dispatchmore:
 				return
 			}
 			// Apply the items
-			for i := 0 ; i < len(elements) ; {
+			for i := 0; i < len(elements); {
 				e := elements[i]
 				applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
 				if applyErr != nil {
@@ -304,7 +310,7 @@ dispatchmore:
 					i++
 				}
 			}
-			if( len(elements) == 0 ){
+			if len(elements) == 0 {
 				return
 			}
 			if pushErr := r.Push(e.ctx, pushAction); pushErr != nil {
