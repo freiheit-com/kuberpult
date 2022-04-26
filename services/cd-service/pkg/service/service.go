@@ -58,12 +58,6 @@ type Service struct {
 	ArgoCdPass string
 }
 
-func NewService(repository repository.Repository) *Service {
-	return &Service{
-		Repository: repository,
-	}
-}
-
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	head, tail := shiftPath(r.URL.Path)
 	switch head {
