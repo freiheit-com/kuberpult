@@ -1,5 +1,3 @@
 #!/bin/sh
 
-cd /kp/kuberpult/services/frontend-service
-
-make start
+exec make -C /kp/kuberpult/services/frontend-service start

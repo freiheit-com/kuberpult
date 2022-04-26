@@ -24,10 +24,7 @@ Afterwards bump the version in the `version` file.
   - then follow the instructions to install `ct`
 - golang >= 1.16
 - protoc >=3.15
-- `go install -modfile=go.tools.mod github.com/golang/protobuf/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc`
 - buf from https://docs.buf.build/installation
-- run make on the top level to install go modules:
-  `make .install`
 
 There is a dev image based on alpine in `docker/build`. You can create a shell using the `./dmake` command.
 
