@@ -61,7 +61,7 @@ The first thing you need to do after installing kuberpult is creating an environ
 Since kuberpult uses a git repository as its database, you only need to create a folder under `environments`. The folder name is the environment name.
 Kuberpult doesn't care too much how you name your environment but to make sure that apps in argocd are easy to recognize, environment names are limited to alpha numeric characters and dash and its length may not exceed 21 characters.
 
-You can put a file named `config.json` in the environment's directory to add further configuration. The options are documented further below. The implit default content of this file is `{}`. It's not necessary to create this file but we highly suggest to create it to enable automatic provisioning from the start. In order to do that, use `{"upstream":{"latest":true}}` as the content of this file.
+You can put a file named `config.json` in the environment's directory to add further configuration. The options are documented further below. The implicit default content of this file is `{}`. It's not necessary to create this file but we highly suggest to create it to enable automatic provisioning from the start. In order to do that, use `{"upstream":{"latest":true}}` as the content of this file.
 
 Your initial repository could look like this:
 
