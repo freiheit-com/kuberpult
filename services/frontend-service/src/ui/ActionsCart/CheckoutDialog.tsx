@@ -126,6 +126,7 @@ const CheckoutButton = (props: { openDialog: () => void; disabled: boolean; setL
                     sx={{ m: 1 }}
                     placeholder="default-lock"
                     onChange={updateInput}
+                    className="actions-cart__lock-message"
                 />
             )}
             <Button sx={{ display: 'flex' }} onClick={openDialog} variant={'contained'} disabled={disabled}>

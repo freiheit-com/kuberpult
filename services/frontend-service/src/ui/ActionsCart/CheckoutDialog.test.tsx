@@ -40,6 +40,10 @@ describe('Checkout Dialog', () => {
     interface dataT {
         type: string;
         cart: BatchAction[];
+        expect: {
+            disabled: boolean;
+            updatedMessage?: any;
+        };
     }
 
     const data: dataT[] = [
@@ -59,10 +63,43 @@ describe('Checkout Dialog', () => {
                     },
                 },
             ],
+            expect: {
+                disabled: false,
+            },
+        },
+        {
+            type: 'Create lock action',
+            cart: [
+                {
+                    action: {
+                        $case: 'createEnvironmentLock',
+                        createEnvironmentLock: {
+                            environment: 'dummy environment',
+                            lockId: '1234',
+                            message: '',
+                        },
+                    },
+                },
+            ],
+            expect: {
+                disabled: true, // lock message input is still empty
+                updatedMessage: [
+                    {
+                        action: {
+                            createEnvironmentLock: {
+                                message: 'foo bar',
+                            },
+                        },
+                    },
+                ],
+            },
         },
         {
             type: 'No actions',
             cart: [],
+            expect: {
+                disabled: true,
+            },
         },
     ];
 
@@ -72,8 +109,12 @@ describe('Checkout Dialog', () => {
             mock_useBatch.useBatch.returns([doActionsSpy, { state: 'waiting' }]);
             const { container } = getWrapper(testcase.cart);
 
+            mock_useBatch.useBatch.wasCalledWith(testcase.cart, Spy.IGNORE, Spy.IGNORE);
+
             const applyButton = getByText(container, /apply/i).closest('button');
-            if (testcase.cart.length === 0) {
+            const textField = container.querySelector('.actions-cart__lock-message input');
+
+            if (testcase.expect.disabled) {
                 expect(applyButton).toBeDisabled();
             } else {
                 // when open dialog
@@ -81,10 +122,10 @@ describe('Checkout Dialog', () => {
                 fireEvent.click(applyButton!);
 
                 // then
-                mock_useBatch.useBatch.wasCalledWith(testcase.cart, Spy.IGNORE, Spy.IGNORE);
+                const d = document.querySelector('.MuiDialog-root');
+                expect(d).toBeTruthy();
 
                 // when click yes
-                const d = document.querySelector('.MuiDialog-root');
                 const y = getByText(d! as HTMLElement, /yes/i).closest('button');
                 fireEvent.click(y!);
 
@@ -93,10 +134,19 @@ describe('Checkout Dialog', () => {
 
                 // when do the actions that useBatch is expected to do
                 act(() => {
-                    mock_useBatch.useBatch.getCallArguments()[1]();
+                    mock_useBatch.useBatch.getCallArgument(0, 1)();
                 });
                 // then
                 mock_setActions.wasCalledWith([]);
+            }
+            if (testcase.type === 'Create lock action') {
+                expect(textField).toBeTruthy();
+                fireEvent.change(textField!, { target: { value: 'foo bar' } });
+
+                const calledActions = mock_useBatch.useBatch.getCallArgument(1, 0);
+                expect(calledActions).toMatchObject(testcase.expect.updatedMessage);
+            } else {
+                expect(textField).toBe(null);
             }
         });
     });
