@@ -44,7 +44,7 @@ describe('Checkout Dialog', () => {
 
     const data: dataT[] = [
         {
-            type: 'Multiple cart actions',
+            type: 'Some action',
             cart: [
                 {
                     action: {
@@ -55,27 +55,6 @@ describe('Checkout Dialog', () => {
                             environment: 'dummy environment',
                             ignoreAllLocks: false,
                             lockBehavior: LockBehavior.Ignore,
-                        },
-                    },
-                },
-                {
-                    action: {
-                        $case: 'createEnvironmentLock',
-                        createEnvironmentLock: {
-                            environment: 'dummy environment',
-                            lockId: '1234',
-                            message: 'hello',
-                        },
-                    },
-                },
-                {
-                    action: {
-                        $case: 'createEnvironmentApplicationLock',
-                        createEnvironmentApplicationLock: {
-                            application: 'dummy application',
-                            environment: 'dummy environment',
-                            lockId: '1111',
-                            message: 'hi',
                         },
                     },
                 },

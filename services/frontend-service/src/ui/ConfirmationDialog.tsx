@@ -265,11 +265,7 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                     ' was successfully created with message: ' +
                     action.action?.createEnvironmentLock.message,
                 notMessageFail: 'Creating new environment lock failed',
-                summary:
-                    'Create new environment lock on ' +
-                    action.action?.createEnvironmentLock.environment +
-                    '. | Lock Message: ' +
-                    action.action?.createEnvironmentLock.message,
+                summary: 'Create new environment lock on ' + action.action?.createEnvironmentLock.environment,
                 icon: <LockRounded />,
                 environment: action.action?.createEnvironmentLock.environment,
                 lockId: action.action?.createEnvironmentLock.lockId,
@@ -290,9 +286,7 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                     'Lock "' +
                     action.action?.createEnvironmentApplicationLock.application +
                     '" on ' +
-                    action.action?.createEnvironmentApplicationLock.environment +
-                    '. | Lock Message: ' +
-                    action.action?.createEnvironmentApplicationLock.message,
+                    action.action?.createEnvironmentApplicationLock.environment,
                 icon: <LockRounded />,
                 environment: action.action?.createEnvironmentApplicationLock.environment,
                 application: action.action?.createEnvironmentApplicationLock.application,
