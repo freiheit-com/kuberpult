@@ -24,7 +24,11 @@ export CGO_ENABLED=1
 
 IMAGENAME?=ghcr.io/freiheit-com/kuberpult-cd-service:${VERSION}
 
-COMPILE_WITH_DOCKER := $(shell [ -z "$$WITHOUT_DOCKER" ] && v=true || v=false; echo $$v)
+ifneq ($(WITHOUT_DOCKER),)
+COMPILE_WITH_DOCKER := false
+else
+COMPILE_WITH_DOCKER := true
+endif
 
 GO := go
 
