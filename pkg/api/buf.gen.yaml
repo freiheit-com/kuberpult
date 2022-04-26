@@ -14,18 +14,19 @@
 #along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 #Copyright 2021 freiheit.com
-version: v1beta1
+version: v1
 plugins:
-  - name: go
+  - remote: buf.build/protocolbuffers/plugins/go:v1.28.0-1
     out: .
     opt:
       - paths=source_relative
-  - name: go-grpc
+  - remote: buf.build/grpc/plugins/go:v1.2.0-1
     out: .
     opt:
       - require_unimplemented_servers=false
       - paths=source_relative
-  - name: grpc-gateway
+  # Version needs to match the version used in `go.mod`:
+  - remote: buf.build/grpc-ecosystem/plugins/grpc-gateway:v2.10.0-1
     out: .
     opt:
       - paths=source_relative
