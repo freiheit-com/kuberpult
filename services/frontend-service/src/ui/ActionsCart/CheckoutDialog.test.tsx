@@ -48,7 +48,7 @@ describe('Checkout Dialog', () => {
 
     const data: dataT[] = [
         {
-            type: 'Some action',
+            type: 'Cort with some action',
             cart: [
                 {
                     action: {
@@ -68,7 +68,7 @@ describe('Checkout Dialog', () => {
             },
         },
         {
-            type: 'Create lock action',
+            type: 'Cart with create lock action',
             cart: [
                 {
                     action: {
@@ -95,7 +95,7 @@ describe('Checkout Dialog', () => {
             },
         },
         {
-            type: 'No actions',
+            type: 'cart with no actions',
             cart: [],
             expect: {
                 disabled: true,
@@ -103,7 +103,7 @@ describe('Checkout Dialog', () => {
         },
     ];
 
-    describe.each(data)(`Checkout with`, (testcase: dataT) => {
+    describe.each(data)(`Checkout`, (testcase: dataT) => {
         it(`${testcase.type}`, () => {
             // given
             mock_useBatch.useBatch.returns([doActionsSpy, { state: 'waiting' }]);
@@ -139,10 +139,18 @@ describe('Checkout Dialog', () => {
                 // then
                 mock_setActions.wasCalledWith([]);
             }
-            if (testcase.type === 'Create lock action') {
+
+            // when - there's a create-lock action
+            if (testcase.expect.updatedMessage) {
+                // then
+                expect(applyButton).toBeDisabled();
                 expect(textField).toBeTruthy();
+
+                // when - adding a lock message
                 fireEvent.change(textField!, { target: { value: 'foo bar' } });
 
+                // then - useBatch is called with updated actions
+                expect(applyButton).not.toBeDisabled();
                 const calledActions = mock_useBatch.useBatch.getCallArgument(1, 0);
                 expect(calledActions).toMatchObject(testcase.expect.updatedMessage);
             } else {
