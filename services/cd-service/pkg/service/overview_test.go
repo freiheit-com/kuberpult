@@ -21,10 +21,11 @@ import (
 	"sync"
 	"testing"
 
+	"google.golang.org/grpc"
+
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"google.golang.org/grpc"
 )
 
 type mockOverviewService_StreamOverviewServer struct {
@@ -323,7 +324,7 @@ func TestOverviewService(t *testing.T) {
 			}
 			svc := &OverviewServiceServer{
 				Repository: repo,
-				Shutdown: shutdown,
+				Shutdown:   shutdown,
 			}
 			tc.Test(t, svc)
 			close(shutdown)

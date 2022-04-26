@@ -1,0 +1,10 @@
+linters:
+  # Before we can enable more linters, we need to first fix existing violations:
+  disable-all: true
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+linters-settings:
+  gci:
+    local-prefixes: github.com/freiheit-com/kuberpult

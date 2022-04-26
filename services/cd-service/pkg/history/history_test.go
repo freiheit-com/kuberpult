@@ -25,10 +25,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v33"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 )
 
 type testCommit struct {
@@ -220,14 +221,14 @@ func TestHistory(t *testing.T) {
 				t.Fatal(err)
 			}
 			parents := []*git.Oid{}
-			commits := make([]*git.Commit, len(tc.Commits), len(tc.Commits))
+			commits := make([]*git.Commit, len(tc.Commits))
 			for i, c := range tc.Commits {
 				fs := fs.NewEmptyTreeBuildFS(repo)
 				for name, content := range c.Files {
 					if li := strings.LastIndex(name, "/"); li != -1 {
-						fs.MkdirAll(name[0:li], 0755)
+						fs.MkdirAll(name[0:li], 0o755)
 					}
-					err := util.WriteFile(fs, name, []byte(content), 0666)
+					err := util.WriteFile(fs, name, []byte(content), 0o666)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -235,7 +236,7 @@ func TestHistory(t *testing.T) {
 				if c.Symlinks != nil {
 					for name, target := range c.Symlinks {
 						if li := strings.LastIndex(name, "/"); li != -1 {
-							fs.MkdirAll(name[0:li], 0755)
+							fs.MkdirAll(name[0:li], 0o755)
 						}
 						err := fs.Symlink(target, name)
 						if err != nil {
@@ -359,11 +360,11 @@ func benchmarkHistory(b *testing.B, cache bool) {
 		}
 		for _, name := range names {
 
-			err := tree.MkdirAll(tree.Join("applications", name, "versions", strconv.Itoa(i)), 0755)
+			err := tree.MkdirAll(tree.Join("applications", name, "versions", strconv.Itoa(i)), 0o755)
 			if err != nil {
 				b.Fatal(err)
 			}
-			err = util.WriteFile(tree, tree.Join("applications", name, "versions", strconv.Itoa(i), "manifest"), []byte{1}, 0644)
+			err = util.WriteFile(tree, tree.Join("applications", name, "versions", strconv.Itoa(i), "manifest"), []byte{1}, 0o644)
 			if err != nil {
 				b.Fatal(err)
 			}

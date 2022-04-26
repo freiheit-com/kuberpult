@@ -23,10 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/cenkalti/backoff/v4"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"os"
 	"os/exec"
@@ -36,18 +32,22 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/cenkalti/backoff/v4"
+	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
+	git "github.com/libgit2/git2go/v33"
+	"go.uber.org/zap"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/history"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
-	"go.uber.org/zap"
-
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
-	git "github.com/libgit2/git2go/v33"
 )
 
 // A Repository provides a multiple reader / single writer access to a git repository.
@@ -60,9 +60,7 @@ type Repository interface {
 	Notify() *notify.Notify
 }
 
-var (
-	ddMetrics *statsd.Client
-)
+var ddMetrics *statsd.Client
 
 type repository struct {
 	// Mutex gurading the writer
@@ -106,7 +104,7 @@ func openOrCreate(path string) (*git.Repository, error) {
 		var gerr *git.GitError
 		if errors.As(err, &gerr) {
 			if gerr.Code == git.ErrNotFound {
-				os.MkdirAll(path, 0777)
+				os.MkdirAll(path, 0o777)
 				repo2, err = git.InitRepository(path, true)
 				if err != nil {
 					return nil, err
@@ -380,7 +378,6 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 }
 
 func (r *repository) Push(ctx context.Context, pushAction func() error) error {
-
 	span, ctx := tracer.StartSpanFromContext(ctx, "Apply")
 	defer span.Finish()
 
@@ -442,11 +439,11 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, name st
 			return err
 		} else {
 			for apiVersion, content := range manifests {
-				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
+				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0o777); err != nil {
 					return err
 				}
 				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", name))
-				if err := util.WriteFile(fs, target, content, 0666); err != nil {
+				if err := util.WriteFile(fs, target, content, 0o666); err != nil {
 					return err
 				}
 			}
@@ -658,6 +655,7 @@ func (s *State) GetEnvironmentApplicationVersionCommit(environment, application 
 			})
 	}
 }
+
 func (s *State) GetEnvironmentApplicationLocksCommit(environment, application string, lockId string) (*git.Commit, error) {
 	if s.Commit == nil {
 		return nil, nil
@@ -670,6 +668,7 @@ func (s *State) GetEnvironmentApplicationLocksCommit(environment, application st
 			})
 	}
 }
+
 func (s *State) GetEnvironmentLocksCommit(environment, lockId string) (*git.Commit, error) {
 	if s.Commit == nil {
 		return nil, nil

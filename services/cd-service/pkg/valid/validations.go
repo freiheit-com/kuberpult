@@ -31,6 +31,7 @@ var (
 func EnvironmentName(env string) bool {
 	return len(env) < 21 && envNameRx.MatchString(env)
 }
+
 func ApplicationName(name string) bool {
 	return len(name) < 40 && applicationNameRx.MatchString(name)
 }

@@ -26,11 +26,11 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
+
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 )
 
 const (
@@ -140,7 +140,7 @@ type CreateApplicationVersion struct {
 func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 	var err error
 	releasesDir := releasesDirectory(fs, application)
-	err = fs.MkdirAll(releasesDir, 0777)
+	err = fs.MkdirAll(releasesDir, 0o777)
 	if err != nil {
 		return 0, err
 	}
@@ -150,7 +150,7 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 		var lastRelease uint64 = 0
 		for _, e := range entries {
 			if i, err := strconv.ParseUint(e.Name(), 10, 64); err != nil {
-				//TODO(HVG): decide what to do with bad named releases
+				// TODO(HVG): decide what to do with bad named releases
 			} else {
 				if i > lastRelease {
 					lastRelease = i
@@ -168,7 +168,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Files
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
 	appDir := applicationDirectory(fs, c.Application)
-	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
+	if err = fs.MkdirAll(releaseDir, 0o777); err != nil {
 		return "", err
 	}
 
@@ -178,17 +178,17 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Files
 	}
 
 	if c.SourceCommitId != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_commit_id"), []byte(c.SourceCommitId), 0666); err != nil {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_commit_id"), []byte(c.SourceCommitId), 0o666); err != nil {
 			return "", err
 		}
 	}
 	if c.SourceAuthor != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_author"), []byte(c.SourceAuthor), 0666); err != nil {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_author"), []byte(c.SourceAuthor), 0o666); err != nil {
 			return "", err
 		}
 	}
 	if c.SourceMessage != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_message"), []byte(c.SourceMessage), 0666); err != nil {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_message"), []byte(c.SourceMessage), 0o666); err != nil {
 			return "", err
 		}
 	}
@@ -207,10 +207,10 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Files
 			hasUpstream = config.Upstream != nil
 		}
 
-		if err = fs.MkdirAll(envDir, 0777); err != nil {
+		if err = fs.MkdirAll(envDir, 0o777); err != nil {
 			return "", err
 		}
-		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
+		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0o666); err != nil {
 			return "", err
 		}
 
@@ -251,7 +251,7 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, fs bil
 	}
 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
-	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
+	if err = fs.MkdirAll(releaseDir, 0o777); err != nil {
 		return "", err
 	}
 
@@ -260,7 +260,7 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, fs bil
 		return "", err
 	}
 	// this is a flag to indicate that this is the special "undeploy" version
-	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0o666); err != nil {
 		return "", err
 	}
 	result := ""
@@ -273,11 +273,11 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, fs bil
 			hasUpstream = config.Upstream != nil
 		}
 
-		if err = fs.MkdirAll(envDir, 0777); err != nil {
+		if err = fs.MkdirAll(envDir, 0o777); err != nil {
 			return "", err
 		}
 		// note that the manifest is empty here!
-		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(""), 0666); err != nil {
+		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(""), 0o666); err != nil {
 			return "", err
 		}
 
@@ -357,7 +357,7 @@ type CleanupOldApplicationVersions struct {
 }
 
 func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
-	var state = &State{Filesystem: fs}
+	state := &State{Filesystem: fs}
 	// 1) get release in each env:
 	envConfigs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -452,11 +452,11 @@ func (c *CreateEnvironmentLock) Transform(ctx context.Context, fs billy.Filesyst
 
 func createLock(fs billy.Filesystem, lockId, message string) error {
 	locksDir := "locks"
-	if err := fs.MkdirAll(locksDir, 0777); err != nil {
+	if err := fs.MkdirAll(locksDir, 0o777); err != nil {
 		return err
 	}
 	locksFile := fs.Join(locksDir, lockId)
-	if err := util.WriteFile(fs, locksFile, []byte(message), 0666); err != nil {
+	if err := util.WriteFile(fs, locksFile, []byte(message), 0o666); err != nil {
 		return err
 	}
 	return nil
@@ -468,7 +468,6 @@ type DeleteEnvironmentLock struct {
 }
 
 func (c *DeleteEnvironmentLock) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
-
 	file := fs.Join("environments", c.Environment, "locks", c.LockId)
 	if err := fs.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
@@ -510,7 +509,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, fs bil
 		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
 	} else {
 		appDir := fs.Join(envDir, "applications", c.Application)
-		if err := fs.MkdirAll(appDir, 0777); err != nil {
+		if err := fs.MkdirAll(appDir, 0o777); err != nil {
 			return "", err
 		}
 		if chroot, err := fs.Chroot(appDir); err != nil {
@@ -556,11 +555,11 @@ type CreateEnvironment struct {
 
 func (c *CreateEnvironment) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
 	envDir := fs.Join("environments", c.Environment)
-	if err := fs.MkdirAll(envDir, 0777); err != nil {
+	if err := fs.MkdirAll(envDir, 0o777); err != nil {
 		return "", err
 	} else {
 		configFile := fs.Join(envDir, "config.json")
-		file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+		file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 		if err != nil {
 			return "", fmt.Errorf("error creating config: %w", err)
 		}
@@ -581,7 +580,7 @@ type QueueApplicationVersion struct {
 func (c *QueueApplicationVersion) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
 	// Create a symlink to the release
 	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
-	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
+	if err := fs.MkdirAll(applicationDir, 0o777); err != nil {
 		return "", err
 	}
 	queuedVersionFile := fs.Join(applicationDir, queueFileName)
@@ -656,7 +655,7 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, fs billy.Files
 	}
 	// Create a symlink to the release
 	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
-	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
+	if err := fs.MkdirAll(applicationDir, 0o777); err != nil {
 		return "", err
 	}
 	versionFile := fs.Join(applicationDir, "version")
@@ -668,11 +667,11 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, fs billy.Files
 	}
 	// Copy the manifest for argocd
 	manifestsDir := fs.Join(applicationDir, "manifests")
-	if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
+	if err := fs.MkdirAll(manifestsDir, 0o777); err != nil {
 		return "", err
 	}
 	manifestFilename := fs.Join(manifestsDir, "manifests.yaml")
-	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
+	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0o666); err != nil {
 		return "", err
 	}
 	s := State{
@@ -699,8 +698,8 @@ type ReleaseTrain struct {
 }
 
 func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
-	var state = &State{Filesystem: fs}
-	var targetEnvName = c.Environment
+	state := &State{Filesystem: fs}
+	targetEnvName := c.Environment
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -713,7 +712,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (stri
 	if envConfig.Upstream == nil {
 		return fmt.Sprintf("Environment %q does not have upstream configured - exiting.", targetEnvName), nil
 	}
-	var upstreamEnvName = envConfig.Upstream.Environment
+	upstreamEnvName := envConfig.Upstream.Environment
 	if upstreamEnvName == "" {
 		return fmt.Sprintf("Environment %q does not have upstream environment configured - exiting.", targetEnvName), nil
 	}

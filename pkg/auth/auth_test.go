@@ -70,5 +70,4 @@ func TestAuthContextFunctions(t *testing.T) {
 			}
 		})
 	}
-
 }

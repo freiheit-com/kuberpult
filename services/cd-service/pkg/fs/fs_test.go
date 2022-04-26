@@ -38,29 +38,29 @@ func TestFs(t *testing.T) {
 		{
 			Name: "Writing one file",
 			Data: func(fs billy.Filesystem) error {
-				err := fs.MkdirAll("foo", 0777)
+				err := fs.MkdirAll("foo", 0o777)
 				if err != nil {
 					return err
 				}
-				return util.WriteFile(fs, "foo/bar", []byte("baz"), 0666)
+				return util.WriteFile(fs, "foo/bar", []byte("baz"), 0o666)
 			},
 		},
 		{
 			Name: "Deep path",
 			Data: func(fs billy.Filesystem) error {
-				err := fs.MkdirAll("foo/bar/baz/buz", 0777)
+				err := fs.MkdirAll("foo/bar/baz/buz", 0o777)
 				if err != nil {
 					return err
 				}
-				err = fs.MkdirAll("foo/bar/baz/boz/", 0777)
+				err = fs.MkdirAll("foo/bar/baz/boz/", 0o777)
 				if err != nil {
 					return err
 				}
-				err = util.WriteFile(fs, "foo/bar/baz/buz/zup", []byte("baz"), 0666)
+				err = util.WriteFile(fs, "foo/bar/baz/buz/zup", []byte("baz"), 0o666)
 				if err != nil {
 					return err
 				}
-				err = util.WriteFile(fs, "foo/bar/baz/boz/zup", []byte("baz"), 0666)
+				err = util.WriteFile(fs, "foo/bar/baz/boz/zup", []byte("baz"), 0o666)
 				if err != nil {
 					return err
 				}
@@ -70,7 +70,7 @@ func TestFs(t *testing.T) {
 		{
 			Name: "Symlink",
 			Data: func(fs billy.Filesystem) error {
-				err := fs.MkdirAll("foo", 0777)
+				err := fs.MkdirAll("foo", 0o777)
 				if err != nil {
 					return err
 				}
@@ -78,7 +78,7 @@ func TestFs(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				err = util.WriteFile(fs, "bar/baz", []byte("baz"), 0666)
+				err = util.WriteFile(fs, "bar/baz", []byte("baz"), 0o666)
 				if err != nil {
 					return err
 				}

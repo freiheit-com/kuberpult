@@ -21,10 +21,11 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/grpc/status"
+
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"google.golang.org/grpc/status"
 )
 
 const (

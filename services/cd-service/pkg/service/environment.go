@@ -19,9 +19,10 @@ package service
 import (
 	"context"
 
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type EnvironmentServiceServer struct {
@@ -31,7 +32,6 @@ type EnvironmentServiceServer struct {
 func (e *EnvironmentServiceServer) CreateEnvironment(
 	ctx context.Context,
 	in *api.CreateEnvironmentRequest) (*emptypb.Empty, error) {
-
 	err := e.Repository.Apply(ctx, &repository.CreateEnvironment{
 		Environment: in.Environment,
 	})

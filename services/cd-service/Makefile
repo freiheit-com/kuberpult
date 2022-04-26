@@ -31,6 +31,7 @@ COMPILE_WITH_DOCKER := true
 endif
 
 GO := go
+GOLANGCI_LINT := golangci-lint
 
 GO_FILES := $(shell find . -type f -name '*.go')
 
@@ -79,6 +80,9 @@ clean:
 test: $(GO_FILES) | proto
 	$(GO) test  ./...
 
+lint: $(GO_FILES) | proto
+	$(GOLANGCI_LINT) run  ./...
+
 docker: bin/main ../../version
 	docker build -t $(IMAGENAME) .
 
@@ -88,6 +92,6 @@ docker: bin/main ../../version
 release: docker
 	docker push $(IMAGENAME)
 
-all: test docker
+all: lint test docker
 
 .PHONY: all release test docker clean

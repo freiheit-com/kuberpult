@@ -23,12 +23,13 @@ import (
 	"sync"
 	"sync/atomic"
 
+	git "github.com/libgit2/git2go/v33"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	git "github.com/libgit2/git2go/v33"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type OverviewServiceServer struct {

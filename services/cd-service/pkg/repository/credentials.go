@@ -24,10 +24,11 @@ import (
 	"io"
 	"os"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	git "github.com/libgit2/git2go/v33"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 type Credentials struct {

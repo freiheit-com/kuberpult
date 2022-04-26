@@ -18,13 +18,15 @@ package service
 
 import (
 	"context"
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
 type LockServiceServer struct {

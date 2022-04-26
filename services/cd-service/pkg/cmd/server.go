@@ -22,11 +22,6 @@ import (
 	"os"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/kelseyhightower/envconfig"
@@ -35,6 +30,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
 )
 
 type Config struct {
@@ -68,7 +69,6 @@ func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
 
 func RunServer() {
 	logger.Wrap(context.Background(), func(ctx context.Context) error {
-
 		var c Config
 
 		err := envconfig.Process("kuberpult", &c)
