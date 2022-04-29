@@ -32,9 +32,9 @@ import {
 import { ClearRounded } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
 import { BatchAction } from '../../api/api';
-import { GetActionDetails } from '../ConfirmationDialog';
 import { theme } from '../App/styles';
 import { CheckoutCart } from './CheckoutDialog';
+import { GetActionDetails } from '../ActionDetails';
 
 const ActionListItem = (props: { act: BatchAction; index: number }) => {
     const { act, index } = props;
