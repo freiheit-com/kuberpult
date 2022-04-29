@@ -6,6 +6,14 @@ Building with libgit2 is tricky atm. Run `./dmake make -C services/cd-service bi
 Afterwards run `make release`. This will push the docker image, package the helm chart and create a git tag. The helm chart must be uploaded manually to the github release at the moment.
 Afterwards bump the version in the `version` file.
 
+## Start Kuberpult with Docker Compose
+* Kuberpult can be started with `docker-compose up`
+* This only starts the services locally.
+* This **doesn't** create the repository or any data for Kuberpult.
+* This builds and runs the current code on your local machine.
+* Only requirements are `docker` and `docker-compose`
+* https://docs.docker.com/compose/install/
+
 ## Install dev tools
 
 - libgit2 >= 1.0
