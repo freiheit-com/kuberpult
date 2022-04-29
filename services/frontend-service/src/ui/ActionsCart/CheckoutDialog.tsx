@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { useCallback, useContext, useState } from 'react';
+import { useCallback, useContext, useState, VFC } from 'react';
 import {
     Button,
     CircularProgress,
@@ -30,7 +30,7 @@ import { Close } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
 import { BatchAction } from '../../api/api';
 import { useUnaryCallback } from '../Api';
-import { ActionTypes, GetActionDetails } from '../ConfirmationDialog';
+import { ActionTypes, GetActionDetails } from '../ActionDetails';
 
 export const callbacks = {
     useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
@@ -49,8 +49,7 @@ export const callbacks = {
         ),
 };
 
-const ApplyButton = (props: { doActions: () => void; state: string }) => {
-    const { doActions, state } = props;
+const ApplyButton: VFC<{ doActions: () => void; state: string }> = ({ doActions, state }) => {
     switch (state) {
         case 'rejected':
         case 'resolved':
@@ -75,15 +74,10 @@ const ApplyButton = (props: { doActions: () => void; state: string }) => {
     }
 };
 
-const showTextField = (actions: BatchAction[]) => {
-    for (const act of actions) {
-        const t = GetActionDetails(act).type;
-        if (t === ActionTypes.CreateEnvironmentLock || t === ActionTypes.CreateApplicationLock) {
-            return true;
-        }
-    }
-    return false;
-};
+const lockActions = [ActionTypes.CreateEnvironmentLock, ActionTypes.CreateApplicationLock] as const;
+type lockAction = typeof lockActions[number];
+const hasLockAction = (actions: BatchAction[]) =>
+    actions.some((act) => lockActions.includes(GetActionDetails(act).type as lockAction));
 
 const updateMessage = (act: BatchAction, m: string): BatchAction => {
     switch (act.action?.$case) {
@@ -112,31 +106,27 @@ const updateMessage = (act: BatchAction, m: string): BatchAction => {
     }
 };
 
-const CheckoutButton = (props: { openDialog: () => void; disabled: boolean; setLockMessage: (m: string) => void }) => {
-    const { openDialog, disabled, setLockMessage } = props;
-    const { actions } = useContext(ActionsCartContext);
+const LockMessageInput: VFC<{ setLockMessage: (m: string) => void }> = ({ setLockMessage }) => {
     const updateInput = useCallback((e) => setLockMessage(e.target.value), [setLockMessage]);
-
     return (
-        <>
-            {showTextField(actions) && (
-                <TextField
-                    label="Lock Message"
-                    variant="outlined"
-                    sx={{ m: 1 }}
-                    placeholder="default-lock"
-                    onChange={updateInput}
-                    className="actions-cart__lock-message"
-                />
-            )}
-            <Button sx={{ display: 'flex' }} onClick={openDialog} variant={'contained'} disabled={disabled}>
-                <Typography variant="h6">
-                    <strong>Apply</strong>
-                </Typography>
-            </Button>
-        </>
+        <TextField
+            label="Lock Message"
+            variant="outlined"
+            sx={{ m: 1 }}
+            placeholder="default-lock"
+            onChange={updateInput}
+            className="actions-cart__lock-message"
+        />
     );
 };
+
+const CheckoutButton: VFC<{ openDialog: () => void; disabled: boolean }> = ({ openDialog, disabled }) => (
+    <Button sx={{ display: 'flex' }} onClick={openDialog} variant={'contained'} disabled={disabled}>
+        <Typography variant="h6">
+            <strong>Apply</strong>
+        </Typography>
+    </Button>
+);
 
 export const CheckoutCart = () => {
     const [openNotify, setOpenNotify] = useState(false);
@@ -171,20 +161,19 @@ export const CheckoutCart = () => {
         setDialogOpen(false);
     }, [setDialogOpen]);
 
-    const actionsSucceeded = useCallback(() => {
+    const onActionsSucceeded = useCallback(() => {
         setActions([]);
         closeDialog();
         setLockMessage('');
         openNotification('Actions were applied successfully!');
     }, [setActions, openNotification, closeDialog, setLockMessage]);
-    const actionsFailed = useCallback(() => {
+    const onActionsFailed = useCallback(() => {
         closeDialog();
         openNotification('Actions were not applied. Please try again!');
     }, [openNotification, closeDialog]);
 
-    const newActions = actions.map((act) => updateMessage(act, lockMessage));
-
-    const [doActions, doActionsState] = callbacks.useBatch(newActions, actionsSucceeded, actionsFailed);
+    const actionsWithMessage = actions.map((act) => updateMessage(act, lockMessage));
+    const [doActions, doActionsState] = callbacks.useBatch(actionsWithMessage, onActionsSucceeded, onActionsFailed);
 
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
@@ -198,10 +187,10 @@ export const CheckoutCart = () => {
                 display: 'flex',
                 flexDirection: 'column',
             }}>
+            {hasLockAction(actions) && <LockMessageInput setLockMessage={setLockMessage} />}
             <CheckoutButton
                 openDialog={openDialog}
-                disabled={actions.length === 0 || dialogOpen || (showTextField(actions) && lockMessage === '')}
-                setLockMessage={setLockMessage}
+                disabled={actions.length === 0 || dialogOpen || (hasLockAction(actions) && lockMessage === '')}
             />
             <Dialog onClose={closeDialog} open={dialogOpen}>
                 <DialogTitle sx={{ m: 0, p: 2 }}>

@@ -48,7 +48,7 @@ describe('Checkout Dialog', () => {
 
     const data: dataT[] = [
         {
-            type: 'Cort with some action',
+            type: 'Cart with some action',
             cart: [
                 {
                     action: {
