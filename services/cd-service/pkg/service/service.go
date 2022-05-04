@@ -72,8 +72,13 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) ServeHTTPHealth(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(200)
-	fmt.Fprintf(w, "ok\n")
+	if err := s.Repository.State().ValidateConfigs(); err != nil {
+		w.WriteHeader(500)
+		fmt.Fprintf(w, "internal: %s", err)
+	} else {
+		w.WriteHeader(200)
+		fmt.Fprintf(w, "ok\n")
+	}
 }
 
 func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.Request) {
