@@ -121,6 +121,22 @@ func openOrCreate(path string) (*git.Repository, error) {
 	return repo2, err
 }
 
+func (s *State) validateConfigs() (error) {
+	envs, err := s.Filesystem.ReadDir("environments")
+	if err != nil {
+		return err
+	}
+	for _, env := range envs {
+		fileName := s.Filesystem.Join("environments", env.Name(), "config.json")
+		if err := validateJsonFile(s.Filesystem, fileName); err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // Opens a repository. The repository is initialized and updated in the background.
 func New(ctx context.Context, cfg Config) (Repository, error) {
 	logger := logger.FromContext(ctx)
@@ -208,7 +224,12 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				}
 			}
 			// check that we can build the current state
-			if _, err := result.buildState(); err != nil {
+			state, err := result.buildState();
+			if err != nil {
+				return nil, err
+			}
+			
+			if err := state.validateConfigs(); err != nil {
 				return nil, err
 			}
 
@@ -889,6 +910,18 @@ func names(fs billy.Filesystem, path string) ([]string, error) {
 		result = append(result, app.Name())
 	}
 	return result, nil
+}
+
+func validateJsonFile(fs billy.Filesystem, path string) (error) {
+	if buf, err := readFile(fs, path); err != nil {
+		return wrapFileError(err, path, "could not read json file")
+	} else {
+		valid := json.Valid(buf)
+		if (!valid) {
+			return errors.New("JSON file " + path + " is invalid.")
+		}
+		return nil
+	}
 }
 
 func decodeJsonFile(fs billy.Filesystem, path string, out interface{}) error {
