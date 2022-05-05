@@ -246,6 +246,141 @@ func TestNew(t *testing.T) {
 					t.Errorf("mismatched file content, expected %s, got %s", "hello", content)
 				}
 			},
+		}, {
+			Name:   "Old with valid config initializes correctly",
+			Branch: "master",
+			Setup:  func(t *testing.T, remoteDir, localDir string) {
+				workdir := t.TempDir()
+				cmd := exec.Command("git", "clone", remoteDir, workdir) // Clone git dir
+				_, err := cmd.Output()
+				if err != nil {
+					if exitErr, ok := err.(*exec.ExitError); ok {
+						t.Logf("stderr: %s\n", exitErr.Stderr)
+					}
+					t.Fatal(err)
+				}
+
+				if err := os.MkdirAll(path.Join(workdir, "environments", "development"), 0700); err != nil {
+					t.Fatal(err)
+				}
+
+				configFilePath := path.Join(workdir, "environments", "development", "config.json")
+				if err := os.WriteFile(configFilePath, []byte("{\"upstream\": {\"latest\": true }}"), 0666); err != nil {
+					t.Fatal(err)
+				}
+				cmd = exec.Command("git", "add", configFilePath) // Add a new file to git
+				cmd.Dir = workdir
+				_, err = cmd.Output()
+				if err != nil {
+					if exitErr, ok := err.(*exec.ExitError); ok {
+						t.Logf("stderr: %s\n", exitErr.Stderr)
+					}
+					t.Fatal(err)
+				}
+				cmd = exec.Command("git", "commit", "-m", "valid config") // commit the new file
+				cmd.Dir = workdir
+				cmd.Env = []string{
+					"GIT_AUTHOR_NAME=kuberpult",
+					"GIT_COMMITTER_NAME=kuberpult",
+					"EMAIL=test@kuberpult.com",
+				}
+				_, err = cmd.Output()
+				if err != nil {
+					if exitErr, ok := err.(*exec.ExitError); ok {
+						t.Logf("stderr: %s\n", exitErr.Stderr)
+					}
+					t.Fatal(err)
+				}
+				cmd = exec.Command("git", "push", "origin", "HEAD") // push the new commit
+				cmd.Dir = workdir
+				_, err = cmd.Output()
+				if err != nil {
+					if exitErr, ok := err.(*exec.ExitError); ok {
+						t.Logf("stderr: %s\n", exitErr.Stderr)
+					}
+					t.Fatal(err)
+				}
+			},
+			Test: func(t *testing.T, repo Repository, remoteDir string) {
+				repo, err := New(
+					context.Background(),
+					Config{
+						URL:  remoteDir,
+						Path: t.TempDir(),
+					},
+				)
+				if err != nil {
+					t.Errorf("Could not initialize repository due to %s", err)
+				}
+			},
+		},
+		{
+			Name:   "Old with invalid config does not initialize",
+			Branch: "master",
+			Setup:  func(t *testing.T, remoteDir, localDir string) {},
+			Test: func(t *testing.T, repo Repository, remoteDir string) {
+				workdir := t.TempDir()
+				cmd := exec.Command("git", "clone", remoteDir, workdir) // Clone git dir
+				_, err := cmd.Output()
+				if err != nil {
+					if exitErr, ok := err.(*exec.ExitError); ok {
+						t.Logf("stderr: %s\n", exitErr.Stderr)
+					}
+					t.Fatal(err)
+				}
+
+				if err := os.MkdirAll(path.Join(workdir, "environments", "development"), 0700); err != nil {
+					t.Fatal(err)
+				}
+
+				configFilePath := path.Join(workdir, "environments", "development", "config.json")
+				if err := os.WriteFile(configFilePath, []byte("{\"upstream\": \"latest\": true }}"), 0666); err != nil {
+					t.Fatal(err)
+				}
+				cmd = exec.Command("git", "add", configFilePath) // Add a new file to git
+				cmd.Dir = workdir
+				_, err = cmd.Output()
+				if err != nil {
+					if exitErr, ok := err.(*exec.ExitError); ok {
+						t.Logf("stderr: %s\n", exitErr.Stderr)
+					}
+					t.Fatal(err)
+				}
+				cmd = exec.Command("git", "commit", "-m", "valid config") // commit the new file
+				cmd.Dir = workdir
+				cmd.Env = []string{
+					"GIT_AUTHOR_NAME=kuberpult",
+					"GIT_COMMITTER_NAME=kuberpult",
+					"EMAIL=test@kuberpult.com",
+				}
+				_, err = cmd.Output()
+				if err != nil {
+					if exitErr, ok := err.(*exec.ExitError); ok {
+						t.Logf("stderr: %s\n", exitErr.Stderr)
+					}
+					t.Fatal(err)
+				}
+				cmd = exec.Command("git", "push", "origin", "HEAD") // push the new commit
+				cmd.Dir = workdir
+				_, err = cmd.Output()
+				if err != nil {
+					if exitErr, ok := err.(*exec.ExitError); ok {
+						t.Logf("stderr: %s\n", exitErr.Stderr)
+					}
+					t.Fatal(err)
+				}
+
+				_, err = New(
+					context.Background(),
+					Config{
+						URL:  remoteDir,
+						Path: t.TempDir(),
+					},
+				)
+				if err == nil {
+					t.Errorf("Initialized even though config.json was incorrect")
+				}
+			},
 		},
 	}
 	for _, tc := range tcs {

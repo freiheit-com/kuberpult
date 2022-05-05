@@ -121,7 +121,7 @@ func openOrCreate(path string) (*git.Repository, error) {
 	return repo2, err
 }
 
-func (s *State) ValidateConfigs() (error) {
+func (s *State) validateConfigs() (error) {
 	envs, err := s.Filesystem.ReadDir("environments")
 	if err != nil {
 		return err
@@ -229,7 +229,7 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				return nil, err
 			}
 			
-			if err := state.ValidateConfigs(); err != nil {
+			if err := state.validateConfigs(); err != nil {
 				return nil, err
 			}
 
