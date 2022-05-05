@@ -208,7 +208,12 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				}
 			}
 			// check that we can build the current state
-			if _, err := result.buildState(); err != nil {
+			state, err := result.buildState();
+			if err != nil {
+				return nil, err
+			}
+			
+			if _, err := state.GetEnvironmentConfigs(); err != nil {
 				return nil, err
 			}
 
@@ -758,7 +763,7 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 			if errors.Is(err, os.ErrNotExist) {
 				result[env.Name()] = config
 			} else {
-				return nil, err
+				return nil, wrapFileError(err, fileName, "JSON file is not valid")
 			}
 		} else {
 			result[env.Name()] = config

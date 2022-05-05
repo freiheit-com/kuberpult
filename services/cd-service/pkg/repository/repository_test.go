@@ -278,6 +278,108 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestConfigValidity(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		ConfigContent		string
+		ErrorExpected   bool
+	}{
+		{
+			Name: "Initialization with valid config.json file works",
+			ConfigContent: "{\"upstream\": {\"latest\": true }}",
+			ErrorExpected: false,
+		},
+		{
+			Name: "Initialization with invalid config.json file throws error",
+			ConfigContent: "{\"upstream\": \"latest\": true }}",
+			ErrorExpected: true,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// create a remote
+			workdir := t.TempDir()
+			remoteDir := path.Join(workdir, "remote")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+
+			workdir = t.TempDir()
+			cmd = exec.Command("git", "clone", remoteDir, workdir) // Clone git dir
+			_, err := cmd.Output()
+			if err != nil {
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					t.Logf("stderr: %s\n", exitErr.Stderr)
+				}
+				t.Fatal(err)
+			}
+
+			if err := os.MkdirAll(path.Join(workdir, "environments", "development"), 0700); err != nil {
+				t.Fatal(err)
+			}
+
+			configFilePath := path.Join(workdir, "environments", "development", "config.json")
+			if err := os.WriteFile(configFilePath, []byte(tc.ConfigContent), 0666); err != nil {
+				t.Fatal(err)
+			}
+			cmd = exec.Command("git", "add", configFilePath) // Add a new file to git
+			cmd.Dir = workdir
+			_, err = cmd.Output()
+			if err != nil {
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					t.Logf("stderr: %s\n", exitErr.Stderr)
+				}
+				t.Fatal(err)
+			}
+			cmd = exec.Command("git", "commit", "-m", "valid config") // commit the new file
+			cmd.Dir = workdir
+			cmd.Env = []string{
+				"GIT_AUTHOR_NAME=kuberpult",
+				"GIT_COMMITTER_NAME=kuberpult",
+				"EMAIL=test@kuberpult.com",
+			}
+			_, err = cmd.Output()
+			if err != nil {
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					t.Logf("stderr: %s\n", exitErr.Stderr)
+				}
+				t.Fatal(err)
+			}
+			cmd = exec.Command("git", "push", "origin", "HEAD") // push the new commit
+			cmd.Dir = workdir
+			_, err = cmd.Output()
+			if err != nil {
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					t.Logf("stderr: %s\n", exitErr.Stderr)
+				}
+				t.Fatal(err)
+			}
+
+			_, err = New(
+				context.Background(),
+				Config{
+					URL:  remoteDir,
+					Path: t.TempDir(),
+				},
+			)
+
+			if tc.ErrorExpected {
+				if err == nil {
+					t.Errorf("Initialized even though config.json was incorrect")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Initialization failed with valid config.json")
+				}
+			}
+			
+	
+		})
+	}
+}
+
 func TestGc(t *testing.T) {
 	tcs := []struct {
 		Name          string
