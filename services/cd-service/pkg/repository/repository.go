@@ -918,7 +918,7 @@ func validateJsonFile(fs billy.Filesystem, path string) (error) {
 	} else {
 		valid := json.Valid(buf)
 		if (!valid) {
-			return errors.New("JSON file " + path + " is invalid.")
+			return errors.New("JSON file " + path + " is not valid json.")
 		}
 		return nil
 	}
