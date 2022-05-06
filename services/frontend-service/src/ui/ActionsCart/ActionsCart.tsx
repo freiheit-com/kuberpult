@@ -31,12 +31,11 @@ import {
 
 import { ClearRounded } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
-import { BatchAction } from '../../api/api';
 import { theme } from '../App/styles';
 import { CheckoutCart } from './CheckoutDialog';
-import { GetActionDetails } from '../ActionDetails';
+import { CartAction, getActionDetails } from '../ActionDetails';
 
-const ActionListItem = (props: { act: BatchAction; index: number }) => {
+const ActionListItem = (props: { act: CartAction; index: number }) => {
     const { act, index } = props;
     const { actions, setActions } = useContext(ActionsCartContext);
     const removeItem = useCallback(() => {
@@ -46,9 +45,9 @@ const ActionListItem = (props: { act: BatchAction; index: number }) => {
     return (
         <ListItem divider={true}>
             <ListItemAvatar>
-                <Avatar>{GetActionDetails(act).icon}</Avatar>
+                <Avatar>{getActionDetails(act).icon}</Avatar>
             </ListItemAvatar>
-            <ListItemText primary={GetActionDetails(act).name} secondary={GetActionDetails(act).summary} />
+            <ListItemText primary={getActionDetails(act).name} secondary={getActionDetails(act).summary} />
             <IconButton onClick={removeItem}>
                 <ClearRounded />
             </IconButton>
@@ -75,7 +74,7 @@ const ActionsList = () => {
                 paddingTop: '30px',
             }}>
             <List className="actions" sx={{ width: '100%', bgcolor: 'background.paper' }}>
-                {actions.map((act: BatchAction, index: number) => (
+                {actions.map((act, index) => (
                     <ActionListItem act={act} index={index} key={index} />
                 ))}
             </List>

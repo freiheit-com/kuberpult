@@ -36,13 +36,41 @@ export enum ActionTypes {
     UNKNOWN,
 }
 
+export type CartAction = BatchAction | CreateLockDetails;
+
+export interface CreateLockDetails {
+    action?:
+        | {
+              $case: 'environmentLockDetails';
+              environmentLockDetails: {
+                  environment: string;
+                  lockId: string;
+              };
+          }
+        | {
+              $case: 'environmentApplicationLockDetails';
+              environmentApplicationLockDetails: {
+                  environment: string;
+                  application: string;
+                  lockId: string;
+              };
+          };
+}
+
+const lockActions = [ActionTypes.CreateEnvironmentLock, ActionTypes.CreateApplicationLock] as const;
+type lockAction = typeof lockActions[number];
+export const hasLockAction = (actions: CartAction[]) =>
+    actions.some((act) => lockActions.includes(getActionDetails(act).type as lockAction));
+
+const deployActions = [ActionTypes.Deploy, ActionTypes.Undeploy, ActionTypes.PrepareUndeploy] as const;
+type deployAction = typeof deployActions[number];
+export const isDeployAction = (act: CartAction) => deployActions.includes(getActionDetails(act).type as deployAction);
+
 type ActionDetails = {
     type: ActionTypes;
     name: string;
     summary: string;
     dialogTitle: string;
-    notMessageSuccess: string;
-    notMessageFail: string;
     description?: string;
     icon: React.ReactElement;
 
@@ -53,19 +81,13 @@ type ActionDetails = {
     lockMessage?: string;
     version?: number;
 };
-export const GetActionDetails = (action: BatchAction): ActionDetails => {
+export const getActionDetails = (action: CartAction): ActionDetails => {
     switch (action.action?.$case) {
         case 'deploy':
             return {
                 type: ActionTypes.Deploy,
                 name: 'Deploy',
                 dialogTitle: 'Are you sure you want to deploy this version?',
-                notMessageSuccess:
-                    'Version ' +
-                    action.action?.deploy.version +
-                    ' was successfully deployed to ' +
-                    action.action?.deploy.environment,
-                notMessageFail: 'Deployment failed',
                 summary:
                     'Deploy version ' +
                     action.action?.deploy.version +
@@ -78,55 +100,36 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                 application: action.action?.deploy.application,
                 version: action.action?.deploy.version,
             };
-        case 'createEnvironmentLock':
+        case 'environmentLockDetails':
             return {
                 type: ActionTypes.CreateEnvironmentLock,
                 name: 'Create Env Lock',
                 dialogTitle: 'Are you sure you want to add this environment lock?',
-                notMessageSuccess:
-                    'New environment lock on ' +
-                    action.action?.createEnvironmentLock.environment +
-                    ' was successfully created with message: ' +
-                    action.action?.createEnvironmentLock.message,
-                notMessageFail: 'Creating new environment lock failed',
-                summary: 'Create new environment lock on ' + action.action?.createEnvironmentLock.environment,
+                summary: 'Create new environment lock on ' + action.action?.environmentLockDetails.environment,
                 icon: <LockRounded />,
-                environment: action.action?.createEnvironmentLock.environment,
-                lockId: action.action?.createEnvironmentLock.lockId,
-                lockMessage: action.action?.createEnvironmentLock.message,
+                environment: action.action?.environmentLockDetails.environment,
+                lockId: action.action?.environmentLockDetails.lockId,
             };
-        case 'createEnvironmentApplicationLock':
+        case 'environmentApplicationLockDetails':
             return {
                 type: ActionTypes.CreateApplicationLock,
                 name: 'Create App Lock',
                 dialogTitle: 'Are you sure you want to add this application lock?',
-                notMessageSuccess:
-                    'New application lock on ' +
-                    action.action?.createEnvironmentApplicationLock.environment +
-                    ' was successfully created with message: ' +
-                    action.action?.createEnvironmentApplicationLock.message,
-                notMessageFail: 'Creating new application lock failed',
                 summary:
                     'Lock "' +
-                    action.action?.createEnvironmentApplicationLock.application +
+                    action.action?.environmentApplicationLockDetails.application +
                     '" on ' +
-                    action.action?.createEnvironmentApplicationLock.environment,
+                    action.action?.environmentApplicationLockDetails.environment,
                 icon: <LockRounded />,
-                environment: action.action?.createEnvironmentApplicationLock.environment,
-                application: action.action?.createEnvironmentApplicationLock.application,
-                lockId: action.action?.createEnvironmentApplicationLock.lockId,
-                lockMessage: action.action?.createEnvironmentApplicationLock.message,
+                environment: action.action?.environmentApplicationLockDetails.environment,
+                application: action.action?.environmentApplicationLockDetails.application,
+                lockId: action.action?.environmentApplicationLockDetails.lockId,
             };
         case 'deleteEnvironmentLock':
             return {
                 type: ActionTypes.DeleteEnvironmentLock,
                 name: 'Delete Env Lock',
                 dialogTitle: 'Are you sure you want to delete this environment lock?',
-                notMessageSuccess:
-                    'Environment lock on ' +
-                    action.action?.deleteEnvironmentLock.environment +
-                    ' was successfully deleted',
-                notMessageFail: 'Deleting environment lock failed',
                 summary: 'Delete environment lock on ' + action.action?.deleteEnvironmentLock.environment,
                 icon: <LockOpenRounded />,
                 environment: action.action?.deleteEnvironmentLock.environment,
@@ -137,11 +140,6 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                 type: ActionTypes.DeleteApplicationLock,
                 name: 'Delete App Lock',
                 dialogTitle: 'Are you sure you want to delete this application lock?',
-                notMessageSuccess:
-                    'Application lock on ' +
-                    action.action?.deleteEnvironmentApplicationLock.environment +
-                    ' was successfully deleted',
-                notMessageFail: 'Deleting application lock failed',
                 summary:
                     'Unlock "' +
                     action.action?.deleteEnvironmentApplicationLock.application +
@@ -161,11 +159,6 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                     'The new version will go through the same cycle as any other versions' +
                     ' (e.g. development->staging->production). ' +
                     'The behavior is similar to any other version that is created normally.',
-                notMessageSuccess:
-                    'Undeploy version for Application ' +
-                    action.action?.prepareUndeploy.application +
-                    ' was successfully created',
-                notMessageFail: 'Undeploy version failed',
                 summary: 'Prepare undeploy version for Application ' + action.action?.prepareUndeploy.application,
                 icon: <DeleteOutlineRounded />,
                 application: action.action?.prepareUndeploy.application,
@@ -176,9 +169,6 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                 name: 'Undeploy',
                 dialogTitle: 'Are you sure you want to undeploy this application?',
                 description: 'This application will be deleted permanently',
-                notMessageSuccess:
-                    'Application ' + action.action?.undeploy.application + ' was successfully un-deployed',
-                notMessageFail: 'Undeploy application failed',
                 summary: 'Undeploy and delete Application ' + action.action?.undeploy.application,
                 icon: <DeleteForeverRounded />,
                 application: action.action?.undeploy.application,
@@ -188,8 +178,6 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
                 type: ActionTypes.UNKNOWN,
                 name: 'invalid',
                 dialogTitle: 'invalid',
-                notMessageSuccess: 'invalid',
-                notMessageFail: 'invalid',
                 summary: 'invalid',
                 icon: <Error />,
             };

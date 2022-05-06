@@ -44,6 +44,7 @@ import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
 import AddLockIcon from '@material-ui/icons/EnhancedEncryption';
+import { CartAction } from './ActionDetails';
 
 type Data = { applicationName: string; version: number };
 export const Context = React.createContext<{ setData: (d: Data | null) => void }>({
@@ -200,24 +201,22 @@ const DeployButton = (props: {
 export const CreateLockButton = (props: { applicationName?: string; environmentName: string }) => {
     const { applicationName, environmentName } = props;
 
-    const act: BatchAction = useMemo(
+    const act: CartAction = useMemo(
         () => ({
             action: applicationName
                 ? {
-                      $case: 'createEnvironmentApplicationLock',
-                      createEnvironmentApplicationLock: {
+                      $case: 'environmentApplicationLockDetails',
+                      environmentApplicationLockDetails: {
                           application: applicationName,
                           environment: environmentName,
                           lockId: randomLockId(),
-                          message: 'default-lock',
                       },
                   }
                 : {
-                      $case: 'createEnvironmentLock',
-                      createEnvironmentLock: {
+                      $case: 'environmentLockDetails',
+                      environmentLockDetails: {
                           environment: environmentName,
                           lockId: randomLockId(),
-                          message: 'default-lock',
                       },
                   },
         }),

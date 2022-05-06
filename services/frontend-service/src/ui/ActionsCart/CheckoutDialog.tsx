@@ -30,7 +30,7 @@ import { Close } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
 import { BatchAction } from '../../api/api';
 import { useUnaryCallback } from '../Api';
-import { ActionTypes, GetActionDetails } from '../ActionDetails';
+import { CartAction, hasLockAction } from '../ActionDetails';
 
 export const callbacks = {
     useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
@@ -74,35 +74,33 @@ const ApplyButton: VFC<{ doActions: () => void; state: string }> = ({ doActions,
     }
 };
 
-const lockActions = [ActionTypes.CreateEnvironmentLock, ActionTypes.CreateApplicationLock] as const;
-type lockAction = typeof lockActions[number];
-const hasLockAction = (actions: BatchAction[]) =>
-    actions.some((act) => lockActions.includes(GetActionDetails(act).type as lockAction));
-
-const updateMessage = (act: BatchAction, m: string): BatchAction => {
+const updateMessage = (act: CartAction, m: string): BatchAction => {
     switch (act.action?.$case) {
-        case 'createEnvironmentLock':
+        case 'environmentLockDetails':
             return {
                 action: {
-                    ...act.action,
+                    $case: 'createEnvironmentLock',
                     createEnvironmentLock: {
-                        ...act.action.createEnvironmentLock,
+                        environment: act.action.environmentLockDetails.environment,
+                        lockId: act.action.environmentLockDetails.lockId,
                         message: m,
                     },
                 },
             };
-        case 'createEnvironmentApplicationLock':
+        case 'environmentApplicationLockDetails':
             return {
                 action: {
-                    ...act.action,
+                    $case: 'createEnvironmentApplicationLock',
                     createEnvironmentApplicationLock: {
-                        ...act.action.createEnvironmentApplicationLock,
+                        environment: act.action.environmentApplicationLockDetails.environment,
+                        application: act.action.environmentApplicationLockDetails.application,
+                        lockId: act.action.environmentApplicationLockDetails.lockId,
                         message: m,
                     },
                 },
             };
         default:
-            return act;
+            return act as BatchAction;
     }
 };
 

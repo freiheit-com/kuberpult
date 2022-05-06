@@ -14,27 +14,24 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { BatchAction, Lock } from '../api/api';
+import { Lock } from '../api/api';
 import * as React from 'react';
 import { useCallback, useContext } from 'react';
 import { Alert, AlertTitle, Button, Dialog, DialogTitle, IconButton, Snackbar, Typography } from '@material-ui/core';
 import { Close, LockRounded } from '@material-ui/icons';
 import { ActionsCartContext } from './App';
-import { ActionTypes, GetActionDetails } from './ActionDetails';
+import { ActionTypes, CartAction, getActionDetails, isDeployAction } from './ActionDetails';
 
-const inCart = (actions: BatchAction[], action: BatchAction) =>
+const inCart = (actions: CartAction[], action: CartAction) =>
     actions ? actions.find((act) => JSON.stringify(act.action) === JSON.stringify(action.action)) : false;
 
-const isDeployment = (t: ActionTypes) =>
-    t === ActionTypes.Deploy || t === ActionTypes.PrepareUndeploy || t === ActionTypes.Undeploy;
-
-const getCartConflicts = (cartActions: BatchAction[], newAction: BatchAction) => {
-    const conflicts = new Set<BatchAction>();
+const getCartConflicts = (cartActions: CartAction[], newAction: CartAction) => {
+    const conflicts = new Set<CartAction>();
     for (const action of cartActions) {
-        const act = GetActionDetails(action);
-        const newAct = GetActionDetails(newAction);
+        const act = getActionDetails(action);
+        const newAct = getActionDetails(newAction);
 
-        if (isDeployment(newAct.type) && isDeployment(act.type)) {
+        if (isDeployAction(newAction) && isDeployAction(action)) {
             if (newAct.application === act.application) {
                 // same app
                 if (newAct.type === ActionTypes.Deploy && newAct.type === act.type) {
@@ -73,7 +70,7 @@ export const exportedForTesting = {
 
 export interface ConfirmationDialogProviderProps {
     children: React.ReactElement;
-    action: BatchAction;
+    action: CartAction;
     locks?: [string, Lock][];
     fin?: () => void;
 }
@@ -158,7 +155,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
             <Dialog onClose={closeDialog} open={dialogOpen}>
                 <DialogTitle sx={{ m: 0, p: 2 }}>
                     <Typography variant="subtitle1" component="div" className="confirmation-title">
-                        <span>{GetActionDetails(action).dialogTitle}</span>
+                        <span>{getActionDetails(action).dialogTitle}</span>
                     </Typography>
                     <IconButton
                         sx={{
@@ -173,7 +170,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                         <Close fontSize="small" />
                     </IconButton>
                 </DialogTitle>
-                <div style={{ margin: '16px 24px' }}>{GetActionDetails(action).description}</div>
+                <div style={{ margin: '16px 24px' }}>{getActionDetails(action).description}</div>
                 {deployLocks}
                 {conflictMessage}
                 <span style={{ alignSelf: 'end' }}>
