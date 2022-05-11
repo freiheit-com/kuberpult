@@ -46,6 +46,9 @@ test: $(addsuffix /test,$(MAKEDIRS))
 $(addsuffix /all,$(MAKEDIRS)):
 	make -C $(dir $@) all
 
+plan:
+	@${SCRIPTS_BASE}/plan.sh
+
 all: $(addsuffix /all,$(MAKEDIRS))
 
 
