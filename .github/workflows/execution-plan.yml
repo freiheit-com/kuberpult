@@ -20,6 +20,7 @@ jobs:
           echo "EOF" >> $GITHUB_ENV
 
           echo "${{ env.FILES_CHANGED }}"
+          echo "$FILES_CHANGED"
       - name: Get execution-plan
         id: executionplan
         run: echo "::set-output name=plan::$(make plan)"
