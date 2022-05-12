@@ -323,7 +323,7 @@ func TestOverviewService(t *testing.T) {
 			}
 			svc := &OverviewServiceServer{
 				Repository: repo,
-				Shutdown: shutdown,
+				Shutdown:   shutdown,
 			}
 			tc.Test(t, svc)
 			close(shutdown)

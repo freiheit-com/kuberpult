@@ -843,6 +843,55 @@ func TestTransformer(t *testing.T) {
 				}
 			},
 		}, {
+			Name: "Create version with version number",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateApplicationVersion{
+					Version:     42,
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+				},
+			},
+			Test: func(t *testing.T, s *State) {
+				// Check that reading is possible
+				{
+					rel, err := s.GetApplicationReleases("test")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if !reflect.DeepEqual(rel, []uint64{42}) {
+						t.Errorf("expected release list to be exaclty [42], but got %q", rel)
+					}
+
+				}
+			},
+		}, {
+			Name: "Create version with version number",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateApplicationVersion{
+					Version:     42,
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+				},
+				&CreateApplicationVersion{
+					Version:     42,
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+				},
+			},
+			ErrorTest: func(t *testing.T, err error) {
+				if err != ErrReleaseAlreadyExist {
+					t.Errorf("expected %q, got %q", ErrReleaseAlreadyExist, err)
+				}
+			},
+		}, {
 			Name: "Auto Deploy version to second env",
 			Transformers: []Transformer{
 				&CreateEnvironment{Environment: "one", Config: c1},

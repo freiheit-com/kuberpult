@@ -416,17 +416,17 @@ func TestConfigReload(t *testing.T) {
 }
 func TestConfigValidity(t *testing.T) {
 	tcs := []struct {
-		Name            string
-		ConfigContent		string
-		ErrorExpected   bool
+		Name          string
+		ConfigContent string
+		ErrorExpected bool
 	}{
 		{
-			Name: "Initialization with valid config.json file works",
+			Name:          "Initialization with valid config.json file works",
 			ConfigContent: "{\"upstream\": {\"latest\": true }}",
 			ErrorExpected: false,
 		},
 		{
-			Name: "Initialization with invalid config.json file throws error",
+			Name:          "Initialization with invalid config.json file throws error",
 			ConfigContent: "{\"upstream\": \"latest\": true }}",
 			ErrorExpected: true,
 		},
@@ -510,8 +510,7 @@ func TestConfigValidity(t *testing.T) {
 					t.Errorf("Initialization failed with valid config.json")
 				}
 			}
-			
-	
+
 		})
 	}
 }

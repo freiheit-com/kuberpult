@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"sort"
 	"strconv"
@@ -37,6 +38,10 @@ const (
 	queueFileName = "queued_version"
 	// number of old releases that will ALWAYS be kept in addition to the ones that are deployed:
 	keptVersionsOnCleanup = 20
+)
+
+var (
+	ErrReleaseAlreadyExist = fmt.Errorf("release already exists")
 )
 
 func versionToString(Version uint64) string {
@@ -129,6 +134,7 @@ func (t TransformerFunc) Transform(ctx context.Context, fs billy.Filesystem) (st
 var _ Transformer = TransformerFunc(func(_ context.Context, _ billy.Filesystem) (string, error) { return "", nil })
 
 type CreateApplicationVersion struct {
+	Version        uint64
 	Application    string
 	Manifests      map[string]string
 	SourceCommitId string
@@ -162,11 +168,11 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 }
 
 func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
-	lastRelease, err := GetLastRelease(fs, c.Application)
+	version, err := c.calculateVersion(fs)
 	if err != nil {
 		return "", err
 	}
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
+	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
 	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
 		return "", err
@@ -216,10 +222,9 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Files
 
 		if hasUpstream && config.Upstream.Latest {
 			d := &DeployApplicationVersion{
-				Environment: env,
-				Application: c.Application,
-				Version:     lastRelease + 1,
-				// the train should queue deployments, instead of giving up:
+				Environment:   env,
+				Application:   c.Application,
+				Version:       version, // the train should queue deployments, instead of giving up:
 				LockBehaviour: api.LockBehavior_Queue,
 			}
 			deployResult, err := d.Transform(ctx, fs)
@@ -234,7 +239,30 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Files
 			result = result + deployResult + "\n"
 		}
 	}
-	return fmt.Sprintf("created version %d of %q\n%s", lastRelease+1, c.Application, result), nil
+	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), nil
+}
+
+func (c *CreateApplicationVersion) calculateVersion(bfs billy.Filesystem) (uint64, error) {
+	if c.Version == 0 {
+		lastRelease, err := GetLastRelease(bfs, c.Application)
+		if err != nil {
+			return 0, err
+		}
+		return lastRelease + 1, nil
+	} else {
+		// check that the version doesn't already exist
+		dir := releasesDirectoryWithVersion(bfs, c.Application, c.Version)
+		_, err := bfs.Stat(dir)
+		if err != nil {
+			if !errors.Is(err, fs.ErrNotExist) {
+				return 0, err
+			}
+		} else {
+			return 0, ErrReleaseAlreadyExist
+		}
+		// TODO: check GC here
+		return c.Version, nil
+	}
 }
 
 type CreateUndeployApplicationVersion struct {

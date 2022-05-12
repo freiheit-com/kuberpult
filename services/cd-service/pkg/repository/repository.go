@@ -208,11 +208,11 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				}
 			}
 			// check that we can build the current state
-			state, err := result.buildState();
+			state, err := result.buildState()
 			if err != nil {
 				return nil, err
 			}
-			
+
 			if _, err := state.GetEnvironmentConfigs(); err != nil {
 				return nil, err
 			}
