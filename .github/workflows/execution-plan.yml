@@ -15,15 +15,8 @@ jobs:
         id: changes
         run: |
           FILES_CHANGED=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
-          echo "FILES_CHANGED<<EOF" >> $GITHUB_ENV
-          echo "$FILES_CHANGED" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
-          echo "${{ env.FILES_CHANGED }}"
           echo "$FILES_CHANGED"
-      - name: Get execution-plan
-        id: executionplan
-        run: echo "::set-output name=plan::$(make plan)"
-      - name: Print execution-plan
-        run: echo ${{steps.exectionplan.outputs.plan}}"
+          echo "$FILES_CHANGED" > .changedFiles
+      - name: Run Execution plan
+        run: make plan
 
