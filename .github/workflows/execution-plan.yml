@@ -14,7 +14,7 @@ jobs:
       - name: Get changed files
         id: changes
         run: |
-          echo "FILES_CHANGED=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }}) >> $GITHUB_ENV"
+          echo "FILES_CHANGED=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }})" >> $GITHUB_ENV
       - name: Print changed files
         run: echo "${{ env.FILES_CHANGED }}"
       # - name: Save changed files to env variable   
