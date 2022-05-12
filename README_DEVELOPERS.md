@@ -1,33 +1,156 @@
-# kuberpult Readme for developers
+# kuberpult readme for developers
 
-## Release a new version
+## introduction
 
-Building with libgit2 is tricky atm. Run `./dmake make -C services/cd-service bin/main` once to generate the binary for the cd-service.
-Afterwards run `make release`. This will push the docker image, package the helm chart and create a git tag. The helm chart must be uploaded manually to the github release at the moment.
-Afterwards bump the version in the `version` file.
+kuberpult watches a remote repository, unlike argocd it is not triggered based on push to the repository, instead it is triggered by rest api instead (or ui which in turn calls the rest api). 
+when a `/release` api is called with the manifests, it checks the repository for additional information and commits and pushes the manifests back into the respository which are then handled by argocd. 
+For full usage instructions check the [readme](https://github.com/freiheit-com/kuberpult/blob/main/readme.md).
 
-## Install dev tools
+it is split into two parts, the backend logic in `cd-service`, and the frontend which is split into two microservices, the `frontend-service` which provides the rest backing for the ui, and the `ui-service` with the actual ui. 
+The `cd-service` takes the url of the repository to watch from the environment variable `KUBERPULT_GIT_URL` and the branch to watch from the environment variable `KUBERPULT_GIT_BRANCH`.
+
+## pre requisite software
+
+- [docker](https://docs.docker.com/get-docker/)
+- [docker-compose](https://docs.docker.com/compose/install/)
+
+## setup and run instructions (with docker compose)
+
+- in `services/cd-service`, initialize a bare repository with the name `repository_remote`
+
+```bash
+cd services/cd-service
+git init --bare repository_remote
+```
+- the value of environment variables are defaulted to `KUBERPULT_GIT_URL=./repository_remote` and `KUBERPULT_GIT_BRANCH=master`
+- run the following command to start all the services required, the `--build` parameter is added to build any changes you may have added to the code
+
+```bash
+docker compose up --build
+```
+- the `cd-service` is available at `localhost:8080` and the kuberpult ui is available at `localhost:3000`
+
+
+### to test setup was done correctly
+
+- for adding changes and testing releasing, clone the `repository_remote` folder. 
+calling curl command to `/release` api with form data for manifest file should have update the remote repository with a new relase.
+- view the changes in ui as well
+
+```bash
+cd services/cd-service
+git clone ./repository_remote repository_checkedout
+cd repository_checkedout
+touch manifest.yaml
+curl --form-string 'application=helloworld' --form 'manifests[development]=@manifest.yaml' localhost:8080/release
+git pull
+```
+
+## Unit tests
+
+Go tests would be part of the same package as the main code, but ending the file names with `_test.go`. When adding new testcases, please use [table driven tests](https://revolution.dev/app/-JqFGExX46gs9mH7vxR5/WORKSPACE_DOCUMENT/-MjkBXy5_eugWYQsxyHl/) 
+
+To run tests, the root makefile has test command which runs the test commands in `services/cd-service/Makefile` and `services/frontend-service/Makefile`, which in turn run tests for go and yarn files.
+
+```bash
+make test
+```
+
+When there is build issues in the test code, it would show up as a build failure during make test with the proper error.
+
+When a single test case fails, the test case shows up with the curresponding error.
+
+For a more verbose version, you could go into the service directory and run the tests manually in verbose mode
+
+```bash
+cd services/cd-service
+go test ./... -v
+```
+
+# Legacy docs 
+
+## pre requisite software
 
 - libgit2 >= 1.0
-
-  Download tar file and follow instructions here: https://github.com/libgit2/libgit2#installation
-  It worked for me to run: (the instructions are slightly different)
+  download tar file and follow instructions here: https://github.com/libgit2/libgit2#installation
+  it worked for me to run: (the instructions are slightly different)
   ```
   sudo apt-get install libssl-dev
   mkdir build && cd build
   cmake ..
   sudo cmake --build . --target install
   ```
-  Afterwards, set your library path, e.g.: `export LD_LIBRARY_PATH='/usr/local/lib/'`
-- Chart Testing: 
-  - install `helm`, `Yamale`, `Yamllint` as prerequisites to `ct` from https://github.com/helm/chart-testing#installation 
+  afterwards, set your library path, e.g.: `export ld_library_path='/usr/local/lib/'`
+- chart testing: 
+  - install `helm`, `yamale`, `yamllint` as prerequisites to `ct` from https://github.com/helm/chart-testing#installation 
   - then follow the instructions to install `ct`
 - golang >= 1.16
 - protoc >=3.15
 - buf from https://docs.buf.build/installation
 
-There is a dev image based on alpine in `docker/build`. You can create a shell using the `./dmake` command.
+## Setup and Run
+
+### With makefiles
+
+- in `services/cd-service`, initialize a bare repository with the name `repository_remote`
+
+```bash
+cd services/cd-service
+git init --bare repository_remote
+```
+
+- for cd-service 
+
+```bash
+cd services/cd-service
+# Running with docker container
+make run
+
+# For running without docker containers use
+# WITHOUT_DOCKER=true make run
+```
+
+- for frontend service - Note, frontend services are not 
+```bash
+cd services/frontend-service
+make run
+```
+
+- for ui
+```
+cd services/frontend-service
+make start
+```
+
+
+## releasing a new version
+
+building with libgit2 is tricky atm. run `./dmake make -c services/cd-service bin/main` once to generate the binary for the cd-service.
+afterwards run `make release`. this will push the docker image, package the helm chart and create a git tag. the helm chart must be uploaded manually to the github release at the moment.
+afterwards bump the version in the `version` file.
+
+## install dev tools
+
+- libgit2 >= 1.0
+
+  download tar file and follow instructions here: https://github.com/libgit2/libgit2#installation
+  it worked for me to run: (the instructions are slightly different)
+  ```
+  sudo apt-get install libssl-dev
+  mkdir build && cd build
+  cmake ..
+  sudo cmake --build . --target install
+  ```
+  afterwards, set your library path, e.g.: `export ld_library_path='/usr/local/lib/'`
+- chart testing: 
+  - install `helm`, `yamale`, `yamllint` as prerequisites to `ct` from https://github.com/helm/chart-testing#installation 
+  - then follow the instructions to install `ct`
+- golang >= 1.16
+- protoc >=3.15
+- buf from https://docs.buf.build/installation
+
+there is a dev image based on alpine in `docker/build`. you can create a shell using the `./dmake` command.
 
 ## libgit2 vs. ...
 
-The first version of this tool was written using go-git v5. Sadly the performance was abysmal. Adding a new manifest took > 20 seconds. Therefore, we switched to libgit2 which is much faster but less ergonomic.
+the first version of this tool was written using go-git v5. sadly the performance was abysmal. adding a new manifest took > 20 seconds. therefore, we switched to libgit2 which is much faster but less ergonomic.
