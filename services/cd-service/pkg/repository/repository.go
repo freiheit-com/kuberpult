@@ -357,29 +357,38 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	}
 
 	if err != nil {
-		return err
-	} else {
-
-		if err := r.Push(ctx, pushAction); err != nil {
-			gerr := err.(*git.GitError)
-			if gerr.Code == git.ErrorCodeNonFastForward {
-				err = r.FetchAndReset(ctx)
-				if err != nil {
-					return err
-				}
-				err = r.ApplyTransformers(ctx, transformers...)
-				if err != nil {
-					return err
-				}
-				if err := r.Push(ctx, pushAction); err != nil {
-					return &InternalError{inner: err}
-				}
-			} else {
+		if errors.Is(err, invalidJson) {
+			err = r.FetchAndReset(ctx)
+			if err != nil {
+				return err
+			}
+			err = r.ApplyTransformers(ctx, transformers...)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}  
+	if err := r.Push(ctx, pushAction); err != nil {
+		gerr := err.(*git.GitError)
+		if gerr.Code == git.ErrorCodeNonFastForward {
+			err = r.FetchAndReset(ctx)
+			if err != nil {
+				return err
+			}
+			err = r.ApplyTransformers(ctx, transformers...)
+			if err != nil {
+				return err
+			}
+			if err := r.Push(ctx, pushAction); err != nil {
 				return &InternalError{inner: err}
 			}
+		} else {
+			return &InternalError{inner: err}
 		}
-		r.notify.Notify()
 	}
+	r.notify.Notify()
 
 	return nil
 }
@@ -750,6 +759,8 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 	}
 }
 
+var invalidJson = errors.New("JSON file is not valid")
+
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
 	envs, err := s.Filesystem.ReadDir("environments")
 	if err != nil {
@@ -763,7 +774,7 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 			if errors.Is(err, os.ErrNotExist) {
 				result[env.Name()] = config
 			} else {
-				return nil, wrapFileError(err, fileName, "JSON file is not valid")
+				return nil, fmt.Errorf("%s : %w", fileName, invalidJson)
 			}
 		} else {
 			result[env.Name()] = config
