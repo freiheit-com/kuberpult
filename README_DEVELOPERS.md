@@ -72,8 +72,13 @@ go test ./... -v
 
 # Legacy docs 
 
-## pre requisite software
+## pre requisite software 
 
+- [docker](https://docs.docker.com/get-docker/)
+- [node](https://nodejs.org/en/download/) - ensure you're using an LTS version (or use [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+- [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable)
+
+## Libraries required
 - libgit2 >= 1.0
   download tar file and follow instructions here: https://github.com/libgit2/libgit2#installation
   it worked for me to run: (the instructions are slightly different)
