@@ -137,28 +137,8 @@ building with libgit2 is tricky atm. run `./dmake make -c services/cd-service bi
 afterwards run `make release`. this will push the docker image, package the helm chart and create a git tag. the helm chart must be uploaded manually to the github release at the moment.
 afterwards bump the version in the `version` file.
 
-## install dev tools
+## Notes
 
-- libgit2 >= 1.0
+- there is a dev image based on alpine in `docker/build`. you can create a shell using the `./dmake` command.
 
-  download tar file and follow instructions here: https://github.com/libgit2/libgit2#installation
-  it worked for me to run: (the instructions are slightly different)
-  ```
-  sudo apt-get install libssl-dev
-  mkdir build && cd build
-  cmake ..
-  sudo cmake --build . --target install
-  ```
-  afterwards, set your library path, e.g.: `export ld_library_path='/usr/local/lib/'`
-- chart testing: 
-  - install `helm`, `yamale`, `yamllint` as prerequisites to `ct` from https://github.com/helm/chart-testing#installation 
-  - then follow the instructions to install `ct`
-- golang >= 1.16
-- protoc >=3.15
-- buf from https://docs.buf.build/installation
-
-there is a dev image based on alpine in `docker/build`. you can create a shell using the `./dmake` command.
-
-## libgit2 vs. ...
-
-the first version of this tool was written using go-git v5. sadly the performance was abysmal. adding a new manifest took > 20 seconds. therefore, we switched to libgit2 which is much faster but less ergonomic.
+- the first version of this tool was written using go-git v5. sadly the performance was abysmal. adding a new manifest took > 20 seconds. therefore, we switched to libgit2 which is much faster but less ergonomic.
