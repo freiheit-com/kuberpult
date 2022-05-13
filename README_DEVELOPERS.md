@@ -2,11 +2,11 @@
 
 ## introduction
 
-kuberpult watches a remote repository, unlike argocd it is not triggered based on push to the repository, instead it is triggered by rest api instead (or ui which in turn calls the rest api). 
-when a `/release` api is called with the manifests, it checks the repository for additional information and commits and pushes the manifests back into the respository which are then handled by argocd. 
-For full usage instructions check the [readme](https://github.com/freiheit-com/kuberpult/blob/main/readme.md).
+kuberpult watches a remote repository, unlike ArgoCD it is not triggered based on push to the repository, It is triggered by rest api instead (or ui which in turn calls the rest api). 
+when a `/release` api is called with the manifest files, it checks the repository for additional information (ArgoCD related) and commits and pushes the manifests back into the respository which are then handled by ArgoCD. 
+For full usage instructions please check the [readme](https://github.com/freiheit-com/kuberpult/blob/main/readme.md).
 
-it is split into two parts, the backend logic in `cd-service`, and the frontend which is split into two microservices, the `frontend-service` which provides the rest backing for the ui, and the `ui-service` with the actual ui. 
+It is split into two parts, the backend logic in `cd-service`, and the frontend which is split into two microservices, the `frontend-service` which provides the rest backing for the ui, and the `ui-service` with the actual ui. 
 The `cd-service` takes the url of the repository to watch from the environment variable `KUBERPULT_GIT_URL` and the branch to watch from the environment variable `KUBERPULT_GIT_BRANCH`.
 
 ## pre requisite software
@@ -21,6 +21,7 @@ The `cd-service` takes the url of the repository to watch from the environment v
 ```bash
 cd services/cd-service
 git init --bare repository_remote
+cd ../..
 ```
 - the value of environment variables are defaulted to `KUBERPULT_GIT_URL=./repository_remote` and `KUBERPULT_GIT_BRANCH=master`
 - run the following command to start all the services required, the `--build` parameter is added to build any changes you may have added to the code
@@ -34,7 +35,7 @@ docker compose up --build
 ### to test setup was done correctly
 
 - for adding changes and testing releasing, clone the `repository_remote` folder. 
-calling curl command to `/release` api with form data for manifest file should have update the remote repository with a new relase.
+- calling curl command to `/release` api with form data for manifest file should have update the remote repository with a new relase.
 - view the changes in ui as well
 
 ```bash
@@ -42,8 +43,10 @@ cd services/cd-service
 git clone ./repository_remote repository_checkedout
 cd repository_checkedout
 touch manifest.yaml
+# This should cause the release to be pushed to the git repository
 curl --form-string 'application=helloworld' --form 'manifests[development]=@manifest.yaml' localhost:8080/release
 git pull
+cd ../../..
 ```
 
 ## Unit tests
@@ -103,7 +106,7 @@ git init --bare repository_remote
 
 ```bash
 cd services/cd-service
-# Running with docker container
+# Running with docker container (recommended)
 make run
 
 # For running without docker containers use
