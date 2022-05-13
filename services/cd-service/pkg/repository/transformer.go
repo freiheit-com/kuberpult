@@ -204,39 +204,45 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Files
 		}
 	}
 	result := ""
-	for env, man := range c.Manifests {
-		envDir := fs.Join(releaseDir, "environments", env)
+	isLatest, err := isLatestsVersion(fs, c.Application, version)
+	if err != nil {
+		return "", err
+	}
+	if isLatest {
+		for env, man := range c.Manifests {
+			envDir := fs.Join(releaseDir, "environments", env)
 
-		config, found := configs[env]
-		hasUpstream := false
-		if found {
-			hasUpstream = config.Upstream != nil
-		}
-
-		if err = fs.MkdirAll(envDir, 0777); err != nil {
-			return "", err
-		}
-		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
-			return "", err
-		}
-
-		if hasUpstream && config.Upstream.Latest {
-			d := &DeployApplicationVersion{
-				Environment:   env,
-				Application:   c.Application,
-				Version:       version, // the train should queue deployments, instead of giving up:
-				LockBehaviour: api.LockBehavior_Queue,
+			config, found := configs[env]
+			hasUpstream := false
+			if found {
+				hasUpstream = config.Upstream != nil
 			}
-			deployResult, err := d.Transform(ctx, fs)
-			if err != nil {
-				_, ok := err.(*LockedError)
-				if ok {
-					continue // locked error are expected
-				} else {
-					return "", err
+
+			if err = fs.MkdirAll(envDir, 0777); err != nil {
+				return "", err
+			}
+			if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
+				return "", err
+			}
+
+			if hasUpstream && config.Upstream.Latest {
+				d := &DeployApplicationVersion{
+					Environment:   env,
+					Application:   c.Application,
+					Version:       version, // the train should queue deployments, instead of giving up:
+					LockBehaviour: api.LockBehavior_Queue,
 				}
+				deployResult, err := d.Transform(ctx, fs)
+				if err != nil {
+					_, ok := err.(*LockedError)
+					if ok {
+						continue // locked error are expected
+					} else {
+						return "", err
+					}
+				}
+				result = result + deployResult + "\n"
 			}
-			result = result + deployResult + "\n"
 		}
 	}
 	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), nil
@@ -263,6 +269,19 @@ func (c *CreateApplicationVersion) calculateVersion(bfs billy.Filesystem) (uint6
 		// TODO: check GC here
 		return c.Version, nil
 	}
+}
+
+func isLatestsVersion(bfs billy.Filesystem, application string, version uint64) (bool, error) {
+	rels, err := (&State{Filesystem: bfs}).GetApplicationReleases(application)
+	if err != nil {
+		return false, err
+	}
+	for _, r := range rels {
+		if r > version {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 type CreateUndeployApplicationVersion struct {

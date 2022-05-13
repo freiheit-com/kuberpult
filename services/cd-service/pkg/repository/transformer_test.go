@@ -868,7 +868,7 @@ func TestTransformer(t *testing.T) {
 				}
 			},
 		}, {
-			Name: "Create version with version number",
+			Name: "Creating a version with same version number yields the correct error",
 			Transformers: []Transformer{
 				&CreateEnvironment{Environment: "production"},
 				&CreateApplicationVersion{
@@ -889,6 +889,34 @@ func TestTransformer(t *testing.T) {
 			ErrorTest: func(t *testing.T, err error) {
 				if err != ErrReleaseAlreadyExist {
 					t.Errorf("expected %q, got %q", ErrReleaseAlreadyExist, err)
+				}
+			},
+		}, {
+			Name: "Creating an older version doesn't auto deploy",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production", Config: c1},
+				&CreateApplicationVersion{
+					Version:     42,
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "42",
+					},
+				},
+				&CreateApplicationVersion{
+					Version:     41,
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "41",
+					},
+				},
+			},
+			Test: func(t *testing.T, s *State) {
+				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if *i != 42 {
+					t.Errorf("unexpected version: expected 42, actual %d", i)
 				}
 			},
 		}, {
