@@ -88,7 +88,7 @@ go test ./... -v
   cmake ..
   sudo cmake --build . --target install
   ```
-  afterwards, set your library path, e.g.: `export ld_library_path='/usr/local/lib/'`
+  afterwards, set your library path, e.g.: `export LD_LIBRARY_PATH='/usr/local/lib/'`
 - chart testing: 
   - install `helm`, `yamale`, `yamllint` as prerequisites to `ct` from https://github.com/helm/chart-testing#installation 
   - then follow the instructions to install `ct`
@@ -139,6 +139,6 @@ afterwards bump the version in the `version` file.
 
 ## Notes
 
-- there is a dev image based on alpine in `docker/build`. you can create a shell using the `./dmake` command.
+- there is a dev image based on alpine in `docker/build`. you can start a shell in the image using the `./dmake` command.
 
-- the first version of this tool was written using go-git v5. sadly the performance was abysmal. adding a new manifest took > 20 seconds. therefore, we switched to libgit2 which is much faster but less ergonomic.
+- The first version of this tool was written using go-git v5. Sadly the performance was abysmal. Adding a new manifest took > 20 seconds. Therefore, we switched to libgit2 which is much faster but less ergonomic.
