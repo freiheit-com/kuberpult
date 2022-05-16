@@ -22,12 +22,9 @@ jobs:
         id: changes
         run: |
           FILES_CHANGED=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
-          echo "$FILES_CHANGED"
-          echo "$FILES_CHANGED" > .changedFiles
-          echo 'CHANGED_FILES<<EOF' >> $GITHUB_ENV
+          echo 'FILES_CHANGED<<EOF' >> $GITHUB_ENV
           echo "$FILES_CHANGED" >> $GITHUB_ENV
           echo 'EOF' >> $GITHUB_ENV
-          echo $CHANGED_FILES
       - name: Run Execution plan
         run: make plan
 
