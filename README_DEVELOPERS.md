@@ -1,4 +1,4 @@
-# kuberpult readme for developers
+# kuberpult Readme for developers
 
 ## introduction
 
@@ -88,9 +88,9 @@ go test ./... -v
   cmake ..
   sudo cmake --build . --target install
   ```
-  afterwards, set your library path, e.g.: `export LD_LIBRARY_PATH='/usr/local/lib/'`
-- chart testing: 
-  - install `helm`, `yamale`, `yamllint` as prerequisites to `ct` from https://github.com/helm/chart-testing#installation 
+  Afterwards, set your library path, e.g.: `export LD_LIBRARY_PATH='/usr/local/lib/'`
+- Chart Testing: 
+  - install `helm`, `Yamale`, `Yamllint` as prerequisites to `ct` from https://github.com/helm/chart-testing#installation 
   - then follow the instructions to install `ct`
 - golang >= 1.16
 - protoc >=3.15
