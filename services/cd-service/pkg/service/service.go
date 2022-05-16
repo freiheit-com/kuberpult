@@ -24,11 +24,10 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os/exec"
-	"path"
 	"regexp"
-	"strings"
 	"time"
 
+	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"golang.org/x/crypto/openpgp"
@@ -59,7 +58,7 @@ type Service struct {
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	head, tail := shiftPath(r.URL.Path)
+	head, tail := xpath.Shift(r.URL.Path)
 	switch head {
 	case "health":
 		s.ServeHTTPHealth(w, r)
@@ -261,15 +260,6 @@ func readMultipartFile(hdr *multipart.FileHeader) ([]byte, error) {
 			return content, nil
 		}
 	}
-}
-
-func shiftPath(p string) (head, tail string) {
-	p = path.Clean("/" + p)
-	i := strings.Index(p[1:], "/") + 1
-	if i <= 0 {
-		return p[1:], "/"
-	}
-	return p[1:i], p[i:]
 }
 
 func isCommitId(value string) bool {
