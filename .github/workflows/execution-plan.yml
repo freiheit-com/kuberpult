@@ -25,7 +25,7 @@ jobs:
           echo "$FILES_CHANGED"
           echo "$FILES_CHANGED" > .changedFiles
           echo 'CHANGED_FILES<<EOF' >> $GITHUB_ENV
-          curl "$FILES_CHANGED" >> $GITHUB_ENV
+          echo "$FILES_CHANGED" >> $GITHUB_ENV
           echo 'EOF' >> $GITHUB_ENV
           echo $CHANGED_FILES
       - name: Run Execution plan
