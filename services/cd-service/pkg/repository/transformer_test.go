@@ -920,6 +920,27 @@ func TestTransformer(t *testing.T) {
 				}
 			},
 		}, {
+			Name: "Creating a version that is much too old yields the correct error",
+			Transformers: func() []Transformer {
+				t := make([]Transformer, 0, keptVersionsOnCleanup+1)
+				t = append(t, &CreateEnvironment{Environment: "production"})
+				for i := keptVersionsOnCleanup + 1; i > 0; i-- {
+					t = append(t, &CreateApplicationVersion{
+						Version:     uint64(i),
+						Application: "test",
+						Manifests: map[string]string{
+							"production": "42",
+						},
+					})
+				}
+				return t
+			}(),
+			ErrorTest: func(t *testing.T, err error) {
+				if err != ErrReleaseTooOld {
+					t.Errorf("expected %q, got %q", ErrReleaseTooOld, err)
+				}
+			},
+		}, {
 			Name: "Auto Deploy version to second env",
 			Transformers: []Transformer{
 				&CreateEnvironment{Environment: "one", Config: c1},

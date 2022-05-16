@@ -42,6 +42,7 @@ const (
 
 var (
 	ErrReleaseAlreadyExist = fmt.Errorf("release already exists")
+	ErrReleaseTooOld       = fmt.Errorf("release is too old")
 )
 
 func versionToString(Version uint64) string {
@@ -244,6 +245,18 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, fs billy.Files
 				result = result + deployResult + "\n"
 			}
 		}
+	} else {
+		// check that we can actually backfill this version
+		oldVersions, err := findOldApplicationVersions(fs, c.Application)
+		if err != nil {
+			return "", err
+		}
+		for _, oldVersion := range oldVersions {
+			if version == oldVersion {
+				return "", ErrReleaseTooOld
+			}
+		}
+
 	}
 	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), nil
 }
@@ -403,68 +416,67 @@ type CleanupOldApplicationVersions struct {
 	Application string
 }
 
-func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
+// Finds old releases for an application
+func findOldApplicationVersions(fs billy.Filesystem, name string) ([]uint64, error) {
 	var state = &State{Filesystem: fs}
 	// 1) get release in each env:
 	envConfigs, err := state.GetEnvironmentConfigs()
 	if err != nil {
-		return "", fmt.Errorf("CleanupOldApplicationVersions: error accessing env configs: %w", err)
+		return nil, err
 	}
-	var oldestDeployedVersion *uint64 = nil
-	for env := range envConfigs {
-		version, err := state.GetEnvironmentApplicationVersion(env, c.Application)
-		if err != nil {
-			return "", fmt.Errorf("CleanupOldApplicationVersions: Could not get version for env %s app %s: %w",
-				env, c.Application, err)
-		}
-		if version != nil && oldestDeployedVersion == nil {
-			oldestDeployedVersion = version
-		} else if version != nil && oldestDeployedVersion != nil {
-			if *version < *oldestDeployedVersion {
-				oldestDeployedVersion = version
-			}
-		}
-	}
-
-	// 2) decide if there is something to remove
-	if oldestDeployedVersion == nil {
-		return fmt.Sprintf("(no old versions of app %s were found)", c.Application), nil
-	}
-
-	if *oldestDeployedVersion <= keptVersionsOnCleanup {
-		return fmt.Sprintf("(Oldest version (%d) of app %s is still too young (<=%d) for cleanup)",
-			*oldestDeployedVersion, c.Application, keptVersionsOnCleanup), nil
-	}
-
-	// 3) remove all releases older than x
-	versions, err := state.GetApplicationReleases(c.Application)
+	versions, err := state.GetApplicationReleases(name)
 	if err != nil {
-		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
+		return nil, err
+	}
+	if len(versions) == 0 {
+		return nil, err
 	}
 	sort.Slice(versions, func(i, j int) bool {
 		return versions[i] < versions[j]
 	})
-
+	// Use the latest version as oldest deployed version
+	oldestDeployedVersion := versions[len(versions)-1]
+	for env := range envConfigs {
+		version, err := state.GetEnvironmentApplicationVersion(env, name)
+		if err != nil {
+			return nil, err
+		}
+		if version != nil {
+			if *version < oldestDeployedVersion {
+				oldestDeployedVersion = *version
+			}
+		}
+	}
 	positionOfOldestVersion := sort.Search(len(versions), func(i int) bool {
-		return versions[i] >= *oldestDeployedVersion
+		return versions[i] >= oldestDeployedVersion
 	})
 
+	if positionOfOldestVersion < (keptVersionsOnCleanup - 1) {
+		return nil, nil
+	}
+	return versions[0 : positionOfOldestVersion-(keptVersionsOnCleanup-1)], err
+}
+
+func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
+	oldVersions, err := findOldApplicationVersions(fs, c.Application)
+	if err != nil {
+		return "", err
+	}
+
 	msg := ""
-	if positionOfOldestVersion >= keptVersionsOnCleanup {
-		for _, oldRelease := range versions[0 : positionOfOldestVersion-keptVersionsOnCleanup+1] {
-			// delete oldRelease:
-			releasesDir := releasesDirectoryWithVersion(fs, c.Application, oldRelease)
-			_, err := fs.Stat(releasesDir)
-			if err != nil {
-				return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
-			}
-			err = fs.Remove(releasesDir)
-			if err != nil {
-				return "", fmt.Errorf("CleanupOldApplicationVersions: Unexpected error app %s: %w",
-					c.Application, err)
-			}
-			msg = fmt.Sprintf("%sremoved version %d of app %v as cleanup\n", msg, oldRelease, c.Application)
+	for _, oldRelease := range oldVersions {
+		// delete oldRelease:
+		releasesDir := releasesDirectoryWithVersion(fs, c.Application, oldRelease)
+		_, err := fs.Stat(releasesDir)
+		if err != nil {
+			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
+		err = fs.Remove(releasesDir)
+		if err != nil {
+			return "", fmt.Errorf("CleanupOldApplicationVersions: Unexpected error app %s: %w",
+				c.Application, err)
+		}
+		msg = fmt.Sprintf("%sremoved version %d of app %v as cleanup\n", msg, oldRelease, c.Application)
 	}
 	return msg, nil
 }
