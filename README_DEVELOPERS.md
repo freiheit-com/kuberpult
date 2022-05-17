@@ -2,7 +2,7 @@
 
 ## introduction
 
-kuberpult watches a remote repository, unlike ArgoCD it is not triggered based on push to the repository, It is triggered by rest api instead (or ui which in turn calls the rest api). 
+Unlike ArgoCD kuberpult is not triggered based on push to the repository, It is triggered by rest api instead (or ui which in turn calls the rest api). 
 when a `/release` api is called with the manifest files, it checks the repository for additional information (ArgoCD related) and commits and pushes the manifests back into the respository which are then handled by ArgoCD. 
 For full usage instructions please check the [readme](https://github.com/freiheit-com/kuberpult/blob/main/readme.md).
 
@@ -70,11 +70,11 @@ cd services/cd-service
 go test ./... -v
 ```
 
-# Legacy docs 
+# Installation outside of docker 
 
 ## pre requisite software 
 
-- [docker](https://docs.docker.com/get-docker/)
+- [docker](https://docs.docker.com/get-docker/) - for docker build for cd-service - optional
 - [node](https://nodejs.org/en/download/) - ensure you're using an LTS version (or use [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
 - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable)
 
