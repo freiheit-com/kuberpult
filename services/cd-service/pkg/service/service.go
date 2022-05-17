@@ -19,19 +19,21 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"time"
 
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/errors"
+	pgperrors "golang.org/x/crypto/openpgp/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -120,7 +122,7 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 							return
 						} else {
 							if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader(content), bytes.NewReader(signature)); err != nil {
-								if err != errors.ErrUnknownIssuer {
+								if err != pgperrors.ErrUnknownIssuer {
 									w.WriteHeader(500)
 									fmt.Fprintf(w, "internal: %s", err)
 									return
@@ -173,10 +175,25 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 			tf.SourceMessage = source_message[0]
 		}
 	}
+	if version, ok := form.Value["version"]; ok {
+		if len(version) == 1 {
+			val, err := strconv.ParseUint(version[0], 10, 64)
+			if err != nil {
+				w.WriteHeader(400)
+				fmt.Fprintf(w, "invalid version: %s", err)
+				return
+			}
+			tf.Version = val
+		}
+	}
 	if err := s.Repository.Apply(r.Context(), &tf); err != nil {
 		if _, ok := err.(*repository.InternalError); ok {
 			w.WriteHeader(500)
 			fmt.Fprintf(w, "internal: %s", err)
+			return
+		} else if errors.Is(err, repository.ErrReleaseAlreadyExist) {
+			w.WriteHeader(200)
+			fmt.Fprintf(w, "not updated")
 			return
 		} else {
 			w.WriteHeader(400)
@@ -184,7 +201,8 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 			return
 		}
 	} else {
-		w.WriteHeader(204)
+		w.WriteHeader(201)
+		fmt.Fprintf(w, "created")
 	}
 	return
 }
