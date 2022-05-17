@@ -27,11 +27,11 @@ jobs:
       - name: Get execution plan
         id: plan
         run: |
-          echo "The commitbase is: ${{ steps.commitbase.outputs.content }}"
+          echo "The commitbase is: ${{ steps.commitbase.outputs.commitbase }}"
           # testing
-          files="$(./infrastructure/scripts/execution-plan/get-changed-files.sh ${{ steps.commitbase.outputs.content }})"
+          files="$(./infrastructure/scripts/execution-plan/get-changed-files.sh ${{ steps.commitbase.outputs.commitbase }})"
           echo $files
-          plan="$(./infrastructure/scripts/execution-plan/get-changed-files.sh ${{ steps.commitbase.outputs.content }} | docker run -i -v $(pwd):/repo eu.gcr.io/freiheit-core/services/execution-plan/execution-plan:0.0.2)"
+          plan="$(./infrastructure/scripts/execution-plan/get-changed-files.sh ${{ steps.commitbase.outputs.commitbase }} | docker run -i -v $(pwd):/repo eu.gcr.io/freiheit-core/services/execution-plan/execution-plan:0.0.2)"
           echo $plan
           echo "EXECUTION_PLAN<<EOF" >> $GITHUB_ENV
           echo "$plan" >> $GITHUB_ENV
