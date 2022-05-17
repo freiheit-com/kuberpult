@@ -21,7 +21,7 @@ jobs:
       - run: mkdir -p artifacts/
       - name: Plan execution
         run: |
-          ./infrastructure/scripts/execution-plan/plan.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json
+          ./infrastructure/scripts/execution-plan/plan.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 2>artifacts/execution-plan-errors.log
       - name: Execute 
         run: |
           # stub code, as of now just prints the plan
@@ -30,4 +30,4 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: execution-plan
-          path: artifacts/execution-plan.json
+          path: artifacts/*
