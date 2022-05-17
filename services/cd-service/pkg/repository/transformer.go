@@ -460,7 +460,7 @@ func findOldApplicationVersions(fs billy.Filesystem, name string) ([]uint64, err
 func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
 	oldVersions, err := findOldApplicationVersions(fs, c.Application)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
 	}
 
 	msg := ""
