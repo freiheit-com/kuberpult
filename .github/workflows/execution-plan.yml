@@ -18,13 +18,20 @@ jobs:
       - name: gcloud authorize
         run: |
           gcloud auth configure-docker
-      - name: Get changed files
-        id: changes
+      - name: Get execution plan
+        id: plan
         run: |
-          FILES_CHANGED=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
-          echo 'FILES_CHANGED<<EOF' >> $GITHUB_ENV
-          echo "$FILES_CHANGED" >> $GITHUB_ENV
-          echo 'EOF' >> $GITHUB_ENV
-      - name: Run Execution plan
-        run: make plan
+          # testing
+          files="$(./infrastructure/scripts/execution-plan/get-changed-files)"
+          echo $files
+          plan="$(./infrastructure/scripts/execution-plan/get-changed-files | docker run -i -v $(pwd):/repo eu.gcr.io/freiheit-core/services/execution-plan/execution-plan:0.0.2)"
+          echo $plan
+          echo "EXECUTION_PLAN<<EOF" >> $GITHUB_ENV
+          echo "$plan" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+      - name: Run Executor
+        run: |
+          # stub code, as of now just prints the plan
+          echo "The execution plan is printed"
+          echo "${{ env.EXECUTION_PLAN }}"
 
