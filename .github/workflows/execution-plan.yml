@@ -18,20 +18,11 @@ jobs:
       - name: gcloud authorize
         run: |
           gcloud auth configure-docker
-      # TODO: Add similar code to get commit base of last successful workflow run in master branch
-      - name: Get commit base
-        id: commitbase
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "::set-output name=commitbase::${{ github.event.pull_request.base.sha }}"
-      - name: Get commit head
-        if: github.event_name == 'pull_request'
-        id: commithead
-        run: |
-          echo "::set-output name=commithead::${{ github.event.pull_request.head.sha }}"
       - name: Plan execution
         run: |
-          EXECUTION_PLAN="$(./infrastructure/scripts/execution-plan/get-changed-files.sh ${{ steps.commitbase.outputs.commitbase }} ${{ steps.commithead.outputs.commithead }} | docker run -i -v $(pwd):/repo eu.gcr.io/freiheit-core/services/execution-plan/execution-plan:0.0.2)"
+          EXECUTION_PLAN="./infrastructure/scripts/execution-plan/plan.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }}"
+
+          # add to env for next step
           echo "EXECUTION_PLAN<<EOF" >> $GITHUB_ENV
           echo "$EXECUTION_PLAN" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
