@@ -26,6 +26,8 @@ jobs:
           echo "::set-output name=commitbase::${{ github.event.pull_request.base.sha }}"
       - name: Plan execution
         run: |
+          files="$(./infrastructure/scripts/execution-plan/get-changed-files.sh ${{ steps.commitbase.outputs.commitbase }}"
+          echo $files
           EXECUTION_PLAN="$(./infrastructure/scripts/execution-plan/get-changed-files.sh ${{ steps.commitbase.outputs.commitbase }} | docker run -i -v $(pwd):/repo eu.gcr.io/freiheit-core/services/execution-plan/execution-plan:0.0.2)"
           echo "EXECUTION_PLAN<<EOF" >> $GITHUB_ENV
           echo "$EXECUTION_PLAN" >> $GITHUB_ENV
