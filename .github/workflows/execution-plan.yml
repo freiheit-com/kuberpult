@@ -24,19 +24,13 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           echo "::set-output name=commitbase::${{ github.event.pull_request.base.sha }}"
-      - name: Get execution plan
-        id: plan
+      - name: Plan execution
         run: |
-          echo "The commitbase is: ${{ steps.commitbase.outputs.commitbase }}"
-          # testing
-          files="$(./infrastructure/scripts/execution-plan/get-changed-files.sh ${{ steps.commitbase.outputs.commitbase }})"
-          echo $files
-          plan="$(./infrastructure/scripts/execution-plan/get-changed-files.sh ${{ steps.commitbase.outputs.commitbase }} | docker run -i -v $(pwd):/repo eu.gcr.io/freiheit-core/services/execution-plan/execution-plan:0.0.2)"
-          echo $plan
+          EXECUTION_PLAN="$(./infrastructure/scripts/execution-plan/get-changed-files.sh ${{ steps.commitbase.outputs.commitbase }} | docker run -i -v $(pwd):/repo eu.gcr.io/freiheit-core/services/execution-plan/execution-plan:0.0.2)"
           echo "EXECUTION_PLAN<<EOF" >> $GITHUB_ENV
-          echo "$plan" >> $GITHUB_ENV
+          echo "$EXECUTION_PLAN" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
-      - name: Run Executor
+      - name: Execute 
         run: |
           # stub code, as of now just prints the plan
           echo "The execution plan is printed"
