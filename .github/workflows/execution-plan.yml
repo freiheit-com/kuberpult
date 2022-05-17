@@ -18,17 +18,16 @@ jobs:
       - name: gcloud authorize
         run: |
           gcloud auth configure-docker
+      - run: mkdir -p artifacts/
       - name: Plan execution
         run: |
-          EXECUTION_PLAN="./infrastructure/scripts/execution-plan/plan.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }}"
-
-          # add to env for next step
-          echo "EXECUTION_PLAN<<EOF" >> $GITHUB_ENV
-          echo "$EXECUTION_PLAN" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          ./infrastructure/scripts/execution-plan/plan.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json
       - name: Execute 
         run: |
           # stub code, as of now just prints the plan
           echo "The execution plan is printed"
-          echo "${{ env.EXECUTION_PLAN }}"
-
+          cat artifacts/execution-plan.json
+      - uses: actions/upload-artifact@v3
+        with:
+          name: execution-plan
+          path: artifacts/execution-plan.json
