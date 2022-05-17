@@ -22,9 +22,9 @@ jobs:
         id: plan
         run: |
           # testing
-          files="$(./infrastructure/scripts/execution-plan/get-changed-files)"
+          files="$(./infrastructure/scripts/execution-plan/get-changed-files.sh)"
           echo $files
-          plan="$(./infrastructure/scripts/execution-plan/get-changed-files | docker run -i -v $(pwd):/repo eu.gcr.io/freiheit-core/services/execution-plan/execution-plan:0.0.2)"
+          plan="$(./infrastructure/scripts/execution-plan/get-changed-files.sh | docker run -i -v $(pwd):/repo eu.gcr.io/freiheit-core/services/execution-plan/execution-plan:0.0.2)"
           echo $plan
           echo "EXECUTION_PLAN<<EOF" >> $GITHUB_ENV
           echo "$plan" >> $GITHUB_ENV
