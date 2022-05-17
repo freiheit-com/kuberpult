@@ -7,7 +7,8 @@ last_commit_hash="${2:-$(git rev-parse HEAD)}"
 
 if [[ "$common_ancestor_hash" = "$last_commit_hash" ]]; then
   # This means that the build is happening on local machine on main branch, so build everything from scratch
-  common_ancestor_hash="$(git rev-list --max-parents=0 HEAD)"
+  git ls-files | grep 'Buildfile$'
+else
+  git diff --diff-filter=ACMRT --name-only "$common_ancestor_hash" "$last_commit_hash"
 fi
-git diff --diff-filter=ACMRT --name-only "$common_ancestor_hash" "$last_commit_hash"
 
