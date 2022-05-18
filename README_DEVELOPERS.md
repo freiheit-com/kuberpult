@@ -27,7 +27,7 @@ cd ../..
 - run the following command to start all the services required, the `--build` parameter is added to build any changes you may have added to the code
 
 ```bash
-docker compose up --build
+docker-compose up --build
 ```
 - the `cd-service` is available at `localhost:8080` and the kuberpult ui is available at `localhost:3000`
 
