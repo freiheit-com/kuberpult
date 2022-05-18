@@ -39,7 +39,7 @@ import Typography from '@material-ui/core/Typography';
 
 import { useUnaryCallback } from './Api';
 
-import type { Application, BatchAction, GetOverviewResponse, Lock } from '../api/api';
+import type { Application, BatchAction, GetOverviewResponse, Lock, Release } from '../api/api';
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
@@ -53,40 +53,47 @@ export const Context = React.createContext<{ setData: (d: Data | null) => void }
     },
 });
 
-const VersionDiff = (props: { current: number | undefined; target: number }) => {
-    const { current, target } = props;
+const VersionDiff = (props: { current: number | undefined; target: number; releases: Release[] }) => {
+    const { current, target, releases } = props;
     const prefix = 'currently deployed: ';
     if (current === undefined) {
         return (
             <Tooltip title={prefix + 'not deployed'}>
-                <BlockIcon className="notDeployed" />
+                <BlockIcon data-testid="version-diff" className="notDeployed" />
             </Tooltip>
         );
     }
+    const diff =
+        releases.filter((release) => release.version < current).length -
+        releases.filter((release) => release.version < target).length;
     if (current > target) {
         return (
-            <Tooltip title={prefix + '' + (current - target) + ' ahead'}>
-                <span className="ahead">{'+' + (current - target)}</span>
+            <Tooltip title={prefix + '' + diff + ' ahead'}>
+                <span className="ahead" data-testid="version-diff">
+                    {'+' + diff}
+                </span>
             </Tooltip>
         );
     } else if (current < target) {
         return (
-            <Tooltip title={prefix + (target - current) + ' behind'}>
-                <span className="behind">{'-' + (target - current)}</span>
+            <Tooltip title={prefix + -diff + ' behind'}>
+                <span className="behind" data-testid="version-diff">
+                    {diff}
+                </span>
             </Tooltip>
         );
     } else {
         return (
             <Tooltip title="same version">
-                <EqualIcon className="same" />
+                <EqualIcon className="same" data-testid="version-diff" />
             </Tooltip>
         );
     }
 };
 
-const QueueDiff = (props: { queued: number; current: number }) => {
+const QueueDiff = (props: { queued: number; current: number; releases: Release[] }) => {
     const prefix = 'queued: ';
-    const { queued, current } = props;
+    const { current, queued, releases } = props;
     if (queued === 0) {
         // no queue
         return (
@@ -97,7 +104,9 @@ const QueueDiff = (props: { queued: number; current: number }) => {
             </Tooltip>
         );
     }
-    const diff = queued - current;
+    const diff =
+        releases.filter((release) => release.version < current).length -
+        releases.filter((release) => release.version < target).length;
     if (diff === 0) {
         return (
             <Tooltip title={prefix + 'same version'}>
@@ -413,8 +422,16 @@ const ReleaseEnvironment = (props: {
         <Paper className="environment">
             <Typography variant="h5" component="div" className="name" width="30%" sx={{ textTransform: 'capitalize' }}>
                 {environmentName}
-                <VersionDiff current={currentlyDeployedVersion} target={version} />
-                <QueueDiff current={version} queued={queuedVersion} />
+                <VersionDiff
+                    current={currentlyDeployedVersion}
+                    target={version}
+                    releases={overview.applications[applicationName].releases}
+                />
+                <QueueDiff
+                    current={version}
+                    queued={queuedVersion}
+                    releases={overview.applications[applicationName].releases}
+                />
                 {hasQueue ? (
                     <span>
                         <Tooltip title={queueMessage}>
