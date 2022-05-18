@@ -1,0 +1,33 @@
+name: "Execution Plan"
+'on':
+  pull_request:
+    branches:
+      - main
+jobs:
+  execution-plan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v0 
+        name: 'Authenticate to Google Cloud'
+        with:
+          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
+      - name: gcloud authorize
+        run: |
+          gcloud auth configure-docker
+      - run: mkdir -p artifacts/
+      - name: Plan execution
+        run: |
+          ./infrastructure/scripts/execution-plan/plan.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
+      - name: Execute 
+        run: |
+          # stub code, as of now just prints the plan
+          echo "The execution plan is printed"
+          cat artifacts/execution-plan.json
+      - uses: actions/upload-artifact@v3
+        with:
+          name: execution-plan
+          path: artifacts/*
