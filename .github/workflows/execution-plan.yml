@@ -49,9 +49,9 @@ jobs:
       - name: Planner
         id: plan
         run: |
-          init="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 init | tr -d '\n')"
-          build="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 build | tr -d '\n')"
-          publish="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 publish | tr -d '\n')"
+          init="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.2 init | tr -d '\n')"
+          build="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.2 build | tr -d '\n')"
+          publish="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.2 publish | tr -d '\n')"
     outputs:
       init: ${{ steps.plan.outputs.init }}
       build: ${{ steps.plan.outputs.build }}
@@ -60,8 +60,7 @@ jobs:
   init:
     needs: github_convertor
     strategy:
-      matrix: 
-        data: ${{fromJSON(needs.github_convertor.outputs.init)}}
+      matrix: ${{fromJSON(needs.github_convertor.outputs.init)}}
     runs-on: ubuntu-latest
     container: 
       image: ${{ matrix.data.image }}
