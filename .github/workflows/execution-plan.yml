@@ -49,14 +49,11 @@ jobs:
       - name: Planner
         id: plan
         run: |
-          init="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 init | tr -d '\n')"
-          echo ${init}
-          echo "::set-output name=init::"{\"init\": ${init}}"
-          build="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 build | tr -d '\n')"
-          echo ${build}
+          init="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.2 init | tr -d '\n')"
+          echo "::set-output name=init::${init}"
+          build="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.2 build | tr -d '\n')"
           echo "::set-output name=build::${build}"
-          publish="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 publish | tr -d '\n')"
-          echo ${publish}
+          publish="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.2 publish | tr -d '\n')"
           echo "::set-output name=publish::${publish}"
       - name: print
         run: |
@@ -83,10 +80,10 @@ jobs:
       matrix: ${{fromJSON(needs.github_convertor.outputs.init)}}
     runs-on: ubuntu-latest
     container: 
-      image: ${{ matrix.image }}
+      image: ${{ matrix.matrix.image }}
     steps:
       - name: initialize
-        run: ${{ matrix.command }}
+        run: ${{ matrix.matrix.command }}
           # build:
           #   needs: [init, github_convertor]
           #   runs-on: ubuntu-latest
