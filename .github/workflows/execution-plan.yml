@@ -29,7 +29,7 @@ jobs:
           cat artifacts/execution-plan.json
       - uses: actions/upload-artifact@v3
         with:
-          name: execution-plan
+          name: execution-plan.json
           path: artifacts/execution-plan.json
   executor:
     needs: execution-plan
