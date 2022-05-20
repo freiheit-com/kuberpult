@@ -31,3 +31,20 @@ jobs:
         with:
           name: execution-plan
           path: artifacts/*
+  executor:
+    needs: execution-plan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@master
+        with:
+          name: execution-plan.json
+          path: artifacts
+      - name: Planner
+        run: |
+          cat artifacts/execution-plan.json
+          cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 init > init.json
+          cat init.json
+          cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 build > build.json
+          cat build.json
+          cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 publish > publish.json
+          cat publish.json
