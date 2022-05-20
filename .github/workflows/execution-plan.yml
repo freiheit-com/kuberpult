@@ -30,14 +30,14 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: execution-plan
-          path: artifacts/*
+          path: artifacts/execution-plan.json
   executor:
     needs: execution-plan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@master
         with:
-          name: execution-plan.json
+          name: execution-plan.json 
           path: artifacts
       - name: Planner
         run: |
