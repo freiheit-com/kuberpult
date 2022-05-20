@@ -49,12 +49,15 @@ jobs:
       - name: Planner
         id: plan
         run: |
-          init=$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 init)
-          echo "::set-output name=init::${init//'%'/'%25'}"
-          build=$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 build)
-          echo "::set-output name=build::${build//'%'/'%25'}"
-          publish=$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 publish)
-          echo "::set-output name=publish::${publish//'%'/'%25'}"
+          init="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 init | tr -d '\n')"
+          echo "$init"
+          echo "::set-output name=init::${init}"
+          build="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 build | tr -d '\n')"
+          echo "$build"
+          echo "::set-output name=build::${build}"
+          publish="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 publish | tr -d '\n')"
+          echo "$publish"
+          echo "::set-output name=publish::${publish}"
       - run: |
           echo ${{ needs.plan.outputs.init }}
           echo ${{ needs.plan.outputs.build }}
