@@ -32,7 +32,7 @@ jobs:
           name: execution-plan.json
           path: artifacts/execution-plan.json
   githubconvertor:
-    needs: execution-plan
+    needs: executionplan
     runs-on: ubuntu-latest
     outputs:
       init: ${{ steps.plan.outputs.init }}
@@ -68,7 +68,7 @@ jobs:
           echo ${{ steps.plan.outputs.build }}
           echo ${{ steps.plan.outputs.publish }}
   print-values:
-    needs: github-convertor
+    needs: githubconvertor
     runs-on: ubuntu-latest
     steps:
       - run: |
@@ -77,7 +77,7 @@ jobs:
           echo ${{ needs.githubconvertor.outputs.publish }}
 
   init:
-    needs: github-convertor
+    needs: githubconvertor
     strategy:
       matrix: ${{ fromJSON(needs.githubconvertor.outputs.init) }}
     runs-on: ubuntu-latest
