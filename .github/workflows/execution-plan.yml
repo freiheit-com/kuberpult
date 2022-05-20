@@ -31,9 +31,13 @@ jobs:
         with:
           name: execution-plan.json
           path: artifacts/execution-plan.json
-  executor:
+  github-convertor:
     needs: execution-plan
     runs-on: ubuntu-latest
+    outputs:
+      init: ${{ steps.plan.outputs.init }}
+      build: ${{ steps.plan.outputs.build }}
+      publish: ${{ steps.plan.outputs.publish }}
     steps:
       - uses: actions/download-artifact@master
         with:
@@ -52,12 +56,54 @@ jobs:
           init="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 init | tr -d '\n')"
           echo "::set-output name=init::${init}"
           build="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 build | tr -d '\n')"
-          echo "$build"
           echo "::set-output name=build::${build}"
           publish="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 publish | tr -d '\n')"
-          echo "$publish"
           echo "::set-output name=publish::${publish}"
-      - run: |
-          echo ${{ steps.plan.outputs.init }}
-          echo ${{ steps.plan.outputs.build }}
-          echo ${{ steps.plan.outputs.publish }}
+  init:
+    needs: github-convertor
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.github-convertor.outputs.init }}
+    steps:
+      - uses: google-github-actions/auth@v0 
+        name: 'Authenticate to Google Cloud'
+        with:
+          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
+      - name: gcloud authorize
+        run: |
+          gcloud auth configure-docker
+      - name: initialize
+        image: ${{ matrix.image }}
+        run: matrix.command
+  build:
+    needs: init
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.github-convertor.outputs.build }}
+    steps:
+      - uses: google-github-actions/auth@v0 
+        name: 'Authenticate to Google Cloud'
+        with:
+          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
+      - name: gcloud authorize
+        run: |
+          gcloud auth configure-docker
+      - name: build
+        image: ${{ matrix.image }}
+        run: matrix.command
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.github-convertor.outputs.publish }}
+    steps:
+      - uses: google-github-actions/auth@v0 
+        name: 'Authenticate to Google Cloud'
+        with:
+          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
+      - name: gcloud authorize
+        run: |
+          gcloud auth configure-docker
+      - name: build
+        image: ${{ matrix.image }}
+        run: matrix.command
