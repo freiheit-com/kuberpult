@@ -4,7 +4,7 @@ name: "Execution Plan"
     branches:
       - main
 jobs:
-  executionplan:
+  execution_plan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -31,13 +31,9 @@ jobs:
         with:
           name: execution-plan.json
           path: artifacts/execution-plan.json
-  githubconvertor:
-    needs: executionplan
+  github_convertor:
+    needs: execution_plan
     runs-on: ubuntu-latest
-    outputs:
-      init: ${{ steps.plan.outputs.init }}
-      build: ${{ steps.plan.outputs.build }}
-      publish: ${{ steps.plan.outputs.publish }}
     steps:
       - uses: actions/download-artifact@master
         with:
@@ -67,42 +63,46 @@ jobs:
           echo ${{ steps.plan.outputs.init }}
           echo ${{ steps.plan.outputs.build }}
           echo ${{ steps.plan.outputs.publish }}
+    outputs:
+      init: ${{ steps.plan.outputs.init }}
+      build: ${{ steps.plan.outputs.build }}
+      publish: ${{ steps.plan.outputs.publish }}
+
   print-values:
-    needs: githubconvertor
+    needs: github_convertor
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo ${{ needs.githubconvertor.outputs.init }}
-          echo ${{ needs.githubconvertor.outputs.build }}
-          echo ${{ needs.githubconvertor.outputs.publish }}
-
+          echo ${{ needs.github_convertor.outputs.init }}
+          echo ${{ needs.github_convertor.outputs.build }}
+          echo ${{ needs.github_convertor.outputs.publish }}
   init:
-    needs: githubconvertor
+    needs: github_convertor
     strategy:
-      matrix: ${{ fromJSON(needs.githubconvertor.outputs.init) }}
+      matrix: ${{ fromJSON(needs.github_convertor.outputs.init) }}
     runs-on: ubuntu-latest
     container: 
       image: ${{ matrix.image }}
     steps:
       - name: initialize
         run: ${{ matrix.command }}
-  build:
-    needs: init
-    runs-on: ubuntu-latest
-    strategy:
-      matrix: ${{ fromJSON(needs.githubconvertor.outputs.build) }}
-    container: 
-      image: ${{ matrix.image }}
-    steps:
-      - name: build
-        run: ${{ matrix.command }}
-  publish:
-    needs: build
-    runs-on: ubuntu-latest
-    strategy:
-      matrix: ${{ fromJSON(needs.githubconvertor.outputs.publish) }}
-    container: 
-      image: ${{ matrix.image }}
-    steps:
-      - name: publish
-        run: ${{ matrix.command }}
+          # build:
+          #   needs: [init, github_convertor]
+          #   runs-on: ubuntu-latest
+          #   strategy:
+          #     matrix: ${{ fromJSON(needs.github_convertor.outputs.build) }}
+          #   container: 
+          #     image: ${{ matrix.image }}
+          #   steps:
+          #     - name: build
+          #       run: ${{ matrix.command }}
+          # publish:
+          #   needs: [build, github_convertor]
+          #   runs-on: ubuntu-latest
+          #   strategy:
+          #     matrix: ${{ fromJSON(needs.github_convertor.outputs.publish) }}
+          #   container: 
+          #     image: ${{ matrix.image }}
+          #   steps:
+          #     - name: publish
+          #       run: ${{ matrix.command }}
