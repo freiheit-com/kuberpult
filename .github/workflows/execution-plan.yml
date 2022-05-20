@@ -63,7 +63,7 @@ jobs:
     needs: github-convertor
     runs-on: ubuntu-latest
     steps:
-      - run |
+      - run: |
           echo ${{ needs.github-convertor.outputs.init }}
           echo ${{ needs.github-convertor.outputs.build }}
           echo ${{ needs.github-convertor.outputs.publish }}
