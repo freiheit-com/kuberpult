@@ -59,6 +59,15 @@ jobs:
           echo "::set-output name=build::${build}"
           publish="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 publish | tr -d '\n')"
           echo "::set-output name=publish::${publish}"
+  print-values:
+    needs: github-convertor
+    runs-on: ubuntu-latest
+    steps:
+      - run |
+          echo ${{ needs.github-convertor.outputs.init }}
+          echo ${{ needs.github-convertor.outputs.build }}
+          echo ${{ needs.github-convertor.outputs.publish }}
+
   init:
     needs: github-convertor
     strategy:
