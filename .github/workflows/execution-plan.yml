@@ -61,49 +61,31 @@ jobs:
           echo "::set-output name=publish::${publish}"
   init:
     needs: github-convertor
-    runs-on: ubuntu-latest
     strategy:
       matrix: ${{ fromJSON(needs.github-convertor.outputs.init) }}
+    runs-on: ubuntu-latest
+    container: 
+      image: ${{ matrix.image }}
     steps:
-      - uses: google-github-actions/auth@v0 
-        name: 'Authenticate to Google Cloud'
-        with:
-          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
-      - name: gcloud authorize
-        run: |
-          gcloud auth configure-docker
       - name: initialize
-        image: ${{ matrix.image }}
         run: ${{ matrix.command }}
   build:
     needs: init
     runs-on: ubuntu-latest
     strategy:
       matrix: ${{ fromJSON(needs.github-convertor.outputs.build) }}
+    container: 
+      image: ${{ matrix.image }}
     steps:
-      - uses: google-github-actions/auth@v0 
-        name: 'Authenticate to Google Cloud'
-        with:
-          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
-      - name: gcloud authorize
-        run: |
-          gcloud auth configure-docker
       - name: build
-        image: ${{ matrix.image }}
         run: ${{ matrix.command }}
   publish:
     needs: build
     runs-on: ubuntu-latest
     strategy:
       matrix: ${{ fromJSON(needs.github-convertor.outputs.publish) }}
+    container: 
+      image: ${{ matrix.image }}
     steps:
-      - uses: google-github-actions/auth@v0 
-        name: 'Authenticate to Google Cloud'
-        with:
-          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
-      - name: gcloud authorize
-        run: |
-          gcloud auth configure-docker
-      - name: build
-        image: ${{ matrix.image }}
+      - name: publish
         run: ${{ matrix.command }}
