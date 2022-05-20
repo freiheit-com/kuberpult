@@ -74,7 +74,7 @@ jobs:
           gcloud auth configure-docker
       - name: initialize
         image: ${{ matrix.image }}
-        run: matrix.command
+        run: ${{ matrix.command }}
   build:
     needs: init
     runs-on: ubuntu-latest
@@ -90,7 +90,7 @@ jobs:
           gcloud auth configure-docker
       - name: build
         image: ${{ matrix.image }}
-        run: matrix.command
+        run: ${{ matrix.command }}
   publish:
     needs: build
     runs-on: ubuntu-latest
@@ -106,4 +106,4 @@ jobs:
           gcloud auth configure-docker
       - name: build
         image: ${{ matrix.image }}
-        run: matrix.command
+        run: ${{ matrix.command }}
