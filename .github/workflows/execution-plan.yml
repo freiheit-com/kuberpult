@@ -4,7 +4,7 @@ name: "Execution Plan"
     branches:
       - main
 jobs:
-  execution-plan:
+  executionplan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -31,7 +31,7 @@ jobs:
         with:
           name: execution-plan.json
           path: artifacts/execution-plan.json
-  github-convertor:
+  githubconvertor:
     needs: execution-plan
     runs-on: ubuntu-latest
     outputs:
@@ -54,24 +54,32 @@ jobs:
         id: plan
         run: |
           init="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 init | tr -d '\n')"
+          echo ${init}
           echo "::set-output name=init::${init}"
           build="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 build | tr -d '\n')"
+          echo ${build}
           echo "::set-output name=build::${build}"
           publish="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 publish | tr -d '\n')"
+          echo ${publish}
           echo "::set-output name=publish::${publish}"
+      - name: print
+        run: |
+          echo ${{ steps.plan.outputs.init }}
+          echo ${{ steps.plan.outputs.build }}
+          echo ${{ steps.plan.outputs.publish }}
   print-values:
     needs: github-convertor
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo ${{ needs.github-convertor.outputs.init }}
-          echo ${{ needs.github-convertor.outputs.build }}
-          echo ${{ needs.github-convertor.outputs.publish }}
+          echo ${{ needs.githubconvertor.outputs.init }}
+          echo ${{ needs.githubconvertor.outputs.build }}
+          echo ${{ needs.githubconvertor.outputs.publish }}
 
   init:
     needs: github-convertor
     strategy:
-      matrix: ${{ fromJSON(needs.github-convertor.outputs.init) }}
+      matrix: ${{ fromJSON(needs.githubconvertor.outputs.init) }}
     runs-on: ubuntu-latest
     container: 
       image: ${{ matrix.image }}
@@ -82,7 +90,7 @@ jobs:
     needs: init
     runs-on: ubuntu-latest
     strategy:
-      matrix: ${{ fromJSON(needs.github-convertor.outputs.build) }}
+      matrix: ${{ fromJSON(needs.githubconvertor.outputs.build) }}
     container: 
       image: ${{ matrix.image }}
     steps:
@@ -92,7 +100,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     strategy:
-      matrix: ${{ fromJSON(needs.github-convertor.outputs.publish) }}
+      matrix: ${{ fromJSON(needs.githubconvertor.outputs.publish) }}
     container: 
       image: ${{ matrix.image }}
     steps:
