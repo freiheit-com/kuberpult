@@ -50,22 +50,16 @@ jobs:
         id: plan
         run: |
           init="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.2 init | tr -d '\n')"
+          echo "::set-output name=init::${init}"
           build="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.2 build | tr -d '\n')"
+          echo "::set-output name=build::${build}"
           publish="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.2 publish | tr -d '\n')"
+          echo "::set-output name=publish::${publish}"
     outputs:
       init: ${{ steps.plan.outputs.init }}
       build: ${{ steps.plan.outputs.build }}
       publish: ${{ steps.plan.outputs.publish }}
 
-  print-values:
-    needs: github_convertor
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          echo ${{ needs.github_convertor.outputs.init }}
-          echo ${{ needs.github_convertor.outputs.build }}
-          echo ${{ needs.github_convertor.outputs.publish }}
- 
   init:
     needs: github_convertor
     strategy:
