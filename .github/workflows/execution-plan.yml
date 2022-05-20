@@ -51,7 +51,7 @@ jobs:
         run: |
           init="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 init | tr -d '\n')"
           echo ${init}
-          echo "::set-output name=init::${init}"
+          echo "::set-output name=init::"{\"init\": ${init}}"
           build="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.1 build | tr -d '\n')"
           echo ${build}
           echo "::set-output name=build::${build}"
@@ -76,10 +76,11 @@ jobs:
           echo ${{ needs.github_convertor.outputs.init }}
           echo ${{ needs.github_convertor.outputs.build }}
           echo ${{ needs.github_convertor.outputs.publish }}
+
   init:
     needs: github_convertor
     strategy:
-      matrix: ${{ fromJSON(needs.github_convertor.outputs.init) }}
+      matrix: ${{fromJSON(needs.github_convertor.outputs.init)}}
     runs-on: ubuntu-latest
     container: 
       image: ${{ matrix.image }}
