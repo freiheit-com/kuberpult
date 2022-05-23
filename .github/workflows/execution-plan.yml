@@ -67,6 +67,10 @@ jobs:
     runs-on: ubuntu-latest
     container: 
       image: ${{ matrix.data.image }}
+      credentials:
+        username: "_json_key"
+        password: ${{ secrets.FDC_CORE_CI_IMAGE_READER }}
+
     steps:
       - name: initialize
         run: ${{ matrix.data.command }}
