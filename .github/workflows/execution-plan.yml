@@ -84,8 +84,17 @@ jobs:
       - name: initialize
         run: ${{ matrix.data.command }}
 
+  print-values:
+    needs: [init, github_convertor]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo ${{ needs.github_convertor.outputs.init }}
+          echo ${{ needs.github_convertor.outputs.build }}
+          echo ${{ needs.github_convertor.outputs.publish }}
+
   build:
-    needs: init
+    needs: [init, github_convertor]
     strategy:
       matrix: ${{fromJSON(needs.github_convertor.outputs.build)}}
     runs-on: ubuntu-latest
