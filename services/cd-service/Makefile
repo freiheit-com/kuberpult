@@ -90,6 +90,6 @@ release: docker
 
 all: test docker
 
-publish: ;
+publish:
 
 .PHONY: all release test docker clean
