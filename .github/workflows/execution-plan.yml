@@ -100,10 +100,8 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - run: buf --version
       - name: update buf
         uses: bufbuild/buf-setup-action@v1.4.0
-      - run: buf --version
       - name: build
         run: ${{ matrix.data.command }}
 
