@@ -102,7 +102,7 @@ jobs:
           fetch-depth: 0
       - name: set env variables
         run:
-          export WITHOUT_DOCKER=true
+          echo "WITHOUT_DOCKER=true" >> $GITHUB_ENV
       - name: update buf
         uses: bufbuild/buf-setup-action@v1.4.0
       - name: build
