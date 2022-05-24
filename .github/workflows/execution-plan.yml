@@ -100,6 +100,9 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+      - name: make install file
+        run: |
+          touch .install
       - name: build
         run: ${{ matrix.data.command }}
 
