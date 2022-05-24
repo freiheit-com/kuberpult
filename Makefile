@@ -51,7 +51,7 @@ plan:
 
 all: $(addsuffix /all,$(MAKEDIRS))
 
-init: ;
+init:
 
 $(CODE_REVIEWER_LOCATION):
 ifeq ($(CI),true)
