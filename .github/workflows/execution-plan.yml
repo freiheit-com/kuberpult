@@ -4,7 +4,7 @@ name: "Execution Plan"
     branches:
       - main
 jobs:
-  execution-plan:
+  execution_plan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -29,5 +29,94 @@ jobs:
           cat artifacts/execution-plan.json
       - uses: actions/upload-artifact@v3
         with:
-          name: execution-plan
-          path: artifacts/*
+          name: execution-plan.json
+          path: artifacts/execution-plan.json
+
+  github_convertor:
+    needs: execution_plan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@master
+        with:
+          name: execution-plan.json 
+          path: artifacts
+      - uses: google-github-actions/auth@v0 
+        name: 'Authenticate to Google Cloud'
+        with:
+          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
+      - name: gcloud authorize
+        run: |
+          gcloud auth configure-docker
+      - name: Planner
+        id: plan
+        run: |
+          init="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.2 init | tr -d '\n')"
+          echo "::set-output name=init::${init}"
+          build="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.2 build | tr -d '\n')"
+          echo "::set-output name=build::${build}"
+          publish="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/services/github-convertor/github-convertor:0.0.2 publish | tr -d '\n')"
+          echo "::set-output name=publish::${publish}"
+      - name: Print github matrix json
+        run: |
+          echo "${{ steps.plan.outputs.init }}"
+          echo "${{ steps.plan.outputs.build }}"
+          echo "${{ steps.plan.outputs.publish }}"
+    outputs:
+      init: ${{ steps.plan.outputs.init }}
+      build: ${{ steps.plan.outputs.build }}
+      publish: ${{ steps.plan.outputs.publish }}
+
+  init:
+    needs: github_convertor
+    strategy:
+      matrix: ${{fromJSON(needs.github_convertor.outputs.init)}}
+    runs-on: ubuntu-latest
+    container: 
+      image: ${{ matrix.data.image }}
+      credentials:
+        username: "_json_key"
+        password: ${{ secrets.FDC_CORE_CI_IMAGE_READER }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: initialize
+        run: ${{ matrix.data.command }}
+
+  build:
+    needs: [init, github_convertor]
+    strategy:
+      matrix: ${{fromJSON(needs.github_convertor.outputs.build)}}
+    runs-on: ubuntu-latest
+    container: 
+      image: ${{ matrix.data.image }}
+      credentials:
+        username: "_json_key"
+        password: ${{ secrets.FDC_CORE_CI_IMAGE_READER }}
+      options: --user root
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: build
+        run: ${{ matrix.data.command }}
+
+  publish:
+    needs: [build, github_convertor]
+    strategy:
+      matrix: ${{fromJSON(needs.github_convertor.outputs.publish)}}
+    runs-on: ubuntu-latest
+    container: 
+      image: ${{ matrix.data.image }}
+      credentials:
+        username: "_json_key"
+        password: ${{ secrets.FDC_CORE_CI_IMAGE_READER }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: publish
+        run: ${{ matrix.data.command }}

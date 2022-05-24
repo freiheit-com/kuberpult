@@ -112,10 +112,10 @@ git init --bare repository_remote
 ```bash
 cd services/cd-service
 # Running with docker container (recommended)
-make run
+WITH_DOCKER=true make run
 
 # For running without docker containers use
-# WITHOUT_DOCKER=true make run
+# make run
 ```
 
 - for frontend service - Note, frontend services are not 

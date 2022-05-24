@@ -24,7 +24,7 @@ export CGO_ENABLED=1
 
 IMAGENAME?=ghcr.io/freiheit-com/kuberpult-cd-service:${VERSION}
 
-ifneq ($(WITHOUT_DOCKER),)
+ifeq ($(WITH_DOCKER),)
 COMPILE_WITH_DOCKER := false
 else
 COMPILE_WITH_DOCKER := true
@@ -89,5 +89,7 @@ release: docker
 	docker push $(IMAGENAME)
 
 all: test docker
+
+publish:
 
 .PHONY: all release test docker clean
