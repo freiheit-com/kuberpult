@@ -3,6 +3,6 @@ apiVersion: v1beta1
 kind: Service
 metadata:
   name: cd-service
-  builder: golang
+  builder: docker
   tier: backend
   version: v1
