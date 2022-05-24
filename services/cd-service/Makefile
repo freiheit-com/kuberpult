@@ -24,10 +24,10 @@ export CGO_ENABLED=1
 
 IMAGENAME?=ghcr.io/freiheit-com/kuberpult-cd-service:${VERSION}
 
-ifneq ($(WITHOUT_DOCKER),)
-COMPILE_WITH_DOCKER := false
-else
+ifeq ($(WITHOUT_DOCKER),)
 COMPILE_WITH_DOCKER := true
+else
+COMPILE_WITH_DOCKER := false
 endif
 
 GO := go
