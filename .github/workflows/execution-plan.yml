@@ -100,9 +100,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: update buf
-        uses: bufbuild/buf-setup-action@v1.4.0
-      - run: apk add libgit2-dev pkgconfig build-base
       - name: build
         run: ${{ matrix.data.command }}
 
