@@ -102,7 +102,7 @@ jobs:
           fetch-depth: 0
       - name: update buf
         uses: bufbuild/buf-setup-action@v1.4.0
-      - run: apk add pkg-config
+      - run: apk add pkgconfig
       - name: build
         run: ${{ matrix.data.command }}
 
