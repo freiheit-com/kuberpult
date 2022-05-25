@@ -100,7 +100,7 @@ func RunServer() {
 			httpHandler.Handle(w, req)
 		}))
 		mux.Handle("/", http.FileServer(http.Dir("build")))
-		// Split HTTP REST from gRPC Web requests, as suggested in the documentation: test
+		// Split HTTP REST from gRPC Web requests, as suggested in the documentation:
 		// https://pkg.go.dev/github.com/improbable-eng/grpc-web@v0.15.0/go/grpcweb
 		splitGrpcHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 			if grpcWebServer.IsGrpcWebRequest(req) {

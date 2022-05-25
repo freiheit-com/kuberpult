@@ -37,7 +37,7 @@ import (
 )
 
 type Config struct {
-	// these will be mapped to "KUBERPULT_GIT_URL", etc. TEST 
+	// these will be mapped to "KUBERPULT_GIT_URL", etc.
 	GitUrl            string `required:"true" split_words:"true"`
 	GitBranch         string `default:"master" split_words:"true"`
 	GitCommitterEmail string `default:"kuberpult@freiheit.com" split_words:"true"`
