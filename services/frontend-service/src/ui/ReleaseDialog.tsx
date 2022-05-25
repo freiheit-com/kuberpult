@@ -91,9 +91,9 @@ const VersionDiff = (props: { current: number | undefined; target: number; relea
     }
 };
 
-const QueueDiff = (props: { queued: number; current: number; releases: Release[] }) => {
+const QueueDiff = (props: { queued: number; target: number; current: number; releases: Release[] }) => {
     const prefix = 'queued: ';
-    const { current, queued, releases } = props;
+    const { current, queued, releases, target } = props;
     if (queued === 0) {
         // no queue
         return (
@@ -428,7 +428,8 @@ const ReleaseEnvironment = (props: {
                     releases={overview.applications[applicationName].releases}
                 />
                 <QueueDiff
-                    current={version}
+                    current={currentlyDeployedVersion}
+                    target={version}
                     queued={queuedVersion}
                     releases={overview.applications[applicationName].releases}
                 />
