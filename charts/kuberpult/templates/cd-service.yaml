@@ -217,6 +217,7 @@ spec:
   healthCheck:
     type: HTTP
     requestPath: /health
+# ToDo add timeout here
 {{- end }}
 
 {{- if .Values.argocd.enabled }}
