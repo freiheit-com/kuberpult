@@ -335,7 +335,6 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 	return nil
 }
 
-// dummy modification for pr
 func (r *repository) Apply(ctx context.Context, transformers ...Transformer) error {
 	// Obtain a new worktree
 	r.writeLock.Lock()
