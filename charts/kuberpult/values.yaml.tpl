@@ -25,8 +25,6 @@ cd:
     requests:
       cpu: 1
       memory: 2Gi
-  pvc:
-    storage: 5Gi
 frontend:
   image: kuberpult-frontend-service
   resources:

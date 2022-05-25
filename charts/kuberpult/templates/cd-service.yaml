@@ -165,7 +165,7 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: {{ .Values.cd.pvc.storage }}
+          storage: "5Gi"
 ---
 apiVersion: v1
 kind: Service
