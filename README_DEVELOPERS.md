@@ -12,7 +12,7 @@ The `cd-service` takes the url of the repository to watch from the environment v
 ## pre requisite software
 
 - [docker](https://docs.docker.com/get-docker/)
-- [docker-compose](https://docs.docker.com/compose/install/)
+- [docker-compose](https://docs.docker.com/compose/install/) v1.29.2
 
 ## setup and run instructions (with docker compose)
 
@@ -31,6 +31,26 @@ docker-compose up --build
 ```
 - the `cd-service` is available at `localhost:8080` and the kuberpult ui is available at `localhost:3000`
 
+## GRCP Calls (with docker-compose setup)
+
+Most calls can be made directly from the UI.
+To make specific calls for manual testing, install [evans](https://github.com/ktr0731/evans).
+
+When the services are running with `docker-compose`, start evans like this:
+
+`evans --host localhost --port 8443  -r`
+
+`api.v1@localhost:8443> service DeployService`
+
+```
+api.v1.DeployService@localhost:8443> call Deploy
+environment (TYPE_STRING) => development
+application (TYPE_STRING) => app-alerting-service
+version (TYPE_UINT64) => 91
+ignoreAllLocks (TYPE_BOOL) => false
+✔ Queue
+{}
+```
 
 ### to test setup was done correctly
 
