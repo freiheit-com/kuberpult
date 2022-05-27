@@ -6,7 +6,11 @@
 
 ### Added
 
-* Add option to configure timeouts in loadbalancer  [#123](https://github.com/freiheit-com/kuberpult/pull/156)
+* Add option to configure timeouts in loadbalancer [#156](https://github.com/freiheit-com/kuberpult/pull/156)
+
+### Removed
+
+* removed cd.pvc.storage from values [#155](https://github.com/freiheit-com/kuberpult/pull/155)
 
 
 ## 0.4.14
