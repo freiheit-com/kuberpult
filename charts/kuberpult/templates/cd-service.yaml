@@ -217,6 +217,7 @@ spec:
   healthCheck:
     type: HTTP
     requestPath: /health
+  timeoutSec: {{ .Values.cd.backendConfig.timeoutSec }}
 {{- end }}
 
 {{- if .Values.argocd.enabled }}
