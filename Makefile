@@ -47,7 +47,7 @@ $(addsuffix /all,$(MAKEDIRS)):
 	make -C $(dir $@) all
 
 plan:
-	@infrastructure/scripts/execution-plan/plan.sh
+	@infrastructure/scripts/execution-plan/plan-pr.sh
 
 all: $(addsuffix /all,$(MAKEDIRS))
 
