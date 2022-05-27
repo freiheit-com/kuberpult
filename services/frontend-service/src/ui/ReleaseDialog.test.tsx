@@ -81,7 +81,6 @@ describe('VersionDiff', () => {
     });
 });
 
-
 describe('QueueDiff', () => {
     it.each([
         {
@@ -105,8 +104,8 @@ describe('QueueDiff', () => {
             expectedLabel: '+3',
         },
     ])('renders the correct queue diff', ({ queuedVersion, targetVersion, expectedLabel }) => {
-    const availableVersions = [1,2,3,4];
-    const overview = {
+        const availableVersions = [1, 2, 3, 4];
+        const overview = {
             environments: {
                 development: {
                     name: 'development',
@@ -117,7 +116,7 @@ describe('QueueDiff', () => {
                             queuedVersion: queuedVersion,
                             locks: {},
                             version: 1,
-                            undeployVersion: false
+                            undeployVersion: false,
                         },
                     },
                 },
