@@ -80,3 +80,64 @@ describe('VersionDiff', () => {
         expect(diff).toHaveAttribute('aria-label', expectedLabel);
     });
 });
+
+
+describe('QueueDiff', () => {
+    it.each([
+        {
+            targetVersion: 1,
+            queuedVersion: 0,
+            expectedLabel: '',
+        },
+        {
+            targetVersion: 1,
+            queuedVersion: 2,
+            expectedLabel: '+1',
+        },
+        {
+            targetVersion: 2,
+            queuedVersion: 1,
+            expectedLabel: '-1',
+        },
+        {
+            targetVersion: 1,
+            queuedVersion: 4,
+            expectedLabel: '+3',
+        },
+    ])('renders the correct queue diff', ({ queuedVersion, targetVersion, expectedLabel }) => {
+    const availableVersions = [1,2,3,4];
+    const overview = {
+            environments: {
+                development: {
+                    name: 'development',
+                    locks: {},
+                    applications: {
+                        demo: {
+                            name: 'demo',
+                            queuedVersion: queuedVersion,
+                            locks: {},
+                            version: 1,
+                            undeployVersion: false
+                        },
+                    },
+                },
+            },
+            applications: {
+                demo: {
+                    name: 'demo',
+                    releases: availableVersions.map((v) => ({
+                        version: v,
+                    })),
+                },
+            },
+        };
+        const app = render(
+            <ActionsCartContext.Provider value={{ actions: [] }}>
+                <ReleaseDialog overview={overview} applicationName="demo" version={targetVersion} />
+            </ActionsCartContext.Provider>
+        );
+
+        const diff = app.getByTestId('queue-diff');
+        expect(diff.textContent).toEqual(expectedLabel);
+    });
+});

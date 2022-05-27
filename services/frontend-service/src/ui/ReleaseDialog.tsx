@@ -91,26 +91,31 @@ const VersionDiff = (props: { current: number | undefined; target: number; relea
     }
 };
 
+// target is the version we are looking at currently:
 const QueueDiff = (props: { queued: number; target: number; current: number; releases: Release[] }) => {
     const prefix = 'queued: ';
-    const { current, queued, releases, target } = props;
+    const { queued, releases, target } = props;
     if (queued === 0) {
         // no queue
         return (
             <Tooltip title="nothing queued">
                 <span>
-                    <BlockIcon className="notDeployed" />
+                    <BlockIcon className="notDeployed" data-testid="queue-diff" />
                 </span>
             </Tooltip>
         );
     }
     const diff =
-        releases.filter((release) => release.version < current).length -
+        releases.filter((release) => release.version < queued).length -
         releases.filter((release) => release.version < target).length;
     if (diff === 0) {
         return (
             <Tooltip title={prefix + 'same version'}>
-                <EqualIcon className="same" />
+                <span>
+                    &nbsp;
+                    {' queued: '}
+                    <EqualIcon className="same" data-testid="queue-diff" />
+                </span>
             </Tooltip>
         );
     }
@@ -120,7 +125,9 @@ const QueueDiff = (props: { queued: number; target: number; current: number; rel
                 <span>
                     &nbsp;
                     {' queued: '}
-                    <span className="ahead">{'+' + diff}</span>
+                    <span className="ahead" data-testid="queue-diff">
+                        {'+' + diff}
+                    </span>
                 </span>
             </Tooltip>
         );
@@ -128,7 +135,11 @@ const QueueDiff = (props: { queued: number; target: number; current: number; rel
     return (
         <Tooltip title={prefix + diff + ' behind'}>
             <span>
-                <span className="ahead">{'+' + diff}</span>
+                &nbsp;
+                {' queued: '}
+                <span className="ahead" data-testid="queue-diff">
+                    {'' + diff}
+                </span>
             </span>
         </Tooltip>
     );
