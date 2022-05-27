@@ -21,7 +21,7 @@ jobs:
       - run: mkdir -p artifacts/
       - name: Plan execution
         run: |
-          ./infrastructure/scripts/execution-plan/plan.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
+          ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
       - name: Execute 
         run: |
           # stub code, as of now just prints the plan
