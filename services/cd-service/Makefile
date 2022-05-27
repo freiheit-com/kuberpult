@@ -48,6 +48,11 @@ bin/:
 
 build: bin/main
 
+build-pr: build
+	echo "build on pull request"
+
+build-main: build
+	echo "build on main"
 
 ifeq ($(COMPILE_WITH_DOCKER),true)
 
