@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.4.15
+
+**released 2022-05-27**
+
+### Added
+
+* Add option to configure timeouts in loadbalancer  [#123](https://github.com/freiheit-com/kuberpult/pull/156)
+
+
 ## 0.4.14
 
 **released 2022-04-21**
