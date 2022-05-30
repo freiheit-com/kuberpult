@@ -47,6 +47,8 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
 `,
 		},
 		{
@@ -70,6 +72,8 @@ spec:
       allowEmpty: true
       prune: true
       selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
 `,
 		},
 	}
@@ -88,9 +92,10 @@ spec:
 					AppName:           "app1",
 					IsUndeployVersion: tc.IsUndeployVersion,
 				}
+				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
 
-			actualResult, err := RenderApp(GitUrl, gitBranch, annotations, env, appData, destination, ignoreDifferences, []string{})
+			actualResult, err := RenderApp(GitUrl, gitBranch, annotations, env, appData, destination, ignoreDifferences, syncOptions)
 			if err != nil {
 				t.Fatal(err)
 			}
