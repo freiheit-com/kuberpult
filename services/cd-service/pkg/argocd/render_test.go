@@ -17,9 +17,10 @@ Copyright 2021 freiheit.com*/
 package argocd
 
 import (
+	"testing"
+
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
 	godebug "github.com/kylelemons/godebug/diff"
-	"testing"
 )
 
 func TestRender(t *testing.T) {
@@ -89,7 +90,7 @@ spec:
 				}
 			)
 
-			actualResult, err := RenderApp(GitUrl, gitBranch, annotations, env, appData, destination, ignoreDifferences)
+			actualResult, err := RenderApp(GitUrl, gitBranch, annotations, env, appData, destination, ignoreDifferences, []string{})
 			if err != nil {
 				t.Fatal(err)
 			}
