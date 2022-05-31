@@ -1,5 +1,17 @@
 # Change Log
 
+## 0.4.17
+
+**releases 2022-05-31**
+
+### Added
+
+* It's now possible to specify sync options for argocd apps [#163](https://github.com/freiheit-com/kuberpult/pull/163)
+
+### Fixed
+
+* The rest endpoints of the frontend service work again [#164](https://github.com/freiheit-com/kuberpult/pull/164)
+
 ## 0.4.16
 
 **released 2022-05-27**
