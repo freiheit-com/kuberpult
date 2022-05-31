@@ -95,7 +95,7 @@ func RunServer() {
 			LockClient:   lockClient,
 		}
 		mux := http.NewServeMux()
-		mux.Handle("/environments", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		mux.Handle("/environments/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			defer readAllAndClose(req.Body, 1024)
 			httpHandler.Handle(w, req)
 		}))
