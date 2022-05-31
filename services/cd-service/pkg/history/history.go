@@ -18,9 +18,11 @@ package history
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
+	billy "github.com/go-git/go-billy/v5"
 	"github.com/hashicorp/golang-lru"
 	git "github.com/libgit2/git2go/v33"
 )
@@ -61,6 +63,28 @@ func (c *resultNode) load() *git.Commit {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	return c.changedAt
+}
+
+func (c *resultNode) loadId() *git.Oid {
+	commit := c.load()
+	if commit != nil {
+		return commit.Id()
+	}
+	return nil
+}
+
+func (c *resultNode) childNames() []string {
+	if c == nil {
+		return []string{}
+	}
+	c.mx.Lock()
+	defer c.mx.Unlock()
+	children := make([]string, 0, len(c.children))
+	for name := range c.children {
+		children = append(children, name)
+	}
+	sort.Strings(children)
+	return children
 }
 
 func (c *resultNode) isEmpty() bool {
@@ -147,6 +171,10 @@ func NewHistory(repo *git.Repository) *History {
 
 func (h *History) Of(from *git.Commit) (*CommitHistory, error) {
 	return NewCommitHistory(h.repository, from, h.cache)
+}
+
+func (h *History) InjectCache(bfs *billy.Filesystem, parent [20]byte) error {
+	return nil
 }
 
 type CommitHistory struct {

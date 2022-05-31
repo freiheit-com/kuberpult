@@ -17,6 +17,7 @@ Copyright 2021 freiheit.com*/
 package history
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -301,6 +302,47 @@ func TestHistory(t *testing.T) {
 					}
 					assertChangedAtNthCommit(t, name, c, changedAt, commits)
 				}
+				// Use the warm cache to test seriaízation
+				for i, c := range commits {
+					var buf bytes.Buffer
+					err = writeIndex(h, c, &buf)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if buf.String() == "" {
+						t.Errorf("expectetd non empty string at index %d", i)
+					}
+					lines := strings.Split(buf.String(), "\n")
+					// validate the header
+					expectedHeader := "v1 " + c.Id().String()
+					if lines[0] != expectedHeader {
+						t.Errorf("expected history header to be %q but got %q", expectedHeader, lines[0])
+					}
+					lines = lines[1:]
+					if lines[len(lines)-1] == "" {
+						lines = lines[0 : len(lines)-2]
+					}
+					for j, line := range lines[1:] {
+						parts := strings.SplitN(line, " ", 2)
+						name := ""
+						if len(parts) == 2 {
+							name = parts[1]
+						}
+						ch, err := h.Of(c)
+						if err != nil {
+							t.Fatal(err)
+						}
+						c, err := ch.Change(splitPath(name))
+						if err != nil {
+							t.Fatal(err)
+						}
+						expectedLine := c.Id().String() + " " + name
+						if line != expectedLine {
+							t.Errorf("expected line %d to be %q but got %q", j, expectedLine, line)
+						}
+					}
+					t.Log(buf.String())
+				}
 			}
 			if tc.Test != nil {
 				tc.Test(t, repo, commits)
@@ -332,6 +374,13 @@ func assertChangedAtNthCommit(t *testing.T, name string, actualCommit *git.Commi
 		}
 	}
 	t.Errorf("wrong changed commit for %q, expected %d, actually not any known commit", name, expectedPosition)
+}
+
+func splitPath(path string) []string {
+	if path == "" {
+		return []string{}
+	}
+	return strings.Split(path, "/")
 }
 
 func BenchmarkHistoryNoCache(b *testing.B) {
