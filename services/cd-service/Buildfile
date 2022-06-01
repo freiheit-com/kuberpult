@@ -6,4 +6,3 @@ metadata:
   builder: golang
   tier: backend
   version: v1
-# dummy 
