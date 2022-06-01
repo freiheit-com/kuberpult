@@ -50,7 +50,7 @@ jobs:
       - name: Planner
         id: plan
         run: |
-          matrix="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-5 | tr -d '\n')"
+          matrix="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-6 | tr -d '\n')"
           echo "::set-output name=matrix::${matrix}"
       - name: Print github matrix json
         run: |
@@ -79,6 +79,6 @@ jobs:
       - name: Build and Publish
         run: ${{ matrix.data.command }}
       - uses: actions/upload-artifact@v3
-        if: matrix.data.artifacts != '[]'
+        if: matrix.data.artifacts != ''
         with:
-          path: ${{ fromJSON(matrix.data.artifacts) }}
+          path: ${{ matrix.data.artifacts }}
