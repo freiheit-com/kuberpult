@@ -96,5 +96,6 @@ release: docker
 all: test docker
 
 publish:
+	echo "nothing to do"
 
 .PHONY: all release test docker clean
