@@ -50,8 +50,7 @@ jobs:
       - name: Planner
         id: plan
         run: |
-          matrix="$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-6 | tr -d '\n')"
-          echo "::set-output name=matrix::${matrix}"
+          echo "::set-output name=matrix::$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-6 | tr -d '\n')"
       - name: Print github matrix json
         run: |
           echo "${{ steps.plan.outputs.matrix }}"
