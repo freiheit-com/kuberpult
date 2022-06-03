@@ -30,7 +30,7 @@ import { Close } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
 import { BatchAction } from '../../api/api';
 import { useUnaryCallback } from '../Api';
-import { CartAction, hasLockAction } from '../ActionDetails';
+import { hasLockAction, transformToBatch } from '../ActionDetails';
 
 export const callbacks = {
     useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
@@ -71,36 +71,6 @@ const ApplyButton: VFC<{ doActions: () => void; state: string }> = ({ doActions,
                     Failed
                 </Button>
             );
-    }
-};
-
-const updateMessage = (act: CartAction, m: string): BatchAction => {
-    switch (act.action?.$case) {
-        case 'environmentLockDetails':
-            return {
-                action: {
-                    $case: 'createEnvironmentLock',
-                    createEnvironmentLock: {
-                        environment: act.action.environmentLockDetails.environment,
-                        lockId: act.action.environmentLockDetails.lockId,
-                        message: m,
-                    },
-                },
-            };
-        case 'environmentApplicationLockDetails':
-            return {
-                action: {
-                    $case: 'createEnvironmentApplicationLock',
-                    createEnvironmentApplicationLock: {
-                        environment: act.action.environmentApplicationLockDetails.environment,
-                        application: act.action.environmentApplicationLockDetails.application,
-                        lockId: act.action.environmentApplicationLockDetails.lockId,
-                        message: m,
-                    },
-                },
-            };
-        default:
-            return act as BatchAction;
     }
 };
 
@@ -170,7 +140,7 @@ export const CheckoutCart = () => {
         openNotification('Actions were not applied. Please try again!');
     }, [openNotification, closeDialog]);
 
-    const actionsWithMessage = actions.map((act) => updateMessage(act, lockMessage));
+    const actionsWithMessage = actions.map((act) => transformToBatch(act, lockMessage));
     const [doActions, doActionsState] = callbacks.useBatch(actionsWithMessage, onActionsSucceeded, onActionsFailed);
 
     const closeIcon = (

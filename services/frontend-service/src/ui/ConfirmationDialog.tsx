@@ -23,7 +23,7 @@ import { ActionsCartContext } from './App';
 import { ActionTypes, CartAction, getActionDetails, isDeployAction } from './ActionDetails';
 
 const inCart = (actions: CartAction[], action: CartAction) =>
-    actions ? actions.find((act) => JSON.stringify(act.action) === JSON.stringify(action.action)) : false;
+    actions ? actions.find((act) => JSON.stringify(act) === JSON.stringify(action)) : false;
 
 const getCartConflicts = (cartActions: CartAction[], newAction: CartAction) => {
     const conflicts = new Set<CartAction>();

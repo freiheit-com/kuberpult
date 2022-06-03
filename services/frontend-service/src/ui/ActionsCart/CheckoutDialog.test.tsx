@@ -17,9 +17,10 @@ Copyright 2021 freiheit.com*/
 import React from 'react';
 import { act, fireEvent, getByText, render } from '@testing-library/react';
 import { Spy } from 'spy4js';
-import { BatchAction, LockBehavior } from '../../api/api';
+import { LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
 import { callbacks, CheckoutCart } from './CheckoutDialog';
+import { CartAction } from '../ActionDetails';
 
 const mock_useBatch = Spy.mock(callbacks, 'useBatch');
 
@@ -27,7 +28,7 @@ const mock_setActions = Spy('setActions');
 const doActionsSpy = Spy('doActionsSpy');
 
 describe('Checkout Dialog', () => {
-    const getNode = (actions?: BatchAction[]) => {
+    const getNode = (actions?: CartAction[]) => {
         const value = { actions: actions ?? [], setActions: mock_setActions };
         return (
             <ActionsCartContext.Provider value={value}>
@@ -35,11 +36,11 @@ describe('Checkout Dialog', () => {
             </ActionsCartContext.Provider>
         );
     };
-    const getWrapper = (actions?: BatchAction[]) => render(getNode(actions));
+    const getWrapper = (actions?: CartAction[]) => render(getNode(actions));
 
     interface dataT {
         type: string;
-        cart: BatchAction[];
+        cart: CartAction[];
         expect: {
             disabled: boolean;
             updatedMessage?: any;
@@ -72,11 +73,10 @@ describe('Checkout Dialog', () => {
             cart: [
                 {
                     action: {
-                        $case: 'createEnvironmentLock',
-                        createEnvironmentLock: {
+                        $case: 'environmentLockDetails',
+                        environmentLockDetails: {
                             environment: 'dummy environment',
                             lockId: '1234',
-                            message: '',
                         },
                     },
                 },

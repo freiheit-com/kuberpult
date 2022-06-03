@@ -39,7 +39,7 @@ import Typography from '@material-ui/core/Typography';
 
 import { useUnaryCallback } from './Api';
 
-import type { Application, BatchAction, GetOverviewResponse, Lock, Release } from '../api/api';
+import type { Application, GetOverviewResponse, Lock, Release } from '../api/api';
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
@@ -145,8 +145,6 @@ const QueueDiff = (props: { queued: number; target: number; releases: Release[] 
     );
 };
 
-export const randomLockId = () => 'ui-' + Math.random().toString(36).substring(7);
-
 const LockButtonGroup = (props: { applicationName?: string; addToCart?: () => void; inCart?: boolean }) => {
     const { applicationName, addToCart, inCart } = props;
 
@@ -222,24 +220,19 @@ export const CreateLockButton = (props: { applicationName?: string; environmentN
     const { applicationName, environmentName } = props;
 
     const act: CartAction = useMemo(
-        () => ({
-            action: applicationName
+        () =>
+            applicationName
                 ? {
-                      $case: 'environmentApplicationLockDetails',
-                      environmentApplicationLockDetails: {
-                          application: applicationName,
+                      createApplicationLock: {
                           environment: environmentName,
-                          lockId: randomLockId(),
+                          application: applicationName,
                       },
                   }
                 : {
-                      $case: 'environmentLockDetails',
-                      environmentLockDetails: {
+                      createEnvironmentLock: {
                           environment: environmentName,
-                          lockId: randomLockId(),
                       },
                   },
-        }),
         [applicationName, environmentName]
     );
 
@@ -259,25 +252,22 @@ export const ReleaseLockButton = (props: {
 }) => {
     const { applicationName, environmentName, lock, lockId, queueHint } = props;
 
-    const act: BatchAction = useMemo(
-        () => ({
-            action: applicationName
+    const act: CartAction = useMemo(
+        () =>
+            applicationName
                 ? {
-                      $case: 'deleteEnvironmentApplicationLock',
-                      deleteEnvironmentApplicationLock: {
-                          application: applicationName,
+                      deleteApplicationLock: {
                           environment: environmentName,
+                          application: applicationName,
                           lockId: lockId,
                       },
                   }
                 : {
-                      $case: 'deleteEnvironmentLock',
                       deleteEnvironmentLock: {
                           environment: environmentName,
                           lockId: lockId,
                       },
                   },
-        }),
         [applicationName, environmentName, lockId]
     );
     return (
@@ -295,17 +285,12 @@ const ReleaseEnvironment = (props: {
 }) => {
     const { overview, applicationName, version, environmentName } = props;
     // deploy
-    const act: BatchAction = useMemo(
+    const act: CartAction = useMemo(
         () => ({
-            action: {
-                $case: 'deploy',
-                deploy: {
-                    application: applicationName,
-                    version: version,
-                    environment: environmentName,
-                    ignoreAllLocks: false,
-                    lockBehavior: LockBehavior.Ignore,
-                },
+            deploy: {
+                application: applicationName,
+                version: version,
+                environment: environmentName,
             },
         }),
         [applicationName, version, environmentName]
