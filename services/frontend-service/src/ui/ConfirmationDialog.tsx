@@ -46,20 +46,6 @@ const getCartConflicts = (cartActions: CartAction[], newAction: CartAction) => {
                 }
             }
         }
-
-        if (newAct.type === ActionTypes.CreateEnvironmentLock && act.type === newAct.type) {
-            if (newAct.environment === act.environment) {
-                // conflict, locking the same env twice
-                conflicts.add(action);
-            }
-        }
-
-        if (newAct.type === ActionTypes.CreateApplicationLock && act.type === newAct.type) {
-            if (newAct.environment === act.environment && newAct.application === act.application) {
-                // conflict, locking the same app/env twice
-                conflicts.add(action);
-            }
-        }
     }
     return conflicts;
 };

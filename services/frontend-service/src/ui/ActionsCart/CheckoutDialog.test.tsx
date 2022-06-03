@@ -17,88 +17,100 @@ Copyright 2021 freiheit.com*/
 import React from 'react';
 import { act, fireEvent, getByText, render } from '@testing-library/react';
 import { Spy } from 'spy4js';
-import { LockBehavior } from '../../api/api';
+import { BatchAction, LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
 import { callbacks, CheckoutCart } from './CheckoutDialog';
 import { CartAction } from '../ActionDetails';
 
+const sampleAction: CartAction = {
+    deploy: {
+        application: 'dummy application',
+        version: 22,
+        environment: 'dummy environment',
+    },
+};
+
+const sampleActionTransformed: BatchAction = {
+    action: {
+        $case: 'deploy',
+        deploy: {
+            application: 'dummy application',
+            version: 22,
+            environment: 'dummy environment',
+            ignoreAllLocks: false,
+            lockBehavior: LockBehavior.Ignore,
+        },
+    },
+};
+
+const sampleLockAction: CartAction = {
+    createEnvironmentLock: {
+        environment: 'dummy environment',
+    },
+};
+
 const mock_useBatch = Spy.mock(callbacks, 'useBatch');
+const mock_transformToBatch = Spy.mockModule('../ActionDetails', 'transformToBatch');
 
 const mock_setActions = Spy('setActions');
 const doActionsSpy = Spy('doActionsSpy');
 
 describe('Checkout Dialog', () => {
-    const getNode = (actions?: CartAction[]) => {
-        const value = { actions: actions ?? [], setActions: mock_setActions };
+    const getNode = (actions: CartAction[]) => {
+        const value = { actions: actions, setActions: mock_setActions };
         return (
             <ActionsCartContext.Provider value={value}>
                 <CheckoutCart />
             </ActionsCartContext.Provider>
         );
     };
-    const getWrapper = (actions?: CartAction[]) => render(getNode(actions));
+    const getWrapper = (actions: CartAction[]) => render(getNode(actions));
 
     interface dataT {
         type: string;
         cart: CartAction[];
+        transformedCart: BatchAction[];
+        doActionsSucceed?: boolean;
+        lockAction?: boolean;
         expect: {
-            disabled: boolean;
-            updatedMessage?: any;
+            applyIsDisabled: boolean;
         };
     }
 
     const data: dataT[] = [
         {
-            type: 'Cart with some action',
-            cart: [
-                {
-                    action: {
-                        $case: 'deploy',
-                        deploy: {
-                            application: 'dummy application',
-                            version: 22,
-                            environment: 'dummy environment',
-                            ignoreAllLocks: false,
-                            lockBehavior: LockBehavior.Ignore,
-                        },
-                    },
-                },
-            ],
+            type: 'Cart with some action -- doAction succeeds',
+            cart: [sampleAction],
+            transformedCart: [sampleActionTransformed],
+            doActionsSucceed: true,
             expect: {
-                disabled: false,
+                applyIsDisabled: false,
             },
         },
         {
-            type: 'Cart with create lock action',
-            cart: [
-                {
-                    action: {
-                        $case: 'environmentLockDetails',
-                        environmentLockDetails: {
-                            environment: 'dummy environment',
-                            lockId: '1234',
-                        },
-                    },
-                },
-            ],
+            type: 'Cart with some action -- doAction fails',
+            cart: [sampleAction],
+            transformedCart: [sampleActionTransformed],
+            doActionsSucceed: false,
             expect: {
-                disabled: true, // lock message input is still empty
-                updatedMessage: [
-                    {
-                        action: {
-                            createEnvironmentLock: {
-                                message: 'foo bar',
-                            },
-                        },
-                    },
-                ],
+                applyIsDisabled: false,
+            },
+        },
+        {
+            type: 'Cart with Lock action',
+            cart: [sampleLockAction],
+            lockAction: true,
+            transformedCart: [sampleActionTransformed], // transformToBatch is mocked
+            expect: {
+                applyIsDisabled: true,
             },
         },
         {
             type: 'cart with no actions',
             cart: [],
+            transformedCart: [],
             expect: {
-                disabled: true,
+                applyIsDisabled: true,
             },
         },
     ];
@@ -107,14 +119,20 @@ describe('Checkout Dialog', () => {
         it(`${testcase.type}`, () => {
             // given
             mock_useBatch.useBatch.returns([doActionsSpy, { state: 'waiting' }]);
+            mock_transformToBatch.transformToBatch.returns(sampleActionTransformed);
             const { container } = getWrapper(testcase.cart);
 
-            mock_useBatch.useBatch.wasCalledWith(testcase.cart, Spy.IGNORE, Spy.IGNORE);
+            if (testcase.cart.length) mock_transformToBatch.transformToBatch.wasCalledWith(testcase.cart[0], '');
+            else mock_transformToBatch.transformToBatch.wasNotCalled();
+
+            if (testcase.cart.length)
+                mock_useBatch.useBatch.wasCalledWith(testcase.transformedCart, Spy.IGNORE, Spy.IGNORE);
+            else mock_useBatch.useBatch.wasCalledWith([], Spy.IGNORE, Spy.IGNORE);
 
             const applyButton = getByText(container, /apply/i).closest('button');
             const textField = container.querySelector('.actions-cart__lock-message input');
 
-            if (testcase.expect.disabled) {
+            if (testcase.expect.applyIsDisabled) {
                 expect(applyButton).toBeDisabled();
             } else {
                 // when open dialog
@@ -132,29 +150,40 @@ describe('Checkout Dialog', () => {
                 // then
                 doActionsSpy.wasCalled();
 
-                // when do the actions that useBatch is expected to do
-                act(() => {
-                    mock_useBatch.useBatch.getCallArgument(0, 1)();
-                });
-                // then
-                mock_setActions.wasCalledWith([]);
-            }
+                if (testcase.doActionsSucceed) {
+                    // when doActions succeed, do the actions that useBatch is expected to do
+                    act(() => {
+                        mock_useBatch.useBatch.getCallArgument(0, 1)();
+                    });
 
-            // when - there's a create-lock action
-            if (testcase.expect.updatedMessage) {
-                // then
-                expect(applyButton).toBeDisabled();
-                expect(textField).toBeTruthy();
+                    // then
+                    mock_setActions.wasCalledWith([]);
+                } else {
+                    // when doActions fails, do the actions that useBatch is expected to do
+                    act(() => {
+                        mock_useBatch.useBatch.getCallArgument(0, 2)();
+                    });
 
-                // when - adding a lock message
-                fireEvent.change(textField!, { target: { value: 'foo bar' } });
+                    // then
+                    mock_setActions.wasNotCalled();
+                }
 
-                // then - useBatch is called with updated actions
-                expect(applyButton).not.toBeDisabled();
-                const calledActions = mock_useBatch.useBatch.getCallArgument(1, 0);
-                expect(calledActions).toMatchObject(testcase.expect.updatedMessage);
-            } else {
-                expect(textField).toBe(null);
+                // when - there's a create-lock action
+                if (testcase.lockAction) {
+                    // then
+                    expect(applyButton).toBeDisabled();
+                    expect(textField).toBeTruthy();
+
+                    // when - adding a lock message
+                    fireEvent.change(textField!, { target: { value: 'foo bar' } });
+
+                    // then - useBatch is called with updated actions
+                    expect(applyButton).not.toBeDisabled();
+                    mock_transformToBatch.transformToBatch.wasCalledWith(testcase.cart[0], 'foo bar');
+                    mock_useBatch.useBatch.wasCalled();
+                } else {
+                    expect(textField).toBe(null);
+                }
             }
         });
     });
