@@ -1,3 +1,6 @@
 metadata:
   name: frontend-service
   builder: golang
+additional_artifacts:
+  - Dockerfile
+
