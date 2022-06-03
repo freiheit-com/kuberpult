@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { CartAction, getActionDetails, transformToBatch } from './ActionDetails';
+import { CartAction, getActionDetails, hasLockAction, isDeployAction, transformToBatch } from './ActionDetails';
 import { BatchAction, LockBehavior } from '../api/api';
 
 const mockMath = Object.create(global.Math);
@@ -137,6 +137,8 @@ describe('Action Details Logic', () => {
         type: string;
         act: CartAction;
         transformed: BatchAction;
+        deployment: boolean;
+        locking: boolean;
     }
 
     const data: dataT[] = [
@@ -144,31 +146,43 @@ describe('Action Details Logic', () => {
             type: 'Deploy',
             act: sampleDeployAction,
             transformed: transformedDeployAction,
+            deployment: true,
+            locking: false,
         },
         {
             type: 'Undeploy',
             act: sampleUndeployAction,
             transformed: transformedUndeployAction,
+            deployment: true,
+            locking: false,
         },
         {
             type: 'Create Env Lock',
             act: sampleCreateEnvLock,
             transformed: transformedCreateEnvLock,
+            deployment: false,
+            locking: true,
         },
         {
             type: 'Delete Env Lock',
             act: sampleDeleteEnvLock,
             transformed: transformedDeleteEnvLock,
+            deployment: false,
+            locking: false,
         },
         {
             type: 'Create App Lock',
             act: sampleCreateAppLock,
             transformed: transformedCreateAppLock,
+            deployment: false,
+            locking: true,
         },
         {
             type: 'Delete App Lock',
             act: sampleDeleteAppLock,
             transformed: transformedDeleteAppLock,
+            deployment: false,
+            locking: false,
         },
     ];
 
@@ -176,6 +190,8 @@ describe('Action Details Logic', () => {
         it(`${testcase.type} is transformed correctly`, () => {
             expect(getActionDetails(testcase.act).name).toBe(testcase.type);
             expect(transformToBatch(testcase.act, sampleLockMessage)).toStrictEqual(testcase.transformed);
+            expect(isDeployAction(testcase.act)).toBe(testcase.deployment);
+            expect(hasLockAction([testcase.act])).toBe(testcase.locking);
         });
     });
 });
