@@ -6,6 +6,4 @@ metadata:
   builder: golang
   tier: backend
   version: v1
-additional_artifacts:
-  - Dockerfile
 
