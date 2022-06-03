@@ -1,0 +1,82 @@
+name: "Execution Plan"
+'on':
+  pull_request:
+    branches:
+      - main
+jobs:
+  execution_plan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v0 
+        name: 'Authenticate to Google Cloud'
+        with:
+          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
+      - name: gcloud authorize
+        run: |
+          gcloud auth configure-docker
+      - run: mkdir -p artifacts/
+      - name: Plan execution
+        run: |
+          ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
+      - name: Execute 
+        run: |
+          # stub code, as of now just prints the plan
+          echo "The execution plan is printed"
+          cat artifacts/execution-plan.json
+      - uses: actions/upload-artifact@v3
+        with:
+          name: execution-plan.json
+          path: artifacts/execution-plan.json
+
+  github_convertor:
+    needs: execution_plan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@master
+        with:
+          name: execution-plan.json 
+          path: artifacts
+      - uses: google-github-actions/auth@v0 
+        name: 'Authenticate to Google Cloud'
+        with:
+          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
+      - name: gcloud authorize
+        run: |
+          gcloud auth configure-docker
+      - name: Planner
+        id: plan
+        run: |
+          echo "::set-output name=matrix::$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-6 | tr -d '\n')"
+      - name: Print github matrix json
+        run: |
+          echo "${{ steps.plan.outputs.matrix }}"
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+
+  build_and_publish:
+    needs: github_convertor
+    strategy:
+      matrix: 
+        data: ${{fromJSON(needs.github_convertor.outputs.matrix)}}
+    runs-on: ubuntu-latest
+    container: 
+      image: ${{ matrix.data.image }}
+      options: --user root
+      credentials:
+        username: "_json_key"
+        password: ${{ secrets.FDC_CORE_CI_IMAGE_READER }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Build and Publish
+        run: ${{ matrix.data.command }}
+      - uses: actions/upload-artifact@v3
+        if: matrix.data.artifacts != ''
+        with:
+          path: ${{ matrix.data.artifacts }}

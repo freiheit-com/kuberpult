@@ -17,9 +17,10 @@ Copyright 2021 freiheit.com*/
 package argocd
 
 import (
+	"testing"
+
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
 	godebug "github.com/kylelemons/godebug/diff"
-	"testing"
 )
 
 func TestRender(t *testing.T) {
@@ -46,6 +47,8 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
 `,
 		},
 		{
@@ -69,6 +72,8 @@ spec:
       allowEmpty: true
       prune: true
       selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
 `,
 		},
 	}
@@ -87,9 +92,10 @@ spec:
 					AppName:           "app1",
 					IsUndeployVersion: tc.IsUndeployVersion,
 				}
+				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
 
-			actualResult, err := RenderApp(GitUrl, gitBranch, annotations, env, appData, destination, ignoreDifferences)
+			actualResult, err := RenderApp(GitUrl, gitBranch, annotations, env, appData, destination, ignoreDifferences, syncOptions)
 			if err != nil {
 				t.Fatal(err)
 			}

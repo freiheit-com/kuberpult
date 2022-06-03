@@ -843,6 +843,104 @@ func TestTransformer(t *testing.T) {
 				}
 			},
 		}, {
+			Name: "Create version with version number",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateApplicationVersion{
+					Version:     42,
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+				},
+			},
+			Test: func(t *testing.T, s *State) {
+				// Check that reading is possible
+				{
+					rel, err := s.GetApplicationReleases("test")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if !reflect.DeepEqual(rel, []uint64{42}) {
+						t.Errorf("expected release list to be exaclty [42], but got %q", rel)
+					}
+
+				}
+			},
+		}, {
+			Name: "Creating a version with same version number yields the correct error",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateApplicationVersion{
+					Version:     42,
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+				},
+				&CreateApplicationVersion{
+					Version:     42,
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+				},
+			},
+			ErrorTest: func(t *testing.T, err error) {
+				if err != ErrReleaseAlreadyExist {
+					t.Errorf("expected %q, got %q", ErrReleaseAlreadyExist, err)
+				}
+			},
+		}, {
+			Name: "Creating an older version doesn't auto deploy",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production", Config: c1},
+				&CreateApplicationVersion{
+					Version:     42,
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "42",
+					},
+				},
+				&CreateApplicationVersion{
+					Version:     41,
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "41",
+					},
+				},
+			},
+			Test: func(t *testing.T, s *State) {
+				i, err := s.GetEnvironmentApplicationVersion("production", "test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if *i != 42 {
+					t.Errorf("unexpected version: expected 42, actual %d", i)
+				}
+			},
+		}, {
+			Name: "Creating a version that is much too old yields the correct error",
+			Transformers: func() []Transformer {
+				t := make([]Transformer, 0, keptVersionsOnCleanup+1)
+				t = append(t, &CreateEnvironment{Environment: "production"})
+				for i := keptVersionsOnCleanup + 1; i > 0; i-- {
+					t = append(t, &CreateApplicationVersion{
+						Version:     uint64(i),
+						Application: "test",
+						Manifests: map[string]string{
+							"production": "42",
+						},
+					})
+				}
+				return t
+			}(),
+			ErrorTest: func(t *testing.T, err error) {
+				if err != ErrReleaseTooOld {
+					t.Errorf("expected %q, got %q", ErrReleaseTooOld, err)
+				}
+			},
+		}, {
 			Name: "Auto Deploy version to second env",
 			Transformers: []Transformer{
 				&CreateEnvironment{Environment: "one", Config: c1},

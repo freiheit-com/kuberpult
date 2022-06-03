@@ -42,6 +42,19 @@ export KUBERPULT_CDSERVER?=localhost:8443
 run: bin/main
 	./bin/main
 
+build: bin/main
+
+build-pr: build
+	echo "build on pull request"
+
+build-main: build
+	echo "build on main"
+
+publish: 
+
+start: src/api/api.ts
+	yarn && yarn start
+
 clean:
 	git clean -Xfd
 

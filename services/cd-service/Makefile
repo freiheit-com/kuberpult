@@ -24,7 +24,11 @@ export CGO_ENABLED=1
 
 IMAGENAME?=ghcr.io/freiheit-com/kuberpult-cd-service:${VERSION}
 
-COMPILE_WITH_DOCKER := $(shell [ -z "$$WITHOUT_DOCKER" ] && v=true || v=false; echo $$v)
+ifeq ($(WITH_DOCKER),)
+COMPILE_WITH_DOCKER := false
+else
+COMPILE_WITH_DOCKER := true
+endif
 
 GO := go
 
@@ -44,6 +48,11 @@ bin/:
 
 build: bin/main
 
+build-pr: build
+	echo "build on pull request"
+
+build-main: build
+	echo "build on main"
 
 ifeq ($(COMPILE_WITH_DOCKER),true)
 
@@ -85,5 +94,8 @@ release: docker
 	docker push $(IMAGENAME)
 
 all: test docker
+
+publish:
+	echo "nothing to do"
 
 .PHONY: all release test docker clean

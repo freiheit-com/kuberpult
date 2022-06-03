@@ -91,13 +91,13 @@ export const AppDrawer = (props: { data: GetOverviewResponse }) => {
                 variant={'contained'}
                 onClick={toggleDrawer(true)}>
                 <strong>Environment</strong>
-
                 <ExpandMoreRounded />
             </Button>
             <Drawer anchor={'top'} open={state['isOpen']} onClose={toggleDrawer(false)}>
                 <Box sx={{ width: 'auto' }} role="presentation">
                     <EnvironmentLocks data={data} />
                 </Box>
+                <Button onClick={toggleDrawer(false)}>Close</Button>
             </Drawer>
         </>
     );

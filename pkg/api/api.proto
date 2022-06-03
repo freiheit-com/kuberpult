@@ -2,43 +2,19 @@ syntax = "proto3";
 
 option go_package = "github.com/freiheit-com/kuberpult/pkg/api";
 
-import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 package api.v1;
 
 service LockService {
-  rpc CreateEnvironmentLock (CreateEnvironmentLockRequest) returns (google.protobuf.Empty) {
-     option (google.api.http) = {
-       put: "/environments/{environment}/locks/{lock_id}"
-       body: "*"
-     };
-  }
-  rpc DeleteEnvironmentLock (DeleteEnvironmentLockRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      delete: "/environments/{environment}/locks/{lock_id}"
-    };
-  }
-  rpc CreateEnvironmentApplicationLock (CreateEnvironmentApplicationLockRequest) returns (google.protobuf.Empty) {
-     option (google.api.http) = {
-       put: "/environments/{environment}/applications/{application}/locks/{lock_id}"
-       body: "*"
-     };
-  }
-  rpc DeleteEnvironmentApplicationLock (DeleteEnvironmentApplicationLockRequest) returns (google.protobuf.Empty) {
-     option (google.api.http) = {
-       delete: "/environments/{environment}/applications/{application}/locks/{lock_id}"
-     };
-  }
+  rpc CreateEnvironmentLock (CreateEnvironmentLockRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteEnvironmentLock (DeleteEnvironmentLockRequest) returns (google.protobuf.Empty) {}
+  rpc CreateEnvironmentApplicationLock (CreateEnvironmentApplicationLockRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteEnvironmentApplicationLock (DeleteEnvironmentApplicationLockRequest) returns (google.protobuf.Empty) {}
 }
 
 service BatchService {
-  rpc ProcessBatch (BatchRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      put: "/batches"
-      body: "*"
-    };
-  }
+  rpc ProcessBatch (BatchRequest) returns (google.protobuf.Empty) {}
 }
 
 message BatchRequest {
@@ -83,11 +59,7 @@ message DeleteEnvironmentApplicationLockRequest {
 
 service DeployService {
   rpc Deploy (DeployRequest) returns (google.protobuf.Empty) {}
-  rpc ReleaseTrain (ReleaseTrainRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      put: "/environments/{environment}/releasetrain"
-    };
-  }
+  rpc ReleaseTrain (ReleaseTrainRequest) returns (google.protobuf.Empty) {}
 }
 
 enum LockBehavior {

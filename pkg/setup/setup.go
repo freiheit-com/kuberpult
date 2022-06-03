@@ -29,11 +29,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -75,16 +73,6 @@ type GRPCConfig struct {
 	Shutdown func(context.Context) error
 }
 
-type GRPCProxyConfig struct {
-	// required
-	Port     string
-	Register func(*runtime.ServeMux)
-
-	// optional
-	BasicAuth *BasicAuth
-	Shutdown  func(context.Context) error
-}
-
 type HTTPConfig struct {
 	// required
 	Port     string
@@ -106,9 +94,8 @@ type BackgroundTaskConfig struct {
 // Config contains configurations for all servers & tasks will be started.
 // A startup order is not guaranteed.
 type Config struct {
-	GRPCProxy *GRPCProxyConfig
-	GRPC      *GRPCConfig
-	HTTP      []HTTPConfig
+	GRPC *GRPCConfig
+	HTTP []HTTPConfig
 	// BackgroundTasks are tasks that are running forever, like Pub/sub receiver. If they
 	// finish, a graceful shutdown will be triggered.
 	Background []BackgroundTaskConfig
@@ -126,9 +113,6 @@ func Run(ctx context.Context, config Config) {
 	}
 	if config.GRPC != nil {
 		setupGRPC(ctx, s, *config.GRPC)
-	}
-	if config.GRPCProxy != nil {
-		setupProxy(ctx, s, *config.GRPCProxy)
 	}
 	for _, task := range config.Background {
 		setupBackgroundTask(ctx, s, task)
@@ -219,13 +203,6 @@ func serveGRPC(ctx context.Context, grpcS *grpc.Server, grpcL net.Listener) {
 	}
 }
 
-func setupProxy(ctx context.Context, s *setup, config GRPCProxyConfig) {
-	mux := runtime.NewServeMux(runtime.WithIncomingHeaderMatcher(ForwardSessionMatcher))
-	config.Register(mux)
-
-	runHTTPHandler(ctx, s, mux, config.Port, config.BasicAuth, config.Shutdown)
-}
-
 func setupHTTP(ctx context.Context, s *setup, config HTTPConfig) {
 	mux := http.NewServeMux()
 	config.Register(mux)
@@ -273,12 +250,12 @@ var serveHTTP = func(ctx context.Context, httpS *http.Server, port string) {
 
 	httpL, err := net.Listen("tcp", addr)
 	if err != nil {
-		logger.FromContext(ctx).Panic("http.listen.error",zap.Error(err),zap.String("addr", addr))
+		logger.FromContext(ctx).Panic("http.listen.error", zap.Error(err), zap.String("addr", addr))
 		return
 	}
 
 	if err := httpS.Serve(httpL); err != nil && err != http.ErrServerClosed {
-		logger.FromContext(ctx).Error("http.serve.error",zap.Error(err))
+		logger.FromContext(ctx).Error("http.serve.error", zap.Error(err))
 	}
 }
 
@@ -299,17 +276,8 @@ func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig) {
 		shutdownChannel <- true
 	}()
 	if err := config.Run(ctx); err != nil {
-		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job",config.Name))
+		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job", config.Name))
 	}
-}
-
-// For header mappings to metadata, we want the defaults plus the SessionId (always forwarded lowercase).
-func ForwardSessionMatcher(key string) (string, bool) {
-	lowerKey := strings.ToLower(key)
-	if lowerKey == "x-sessionid" {
-		return lowerKey, true
-	}
-	return runtime.DefaultHeaderMatcher(key)
 }
 
 func NewBasicAuthHandler(basicAuth *BasicAuth, chainedHandler http.Handler) http.Handler {

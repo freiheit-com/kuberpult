@@ -99,8 +99,9 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 	for index, value := range config.ArgoCd.IgnoreDifferences {
 		ignoreDifferences[index] = v1alpha1.ResourceIgnoreDifferences(value)
 	}
+	syncOptions := config.ArgoCd.SyncOptions
 	for _, appData := range appsData {
-		appManifest, err := RenderApp(gitUrl, gitBranch, config.ArgoCd.ApplicationAnnotations, env, appData, destination, ignoreDifferences)
+		appManifest, err := RenderApp(gitUrl, gitBranch, config.ArgoCd.ApplicationAnnotations, env, appData, destination, ignoreDifferences, syncOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +110,7 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 	return ([]byte)(strings.Join(buf, "---\n")), nil
 }
 
-func RenderApp(gitUrl string, gitBranch string, applicationAnnotations map[string]string, env string, appData AppData, destination v1alpha1.ApplicationDestination, ignoreDifferences []v1alpha1.ResourceIgnoreDifferences) (string, error) {
+func RenderApp(gitUrl string, gitBranch string, applicationAnnotations map[string]string, env string, appData AppData, destination v1alpha1.ApplicationDestination, ignoreDifferences []v1alpha1.ResourceIgnoreDifferences, syncOptions v1alpha1.SyncOptions) (string, error) {
 	name := appData.AppName
 	app := v1alpha1.Application{
 		TypeMeta: v1alpha1.ApplicationTypeMeta,
@@ -134,6 +135,7 @@ func RenderApp(gitUrl string, gitBranch string, applicationAnnotations map[strin
 					// But in the undeployVersion, we need to allow empty manifests
 					AllowEmpty: appData.IsUndeployVersion,
 				},
+				SyncOptions: syncOptions,
 			},
 			IgnoreDifferences: ignoreDifferences,
 		},

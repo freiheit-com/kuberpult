@@ -1,5 +1,39 @@
 # Change Log
 
+## 0.4.17
+
+**releases 2022-05-31**
+
+### Added
+
+* It's now possible to specify sync options for argocd apps [#163](https://github.com/freiheit-com/kuberpult/pull/163)
+
+### Fixed
+
+* The rest endpoints of the frontend service work again [#164](https://github.com/freiheit-com/kuberpult/pull/164)
+
+## 0.4.16
+
+**released 2022-05-27**
+
+### Added
+
+* Add option to configure timeouts in loadbalancer [#156](https://github.com/freiheit-com/kuberpult/pull/156)
+
+### Removed
+
+* removed cd.pvc.storage from values [#155](https://github.com/freiheit-com/kuberpult/pull/155)
+
+
+## 0.4.14
+
+**released 2022-04-21**
+
+### Added
+
+* Custom configuration per application ( Owner )  [#123](https://github.com/freiheit-com/kuberpult/pull/123)
+* Add option to replace actions on conflict [#124](https://github.com/freiheit-com/kuberpult/pull/124)
+
 ## 0.4.13
 
 **released 2022-04-01**

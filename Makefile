@@ -24,15 +24,7 @@ export VERSION
 
 MAKEDIRS := services/cd-service services/frontend-service charts/kuberpult pkg/api pkg
 
-.install: go.tools.mod go.tools.sum
-	 go install -modfile=go.tools.mod github.com/golang/protobuf/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
-              go get github.com/ghodss/yaml@v1.0.0 && \
-              go install github.com/libgit2/git2go/v33 && \
-              go install \
-                github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-                github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
-                google.golang.org/protobuf/cmd/protoc-gen-go \
-                github.com/grpc-ecosystem/grpc-gateway/v2/internal/descriptor
+.install:
 	touch .install
 
 $(addsuffix /release,$(MAKEDIRS)):
@@ -54,8 +46,12 @@ test: $(addsuffix /test,$(MAKEDIRS))
 $(addsuffix /all,$(MAKEDIRS)):
 	make -C $(dir $@) all
 
+plan:
+	@infrastructure/scripts/execution-plan/plan-pr.sh
+
 all: $(addsuffix /all,$(MAKEDIRS))
 
+init:
 
 $(CODE_REVIEWER_LOCATION):
 ifeq ($(CI),true)
