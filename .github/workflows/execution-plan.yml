@@ -79,6 +79,9 @@ jobs:
         name: 'Authenticate to Google Cloud'
         with:
           credentials_json: ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }} 
+      - name: gcloud authorize
+        run: |
+          gcloud auth configure-docker
       - name: Build and Publish
         run: ${{ matrix.data.command }}
       - uses: actions/upload-artifact@v3
