@@ -48,10 +48,10 @@ bin/:
 
 build: bin/main
 
-build-pr: build
+build-pr: docker
 	echo "build on pull request"
 
-build-main: build
+build-main: docker
 	echo "build on main"
 
 ifeq ($(COMPILE_WITH_DOCKER),true)
@@ -95,7 +95,7 @@ release: docker
 
 all: test docker
 
-publish:
-	echo "nothing to do"
+publish: release
+	echo "Publishing build"
 
 .PHONY: all release test docker clean
