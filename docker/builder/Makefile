@@ -15,4 +15,5 @@ build-main: build
 
 publish:
 	echo "Publishing $(IMAGENAME)"
+	docker login -u _json_key -p "$(cat credential.json)" europe-west3-docker.pkg.dev
 	docker push $(IMAGENAME)
