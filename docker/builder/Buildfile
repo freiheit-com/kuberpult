@@ -1,0 +1,5 @@
+metadata:
+  name: kuberpult-builder
+  builder: docker
+  version: 0.0.1
+

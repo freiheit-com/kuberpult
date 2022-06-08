@@ -1,0 +1,1 @@
+IMAGE_REGISTRY?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
