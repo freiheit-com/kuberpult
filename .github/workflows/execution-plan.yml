@@ -77,7 +77,9 @@ jobs:
           fetch-depth: 0
       - name: Add credentials file
         run: |
-          echo `${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}` > credential.json
+          cat > credential.json << EOF
+          ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
+          EOF
           cat credential.json
           wc credential.json
       - name: Build and Publish
