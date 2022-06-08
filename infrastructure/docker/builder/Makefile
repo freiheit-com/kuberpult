@@ -1,6 +1,6 @@
 VERSION=0.0.1
 
-include ../../Makefile.variables
+include ../../../Makefile.variables
 
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-builder:${VERSION}
 
