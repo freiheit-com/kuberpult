@@ -14,4 +14,5 @@ build-main: build
 	echo "Building on main"
 
 publish:
-	docker push -t $(IMAGENAME)
+	echo "Publishing $(IMAGENAME)"
+	docker push $(IMAGENAME)
