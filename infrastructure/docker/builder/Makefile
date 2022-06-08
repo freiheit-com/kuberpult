@@ -14,7 +14,7 @@ build-main: build
 	echo "Building on main"
 
 login:
-	cat ../../credential.json | docker login -u _json_key --password-stdin europe-west3-docker.pkg.dev
+	cat ../../../credential.json | docker login -u _json_key --password-stdin europe-west3-docker.pkg.dev
 
 release:
 	echo "Releasing $(IMAGENAME)"
