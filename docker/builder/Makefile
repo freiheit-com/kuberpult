@@ -4,10 +4,10 @@ include ../../Makefile.variables
 
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-builder:${VERSION}
 
-build: login
+build: 
 	docker build -t $(IMAGENAME) .
 
-build-pr: build login
+build-pr: build 
 	echo "Building on pull request"
 
 build-main: build
