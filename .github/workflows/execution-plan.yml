@@ -24,8 +24,6 @@ jobs:
           ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
       - name: Print execution plan 
         run: |
-          # stub code, as of now just prints the plan
-          echo "The execution plan is printed"
           cat artifacts/execution-plan.json
       - uses: actions/upload-artifact@v3
         with:
