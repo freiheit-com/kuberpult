@@ -1,8 +1,17 @@
 name: "Execution Plan"
-'on':
-  pull_request:
-    branches:
-      - main
+on:
+  workflow_call:
+    inputs:
+      build-command:
+        required: true
+        default: 'build-pr'
+        type: string
+        description: 'Build command passed from the caller workflow'
+      version:
+        required: false
+        type: string
+        description: 'If provided this will override git-version of the tool'
+
 jobs:
   execution_plan:
     runs-on: ubuntu-latest
@@ -20,6 +29,7 @@ jobs:
           gcloud auth configure-docker
       - run: mkdir -p artifacts/
       - name: Plan execution
+        if: ${{ inputs.build-command }}  == "build-pr" 
         run: |
           ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
       - name: Execute 
@@ -27,6 +37,9 @@ jobs:
           # stub code, as of now just prints the plan
           echo "The execution plan is printed"
           cat artifacts/execution-plan.json
+      - name: Set version
+        if: ${{ inputs.version }}  != "" 
+        run: echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v3
         with:
           name: execution-plan.json

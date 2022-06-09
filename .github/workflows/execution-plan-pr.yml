@@ -1,0 +1,10 @@
+name: "Execution Plan"
+'on':
+  pull_request:
+    branches:
+      - main
+jobs:
+  execution-plan-pr:
+    uses: freiheit-com/kuberpult/.github/workflows/.yml@mn-reusable-workflow
+    with:
+      build-command: build-pr
