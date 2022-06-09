@@ -9,7 +9,6 @@ require (
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/google/go-cmp v0.5.8
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.10.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/improbable-eng/grpc-web v0.14.0
 	github.com/kelseyhightower/envconfig v1.4.0
