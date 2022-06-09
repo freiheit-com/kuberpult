@@ -1,5 +1,5 @@
-#!/bin/bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 # Pushes a docker image only if it does not exist, print an error message if it exists
 
 IMAGE_URL=$1
