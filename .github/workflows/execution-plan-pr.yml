@@ -5,6 +5,6 @@ name: "Execution Plan"
       - main
 jobs:
   execution-plan-pr:
-    uses: freiheit-com/kuberpult/.github/workflows/.yml@mn-reusable-workflow
+    uses: ./.github/workflows/execution-plan-snippet.yml
     with:
       build-command: build-pr
