@@ -16,6 +16,7 @@
 #Copyright 2021 freiheit.com
 # NOTE: this will be replaced with the etf-golang makefile
 MAKEFLAGS += --no-builtin-rules
+CUR_DIR := $(shell cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P) 
 
 VERSION=$(shell cat ../../version)
 export VERSION
@@ -48,10 +49,10 @@ bin/:
 
 build: bin/main
 
-build-pr: build
+build-pr: docker
 	echo "build on pull request"
 
-build-main: build
+build-main: docker
 	echo "build on main"
 
 ifeq ($(COMPILE_WITH_DOCKER),true)
@@ -91,7 +92,7 @@ docker: bin/main ../../version
 # set IMAGENAME=... to the image where you want to deploy (registry of the project)
 # e.g IMAGENAME=ghcr.io/replace_me...cd-service:1.2.3 make release
 release: docker
-	../../infrastructure/scripts/execution-plan/push.sh $(IMAGENAME)
+	$(CURDIR)/../../infrastructure/scripts/execution-plan/push.sh $(IMAGENAME)
 
 all: test docker
 
