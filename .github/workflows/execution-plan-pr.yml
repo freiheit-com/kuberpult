@@ -8,3 +8,4 @@ jobs:
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
       build-command: build-pr
+    secrets: inherit
