@@ -15,7 +15,6 @@
 
 #Copyright 2021 freiheit.com
 MAKEFLAGS += --no-builtin-rules
-CUR_DIR := $(shell cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P) 
 VERSION=$(shell cat ../../version)
 export VERSION
 
@@ -71,7 +70,7 @@ docker: bin/main ../../version | dist
 	docker build -t $(IMAGENAME) .
 
 release: docker
-	$(CURDIR)/../../infrastructure/scripts/execution-plan/push.sh $(IMAGENAME)
+	../../infrastructure/scripts/execution-plan/push.sh $(IMAGENAME)
 
 all: test docker
 
