@@ -44,13 +44,13 @@ run: bin/main
 
 build: bin/main
 
-build-pr: build
+build-pr: docker
 	echo "build on pull request"
 
-build-main: build
+build-main: docker
 	echo "build on main"
 
-publish: 
+publish: release
 
 start: src/api/api.ts
 	yarn && yarn start
@@ -71,7 +71,7 @@ docker: bin/main ../../version | dist
 	docker build -t $(IMAGENAME) .
 
 release: docker
-	docker push $(IMAGENAME)
+	../../infrastructure/scripts/execution-plan/push.sh $(IMAGENAME)
 
 all: test docker
 
