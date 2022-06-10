@@ -15,11 +15,13 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import React from 'react';
-import { fireEvent, getByText, render } from '@testing-library/react';
+import { act, fireEvent, getByText, render } from '@testing-library/react';
 import { ActionsCart } from './ActionsCart';
 import { Spy } from 'spy4js';
 import { BatchAction, LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
+import { Context } from '../Api';
+import { makeApiMock } from './apiMock';
 
 Spy.mockReactComponents('./CheckoutDialog', 'CheckoutCart');
 const mock_setActions = Spy('setActions');
@@ -28,9 +30,11 @@ describe('Actions Cart', () => {
     const getNode = (actions: BatchAction[]) => {
         const value = { actions: actions, setActions: mock_setActions };
         return (
-            <ActionsCartContext.Provider value={value}>
-                <ActionsCart />
-            </ActionsCartContext.Provider>
+            <Context.Provider value={makeApiMock(actions ?? [], [], 'pending')}>
+                <ActionsCartContext.Provider value={value}>
+                    <ActionsCart />
+                </ActionsCartContext.Provider>
+            </Context.Provider>
         );
     };
     const getWrapper = (actions: BatchAction[]) => render(getNode(actions));
@@ -93,9 +97,10 @@ describe('Actions Cart', () => {
     ];
 
     describe.each(data)(`Cart with`, (testcase: dataT) => {
-        it(`${testcase.type}`, () => {
+        it(`${testcase.type}`, async () => {
             // given
             const { container } = getWrapper(testcase.cart);
+            await act(global.nextTick);
 
             // when rendered
             expect(getByText(container, /planned actions/i)).toBeTruthy();

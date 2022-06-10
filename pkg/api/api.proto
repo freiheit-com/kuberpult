@@ -133,12 +133,19 @@ message Environment {
   }
 
   message Application {
+    message SyncWindow {
+      string kind = 1; // "allow" or "deny"
+      string schedule = 2; // crontab format
+      string duration = 3; // duration the window is open (or closed)
+    }
+
     string name = 1;
     uint64 version = 2;
     map<string, Lock> locks = 3;
     uint64 queuedVersion = 4;
     Commit versionCommit = 5;
     bool undeployVersion = 6;
+    repeated SyncWindow syncWindows = 7;
   }
 
   string name = 1;

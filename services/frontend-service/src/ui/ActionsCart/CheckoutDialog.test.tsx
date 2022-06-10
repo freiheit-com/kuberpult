@@ -17,9 +17,11 @@ Copyright 2021 freiheit.com*/
 import React from 'react';
 import { act, fireEvent, getByText, render } from '@testing-library/react';
 import { Spy } from 'spy4js';
-import { BatchAction, LockBehavior } from '../../api/api';
+import { BatchAction, Environment_Application_SyncWindow, LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
 import { callbacks, CheckoutCart } from './CheckoutDialog';
+import { Context } from '../Api';
+import { makeApiMock } from './apiMock';
 
 const mock_useBatch = Spy.mock(callbacks, 'useBatch');
 
@@ -27,15 +29,25 @@ const mock_setActions = Spy('setActions');
 const doActionsSpy = Spy('doActionsSpy');
 
 describe('Checkout Dialog', () => {
-    const getNode = (actions: BatchAction[]) => {
+    const getNode = (
+        actions: BatchAction[],
+        syncWindows: Environment_Application_SyncWindow[],
+        getOverviewState: 'pending' | 'resolved' | 'rejected'
+    ) => {
         const value = { actions: actions, setActions: mock_setActions };
         return (
-            <ActionsCartContext.Provider value={value}>
-                <CheckoutCart />
-            </ActionsCartContext.Provider>
+            <Context.Provider value={makeApiMock(actions, syncWindows, getOverviewState)}>
+                <ActionsCartContext.Provider value={value}>
+                    <CheckoutCart />
+                </ActionsCartContext.Provider>
+            </Context.Provider>
         );
     };
-    const getWrapper = (actions: BatchAction[]) => render(getNode(actions));
+    const getWrapper = (
+        actions: BatchAction[],
+        syncWindows: Environment_Application_SyncWindow[],
+        getOverviewState: 'pending' | 'resolved' | 'rejected'
+    ) => render(getNode(actions, syncWindows, getOverviewState));
 
     interface dataT {
         type: string;
@@ -88,10 +100,12 @@ describe('Checkout Dialog', () => {
     ];
 
     describe.each(data)(`Checkout with`, (testcase: dataT) => {
-        it(`${testcase.type}`, () => {
+        it(`${testcase.type}`, async () => {
             // given
             mock_useBatch.useBatch.returns([doActionsSpy, { state: 'waiting' }]);
-            const { container } = getWrapper(testcase.cart);
+
+            const { container } = getWrapper(testcase.cart, [], 'resolved');
+            await act(global.nextTick);
 
             const applyButton = getByText(container, /apply/i).closest('button');
             if (testcase.cart.length === 0) {
@@ -118,6 +132,125 @@ describe('Checkout Dialog', () => {
                 });
                 // then
                 mock_setActions.wasCalledWith([]);
+            }
+        });
+    });
+
+    describe.each([
+        {
+            type: 'Without sync windows but request pending',
+            cart: [
+                {
+                    action: {
+                        $case: 'deploy' as const,
+                        deploy: {
+                            application: 'test application',
+                            environment: 'test environment',
+                            version: 0,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.UNRECOGNIZED,
+                        },
+                    },
+                },
+            ],
+            state: 'pending' as const,
+            syncWindows: [],
+            wantSpinner: true,
+            wantWarning: false,
+            wantError: false,
+        },
+        {
+            type: 'Without sync windows and request resolved',
+            cart: [
+                {
+                    action: {
+                        $case: 'deploy' as const,
+                        deploy: {
+                            application: 'test application',
+                            environment: 'test environment',
+                            version: 0,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.UNRECOGNIZED,
+                        },
+                    },
+                },
+            ],
+            state: 'resolved' as const,
+            syncWindows: [],
+            wantSpinner: false,
+            wantWarning: false,
+            wantError: false,
+        },
+        {
+            type: 'With sync windows and request resolved',
+            cart: [
+                {
+                    action: {
+                        $case: 'deploy' as const,
+                        deploy: {
+                            application: 'test application',
+                            environment: 'test environment',
+                            version: 0,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.UNRECOGNIZED,
+                        },
+                    },
+                },
+            ],
+            state: 'resolved' as const,
+            syncWindows: [{ kind: 'allow', schedule: '* * * * *', duration: '0s' }],
+            wantSpinner: false,
+            wantWarning: true,
+            wantError: false,
+        },
+        {
+            type: 'Without sync windows and request failed',
+            cart: [
+                {
+                    action: {
+                        $case: 'deploy' as const,
+                        deploy: {
+                            application: 'test application',
+                            environment: 'test environment',
+                            version: 0,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.UNRECOGNIZED,
+                        },
+                    },
+                },
+            ],
+            state: 'rejected' as const,
+            syncWindows: [],
+            wantSpinner: false,
+            wantWarning: false,
+            wantError: true,
+        },
+    ])(`Checkout and sync window behaviour`, (testcase) => {
+        it(`${testcase.type}`, async () => {
+            // given
+            const { container } = getWrapper(testcase.cart, testcase.syncWindows, testcase.state);
+            await act(global.nextTick);
+
+            // then
+            const spinner = container.querySelector('.MuiCircularProgress-root');
+            if (testcase.wantSpinner) {
+                expect(spinner).toBeInTheDocument();
+            } else {
+                expect(spinner).not.toBeInTheDocument();
+            }
+
+            const warning = container.querySelector('.MuiAlert-outlinedWarning');
+            if (testcase.wantWarning) {
+                expect(warning).toBeInTheDocument();
+            } else {
+                expect(warning).not.toBeInTheDocument();
+            }
+
+            const error = container.querySelector('.MuiAlert-outlinedError');
+            if (testcase.wantError) {
+                expect(error).toBeInTheDocument();
+            } else {
+                expect(error).not.toBeInTheDocument();
             }
         });
     });

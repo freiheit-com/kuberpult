@@ -15,12 +15,22 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { Button, Dialog, DialogTitle, IconButton, Typography, Snackbar, CircularProgress } from '@material-ui/core';
-import { useCallback, useContext } from 'react';
+import {
+    Button,
+    Dialog,
+    DialogTitle,
+    IconButton,
+    Typography,
+    Snackbar,
+    CircularProgress,
+    Alert,
+    AlertTitle,
+} from '@material-ui/core';
+import { useCallback, useContext, VFC } from 'react';
 import { Close } from '@material-ui/icons';
-import { ActionsCartContext } from '../App';
+import { ActionsCartContext, Spinner } from '../App';
 import { BatchAction } from '../../api/api';
-import { useUnaryCallback } from '../Api';
+import { Api, useUnary, useUnaryCallback } from '../Api';
 
 export const callbacks = {
     useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
@@ -78,6 +88,52 @@ const ApplyButton = (props: { openNotification: (msg: string) => void; closeDial
     }
 };
 
+const SyncWindowsWarning: VFC<{
+    actions: BatchAction[];
+}> = ({ actions }) => {
+    const getOverview = useCallback((api: Api) => api.overviewService().GetOverview({}), []);
+    const overview = useUnary(getOverview);
+    switch (overview.state) {
+        case 'pending':
+            // FIXME: This spinner is invisible.  Why?
+            return <Spinner />;
+        case 'resolved':
+            const anyAppInActionsHasSyncWindows = actions
+                .map((a) => {
+                    switch (a.action?.$case) {
+                        case 'deploy':
+                            const environmentName = a.action.deploy.environment;
+                            const applicationName = a.action.deploy.application;
+                            const numSyncWindows =
+                                overview.result.environments[environmentName].applications[applicationName].syncWindows
+                                    .length;
+                            return numSyncWindows > 0;
+                        default:
+                            return false;
+                    }
+                })
+                .some((appHasSyncWindows) => appHasSyncWindows);
+            if (anyAppInActionsHasSyncWindows) {
+                return (
+                    <Alert variant="outlined" sx={{ m: 1 }} severity="warning">
+                        <AlertTitle>ArgoCD sync windows are active for at least one application!</AlertTitle>
+                        <p>Warning: This can delay deployment.</p>
+                    </Alert>
+                );
+            } else {
+                return null;
+            }
+        case 'rejected':
+            return (
+                // FIXME: Where should we display this type of "global" error?
+                <Alert variant="outlined" sx={{ m: 1 }} severity="error">
+                    <AlertTitle>Error retrieving sync window information!</AlertTitle>
+                    <p>{overview.error}</p>
+                </Alert>
+            );
+    }
+};
+
 export const CheckoutCart = () => {
     const [openNotify, setOpenNotify] = React.useState(false);
     const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -112,7 +168,7 @@ export const CheckoutCart = () => {
 
     const checkoutButton = (
         <Button
-            sx={{ display: 'flex', height: '5%' }}
+            sx={{ display: 'flex', height: '3rem', width: '100%' }}
             onClick={openDialog}
             variant={'contained'}
             disabled={actions.length === 0 || dialogOpen}>
@@ -129,7 +185,8 @@ export const CheckoutCart = () => {
     );
 
     return (
-        <>
+        <div>
+            <SyncWindowsWarning actions={actions} />
             {checkoutButton}
             <Dialog onClose={closeDialog} open={dialogOpen}>
                 <DialogTitle sx={{ m: 0, p: 2 }}>
@@ -149,6 +206,6 @@ export const CheckoutCart = () => {
                 message={notifyMessage}
                 action={closeIcon}
             />
-        </>
+        </div>
     );
 };

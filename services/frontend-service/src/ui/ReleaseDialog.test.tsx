@@ -59,6 +59,7 @@ describe('VersionDiff', () => {
                             locks: {},
                             queuedVersion: 0,
                             undeployVersion: false,
+                            syncWindows: [],
                         },
                     },
                 },
@@ -191,6 +192,7 @@ describe('QueueDiff', () => {
                             locks: {},
                             version: 1,
                             undeployVersion: false,
+                            syncWindows: [],
                         },
                     },
                 },
@@ -216,5 +218,60 @@ describe('QueueDiff', () => {
 
         const diff = app.getByTestId('queue-diff');
         expect(diff.textContent).toEqual(expectedLabel);
+    });
+});
+
+describe('ReleaseDialog', () => {
+    describe.each([
+        {
+            syncWindows: [],
+        },
+        {
+            syncWindows: [{ kind: 'allow', schedule: '* * * * *', duration: '0s' }],
+        },
+    ])('renders warnings', ({ syncWindows }) => {
+        it(`for ${syncWindows.length} sync windows`, () => {
+            const overview = {
+                environments: {
+                    development: {
+                        name: 'development',
+                        locks: {},
+                        applications: {
+                            demo: {
+                                name: 'demo',
+                                version: 1,
+                                locks: {},
+                                queuedVersion: 1,
+                                undeployVersion: false,
+                                syncWindows: syncWindows,
+                            },
+                        },
+                    },
+                },
+                applications: {
+                    demo: {
+                        name: 'demo',
+                        releases: [
+                            {
+                                version: 1,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                            },
+                        ],
+                    },
+                },
+            };
+
+            render(
+                <ActionsCartContext.Provider value={{ actions: [], setActions: () => null }}>
+                    <ReleaseDialog overview={overview} applicationName="demo" version={1} sortOrder={{}} />
+                </ActionsCartContext.Provider>
+            );
+
+            const syncWindowElements = document.querySelectorAll('.syncWindow');
+            expect(syncWindowElements).toHaveLength(syncWindows.length);
+        });
     });
 });
