@@ -40,9 +40,16 @@ jobs:
           # stub code, as of now just prints the plan
           echo "The execution plan is printed"
           cat artifacts/execution-plan.json
-      - name: Set version
-        if: inputs.trigger != ''
+      - name: Set version from tag
+        if: inputs.version != ''
         run: echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+      - name: Set version with git-version
+        if: inputs.version == ''
+        uses: codacy/git-version@2.2.0
+        run: |
+          ./git-version
+          ./git-version > version
+          echo "VERSION=$(./git-version)" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v3
         with:
           name: execution-plan.json
