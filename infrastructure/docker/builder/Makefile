@@ -1,4 +1,4 @@
-VERSION=$(shell cat ../../version)
+VERSION=$(shell cat ../../../version)
 
 include ../../../Makefile.variables
 
