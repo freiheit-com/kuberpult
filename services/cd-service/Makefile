@@ -15,14 +15,17 @@
 
 #Copyright 2021 freiheit.com
 # NOTE: this will be replaced with the etf-golang makefile
+
+include ../../Makefile.variables
+
 MAKEFLAGS += --no-builtin-rules
 
-VERSION=$(shell cat ../../version)
+VERSION?=$(shell cat ../../version)
 export VERSION
 
 export CGO_ENABLED=1
 
-IMAGENAME?=ghcr.io/freiheit-com/kuberpult-cd-service:${VERSION}
+IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:${VERSION}
 
 ifeq ($(WITH_DOCKER),)
 COMPILE_WITH_DOCKER := false
@@ -95,6 +98,8 @@ release: docker
 
 all: test docker
 
-publish: release
+publish: 
+	echo $VERSION
+	echo $IMAGENAME
 
 .PHONY: all release test docker clean
