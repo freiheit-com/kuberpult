@@ -30,10 +30,12 @@ jobs:
       - name: Plan execution
         if: ${{ inputs.trigger }} == "pull-request" 
         run: |
+          echo "${{ inputs.trigger }}"
           ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
       - name: Plan execution alternate
         if: ${{ inputs.trigger }} == "main"
         run: |
+          echo "${{ inputs.trigger }}"
           echo "Running on main branch"
       - name: Execute 
         run: |
