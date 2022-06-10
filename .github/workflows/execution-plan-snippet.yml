@@ -86,7 +86,6 @@ jobs:
     needs: github_convertor
     if: needs.github_convertor.outputs.matrix != '[]'
     strategy:
-      fail-fast: false
       matrix: 
         data: ${{fromJSON(needs.github_convertor.outputs.matrix)}}
     runs-on: ubuntu-latest
