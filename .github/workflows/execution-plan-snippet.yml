@@ -43,9 +43,13 @@ jobs:
       - name: Set version from tag
         if: inputs.version != ''
         run: echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
-      - name: Set version with git-version
+      - name: Add git-version
         if: inputs.version == ''
         uses: codacy/git-version@2.2.0
+        with:
+          release-branch: main
+      - name: Set version with git-version
+        if: inputs.version == ''
         run: |
           ./git-version
           ./git-version > version
