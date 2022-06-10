@@ -51,9 +51,9 @@ jobs:
       - name: Set version with git-version
         if: inputs.version == ''
         run: |
-          ./git-version
-          ./git-version > version
-          echo "VERSION=$(./git-version)" >> $GITHUB_ENV
+          git-version
+          git-version > version
+          echo "VERSION=$(git-version)" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v3
         with:
           name: execution-plan.json
