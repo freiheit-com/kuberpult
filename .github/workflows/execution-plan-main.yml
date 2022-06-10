@@ -1,7 +1,6 @@
 name: "Execution Plan on main"
 'on':
-  # TODO: change to main push after test
-  pull_request:
+  push:
     branches:
       - main
 jobs:
