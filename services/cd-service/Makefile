@@ -20,7 +20,7 @@ include ../../Makefile.variables
 
 MAKEFLAGS += --no-builtin-rules
 
-VERSION?=$(shell cat ../../version)
+VERSION=$(shell cat ../../version)
 export VERSION
 
 export CGO_ENABLED=1
