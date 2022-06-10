@@ -1,0 +1,28 @@
+name: "Release kuberpult"
+'on':
+  # push:
+    # tags:
+      # - *
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  generate_version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+    outputs:
+      version: ${{ steps.get_version.outputs.VERSION }}
+
+
+  execution-plan-pr:
+    needs: generate_version
+    uses: ./.github/workflows/execution-plan-snippet.yml
+    with:
+      trigger: main
+      version: ${{ needs.github_convertor.outputs.matrix }} 
+    secrets: inherit
