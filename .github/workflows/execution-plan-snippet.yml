@@ -45,7 +45,7 @@ jobs:
       - name: Set version automatically 
         if: inputs.version == ''
         run: |
-          echo "VERSION=$(git describe --tags || echo '0.0.1')" >> $GITHUB_ENV
+          echo "VERSION=$(git describe --always --long --tags || echo 0.0.1)" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v3
         with:
           name: execution-plan.json
