@@ -99,7 +99,7 @@ release: docker
 all: test docker
 
 publish: 
-	echo $VERSION
-	echo $IMAGENAME
+	echo $(VERSION)
+	echo $(IMAGENAME)
 
 .PHONY: all release test docker clean

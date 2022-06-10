@@ -53,8 +53,8 @@ build-main: docker
 	echo "build on main"
 
 publish: 
-	echo $VERSION
-	echo $IMAGENAME
+	echo $(VERSION)
+	echo $(IMAGENAME)
 
 start: src/api/api.ts
 	yarn && yarn start

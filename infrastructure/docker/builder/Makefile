@@ -21,5 +21,5 @@ release:
 	docker push $(IMAGENAME)
 
 publish: login release
-	echo $VERSION
-	echo $IMAGENAME
+	echo $(VERSION)
+	echo $(IMAGENAME)
