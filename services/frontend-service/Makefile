@@ -76,7 +76,7 @@ docker: bin/main ../../version | dist
 	docker build -t $(IMAGENAME) .
 
 release: docker
-	../../infrastructure/scripts/execution-plan/push.sh $(IMAGENAME)
+	docker push $(IMAGENAME)
 
 all: test docker
 

@@ -94,7 +94,7 @@ docker: bin/main ../../version
 # set IMAGENAME=... to the image where you want to deploy (registry of the project)
 # e.g IMAGENAME=ghcr.io/replace_me...cd-service:1.2.3 make release
 release: docker
-	../../infrastructure/scripts/execution-plan/push.sh $(IMAGENAME)
+	docker push $(IMAGENAME)
 
 all: test docker
 
