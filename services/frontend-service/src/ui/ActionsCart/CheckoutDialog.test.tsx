@@ -50,7 +50,7 @@ const sampleLockAction: CartAction = {
 };
 
 const mock_useBatch = Spy.mock(callbacks, 'useBatch');
-const mock_transformToBatch = Spy.mockModule('../ActionDetails', 'transformToBatch');
+const mock_addMessageToAction = Spy.mockModule('../ActionDetails', 'addMessageToAction');
 
 const mock_setActions = Spy('setActions');
 const doActionsSpy = Spy('doActionsSpy');
@@ -119,11 +119,11 @@ describe('Checkout Dialog', () => {
         it(`${testcase.type}`, () => {
             // given
             mock_useBatch.useBatch.returns([doActionsSpy, { state: 'waiting' }]);
-            mock_transformToBatch.transformToBatch.returns(sampleActionTransformed);
+            mock_addMessageToAction.addMessageToAction.returns(sampleActionTransformed);
             const { container } = getWrapper(testcase.cart);
 
-            if (testcase.cart.length) mock_transformToBatch.transformToBatch.wasCalledWith(testcase.cart[0], '');
-            else mock_transformToBatch.transformToBatch.wasNotCalled();
+            if (testcase.cart.length) mock_addMessageToAction.addMessageToAction.wasCalledWith(testcase.cart[0], '');
+            else mock_addMessageToAction.addMessageToAction.wasNotCalled();
 
             if (testcase.cart.length)
                 mock_useBatch.useBatch.wasCalledWith(testcase.transformedCart, Spy.IGNORE, Spy.IGNORE);
@@ -167,23 +167,23 @@ describe('Checkout Dialog', () => {
                     // then
                     mock_setActions.wasNotCalled();
                 }
+            }
 
-                // when - there's a create-lock action
-                if (testcase.lockAction) {
-                    // then
-                    expect(applyButton).toBeDisabled();
-                    expect(textField).toBeTruthy();
+            // when - there's a create-lock action
+            if (testcase.lockAction) {
+                // then
+                expect(applyButton).toBeDisabled();
+                expect(textField).toBeTruthy();
 
-                    // when - adding a lock message
-                    fireEvent.change(textField!, { target: { value: 'foo bar' } });
+                // when - adding a lock message
+                fireEvent.change(textField!, { target: { value: 'foo bar' } });
 
-                    // then - useBatch is called with updated actions
-                    expect(applyButton).not.toBeDisabled();
-                    mock_transformToBatch.transformToBatch.wasCalledWith(testcase.cart[0], 'foo bar');
-                    mock_useBatch.useBatch.wasCalled();
-                } else {
-                    expect(textField).toBe(null);
-                }
+                // then - useBatch is called with updated actions
+                expect(applyButton).not.toBeDisabled();
+                mock_addMessageToAction.addMessageToAction.wasCalledWith(testcase.cart[0], 'foo bar');
+                mock_useBatch.useBatch.wasCalled();
+            } else {
+                expect(textField).toBe(null);
             }
         });
     });

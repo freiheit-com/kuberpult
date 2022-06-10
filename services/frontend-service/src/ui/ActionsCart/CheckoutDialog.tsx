@@ -30,7 +30,7 @@ import { Close } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
 import { BatchAction } from '../../api/api';
 import { useUnaryCallback } from '../Api';
-import { hasLockAction, transformToBatch } from '../ActionDetails';
+import { addMessageToAction, hasLockAction, isNonNullable } from '../ActionDetails';
 
 export const callbacks = {
     useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
@@ -74,19 +74,16 @@ const ApplyButton: VFC<{ doActions: () => void; state: string }> = ({ doActions,
     }
 };
 
-const LockMessageInput: VFC<{ setLockMessage: (m: string) => void }> = ({ setLockMessage }) => {
-    const updateInput = useCallback((e) => setLockMessage(e.target.value), [setLockMessage]);
-    return (
-        <TextField
-            label="Lock Message"
-            variant="outlined"
-            sx={{ m: 1 }}
-            placeholder="default-lock"
-            onChange={updateInput}
-            className="actions-cart__lock-message"
-        />
-    );
-};
+const LockMessageInput: VFC<{ updateMessage: (e: any) => void }> = ({ updateMessage }) => (
+    <TextField
+        label="Lock Message"
+        variant="outlined"
+        sx={{ m: 1 }}
+        placeholder="default-lock"
+        onChange={updateMessage}
+        className="actions-cart__lock-message"
+    />
+);
 
 const CheckoutButton: VFC<{ openDialog: () => void; disabled: boolean }> = ({ openDialog, disabled }) => (
     <Button sx={{ display: 'flex' }} onClick={openDialog} variant={'contained'} disabled={disabled}>
@@ -97,28 +94,26 @@ const CheckoutButton: VFC<{ openDialog: () => void; disabled: boolean }> = ({ op
 );
 
 export const CheckoutCart = () => {
-    const [openNotify, setOpenNotify] = useState(false);
+    const [notify, setNotify] = useState({ open: false, message: '' });
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [notifyMessage, setNotifyMessage] = useState('');
     const { actions, setActions } = useContext(ActionsCartContext);
     const [lockMessage, setLockMessage] = useState('');
 
+    const updateLockMessage = useCallback((e) => setLockMessage(e.target.value), [setLockMessage]);
+
     const openNotification = useCallback(
         (msg: string) => {
-            setNotifyMessage(msg);
-            setOpenNotify(true);
+            setNotify({ open: true, message: msg });
         },
-        [setOpenNotify, setNotifyMessage]
+        [setNotify]
     );
 
     const closeNotification = useCallback(
         (event: React.SyntheticEvent | React.MouseEvent, reason?: string) => {
-            if (reason === 'clickaway') {
-                return;
-            }
-            setOpenNotify(false);
+            if (reason === 'clickaway') return;
+            setNotify({ open: false, message: '' });
         },
-        [setOpenNotify]
+        [setNotify]
     );
 
     const openDialog = useCallback(() => {
@@ -140,7 +135,7 @@ export const CheckoutCart = () => {
         openNotification('Actions were not applied. Please try again!');
     }, [openNotification, closeDialog]);
 
-    const actionsWithMessage = actions.map((act) => transformToBatch(act, lockMessage));
+    const actionsWithMessage = actions.map((act) => addMessageToAction(act, lockMessage)).filter(isNonNullable);
     const [doActions, doActionsState] = callbacks.useBatch(actionsWithMessage, onActionsSucceeded, onActionsFailed);
 
     const closeIcon = (
@@ -155,7 +150,7 @@ export const CheckoutCart = () => {
                 display: 'flex',
                 flexDirection: 'column',
             }}>
-            {hasLockAction(actions) && <LockMessageInput setLockMessage={setLockMessage} />}
+            {hasLockAction(actions) && <LockMessageInput updateMessage={updateLockMessage} />}
             <CheckoutButton
                 openDialog={openDialog}
                 disabled={actions.length === 0 || dialogOpen || (hasLockAction(actions) && lockMessage === '')}
@@ -172,10 +167,10 @@ export const CheckoutCart = () => {
                 </span>
             </Dialog>
             <Snackbar
-                open={openNotify}
+                open={notify.open}
                 autoHideDuration={6000}
                 onClose={closeNotification}
-                message={notifyMessage}
+                message={notify.message}
                 action={closeIcon}
             />
         </div>

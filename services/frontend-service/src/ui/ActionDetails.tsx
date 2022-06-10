@@ -84,6 +84,8 @@ export type DeleteApplicationLock = {
     };
 };
 
+// CartAction is the type that is used in the front end and constitutes the Planned Actions.
+// when a plan is being applied, these cart actions will be transformed into BatchActions which is the type used by the api
 export type CartAction =
     | Deploy
     | PrepareUndeploy
@@ -135,7 +137,7 @@ export const getActionDetails = (action: CartAction): ActionDetails => {
             application: action.deploy.application,
             version: action.deploy.version,
         };
-    if ('createEnvironmentLock' in action)
+    else if ('createEnvironmentLock' in action)
         return {
             type: ActionTypes.CreateEnvironmentLock,
             name: 'Create Env Lock',
@@ -144,7 +146,7 @@ export const getActionDetails = (action: CartAction): ActionDetails => {
             icon: <LockRounded />,
             environment: action.createEnvironmentLock.environment,
         };
-    if ('createApplicationLock' in action)
+    else if ('createApplicationLock' in action)
         return {
             type: ActionTypes.CreateApplicationLock,
             name: 'Create App Lock',
@@ -158,7 +160,7 @@ export const getActionDetails = (action: CartAction): ActionDetails => {
             environment: action.createApplicationLock.environment,
             application: action.createApplicationLock.application,
         };
-    if ('deleteEnvironmentLock' in action)
+    else if ('deleteEnvironmentLock' in action)
         return {
             type: ActionTypes.DeleteEnvironmentLock,
             name: 'Delete Env Lock',
@@ -168,7 +170,7 @@ export const getActionDetails = (action: CartAction): ActionDetails => {
             environment: action.deleteEnvironmentLock.environment,
             lockId: action.deleteEnvironmentLock.lockId,
         };
-    if ('deleteApplicationLock' in action)
+    else if ('deleteApplicationLock' in action)
         return {
             type: ActionTypes.DeleteApplicationLock,
             name: 'Delete App Lock',
@@ -183,7 +185,7 @@ export const getActionDetails = (action: CartAction): ActionDetails => {
             application: action.deleteApplicationLock.application,
             lockId: action.deleteApplicationLock.lockId,
         };
-    if ('prepareUndeploy' in action)
+    else if ('prepareUndeploy' in action)
         return {
             type: ActionTypes.PrepareUndeploy,
             name: 'Prepare Undeploy',
@@ -196,7 +198,7 @@ export const getActionDetails = (action: CartAction): ActionDetails => {
             icon: <DeleteOutlineRounded />,
             application: action.prepareUndeploy.application,
         };
-    if ('undeploy' in action)
+    else if ('undeploy' in action)
         return {
             type: ActionTypes.Undeploy,
             name: 'Undeploy',
@@ -216,9 +218,16 @@ export const getActionDetails = (action: CartAction): ActionDetails => {
         };
 };
 
-const randomLockId = () => 'ui-' + Math.random().toString(36).substring(7);
+// randBase36 Generates a random id that matches with [0-9A-Z]{7}
+// https://en.wikipedia.org/wiki/Base36
+const randBase36 = () => Math.random().toString(36).substring(7);
+const randomLockId = () => 'ui-' + randBase36();
 
-export const transformToBatch = (act: CartAction, m: string): BatchAction => {
+export function isNonNullable<T>(value: T): value is NonNullable<T> {
+    return value !== undefined && value !== null;
+}
+
+export const addMessageToAction = (act: CartAction, m: string): BatchAction | null => {
     if ('createEnvironmentLock' in act)
         return {
             action: {
@@ -230,7 +239,7 @@ export const transformToBatch = (act: CartAction, m: string): BatchAction => {
                 },
             },
         };
-    if ('createApplicationLock' in act)
+    else if ('createApplicationLock' in act)
         return {
             action: {
                 $case: 'createEnvironmentApplicationLock',
@@ -242,7 +251,34 @@ export const transformToBatch = (act: CartAction, m: string): BatchAction => {
                 },
             },
         };
-    if ('deleteEnvironmentLock' in act)
+    else return transformToBatch(act);
+};
+
+export const transformToBatch = (act: CartAction): BatchAction | null => {
+    if ('createEnvironmentLock' in act)
+        return {
+            action: {
+                $case: 'createEnvironmentLock',
+                createEnvironmentLock: {
+                    environment: act.createEnvironmentLock.environment,
+                    lockId: randomLockId(),
+                    message: 'no message provided',
+                },
+            },
+        };
+    else if ('createApplicationLock' in act)
+        return {
+            action: {
+                $case: 'createEnvironmentApplicationLock',
+                createEnvironmentApplicationLock: {
+                    environment: act.createApplicationLock.environment,
+                    application: act.createApplicationLock.application,
+                    lockId: randomLockId(),
+                    message: 'no message provided',
+                },
+            },
+        };
+    else if ('deleteEnvironmentLock' in act)
         return {
             action: {
                 $case: 'deleteEnvironmentLock',
@@ -252,7 +288,7 @@ export const transformToBatch = (act: CartAction, m: string): BatchAction => {
                 },
             },
         };
-    if ('deleteApplicationLock' in act)
+    else if ('deleteApplicationLock' in act)
         return {
             action: {
                 $case: 'deleteEnvironmentApplicationLock',
@@ -263,7 +299,7 @@ export const transformToBatch = (act: CartAction, m: string): BatchAction => {
                 },
             },
         };
-    if ('deploy' in act)
+    else if ('deploy' in act)
         return {
             action: {
                 $case: 'deploy',
@@ -276,7 +312,7 @@ export const transformToBatch = (act: CartAction, m: string): BatchAction => {
                 },
             },
         };
-    if ('prepareUndeploy' in act)
+    else if ('prepareUndeploy' in act)
         return {
             action: {
                 $case: 'prepareUndeploy',
@@ -285,7 +321,7 @@ export const transformToBatch = (act: CartAction, m: string): BatchAction => {
                 },
             },
         };
-    if ('undeploy' in act)
+    else if ('undeploy' in act)
         return {
             action: {
                 $case: 'undeploy',
@@ -294,5 +330,5 @@ export const transformToBatch = (act: CartAction, m: string): BatchAction => {
                 },
             },
         };
-    else return {};
+    else return null;
 };

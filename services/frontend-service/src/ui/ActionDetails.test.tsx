@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { CartAction, getActionDetails, hasLockAction, isDeployAction, transformToBatch } from './ActionDetails';
+import { addMessageToAction, CartAction, getActionDetails, hasLockAction, isDeployAction } from './ActionDetails';
 import { BatchAction, LockBehavior } from '../api/api';
 
 const mockMath = Object.create(global.Math);
@@ -189,7 +189,7 @@ describe('Action Details Logic', () => {
     describe.each(data)(`Cart Action Types`, (testcase: dataT) => {
         it(`${testcase.type} is transformed correctly`, () => {
             expect(getActionDetails(testcase.act).name).toBe(testcase.type);
-            expect(transformToBatch(testcase.act, sampleLockMessage)).toStrictEqual(testcase.transformed);
+            expect(addMessageToAction(testcase.act, sampleLockMessage)).toStrictEqual(testcase.transformed);
             expect(isDeployAction(testcase.act)).toBe(testcase.deployment);
             expect(hasLockAction([testcase.act])).toBe(testcase.locking);
         });
