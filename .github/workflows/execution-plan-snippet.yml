@@ -41,7 +41,7 @@ jobs:
       - name: Set version from tag
         if: inputs.version != ''
         run: |
-          echo ${{ inputs.version }} > version
+          echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
       - name: find git-version
         if: inputs.version == ''
         id: version
@@ -51,7 +51,7 @@ jobs:
       - name: Set version with git-version
         if: inputs.version == ''
         run: |
-          echo ${{ steps.version.outputs.version }} > version
+          echo "VERSION=${{ steps.version.outputs.version }}" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v3
         with:
           name: execution-plan.json
