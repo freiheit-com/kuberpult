@@ -2,11 +2,11 @@ name: "Execution Plan"
 on:
   workflow_call:
     inputs:
-      build-command:
+      trigger:
         required: true
-        default: 'build-pr'
+        default: 'pull-request'
         type: string
-        description: 'Build command passed from the caller workflow'
+        description: 'The trigger which calls the workflow, one of [pull-request, main]'
       version:
         required: false
         type: string
@@ -29,7 +29,7 @@ jobs:
           gcloud auth configure-docker
       - run: mkdir -p artifacts/
       - name: Plan execution
-        if: ${{ inputs.build-command }}  == "build-pr" 
+        if: ${{ inputs.trigger }}  == "pull-request" 
         run: |
           ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
       - name: Execute 

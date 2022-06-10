@@ -1,5 +1,6 @@
 name: "Execution Plan"
 'on':
+  # TODO: change to main push after test
   pull_request:
     branches:
       - main
@@ -7,5 +8,5 @@ jobs:
   execution-plan-pr:
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
-      trigger: pull-request
+      trigger: main
     secrets: inherit
