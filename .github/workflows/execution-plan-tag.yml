@@ -25,5 +25,5 @@ jobs:
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
       trigger: main
-      version: ${{ needs.github_convertor.outputs.matrix }} 
+      version: needs.github_convertor.outputs.matrix  
     secrets: inherit
