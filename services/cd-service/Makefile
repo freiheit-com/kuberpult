@@ -98,8 +98,9 @@ release: docker
 
 all: test docker
 
-publish: 
-	echo $(VERSION)
-	echo $(IMAGENAME)
+login:
+	cat ../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
+
+publish: login release
 
 .PHONY: all release test docker clean

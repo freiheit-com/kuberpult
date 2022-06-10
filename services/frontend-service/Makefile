@@ -52,9 +52,10 @@ build-pr: docker
 build-main: docker
 	echo "build on main"
 
-publish: 
-	echo $(VERSION)
-	echo $(IMAGENAME)
+login:
+	cat ../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
+
+publish: login relase
 
 start: src/api/api.ts
 	yarn && yarn start
