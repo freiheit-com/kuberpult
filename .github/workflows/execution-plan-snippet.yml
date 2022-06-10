@@ -4,7 +4,6 @@ on:
     inputs:
       trigger:
         required: true
-        default: 'pull-request'
         type: string
         description: 'The trigger which calls the workflow, one of [pull-request, main]'
       version:
@@ -29,9 +28,13 @@ jobs:
           gcloud auth configure-docker
       - run: mkdir -p artifacts/
       - name: Plan execution
-        if: ${{ inputs.trigger }}  == "pull-request" 
+        if: ${{ inputs.trigger }} == "pull-request" 
         run: |
           ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
+      - name: Plan execution alternate
+        if: ${{ inputs.trigger }} == "main"
+        run: |
+          echo "Running on main branch"
       - name: Execute 
         run: |
           # stub code, as of now just prints the plan
