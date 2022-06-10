@@ -42,18 +42,20 @@ jobs:
           cat artifacts/execution-plan.json
       - name: Set version from tag
         if: inputs.version != ''
-        run: echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
-      - name: Add git-version
+        run: |
+          echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+      - name: find git-version
         if: inputs.version == ''
+        id: version
         uses: codacy/git-version@2.2.0
         with:
           release-branch: main
       - name: Set version with git-version
         if: inputs.version == ''
         run: |
-          git-version
-          git-version > version
-          echo "VERSION=$(git-version)" >> $GITHUB_ENV
+          echo ${{ steps.version.outputs.version }}
+          echo ${{ steps.version.outputs.version }} > version
+          echo "VERSION=${{ steps.version.outputs.version }}" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v3
         with:
           name: execution-plan.json
