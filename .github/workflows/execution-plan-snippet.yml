@@ -1,8 +1,16 @@
 name: "Execution Plan"
-'on':
-  pull_request:
-    branches:
-      - main
+on:
+  workflow_call:
+    inputs:
+      trigger:
+        required: true
+        type: string
+        description: 'The trigger which calls the workflow, one of [pull-request, main]'
+      version:
+        required: false
+        type: string
+        description: 'If provided this will override git-version of the tool'
+
 jobs:
   execution_plan:
     runs-on: ubuntu-latest
@@ -19,12 +27,25 @@ jobs:
         run: |
           gcloud auth configure-docker
       - run: mkdir -p artifacts/
-      - name: Plan execution
+      - name: Plan execution pull request
+        if: inputs.trigger == 'pull-request'
         run: |
           ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
+      - name: Plan execution main
+        if: inputs.trigger == 'main'
+        run: |
+          ./infrastructure/scripts/execution-plan/plan-main.sh > artifacts/execution-plan.json 
       - name: Print execution plan 
         run: |
           cat artifacts/execution-plan.json
+      - name: Set version from tag
+        if: inputs.version != ''
+        run: |
+          echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+      - name: Set version automatically 
+        if: inputs.version == ''
+        run: |
+          echo "VERSION=$(git describe --always --long --tags || echo 0.0.1)" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v3
         with:
           name: execution-plan.json
