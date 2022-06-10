@@ -55,7 +55,7 @@ build-main: docker
 login:
 	cat ../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
 
-publish: login relase
+publish: login release
 
 start: src/api/api.ts
 	yarn && yarn start
