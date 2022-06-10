@@ -27,14 +27,14 @@ jobs:
         run: |
           gcloud auth configure-docker
       - run: mkdir -p artifacts/
-      - name: Plan execution
+      - name: Plan execution pull request
         if: inputs.trigger == 'pull-request'
         run: |
           ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
-      - name: Plan execution alternate
+      - name: Plan execution main
         if: inputs.trigger == 'main'
         run: |
-          echo "Running on main branch"
+          ./infrastructure/scripts/execution-plan/plan-main.sh > artifacts/execution-plan.json 
       - name: Execute 
         run: |
           # stub code, as of now just prints the plan
