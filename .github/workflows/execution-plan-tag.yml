@@ -2,7 +2,7 @@ name: "Release kuberpult"
 'on':
   push:
     tags:
-      - *
+      - "*"
 
 jobs:
   generate_version:
