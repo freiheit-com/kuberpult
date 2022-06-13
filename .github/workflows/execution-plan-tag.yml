@@ -14,7 +14,8 @@ jobs:
           echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
     outputs:
       version: ${{ steps.get_version.outputs.VERSION }}
-  execution-plan-pr:
+
+  execution-plan:
     needs: generate_version
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
