@@ -1,11 +1,8 @@
 name: "Release kuberpult"
 'on':
-  # push:
-    # tags:
-      # - *
-  pull_request:
-    branches:
-      - main
+  push:
+    tags:
+      - *
 
 jobs:
   generate_version:
@@ -13,12 +10,10 @@ jobs:
     steps:
       - name: Get the version
         id: get_version
-        # run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
-        run: echo "::set-output name=VERSION::0.4.18"
+        run: |
+          echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
     outputs:
       version: ${{ steps.get_version.outputs.VERSION }}
-
-
   execution-plan-pr:
     needs: generate_version
     uses: ./.github/workflows/execution-plan-snippet.yml
@@ -44,9 +39,10 @@ jobs:
         with:
           files: |
             charts/kuberpult/kuberpult-${{ needs.generate_version.outputs.version }}.tgz
-          draft: true
           body: |
             Release ${{ needs.generate_version.outputs.version }}
           tag_name: ${{ needs.generate_version.outputs.version }}
           generate_release_notes: true
+          # Will be removed once tested
+          draft: true
           
