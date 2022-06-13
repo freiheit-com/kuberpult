@@ -33,6 +33,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+      - name: Save version
+        run: |
+          echo ${{ needs.generate_version.outputs.version }} > version
       - name: Create helm chart for release
         run: |
           make -C charts/kuberpult release-tag

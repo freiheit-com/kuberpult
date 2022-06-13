@@ -63,7 +63,7 @@ release: test $(TGZ_FILE)
 	gsutil cp $(TGZ_FILE) gs://fdc-charts
 	
 release-tag: test	$(TGZ_FILE)
-	echo "Releasing via git tag pipeline"
+	echo "Creating release via git tag pipeline"
 
 .PHONY: clean
 
