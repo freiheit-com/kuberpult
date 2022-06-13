@@ -45,7 +45,7 @@ jobs:
       - name: Set version automatically 
         if: inputs.version == ''
         run: |
-          echo "$(git describe --always --long --tags || echo 0.0.1)" > version
+          (git describe --always --long --tags || echo 0.0.1) > version
       - uses: actions/upload-artifact@v3
         name: Upload execution plan
         with:
