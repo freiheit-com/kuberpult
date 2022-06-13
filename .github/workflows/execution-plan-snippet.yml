@@ -91,10 +91,6 @@ jobs:
     runs-on: ubuntu-latest
     container: 
       image: ${{ matrix.data.image }}
-      options: --user root
-      credentials:
-        username: "_json_key"
-        password: ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
