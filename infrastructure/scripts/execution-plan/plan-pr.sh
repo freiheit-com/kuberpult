@@ -1,6 +1,7 @@
 #!/bin/bash
 set -ueo pipefail
-SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "${script_dir}"/container.inc.sh
 
 main_branch="main"
 current_branch="$(git rev-parse --abbrev-ref HEAD)"
@@ -8,4 +9,4 @@ current_branch="$(git rev-parse --abbrev-ref HEAD)"
 base="${1:-$(git merge-base "${main_branch}" "${current_branch}")}"
 head="${2:-$(git rev-parse HEAD)}"
 
-git diff --diff-filter=ACMRT --name-only "$base" "$head" | docker run -i -v "$(pwd)":/repo $($SCRIPT_DIR/container.sh) build-pr
+git diff --diff-filter=ACMRT --name-only "$base" "$head" | docker run -i -v "$(pwd)":/repo "${BUILDER_IMAGE}" build-pr
