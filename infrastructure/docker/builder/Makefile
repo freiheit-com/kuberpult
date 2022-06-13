@@ -1,4 +1,4 @@
-VERSION=0.0.1
+VERSION=$(shell cat ../../../version)
 
 include ../../../Makefile.variables
 
@@ -21,3 +21,5 @@ release:
 	docker push $(IMAGENAME)
 
 publish: login release
+	echo $(VERSION)
+	echo $(IMAGENAME)
