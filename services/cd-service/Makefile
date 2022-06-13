@@ -15,6 +15,9 @@
 
 #Copyright 2021 freiheit.com
 # NOTE: this will be replaced with the etf-golang makefile
+
+include ../../Makefile.variables
+
 MAKEFLAGS += --no-builtin-rules
 
 VERSION=$(shell cat ../../version)
@@ -22,7 +25,7 @@ export VERSION
 
 export CGO_ENABLED=1
 
-IMAGENAME?=ghcr.io/freiheit-com/kuberpult-cd-service:${VERSION}
+IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:$(VERSION)
 
 ifeq ($(WITH_DOCKER),)
 COMPILE_WITH_DOCKER := false
@@ -48,10 +51,10 @@ bin/:
 
 build: bin/main
 
-build-pr: build
+build-pr: docker
 	echo "build on pull request"
 
-build-main: build
+build-main: docker
 	echo "build on main"
 
 ifeq ($(COMPILE_WITH_DOCKER),true)
@@ -95,7 +98,11 @@ release: docker
 
 all: test docker
 
-publish:
-	echo "nothing to do"
+.PHONY: login
+login:
+	cat ../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
+
+.PHONY: publish
+publish: login release
 
 .PHONY: all release test docker clean

@@ -41,15 +41,21 @@ jobs:
       - name: Set version from tag
         if: inputs.version != ''
         run: |
-          echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+          echo "${{ inputs.version }}" > version
       - name: Set version automatically 
         if: inputs.version == ''
         run: |
-          echo "VERSION=$(git describe --always --long --tags || echo 0.0.1)" >> $GITHUB_ENV
+          (git describe --always --long --tags || echo 0.0.1) > version
       - uses: actions/upload-artifact@v3
+        name: Upload execution plan
         with:
           name: execution-plan.json
           path: artifacts/execution-plan.json
+      - uses: actions/upload-artifact@v3
+        name: Upload version
+        with:
+          name: version
+          path: version
 
   github_convertor:
     needs: execution_plan
@@ -85,15 +91,14 @@ jobs:
     runs-on: ubuntu-latest
     container: 
       image: ${{ matrix.data.image }}
-      options: --user root
-      credentials:
-        username: "_json_key"
-        password: ${{ secrets.FDC_CORE_CI_IMAGE_READER }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+      - uses: actions/download-artifact@master
+        with:
+          name: version 
       - name: Add credentials file
         run: |
           cat > credential.json << EOF
