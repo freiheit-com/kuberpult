@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.4.18
+
+**releases 2022-06-13**
+
+### Fixed
+
+* Increase Kuberpult's Cpu limit & request [#173](https://github.com/freiheit-com/kuberpult/pull/173)
+
 ## 0.4.17
 
 **releases 2022-05-31**
