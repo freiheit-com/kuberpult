@@ -21,10 +21,10 @@ cd:
     timeoutSec: 30  # 30 is the default at least on gcp. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
   resources:
     limits:
-      cpu: 1
+      cpu: 2
       memory: 2Gi
     requests:
-      cpu: 1
+      cpu: 2
       memory: 2Gi
 frontend:
   image: kuberpult-frontend-service
