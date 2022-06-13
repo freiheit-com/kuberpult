@@ -25,7 +25,7 @@ export VERSION
 
 export CGO_ENABLED=1
 
-IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:${VERSION}
+IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:$(VERSION)
 
 ifeq ($(WITH_DOCKER),)
 COMPILE_WITH_DOCKER := false
