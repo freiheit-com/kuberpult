@@ -23,10 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/cenkalti/backoff/v4"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"os"
 	"os/exec"
@@ -35,6 +31,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
@@ -45,7 +46,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v33"
 )
@@ -213,6 +214,7 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				return nil, err
 			}
 
+			// Check configuration for errors and abort early if any:
 			if _, err := state.GetEnvironmentConfigs(); err != nil {
 				return nil, err
 			}
@@ -369,7 +371,8 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		} else {
 			return err
 		}
-	}  
+	}
+
 	if err := r.Push(ctx, pushAction); err != nil {
 		gerr := err.(*git.GitError)
 		if gerr.Code == git.ErrorCodeNonFastForward {
