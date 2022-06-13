@@ -52,9 +52,11 @@ build-pr: docker
 build-main: docker
 	echo "build on main"
 
+.PHONY: login
 login:
 	cat ../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
 
+.PHONY: publish
 publish: login release
 
 start: src/api/api.ts
