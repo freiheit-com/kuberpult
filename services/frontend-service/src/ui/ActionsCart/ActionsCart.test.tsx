@@ -25,15 +25,15 @@ Spy.mockReactComponents('./CheckoutDialog', 'CheckoutCart');
 const mock_setActions = Spy('setActions');
 
 describe('Actions Cart', () => {
-    const getNode = (actions?: BatchAction[]) => {
-        const value = { actions: actions ?? [], setActions: mock_setActions };
+    const getNode = (actions: BatchAction[]) => {
+        const value = { actions: actions, setActions: mock_setActions };
         return (
             <ActionsCartContext.Provider value={value}>
                 <ActionsCart />
             </ActionsCartContext.Provider>
         );
     };
-    const getWrapper = (actions?: BatchAction[]) => render(getNode(actions));
+    const getWrapper = (actions: BatchAction[]) => render(getNode(actions));
 
     interface dataT {
         type: string;
