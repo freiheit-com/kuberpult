@@ -62,6 +62,9 @@ release: test $(TGZ_FILE)
 	@echo "Please upload $(TGZ_FILE) to the github release"
 	gsutil cp $(TGZ_FILE) gs://fdc-charts
 	
+release-tag: test	$(TGZ_FILE)
+	echo "Releasing via git tag pipeline"
+
 .PHONY: clean
 
 all: Chart.yaml values.yaml
