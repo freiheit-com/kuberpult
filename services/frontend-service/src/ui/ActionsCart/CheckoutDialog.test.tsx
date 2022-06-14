@@ -27,15 +27,15 @@ const mock_setActions = Spy('setActions');
 const doActionsSpy = Spy('doActionsSpy');
 
 describe('Checkout Dialog', () => {
-    const getNode = (actions?: BatchAction[]) => {
-        const value = { actions: actions ?? [], setActions: mock_setActions };
+    const getNode = (actions: BatchAction[]) => {
+        const value = { actions: actions, setActions: mock_setActions };
         return (
             <ActionsCartContext.Provider value={value}>
                 <CheckoutCart />
             </ActionsCartContext.Provider>
         );
     };
-    const getWrapper = (actions?: BatchAction[]) => render(getNode(actions));
+    const getWrapper = (actions: BatchAction[]) => render(getNode(actions));
 
     interface dataT {
         type: string;

@@ -57,6 +57,7 @@ describe('VersionDiff', () => {
                             version: deployedVersion,
                             locks: {},
                             queuedVersion: 0,
+                            undeployVersion: false,
                         },
                     },
                 },
@@ -66,13 +67,17 @@ describe('VersionDiff', () => {
                     name: 'demo',
                     releases: availableVersions.map((v) => ({
                         version: v,
+                        sourceCommitId: '',
+                        sourceAuthor: '',
+                        sourceMessage: '',
+                        undeployVersion: false,
                     })),
                 },
             },
         };
         const app = render(
-            <ActionsCartContext.Provider value={{ actions: [] }}>
-                <ReleaseDialog overview={overview} applicationName="demo" version={targetVersion} />
+            <ActionsCartContext.Provider value={{ actions: [], setActions: () => null }}>
+                <ReleaseDialog overview={overview} applicationName="demo" version={targetVersion} sortOrder={{}} />
             </ActionsCartContext.Provider>
         );
 
@@ -126,13 +131,17 @@ describe('QueueDiff', () => {
                     name: 'demo',
                     releases: availableVersions.map((v) => ({
                         version: v,
+                        sourceCommitId: '',
+                        sourceAuthor: '',
+                        sourceMessage: '',
+                        undeployVersion: false,
                     })),
                 },
             },
         };
         const app = render(
-            <ActionsCartContext.Provider value={{ actions: [] }}>
-                <ReleaseDialog overview={overview} applicationName="demo" version={targetVersion} />
+            <ActionsCartContext.Provider value={{ actions: [], setActions: () => null }}>
+                <ReleaseDialog overview={overview} applicationName="demo" version={targetVersion} sortOrder={{}} />
             </ActionsCartContext.Provider>
         );
 

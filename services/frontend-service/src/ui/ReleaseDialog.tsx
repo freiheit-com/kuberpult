@@ -15,10 +15,8 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { useCallback, useMemo } from 'react';
-
+import { useCallback, useMemo, VFC } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-
 import ArrowLeftIcon from '@material-ui/icons/ArrowLeft';
 import ArrowRightIcon from '@material-ui/icons/ArrowRight';
 import BlockIcon from '@material-ui/icons/Block';
@@ -345,13 +343,12 @@ export const ReleaseLockButton = (props: {
     );
 };
 
-const ReleaseEnvironment = (props: {
+const ReleaseEnvironment: VFC<{
     overview: GetOverviewResponse;
     applicationName: string;
     version: number; // the version we are currently looking at (not the version that is deployed)
     environmentName: string;
-}) => {
-    const { overview, applicationName, version, environmentName } = props;
+}> = ({ overview, applicationName, version, environmentName }) => {
     // deploy
     const act: BatchAction = useMemo(
         () => ({
@@ -613,7 +610,7 @@ const ReleaseDialog = (props: {
     );
 
     return (
-        <Dialog open fullWidth={true} maxWidth="lg">
+        <Dialog open={true} fullWidth={true} maxWidth="lg">
             <DialogTitle className={classes.title}>
                 <IconButton onClick={nextDialog} className="arrowNext" disabled={!hasNextRelease}>
                     <ArrowLeftIcon />
