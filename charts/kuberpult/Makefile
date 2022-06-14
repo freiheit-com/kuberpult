@@ -62,7 +62,7 @@ release: test $(TGZ_FILE)
 	@echo "Please upload $(TGZ_FILE) to the github release"
 	gsutil cp $(TGZ_FILE) gs://fdc-charts
 	
-release-tag: test	$(TGZ_FILE)
+release-tag: test $(TGZ_FILE)
 	echo "Creating release via git tag pipeline"
 
 .PHONY: clean

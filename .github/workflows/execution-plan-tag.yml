@@ -16,7 +16,6 @@ jobs:
 
   execution-plan:
     needs: generate_version
-    if: false
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
       trigger: main
