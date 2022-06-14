@@ -1,3 +1,4 @@
+# This workflow creates a new release in github, when a tag is pushed.
 name: "Release kuberpult"
 'on':
   push:
