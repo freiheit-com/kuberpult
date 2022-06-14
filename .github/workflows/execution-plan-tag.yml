@@ -44,6 +44,5 @@ jobs:
             Release ${{ needs.generate_version.outputs.version }}
           tag_name: ${{ needs.generate_version.outputs.version }}
           generate_release_notes: true
-          # Will be removed once tested
           draft: true
           
