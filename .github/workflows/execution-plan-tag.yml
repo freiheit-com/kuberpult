@@ -34,11 +34,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-      - run: |
-          ls
-          pwd
-          ls .github
-          ls .github/actions
       - name: Save version
         run: |
           echo ${{ needs.generate_version.outputs.version }} > version
@@ -46,7 +41,7 @@ jobs:
         run: |
           make -C charts/kuberpult release-tag
       - name: Release
-        uses: ./.github/actions/softprops-actions-gh-release
+        uses: ./.github/actions/softprops-action-gh-release
         with:
           files: |
             charts/kuberpult/kuberpult-${{ needs.generate_version.outputs.version }}.tgz
