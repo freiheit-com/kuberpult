@@ -28,7 +28,8 @@ jobs:
     secrets: inherit
 
   release:
-    needs: [generate_version, execution-plan]
+    needs: [generate_version]
+    # needs: [generate_version, execution-plan]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
