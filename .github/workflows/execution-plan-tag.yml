@@ -45,7 +45,7 @@ jobs:
         run: |
           make -C charts/kuberpult release-tag
       - name: Release
-        uses: ./.github/actions/softprops-actions-gh-release
+        uses: ../.github/actions/softprops-actions-gh-release
         with:
           files: |
             charts/kuberpult/kuberpult-${{ needs.generate_version.outputs.version }}.tgz
