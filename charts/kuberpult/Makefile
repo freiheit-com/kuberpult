@@ -58,10 +58,6 @@ clean:
 	rm -f Chart.yaml values.yaml
 	rm -f kuberpult-*.tgz
 
-release: test $(TGZ_FILE)
-	@echo "Please upload $(TGZ_FILE) to the github release"
-	gsutil cp $(TGZ_FILE) gs://fdc-charts
-	
 release-tag: test $(TGZ_FILE)
 	echo "Creating release via git tag pipeline"
 
