@@ -1,5 +1,18 @@
 # Change Log
 
+## 0.4.19
+
+**releases 2022-06-14**
+
+### Added
+
+* Release on tag creation  [#172](https://github.com/freiheit-com/kuberpult/pull/172)
+* Increase default loadbalancer timeout to 300 [#183](https://github.com/freiheit-com/kuberpult/pull/183)
+
+### Fixed
+
+* Increase Kuberpult's memory limit & request [#182](https://github.com/freiheit-com/kuberpult/pull/182)
+
 ## 0.4.18
 
 **releases 2022-06-13**
