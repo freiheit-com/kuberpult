@@ -2,7 +2,7 @@ name: "Execution Plan on main"
 'on':
   push:
     tags-ignore:
-      - "*"
+      - "**"
     branches:
       - main
 jobs:
