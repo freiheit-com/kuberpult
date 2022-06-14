@@ -125,7 +125,6 @@ const SyncWindowsWarning: VFC<{
             }
         case 'rejected':
             return (
-                // FIXME: Where should we display this type of "global" error?
                 <Alert variant="outlined" sx={{ m: 1 }} severity="error">
                     <AlertTitle>Error retrieving sync window information!</AlertTitle>
                     <p>{overview.error}</p>
