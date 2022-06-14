@@ -20,6 +20,7 @@ jobs:
 
   execution-plan:
     needs: generate_version
+    if: false
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
       trigger: main
@@ -32,6 +33,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+      - run: |
+          ls
+          ls .github
+          ls .github/actions
       - name: Save version
         run: |
           echo ${{ needs.generate_version.outputs.version }} > version
