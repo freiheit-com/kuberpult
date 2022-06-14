@@ -148,7 +148,9 @@ func (o *OverviewServiceServer) getOverview(
 						if syncWindows, err := transformSyncWindows(config.ArgoCd.SyncWindows, appName); err != nil {
 							return nil, err
 						} else {
-							app.SyncWindows = syncWindows
+							app.ArgoCD = &api.Environment_Application_ArgoCD{
+								SyncWindows: syncWindows,
+							}
 						}
 					}
 
@@ -282,14 +284,14 @@ func transformCommit(commit *git.Commit) *api.Commit {
 	}
 }
 
-func transformSyncWindows(syncWindows []config.ArgoCdSyncWindow, appName string) ([]*api.Environment_Application_SyncWindow, error) {
-	var envAppSyncWindows []*api.Environment_Application_SyncWindow
+func transformSyncWindows(syncWindows []config.ArgoCdSyncWindow, appName string) ([]*api.Environment_Application_ArgoCD_SyncWindow, error) {
+	var envAppSyncWindows []*api.Environment_Application_ArgoCD_SyncWindow
 	for _, syncWindow := range syncWindows {
 		for _, pattern := range syncWindow.Apps {
 			if match, err := filepath.Match(pattern, appName); err != nil {
 				return nil, fmt.Errorf("failed to match app pattern %s of sync window to %s at %s with duration %s: %w", pattern, syncWindow.Kind, syncWindow.Schedule, syncWindow.Duration, err)
 			} else if match {
-				envAppSyncWindows = append(envAppSyncWindows, &api.Environment_Application_SyncWindow{
+				envAppSyncWindows = append(envAppSyncWindows, &api.Environment_Application_ArgoCD_SyncWindow{
 					Kind:     syncWindow.Kind,
 					Schedule: syncWindow.Schedule,
 					Duration: syncWindow.Duration,

@@ -59,7 +59,6 @@ describe('VersionDiff', () => {
                             locks: {},
                             queuedVersion: 0,
                             undeployVersion: false,
-                            syncWindows: [],
                         },
                     },
                 },
@@ -192,7 +191,6 @@ describe('QueueDiff', () => {
                             locks: {},
                             version: 1,
                             undeployVersion: false,
-                            syncWindows: [],
                         },
                     },
                 },
@@ -224,13 +222,20 @@ describe('QueueDiff', () => {
 describe('ReleaseDialog', () => {
     describe.each([
         {
-            syncWindows: [],
+            argoCD: undefined,
         },
         {
-            syncWindows: [{ kind: 'allow', schedule: '* * * * *', duration: '0s' }],
+            argoCD: {
+                syncWindows: [],
+            },
         },
-    ])('renders warnings', ({ syncWindows }) => {
-        it(`for ${syncWindows.length} sync windows`, () => {
+        {
+            argoCD: {
+                syncWindows: [{ kind: 'allow', schedule: '* * * * *', duration: '0s' }],
+            },
+        },
+    ])('renders warnings', ({ argoCD }) => {
+        it(`for ${argoCD?.syncWindows.length ?? 'undefined'} sync windows`, () => {
             const overview = {
                 environments: {
                     development: {
@@ -243,7 +248,7 @@ describe('ReleaseDialog', () => {
                                 locks: {},
                                 queuedVersion: 1,
                                 undeployVersion: false,
-                                syncWindows: syncWindows,
+                                argoCD,
                             },
                         },
                     },
@@ -271,7 +276,7 @@ describe('ReleaseDialog', () => {
             );
 
             const syncWindowElements = document.querySelectorAll('.syncWindow');
-            expect(syncWindowElements).toHaveLength(syncWindows.length);
+            expect(syncWindowElements).toHaveLength(argoCD?.syncWindows.length ?? 0);
         });
     });
 });

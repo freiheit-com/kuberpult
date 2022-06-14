@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { BatchAction, Environment_Application_SyncWindow, Lock } from '../api/api';
+import { BatchAction, Environment_Application_ArgoCD_SyncWindow, Lock } from '../api/api';
 import * as React from 'react';
 import { Button, Dialog, DialogTitle, IconButton, Typography, Snackbar, Alert, AlertTitle } from '@material-ui/core';
 import { useCallback, useContext } from 'react';
@@ -96,7 +96,7 @@ export interface ConfirmationDialogProviderProps {
     locks?: [string, Lock][];
     undeployedUpstream?: string;
     fin?: () => void;
-    syncWindows?: Environment_Application_SyncWindow[];
+    syncWindows?: Environment_Application_ArgoCD_SyncWindow[];
 }
 
 export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProps) => {

@@ -17,7 +17,7 @@ Copyright 2021 freiheit.com*/
 import React from 'react';
 import { act, fireEvent, getByText, render } from '@testing-library/react';
 import { Spy } from 'spy4js';
-import { BatchAction, Environment_Application_SyncWindow, LockBehavior } from '../../api/api';
+import { BatchAction, Environment_Application_ArgoCD, LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
 import { callbacks, CheckoutCart } from './CheckoutDialog';
 import { Context } from '../Api';
@@ -31,12 +31,12 @@ const doActionsSpy = Spy('doActionsSpy');
 describe('Checkout Dialog', () => {
     const getNode = (
         actions: BatchAction[],
-        syncWindows: Environment_Application_SyncWindow[],
-        getOverviewState: 'pending' | 'resolved' | 'rejected'
+        getOverviewState?: 'pending' | 'resolved' | 'rejected',
+        argoCD?: Environment_Application_ArgoCD
     ) => {
         const value = { actions: actions, setActions: mock_setActions };
         return (
-            <Context.Provider value={makeApiMock(actions, syncWindows, getOverviewState)}>
+            <Context.Provider value={makeApiMock(actions, getOverviewState, argoCD)}>
                 <ActionsCartContext.Provider value={value}>
                     <CheckoutCart />
                 </ActionsCartContext.Provider>
@@ -45,9 +45,9 @@ describe('Checkout Dialog', () => {
     };
     const getWrapper = (
         actions: BatchAction[],
-        syncWindows: Environment_Application_SyncWindow[],
-        getOverviewState: 'pending' | 'resolved' | 'rejected'
-    ) => render(getNode(actions, syncWindows, getOverviewState));
+        getOverviewState?: 'pending' | 'resolved' | 'rejected',
+        argoCD?: Environment_Application_ArgoCD
+    ) => render(getNode(actions, getOverviewState, argoCD));
 
     interface dataT {
         type: string;
@@ -104,7 +104,7 @@ describe('Checkout Dialog', () => {
             // given
             mock_useBatch.useBatch.returns([doActionsSpy, { state: 'waiting' }]);
 
-            const { container } = getWrapper(testcase.cart, [], 'resolved');
+            const { container } = getWrapper(testcase.cart);
             await act(global.nextTick);
 
             const applyButton = getByText(container, /apply/i).closest('button');
@@ -138,7 +138,7 @@ describe('Checkout Dialog', () => {
 
     describe.each([
         {
-            type: 'Without sync windows but request pending',
+            type: 'Request pending',
             cart: [
                 {
                     action: {
@@ -154,13 +154,13 @@ describe('Checkout Dialog', () => {
                 },
             ],
             state: 'pending' as const,
-            syncWindows: [],
+            argoCD: undefined,
             wantSpinner: true,
             wantWarning: false,
             wantError: false,
         },
         {
-            type: 'Without sync windows and request resolved',
+            type: 'Request resolved, sync windows missing entirely (backward compat)',
             cart: [
                 {
                     action: {
@@ -176,13 +176,13 @@ describe('Checkout Dialog', () => {
                 },
             ],
             state: 'resolved' as const,
-            syncWindows: [],
+            argoCD: undefined,
             wantSpinner: false,
             wantWarning: false,
             wantError: false,
         },
         {
-            type: 'With sync windows and request resolved',
+            type: 'Request resolved, without sync windows',
             cart: [
                 {
                     action: {
@@ -198,13 +198,35 @@ describe('Checkout Dialog', () => {
                 },
             ],
             state: 'resolved' as const,
-            syncWindows: [{ kind: 'allow', schedule: '* * * * *', duration: '0s' }],
+            argoCD: { syncWindows: [] },
+            wantSpinner: false,
+            wantWarning: false,
+            wantError: false,
+        },
+        {
+            type: 'Request resolved, with sync windows',
+            cart: [
+                {
+                    action: {
+                        $case: 'deploy' as const,
+                        deploy: {
+                            application: 'test application',
+                            environment: 'test environment',
+                            version: 0,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.UNRECOGNIZED,
+                        },
+                    },
+                },
+            ],
+            state: 'resolved' as const,
+            argoCD: { syncWindows: [{ kind: 'allow', schedule: '* * * * *', duration: '0s' }] },
             wantSpinner: false,
             wantWarning: true,
             wantError: false,
         },
         {
-            type: 'Without sync windows and request failed',
+            type: 'Request failed',
             cart: [
                 {
                     action: {
@@ -220,7 +242,7 @@ describe('Checkout Dialog', () => {
                 },
             ],
             state: 'rejected' as const,
-            syncWindows: [],
+            argoCD: undefined,
             wantSpinner: false,
             wantWarning: false,
             wantError: true,
@@ -228,7 +250,7 @@ describe('Checkout Dialog', () => {
     ])(`Checkout and sync window behaviour`, (testcase) => {
         it(`${testcase.type}`, async () => {
             // given
-            const { container } = getWrapper(testcase.cart, testcase.syncWindows, testcase.state);
+            const { container } = getWrapper(testcase.cart, testcase.state, testcase.argoCD);
             await act(global.nextTick);
 
             // then

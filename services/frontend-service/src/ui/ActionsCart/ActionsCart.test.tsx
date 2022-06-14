@@ -30,7 +30,7 @@ describe('Actions Cart', () => {
     const getNode = (actions: BatchAction[]) => {
         const value = { actions: actions, setActions: mock_setActions };
         return (
-            <Context.Provider value={makeApiMock(actions ?? [], [], 'pending')}>
+            <Context.Provider value={makeApiMock(actions ?? [])}>
                 <ActionsCartContext.Provider value={value}>
                     <ActionsCart />
                 </ActionsCartContext.Provider>

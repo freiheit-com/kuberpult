@@ -40,7 +40,7 @@ import { useUnaryCallback } from './Api';
 import type {
     Application,
     BatchAction,
-    Environment_Application_SyncWindow,
+    Environment_Application_ArgoCD_SyncWindow,
     GetOverviewResponse,
     Lock,
     Release,
@@ -371,7 +371,7 @@ const ReleaseEnvironment: VFC<{
     applicationName: string;
     version: number; // the version we are currently looking at (not the version that is deployed)
     environmentName: string;
-    syncWindows: Environment_Application_SyncWindow[];
+    syncWindows?: Environment_Application_ArgoCD_SyncWindow[];
 }> = ({ overview, applicationName, version, environmentName, syncWindows }) => {
     // deploy
     const act: BatchAction = useMemo(
@@ -517,7 +517,7 @@ const ReleaseEnvironment: VFC<{
 };
 
 export const SyncWindow: VFC<{
-    w: Environment_Application_SyncWindow;
+    w: Environment_Application_ArgoCD_SyncWindow;
 }> = ({ w }) => (
     <div className={'syncWindow ' + w.kind}>
         {w.kind} sync at {w.schedule} for {w.duration}
@@ -698,7 +698,7 @@ const ReleaseDialog = (props: {
                             environmentName={env.name}
                             version={version}
                             overview={overview}
-                            syncWindows={env.applications[applicationName].syncWindows}
+                            syncWindows={env.applications[applicationName].argoCD?.syncWindows}
                         />
                     </Grid>
                 ))}

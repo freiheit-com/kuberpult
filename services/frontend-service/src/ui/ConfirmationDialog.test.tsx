@@ -338,6 +338,7 @@ describe('Confirmation Dialog Provider', () => {
     });
 
     describe.each([
+        { type: 'Sync windows missing entirely', syncWindows: undefined, wantWarning: false },
         { type: 'Without sync windows', syncWindows: [], wantWarning: false },
         {
             type: 'With sync windows',
@@ -366,7 +367,7 @@ describe('Confirmation Dialog Provider', () => {
             }
 
             const syncWindowElements = document.querySelectorAll('.syncWindow');
-            expect(syncWindowElements).toHaveLength(syncWindows.length);
+            expect(syncWindowElements).toHaveLength(syncWindows?.length ?? 0);
         });
     });
 });

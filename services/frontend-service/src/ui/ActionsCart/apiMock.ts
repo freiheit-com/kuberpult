@@ -19,7 +19,7 @@ import {
     BatchService,
     DeepPartial,
     DeployService,
-    Environment_Application_SyncWindow,
+    Environment_Application_ArgoCD,
     GetOverviewRequest,
     GetOverviewResponse,
     LockService,
@@ -29,7 +29,7 @@ import { Observable } from 'rxjs';
 
 const mockGetOverviewResponseForActions = (
     actions: BatchAction[],
-    syncWindows: Environment_Application_SyncWindow[]
+    argoCD?: Environment_Application_ArgoCD
 ): GetOverviewResponse =>
     actions.reduce((response, action) => {
         switch (action.action?.$case) {
@@ -51,7 +51,7 @@ const mockGetOverviewResponseForActions = (
                                     locks: {},
                                     queuedVersion: 0,
                                     undeployVersion: false,
-                                    syncWindows: syncWindows,
+                                    argoCD,
                                 },
                             },
                         },
@@ -63,10 +63,10 @@ const mockGetOverviewResponseForActions = (
     }, {} as GetOverviewResponse);
 export const makeApiMock = (
     actions: BatchAction[],
-    syncWindows: Environment_Application_SyncWindow[],
-    getOverviewState: 'pending' | 'resolved' | 'rejected'
+    getOverviewState: 'pending' | 'resolved' | 'rejected' = 'pending',
+    argoCD?: Environment_Application_ArgoCD
 ) => {
-    const getOverviewResponse = mockGetOverviewResponseForActions(actions, syncWindows);
+    const getOverviewResponse = mockGetOverviewResponseForActions(actions, argoCD);
     return {
         overviewService(): OverviewService {
             return {
