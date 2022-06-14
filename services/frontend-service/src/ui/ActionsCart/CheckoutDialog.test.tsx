@@ -20,7 +20,7 @@ import { Spy } from 'spy4js';
 import { BatchAction, Environment_Application_ArgoCD, LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
 import { callbacks, CheckoutCart } from './CheckoutDialog';
-import { Context } from '../Api';
+import { Context, StateOfUnaryState } from '../Api';
 import { makeApiMock } from './apiMock';
 
 const mock_useBatch = Spy.mock(callbacks, 'useBatch');
@@ -31,7 +31,7 @@ const doActionsSpy = Spy('doActionsSpy');
 describe('Checkout Dialog', () => {
     const getNode = (
         actions: BatchAction[],
-        getOverviewState?: 'pending' | 'resolved' | 'rejected',
+        getOverviewState?: StateOfUnaryState,
         argoCD?: Environment_Application_ArgoCD
     ) => {
         const value = { actions: actions, setActions: mock_setActions };
@@ -45,7 +45,7 @@ describe('Checkout Dialog', () => {
     };
     const getWrapper = (
         actions: BatchAction[],
-        getOverviewState?: 'pending' | 'resolved' | 'rejected',
+        getOverviewState?: StateOfUnaryState,
         argoCD?: Environment_Application_ArgoCD
     ) => render(getNode(actions, getOverviewState, argoCD));
 

@@ -26,6 +26,7 @@ import {
     OverviewService,
 } from '../../api/api';
 import { Observable } from 'rxjs';
+import { StateOfUnaryState } from '../Api';
 
 const mockGetOverviewResponseForActions = (
     actions: BatchAction[],
@@ -63,7 +64,7 @@ const mockGetOverviewResponseForActions = (
     }, {} as GetOverviewResponse);
 export const makeApiMock = (
     actions: BatchAction[],
-    getOverviewState: 'pending' | 'resolved' | 'rejected' = 'pending',
+    getOverviewState: StateOfUnaryState = 'pending',
     argoCD?: Environment_Application_ArgoCD
 ) => {
     const getOverviewResponse = mockGetOverviewResponseForActions(actions, argoCD);
