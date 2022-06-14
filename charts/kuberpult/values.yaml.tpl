@@ -22,10 +22,10 @@ cd:
   resources:
     limits:
       cpu: 2
-      memory: 2Gi
+      memory: 3Gi
     requests:
       cpu: 2
-      memory: 2Gi
+      memory: 3Gi
 frontend:
   image: kuberpult-frontend-service
   resources:
