@@ -153,13 +153,16 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
 
     const undeployedUpstreamMessage = undeployedUpstream ? (
         <Alert variant="outlined" sx={{ m: 1 }} severity="info">
-            <AlertTitle>Warning: Not deployed to {undeployedUpstream} yet!</AlertTitle>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-                <strong>This version is not yet deployed to {undeployedUpstream} environment.</strong>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-                <strong>Your changes will be overridden by the next release train.</strong>
-            </div>
+            <AlertTitle>Warning: Not deployed to "{undeployedUpstream}" yet!</AlertTitle>
+            {[
+                `This version is not yet deployed to "${undeployedUpstream}" environment.`,
+                'Your changes will be overridden by the next release train.',
+                `We suggest to first deploy this version to the "${undeployedUpstream}" environment.`,
+            ].map((line, id) => (
+                <div style={{ display: 'flex', alignItems: 'center' }} key={id}>
+                    <strong>{line}</strong>
+                </div>
+            ))}
         </Alert>
     ) : null;
 
