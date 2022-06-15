@@ -349,11 +349,11 @@ const getUndeployedUpstream = (
     applicationName: string,
     version: number
 ): string => {
-    let upstreamEnv = (environments[environmentName]?.config?.upstream?.upstream as any).environment;
+    let upstreamEnv = (environments[environmentName]?.config?.upstream?.upstream as any)?.environment;
     while (upstreamEnv !== undefined) {
         const upstreamVersion = environments[upstreamEnv].applications[applicationName]?.version;
         if (upstreamVersion < version) return upstreamEnv;
-        upstreamEnv = (environments[upstreamEnv]?.config?.upstream?.upstream as any).environment;
+        upstreamEnv = (environments[upstreamEnv]?.config?.upstream?.upstream as any)?.environment;
     }
     return '';
 };
