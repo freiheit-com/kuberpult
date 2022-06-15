@@ -247,7 +247,7 @@ describe('Confirmation Dialog Provider', () => {
         {
             type: 'Deploy Action With Undeployed Upstream Warning',
             act: sampleDeployActionOtherApplication,
-            undeployedUpstream: "staging",
+            undeployedUpstream: 'staging',
             expect: {
                 conflict: new Set(),
                 title: 'Are you sure you want to deploy this version?',
