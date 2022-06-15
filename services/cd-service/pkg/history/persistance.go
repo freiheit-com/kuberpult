@@ -28,10 +28,6 @@ func writeIndex(h *History,parent *git.Commit, out io.Writer) error {
 		}
 	}
 	// 2: serialize the index
-	_, err := fmt.Fprintf(out, "v1 %x\n", *current.Id())
-	if err != nil {
-		return err
-	}
 	return writeEntry(out, "", entry)
 }
 

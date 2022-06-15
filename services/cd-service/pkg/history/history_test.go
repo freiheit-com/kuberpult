@@ -309,19 +309,10 @@ func TestHistory(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if buf.String() == "" {
+					if buf.String() == "" || buf.String() == "\n" {
 						t.Errorf("expectetd non empty string at index %d", i)
 					}
 					lines := strings.Split(buf.String(), "\n")
-					// validate the header
-					expectedHeader := "v1 " + c.Id().String()
-					if lines[0] != expectedHeader {
-						t.Errorf("expected history header to be %q but got %q", expectedHeader, lines[0])
-					}
-					lines = lines[1:]
-					if lines[len(lines)-1] == "" {
-						lines = lines[0 : len(lines)-2]
-					}
 					for j, line := range lines[1:] {
 						parts := strings.SplitN(line, " ", 2)
 						name := ""
