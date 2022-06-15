@@ -143,7 +143,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         } else {
             addAction();
         }
-    }, [setDialogOpen, addAction, locks, conflicts]);
+    }, [setDialogOpen, addAction, locks, conflicts, undeployedUpstream]);
 
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
@@ -158,7 +158,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 <strong>This version is not yet deployed to {undeployedUpstream} environment.</strong>
             </div>
             <div style={{ display: 'flex', alignItems: 'center' }}>
-                <strong>Your changes will be overridden by the next release train</strong>
+                <strong>Your changes will be overridden by the next release train.</strong>
             </div>
         </Alert>
     ) : null;
