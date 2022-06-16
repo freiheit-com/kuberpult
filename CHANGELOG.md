@@ -1,5 +1,9 @@
 # Change Log
 
+## Unreleased
+### Added
+* Customize annotations on the kuberpult ingress [#191](https://github.com/freiheit-com/kuberpult/pull/191)
+
 ## 0.4.20
 **releases 2022-06-16**
 
