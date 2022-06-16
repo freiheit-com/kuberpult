@@ -169,6 +169,7 @@ describe('Confirmation Dialog Provider', () => {
         type: string;
         act: BatchAction;
         fin?: () => void;
+        undeployedUpstream?: string;
         locks?: [string, Lock][];
         expect: {
             conflict: Set<BatchAction>;
@@ -240,6 +241,15 @@ describe('Confirmation Dialog Provider', () => {
             locks: [['id_1234', { lockId: 'id_1234', message: 'random lock message' }]],
             expect: {
                 conflict: new Set([sampleDeployActionOtherVersion]),
+                title: 'Are you sure you want to deploy this version?',
+            },
+        },
+        {
+            type: 'Deploy Action With Undeployed Upstream Warning',
+            act: sampleDeployActionOtherApplication,
+            undeployedUpstream: 'staging',
+            expect: {
+                conflict: new Set(),
                 title: 'Are you sure you want to deploy this version?',
             },
         },

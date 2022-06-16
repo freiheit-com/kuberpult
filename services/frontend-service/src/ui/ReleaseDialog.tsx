@@ -37,7 +37,7 @@ import Typography from '@material-ui/core/Typography';
 
 import { useUnaryCallback } from './Api';
 
-import type { Application, BatchAction, GetOverviewResponse, Lock, Release } from '../api/api';
+import type { Application, BatchAction, GetOverviewResponse, Lock, Release, Environment } from '../api/api';
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
@@ -343,6 +343,21 @@ export const ReleaseLockButton = (props: {
     );
 };
 
+export const getUndeployedUpstream = (
+    environments: { [key: string]: Environment },
+    environmentName: string,
+    applicationName: string,
+    version: number
+): string => {
+    let upstreamEnv = (environments[environmentName]?.config?.upstream?.upstream as any)?.environment;
+    while (upstreamEnv !== undefined) {
+        const upstreamVersion = environments[upstreamEnv]?.applications[applicationName]?.version;
+        if (upstreamVersion < version) return upstreamEnv;
+        upstreamEnv = (environments[upstreamEnv]?.config?.upstream?.upstream as any)?.environment;
+    }
+    return '';
+};
+
 const ReleaseEnvironment: VFC<{
     overview: GetOverviewResponse;
     applicationName: string;
@@ -384,9 +399,13 @@ const ReleaseEnvironment: VFC<{
     const envLocks = Object.entries(overview.environments[environmentName].locks ?? {});
     const appLocks = Object.entries(overview.environments[environmentName]?.applications[applicationName]?.locks ?? {});
     const locked = envLocks.length > 0 || appLocks.length > 0;
+    const undeployedUpstream = getUndeployedUpstream(overview.environments, environmentName, applicationName, version);
 
     const button = (
-        <ConfirmationDialogProvider action={act} locks={[...envLocks, ...appLocks]}>
+        <ConfirmationDialogProvider
+            action={act}
+            locks={[...envLocks, ...appLocks]}
+            undeployedUpstream={undeployedUpstream}>
             <DeployButton
                 currentlyDeployedVersion={currentlyDeployedVersion}
                 version={version}

@@ -93,11 +93,12 @@ export interface ConfirmationDialogProviderProps {
     children: React.ReactElement;
     action: BatchAction;
     locks?: [string, Lock][];
+    undeployedUpstream?: string;
     fin?: () => void;
 }
 
 export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProps) => {
-    const { action, locks, fin } = props;
+    const { action, locks, fin, undeployedUpstream } = props;
     const [openNotify, setOpenNotify] = React.useState(false);
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const { actions, setActions } = useContext(ActionsCartContext);
@@ -137,18 +138,33 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
     }, [fin, closeDialog, openNotification, action, actions, setActions, conflicts]);
 
     const handleAddToCart = useCallback(() => {
-        if (conflicts.size || locks?.length) {
+        if (conflicts.size || locks?.length || undeployedUpstream) {
             setDialogOpen(true);
         } else {
             addAction();
         }
-    }, [setDialogOpen, addAction, locks, conflicts]);
+    }, [setDialogOpen, addAction, locks, conflicts, undeployedUpstream]);
 
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
             <Close fontSize="small" />
         </IconButton>
     );
+
+    const undeployedUpstreamMessage = undeployedUpstream ? (
+        <Alert variant="outlined" sx={{ m: 1 }} severity="info">
+            <AlertTitle>Warning: Not deployed to "{undeployedUpstream}" yet!</AlertTitle>
+            {[
+                `This version is not yet deployed to "${undeployedUpstream}" environment.`,
+                'Your changes will be overridden by the next release train.',
+                `We suggest to first deploy this version to the "${undeployedUpstream}" environment.`,
+            ].map((line, id) => (
+                <div style={{ display: 'flex', alignItems: 'center' }} key={id}>
+                    <strong>{line}</strong>
+                </div>
+            ))}
+        </Alert>
+    ) : null;
 
     const deployLocks = locks?.length ? (
         <Alert variant="outlined" sx={{ m: 1 }} severity="info">
@@ -193,6 +209,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 </DialogTitle>
                 <div style={{ margin: '16px 24px' }}>{GetActionDetails(action).description}</div>
                 {deployLocks}
+                {undeployedUpstreamMessage}
                 {conflictMessage}
                 <span style={{ alignSelf: 'end' }}>
                     <Button onClick={closeDialog}>Cancel</Button>
