@@ -156,7 +156,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
             <AlertTitle>Warning: Not deployed to "{undeployedUpstream}" yet!</AlertTitle>
             {[
                 `This version is not yet deployed to "${undeployedUpstream}" environment.`,
-                'Your changes may be overridden by the next release train.',
+                'Your changes will be overridden by the next release train.',
                 `We suggest to first deploy this version to the "${undeployedUpstream}" environment.`,
             ].map((line, id) => (
                 <div style={{ display: 'flex', alignItems: 'center' }} key={id}>
