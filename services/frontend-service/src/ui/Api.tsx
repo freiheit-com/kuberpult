@@ -81,7 +81,6 @@ resolved = resolved succesfully
 rejected = resolved with an error
 */
 export type UnaryState<T> = { result: T; state: 'resolved' } | { error: any; state: 'rejected' } | { state: 'pending' };
-export type StateOfUnaryState = UnaryState<any>['state'];
 
 export function useUnary<T>(callback: (api: Api) => Promise<T>): UnaryState<T> {
     const api = React.useContext(Context);

@@ -20,8 +20,7 @@ import { Spy } from 'spy4js';
 import { BatchAction, Environment_Application_ArgoCD, LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
 import { callbacks, CheckoutCart } from './CheckoutDialog';
-import { Context, StateOfUnaryState } from '../Api';
-import { makeApiMock } from './apiMock';
+import { mockGetOverviewResponseForActions } from './apiMock';
 
 const mock_useBatch = Spy.mock(callbacks, 'useBatch');
 
@@ -29,25 +28,16 @@ const mock_setActions = Spy('setActions');
 const doActionsSpy = Spy('doActionsSpy');
 
 describe('Checkout Dialog', () => {
-    const getNode = (
-        actions: BatchAction[],
-        getOverviewState?: StateOfUnaryState,
-        argoCD?: Environment_Application_ArgoCD
-    ) => {
+    const getNode = (actions: BatchAction[], argoCD?: Environment_Application_ArgoCD) => {
         const value = { actions: actions, setActions: mock_setActions };
         return (
-            <Context.Provider value={makeApiMock(actions, getOverviewState, argoCD)}>
-                <ActionsCartContext.Provider value={value}>
-                    <CheckoutCart />
-                </ActionsCartContext.Provider>
-            </Context.Provider>
+            <ActionsCartContext.Provider value={value}>
+                <CheckoutCart overview={mockGetOverviewResponseForActions(actions, argoCD)} />
+            </ActionsCartContext.Provider>
         );
     };
-    const getWrapper = (
-        actions: BatchAction[],
-        getOverviewState?: StateOfUnaryState,
-        argoCD?: Environment_Application_ArgoCD
-    ) => render(getNode(actions, getOverviewState, argoCD));
+    const getWrapper = (actions: BatchAction[], argoCD?: Environment_Application_ArgoCD) =>
+        render(getNode(actions, argoCD));
 
     interface dataT {
         type: string;
@@ -100,12 +90,10 @@ describe('Checkout Dialog', () => {
     ];
 
     describe.each(data)(`Checkout with`, (testcase: dataT) => {
-        it(`${testcase.type}`, async () => {
+        it(`${testcase.type}`, () => {
             // given
             mock_useBatch.useBatch.returns([doActionsSpy, { state: 'waiting' }]);
-
             const { container } = getWrapper(testcase.cart);
-            await act(global.nextTick);
 
             const applyButton = getByText(container, /apply/i).closest('button');
             if (testcase.cart.length === 0) {
@@ -138,7 +126,7 @@ describe('Checkout Dialog', () => {
 
     describe.each([
         {
-            type: 'Request pending',
+            type: 'Sync windows missing entirely (backward compat)',
             cart: [
                 {
                     action: {
@@ -153,14 +141,11 @@ describe('Checkout Dialog', () => {
                     },
                 },
             ],
-            state: 'pending' as const,
             argoCD: undefined,
-            wantSpinner: true,
             wantWarning: false,
-            wantError: false,
         },
         {
-            type: 'Request resolved, sync windows missing entirely (backward compat)',
+            type: 'Without sync windows',
             cart: [
                 {
                     action: {
@@ -175,36 +160,11 @@ describe('Checkout Dialog', () => {
                     },
                 },
             ],
-            state: 'resolved' as const,
-            argoCD: undefined,
-            wantSpinner: false,
-            wantWarning: false,
-            wantError: false,
-        },
-        {
-            type: 'Request resolved, without sync windows',
-            cart: [
-                {
-                    action: {
-                        $case: 'deploy' as const,
-                        deploy: {
-                            application: 'test application',
-                            environment: 'test environment',
-                            version: 0,
-                            ignoreAllLocks: false,
-                            lockBehavior: LockBehavior.UNRECOGNIZED,
-                        },
-                    },
-                },
-            ],
-            state: 'resolved' as const,
             argoCD: { syncWindows: [] },
-            wantSpinner: false,
             wantWarning: false,
-            wantError: false,
         },
         {
-            type: 'Request resolved, with sync windows',
+            type: 'With sync windows',
             cart: [
                 {
                     action: {
@@ -219,60 +179,20 @@ describe('Checkout Dialog', () => {
                     },
                 },
             ],
-            state: 'resolved' as const,
             argoCD: { syncWindows: [{ kind: 'allow', schedule: '* * * * *', duration: '0s' }] },
-            wantSpinner: false,
             wantWarning: true,
-            wantError: false,
-        },
-        {
-            type: 'Request failed',
-            cart: [
-                {
-                    action: {
-                        $case: 'deploy' as const,
-                        deploy: {
-                            application: 'test application',
-                            environment: 'test environment',
-                            version: 0,
-                            ignoreAllLocks: false,
-                            lockBehavior: LockBehavior.UNRECOGNIZED,
-                        },
-                    },
-                },
-            ],
-            state: 'rejected' as const,
-            argoCD: undefined,
-            wantSpinner: false,
-            wantWarning: false,
-            wantError: true,
         },
     ])(`Checkout and sync window behaviour`, (testcase) => {
-        it(`${testcase.type}`, async () => {
+        it(`${testcase.type}`, () => {
             // given
-            const { container } = getWrapper(testcase.cart, testcase.state, testcase.argoCD);
-            await act(global.nextTick);
+            const { container } = getWrapper(testcase.cart, testcase.argoCD);
 
             // then
-            const spinner = container.querySelector('.MuiCircularProgress-root');
-            if (testcase.wantSpinner) {
-                expect(spinner).toBeInTheDocument();
-            } else {
-                expect(spinner).not.toBeInTheDocument();
-            }
-
             const warning = container.querySelector('.MuiAlert-outlinedWarning');
             if (testcase.wantWarning) {
                 expect(warning).toBeInTheDocument();
             } else {
                 expect(warning).not.toBeInTheDocument();
-            }
-
-            const error = container.querySelector('.MuiAlert-outlinedError');
-            if (testcase.wantError) {
-                expect(error).toBeInTheDocument();
-            } else {
-                expect(error).not.toBeInTheDocument();
             }
         });
     });

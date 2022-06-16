@@ -14,21 +14,9 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import {
-    BatchAction,
-    BatchService,
-    DeepPartial,
-    DeployService,
-    Environment_Application_ArgoCD,
-    GetOverviewRequest,
-    GetOverviewResponse,
-    LockService,
-    OverviewService,
-} from '../../api/api';
-import { Observable } from 'rxjs';
-import { StateOfUnaryState } from '../Api';
+import { BatchAction, Environment_Application_ArgoCD, GetOverviewResponse } from '../../api/api';
 
-const mockGetOverviewResponseForActions = (
+export const mockGetOverviewResponseForActions = (
     actions: BatchAction[],
     argoCD?: Environment_Application_ArgoCD
 ): GetOverviewResponse =>
@@ -62,35 +50,3 @@ const mockGetOverviewResponseForActions = (
                 return response;
         }
     }, {} as GetOverviewResponse);
-export const makeApiMock = (
-    actions: BatchAction[],
-    getOverviewState: StateOfUnaryState = 'pending',
-    argoCD?: Environment_Application_ArgoCD
-) => {
-    const getOverviewResponse = mockGetOverviewResponseForActions(actions, argoCD);
-    return {
-        overviewService(): OverviewService {
-            return {
-                GetOverview: (_: DeepPartial<GetOverviewRequest>) =>
-                    new Promise((resolve, reject) => {
-                        switch (getOverviewState) {
-                            case 'resolved':
-                                return resolve(getOverviewResponse);
-                            case 'rejected':
-                                return reject();
-                        }
-                    }),
-                StreamOverview: (_: DeepPartial<GetOverviewRequest>) => new Observable<GetOverviewResponse>(),
-            };
-        },
-        deployService(): DeployService {
-            throw new Error('deployService is unimplemented');
-        },
-        lockService(): LockService {
-            throw new Error('lockService is unimplemented');
-        },
-        batchService(): BatchService {
-            throw new Error('batchService is unimplemented');
-        },
-    };
-};

@@ -15,13 +15,12 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import React from 'react';
-import { act, fireEvent, getByText, render } from '@testing-library/react';
+import { fireEvent, getByText, render } from '@testing-library/react';
 import { ActionsCart } from './ActionsCart';
 import { Spy } from 'spy4js';
 import { BatchAction, LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
-import { Context } from '../Api';
-import { makeApiMock } from './apiMock';
+import { mockGetOverviewResponseForActions } from './apiMock';
 
 Spy.mockReactComponents('./CheckoutDialog', 'CheckoutCart');
 const mock_setActions = Spy('setActions');
@@ -30,11 +29,9 @@ describe('Actions Cart', () => {
     const getNode = (actions: BatchAction[]) => {
         const value = { actions: actions, setActions: mock_setActions };
         return (
-            <Context.Provider value={makeApiMock(actions ?? [])}>
-                <ActionsCartContext.Provider value={value}>
-                    <ActionsCart />
-                </ActionsCartContext.Provider>
-            </Context.Provider>
+            <ActionsCartContext.Provider value={value}>
+                <ActionsCart overview={mockGetOverviewResponseForActions(actions)} />
+            </ActionsCartContext.Provider>
         );
     };
     const getWrapper = (actions: BatchAction[]) => render(getNode(actions));
@@ -97,10 +94,9 @@ describe('Actions Cart', () => {
     ];
 
     describe.each(data)(`Cart with`, (testcase: dataT) => {
-        it(`${testcase.type}`, async () => {
+        it(`${testcase.type}`, () => {
             // given
             const { container } = getWrapper(testcase.cart);
-            await act(global.nextTick);
 
             // when rendered
             expect(getByText(container, /planned actions/i)).toBeTruthy();

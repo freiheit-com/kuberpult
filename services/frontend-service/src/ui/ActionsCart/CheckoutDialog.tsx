@@ -28,9 +28,9 @@ import {
 } from '@material-ui/core';
 import { useCallback, useContext, VFC } from 'react';
 import { Close } from '@material-ui/icons';
-import { ActionsCartContext, Spinner } from '../App';
-import { BatchAction } from '../../api/api';
-import { Api, useUnary, useUnaryCallback } from '../Api';
+import { ActionsCartContext } from '../App';
+import { BatchAction, GetOverviewResponse } from '../../api/api';
+import { useUnaryCallback } from '../Api';
 
 export const callbacks = {
     useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
@@ -88,52 +88,38 @@ const ApplyButton = (props: { openNotification: (msg: string) => void; closeDial
     }
 };
 
-const SyncWindowsWarning: VFC<{
+export const SyncWindowsWarning: VFC<{
     actions: BatchAction[];
-}> = ({ actions }) => {
-    const getOverview = useCallback((api: Api) => api.overviewService().GetOverview({}), []);
-    const overview = useUnary(getOverview);
-    switch (overview.state) {
-        case 'pending':
-            // FIXME: This spinner is invisible.  Why?
-            return <Spinner />;
-        case 'resolved':
-            const anyAppInActionsHasSyncWindows = actions
-                .map((a) => {
-                    switch (a.action?.$case) {
-                        case 'deploy':
-                            const environmentName = a.action.deploy.environment;
-                            const applicationName = a.action.deploy.application;
-                            const numSyncWindows =
-                                overview.result.environments[environmentName].applications[applicationName].argoCD
-                                    ?.syncWindows.length ?? 0;
-                            return numSyncWindows > 0;
-                        default:
-                            return false;
-                    }
-                })
-                .some((appHasSyncWindows) => appHasSyncWindows);
-            if (anyAppInActionsHasSyncWindows) {
-                return (
-                    <Alert variant="outlined" sx={{ m: 1 }} severity="warning">
-                        <AlertTitle>ArgoCD sync windows are active for at least one application!</AlertTitle>
-                        <p>Warning: This can delay deployment.</p>
-                    </Alert>
-                );
-            } else {
-                return null;
+    overview: GetOverviewResponse;
+}> = ({ actions, overview }) => {
+    const anyAppInActionsHasSyncWindows = actions
+        .map((a) => {
+            switch (a.action?.$case) {
+                case 'deploy':
+                    const environmentName = a.action.deploy.environment;
+                    const applicationName = a.action.deploy.application;
+                    const numSyncWindows =
+                        overview.environments[environmentName].applications[applicationName].argoCD?.syncWindows
+                            .length ?? 0;
+                    return numSyncWindows > 0;
+                default:
+                    return false;
             }
-        case 'rejected':
-            return (
-                <Alert variant="outlined" sx={{ m: 1 }} severity="error">
-                    <AlertTitle>Error retrieving sync window information!</AlertTitle>
-                    <p>{overview.error}</p>
-                </Alert>
-            );
+        })
+        .some((appHasSyncWindows) => appHasSyncWindows);
+    if (anyAppInActionsHasSyncWindows) {
+        return (
+            <Alert variant="outlined" sx={{ m: 1 }} severity="warning">
+                <AlertTitle>ArgoCD sync windows are active for at least one application!</AlertTitle>
+                <p>Warning: This can delay deployment.</p>
+            </Alert>
+        );
+    } else {
+        return null;
     }
 };
 
-export const CheckoutCart = () => {
+export const CheckoutCart: VFC<{ overview: GetOverviewResponse }> = ({ overview }) => {
     const [openNotify, setOpenNotify] = React.useState(false);
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [notifyMessage, setNotifyMessage] = React.useState('');
@@ -185,7 +171,7 @@ export const CheckoutCart = () => {
 
     return (
         <div>
-            <SyncWindowsWarning actions={actions} />
+            <SyncWindowsWarning actions={actions} overview={overview} />
             {checkoutButton}
             <Dialog onClose={closeDialog} open={dialogOpen}>
                 <DialogTitle sx={{ m: 0, p: 2 }}>
