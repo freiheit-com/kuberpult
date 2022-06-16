@@ -343,7 +343,7 @@ export const ReleaseLockButton = (props: {
     );
 };
 
-const getUndeployedUpstream = (
+export const getUndeployedUpstream = (
     environments: { [key: string]: Environment },
     environmentName: string,
     applicationName: string,
@@ -351,7 +351,7 @@ const getUndeployedUpstream = (
 ): string => {
     let upstreamEnv = (environments[environmentName]?.config?.upstream?.upstream as any)?.environment;
     while (upstreamEnv !== undefined) {
-        const upstreamVersion = environments[upstreamEnv].applications[applicationName]?.version;
+        const upstreamVersion = environments[upstreamEnv]?.applications[applicationName]?.version;
         if (upstreamVersion < version) return upstreamEnv;
         upstreamEnv = (environments[upstreamEnv]?.config?.upstream?.upstream as any)?.environment;
     }

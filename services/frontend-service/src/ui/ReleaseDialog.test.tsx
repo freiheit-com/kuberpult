@@ -16,8 +16,9 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import React from 'react';
 import { render } from '@testing-library/react';
-import ReleaseDialog from './ReleaseDialog';
+import ReleaseDialog, { getUndeployedUpstream } from './ReleaseDialog';
 import { ActionsCartContext } from './App';
+import { Environment } from '../api/api';
 
 describe('VersionDiff', () => {
     it.each([
@@ -83,6 +84,74 @@ describe('VersionDiff', () => {
 
         const diff = app.getByTestId('version-diff');
         expect(diff).toHaveAttribute('aria-label', expectedLabel);
+    });
+});
+
+describe('UndeployedUpstream', () => {
+    it.each([
+        {
+            environment: 'Aone',
+            version: 21,
+            expectedUpstream: '',
+        },
+        {
+            environment: 'Atwo',
+            version: 20,
+            expectedUpstream: '',
+        },
+        {
+            environment: 'Atwo',
+            version: 21,
+            expectedUpstream: 'Aone',
+        },
+        {
+            environment: 'Athree',
+            version: 20,
+            expectedUpstream: 'Atwo',
+        },
+        {
+            environment: 'Bone',
+            version: 23,
+            expectedUpstream: '',
+        },
+        {
+            environment: 'Btwo',
+            version: 23,
+            expectedUpstream: 'Bone',
+        },
+    ])('Gives correct undeployed upstream', ({ environment, version, expectedUpstream }) => {
+        function getEnvironment(upstream: string, version: number) {
+            return {
+                config: {
+                    upstream: {
+                        upstream: {
+                            $case: 'environment' as const,
+                            environment: upstream,
+                        },
+                    },
+                },
+                applications: {
+                    appName: {
+                        name: 'appName',
+                        queuedVersion: 0,
+                        locks: {},
+                        undeployVersion: false,
+                        version: version,
+                    },
+                },
+                name: '',
+                locks: {},
+            };
+        }
+        const environments: { [key: string]: Environment } = {
+            Aone: getEnvironment('', 20),
+            Atwo: getEnvironment('Aone', 19),
+            Athree: getEnvironment('Atwo', 19),
+            Bone: getEnvironment('', 22),
+            Btwo: getEnvironment('Bone', 22),
+        };
+        const undeployedUpstream = getUndeployedUpstream(environments, environment, 'appName', version);
+        expect(undeployedUpstream).toBe(expectedUpstream);
     });
 });
 
