@@ -153,9 +153,11 @@ make start
 
 ## releasing a new version
 
-building with libgit2 is tricky atm. run `./dmake make -c services/cd-service bin/main` once to generate the binary for the cd-service.
-afterwards run `make release`. this will push the docker image, package the helm chart and create a git tag. the helm chart must be uploaded manually to the github release at the moment.
-afterwards bump the version in the `version` file.
+Releases are automated via github actions.
+
+To create a release, ensure that the release version and accompanying changes are added in `CHANGELOG.md` file. Once done, create a tag with the release version and push the tag in.
+It should run the [release workflow](https://github.com/freiheit-com/kuberpult/actions/workflows/execution-plan-tag.yml) and create a draft release. 
+Verify that the draft is correct and publish it for release.
 
 ## Notes
 
