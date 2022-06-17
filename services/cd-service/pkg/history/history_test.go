@@ -309,11 +309,13 @@ func TestHistory(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if buf.String() == "" || buf.String() == "\n" {
-						t.Errorf("expectetd non empty string at index %d", i)
-					}
 					lines := strings.Split(buf.String(), "\n")
-					for j, line := range lines[1:] {
+					if lines[len(lines)-1] == "" {
+						lines = lines[:len(lines)-1]
+					}
+					pathsCached := map[string]struct{}{}
+					// Check that all cached lines are valid
+					for j, line := range lines {
 						parts := strings.SplitN(line, " ", 2)
 						name := ""
 						if len(parts) == 2 {
@@ -329,10 +331,19 @@ func TestHistory(t *testing.T) {
 						}
 						expectedLine := c.Id().String() + " " + name
 						if line != expectedLine {
-							t.Errorf("expected line %d to be %q but got %q", j, expectedLine, line)
+							t.Errorf("expected line %d to be %q but got %q at commit number %d", j, expectedLine, line, i)
+						}
+						pathsCached[name] = struct{}{}
+					}
+					// Check that all asserted changes are in the caches
+					for path, changedAt := range tc.AssertChangedAt {
+						if i >= changedAt {
+							_, ok := pathsCached[path]
+							if !ok {
+								t.Errorf("expected %q to be in the persistant cache at commit %d", path, i)
+							}
 						}
 					}
-					t.Log(buf.String())
 				}
 			}
 			if tc.Test != nil {
