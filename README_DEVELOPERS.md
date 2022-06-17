@@ -155,9 +155,12 @@ make start
 
 Releases are automated via github actions.
 
-To create a release, ensure that the release version and accompanying changes are added in `CHANGELOG.md` file. Once done, create a tag with the release version and push the tag in.
+To create a release, ensure that the release version and accompanying changes are added in `CHANGELOG.md` file. 
+Once done, create a tag with the release version `git tag --sign --edit <version>` and push the tag in.
 It should run the [release workflow](https://github.com/freiheit-com/kuberpult/actions/workflows/execution-plan-tag.yml) and create a draft release. 
 Verify that the draft is correct and publish it for release.
+
+Note: version is of type major.minor.patch, and does not have a preceding 'v'
 
 ## Notes
 
