@@ -1,13 +1,18 @@
 # Change Log
 
 ## Unreleased
+
 ### Added
+
 * Customize annotations on the kuberpult ingress [#191](https://github.com/freiheit-com/kuberpult/pull/191)
+* Support per-application ArgoCD sync windows [#180](https://github.com/freiheit-com/kuberpult/pull/180)
 
 ## 0.4.20
+
 **releases 2022-06-16**
 
 ### Added
+
 * Warning when manually deployed to production [#186](https://github.com/freiheit-com/kuberpult/pull/172)
 
 ## 0.4.19

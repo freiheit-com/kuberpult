@@ -37,7 +37,15 @@ import Typography from '@material-ui/core/Typography';
 
 import { useUnaryCallback } from './Api';
 
-import type { Application, BatchAction, GetOverviewResponse, Lock, Release, Environment } from '../api/api';
+import type {
+    Application,
+    BatchAction,
+    Environment_Application_ArgoCD_SyncWindow,
+    GetOverviewResponse,
+    Lock,
+    Release,
+    Environment,
+} from '../api/api';
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
@@ -363,7 +371,8 @@ const ReleaseEnvironment: VFC<{
     applicationName: string;
     version: number; // the version we are currently looking at (not the version that is deployed)
     environmentName: string;
-}> = ({ overview, applicationName, version, environmentName }) => {
+    syncWindows?: Environment_Application_ArgoCD_SyncWindow[];
+}> = ({ overview, applicationName, version, environmentName, syncWindows }) => {
     // deploy
     const act: BatchAction = useMemo(
         () => ({
@@ -405,7 +414,8 @@ const ReleaseEnvironment: VFC<{
         <ConfirmationDialogProvider
             action={act}
             locks={[...envLocks, ...appLocks]}
-            undeployedUpstream={undeployedUpstream}>
+            undeployedUpstream={undeployedUpstream}
+            syncWindows={syncWindows}>
             <DeployButton
                 currentlyDeployedVersion={currentlyDeployedVersion}
                 version={version}
@@ -493,9 +503,26 @@ const ReleaseEnvironment: VFC<{
                 <CreateLockButton applicationName={applicationName} environmentName={environmentName} />
             </ButtonGroup>
             <div className="buttons">{button}</div>
+            {syncWindows && syncWindows.length > 0 && (
+                <Tooltip title="ArgoCD sync window(s) active! This can delay deployment.">
+                    <div className="syncWindows">
+                        {syncWindows.map((w, n) => (
+                            <SyncWindow key={`${n}:${w}`} w={w} />
+                        ))}
+                    </div>
+                </Tooltip>
+            )}
         </Paper>
     );
 };
+
+export const SyncWindow: VFC<{
+    w: Environment_Application_ArgoCD_SyncWindow;
+}> = ({ w }) => (
+    <div className={'syncWindow ' + w.kind}>
+        {w.kind} sync at {w.schedule} for {w.duration}
+    </div>
+);
 
 const useStyle = makeStyles((theme) => ({
     environments: {
@@ -540,6 +567,18 @@ const useStyle = makeStyles((theme) => ({
                 color: theme.palette.secondary.dark,
                 fontSize: '1rem',
                 margin: '0rem 0.5rem',
+            },
+            '& .syncWindows': {
+                fontSize: '1rem',
+                margin: '0rem 0.5rem',
+            },
+            '& .syncWindow': {
+                '&.allow': {
+                    color: theme.palette.success.main,
+                },
+                '&.deny': {
+                    color: theme.palette.error.main,
+                },
             },
         },
         '& .warning': {
@@ -659,6 +698,7 @@ const ReleaseDialog = (props: {
                             environmentName={env.name}
                             version={version}
                             overview={overview}
+                            syncWindows={env.applications[applicationName].argoCD?.syncWindows}
                         />
                     </Grid>
                 ))}

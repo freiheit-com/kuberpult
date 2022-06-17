@@ -20,6 +20,7 @@ import { ActionsCart } from './ActionsCart';
 import { Spy } from 'spy4js';
 import { BatchAction, LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
+import { mockGetOverviewResponseForActions } from './apiMock';
 
 Spy.mockReactComponents('./CheckoutDialog', 'CheckoutCart');
 const mock_setActions = Spy('setActions');
@@ -29,7 +30,7 @@ describe('Actions Cart', () => {
         const value = { actions: actions, setActions: mock_setActions };
         return (
             <ActionsCartContext.Provider value={value}>
-                <ActionsCart />
+                <ActionsCart overview={mockGetOverviewResponseForActions(actions)} />
             </ActionsCartContext.Provider>
         );
     };

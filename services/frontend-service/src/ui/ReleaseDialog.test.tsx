@@ -218,3 +218,65 @@ describe('QueueDiff', () => {
         expect(diff.textContent).toEqual(expectedLabel);
     });
 });
+
+describe('ReleaseDialog', () => {
+    describe.each([
+        {
+            argoCD: undefined,
+        },
+        {
+            argoCD: {
+                syncWindows: [],
+            },
+        },
+        {
+            argoCD: {
+                syncWindows: [{ kind: 'allow', schedule: '* * * * *', duration: '0s' }],
+            },
+        },
+    ])('renders warnings', ({ argoCD }) => {
+        it(`for ${argoCD?.syncWindows.length ?? 'undefined'} sync windows`, () => {
+            const overview = {
+                environments: {
+                    development: {
+                        name: 'development',
+                        locks: {},
+                        applications: {
+                            demo: {
+                                name: 'demo',
+                                version: 1,
+                                locks: {},
+                                queuedVersion: 1,
+                                undeployVersion: false,
+                                argoCD,
+                            },
+                        },
+                    },
+                },
+                applications: {
+                    demo: {
+                        name: 'demo',
+                        releases: [
+                            {
+                                version: 1,
+                                sourceCommitId: '',
+                                sourceAuthor: '',
+                                sourceMessage: '',
+                                undeployVersion: false,
+                            },
+                        ],
+                    },
+                },
+            };
+
+            render(
+                <ActionsCartContext.Provider value={{ actions: [], setActions: () => null }}>
+                    <ReleaseDialog overview={overview} applicationName="demo" version={1} sortOrder={{}} />
+                </ActionsCartContext.Provider>
+            );
+
+            const syncWindowElements = document.querySelectorAll('.syncWindow');
+            expect(syncWindowElements).toHaveLength(argoCD?.syncWindows.length ?? 0);
+        });
+    });
+});

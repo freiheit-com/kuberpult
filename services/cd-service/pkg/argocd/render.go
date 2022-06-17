@@ -60,8 +60,12 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 	buf := []string{}
 	syncWindows := v1alpha1.SyncWindows{}
 	for _, w := range config.ArgoCd.SyncWindows {
+		apps := []string{"*"}
+		if len(w.Apps) > 0 {
+			apps = w.Apps
+		}
 		syncWindows = append(syncWindows, &v1alpha1.SyncWindow{
-			Applications: []string{"*"},
+			Applications: apps,
 			Clusters:     []string{"*"},
 			Namespaces:   []string{"*"},
 			Schedule:     w.Schedule,

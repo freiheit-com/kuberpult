@@ -15,11 +15,21 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { Button, Dialog, DialogTitle, IconButton, Typography, Snackbar, CircularProgress } from '@material-ui/core';
-import { useCallback, useContext } from 'react';
+import {
+    Button,
+    Dialog,
+    DialogTitle,
+    IconButton,
+    Typography,
+    Snackbar,
+    CircularProgress,
+    Alert,
+    AlertTitle,
+} from '@material-ui/core';
+import { useCallback, useContext, VFC } from 'react';
 import { Close } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
-import { BatchAction } from '../../api/api';
+import { BatchAction, GetOverviewResponse } from '../../api/api';
 import { useUnaryCallback } from '../Api';
 
 export const callbacks = {
@@ -78,7 +88,38 @@ const ApplyButton = (props: { openNotification: (msg: string) => void; closeDial
     }
 };
 
-export const CheckoutCart = () => {
+export const SyncWindowsWarning: VFC<{
+    actions: BatchAction[];
+    overview: GetOverviewResponse;
+}> = ({ actions, overview }) => {
+    const anyAppInActionsHasSyncWindows = actions
+        .map((a) => {
+            switch (a.action?.$case) {
+                case 'deploy':
+                    const environmentName = a.action.deploy.environment;
+                    const applicationName = a.action.deploy.application;
+                    const numSyncWindows =
+                        overview.environments[environmentName].applications[applicationName].argoCD?.syncWindows
+                            .length ?? 0;
+                    return numSyncWindows > 0;
+                default:
+                    return false;
+            }
+        })
+        .some((appHasSyncWindows) => appHasSyncWindows);
+    if (anyAppInActionsHasSyncWindows) {
+        return (
+            <Alert variant="outlined" sx={{ m: 1 }} severity="warning">
+                <AlertTitle>ArgoCD sync windows are active for at least one application!</AlertTitle>
+                <p>Warning: This can delay deployment.</p>
+            </Alert>
+        );
+    } else {
+        return null;
+    }
+};
+
+export const CheckoutCart: VFC<{ overview: GetOverviewResponse }> = ({ overview }) => {
     const [openNotify, setOpenNotify] = React.useState(false);
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [notifyMessage, setNotifyMessage] = React.useState('');
@@ -112,7 +153,7 @@ export const CheckoutCart = () => {
 
     const checkoutButton = (
         <Button
-            sx={{ display: 'flex', height: '5%' }}
+            sx={{ display: 'flex', height: '3rem', width: '100%' }}
             onClick={openDialog}
             variant={'contained'}
             disabled={actions.length === 0 || dialogOpen}>
@@ -129,7 +170,8 @@ export const CheckoutCart = () => {
     );
 
     return (
-        <>
+        <div>
+            <SyncWindowsWarning actions={actions} overview={overview} />
             {checkoutButton}
             <Dialog onClose={closeDialog} open={dialogOpen}>
                 <DialogTitle sx={{ m: 0, p: 2 }}>
@@ -149,6 +191,6 @@ export const CheckoutCart = () => {
                 message={notifyMessage}
                 action={closeIcon}
             />
-        </>
+        </div>
     );
 };

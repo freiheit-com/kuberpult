@@ -47,9 +47,10 @@ type ArgoCdDestination struct {
 }
 
 type ArgoCdSyncWindow struct {
-	Schedule string `json:"schedule,omitempty"`
-	Duration string `json:"duration,omitempty"`
-	Kind     string `json:"kind,omitempty"`
+	Schedule string   `json:"schedule,omitempty"`
+	Duration string   `json:"duration,omitempty"`
+	Kind     string   `json:"kind,omitempty"`
+	Apps     []string `json:"applications,omitempty"`
 }
 
 type ArgoCdIgnoreDifference struct {
