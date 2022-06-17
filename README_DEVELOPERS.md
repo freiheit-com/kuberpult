@@ -153,14 +153,12 @@ make start
 
 ## releasing a new version
 
-Releases are automated via github actions.
+Releases are half-automated via github actions.
 
 To create a release, ensure that the release version and accompanying changes are added in `CHANGELOG.md` file. 
-Once done, create a tag with the release version `git tag --sign --edit <version>` and push the tag in.
+Once done, create a tag with the release version (use semantic versioning for the tag, and do not add a preceding 'v'. Eg: `0.4.21`) `git tag --sign --edit <version>` and push the tag in.
 It will run the [release workflow](https://github.com/freiheit-com/kuberpult/actions/workflows/execution-plan-tag.yml) and create a draft release. 
 Verify that the release draft is correct in the Github UI and publish it for release.
-
-Note: version is of type major.minor.patch, and does not have a preceding 'v'
 
 ## Notes
 
