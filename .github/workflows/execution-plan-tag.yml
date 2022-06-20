@@ -1,9 +1,12 @@
 # This workflow creates a new release in github, when a tag is pushed.
 name: "Release kuberpult"
 'on':
-  push:
-    tags:
-      - "*"
+  # push:
+    # tags:
+      # - "*"
+  pull_request:
+    branches:
+      - main
 jobs:
   generate_version:
     runs-on: ubuntu-latest
@@ -11,7 +14,8 @@ jobs:
       - name: Get the version
         id: get_version
         run: |
-          echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+          echo ::set-output name=VERSION::0.0.1
+          # echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
     outputs:
       version: ${{ steps.get_version.outputs.VERSION }}
 
@@ -31,7 +35,7 @@ jobs:
         uses: actions/checkout@v2
       - name: Save version
         run: |
-          echo ${{ needs.generate_version.outputs.version }} > version
+          echo "VERSION=${{ needs.generate_version.outputs.version }}" >> $GITHUB_ENV
       - name: Create helm chart for release
         run: |
           make -C charts/kuberpult release-tag
