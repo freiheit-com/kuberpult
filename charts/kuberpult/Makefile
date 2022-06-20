@@ -30,16 +30,16 @@ CT := docker run --mount=type=bind,source=$(TOP_DIR),target=/src,readonly --work
 # Manual / local installation
 #CT := ct
 
-export VERSION
 TGZ_FILE := kuberpult-$(VERSION).tgz
 
 Chart.yaml: Chart.yaml.tpl 
+	echo $(VERSION)
 	envsubst < Chart.yaml.tpl > $@
-	echo Chart.yaml
+	cat Chart.yaml
 
 values.yaml: values.yaml.tpl 
 	envsubst < values.yaml.tpl > $@
-	echo values.yaml
+	cat values.yaml
 
 $(TGZ_FILE): Chart.yaml values.yaml templates/*
 	helm package .
