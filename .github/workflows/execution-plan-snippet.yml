@@ -84,7 +84,7 @@ jobs:
         with:
           fetch-depth: 0
       - if: inputs.version != ''
--       run: |
+        run: |
           echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
       - name: Add credentials file
         run: |
