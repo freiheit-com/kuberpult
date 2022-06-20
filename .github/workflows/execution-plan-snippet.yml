@@ -15,7 +15,7 @@ jobs:
   execution_plan:
     runs-on: ubuntu-latest
     outputs:
-      version: "${{ steps.version_input.outputs.version }}${{${{ steps.version_computed.outputs.version }}}}"
+      version: "${{ steps.version_input.outputs.version }}${{ steps.version_computed.outputs.version }}"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
