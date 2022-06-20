@@ -105,7 +105,7 @@ export const SyncWindowsWarning: VFC<{
                 const environmentName = a.deploy.environment;
                 const applicationName = a.deploy.application;
                 const numSyncWindows =
-                    overview.environments[environmentName].applications[applicationName].argoCD?.syncWindows.length ??
+                    overview.environments[environmentName].applications[applicationName]?.argoCD?.syncWindows.length ??
                     0;
                 return numSyncWindows > 0;
             } else {

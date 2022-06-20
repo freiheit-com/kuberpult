@@ -23,7 +23,7 @@ import { callbacks, CheckoutCart } from './CheckoutDialog';
 import { CartAction } from '../ActionDetails';
 import { mockGetOverviewResponseForActions } from './apiMock';
 
-const sampleAction: CartAction = {
+const sampleDeployAction: CartAction = {
     deploy: {
         application: 'dummy application',
         version: 22,
@@ -82,7 +82,7 @@ describe('Checkout Dialog', () => {
     const data: dataT[] = [
         {
             type: 'Cart with some action -- doAction succeeds',
-            cart: [sampleAction],
+            cart: [sampleDeployAction],
             transformedCart: [sampleActionTransformed],
             doActionsSucceed: true,
             expect: {
@@ -91,7 +91,7 @@ describe('Checkout Dialog', () => {
         },
         {
             type: 'Cart with some action -- doAction fails',
-            cart: [sampleAction],
+            cart: [sampleDeployAction],
             transformedCart: [sampleActionTransformed],
             doActionsSucceed: false,
             expect: {
@@ -193,49 +193,27 @@ describe('Checkout Dialog', () => {
     describe.each([
         {
             type: 'Sync windows missing entirely (backward compat)',
-            cart: [
-                {
-                    deploy: {
-                        application: 'test application',
-                        environment: 'test environment',
-                        version: 0,
-                    },
-                },
-            ],
+            cart: [sampleDeployAction],
             argoCD: undefined,
             wantWarning: false,
         },
         {
             type: 'Without sync windows',
-            cart: [
-                {
-                    deploy: {
-                        application: 'test application',
-                        environment: 'test environment',
-                        version: 0,
-                    },
-                },
-            ],
+            cart: [sampleDeployAction],
             argoCD: { syncWindows: [] },
             wantWarning: false,
         },
         {
             type: 'With sync windows',
-            cart: [
-                {
-                    deploy: {
-                        application: 'test application',
-                        environment: 'test environment',
-                        version: 0,
-                    },
-                },
-            ],
+            cart: [sampleDeployAction],
             argoCD: { syncWindows: [{ kind: 'allow', schedule: '* * * * *', duration: '0s' }] },
             wantWarning: true,
         },
     ])(`Checkout and sync window behaviour`, (testcase) => {
         it(`${testcase.type}`, () => {
             // given
+            mock_useBatch.useBatch.returns([doActionsSpy, { state: 'waiting' }]);
+            mock_addMessageToAction.addMessageToAction.returns(sampleActionTransformed);
             const { container } = getWrapper(testcase.cart, testcase.argoCD);
 
             // then

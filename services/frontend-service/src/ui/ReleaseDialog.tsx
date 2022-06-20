@@ -624,7 +624,7 @@ const ReleaseDialog = (props: {
                             environmentName={env.name}
                             version={version}
                             overview={overview}
-                            syncWindows={env.applications[applicationName].argoCD?.syncWindows}
+                            syncWindows={env.applications[applicationName]?.argoCD?.syncWindows}
                         />
                     </Grid>
                 ))}

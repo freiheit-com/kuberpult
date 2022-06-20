@@ -124,7 +124,7 @@ export const getActionDetails = (action: CartAction): ActionDetails => {
         return {
             type: ActionTypes.Deploy,
             name: 'Deploy',
-            dialogTitle: 'Are you sure you want to deploy this version?',
+            dialogTitle: 'Please be aware:',
             summary:
                 'Deploy version ' +
                 action.deploy.version +
