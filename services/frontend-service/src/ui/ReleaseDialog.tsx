@@ -15,10 +15,8 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { useMemo } from 'react';
-
+import { useMemo, VFC } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-
 import ArrowLeftIcon from '@material-ui/icons/ArrowLeft';
 import ArrowRightIcon from '@material-ui/icons/ArrowRight';
 import BlockIcon from '@material-ui/icons/Block';
@@ -39,7 +37,14 @@ import Typography from '@material-ui/core/Typography';
 
 import { useUnaryCallback } from './Api';
 
-import type { Application, GetOverviewResponse, Lock, Release } from '../api/api';
+import type {
+    Application,
+    Environment,
+    Environment_Application_ArgoCD_SyncWindow,
+    GetOverviewResponse,
+    Lock,
+    Release,
+} from '../api/api';
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
@@ -277,13 +282,28 @@ export const ReleaseLockButton = (props: {
     );
 };
 
-const ReleaseEnvironment = (props: {
+export const getUndeployedUpstream = (
+    environments: { [key: string]: Environment },
+    environmentName: string,
+    applicationName: string,
+    version: number
+): string => {
+    let upstreamEnv = (environments[environmentName]?.config?.upstream?.upstream as any)?.environment;
+    while (upstreamEnv !== undefined) {
+        const upstreamVersion = environments[upstreamEnv]?.applications[applicationName]?.version;
+        if (upstreamVersion < version) return upstreamEnv;
+        upstreamEnv = (environments[upstreamEnv]?.config?.upstream?.upstream as any)?.environment;
+    }
+    return '';
+};
+
+const ReleaseEnvironment: VFC<{
     overview: GetOverviewResponse;
     applicationName: string;
     version: number; // the version we are currently looking at (not the version that is deployed)
     environmentName: string;
-}) => {
-    const { overview, applicationName, version, environmentName } = props;
+    syncWindows?: Environment_Application_ArgoCD_SyncWindow[];
+}> = ({ overview, applicationName, version, environmentName, syncWindows }) => {
     // deploy
     const act: CartAction = useMemo(
         () => ({
@@ -314,9 +334,14 @@ const ReleaseEnvironment = (props: {
     const envLocks = Object.entries(overview.environments[environmentName].locks ?? {});
     const appLocks = Object.entries(overview.environments[environmentName]?.applications[applicationName]?.locks ?? {});
     const locked = envLocks.length > 0 || appLocks.length > 0;
+    const undeployedUpstream = getUndeployedUpstream(overview.environments, environmentName, applicationName, version);
 
     const button = (
-        <ConfirmationDialogProvider action={act} locks={[...envLocks, ...appLocks]}>
+        <ConfirmationDialogProvider
+            action={act}
+            locks={[...envLocks, ...appLocks]}
+            undeployedUpstream={undeployedUpstream}
+            syncWindows={syncWindows}>
             <DeployButton
                 currentlyDeployedVersion={currentlyDeployedVersion}
                 version={version}
@@ -404,9 +429,26 @@ const ReleaseEnvironment = (props: {
                 <CreateLockButton applicationName={applicationName} environmentName={environmentName} />
             </ButtonGroup>
             <div className="buttons">{button}</div>
+            {syncWindows && syncWindows.length > 0 && (
+                <Tooltip title="ArgoCD sync window(s) active! This can delay deployment.">
+                    <div className="syncWindows">
+                        {syncWindows.map((w, n) => (
+                            <SyncWindow key={`${n}:${w}`} w={w} />
+                        ))}
+                    </div>
+                </Tooltip>
+            )}
         </Paper>
     );
 };
+
+export const SyncWindow: VFC<{
+    w: Environment_Application_ArgoCD_SyncWindow;
+}> = ({ w }) => (
+    <div className={'syncWindow ' + w.kind}>
+        {w.kind} sync at {w.schedule} for {w.duration}
+    </div>
+);
 
 const useStyle = makeStyles((theme) => ({
     environments: {
@@ -451,6 +493,18 @@ const useStyle = makeStyles((theme) => ({
                 color: theme.palette.secondary.dark,
                 fontSize: '1rem',
                 margin: '0rem 0.5rem',
+            },
+            '& .syncWindows': {
+                fontSize: '1rem',
+                margin: '0rem 0.5rem',
+            },
+            '& .syncWindow': {
+                '&.allow': {
+                    color: theme.palette.success.main,
+                },
+                '&.deny': {
+                    color: theme.palette.error.main,
+                },
             },
         },
         '& .warning': {
@@ -540,7 +594,7 @@ const ReleaseDialog = (props: {
     );
 
     return (
-        <Dialog open fullWidth={true} maxWidth="lg">
+        <Dialog open={true} fullWidth={true} maxWidth="lg">
             <DialogTitle className={classes.title}>
                 <IconButton onClick={nextDialog} className="arrowNext" disabled={!hasNextRelease}>
                     <ArrowLeftIcon />
@@ -570,6 +624,7 @@ const ReleaseDialog = (props: {
                             environmentName={env.name}
                             version={version}
                             overview={overview}
+                            syncWindows={env.applications[applicationName].argoCD?.syncWindows}
                         />
                     </Grid>
                 ))}

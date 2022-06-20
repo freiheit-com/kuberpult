@@ -1,8 +1,16 @@
 name: "Execution Plan"
-'on':
-  pull_request:
-    branches:
-      - main
+on:
+  workflow_call:
+    inputs:
+      trigger:
+        required: true
+        type: string
+        description: 'The trigger which calls the workflow, one of [pull-request, main]'
+      version:
+        required: false
+        type: string
+        description: 'If provided this will override git-version of the tool'
+
 jobs:
   execution_plan:
     runs-on: ubuntu-latest
@@ -19,18 +27,35 @@ jobs:
         run: |
           gcloud auth configure-docker
       - run: mkdir -p artifacts/
-      - name: Plan execution
+      - name: Plan execution pull request
+        if: inputs.trigger == 'pull-request'
         run: |
           ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
-      - name: Execute 
+      - name: Plan execution main
+        if: inputs.trigger == 'main'
         run: |
-          # stub code, as of now just prints the plan
-          echo "The execution plan is printed"
+          ./infrastructure/scripts/execution-plan/plan-main.sh > artifacts/execution-plan.json 
+      - name: Print execution plan 
+        run: |
           cat artifacts/execution-plan.json
+      - name: Set version from tag
+        if: inputs.version != ''
+        run: |
+          echo "${{ inputs.version }}" > version
+      - name: Set version automatically 
+        if: inputs.version == ''
+        run: |
+          (git describe --always --long --tags || echo 0.0.1) > version
       - uses: actions/upload-artifact@v3
+        name: Upload execution plan
         with:
           name: execution-plan.json
           path: artifacts/execution-plan.json
+      - uses: actions/upload-artifact@v3
+        name: Upload version
+        with:
+          name: version
+          path: version
 
   github_convertor:
     needs: execution_plan
@@ -50,7 +75,7 @@ jobs:
       - name: Planner
         id: plan
         run: |
-          echo "::set-output name=matrix::$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-6 | tr -d '\n')"
+          echo "::set-output name=matrix::$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-7 | tr -d '\n')"
       - name: Print github matrix json
         run: |
           echo "${{ steps.plan.outputs.matrix }}"
@@ -59,24 +84,30 @@ jobs:
 
   build_and_publish:
     needs: github_convertor
+    if: needs.github_convertor.outputs.matrix != '[]'
     strategy:
       matrix: 
         data: ${{fromJSON(needs.github_convertor.outputs.matrix)}}
     runs-on: ubuntu-latest
     container: 
       image: ${{ matrix.data.image }}
-      options: --user root
-      credentials:
-        username: "_json_key"
-        password: ${{ secrets.FDC_CORE_CI_IMAGE_READER }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+      - uses: actions/download-artifact@master
+        with:
+          name: version 
+      - name: Add credentials file
+        run: |
+          cat > credential.json << EOF
+          ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
+          EOF
       - name: Build and Publish
         run: ${{ matrix.data.command }}
       - uses: actions/upload-artifact@v3
         if: matrix.data.artifacts != ''
         with:
+          name: ${{ matrix.data.artifactName }}
           path: ${{ matrix.data.artifacts }}

@@ -1,0 +1,13 @@
+name: "Execution Plan on main"
+'on':
+  push:
+    tags-ignore:
+      - "**"
+    branches:
+      - main
+jobs:
+  execution-plan-pr:
+    uses: ./.github/workflows/execution-plan-snippet.yml
+    with:
+      trigger: main
+    secrets: inherit

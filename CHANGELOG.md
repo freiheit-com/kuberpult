@@ -1,5 +1,45 @@
 # Change Log
 
+## Unreleased
+
+## 0.4.21
+
+**released 2022-06-17**
+
+### Added
+
+* Customize annotations on the kuberpult ingress [#191](https://github.com/freiheit-com/kuberpult/pull/191)
+* Support per-application ArgoCD sync windows [#180](https://github.com/freiheit-com/kuberpult/pull/180)
+
+## 0.4.20
+
+**releases 2022-06-16**
+
+### Added
+
+* Warning when manually deployed to production [#186](https://github.com/freiheit-com/kuberpult/pull/172)
+
+## 0.4.19
+
+**releases 2022-06-14**
+
+### Added
+
+* Release on tag creation  [#172](https://github.com/freiheit-com/kuberpult/pull/172)
+* Increase default loadbalancer timeout to 300 [#183](https://github.com/freiheit-com/kuberpult/pull/183)
+
+### Fixed
+
+* Increase Kuberpult's memory limit & request [#182](https://github.com/freiheit-com/kuberpult/pull/182)
+
+## 0.4.18
+
+**releases 2022-06-13**
+
+### Fixed
+
+* Increase Kuberpult's Cpu limit & request [#173](https://github.com/freiheit-com/kuberpult/pull/173)
+
 ## 0.4.17
 
 **releases 2022-05-31**

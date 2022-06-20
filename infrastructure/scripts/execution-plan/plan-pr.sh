@@ -1,5 +1,7 @@
 #!/bin/bash
 set -ueo pipefail
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "${script_dir}"/container.inc.sh
 
 main_branch="main"
 current_branch="$(git rev-parse --abbrev-ref HEAD)"
@@ -7,4 +9,4 @@ current_branch="$(git rev-parse --abbrev-ref HEAD)"
 base="${1:-$(git merge-base "${main_branch}" "${current_branch}")}"
 head="${2:-$(git rev-parse HEAD)}"
 
-git diff --diff-filter=ACMRT --name-only "$base" "$head" | docker run -i -v "$(pwd)":/repo eu.gcr.io/freiheit-core/images/execution-plan:2.0-scratch-NG-5 build-pr
+git diff --diff-filter=ACMRT --name-only "$base" "$head" | docker run -i -v "$(pwd)":/repo "${BUILDER_IMAGE}" build-pr

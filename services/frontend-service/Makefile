@@ -14,8 +14,10 @@
 #along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 #Copyright 2021 freiheit.com
-MAKEFLAGS += --no-builtin-rules
 
+include ../../Makefile.variables
+
+MAKEFLAGS += --no-builtin-rules
 VERSION=$(shell cat ../../version)
 export VERSION
 
@@ -26,7 +28,7 @@ GO := go
 GO_FILES := $(shell find . -type f -name '*.go')
 
 
-IMAGENAME?=ghcr.io/freiheit-com/kuberpult-frontend-service:${VERSION}
+IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-frontend-service:${VERSION}
 
 GARBAGE := *.sentinel
 
@@ -44,13 +46,18 @@ run: bin/main
 
 build: bin/main
 
-build-pr: build
+build-pr: docker
 	echo "build on pull request"
 
-build-main: build
+build-main: docker
 	echo "build on main"
 
-publish: 
+.PHONY: login
+login:
+	cat ../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
+
+.PHONY: publish
+publish: login release
 
 start: src/api/api.ts
 	yarn && yarn start
