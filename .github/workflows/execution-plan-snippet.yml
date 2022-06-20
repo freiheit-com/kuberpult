@@ -86,9 +86,6 @@ jobs:
       - if: inputs.version != ''
         run: |
           echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
-      - if: inputs.version == ''
-        run: |
-          echo "VERSION=$(git describe --always --long --tags)" >> $GITHUB_ENV
       - name: Add credentials file
         run: |
           cat > credential.json << EOF
