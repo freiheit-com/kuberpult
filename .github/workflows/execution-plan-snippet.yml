@@ -14,6 +14,8 @@ on:
 jobs:
   execution_plan:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -38,6 +40,16 @@ jobs:
       - name: Print execution plan 
         run: |
           cat artifacts/execution-plan.json
+      - name: Set version from tag
+        if: inputs.version != ''
+        id: version
+        run: |
+          echo "::set-output name=version::${{ inputs.version }}"
+      - name: Set version automatically 
+        if: inputs.version == ''
+        id: version
+        run: |
+          echo "::set-output name=version::$(git describe --always --long --tags || echo 0.0.1)"
       - uses: actions/upload-artifact@v3
         name: Upload execution plan
         with:
@@ -70,7 +82,7 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
 
   build_and_publish:
-    needs: github_convertor
+    needs: [github_convertor, execution-plan]
     if: needs.github_convertor.outputs.matrix != '[]'
     strategy:
       matrix: 
@@ -83,9 +95,9 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - if: inputs.version != ''
+      - if: needs.execution-plan.outputs.version != ''
         run: |
-          echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+          echo "VERSION=${{ needs.execution-plan.outputs.version }}" >> $GITHUB_ENV
       - name: Add credentials file
         run: |
           cat > credential.json << EOF
