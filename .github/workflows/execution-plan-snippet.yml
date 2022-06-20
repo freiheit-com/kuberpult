@@ -15,7 +15,7 @@ jobs:
   execution_plan:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version: "${{ steps.version_input.outputs.version }}${{${{ steps.version_computed.outputs.version }}}}"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -42,12 +42,12 @@ jobs:
           cat artifacts/execution-plan.json
       - name: Set version from tag
         if: inputs.version != ''
-        id: version
+        id: version_input
         run: |
           echo "::set-output name=version::${{ inputs.version }}"
       - name: Set version automatically 
         if: inputs.version == ''
-        id: version
+        id: version_computed
         run: |
           echo "::set-output name=version::$(git describe --always --long --tags || echo 0.0.1)"
       - uses: actions/upload-artifact@v3
