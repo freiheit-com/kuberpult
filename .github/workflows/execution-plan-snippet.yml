@@ -15,6 +15,7 @@ jobs:
   execution_plan:
     runs-on: ubuntu-latest
     outputs:
+      # output is set as either input version or computed version, since only one of those will be set at any time
       version: "${{ steps.version_input.outputs.version }}${{ steps.version_computed.outputs.version }}"
     steps:
       - name: Checkout repository
@@ -95,8 +96,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - if: needs.execution_plan.outputs.version != ''
-        run: |
+      - run: |
           echo "VERSION=${{ needs.execution_plan.outputs.version }}" >> $GITHUB_ENV
       - name: Add credentials file
         run: |
