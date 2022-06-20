@@ -30,7 +30,8 @@ CT := docker run --mount=type=bind,source=$(TOP_DIR),target=/src,readonly --work
 # Manual / local installation
 #CT := ct
 
-TGZ_FILE := kuberpult-$(VERSION).tgz
+TAG=$(shell echo $(VERSION) | cut -d'-' -f1)
+TGZ_FILE := kuberpult-$(TAG).tgz
 
 Chart.yaml: Chart.yaml.tpl 
 	envsubst < Chart.yaml.tpl > $@
