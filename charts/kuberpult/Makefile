@@ -33,13 +33,10 @@ CT := docker run --mount=type=bind,source=$(TOP_DIR),target=/src,readonly --work
 TGZ_FILE := kuberpult-$(VERSION).tgz
 
 Chart.yaml: Chart.yaml.tpl 
-	echo $(VERSION)
 	envsubst < Chart.yaml.tpl > $@
-	cat Chart.yaml
 
 values.yaml: values.yaml.tpl 
 	envsubst < values.yaml.tpl > $@
-	cat values.yaml
 
 $(TGZ_FILE): Chart.yaml values.yaml templates/*
 	helm package .

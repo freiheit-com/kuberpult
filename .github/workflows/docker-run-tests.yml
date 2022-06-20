@@ -16,6 +16,8 @@ jobs:
       CI: true
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Install go dependencies and run tests (charts are not tested here)
         env:
           HOME: /root # set the HOME variable to access the real GOPATH. See: https://github.com/actions/runner/issues/1146
