@@ -8,5 +8,4 @@ jobs:
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
       trigger: pull-request
-      version: 0.0.1
     secrets: inherit
