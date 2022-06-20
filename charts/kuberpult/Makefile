@@ -34,9 +34,11 @@ TGZ_FILE := kuberpult-$(VERSION).tgz
 
 Chart.yaml: Chart.yaml.tpl 
 	envsubst < Chart.yaml.tpl > $@
+	echo Chart.yaml
 
 values.yaml: values.yaml.tpl 
 	envsubst < values.yaml.tpl > $@
+	echo values.yaml
 
 $(TGZ_FILE): Chart.yaml values.yaml templates/*
 	helm package .
