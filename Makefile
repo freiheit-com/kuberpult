@@ -14,13 +14,12 @@
 #along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 #Copyright 2021 freiheit.com
+include ./Makefile.variables
 MAKEFLAGS += --no-builtin-rules
 
 SCRIPTS_BASE:=infrastructure/scripts/make
 CODE_REVIEWER_LOCATION?=$(HOME)/bin/codereviewr
 
-VERSION=$(shell cat version)
-export VERSION
 
 MAKEDIRS := services/cd-service services/frontend-service charts/kuberpult pkg/api pkg
 
@@ -30,7 +29,7 @@ MAKEDIRS := services/cd-service services/frontend-service charts/kuberpult pkg/a
 $(addsuffix /release,$(MAKEDIRS)):
 	make -C $(dir $@) release
 
-release: $(addsuffix /release,$(MAKEDIRS)) version
+release: $(addsuffix /release,$(MAKEDIRS)) 
 	git tag $(VERSION)
 
 $(addsuffix /clean,$(MAKEDIRS)):

@@ -38,24 +38,11 @@ jobs:
       - name: Print execution plan 
         run: |
           cat artifacts/execution-plan.json
-      - name: Set version from tag
-        if: inputs.version != ''
-        run: |
-          echo "${{ inputs.version }}" > version
-      - name: Set version automatically 
-        if: inputs.version == ''
-        run: |
-          (git describe --always --long --tags || echo 0.0.1) > version
       - uses: actions/upload-artifact@v3
         name: Upload execution plan
         with:
           name: execution-plan.json
           path: artifacts/execution-plan.json
-      - uses: actions/upload-artifact@v3
-        name: Upload version
-        with:
-          name: version
-          path: version
 
   github_convertor:
     needs: execution_plan
@@ -96,9 +83,9 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@master
-        with:
-          name: version 
+      - if: inputs.version != ''
+-       run: |
+          echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
       - name: Add credentials file
         run: |
           cat > credential.json << EOF
