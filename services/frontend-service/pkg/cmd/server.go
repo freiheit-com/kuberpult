@@ -34,12 +34,15 @@ import (
 	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
+	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type Config struct {
 	CdServer            string `default:"kuberpult-cd-service:8443"`
 	GKEProjectNumber    string `default:"" split_words:"true"`
 	GKEBackendServiceID string `default:"" split_words:"true"`
+	EnableTracing       bool   `default:"false" split_words:"true"`
 }
 
 var c Config
@@ -61,16 +64,37 @@ func RunServer() {
 
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 
+		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
+			grpc_zap.StreamServerInterceptor(grpcServerLogger),
+		}
+		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
+			grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+		}
+
+		if c.EnableTracing {
+			tracer.Start()
+			defer tracer.Stop()
+
+			grpcStreamInterceptors = append(grpcStreamInterceptors,
+				grpctrace.StreamServerInterceptor(grpctrace.WithServiceName("frontend-service")),
+			)
+			grpcUnaryInterceptors = append(grpcUnaryInterceptors,
+				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName("frontend-service")),
+			)
+		}
+
 		gsrv := grpc.NewServer(
-			grpc.StreamInterceptor(
-				grpc_zap.StreamServerInterceptor(grpcServerLogger),
-			),
-			grpc.UnaryInterceptor(
-				grpc_zap.UnaryServerInterceptor(grpcServerLogger),
-			),
+			grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
+			grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 		)
 		con, err := grpc.Dial(c.CdServer,
 			grpc.WithInsecure(),
+			grpc.WithStreamInterceptor(
+				grpctrace.StreamClientInterceptor(grpctrace.WithServiceName("frontend-service")),
+			),
+			grpc.WithUnaryInterceptor(
+				grpctrace.UnaryClientInterceptor(grpctrace.WithServiceName("frontend-service")),
+			),
 		)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
