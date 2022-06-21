@@ -17,7 +17,7 @@ jobs:
       - name: Get the version
         id: get_version
         run: |
-          echo "::set-output name=VERSION::$(git describe --always --long --tags || echo 0.0.1)"
+          echo "::set-output name=VERSION::$(git describe --always --long --tags)"
     outputs:
       version: ${{ steps.get_version.outputs.VERSION }}
 

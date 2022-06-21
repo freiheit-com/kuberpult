@@ -50,7 +50,7 @@ jobs:
         if: inputs.version == ''
         id: version_computed
         run: |
-          echo "::set-output name=version::$(git describe --always --long --tags || echo 0.0.1)"
+          echo "::set-output name=version::$(git describe --always --long --tags)"
       - uses: actions/upload-artifact@v3
         name: Upload execution plan
         with:
