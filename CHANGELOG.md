@@ -4,6 +4,7 @@
 
 ### Added
 
+* Allow configuration of "environment" datadog metrics and traces get reported to [#197](https://github.com/freiheit-com/kuberpult/pull/197)
 * Enhanced support for tracing Kuberpult internals [#198](https://github.com/freiheit-com/kuberpult/pull/198)
 
 ## 0.4.21
