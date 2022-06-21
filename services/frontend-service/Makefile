@@ -18,8 +18,6 @@
 include ../../Makefile.variables
 
 MAKEFLAGS += --no-builtin-rules
-VERSION=$(shell cat ../../version)
-export VERSION
 
 export CGO_ENABLED=0
 
@@ -74,7 +72,7 @@ test-ts: src/api/api.ts
 	yarn eslint
 	yarn test --watchAll=false
 
-docker: bin/main ../../version | dist
+docker: bin/main | dist
 	docker build -t $(IMAGENAME) .
 
 release: docker

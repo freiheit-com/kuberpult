@@ -14,6 +14,7 @@
 #along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 #Copyright 2021 freiheit.com
+include ../../Makefile.variables
 MAKEFLAGS += --no-builtin-rules
 
 top_dir = \
@@ -29,16 +30,13 @@ CT := docker run --mount=type=bind,source=$(TOP_DIR),target=/src,readonly --work
 # Manual / local installation
 #CT := ct
 
-VERSION=$(shell cat ../../version)
-export VERSION
-
 TGZ_FILE := kuberpult-$(VERSION).tgz
 
-Chart.yaml: Chart.yaml.tpl ../../version
-	envsubst < Chart.yaml.tpl > $@
+Chart.yaml: Chart.yaml.tpl 
+	env VERSION="$(VERSION)" envsubst < Chart.yaml.tpl > $@
 
-values.yaml: values.yaml.tpl ../../version
-	envsubst < values.yaml.tpl > $@
+values.yaml: values.yaml.tpl 
+	env VERSION="$(VERSION)" envsubst < values.yaml.tpl > $@
 
 $(TGZ_FILE): Chart.yaml values.yaml templates/*
 	helm package .

@@ -20,9 +20,6 @@ include ../../Makefile.variables
 
 MAKEFLAGS += --no-builtin-rules
 
-VERSION=$(shell cat ../../version)
-export VERSION
-
 export CGO_ENABLED=1
 
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:$(VERSION)
@@ -87,7 +84,7 @@ clean:
 test: $(GO_FILES) | proto
 	$(GO) test  ./...
 
-docker: bin/main ../../version
+docker: bin/main 
 	docker build -t $(IMAGENAME) .
 
 

@@ -1,5 +1,3 @@
-VERSION=$(shell cat ../../../version)
-
 include ../../../Makefile.variables
 
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-builder:${VERSION}
