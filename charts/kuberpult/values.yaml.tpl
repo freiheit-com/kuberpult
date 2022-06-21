@@ -62,6 +62,7 @@ argocd:
 datadogTracing:
   enabled: false
   debugging: false
+  environment: "shared"
 
 dogstatsdMetrics:
   enabled: false
