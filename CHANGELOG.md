@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.4.22
+
+**released 2022-06-22**
+
 ### Added
 
 * Allow configuration of "environment" datadog metrics and traces get reported to [#197](https://github.com/freiheit-com/kuberpult/pull/197)
