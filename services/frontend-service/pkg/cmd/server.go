@@ -71,6 +71,10 @@ func RunServer() {
 			grpc_zap.UnaryServerInterceptor(grpcServerLogger),
 		}
 
+		grpcClientOpts := []grpc.DialOption{
+			grpc.WithInsecure(),
+		}
+
 		if c.EnableTracing {
 			tracer.Start()
 			defer tracer.Stop()
@@ -81,21 +85,22 @@ func RunServer() {
 			grpcUnaryInterceptors = append(grpcUnaryInterceptors,
 				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName("frontend-service")),
 			)
+			
+			grpcClientOpts = append(grpcClientOpts,
+				grpc.WithStreamInterceptor(
+					grpctrace.StreamClientInterceptor(grpctrace.WithServiceName("frontend-service")),
+				),
+				grpc.WithUnaryInterceptor(
+					grpctrace.UnaryClientInterceptor(grpctrace.WithServiceName("frontend-service")),
+				),
+			)
 		}
 
 		gsrv := grpc.NewServer(
 			grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
 			grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 		)
-		con, err := grpc.Dial(c.CdServer,
-			grpc.WithInsecure(),
-			grpc.WithStreamInterceptor(
-				grpctrace.StreamClientInterceptor(grpctrace.WithServiceName("frontend-service")),
-			),
-			grpc.WithUnaryInterceptor(
-				grpctrace.UnaryClientInterceptor(grpctrace.WithServiceName("frontend-service")),
-			),
-		)
+		con, err := grpc.Dial(c.CdServer, grpcClientOpts...)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 		}
