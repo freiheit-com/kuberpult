@@ -17,6 +17,7 @@ Copyright 2021 freiheit.com*/
 package history
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -54,6 +55,18 @@ func (c *resultNode) store(commit *git.Commit) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	c.changedAt = commit
+}
+
+func (c *resultNode) storeAt(path string, commit *git.Commit) {
+	if path == "" {
+		c.store(commit)
+	}
+	idx := strings.SplitN(path, "/", 2)
+	if len(idx) == 1 {
+		c.getChild(path).store(commit)
+	} else {
+		c.getChild(idx[0]).storeAt(idx[1], commit)
+	}
 }
 
 func (c *resultNode) load() *git.Commit {
@@ -219,6 +232,15 @@ func (h *CommitHistory) Change(path []string) (*git.Commit, error) {
 			if parent != nil {
 				parentTreeId = parent.TreeId()
 			}
+			// try read persistend cache
+			tree, err := h.current.Tree()
+			if err == nil {
+				err := h.readCache(tree)
+				if err != nil {
+					return nil, err
+				}
+			}
+			// try get non-persistend cache
 			cache := h.cache.get(*h.current.Id())
 			h.root.push(h.current, &git.TreeEntry{
 				Id:       parentTreeId,
@@ -228,6 +250,30 @@ func (h *CommitHistory) Change(path []string) (*git.Commit, error) {
 			h.current = parent
 		}
 	}
+}
+
+func (h *CommitHistory) readCache(tree *git.Tree) error {
+	entry, err := tree.EntryByPath(".cache/v1")
+	if err != nil {
+		var gErr *git.GitError
+		if errors.As(err, &gErr) {
+			if gErr.Code != git.ErrorCodeNotFound {
+				return fmt.Errorf("error opening .cache/v1: %w", err)
+			}
+			return nil
+		} else {
+			return fmt.Errorf("error opening .cache/v1: %w", err)
+		}
+	}
+	blob, err := h.repository.LookupBlob(entry.Id)
+	if err != nil {
+		return fmt.Errorf("error reading .cache/v1: %w", err)
+	}
+	_, err = readIndex(h.repository, h.cache, blob.Contents())
+	if err != nil {
+		return fmt.Errorf("error reading index: %w", err)
+	}
+	return nil
 }
 
 type treeEntry struct {
