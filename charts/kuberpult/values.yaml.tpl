@@ -13,7 +13,7 @@ log:
   # Possible values are "gcp" for a gcp-optimized format and "default" for json
   format: ""
   # Other possible values are "DEBUG", "INFO", "ERROR"
-  level: "INFO"
+  level: "WARN"
 cd:
   image: kuberpult-cd-service
   backendConfig:
