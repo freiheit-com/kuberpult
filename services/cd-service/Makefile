@@ -103,3 +103,7 @@ login:
 publish: login release
 
 .PHONY: all release test docker clean
+
+.PHONY: get-builder-image
+get-builder-image:
+	@echo $(KUBERPULT_BUILDER)
