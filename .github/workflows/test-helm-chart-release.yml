@@ -6,7 +6,22 @@ on:
       - main
 
 jobs:
+  # TODO: Remove this job once story [integrate other github actions into execution plan structure](https://revolution.dev/app/-JqFGExX46gs9mH7vxR5/-M37cZx7XYoOvQ5Mmcir/STORY/-N3djfe-fMevnyrNqHzj/) is integrated
+  generate_version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Get the version
+        id: get_version
+        run: |
+          echo "::set-output name=VERSION::$(git describe --always --long --tags)"
+    outputs:
+      version: ${{ steps.get_version.outputs.VERSION }}
+
   lint-test:
+    needs: generate_version
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,6 +41,10 @@ jobs:
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.2.0
 
+      - name: Set version
+        run: |
+          echo "VERSION=${{ needs.generate_version.outputs.version }}" >> $GITHUB_ENV
+ 
       - name: Run chart-testing (list-changed)
         id: list-changed
         run: |
