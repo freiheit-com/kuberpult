@@ -40,7 +40,6 @@ spec:
 {{- end }}
       - pathType: ImplementationSpecific
         backend:
-          # dummy change
           service:
             name: kuberpult-frontend-service
             port:
