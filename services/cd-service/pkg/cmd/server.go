@@ -33,6 +33,7 @@ import (
 	"golang.org/x/crypto/openpgp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -87,9 +88,26 @@ func RunServer() {
 			}
 		}
 
+		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
+		httpServerLogger := logger.FromContext(ctx).Named("http_server")
+
+		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
+			grpc_zap.StreamServerInterceptor(grpcServerLogger),
+		}
+		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
+			grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+		}
+
 		if c.EnableTracing {
 			tracer.Start()
 			defer tracer.Stop()
+
+			grpcStreamInterceptors = append(grpcStreamInterceptors,
+				grpctrace.StreamServerInterceptor(grpctrace.WithServiceName("cd-service")),
+			)
+			grpcUnaryInterceptors = append(grpcUnaryInterceptors,
+				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName("cd-service")),
+			)
 		}
 
 		if c.EnableMetrics {
@@ -129,9 +147,6 @@ func RunServer() {
 			ArgoCdPass: c.ArgoCdPass,
 		}
 
-		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
-		httpServerLogger := logger.FromContext(ctx).Named("http_server")
-
 		span.Finish()
 
 		// Shutdown channel is used to terminate server side streams.
@@ -149,12 +164,8 @@ func RunServer() {
 			GRPC: &setup.GRPCConfig{
 				Port: "8443",
 				Opts: []grpc.ServerOption{
-					grpc.StreamInterceptor(
-						grpc_zap.StreamServerInterceptor(grpcServerLogger),
-					),
-					grpc.UnaryInterceptor(
-						grpc_zap.UnaryServerInterceptor(grpcServerLogger),
-					),
+					grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
+					grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 				},
 				Register: func(srv *grpc.Server) {
 					api.RegisterLockServiceServer(srv, &service.LockServiceServer{

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+* Enhanced support for tracing Kuberpult internals [#198](https://github.com/freiheit-com/kuberpult/pull/198)
+
 ## 0.4.21
 
 **released 2022-06-17**
