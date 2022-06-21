@@ -24,7 +24,7 @@ metadata:
 {{- if .Values.datadogTracing.enabled }}
     tags.datadoghq.com/service: kuberpult-cd-service
     tags.datadoghq.com/version: {{ .Values.tag }}
-    tags.datadoghq.com/env: shared
+    tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
 {{- end }}
 spec:
   serviceName: kuberpult-cd-service
@@ -37,11 +37,11 @@ spec:
       labels:
         app: kuberpult-cd-service
 {{- if .Values.datadogTracing.enabled }}
-        tags.datadoghq.com/env: shared
+        tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
         tags.datadoghq.com/service: kuberpult-cd-service
         tags.datadoghq.com/version: {{ .Values.tag }}
       annotations:
-        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"shared","DD_VERSION":"{{ .Values.tag }}"}'
+        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ .Values.tag }}"}'
 {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
