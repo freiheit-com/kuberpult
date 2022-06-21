@@ -26,6 +26,7 @@ metadata:
     tags.datadoghq.com/version: {{ .Values.tag }}
     tags.datadoghq.com/env: shared
 {{- end }}
+# dummy change
 spec:
   serviceName: kuberpult-cd-service
   replicas: 1
