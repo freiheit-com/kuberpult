@@ -42,7 +42,9 @@ $(TGZ_FILE): Chart.yaml values.yaml templates/*
 	helm package .
 
 ci/test-values.yaml: Chart.yaml values.yaml
-	cp Chart.yaml ci/test-values.yaml
+	cat Chart.yaml > ci/test-values.yaml
+	yq e -i '.git.url = "/repository"' ci/test-values.yaml
+	yq e -i '.ingress.domainName = "example.kuberpult.com"' ci/test-values.yaml
 
 ct-test: Chart.yaml values.yaml
 ifeq ($(CI),true)
