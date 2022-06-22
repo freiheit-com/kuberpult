@@ -43,7 +43,7 @@ $(TGZ_FILE): Chart.yaml values.yaml templates/*
 
 ci/test-values.yaml: Chart.yaml values.yaml
 	# Merge override values.yaml with ci/test-values-override.yaml to create ci/test-values.yaml 
-	yq eval-all 'select(fileIndex == 0) * select(filename == "ci/test-values-override.yaml")' values.yaml ci/test-values-override.yaml > ci/test-values.yaml
+	yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' values.yaml ci/test-values-override.yaml > ci/test-values.yaml
 
 ct-test: Chart.yaml values.yaml
 ifeq ($(CI),true)
