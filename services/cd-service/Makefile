@@ -106,4 +106,4 @@ publish: login release
 
 .PHONY: get-builder-image
 get-builder-image:
-	@echo $(KUBERPULT_BUILDER)
+	@echo "$(KUBERPULT_BUILDER)"
