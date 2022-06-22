@@ -42,7 +42,6 @@ $(TGZ_FILE): Chart.yaml values.yaml templates/*
 	helm package .
 
 ci/test-values.yaml: Chart.yaml values.yaml
-	cat values.yaml > ci/test-values.yaml
 	ci/create-test-values.sh
 
 ct-test: Chart.yaml values.yaml

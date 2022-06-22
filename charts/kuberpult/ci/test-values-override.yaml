@@ -1,0 +1,12 @@
+git:
+  url: /repository
+ingress:
+  domainName: example.kuberpult.com
+cd:
+  resources:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
