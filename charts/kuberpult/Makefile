@@ -42,7 +42,8 @@ $(TGZ_FILE): Chart.yaml values.yaml templates/*
 	helm package .
 
 ci/test-values.yaml: Chart.yaml values.yaml
-	ci/create-test-values.sh
+	grep -o '^[^#]*' values.yaml > ci/test-values.yaml
+	yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' ci/test-values.yaml ci/test-values-override.yaml 
 
 ct-test: Chart.yaml values.yaml
 ifeq ($(CI),true)

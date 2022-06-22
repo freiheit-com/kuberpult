@@ -5,9 +5,7 @@ name: "Execution Plan on main"
       - "**"
     branches:
       - main
-  pull_request:
-    branches:
-      - main
+
 jobs:
   generate_version:
     runs-on: ubuntu-latest
