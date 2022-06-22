@@ -4,9 +4,16 @@ ingress:
   domainName: example.kuberpult.com
 cd:
   resources:
-    cpu: 500m
-    memory: 1Gi
-  limits:
-    cpu: 500m
-    memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+frontend:
+  resources:
+    requests:
+      cpu: 250m
+    limits:
+      cpu: 250m
 
