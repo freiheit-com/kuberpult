@@ -45,10 +45,9 @@ jobs:
         run: |
           echo "VERSION=${{ needs.generate_version.outputs.version }}" >> $GITHUB_ENV
  
-      - name: Create chart and values
+      - name: Create chart and test values
         run: |
-          make -C charts/kuberpult Chart.yaml
-          make -C charts/kuberpult values.yaml
+          make -C charts/kuberpult ci/test-values.yaml
 
       - name: Run chart-testing (list-changed)
         id: list-changed

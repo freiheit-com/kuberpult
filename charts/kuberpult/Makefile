@@ -41,6 +41,9 @@ values.yaml: values.yaml.tpl
 $(TGZ_FILE): Chart.yaml values.yaml templates/*
 	helm package .
 
+ci/test-values.yaml: Chart.yaml values.yaml
+	cp Chart.yaml ci/test-values.yaml
+
 ct-test: Chart.yaml values.yaml
 ifeq ($(CI),true)
 	@echo "running on CI no need to test this again! Check chart testing action."
