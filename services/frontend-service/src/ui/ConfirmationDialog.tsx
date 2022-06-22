@@ -146,7 +146,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         } else {
             addAction();
         }
-    }, [setDialogOpen, addAction, locks, conflicts, undeployedUpstream]);
+    }, [setDialogOpen, addAction, locks, conflicts, undeployedUpstream, hasSyncWindows]);
 
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
