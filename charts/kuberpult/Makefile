@@ -42,11 +42,8 @@ $(TGZ_FILE): Chart.yaml values.yaml templates/*
 	helm package .
 
 ci/test-values.yaml: Chart.yaml values.yaml
-	cat Chart.yaml > ci/test-values.yaml
-	yq e -i '.git.url = "/repository"' ci/test-values.yaml
-	yq e -i '.ingress.domainName = "example.kuberpult.com"' ci/test-values.yaml
-	yq e -i '.cd.resources.requests.cpu = "500m"' ci/test-values.yaml
-	yq e -i '.cd.resources.requests.memory = "1Gi"' ci/test-values.yaml
+	# Merge override values.yaml with ci/test-values-override.yaml to create ci/test-values.yaml 
+	yq eval-all 'select(fileIndex == 0) * select(filename == "ci/test-values-override.yaml")' values.yaml ci/test-values-override.yaml > ci/test-values.yaml
 
 ct-test: Chart.yaml values.yaml
 ifeq ($(CI),true)
@@ -62,6 +59,7 @@ test: ct-test $(TGZ_FILE)
 clean:
 	rm -f Chart.yaml values.yaml
 	rm -f kuberpult-*.tgz
+	rm -f ci/test-values.yaml.tgz
 
 release-tag: test $(TGZ_FILE)
 	echo "Creating release via git tag pipeline"
