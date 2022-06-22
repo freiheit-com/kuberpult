@@ -45,8 +45,8 @@ ci/test-values.yaml: Chart.yaml values.yaml
 	cat Chart.yaml > ci/test-values.yaml
 	yq e -i '.git.url = "/repository"' ci/test-values.yaml
 	yq e -i '.ingress.domainName = "example.kuberpult.com"' ci/test-values.yaml
-	yq e -i '.cd.resources.requests.cpu = 500m' ci/test-values.yaml
-	yq e -i '.cd.resources.requests.memory = 1Gi' ci/test-values.yaml
+	yq e -i '.cd.resources.requests.cpu = "500m"' ci/test-values.yaml
+	yq e -i '.cd.resources.requests.memory = "1Gi"' ci/test-values.yaml
 
 ct-test: Chart.yaml values.yaml
 ifeq ($(CI),true)
