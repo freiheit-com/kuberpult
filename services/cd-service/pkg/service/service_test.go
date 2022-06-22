@@ -60,9 +60,11 @@ func TestServeHttpSuccess(t *testing.T) {
 		SourceCommitId string
 		SourceAuthor   string
 		SourceMessage  string
+		Version        string
 		Manifests      map[string]string
 		Signatures     map[string]string
 		KeyRing        openpgp.KeyRing
+		Setup          []repository.Transformer
 		ExpectedStatus int
 		Tests          func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string)
 	}{
@@ -70,7 +72,7 @@ func TestServeHttpSuccess(t *testing.T) {
 			Name:           "It accepts a set of manifests",
 			Application:    "demo",
 			Manifests:      exampleManifests,
-			ExpectedStatus: 204,
+			ExpectedStatus: 201,
 			Tests: func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {
 				head := repo.State()
 				if apps, err := head.Applications(); err != nil {
@@ -111,7 +113,7 @@ func TestServeHttpSuccess(t *testing.T) {
 			SourceAuthor:   "Älejandrø \"weirdma\" <alejandro@weirdma.il>",
 			SourceMessage:  "Did something",
 			SourceCommitId: "deadbeef",
-			ExpectedStatus: 204,
+			ExpectedStatus: 201,
 			Tests: func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {
 				head := repo.State()
 				rel, err := head.GetApplicationRelease("demo", 1)
@@ -135,7 +137,7 @@ func TestServeHttpSuccess(t *testing.T) {
 			Manifests:      exampleManifests,
 			SourceAuthor:   "Not an email\nbut a multiline\ntext",
 			SourceCommitId: "Not hex",
-			ExpectedStatus: 204,
+			ExpectedStatus: 201,
 			Tests: func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {
 				head := repo.State()
 				rel, err := head.GetApplicationRelease("demo", 1)
@@ -167,8 +169,54 @@ func TestServeHttpSuccess(t *testing.T) {
 			Manifests:      exampleManifests,
 			KeyRing:        exampleKeyRing,
 			Signatures:     exampleSignatures,
-			ExpectedStatus: 204,
+			ExpectedStatus: 201,
 			Tests:          func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {},
+		},
+		{
+			Name:           "It accepts a version",
+			Application:    "demo",
+			Manifests:      exampleManifests,
+			Version:        "42",
+			ExpectedStatus: 201,
+			Tests: func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {
+				head := repo.State()
+
+				if releases, err := head.Releases("demo"); err != nil {
+					t.Fatal(err)
+				} else if !reflect.DeepEqual(releases, []uint64{42}) {
+					t.Fatalf("expected releases to be just 42, got %q", releases)
+				}
+			},
+		},
+		{
+			Name:           "It accepts a duplicate version",
+			Application:    "demo",
+			Manifests:      exampleManifests,
+			Version:        "42",
+			ExpectedStatus: 200,
+			Setup: []repository.Transformer{
+				&repository.CreateApplicationVersion{
+					Application: "demo",
+					Version:     42,
+					Manifests:   exampleManifests,
+				},
+			},
+			Tests: func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {
+				head := repo.State()
+
+				if releases, err := head.Releases("demo"); err != nil {
+					t.Fatal(err)
+				} else if !reflect.DeepEqual(releases, []uint64{42}) {
+					t.Fatalf("expected releases to be just 42, got %q", releases)
+				}
+			},
+		},
+		{
+			Name:           "It rejects non numeric versions",
+			Application:    "demo",
+			Manifests:      exampleManifests,
+			Version:        "foo",
+			ExpectedStatus: 400,
 		},
 	}
 
@@ -194,6 +242,12 @@ func TestServeHttpSuccess(t *testing.T) {
 			)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if tc.Setup != nil {
+				err := repo.Apply(context.Background(), tc.Setup...)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 			// setup service
 			service := &Service{
@@ -238,6 +292,11 @@ func TestServeHttpSuccess(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			if tc.Version != "" {
+				if err := body.WriteField("version", tc.Version); err != nil {
+					t.Fatal(err)
+				}
+			}
 			body.Close()
 
 			if resp, err := http.Post(srv.URL+"/release", "multipart/form-data; boundary="+body.Boundary(), &buf); err != nil {
@@ -246,7 +305,9 @@ func TestServeHttpSuccess(t *testing.T) {
 				if resp.StatusCode != tc.ExpectedStatus {
 					t.Fatalf("expected http status %d, received %d", tc.ExpectedStatus, resp.StatusCode)
 				}
-				tc.Tests(t, repo, resp, remoteDir)
+				if tc.Tests != nil {
+					tc.Tests(t, repo, resp, remoteDir)
+				}
 			}
 		})
 	}

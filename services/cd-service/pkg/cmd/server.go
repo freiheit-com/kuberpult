@@ -28,12 +28,12 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/openpgp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -88,9 +88,26 @@ func RunServer() {
 			}
 		}
 
+		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
+		httpServerLogger := logger.FromContext(ctx).Named("http_server")
+
+		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
+			grpc_zap.StreamServerInterceptor(grpcServerLogger),
+		}
+		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
+			grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+		}
+
 		if c.EnableTracing {
 			tracer.Start()
 			defer tracer.Stop()
+
+			grpcStreamInterceptors = append(grpcStreamInterceptors,
+				grpctrace.StreamServerInterceptor(grpctrace.WithServiceName("cd-service")),
+			)
+			grpcUnaryInterceptors = append(grpcUnaryInterceptors,
+				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName("cd-service")),
+			)
 		}
 
 		if c.EnableMetrics {
@@ -122,30 +139,6 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
 		}
 
-		lockSrv := &service.LockServiceServer{
-			Repository: repo,
-		}
-		deploySrv := &service.DeployServiceServer{
-			Repository: repo,
-		}
-		batchSrv := &service.BatchServer{
-			Repository: repo,
-		}
-
-		grpcProxy := runtime.NewServeMux()
-		err = api.RegisterLockServiceHandlerServer(ctx, grpcProxy, lockSrv)
-		if err != nil {
-			logger.FromContext(ctx).Fatal("grpc.lockService.register", zap.Error(err))
-		}
-		err = api.RegisterDeployServiceHandlerServer(ctx, grpcProxy, deploySrv)
-		if err != nil {
-			logger.FromContext(ctx).Fatal("grpc.deployService.register", zap.Error(err))
-		}
-		err = api.RegisterBatchServiceHandlerServer(ctx, grpcProxy, batchSrv)
-		if err != nil {
-			logger.FromContext(ctx).Fatal("grpc.batchService.register", zap.Error(err))
-		}
-
 		repositoryService := &service.Service{
 			Repository: repo,
 			KeyRing:    pgpKeyRing,
@@ -153,10 +146,6 @@ func RunServer() {
 			ArgoCdUser: c.ArgoCdUser,
 			ArgoCdPass: c.ArgoCdPass,
 		}
-
-		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
-		httpServerLogger := logger.FromContext(ctx).Named("http_server")
-		grpcProxyLogger := logger.FromContext(ctx).Named("grpc_proxy")
 
 		span.Finish()
 
@@ -168,29 +157,26 @@ func RunServer() {
 					Port: "8080",
 					Register: func(mux *http.ServeMux) {
 						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
-						mux.Handle("/release", handler)
-						mux.Handle("/health", handler)
-						mux.Handle("/sync/", handler)
-						mux.Handle("/", logger.WithHttpLogger(grpcProxyLogger, grpcProxy))
+						mux.Handle("/", handler)
 					},
 				},
 			},
 			GRPC: &setup.GRPCConfig{
 				Port: "8443",
 				Opts: []grpc.ServerOption{
-					grpc.StreamInterceptor(
-						grpc_zap.StreamServerInterceptor(grpcServerLogger),
-					),
-					grpc.UnaryInterceptor(
-						grpc_zap.UnaryServerInterceptor(grpcServerLogger),
-					),
+					grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
+					grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 				},
 				Register: func(srv *grpc.Server) {
-					api.RegisterLockServiceServer(srv, lockSrv)
-
-					api.RegisterDeployServiceServer(srv, deploySrv)
-
-					api.RegisterBatchServiceServer(srv, batchSrv)
+					api.RegisterLockServiceServer(srv, &service.LockServiceServer{
+						Repository: repo,
+					})
+					api.RegisterDeployServiceServer(srv, &service.DeployServiceServer{
+						Repository: repo,
+					})
+					api.RegisterBatchServiceServer(srv, &service.BatchServer{
+						Repository: repo,
+					})
 
 					envSrv := &service.EnvironmentServiceServer{
 						Repository: repo,

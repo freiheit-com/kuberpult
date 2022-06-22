@@ -1,0 +1,112 @@
+name: "Execution Plan"
+on:
+  workflow_call:
+    inputs:
+      trigger:
+        required: true
+        type: string
+        description: 'The trigger which calls the workflow, one of [pull-request, main]'
+      version:
+        required: false
+        type: string
+        description: 'If provided this will override git-version of the tool'
+
+jobs:
+  execution_plan:
+    runs-on: ubuntu-latest
+    outputs:
+      # output is set as either input version or computed version, since only one of those will be set at any time
+      version: "${{ steps.version_input.outputs.version }}${{ steps.version_computed.outputs.version }}"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v0 
+        name: 'Authenticate to Google Cloud'
+        with:
+          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
+      - name: gcloud authorize
+        run: |
+          gcloud auth configure-docker
+      - run: mkdir -p artifacts/
+      - name: Plan execution pull request
+        if: inputs.trigger == 'pull-request'
+        run: |
+          ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
+      - name: Plan execution main
+        if: inputs.trigger == 'main'
+        run: |
+          ./infrastructure/scripts/execution-plan/plan-main.sh > artifacts/execution-plan.json 
+      - name: Print execution plan 
+        run: |
+          cat artifacts/execution-plan.json
+      - name: Set version from tag
+        if: inputs.version != ''
+        id: version_input
+        run: |
+          echo "::set-output name=version::${{ inputs.version }}"
+      - name: Set version automatically 
+        if: inputs.version == ''
+        id: version_computed
+        run: |
+          echo "::set-output name=version::$(git describe --always --long --tags)"
+      - uses: actions/upload-artifact@v3
+        name: Upload execution plan
+        with:
+          name: execution-plan.json
+          path: artifacts/execution-plan.json
+
+  github_convertor:
+    needs: execution_plan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@master
+        with:
+          name: execution-plan.json 
+          path: artifacts
+      - uses: google-github-actions/auth@v0 
+        name: 'Authenticate to Google Cloud'
+        with:
+          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
+      - name: gcloud authorize
+        run: |
+          gcloud auth configure-docker
+      - name: Planner
+        id: plan
+        run: |
+          echo "::set-output name=matrix::$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-7 | tr -d '\n')"
+      - name: Print github matrix json
+        run: |
+          echo "${{ steps.plan.outputs.matrix }}"
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+
+  build_and_publish:
+    needs: [github_convertor, execution_plan]
+    if: needs.github_convertor.outputs.matrix != '[]'
+    strategy:
+      matrix: 
+        data: ${{fromJSON(needs.github_convertor.outputs.matrix)}}
+    runs-on: ubuntu-latest
+    container: 
+      image: ${{ matrix.data.image }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - run: |
+          echo "VERSION=${{ needs.execution_plan.outputs.version }}" >> $GITHUB_ENV
+      - name: Add credentials file
+        run: |
+          cat > credential.json << EOF
+          ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
+          EOF
+      - name: Build and Publish
+        run: ${{ matrix.data.command }}
+      - uses: actions/upload-artifact@v3
+        if: matrix.data.artifacts != ''
+        with:
+          name: ${{ matrix.data.artifactName }}
+          path: ${{ matrix.data.artifacts }}

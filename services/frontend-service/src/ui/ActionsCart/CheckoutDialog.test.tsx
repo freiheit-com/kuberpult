@@ -17,9 +17,10 @@ Copyright 2021 freiheit.com*/
 import React from 'react';
 import { act, fireEvent, getByText, render } from '@testing-library/react';
 import { Spy } from 'spy4js';
-import { BatchAction, LockBehavior } from '../../api/api';
+import { BatchAction, Environment_Application_ArgoCD, LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
 import { callbacks, CheckoutCart } from './CheckoutDialog';
+import { mockGetOverviewResponseForActions } from './apiMock';
 
 const mock_useBatch = Spy.mock(callbacks, 'useBatch');
 
@@ -27,15 +28,16 @@ const mock_setActions = Spy('setActions');
 const doActionsSpy = Spy('doActionsSpy');
 
 describe('Checkout Dialog', () => {
-    const getNode = (actions?: BatchAction[]) => {
-        const value = { actions: actions ?? [], setActions: mock_setActions };
+    const getNode = (actions: BatchAction[], argoCD?: Environment_Application_ArgoCD) => {
+        const value = { actions: actions, setActions: mock_setActions };
         return (
             <ActionsCartContext.Provider value={value}>
-                <CheckoutCart />
+                <CheckoutCart overview={mockGetOverviewResponseForActions(actions, argoCD)} />
             </ActionsCartContext.Provider>
         );
     };
-    const getWrapper = (actions?: BatchAction[]) => render(getNode(actions));
+    const getWrapper = (actions: BatchAction[], argoCD?: Environment_Application_ArgoCD) =>
+        render(getNode(actions, argoCD));
 
     interface dataT {
         type: string;
@@ -118,6 +120,79 @@ describe('Checkout Dialog', () => {
                 });
                 // then
                 mock_setActions.wasCalledWith([]);
+            }
+        });
+    });
+
+    describe.each([
+        {
+            type: 'Sync windows missing entirely (backward compat)',
+            cart: [
+                {
+                    action: {
+                        $case: 'deploy' as const,
+                        deploy: {
+                            application: 'test application',
+                            environment: 'test environment',
+                            version: 0,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.UNRECOGNIZED,
+                        },
+                    },
+                },
+            ],
+            argoCD: undefined,
+            wantWarning: false,
+        },
+        {
+            type: 'Without sync windows',
+            cart: [
+                {
+                    action: {
+                        $case: 'deploy' as const,
+                        deploy: {
+                            application: 'test application',
+                            environment: 'test environment',
+                            version: 0,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.UNRECOGNIZED,
+                        },
+                    },
+                },
+            ],
+            argoCD: { syncWindows: [] },
+            wantWarning: false,
+        },
+        {
+            type: 'With sync windows',
+            cart: [
+                {
+                    action: {
+                        $case: 'deploy' as const,
+                        deploy: {
+                            application: 'test application',
+                            environment: 'test environment',
+                            version: 0,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.UNRECOGNIZED,
+                        },
+                    },
+                },
+            ],
+            argoCD: { syncWindows: [{ kind: 'allow', schedule: '* * * * *', duration: '0s' }] },
+            wantWarning: true,
+        },
+    ])(`Checkout and sync window behaviour`, (testcase) => {
+        it(`${testcase.type}`, () => {
+            // given
+            const { container } = getWrapper(testcase.cart, testcase.argoCD);
+
+            // then
+            const warning = container.querySelector('.MuiAlert-outlinedWarning');
+            if (testcase.wantWarning) {
+                expect(warning).toBeInTheDocument();
+            } else {
+                expect(warning).not.toBeInTheDocument();
             }
         });
     });

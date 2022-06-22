@@ -37,6 +37,7 @@ type EnvironmentConfigArgoCd struct {
 	ClusterResourceWhitelist []AccessEntry            `json:"accessList,omitempty"`
 	ApplicationAnnotations   map[string]string        `json:"applicationAnnotations,omitempty"`
 	IgnoreDifferences        []ArgoCdIgnoreDifference `json:"ignoreDifferences,omitempty"`
+	SyncOptions              []string                 `json:"syncOptions,omitempty"`
 }
 
 type ArgoCdDestination struct {
@@ -46,9 +47,10 @@ type ArgoCdDestination struct {
 }
 
 type ArgoCdSyncWindow struct {
-	Schedule string `json:"schedule,omitempty"`
-	Duration string `json:"duration,omitempty"`
-	Kind     string `json:"kind,omitempty"`
+	Schedule string   `json:"schedule,omitempty"`
+	Duration string   `json:"duration,omitempty"`
+	Kind     string   `json:"kind,omitempty"`
+	Apps     []string `json:"applications,omitempty"`
 }
 
 type ArgoCdIgnoreDifference struct {

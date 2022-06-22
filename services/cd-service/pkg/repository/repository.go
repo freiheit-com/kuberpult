@@ -23,10 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/cenkalti/backoff/v4"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"os"
 	"os/exec"
@@ -35,6 +31,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
@@ -45,7 +46,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v33"
 )
@@ -208,7 +209,13 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				}
 			}
 			// check that we can build the current state
-			if _, err := result.buildState(); err != nil {
+			state, err := result.buildState()
+			if err != nil {
+				return nil, err
+			}
+
+			// Check configuration for errors and abort early if any:
+			if _, err := state.GetEnvironmentConfigs(); err != nil {
 				return nil, err
 			}
 
@@ -352,29 +359,39 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	}
 
 	if err != nil {
-		return err
-	} else {
+		if errors.Is(err, invalidJson) {
+			err = r.FetchAndReset(ctx)
+			if err != nil {
+				return err
+			}
+			err = r.ApplyTransformers(ctx, transformers...)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
 
-		if err := r.Push(ctx, pushAction); err != nil {
-			gerr := err.(*git.GitError)
-			if gerr.Code == git.ErrorCodeNonFastForward {
-				err = r.FetchAndReset(ctx)
-				if err != nil {
-					return err
-				}
-				err = r.ApplyTransformers(ctx, transformers...)
-				if err != nil {
-					return err
-				}
-				if err := r.Push(ctx, pushAction); err != nil {
-					return &InternalError{inner: err}
-				}
-			} else {
+	if err := r.Push(ctx, pushAction); err != nil {
+		gerr := err.(*git.GitError)
+		if gerr.Code == git.ErrorCodeNonFastForward {
+			err = r.FetchAndReset(ctx)
+			if err != nil {
+				return err
+			}
+			err = r.ApplyTransformers(ctx, transformers...)
+			if err != nil {
+				return err
+			}
+			if err := r.Push(ctx, pushAction); err != nil {
 				return &InternalError{inner: err}
 			}
+		} else {
+			return &InternalError{inner: err}
 		}
-		r.notify.Notify()
 	}
+	r.notify.Notify()
 
 	return nil
 }
@@ -745,6 +762,8 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 	}
 }
 
+var invalidJson = errors.New("JSON file is not valid")
+
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
 	envs, err := s.Filesystem.ReadDir("environments")
 	if err != nil {
@@ -758,7 +777,7 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 			if errors.Is(err, os.ErrNotExist) {
 				result[env.Name()] = config
 			} else {
-				return nil, err
+				return nil, fmt.Errorf("%s : %w", fileName, invalidJson)
 			}
 		} else {
 			result[env.Name()] = config

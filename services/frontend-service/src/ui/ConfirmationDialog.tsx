@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { BatchAction, Lock } from '../api/api';
+import { BatchAction, Environment_Application_ArgoCD_SyncWindow, Lock } from '../api/api';
 import * as React from 'react';
 import { Button, Dialog, DialogTitle, IconButton, Typography, Snackbar, Alert, AlertTitle } from '@material-ui/core';
 import { useCallback, useContext } from 'react';
@@ -28,6 +28,7 @@ import {
     MoveToInboxRounded,
 } from '@material-ui/icons';
 import { ActionsCartContext } from './App';
+import { SyncWindow } from './ReleaseDialog';
 
 enum ActionTypes {
     Deploy,
@@ -93,11 +94,13 @@ export interface ConfirmationDialogProviderProps {
     children: React.ReactElement;
     action: BatchAction;
     locks?: [string, Lock][];
+    undeployedUpstream?: string;
     fin?: () => void;
+    syncWindows?: Environment_Application_ArgoCD_SyncWindow[];
 }
 
 export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProps) => {
-    const { action, locks, fin } = props;
+    const { action, locks, fin, undeployedUpstream, syncWindows } = props;
     const [openNotify, setOpenNotify] = React.useState(false);
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const { actions, setActions } = useContext(ActionsCartContext);
@@ -137,18 +140,33 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
     }, [fin, closeDialog, openNotification, action, actions, setActions, conflicts]);
 
     const handleAddToCart = useCallback(() => {
-        if (conflicts.size || locks?.length) {
+        if (conflicts.size || locks?.length || undeployedUpstream) {
             setDialogOpen(true);
         } else {
             addAction();
         }
-    }, [setDialogOpen, addAction, locks, conflicts]);
+    }, [setDialogOpen, addAction, locks, conflicts, undeployedUpstream]);
 
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
             <Close fontSize="small" />
         </IconButton>
     );
+
+    const undeployedUpstreamMessage = undeployedUpstream ? (
+        <Alert variant="outlined" sx={{ m: 1 }} severity="info">
+            <AlertTitle>Warning: Not deployed to "{undeployedUpstream}" yet!</AlertTitle>
+            {[
+                `This version is not yet deployed to "${undeployedUpstream}" environment.`,
+                'Your changes may be overridden by the next release train.',
+                `We suggest to first deploy this version to the "${undeployedUpstream}" environment.`,
+            ].map((line, id) => (
+                <div style={{ display: 'flex', alignItems: 'center' }} key={id}>
+                    <strong>{line}</strong>
+                </div>
+            ))}
+        </Alert>
+    ) : null;
 
     const deployLocks = locks?.length ? (
         <Alert variant="outlined" sx={{ m: 1 }} severity="info">
@@ -166,6 +184,21 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
             <strong>Possible conflict with actions already in cart!</strong>
         </Alert>
     );
+    const syncWindowsMessage =
+        syncWindows && syncWindows.length > 0 ? (
+            <Alert variant="outlined" sx={{ m: 1 }} severity="warning">
+                <AlertTitle>ArgoCD sync windows are active for this application!</AlertTitle>
+                <p>Warning: This can delay deployment.</p>
+                <h3>Sync windows:</h3>
+                <ul>
+                    {syncWindows?.map((w, n) => (
+                        <li key={`${n}:${w}`}>
+                            <SyncWindow w={w} />
+                        </li>
+                    ))}
+                </ul>
+            </Alert>
+        ) : null;
 
     return (
         <>
@@ -193,7 +226,9 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 </DialogTitle>
                 <div style={{ margin: '16px 24px' }}>{GetActionDetails(action).description}</div>
                 {deployLocks}
+                {undeployedUpstreamMessage}
                 {conflictMessage}
+                {syncWindowsMessage}
                 <span style={{ alignSelf: 'end' }}>
                     <Button onClick={closeDialog}>Cancel</Button>
                     <Button onClick={addAction}>Add anyway</Button>
@@ -235,7 +270,7 @@ export const GetActionDetails = (action: BatchAction): ActionDetails => {
             return {
                 type: ActionTypes.Deploy,
                 name: 'Deploy',
-                dialogTitle: 'Are you sure you want to deploy this version?',
+                dialogTitle: 'Please be aware:',
                 notMessageSuccess:
                     'Version ' +
                     action.action?.deploy.version +

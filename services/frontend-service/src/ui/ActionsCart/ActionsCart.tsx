@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { useCallback, useContext } from 'react';
+import { useCallback, useContext, VFC } from 'react';
 import { useBeforeunload } from 'react-beforeunload';
 import {
     AppBar,
@@ -31,7 +31,7 @@ import {
 
 import { ClearRounded } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
-import { BatchAction } from '../../api/api';
+import { BatchAction, GetOverviewResponse } from '../../api/api';
 import { GetActionDetails } from '../ConfirmationDialog';
 import { theme } from '../App/styles';
 import { CheckoutCart } from './CheckoutDialog';
@@ -56,7 +56,7 @@ const ActionListItem = (props: { act: BatchAction; index: number }) => {
     );
 };
 
-const ActionsList = () => {
+const ActionsList: VFC<{ overview: GetOverviewResponse }> = ({ overview }) => {
     const { actions } = useContext(ActionsCartContext);
 
     useBeforeunload((e) => {
@@ -84,12 +84,12 @@ const ActionsList = () => {
                     {'Cart Is Currently Empty,\nPlease Add Actions!'}
                 </Typography>
             ) : null}
-            <CheckoutCart />
+            <CheckoutCart overview={overview} />
         </div>
     );
 };
 
-export const ActionsCart = () => (
+export const ActionsCart: VFC<{ overview: GetOverviewResponse }> = ({ overview }) => (
     <Drawer
         className="cart-drawer"
         anchor={'right'}
@@ -107,6 +107,6 @@ export const ActionsCart = () => (
                 <strong>{'Planned Actions'}</strong>
             </Typography>
         </AppBar>
-        <ActionsList />
+        <ActionsList overview={overview} />
     </Drawer>
 );

@@ -25,8 +25,3 @@ plugins:
     opt:
       - require_unimplemented_servers=false
       - paths=source_relative
-  # Version needs to match the version used in `go.mod`:
-  - remote: buf.build/grpc-ecosystem/plugins/grpc-gateway:v2.10.0-1
-    out: .
-    opt:
-      - paths=source_relative

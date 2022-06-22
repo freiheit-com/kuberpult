@@ -19,29 +19,38 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"google.golang.org/api/idtoken"
+	"io"
 	"net/http"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/handler"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
+	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
+	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type Config struct {
 	CdServer            string `default:"kuberpult-cd-service:8443"`
 	GKEProjectNumber    string `default:"" split_words:"true"`
 	GKEBackendServiceID string `default:"" split_words:"true"`
+	EnableTracing       bool   `default:"false" split_words:"true"`
 }
 
 var c Config
+
+func readAllAndClose(r io.ReadCloser, maxBytes int64) {
+	_, _ = io.ReadAll(io.LimitReader(r, maxBytes))
+	_ = r.Close()
+}
 
 func RunServer() {
 	logger.Wrap(context.Background(), func(ctx context.Context) error {
@@ -55,51 +64,84 @@ func RunServer() {
 
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 
-		gsrv := grpc.NewServer(
-			grpc.StreamInterceptor(
-				grpc_zap.StreamServerInterceptor(grpcServerLogger),
-			),
-			grpc.UnaryInterceptor(
-				grpc_zap.UnaryServerInterceptor(grpcServerLogger),
-			),
-		)
-		con, err := grpc.Dial(c.CdServer,
+		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
+			grpc_zap.StreamServerInterceptor(grpcServerLogger),
+		}
+		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
+			grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+		}
+
+		grpcClientOpts := []grpc.DialOption{
 			grpc.WithInsecure(),
+		}
+
+		if c.EnableTracing {
+			tracer.Start()
+			defer tracer.Stop()
+
+			grpcStreamInterceptors = append(grpcStreamInterceptors,
+				grpctrace.StreamServerInterceptor(grpctrace.WithServiceName("frontend-service")),
+			)
+			grpcUnaryInterceptors = append(grpcUnaryInterceptors,
+				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName("frontend-service")),
+			)
+			
+			grpcClientOpts = append(grpcClientOpts,
+				grpc.WithStreamInterceptor(
+					grpctrace.StreamClientInterceptor(grpctrace.WithServiceName("frontend-service")),
+				),
+				grpc.WithUnaryInterceptor(
+					grpctrace.UnaryClientInterceptor(grpctrace.WithServiceName("frontend-service")),
+				),
+			)
+		}
+
+		gsrv := grpc.NewServer(
+			grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
+			grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 		)
+		con, err := grpc.Dial(c.CdServer, grpcClientOpts...)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 		}
-		gproxy := GrpcProxy{
-			LockClient:     api.NewLockServiceClient(con),
+
+		lockClient := api.NewLockServiceClient(con)
+		deployClient := api.NewDeployServiceClient(con)
+		gproxy := &GrpcProxy{
+			LockClient:     lockClient,
 			OverviewClient: api.NewOverviewServiceClient(con),
-			DeployClient:   api.NewDeployServiceClient(con),
+			DeployClient:   deployClient,
 			BatchClient:    api.NewBatchServiceClient(con),
 		}
-		api.RegisterLockServiceServer(gsrv, &gproxy)
-		api.RegisterOverviewServiceServer(gsrv, &gproxy)
-		api.RegisterDeployServiceServer(gsrv, &gproxy)
-		api.RegisterBatchServiceServer(gsrv, &gproxy)
+		api.RegisterLockServiceServer(gsrv, gproxy)
+		api.RegisterOverviewServiceServer(gsrv, gproxy)
+		api.RegisterDeployServiceServer(gsrv, gproxy)
+		api.RegisterBatchServiceServer(gsrv, gproxy)
 
-		grpcProxy := runtime.NewServeMux()
-		err = api.RegisterLockServiceHandlerServer(ctx, grpcProxy, &gproxy)
-		if err != nil {
-			logger.FromContext(ctx).Fatal("grpc.lockService.register", zap.Error(err))
+		grpcWebServer := grpcweb.WrapServer(gsrv)
+		httpHandler := handler.Server{
+			DeployClient: deployClient,
+			LockClient:   lockClient,
 		}
-		err = api.RegisterDeployServiceHandlerServer(ctx, grpcProxy, &gproxy)
-		if err != nil {
-			logger.FromContext(ctx).Fatal("grpc.deployService.register", zap.Error(err))
-		}
-		err = api.RegisterBatchServiceHandlerServer(ctx, grpcProxy, &gproxy)
-		if err != nil {
-			logger.FromContext(ctx).Fatal("grpc.batchService.register", zap.Error(err))
-		}
-
 		mux := http.NewServeMux()
-		mux.Handle("/environments/", grpcProxy)
-		mux.Handle("/batches", grpcProxy)
+		mux.Handle("/environments/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			defer readAllAndClose(req.Body, 1024)
+			httpHandler.Handle(w, req)
+		}))
 		mux.Handle("/", http.FileServer(http.Dir("build")))
-
-		httpSrv := &setup.CORSMiddleware{
+		// Split HTTP REST from gRPC Web requests, as suggested in the documentation:
+		// https://pkg.go.dev/github.com/improbable-eng/grpc-web@v0.15.0/go/grpcweb
+		splitGrpcHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+			if grpcWebServer.IsGrpcWebRequest(req) {
+				grpcWebServer.ServeHTTP(resp, req)
+			} else {
+				mux.ServeHTTP(resp, req)
+			}
+		})
+		authHandler := &Auth{
+			HttpServer: splitGrpcHandler,
+		}
+		corsHandler := &setup.CORSMiddleware{
 			PolicyFor: func(r *http.Request) *setup.CORSPolicy {
 				return &setup.CORSPolicy{
 					AllowMethods:     "POST",
@@ -108,12 +150,7 @@ func RunServer() {
 					AllowCredentials: true,
 				}
 			},
-			NextHandler: &Auth{
-				HttpServer: &SplitGrpc{
-					GrpcServer: gsrv,
-					HttpServer: mux,
-				},
-			},
+			NextHandler: authHandler,
 		}
 
 		setup.Run(ctx, setup.Config{
@@ -121,7 +158,7 @@ func RunServer() {
 				{
 					Port: "8081",
 					Register: func(mux *http.ServeMux) {
-						mux.Handle("/", httpSrv)
+						mux.Handle("/", corsHandler)
 					},
 				},
 			},
@@ -172,21 +209,9 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// splits of grpc-traffic
-type SplitGrpc struct {
-	GrpcServer *grpc.Server
-	HttpServer http.Handler
-}
-
-func (p *SplitGrpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	wrapped := grpcweb.WrapServer(p.GrpcServer)
-	if wrapped.IsGrpcWebRequest(r) {
-		wrapped.ServeHTTP(w, r)
-	} else {
-		p.HttpServer.ServeHTTP(w, r)
-	}
-}
-
+// GrpcProxy passes through gRPC messages to another server.
+// An alternative to the more generic methods proposed in
+// https://github.com/grpc/grpc-go/issues/2297
 type GrpcProxy struct {
 	LockClient     api.LockServiceClient
 	OverviewClient api.OverviewServiceClient

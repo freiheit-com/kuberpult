@@ -169,6 +169,7 @@ describe('Confirmation Dialog Provider', () => {
         type: string;
         act: BatchAction;
         fin?: () => void;
+        undeployedUpstream?: string;
         locks?: [string, Lock][];
         expect: {
             conflict: Set<BatchAction>;
@@ -182,7 +183,7 @@ describe('Confirmation Dialog Provider', () => {
             act: sampleDeployAction,
             expect: {
                 conflict: new Set([sampleDeployActionOtherVersion]),
-                title: 'Are you sure you want to deploy this version?',
+                title: 'Please be aware:',
             },
         },
         {
@@ -240,6 +241,15 @@ describe('Confirmation Dialog Provider', () => {
             locks: [['id_1234', { lockId: 'id_1234', message: 'random lock message' }]],
             expect: {
                 conflict: new Set([sampleDeployActionOtherVersion]),
+                title: 'Please be aware:',
+            },
+        },
+        {
+            type: 'Deploy Action With Undeployed Upstream Warning',
+            act: sampleDeployActionOtherApplication,
+            undeployedUpstream: 'staging',
+            expect: {
+                conflict: new Set(),
                 title: 'Are you sure you want to deploy this version?',
             },
         },
@@ -249,7 +259,7 @@ describe('Confirmation Dialog Provider', () => {
             locks: [],
             expect: {
                 conflict: new Set(),
-                title: 'Are you sure you want to deploy this version?',
+                title: 'Please be aware:',
             },
         },
     ];
@@ -324,6 +334,40 @@ describe('Confirmation Dialog Provider', () => {
             const b = container.querySelector('#dummy-button');
             expect(b!.textContent).toBe('ClickMe');
             expect(b).toBeDisabled();
+        });
+    });
+
+    describe.each([
+        { type: 'Sync windows missing entirely', syncWindows: undefined, wantWarning: false },
+        { type: 'Without sync windows', syncWindows: [], wantWarning: false },
+        {
+            type: 'With sync windows',
+            syncWindows: [{ kind: 'allow', schedule: '* * * * *', duration: '0s' }],
+            wantWarning: true,
+        },
+    ])(`Confirmation and sync window behaviour`, ({ type, syncWindows, wantWarning }) => {
+        it(`${type}`, () => {
+            // given
+            const { container } = getWrapper({ action: sampleDeployAction, syncWindows }, sampleCartActions);
+
+            // when - clicking the button
+            const dummyButton = container.querySelector('#dummy-button');
+            if (dummyButton === null) {
+                throw new Error(`#dummy-button missing`);
+            }
+
+            fireEvent.click(dummyButton);
+
+            // then
+            const warning = document.querySelector('.MuiAlert-outlinedWarning');
+            if (wantWarning) {
+                expect(warning).toBeInTheDocument();
+            } else {
+                expect(warning).not.toBeInTheDocument();
+            }
+
+            const syncWindowElements = document.querySelectorAll('.syncWindow');
+            expect(syncWindowElements).toHaveLength(syncWindows?.length ?? 0);
         });
     });
 });

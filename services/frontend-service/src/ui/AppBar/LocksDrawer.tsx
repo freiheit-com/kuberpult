@@ -297,6 +297,7 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
                     <AllLocks locks={envLocks} type={'env'} />
                     <AllLocks locks={appLocks} type={'app'} />
                 </Box>
+                <Button onClick={toggleDrawer(false)}>Close</Button>
             </Drawer>
         </>
     );
