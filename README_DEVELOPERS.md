@@ -24,6 +24,7 @@ cd services/cd-service
 git init --bare repository_remote
 cd ../..
 ```
+- This repository is bare, to populate it, fill it with data as described in `README.md` or https://github.com/freiheit-com/kuberpult/pull/95
 - the value of environment variables are defaulted to `KUBERPULT_GIT_URL=./repository_remote` and `KUBERPULT_GIT_BRANCH=master`
 - run the following command to start all the services required. The `--build` parameter ensures re-building any changes you may have added to the code
 
@@ -93,6 +94,21 @@ go test ./... -v
 
 # Installation outside of docker
 
+## Podman and podman-compose
+If you use Podman (and `podman-compose`) instead (e.g. on macOS), you might need to specify `user: 0` for **each** container.
+because otherwise the process in the container does not have access to the filesystem mounted from the user's home directory into the container.
+Using UID 0 should be fine with Podman, as it (unlike Docker) runs the container with the privileges of the current user (the UID of the current user is mapped to UID 0 inside the container). e.g.:
+```
+backend:
+    build: infrastructure/docker/backend
+    container_name: kuberpult-cd-service
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+>>> user: 0
+    volumes:
+      - .:/kp/kuberpult
+```
 ## prerequisite software
 
 - [docker](https://docs.docker.com/get-docker/) - for docker build for cd-service - optional
