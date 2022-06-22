@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* Get builder images from make get-builder-image [#199](https://github.com/freiheit-com/kuberpult/pull/199) 
+
 ## 0.4.21
 
 **released 2022-06-17**
