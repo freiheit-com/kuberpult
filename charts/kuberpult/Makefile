@@ -42,8 +42,8 @@ $(TGZ_FILE): Chart.yaml values.yaml templates/*
 	helm package .
 
 ci/test-values.yaml: Chart.yaml values.yaml
-	# Merge override values.yaml with ci/test-values-override.yaml to create ci/test-values.yaml 
-	yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' values.yaml ci/test-values-override.yaml > ci/test-values.yaml
+	cat values.yaml > ci/test-values.yaml
+	ci/create-test-values.sh
 
 ct-test: Chart.yaml values.yaml
 ifeq ($(CI),true)
@@ -59,7 +59,7 @@ test: ct-test $(TGZ_FILE)
 clean:
 	rm -f Chart.yaml values.yaml
 	rm -f kuberpult-*.tgz
-	rm -f ci/test-values.yaml.tgz
+	rm -f ci/test-values.yaml
 
 release-tag: test $(TGZ_FILE)
 	echo "Creating release via git tag pipeline"
