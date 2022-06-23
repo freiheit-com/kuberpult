@@ -4,9 +4,6 @@ name: "Release kuberpult"
   push:
     tags:
       - "*"
-  pull_request:
-    branches:
-      - main
 jobs:
   generate_version:
     runs-on: ubuntu-latest
@@ -27,8 +24,15 @@ jobs:
       version: ${{ needs.generate_version.outputs.version }}  
     secrets: inherit
 
-  release:
+  lint-and-test-helm-chart:
     needs: [generate_version, execution-plan]
+    uses: ./.github/workflows/test-helm-chart-release.yml
+    with:
+      version: ${{ needs.generate_version.outputs.version }}
+    secrets: inherit
+
+  release:
+    needs: [generate_version, execution-plan, lint-and-test-helm-chart]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -49,11 +53,3 @@ jobs:
           tag_name: ${{ needs.generate_version.outputs.version }}
           generate_release_notes: true
           draft: true
-
-  lint-and-test-helm-chart:
-    needs: [generate_version, execution-plan]
-    uses: ./.github/workflows/test-helm-chart-release.yml
-    with:
-      version: ${{ needs.generate_version.outputs.version }}
-    secrets: inherit
-
