@@ -6,4 +6,6 @@ metadata:
   builder: kuberpult-builder
   tier: backend
   version: v1
-
+spec:
+  dependsOn:
+  - ../../charts/kuberpult
