@@ -4,6 +4,9 @@ name: "Release kuberpult"
   push:
     tags:
       - "*"
+  pull_request:
+    branches:
+      - main
 jobs:
   generate_version:
     runs-on: ubuntu-latest
@@ -11,7 +14,8 @@ jobs:
       - name: Get the version
         id: get_version
         run: |
-          echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+          echo ::set-output name=VERSION::0.0.1
+          # echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
     outputs:
       version: ${{ steps.get_version.outputs.VERSION }}
 
@@ -45,4 +49,11 @@ jobs:
           tag_name: ${{ needs.generate_version.outputs.version }}
           generate_release_notes: true
           draft: true
-          
+
+  lint-and-test-helm-chart:
+    needs: [generate_version, execution-plan]
+    uses: ./.github/workflows/test-helm-chart-release.yml
+    with:
+      version: ${{ needs.generate_version.outputs.version }}
+    secrets: inherit
+
