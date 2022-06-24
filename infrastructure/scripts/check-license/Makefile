@@ -18,7 +18,7 @@ include ../../../Makefile.variables
 
 .PHONY: check-license
 check-license:
-  sh ../../../check.sh || (echo run "bash check.sh" locally, commit the result and push; exit 1)
+	make -C ../../.. check-license
 
 .PHONY: build-main
 build-main: check-license

@@ -70,3 +70,7 @@ analyze/pull-request: $(CODE_REVIEWER_LOCATION)
 	${SCRIPTS_BASE}/analyze.sh --dry-run ${FROM}
 
 .PHONY: release  $(addsuffix /release,$(MAKEDIRS)) all $(addsuffix /all,$(MAKEDIRS)) clean $(addsuffix /clean,$(MAKEDIRS))
+
+.PHONY: check-license
+check-license:
+	sh check.sh || (echo run "bash check.sh" locally, commit the result and push; exit 1)
