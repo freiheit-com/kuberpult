@@ -73,4 +73,4 @@ analyze/pull-request: $(CODE_REVIEWER_LOCATION)
 
 .PHONY: check-license
 check-license:
-	sh check.sh || (echo run "bash check.sh" locally, commit the result and push; exit 1)
+	@sh check.sh || (echo run "bash check.sh" locally, commit the result and push; exit 1)

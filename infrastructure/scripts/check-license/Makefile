@@ -18,7 +18,7 @@ include ../../../Makefile.variables
 
 .PHONY: check-license
 check-license:
-	make -C ../../.. check-license
+	@make -C ../../.. check-license
 
 .PHONY: build-main
 build-main: check-license
