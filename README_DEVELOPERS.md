@@ -7,7 +7,7 @@ When a `/release` endpoint is called with the manifest files, it checks the repo
 For full usage instructions, please check the [readme](https://github.com/freiheit-com/kuberpult/blob/main/readme.md).
 
 ## Install dev tools
-It is split into two parts. The backend logic is in the `cd-service`. The frontend is also split into two microservices, the `frontend-service` that provides the REST backing for the ui, and the `ui-service` with the actual ui.
+It is split into two parts. The backend logic is in the `cd-service`. The frontend is also split into two parts (but they are both deployed as one microservice), the `frontend-service` that provides the REST backing for the ui, and the `ui-service` with the actual ui.
 The `cd-service` takes the URL of the repository to watch from the environment variable `KUBERPULT_GIT_URL` and the branch to watch from the environment variable `KUBERPULT_GIT_BRANCH`.
 
 ## Prerequisite software
@@ -173,7 +173,7 @@ make start
 Releases are half-automated via GitHub actions.
 
 To create a release, ensure that the release version and accompanying changes are added to the `CHANGELOG.md` file.
-Once done, create a tag with the release version (use semantic versioning for the tag, and do not add a preceding 'v'. Eg: `0.4.21`) `git tag --sign --edit <version>` and push the tag in.
+Once those changes are merged, create a tag on the main branch with the release version (use semantic versioning for the tag, and do not add a preceding 'v'. Eg: `0.4.21`) `git tag --sign --edit <version>` and push the tag in.
 It will run the [release workflow](https://github.com/freiheit-com/kuberpult/actions/workflows/execution-plan-tag.yml) and create a draft release.
 Verify that the release draft is correct in the Github UI and publish it for release.
 
