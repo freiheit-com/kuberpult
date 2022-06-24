@@ -2,7 +2,7 @@
 
 ## Etymology
 
-kuberpult is a catapult for [kubernetes](https://kubernetes.io/) :) it catapults the kubernetes containers to different stages (like production)
+Kuberpult is a catapult for [kubernetes](https://kubernetes.io/) :) it catapults the kubernetes containers to different stages (like production).
 
 ## About
 
