@@ -16,24 +16,22 @@
 #Copyright 2021 freiheit.com
 include ../../../Makefile.variables
 
-IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-builder:${VERSION}
+.PHONY: check-license
+check-license:
+  sh ../../../check.sh || (echo run "bash check.sh" locally, commit the result and push; exit 1)
 
-build: 
-	docker build -t $(IMAGENAME) .
+.PHONY: build-main
+build-main: check-license
+	echo "on main"
 
-build-pr: build 
-	echo "Building on pull request"
+.PHONY: build-pr
+build-pr: check-license
+	echo "on pull request"
 
-build-main: build
-	echo "Building on main"
+.PHONY: publish
+publish:
+	echo "Nothing to do"
 
-login:
-	cat ../../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
-
-release:
-	echo "Releasing $(IMAGENAME)"
-	docker push $(IMAGENAME)
-
-publish: login release
-	echo $(VERSION)
-	echo $(IMAGENAME)
+.PHONY: get-builder-image
+get-builder-image:
+	@echo "$(KUBERPULT_BUILDER)"
