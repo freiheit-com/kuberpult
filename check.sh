@@ -157,7 +157,7 @@ do
 done
 
 # Read all Make files
-make_files=$(find . -type f -name Makefile*)
+make_files=$(find . -type f -name "Makefile*")
 
 for make_file in $make_files
 do

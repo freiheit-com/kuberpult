@@ -109,3 +109,7 @@ dist: .dist.sentinel
 .DEFAULT_GOAL := all
 
 .PHONY: deps
+
+.PHONY: get-builder-image
+get-builder-image:
+	@echo "$(KUBERPULT_BUILDER)"
