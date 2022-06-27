@@ -1,5 +1,9 @@
 # kuberpult Readme for users
 
+## Etymology
+
+Kuberpult is a catapult for [kubernetes](https://kubernetes.io/) :) it catapults the containers of microservices to different stages in kubernetes clusters.
+
 ## About
 
 **Kuberpult** is a tool that allows you to manage Kubernetes manifests for your services in a
