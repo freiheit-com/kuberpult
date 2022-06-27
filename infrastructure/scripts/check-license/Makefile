@@ -14,6 +14,24 @@
 #along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 #Copyright 2021 freiheit.com
-VERSION?=$(shell git describe --always --long --tags || echo 0.0.1)
-IMAGE_SERVER?=europe-west3-docker.pkg.dev
-IMAGE_REGISTRY?=$(IMAGE_SERVER)/fdc-public-docker-registry/kuberpult
+include ../../../Makefile.variables
+
+.PHONY: check-license
+check-license:
+	@make -C ../../.. check-license
+
+.PHONY: build-main
+build-main: check-license
+	echo "on main"
+
+.PHONY: build-pr
+build-pr: check-license
+	echo "on pull request"
+
+.PHONY: publish
+publish:
+	echo "Nothing to do"
+
+.PHONY: get-builder-image
+get-builder-image:
+	@echo "$(KUBERPULT_BUILDER)"
