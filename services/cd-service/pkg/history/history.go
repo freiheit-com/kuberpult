@@ -17,6 +17,7 @@ Copyright 2021 freiheit.com*/
 package history
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sort"
@@ -24,6 +25,7 @@ import (
 	"sync"
 
 	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
 	"github.com/hashicorp/golang-lru"
 	git "github.com/libgit2/git2go/v33"
 )
@@ -186,8 +188,17 @@ func (h *History) Of(from *git.Commit) (*CommitHistory, error) {
 	return NewCommitHistory(h.repository, from, h.cache)
 }
 
-func (h *History) InjectCache(bfs *billy.Filesystem, parent [20]byte) error {
-	return nil
+func (h *History) InjectCache(bfs billy.Filesystem, parent *git.Commit) error {
+	var buf bytes.Buffer
+	err := writeIndex(h, parent, &buf)
+	if err != nil {
+		return err
+	}
+	err = bfs.MkdirAll(".index", 0644)
+	if err != nil {
+		return err
+	}
+	return util.WriteFile(bfs, ".index/v1", buf.Bytes(), 0644)
 }
 
 type CommitHistory struct {
@@ -253,12 +264,12 @@ func (h *CommitHistory) Change(path []string) (*git.Commit, error) {
 }
 
 func (h *CommitHistory) readCache(tree *git.Tree) error {
-	entry, err := tree.EntryByPath(".cache/v1")
+	entry, err := tree.EntryByPath(".index/v1")
 	if err != nil {
 		var gErr *git.GitError
 		if errors.As(err, &gErr) {
 			if gErr.Code != git.ErrorCodeNotFound {
-				return fmt.Errorf("error opening .cache/v1: %w", err)
+				return fmt.Errorf("error opening .index/v1: %w", err)
 			}
 			return nil
 		} else {
@@ -267,7 +278,7 @@ func (h *CommitHistory) readCache(tree *git.Tree) error {
 	}
 	blob, err := h.repository.LookupBlob(entry.Id)
 	if err != nil {
-		return fmt.Errorf("error reading .cache/v1: %w", err)
+		return fmt.Errorf("error reading .index/v1: %w", err)
 	}
 	_, err = readIndex(h.repository, h.cache, blob.Contents())
 	if err != nil {

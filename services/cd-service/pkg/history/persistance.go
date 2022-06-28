@@ -14,6 +14,9 @@ func writeIndex(h *History, parent *git.Commit, out io.Writer) error {
 	if c == nil {
 		return nil
 	}
+	if parent == nil {
+		return nil
+	}
 	// 1: seek if we have a cache already.
 	current := parent
 	var entry *resultNode
@@ -51,10 +54,10 @@ func writeEntry(out io.Writer, name string, entry *resultNode) error {
 	return nil
 }
 
-func readIndex(repository *git.Repository, cache *Cache , content []byte) (*resultNode, error) {
+func readIndex(repository *git.Repository, cache *Cache, content []byte) (*resultNode, error) {
 	lines := strings.Split(string(content), "\n")
 	// first line is the commit id that was used to build that index
-	if len(lines) == 0 {
+	if string(content) == "" || string(content) == "\n" {
 		return nil, nil
 	}
 	p := strings.SplitN(lines[0], " ", 2)
@@ -64,6 +67,9 @@ func readIndex(repository *git.Repository, cache *Cache , content []byte) (*resu
 	}
 	result := cache.getOrAdd(*oid)
 	for i, line := range lines {
+		if line == "" {
+			continue
+		}
 		parts := strings.SplitN(line, " ", 2)
 		name := ""
 		if len(parts) == 2 {

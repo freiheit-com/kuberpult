@@ -377,6 +377,12 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	if err := r.afterTransform(ctx, state.Filesystem); err != nil {
 		return &InternalError{inner: err}
 	}
+
+	err = r.history.InjectCache(state.Filesystem, state.Commit)
+	if err != nil {
+		return &InternalError{inner: err}
+	}
+
 	treeId, err := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 	if err != nil {
 		return &InternalError{inner: err}
@@ -397,6 +403,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	if state.Commit != nil {
 		rev = state.Commit.Id()
 	}
+
 	if _, err := r.repository.CreateCommitFromIds(
 		fmt.Sprintf("refs/heads/%s", r.config.Branch),
 		author,
