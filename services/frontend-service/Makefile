@@ -44,10 +44,10 @@ run: bin/main
 
 build: bin/main
 
-build-pr: docker
+build-pr: test docker
 	echo "build on pull request"
 
-build-main: docker
+build-main: test docker
 	echo "build on main"
 
 .PHONY: login
@@ -63,7 +63,12 @@ start: src/api/api.ts
 clean:
 	git clean -Xfd
 
-test: test-go test-ts
+.PHONY: test-dependancies
+test-dependancies:
+	make -C ../../pkg test
+	make -C ../../pkg/api test
+
+test: test-go test-ts test-dependancies
 
 test-go: $(GO_FILES) proto
 	$(GO) test ./...

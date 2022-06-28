@@ -48,10 +48,10 @@ bin/:
 
 build: bin/main
 
-build-pr: docker
+build-pr: test docker
 	echo "build on pull request"
 
-build-main: docker
+build-main: test docker
 	echo "build on main"
 
 ifeq ($(COMPILE_WITH_DOCKER),true)
@@ -81,7 +81,12 @@ clean:
 	rm -rf bin
 	docker rmi $(IMAGENAME) || true
 
-test: $(GO_FILES) | proto
+.PHONY: test-dependancies
+test-dependancies:
+	make -C ../../pkg test
+	make -C ../../pkg/api test
+
+test: $(GO_FILES) test-dependancies | proto
 	$(GO) test  ./...
 
 docker: bin/main 

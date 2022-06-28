@@ -104,7 +104,7 @@ jobs:
           cat > credential.json << EOF
           ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
           EOF
-      - name: Build and Publish
+      - name: Test, Build and Publish
         run: ${{ matrix.data.command }}
       - uses: actions/upload-artifact@v3
         if: matrix.data.artifacts != ''
