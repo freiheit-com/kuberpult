@@ -52,9 +52,13 @@ else
 	$(CT) lint --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --target-branch=main --chart-dirs=. --charts=.
 endif
 
-test: ct-test $(TGZ_FILE)
+test-helm: $(TGZ_FILE)
 	helm lint $(TGZ_FILE) --set git.url=test --set ingress.domainName=kuberpult.example.com
 	helm lint $(TGZ_FILE) --set git.url=test --set ingress.domainName=kuberpult.example.com --set ingress.exposeReleaseEndpoint=true
+
+test-ci: test-helm
+
+test: ct-test test-helm
 
 clean:
 	rm -f Chart.yaml values.yaml

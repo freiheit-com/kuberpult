@@ -4,3 +4,6 @@ metadata:
 spec:
   dependsOn:
   - ../../..
+  - ../../docker/builder
+  - ../../../services/cd-service
+  - ../../../services/frontend-service
