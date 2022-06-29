@@ -174,6 +174,57 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "body must be application/json, got: ''\n",
 		},
 		{
+			name: "lock env but no content",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/locks/test",
+				},
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(``)),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Please provide lock message in body\n",
+		},
+		{
+			name: "lock env but no message",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/locks/test",
+				},
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{}`)),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Please provide lock message in body\n",
+		},
+		{
+			name: "lock env but empty message",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/locks/test",
+				},
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{"message":""}`)),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Please provide lock message in body\n",
+		},
+		{
 			name: "unlock env",
 			req: &http.Request{
 				Method: http.MethodDelete,

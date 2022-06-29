@@ -54,17 +54,18 @@ func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Reques
 	}
 
 	var body putLockRequest
+	invalidMessage := "Please provide lock message in body"
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		decodeError := err.Error()
 		if decodeError == "EOF" {
-			decodeError = "Please provide lock message in body"
+			decodeError = invalidMessage
 		}
 		http.Error(w, decodeError, http.StatusBadRequest)
 		return
 	}
 
 	if len(body.Message) == 0 {
-		http.Error(w, "Please provide lock message in body", http.StatusBadRequest)
+		http.Error(w, invalidMessage, http.StatusBadRequest)
 		return
 	}
 	_, err := s.LockClient.CreateEnvironmentLock(req.Context(), &api.CreateEnvironmentLockRequest{
