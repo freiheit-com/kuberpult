@@ -142,7 +142,9 @@ export const CheckoutCart: VFC<{ overview: GetOverviewResponse }> = ({ overview 
 
     const closeNotification = useCallback(
         (event: React.SyntheticEvent | React.MouseEvent, reason?: string) => {
-            if (reason === 'clickaway') return;
+            if (reason === 'clickaway') {
+                return;
+            }
             setNotify({ open: false, message: '' });
         },
         [setNotify]
