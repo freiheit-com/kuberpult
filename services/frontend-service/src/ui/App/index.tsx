@@ -23,15 +23,15 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 
 import Releases from '../Releases';
 import * as api from '../../api/api';
-import { BatchAction } from '../../api/api';
 import Header from '../AppBar/Header';
 import { GrpcProvider, useObservable } from '../Api';
 
 import { theme, useStyles } from './styles';
+import { CartAction } from '../ActionDetails';
 
 type ActionsCartContextType = {
-    actions: BatchAction[];
-    setActions: React.Dispatch<React.SetStateAction<BatchAction[]>>;
+    actions: CartAction[];
+    setActions: React.Dispatch<React.SetStateAction<CartAction[]>>;
 };
 export const ActionsCartContext = React.createContext<ActionsCartContextType>({} as any);
 
@@ -61,7 +61,7 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
 
 const Main = () => {
     const classes = useStyles();
-    const [actions, setActions] = useState([] as BatchAction[]);
+    const [actions, setActions] = useState([] as CartAction[]);
     return (
         <ActionsCartContext.Provider value={{ actions, setActions }}>
             <GetOverview>

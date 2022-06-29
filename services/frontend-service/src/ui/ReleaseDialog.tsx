@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { useCallback, useMemo, VFC } from 'react';
+import { useMemo, VFC } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import ArrowLeftIcon from '@material-ui/icons/ArrowLeft';
 import ArrowRightIcon from '@material-ui/icons/ArrowRight';
@@ -39,18 +39,17 @@ import { useUnaryCallback } from './Api';
 
 import type {
     Application,
-    BatchAction,
+    Environment,
     Environment_Application_ArgoCD_SyncWindow,
     GetOverviewResponse,
     Lock,
     Release,
-    Environment,
 } from '../api/api';
 import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
-import { Grow, TextField } from '@material-ui/core';
 import AddLockIcon from '@material-ui/icons/EnhancedEncryption';
+import { CartAction } from './ActionDetails';
 
 type Data = { applicationName: string; version: number };
 export const Context = React.createContext<{ setData: (d: Data | null) => void }>({
@@ -151,60 +150,20 @@ const QueueDiff = (props: { queued: number; target: number; releases: Release[] 
     );
 };
 
-export const randomLockId = () => 'ui-' + Math.random().toString(36).substring(7);
+const LockButtonGroup = (props: { applicationName?: string; addToCart?: () => void; inCart?: boolean }) => {
+    const { applicationName, addToCart, inCart } = props;
 
-const LockButtonGroup = (props: {
-    applicationName?: string;
-    addToCart?: () => void;
-    inCart?: boolean;
-    message: string;
-    setMessage: (e: string) => void;
-    open: boolean;
-    setOpen: (e: boolean) => void;
-}) => {
-    const { applicationName, addToCart, inCart, message, setMessage, setOpen, open } = props;
-    const updateMessage = React.useCallback((e) => setMessage(e.target.value), [setMessage]);
-    const openInput = React.useCallback(() => setOpen(true), [setOpen]);
-    if (inCart) {
-        return applicationName ? (
-            <IconButton disabled>
+    return applicationName ? (
+        <Tooltip title="Add lock" hidden={inCart}>
+            <IconButton onClick={addToCart} disabled={inCart}>
                 <AddLockIcon />
             </IconButton>
-        ) : (
-            <Button disabled>Add Lock</Button>
-        );
-    }
-    if (open) {
-        return (
-            <Grow in={open} style={{ transformOrigin: 'right center' }}>
-                {applicationName ? (
-                    <ButtonGroup className="overlay">
-                        <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
-                        <IconButton onClick={addToCart} disabled={message === ''}>
-                            <AddLockIcon />
-                        </IconButton>
-                    </ButtonGroup>
-                ) : (
-                    <ButtonGroup className="overlay">
-                        <Button onClick={addToCart} disabled={message === ''}>
-                            Add Lock
-                        </Button>
-                        <TextField label="Lock Message" variant="standard" onChange={updateMessage} />
-                    </ButtonGroup>
-                )}
-            </Grow>
-        );
-    } else {
-        return applicationName ? (
-            <Tooltip title="Add lock">
-                <IconButton onClick={openInput}>
-                    <AddLockIcon />
-                </IconButton>
-            </Tooltip>
-        ) : (
-            <Button onClick={openInput}>Add Lock</Button>
-        );
-    }
+        </Tooltip>
+    ) : (
+        <Button onClick={addToCart} disabled={inCart}>
+            Add Lock
+        </Button>
+    );
 };
 
 const ReleaseLockButtonGroup = (props: {
@@ -215,23 +174,16 @@ const ReleaseLockButtonGroup = (props: {
 }) => {
     const { lock, queueHint, inCart, addToCart } = props;
     const msg = queueHint ? 'When you unlock the last lock the queue will be deployed!' : '';
-    if (!inCart) {
-        return (
-            <Tooltip
-                arrow
-                title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. ' + msg}>
-                <IconButton onClick={addToCart}>
-                    <LockIcon />
-                </IconButton>
-            </Tooltip>
-        );
-    } else {
-        return (
-            <IconButton disabled>
+    return (
+        <Tooltip
+            arrow
+            title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. ' + msg}
+            hidden={inCart}>
+            <IconButton onClick={addToCart} disabled={inCart}>
                 <LockIcon />
             </IconButton>
-        );
-    }
+        </Tooltip>
+    );
 };
 
 const DeployButton = (props: {
@@ -271,45 +223,27 @@ const DeployButton = (props: {
 
 export const CreateLockButton = (props: { applicationName?: string; environmentName: string }) => {
     const { applicationName, environmentName } = props;
-    const [messageBox, setMessageBox] = React.useState(false);
-    const [message, setMessage] = React.useState('');
-    const act: BatchAction = useMemo(
-        () => ({
-            action: applicationName
+
+    const act: CartAction = useMemo(
+        () =>
+            applicationName
                 ? {
-                      $case: 'createEnvironmentApplicationLock',
-                      createEnvironmentApplicationLock: {
-                          application: applicationName,
+                      createApplicationLock: {
                           environment: environmentName,
-                          lockId: randomLockId(),
-                          message: message,
+                          application: applicationName,
                       },
                   }
                 : {
-                      $case: 'createEnvironmentLock',
                       createEnvironmentLock: {
                           environment: environmentName,
-                          lockId: randomLockId(),
-                          message: message,
                       },
                   },
-        }),
-        [applicationName, environmentName, message]
+        [applicationName, environmentName]
     );
 
-    const fin = useCallback(() => {
-        setMessageBox(false);
-    }, [setMessageBox]);
-
     return (
-        <ConfirmationDialogProvider action={act} fin={fin}>
-            <LockButtonGroup
-                open={messageBox}
-                message={message}
-                setMessage={setMessage}
-                setOpen={setMessageBox}
-                applicationName={applicationName}
-            />
+        <ConfirmationDialogProvider action={act}>
+            <LockButtonGroup applicationName={applicationName} />
         </ConfirmationDialogProvider>
     );
 };
@@ -323,25 +257,22 @@ export const ReleaseLockButton = (props: {
 }) => {
     const { applicationName, environmentName, lock, lockId, queueHint } = props;
 
-    const act: BatchAction = useMemo(
-        () => ({
-            action: applicationName
+    const act: CartAction = useMemo(
+        () =>
+            applicationName
                 ? {
-                      $case: 'deleteEnvironmentApplicationLock',
-                      deleteEnvironmentApplicationLock: {
-                          application: applicationName,
+                      deleteApplicationLock: {
                           environment: environmentName,
+                          application: applicationName,
                           lockId: lockId,
                       },
                   }
                 : {
-                      $case: 'deleteEnvironmentLock',
                       deleteEnvironmentLock: {
                           environment: environmentName,
                           lockId: lockId,
                       },
                   },
-        }),
         [applicationName, environmentName, lockId]
     );
     return (
@@ -374,17 +305,12 @@ const ReleaseEnvironment: VFC<{
     syncWindows?: Environment_Application_ArgoCD_SyncWindow[];
 }> = ({ overview, applicationName, version, environmentName, syncWindows }) => {
     // deploy
-    const act: BatchAction = useMemo(
+    const act: CartAction = useMemo(
         () => ({
-            action: {
-                $case: 'deploy',
-                deploy: {
-                    application: applicationName,
-                    version: version,
-                    environment: environmentName,
-                    ignoreAllLocks: false,
-                    lockBehavior: LockBehavior.Ignore,
-                },
+            deploy: {
+                application: applicationName,
+                version: version,
+                environment: environmentName,
             },
         }),
         [applicationName, version, environmentName]
@@ -698,7 +624,7 @@ const ReleaseDialog = (props: {
                             environmentName={env.name}
                             version={version}
                             overview={overview}
-                            syncWindows={env.applications[applicationName].argoCD?.syncWindows}
+                            syncWindows={env.applications[applicationName]?.argoCD?.syncWindows}
                         />
                     </Grid>
                 ))}

@@ -14,39 +14,39 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { BatchAction, Environment_Application_ArgoCD, GetOverviewResponse } from '../../api/api';
+import { Environment_Application_ArgoCD, GetOverviewResponse } from '../../api/api';
+import { CartAction } from '../ActionDetails';
 
 export const mockGetOverviewResponseForActions = (
-    actions: BatchAction[],
+    actions: CartAction[],
     argoCD?: Environment_Application_ArgoCD
 ): GetOverviewResponse =>
     actions.reduce((response, action) => {
-        switch (action.action?.$case) {
-            case 'deploy':
-                const environmentName = action.action.deploy.environment;
-                const applicationName = action.action.deploy.application;
-                return {
-                    ...response,
-                    environments: {
-                        ...response.environments,
-                        [environmentName]: {
-                            ...(response.environments && response.environments[environmentName]),
-                            name: environmentName,
-                            applications: {
-                                ...(response.environments && response.environments[environmentName]?.applications),
-                                [applicationName]: {
-                                    name: applicationName,
-                                    version: 0,
-                                    locks: {},
-                                    queuedVersion: 0,
-                                    undeployVersion: false,
-                                    argoCD,
-                                },
+        if ('deploy' in action) {
+            const environmentName = action.deploy.environment;
+            const applicationName = action.deploy.application;
+            return {
+                ...response,
+                environments: {
+                    ...response.environments,
+                    [environmentName]: {
+                        ...(response.environments && response.environments[environmentName]),
+                        name: environmentName,
+                        applications: {
+                            ...(response.environments && response.environments[environmentName]?.applications),
+                            [applicationName]: {
+                                name: applicationName,
+                                version: 0,
+                                locks: {},
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                                argoCD,
                             },
                         },
                     },
-                };
-            default:
-                return response;
+                },
+            };
+        } else {
+            return response;
         }
     }, {} as GetOverviewResponse);
