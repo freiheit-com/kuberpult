@@ -18,7 +18,9 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -54,11 +56,20 @@ func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Reques
 	}
 
 	var body putLockRequest
+	invalidMessage := "Please provide lock message in body"
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		decodeError := err.Error()
+		if errors.Is(err, io.EOF) {
+			decodeError = invalidMessage
+		}
+		http.Error(w, decodeError, http.StatusBadRequest)
 		return
 	}
 
+	if len(body.Message) == 0 {
+		http.Error(w, invalidMessage, http.StatusBadRequest)
+		return
+	}
 	_, err := s.LockClient.CreateEnvironmentLock(req.Context(), &api.CreateEnvironmentLockRequest{
 		Environment: environment,
 		LockId:      lockID,
