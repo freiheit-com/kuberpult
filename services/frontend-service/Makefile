@@ -14,10 +14,10 @@
 #along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 #Copyright 2021 freiheit.com
-MAKEFLAGS += --no-builtin-rules
 
-VERSION=$(shell cat ../../version)
-export VERSION
+include ../../Makefile.variables
+
+MAKEFLAGS += --no-builtin-rules
 
 export CGO_ENABLED=0
 
@@ -26,7 +26,7 @@ GO := go
 GO_FILES := $(shell find . -type f -name '*.go')
 
 
-IMAGENAME?=ghcr.io/freiheit-com/kuberpult-frontend-service:${VERSION}
+IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-frontend-service:${VERSION}
 
 GARBAGE := *.sentinel
 
@@ -42,10 +42,33 @@ export KUBERPULT_CDSERVER?=localhost:8443
 run: bin/main
 	./bin/main
 
+build: bin/main
+
+build-pr: test docker
+	echo "build on pull request"
+
+build-main: test docker
+	echo "build on main"
+
+.PHONY: login
+login:
+	cat ../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
+
+.PHONY: publish
+publish: login release
+
+start: src/api/api.ts
+	yarn && yarn start
+
 clean:
 	git clean -Xfd
 
-test: test-go test-ts
+.PHONY: test-dependancies
+test-dependancies:
+	make -C ../../pkg test
+	make -C ../../pkg/api test
+
+test: test-go test-ts test-dependancies
 
 test-go: $(GO_FILES) proto
 	$(GO) test ./...
@@ -54,7 +77,7 @@ test-ts: src/api/api.ts
 	yarn eslint
 	yarn test --watchAll=false
 
-docker: bin/main ../../version | dist
+docker: bin/main | dist
 	docker build -t $(IMAGENAME) .
 
 release: docker
@@ -86,3 +109,7 @@ dist: .dist.sentinel
 .DEFAULT_GOAL := all
 
 .PHONY: deps
+
+.PHONY: get-builder-image
+get-builder-image:
+	@echo "$(KUBERPULT_BUILDER)"

@@ -1,0 +1,6 @@
+metadata:
+  name: frontend-service
+  builder: kuberpult-builder
+spec:
+  dependsOn:
+  - ../../charts/kuberpult

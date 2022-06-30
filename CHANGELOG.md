@@ -1,5 +1,76 @@
 # Change Log
 
+## Unreleased
+
+### Added
+
+* Allow configuration of "environment" datadog metrics and traces get reported to [#197](https://github.com/freiheit-com/kuberpult/pull/197)
+* Enhanced support for tracing Kuberpult internals [#198](https://github.com/freiheit-com/kuberpult/pull/198)
+* Get builder images from make get-builder-image [#199](https://github.com/freiheit-com/kuberpult/pull/199)
+
+## 0.4.21
+
+**released 2022-06-17**
+
+### Added
+
+* Customize annotations on the kuberpult ingress [#191](https://github.com/freiheit-com/kuberpult/pull/191)
+* Support per-application ArgoCD sync windows [#180](https://github.com/freiheit-com/kuberpult/pull/180)
+
+## 0.4.20
+
+**releases 2022-06-16**
+
+### Added
+
+* Warning when manually deployed to production [#186](https://github.com/freiheit-com/kuberpult/pull/172)
+
+## 0.4.19
+
+**releases 2022-06-14**
+
+### Added
+
+* Release on tag creation  [#172](https://github.com/freiheit-com/kuberpult/pull/172)
+* Increase default loadbalancer timeout to 300 [#183](https://github.com/freiheit-com/kuberpult/pull/183)
+
+### Fixed
+
+* Increase Kuberpult's memory limit & request [#182](https://github.com/freiheit-com/kuberpult/pull/182)
+
+## 0.4.18
+
+**releases 2022-06-13**
+
+### Fixed
+
+* Increase Kuberpult's Cpu limit & request [#173](https://github.com/freiheit-com/kuberpult/pull/173)
+
+## 0.4.17
+
+**releases 2022-05-31**
+
+### Added
+
+* It's now possible to specify sync options for argocd apps [#163](https://github.com/freiheit-com/kuberpult/pull/163)
+
+### Fixed
+
+* The rest endpoints of the frontend service work again [#164](https://github.com/freiheit-com/kuberpult/pull/164)
+
+## 0.4.16
+
+**released 2022-05-27**
+
+### Added
+
+* Add option to configure timeouts in loadbalancer [#156](https://github.com/freiheit-com/kuberpult/pull/156)
+
+### Removed
+
+* removed cd.pvc.storage from values [#155](https://github.com/freiheit-com/kuberpult/pull/155)
+
+
 ## 0.4.14
 
 **released 2022-04-21**

@@ -27,16 +27,16 @@ export interface Api {
 }
 
 const DummyApi: Api = {
-    overviewService: () => {
+    overviewService(): api.OverviewService {
         throw new Error('overviewService is unimplemented');
     },
-    deployService: () => {
+    deployService(): api.DeployService {
         throw new Error('deployService is unimplemented');
     },
-    lockService: () => {
+    lockService(): api.LockService {
         throw new Error('lockService is unimplemented');
     },
-    batchService: () => {
+    batchService(): api.BatchService {
         throw new Error('batchService is unimplemented');
     },
 };

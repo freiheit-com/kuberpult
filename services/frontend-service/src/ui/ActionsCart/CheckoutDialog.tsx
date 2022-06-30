@@ -15,17 +15,29 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { Button, Dialog, DialogTitle, IconButton, Typography, Snackbar, CircularProgress } from '@material-ui/core';
-import { useCallback, useContext } from 'react';
+import { useCallback, useContext, useState, VFC } from 'react';
+import {
+    Alert,
+    AlertTitle,
+    Button,
+    CircularProgress,
+    Dialog,
+    DialogTitle,
+    IconButton,
+    Snackbar,
+    TextField,
+    Typography,
+} from '@material-ui/core';
 import { Close } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
-import { BatchAction } from '../../api/api';
+import { BatchAction, GetOverviewResponse } from '../../api/api';
 import { useUnaryCallback } from '../Api';
+import { addMessageToAction, CartAction, hasLockAction, isNonNullable } from '../ActionDetails';
 
 export const callbacks = {
     useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
         useUnaryCallback(
-            React.useCallback(
+            useCallback(
                 (api) =>
                     api
                         .batchService()
@@ -39,22 +51,8 @@ export const callbacks = {
         ),
 };
 
-const ApplyButton = (props: { openNotification: (msg: string) => void; closeDialog: () => void }) => {
-    const { openNotification, closeDialog } = props;
-    const { actions, setActions } = useContext(ActionsCartContext);
-
-    const actionsSucceeded = useCallback(() => {
-        setActions([]);
-        closeDialog();
-        openNotification('Actions were applied successfully!');
-    }, [setActions, openNotification, closeDialog]);
-    const actionsFailed = useCallback(() => {
-        closeDialog();
-        openNotification('Actions were not applied. Please try again!');
-    }, [openNotification, closeDialog]);
-    const [doActions, doActionsState] = callbacks.useBatch(actions, actionsSucceeded, actionsFailed);
-
-    switch (doActionsState.state) {
+const ApplyButton: VFC<{ doActions: () => void; state: string }> = ({ doActions, state }) => {
+    switch (state) {
         case 'rejected':
         case 'resolved':
         case 'waiting':
@@ -78,18 +76,68 @@ const ApplyButton = (props: { openNotification: (msg: string) => void; closeDial
     }
 };
 
-export const CheckoutCart = () => {
-    const [openNotify, setOpenNotify] = React.useState(false);
-    const [dialogOpen, setDialogOpen] = React.useState(false);
-    const [notifyMessage, setNotifyMessage] = React.useState('');
-    const { actions } = useContext(ActionsCartContext);
+const LockMessageInput: VFC<{ updateMessage: (e: any) => void }> = ({ updateMessage }) => (
+    <TextField
+        label="Lock Message"
+        variant="outlined"
+        sx={{ m: 1 }}
+        placeholder="default-lock"
+        onChange={updateMessage}
+        className="actions-cart__lock-message"
+    />
+);
+
+const CheckoutButton: VFC<{ openDialog: () => void; disabled: boolean }> = ({ openDialog, disabled }) => (
+    <Button sx={{ display: 'flex' }} onClick={openDialog} variant={'contained'} disabled={disabled}>
+        <Typography variant="h6">
+            <strong>Apply</strong>
+        </Typography>
+    </Button>
+);
+
+export const SyncWindowsWarning: VFC<{
+    actions: CartAction[];
+    overview: GetOverviewResponse;
+}> = ({ actions, overview }) => {
+    const anyAppInActionsHasSyncWindows = actions
+        .map((a) => {
+            if ('deploy' in a) {
+                const environmentName = a.deploy.environment;
+                const applicationName = a.deploy.application;
+                const numSyncWindows =
+                    overview.environments[environmentName].applications[applicationName]?.argoCD?.syncWindows.length ??
+                    0;
+                return numSyncWindows > 0;
+            } else {
+                return false;
+            }
+        })
+        .some((appHasSyncWindows) => appHasSyncWindows);
+    if (anyAppInActionsHasSyncWindows) {
+        return (
+            <Alert variant="outlined" sx={{ m: 1 }} severity="warning">
+                <AlertTitle>ArgoCD sync windows are active for at least one application!</AlertTitle>
+                <p>Warning: This can delay deployment.</p>
+            </Alert>
+        );
+    } else {
+        return null;
+    }
+};
+
+export const CheckoutCart: VFC<{ overview: GetOverviewResponse }> = ({ overview }) => {
+    const [notify, setNotify] = useState({ open: false, message: '' });
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const { actions, setActions } = useContext(ActionsCartContext);
+    const [lockMessage, setLockMessage] = useState('');
+
+    const updateLockMessage = useCallback((e) => setLockMessage(e.target.value), [setLockMessage]);
 
     const openNotification = useCallback(
         (msg: string) => {
-            setNotifyMessage(msg);
-            setOpenNotify(true);
+            setNotify({ open: true, message: msg });
         },
-        [setOpenNotify, setNotifyMessage]
+        [setNotify]
     );
 
     const closeNotification = useCallback(
@@ -97,9 +145,9 @@ export const CheckoutCart = () => {
             if (reason === 'clickaway') {
                 return;
             }
-            setOpenNotify(false);
+            setNotify({ open: false, message: '' });
         },
-        [setOpenNotify]
+        [setNotify]
     );
 
     const openDialog = useCallback(() => {
@@ -110,17 +158,19 @@ export const CheckoutCart = () => {
         setDialogOpen(false);
     }, [setDialogOpen]);
 
-    const checkoutButton = (
-        <Button
-            sx={{ display: 'flex', height: '5%' }}
-            onClick={openDialog}
-            variant={'contained'}
-            disabled={actions.length === 0 || dialogOpen}>
-            <Typography variant="h6">
-                <strong>Apply</strong>
-            </Typography>
-        </Button>
-    );
+    const onActionsSucceeded = useCallback(() => {
+        setActions([]);
+        closeDialog();
+        setLockMessage('');
+        openNotification('Actions were applied successfully!');
+    }, [setActions, openNotification, closeDialog, setLockMessage]);
+    const onActionsFailed = useCallback(() => {
+        closeDialog();
+        openNotification('Actions were not applied. Please try again!');
+    }, [openNotification, closeDialog]);
+
+    const actionsWithMessage = actions.map((act) => addMessageToAction(act, lockMessage)).filter(isNonNullable);
+    const [doActions, doActionsState] = callbacks.useBatch(actionsWithMessage, onActionsSucceeded, onActionsFailed);
 
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
@@ -129,8 +179,17 @@ export const CheckoutCart = () => {
     );
 
     return (
-        <>
-            {checkoutButton}
+        <div
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+            }}>
+            <SyncWindowsWarning actions={actions} overview={overview} />
+            {hasLockAction(actions) && <LockMessageInput updateMessage={updateLockMessage} />}
+            <CheckoutButton
+                openDialog={openDialog}
+                disabled={actions.length === 0 || dialogOpen || (hasLockAction(actions) && lockMessage === '')}
+            />
             <Dialog onClose={closeDialog} open={dialogOpen}>
                 <DialogTitle sx={{ m: 0, p: 2 }}>
                     <Typography variant="subtitle1" component="div" className="checkout-title">
@@ -139,16 +198,16 @@ export const CheckoutCart = () => {
                 </DialogTitle>
                 <span style={{ alignSelf: 'end' }}>
                     <Button onClick={closeDialog}>Cancel</Button>
-                    <ApplyButton openNotification={openNotification} closeDialog={closeDialog} />
+                    <ApplyButton doActions={doActions} state={doActionsState.state} />
                 </span>
             </Dialog>
             <Snackbar
-                open={openNotify}
+                open={notify.open}
                 autoHideDuration={6000}
                 onClose={closeNotification}
-                message={notifyMessage}
+                message={notify.message}
                 action={closeIcon}
             />
-        </>
+        </div>
     );
 };

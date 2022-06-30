@@ -1,9 +1,12 @@
 name: Lint and Test Charts
 
 on:
-  pull_request:
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+        description: "Version tag of the kuberpult service images to be installed" 
 
 jobs:
   lint-test:
@@ -26,6 +29,14 @@ jobs:
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.2.0
 
+      - name: Set version
+        run: |
+          echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+ 
+      - name: Create chart and test values
+        run: |
+          make -C charts/kuberpult ci/test-values.yaml
+
       - name: Run chart-testing (list-changed)
         id: list-changed
         run: |
@@ -36,6 +47,10 @@ jobs:
 
       - name: Run chart-testing (lint)
         run: ct lint --target-branch main --all
+
+      - name: Helm linting
+        run: |
+          make -C charts/kuberpult test-ci
 
       - name: Create kind cluster
         uses: helm/kind-action@v1.2.0

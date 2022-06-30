@@ -3,6 +3,9 @@ apiVersion: v1beta1
 kind: Service
 metadata:
   name: cd-service
-  builder: golang
+  builder: kuberpult-builder
   tier: backend
   version: v1
+spec:
+  dependsOn:
+  - ../../charts/kuberpult

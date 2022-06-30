@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { useCallback, useContext } from 'react';
+import { useCallback, useContext, VFC } from 'react';
 import { useBeforeunload } from 'react-beforeunload';
 import {
     AppBar,
@@ -31,12 +31,12 @@ import {
 
 import { ClearRounded } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
-import { BatchAction } from '../../api/api';
-import { GetActionDetails } from '../ConfirmationDialog';
+import { GetOverviewResponse } from '../../api/api';
 import { theme } from '../App/styles';
 import { CheckoutCart } from './CheckoutDialog';
+import { CartAction, getActionDetails } from '../ActionDetails';
 
-const ActionListItem = (props: { act: BatchAction; index: number }) => {
+const ActionListItem = (props: { act: CartAction; index: number }) => {
     const { act, index } = props;
     const { actions, setActions } = useContext(ActionsCartContext);
     const removeItem = useCallback(() => {
@@ -46,9 +46,9 @@ const ActionListItem = (props: { act: BatchAction; index: number }) => {
     return (
         <ListItem divider={true}>
             <ListItemAvatar>
-                <Avatar>{GetActionDetails(act).icon}</Avatar>
+                <Avatar>{getActionDetails(act).icon}</Avatar>
             </ListItemAvatar>
-            <ListItemText primary={GetActionDetails(act).name} secondary={GetActionDetails(act).summary} />
+            <ListItemText primary={getActionDetails(act).name} secondary={getActionDetails(act).summary} />
             <IconButton onClick={removeItem}>
                 <ClearRounded />
             </IconButton>
@@ -56,7 +56,7 @@ const ActionListItem = (props: { act: BatchAction; index: number }) => {
     );
 };
 
-const ActionsList = () => {
+const ActionsList: VFC<{ overview: GetOverviewResponse }> = ({ overview }) => {
     const { actions } = useContext(ActionsCartContext);
 
     useBeforeunload((e) => {
@@ -75,7 +75,7 @@ const ActionsList = () => {
                 paddingTop: '30px',
             }}>
             <List className="actions" sx={{ width: '100%', bgcolor: 'background.paper' }}>
-                {actions.map((act: BatchAction, index: number) => (
+                {actions.map((act, index) => (
                     <ActionListItem act={act} index={index} key={index} />
                 ))}
             </List>
@@ -84,12 +84,12 @@ const ActionsList = () => {
                     {'Cart Is Currently Empty,\nPlease Add Actions!'}
                 </Typography>
             ) : null}
-            <CheckoutCart />
+            <CheckoutCart overview={overview} />
         </div>
     );
 };
 
-export const ActionsCart = () => (
+export const ActionsCart: VFC<{ overview: GetOverviewResponse }> = ({ overview }) => (
     <Drawer
         className="cart-drawer"
         anchor={'right'}
@@ -107,6 +107,6 @@ export const ActionsCart = () => (
                 <strong>{'Planned Actions'}</strong>
             </Typography>
         </AppBar>
-        <ActionsList />
+        <ActionsList overview={overview} />
     </Drawer>
 );

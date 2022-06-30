@@ -17,16 +17,15 @@ log:
 cd:
   image: kuberpult-cd-service
   backendConfig:
-    create: false  # Add backend config for health checks on GKE only
+    create: false   # Add backend config for health checks on GKE only
+    timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
   resources:
     limits:
-      cpu: 1
-      memory: 2Gi
+      cpu: 2
+      memory: 3Gi
     requests:
-      cpu: 1
-      memory: 2Gi
-  pvc:
-    storage: 5Gi
+      cpu: 2
+      memory: 3Gi
 frontend:
   image: kuberpult-frontend-service
   resources:
@@ -63,6 +62,7 @@ argocd:
 datadogTracing:
   enabled: false
   debugging: false
+  environment: "shared"
 
 dogstatsdMetrics:
   enabled: false

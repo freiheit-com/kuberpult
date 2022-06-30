@@ -35,7 +35,7 @@ const Header: React.FC<any> = (props: { overview: api.GetOverviewResponse }) => 
                 </Typography>
                 <AppDrawer data={overview} />
                 <LocksDrawer data={overview} />
-                <ActionsCart />
+                <ActionsCart overview={overview} />
             </Box>
         </AppBar>
     );

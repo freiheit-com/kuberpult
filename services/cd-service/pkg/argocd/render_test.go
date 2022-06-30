@@ -17,9 +17,12 @@ Copyright 2021 freiheit.com*/
 package argocd
 
 import (
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
-	godebug "github.com/kylelemons/godebug/diff"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/google/go-cmp/cmp"
+	godebug "github.com/kylelemons/godebug/diff"
 )
 
 func TestRender(t *testing.T) {
@@ -46,6 +49,8 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
 `,
 		},
 		{
@@ -69,6 +74,8 @@ spec:
       allowEmpty: true
       prune: true
       selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
 `,
 		},
 	}
@@ -87,14 +94,137 @@ spec:
 					AppName:           "app1",
 					IsUndeployVersion: tc.IsUndeployVersion,
 				}
+				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
 
-			actualResult, err := RenderApp(GitUrl, gitBranch, annotations, env, appData, destination, ignoreDifferences)
+			actualResult, err := RenderApp(GitUrl, gitBranch, annotations, env, appData, destination, ignoreDifferences, syncOptions)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if actualResult != tc.ExpectedResult {
 				t.Fatalf("unexpected argocd manifest:\ndiff:\n%s\n\n", godebug.Diff(tc.ExpectedResult, actualResult))
+			}
+		})
+	}
+}
+
+func TestRenderV1Alpha1(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  config.EnvironmentConfig
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "without sync window",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					SyncWindows: nil,
+				},
+			},
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - {}
+  sourceRepos:
+  - '*'
+`,
+		},
+		{
+			name: "with sync window without apps",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					SyncWindows: []config.ArgoCdSyncWindow{
+						{
+							Schedule: "not a valid crontab entry",
+							Duration: "invalid duration",
+							Kind:     "neither deny nor allow",
+							Apps:     nil,
+						},
+					},
+				},
+			},
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - {}
+  sourceRepos:
+  - '*'
+  syncWindows:
+  - applications:
+    - '*'
+    clusters:
+    - '*'
+    duration: invalid duration
+    kind: neither deny nor allow
+    manualSync: true
+    namespaces:
+    - '*'
+    schedule: not a valid crontab entry
+`,
+		},
+		{
+			name: "with sync window with apps",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					SyncWindows: []config.ArgoCdSyncWindow{
+						{
+							Schedule: "not a valid crontab entry",
+							Duration: "invalid duration",
+							Kind:     "neither deny nor allow",
+							Apps: []string{
+								"app*",
+							},
+						},
+					},
+				},
+			},
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - {}
+  sourceRepos:
+  - '*'
+  syncWindows:
+  - applications:
+    - app*
+    clusters:
+    - '*'
+    duration: invalid duration
+    kind: neither deny nor allow
+    manualSync: true
+    namespaces:
+    - '*'
+    schedule: not a valid crontab entry
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const (
+				gitUrl    = "https://git.example.com/"
+				gitBranch = "branch-name"
+				env       = "test-env"
+			)
+			got, err := RenderV1Alpha1(gitUrl, gitBranch, tt.config, env, nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if d := cmp.Diff(tt.want, string(got)); d != "" {
+				t.Errorf("mismatch: %s", d)
 			}
 		})
 	}

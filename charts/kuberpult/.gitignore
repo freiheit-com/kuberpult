@@ -1,1 +1,4 @@
 *.tgz
+Chart.yaml
+values.yaml
+ci/test-values.yaml

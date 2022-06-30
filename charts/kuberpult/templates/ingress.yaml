@@ -20,6 +20,9 @@ metadata:
   annotations:
     cert-manager.io/acme-challenge-type: dns01
     cert-manager.io/cluster-issuer: letsencrypt
+{{- range $key, $value := .Values.ingress.annotations }}
+    {{ $key }}: {{ $value }}
+{{- end }}
   name: kuberpult
 spec:
   rules:

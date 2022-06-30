@@ -20,6 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type SyncOptions []string
+
 // See https://pkg.go.dev/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta for more fields, if necessary
 type ObjectMeta struct {
 	Name        string            `json:"name"`
@@ -76,6 +78,8 @@ type ApplicationDestination struct {
 type SyncPolicy struct {
 	// Automated will keep an application synced to the target revision
 	Automated *SyncPolicyAutomated `json:"automated,omitempty" protobuf:"bytes,1,opt,name=automated"`
+	// SyncOptions provide per-sync sync-options, e.g. Validate=false
+	SyncOptions SyncOptions `json:"syncOptions,omitempty" protobuf:"bytes,9,opt,name=syncOptions"`
 }
 
 type SyncPolicyAutomated struct {

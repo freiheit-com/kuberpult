@@ -17,11 +17,12 @@ Copyright 2021 freiheit.com*/
 import * as React from 'react';
 import DeleteForeverIcon from '@material-ui/icons/DeleteForever';
 import DeleteOutlineIcon from '@material-ui/icons/DeleteOutline';
-import type { Environment, Release, BatchAction } from '../api/api';
+import type { Environment, Release } from '../api/api';
 import { Tooltip } from '@material-ui/core';
 import { useMemo } from 'react';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
 import IconButton from '@material-ui/core/IconButton';
+import { CartAction } from './ActionDetails';
 
 export enum DeployState {
     Normal,
@@ -75,13 +76,10 @@ const UndeployRunningWarning: React.FC<any> = (props: { deployState: DeployState
             </IconButton>
         </div>
     );
-    const undeploy: BatchAction = useMemo(
+    const undeploy: CartAction = useMemo(
         () => ({
-            action: {
-                $case: 'undeploy',
-                undeploy: {
-                    application: props.name,
-                },
+            undeploy: {
+                application: props.name,
             },
         }),
         [props.name]

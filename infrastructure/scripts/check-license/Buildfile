@@ -1,0 +1,6 @@
+metadata:
+  name: check-license
+  builder: kuberpult-builder
+spec:
+  dependsOn:
+  - ../../..

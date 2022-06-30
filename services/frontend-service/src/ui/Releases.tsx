@@ -34,10 +34,10 @@ import { ReleaseDialogProvider, useOpen } from './ReleaseDialog';
 
 import type { Application, Environment, Release, GetOverviewResponse } from '../api/api';
 import { Warnings } from './Warnings';
-import { BatchAction } from '../api/api';
 import { useMemo } from 'react';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
 import Button from '@material-ui/core/Button';
+import { CartAction } from './ActionDetails';
 export type EnvSortOrder = { [index: string]: number };
 
 const useStyles = makeStyles((theme) => ({
@@ -210,13 +210,10 @@ const ApplicationBox: React.FC<any> = (props: {
     const releases = application.releases;
     releases?.sort((a, b) => b.version - a.version);
     const warnings = <Warnings name={name} environments={environments} releases={releases} />;
-    const undeployAction: BatchAction = useMemo(
+    const undeployAction: CartAction = useMemo(
         () => ({
-            action: {
-                $case: 'prepareUndeploy',
-                prepareUndeploy: {
-                    application: name,
-                },
+            prepareUndeploy: {
+                application: name,
             },
         }),
         [name]

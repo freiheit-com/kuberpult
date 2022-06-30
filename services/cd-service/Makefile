@@ -15,16 +15,20 @@
 
 #Copyright 2021 freiheit.com
 # NOTE: this will be replaced with the etf-golang makefile
-MAKEFLAGS += --no-builtin-rules
 
-VERSION=$(shell cat ../../version)
-export VERSION
+include ../../Makefile.variables
+
+MAKEFLAGS += --no-builtin-rules
 
 export CGO_ENABLED=1
 
-IMAGENAME?=ghcr.io/freiheit-com/kuberpult-cd-service:${VERSION}
+IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:$(VERSION)
 
-COMPILE_WITH_DOCKER := $(shell [ -z "$$WITHOUT_DOCKER" ] && v=true || v=false; echo $$v)
+ifeq ($(WITH_DOCKER),)
+COMPILE_WITH_DOCKER := false
+else
+COMPILE_WITH_DOCKER := true
+endif
 
 GO := go
 
@@ -44,6 +48,11 @@ bin/:
 
 build: bin/main
 
+build-pr: test docker
+	echo "build on pull request"
+
+build-main: test docker
+	echo "build on main"
 
 ifeq ($(COMPILE_WITH_DOCKER),true)
 
@@ -72,10 +81,15 @@ clean:
 	rm -rf bin
 	docker rmi $(IMAGENAME) || true
 
-test: $(GO_FILES) | proto
+.PHONY: test-dependancies
+test-dependancies:
+	make -C ../../pkg test
+	make -C ../../pkg/api test
+
+test: $(GO_FILES) test-dependancies | proto
 	$(GO) test  ./...
 
-docker: bin/main ../../version
+docker: bin/main 
 	docker build -t $(IMAGENAME) .
 
 
@@ -86,4 +100,15 @@ release: docker
 
 all: test docker
 
+.PHONY: login
+login:
+	cat ../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
+
+.PHONY: publish
+publish: login release
+
 .PHONY: all release test docker clean
+
+.PHONY: get-builder-image
+get-builder-image:
+	@echo "$(KUBERPULT_BUILDER)"
