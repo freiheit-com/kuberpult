@@ -282,8 +282,8 @@ func TestNew(t *testing.T) {
 
 func TestConfigReload(t *testing.T) {
 	configFiles := []struct {
-		ConfigContent		string
-		ErrorExpected   bool
+		ConfigContent string
+		ErrorExpected bool
 	}{
 		{
 			ConfigContent: "{\"upstream\": {\"latest\": true }}",
@@ -380,11 +380,11 @@ func TestConfigReload(t *testing.T) {
 			},
 		)
 
-		if (err != nil) {
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		for _, configFile := range(configFiles) {
+		for _, configFile := range configFiles {
 			err = updateConfigFile(configFile.ConfigContent)
 			if err != nil {
 				t.Fatal(err)
@@ -401,6 +401,7 @@ func TestConfigReload(t *testing.T) {
 				}
 			} else {
 				if err != nil {
+					fmt.Println(err)
 					t.Errorf("Initialization failed with valid config.json")
 				}
 				cmd = exec.Command("git", "pull") // Add a new file to git
@@ -692,13 +693,13 @@ func (s *SlowTransformer) Transform(ctx context.Context, fs billy.Filesystem) (s
 }
 
 func TestApplyQueue(t *testing.T) {
-	testError := fmt.Errorf("test error")
+	// testError := fmt.Errorf("test error")
 	type action struct {
 		CancelBeforeAdd bool
 		CancelAfterAdd  bool
 		Transformer     Transformer
 		// Tests
-		ExpectedError   error
+		ExpectedError error
 	}
 	tcs := []struct {
 		Name    string
@@ -715,7 +716,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{}, {
 					CancelAfterAdd: true,
-					ExpectedError: context.Canceled,
+					ExpectedError:  context.Canceled,
 				}, {},
 			},
 		},
@@ -724,7 +725,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{
 					CancelAfterAdd: true,
-					ExpectedError: context.Canceled,
+					ExpectedError:  context.Canceled,
 				}, {}, {},
 			},
 		},
@@ -733,7 +734,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{
 					CancelAfterAdd: true,
-					ExpectedError: context.Canceled,
+					ExpectedError:  context.Canceled,
 				}, {}, {},
 			},
 		},
@@ -782,7 +783,7 @@ func TestApplyQueue(t *testing.T) {
 				}
 				if action.Transformer != nil {
 				}
-				results[i] = repoInternal.applyDeferred(ctx, )
+				results[i] = repoInternal.applyDeferred(ctx, tf)
 				if action.CancelAfterAdd {
 					cancel()
 				}

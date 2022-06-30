@@ -240,6 +240,34 @@ func (r *repository) work(ctx context.Context) {
 	}
 }
 
+func (r *repository) applyMultiple(elements []element) ([]element, error) {
+	for i := 0; i < len(elements); {
+		e := elements[i]
+		applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
+		if applyErr != nil {
+			if errors.Is(applyErr, invalidJson) {
+				// Invalid state. fetch and reset and redo all items till now. add the rest of the items back to the queue
+				rest := elements[i:]
+				for _, item := range rest {
+					r.queue.addElement(item.ctx, item)
+				}
+				elements = elements[:i]
+				err := r.FetchAndReset(e.ctx)
+				if err != nil {
+					return elements, err
+				}
+				return r.applyMultiple(elements)
+			} else {
+				e.result <- applyErr
+				elements = append(elements[:i], elements[i+1:]...)
+			}
+		} else {
+			i++
+		}
+	}
+	return elements, nil
+}
+
 func (r *repository) workOnce(e element) {
 	var err error
 	elements := []element{e}
@@ -282,16 +310,11 @@ dispatchmore:
 	}
 
 	// Apply the items
-	for i := 0; i < len(elements); {
-		e := elements[i]
-		applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
-		if applyErr != nil {
-			e.result <- applyErr
-			elements = append(elements[:i], elements[i+1:]...)
-		} else {
-			i++
-		}
+	elements, err = r.applyMultiple(elements)
+	if err != nil {
+		return
 	}
+
 	if len(elements) == 0 {
 		return
 	}
