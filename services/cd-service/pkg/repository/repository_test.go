@@ -801,14 +801,16 @@ func TestApplyQueuePanic(t *testing.T) {
 			for i, action := range tc.Actions {
 				ctx, cancel := context.WithCancel(context.Background())
 				results[i] = repoInternal.applyDeferred(ctx, action.Transformer)
-				defer func() {
-					if r := recover(); r == nil {
-						t.Errorf("The code did not panic")
-					}
-				}()
-				repoInternal.Work(ctx)
 				defer cancel()
 			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer func() {
+				if r := recover(); r == nil {
+					t.Errorf("The code did not panic")
+				}
+			}()
+			repoInternal.Work(ctx)
+			defer cancel()
 			// Check for the correct errors
 			for i, action := range tc.Actions {
 				if err := <-results[i]; err != action.ExpectedError {
