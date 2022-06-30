@@ -97,6 +97,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
     }, [fin, closeDialog, openNotification, action, actions, setActions]);
 
     const conflicts = getCartConflicts(actions, action);
+    const hasSyncWindows = syncWindows && syncWindows.length > 0;
 
     const replaceAction = useCallback(() => {
         openNotification();
@@ -106,12 +107,12 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
     }, [fin, closeDialog, openNotification, action, actions, setActions, conflicts]);
 
     const handleAddToCart = useCallback(() => {
-        if (conflicts.size || locks?.length || undeployedUpstream) {
+        if (conflicts.size || locks?.length || undeployedUpstream || hasSyncWindows) {
             setDialogOpen(true);
         } else {
             addAction();
         }
-    }, [setDialogOpen, addAction, locks, conflicts, undeployedUpstream]);
+    }, [setDialogOpen, addAction, locks, conflicts, undeployedUpstream, hasSyncWindows]);
 
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>
@@ -150,21 +151,20 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
             <strong>Possible conflict with actions already in cart!</strong>
         </Alert>
     );
-    const syncWindowsMessage =
-        syncWindows && syncWindows.length > 0 ? (
-            <Alert variant="outlined" sx={{ m: 1 }} severity="warning">
-                <AlertTitle>ArgoCD sync windows are active for this application!</AlertTitle>
-                <p>Warning: This can delay deployment.</p>
-                <h3>Sync windows:</h3>
-                <ul>
-                    {syncWindows?.map((w, n) => (
-                        <li key={`${n}:${w}`}>
-                            <SyncWindow w={w} />
-                        </li>
-                    ))}
-                </ul>
-            </Alert>
-        ) : null;
+    const syncWindowsMessage = hasSyncWindows ? (
+        <Alert variant="outlined" sx={{ m: 1 }} severity="warning">
+            <AlertTitle>ArgoCD sync windows are active for this application!</AlertTitle>
+            <p>Warning: This can delay deployment.</p>
+            <h3>Sync windows:</h3>
+            <ul>
+                {syncWindows?.map((w, n) => (
+                    <li key={`${n}:${w}`}>
+                        <SyncWindow w={w} />
+                    </li>
+                ))}
+            </ul>
+        </Alert>
+    ) : null;
 
     return (
         <>
