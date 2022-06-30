@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"sort"
 	"strings"
 	"sync"
@@ -188,7 +189,7 @@ func (h *History) Of(from *git.Commit) (*CommitHistory, error) {
 	return NewCommitHistory(h.repository, from, h.cache)
 }
 
-func (h *History) InjectCache(bfs billy.Filesystem, parent *git.Commit) error {
+func (h *History) WriteIndex(bfs billy.Filesystem, parent *git.Commit) error {
 	var buf bytes.Buffer
 	err := writeIndex(h, parent, &buf)
 	if err != nil {
@@ -199,6 +200,22 @@ func (h *History) InjectCache(bfs billy.Filesystem, parent *git.Commit) error {
 		return err
 	}
 	return util.WriteFile(bfs, ".index/v1", buf.Bytes(), 0644)
+}
+
+func (h *History) LoadIndex(bfs billy.Filesystem) error {
+	content, err := util.ReadFile(bfs, ".index/v1")
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		} else {
+			return fmt.Errorf("error opening .cache/v1: %w", err)
+		}
+	}
+	_, err = readIndex(h.repository, h.cache, content)
+	if err != nil {
+		return fmt.Errorf("error reading index: %w", err)
+	}
+	return nil
 }
 
 type CommitHistory struct {
@@ -243,14 +260,6 @@ func (h *CommitHistory) Change(path []string) (*git.Commit, error) {
 			if parent != nil {
 				parentTreeId = parent.TreeId()
 			}
-			// try read persistend cache
-			tree, err := h.current.Tree()
-			if err == nil {
-				err := h.readCache(tree)
-				if err != nil {
-					return nil, err
-				}
-			}
 			// try get non-persistend cache
 			cache := h.cache.get(*h.current.Id())
 			h.root.push(h.current, &git.TreeEntry{
@@ -261,30 +270,6 @@ func (h *CommitHistory) Change(path []string) (*git.Commit, error) {
 			h.current = parent
 		}
 	}
-}
-
-func (h *CommitHistory) readCache(tree *git.Tree) error {
-	entry, err := tree.EntryByPath(".index/v1")
-	if err != nil {
-		var gErr *git.GitError
-		if errors.As(err, &gErr) {
-			if gErr.Code != git.ErrorCodeNotFound {
-				return fmt.Errorf("error opening .index/v1: %w", err)
-			}
-			return nil
-		} else {
-			return fmt.Errorf("error opening .cache/v1: %w", err)
-		}
-	}
-	blob, err := h.repository.LookupBlob(entry.Id)
-	if err != nil {
-		return fmt.Errorf("error reading .index/v1: %w", err)
-	}
-	_, err = readIndex(h.repository, h.cache, blob.Contents())
-	if err != nil {
-		return fmt.Errorf("error reading index: %w", err)
-	}
-	return nil
 }
 
 type treeEntry struct {

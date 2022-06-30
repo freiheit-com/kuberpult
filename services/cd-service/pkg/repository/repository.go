@@ -47,6 +47,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v33"
 )
@@ -207,6 +208,12 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 					return nil, err
 				}
 			}
+			// load the persistent index
+			err = result.history.LoadIndex(osfs.New(cfg.Path))
+			if err != nil {
+				logger.Error("index.load", zap.Error(err))
+			}
+
 			// check that we can build the current state
 			state, err := result.buildState()
 			if err != nil {
@@ -378,11 +385,6 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		return &InternalError{inner: err}
 	}
 
-	err = r.history.InjectCache(state.Filesystem, state.Commit)
-	if err != nil {
-		return &InternalError{inner: err}
-	}
-
 	treeId, err := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 	if err != nil {
 		return &InternalError{inner: err}
@@ -413,6 +415,11 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		rev,
 	); err != nil {
 		return &InternalError{inner: err}
+	}
+	// store the persistent index
+	err = r.history.WriteIndex(osfs.New(r.config.Path), state.Commit)
+	if err != nil {
+		logger.FromContext(ctx).Error("index.store", zap.Error(err))
 	}
 	return nil
 }
