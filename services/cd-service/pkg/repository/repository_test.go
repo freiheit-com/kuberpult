@@ -18,6 +18,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -28,6 +29,7 @@ import (
 
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
+	"github.com/google/go-cmp/cmp"
 	git "github.com/libgit2/git2go/v33"
 )
 
@@ -692,8 +694,30 @@ func (s *SlowTransformer) Transform(ctx context.Context, fs billy.Filesystem) (s
 	return "ok", nil
 }
 
+type PanicTransformer struct{}
+
+func (p *PanicTransformer) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
+	panic("panic tranformer")
+	// return "ok", nil
+}
+
+var TransformerError = errors.New("error transformer")
+
+type ErrorTransformer struct{}
+
+func (p *ErrorTransformer) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
+	return "error", TransformerError
+}
+
+func convertToSet(list []uint64) map[int]bool {
+	set := make(map[int]bool)
+	for i := range list {
+		set[int(i)] = true
+	}
+	return set
+}
+
 func TestApplyQueue(t *testing.T) {
-	// testError := fmt.Errorf("test error")
 	type action struct {
 		CancelBeforeAdd bool
 		CancelAfterAdd  bool
@@ -702,40 +726,130 @@ func TestApplyQueue(t *testing.T) {
 		ExpectedError error
 	}
 	tcs := []struct {
-		Name    string
-		Actions []action
+		Name             string
+		Actions          []action
+		ExpectPanic      bool
+		ExpectedReleases []uint64
 	}{
 		{
 			Name: "simple",
 			Actions: []action{
 				{}, {}, {},
 			},
+			ExpectedReleases: []uint64{
+				1, 2, 3,
+			},
 		},
 		{
-			Name: "cancellation in the middle",
+			Name: "cancellation in the middle (after)",
 			Actions: []action{
 				{}, {
 					CancelAfterAdd: true,
 					ExpectedError:  context.Canceled,
 				}, {},
 			},
+			ExpectedReleases: []uint64{
+				1, 3,
+			},
 		},
 		{
-			Name: "cancellation at the start",
+			Name: "cancellation at the start (after)",
 			Actions: []action{
 				{
 					CancelAfterAdd: true,
 					ExpectedError:  context.Canceled,
 				}, {}, {},
 			},
+			ExpectedReleases: []uint64{
+				2, 3,
+			},
+		},
+		{
+			Name: "cancellation at the end (after)",
+			Actions: []action{
+				{}, {},
+				{
+					CancelAfterAdd: true,
+					ExpectedError:  context.Canceled,
+				},
+			},
+			ExpectedReleases: []uint64{
+				1, 2,
+			},
+		},
+		{
+			Name: "cancellation in the middle (before)",
+			Actions: []action{
+				{}, {
+					CancelBeforeAdd: true,
+					ExpectedError:   context.Canceled,
+				}, {},
+			},
+			ExpectedReleases: []uint64{
+				1, 3,
+			},
+		},
+		{
+			Name: "cancellation at the start (before)",
+			Actions: []action{
+				{
+					CancelBeforeAdd: true,
+					ExpectedError:   context.Canceled,
+				}, {}, {},
+			},
+			ExpectedReleases: []uint64{
+				2, 3,
+			},
+		},
+		{
+			Name: "cancellation at the end (before)",
+			Actions: []action{
+				{}, {},
+				{
+					CancelBeforeAdd: true,
+					ExpectedError:   context.Canceled,
+				},
+			},
+			ExpectedReleases: []uint64{
+				1, 2,
+			},
+		},
+		{
+			Name: "error in the start",
+			Actions: []action{
+				{
+					ExpectedError: TransformerError,
+					Transformer:   &ErrorTransformer{},
+				}, {}, {},
+			},
+			ExpectedReleases: []uint64{
+				2, 3,
+			},
 		},
 		{
 			Name: "error in the middle",
 			Actions: []action{
+				{},
 				{
-					CancelAfterAdd: true,
-					ExpectedError:  context.Canceled,
-				}, {}, {},
+					ExpectedError: TransformerError,
+					Transformer:   &ErrorTransformer{},
+				}, {},
+			},
+			ExpectedReleases: []uint64{
+				1, 3,
+			},
+		},
+		{
+			Name: "error in the end",
+			Actions: []action{
+				{}, {},
+				{
+					ExpectedError: TransformerError,
+					Transformer:   &ErrorTransformer{},
+				},
+			},
+			ExpectedReleases: []uint64{
+				1, 2,
 			},
 		},
 	}
@@ -775,17 +889,31 @@ func TestApplyQueue(t *testing.T) {
 				if action.CancelBeforeAdd {
 					cancel()
 				}
-				tf := &CreateApplicationVersion{
-					Application: "foo",
-					Manifests: map[string]string{
-						"development": fmt.Sprintf("%d", i),
-					},
+				if action.Transformer != nil {
+					results[i] = repoInternal.applyDeferred(ctx, action.Transformer)
+				} else {
+					tf := &CreateApplicationVersion{
+						Application: "foo",
+						Manifests: map[string]string{
+							"development": fmt.Sprintf("%d", i),
+						},
+						Version: uint64(i + 1),
+					}
+					results[i] = repoInternal.applyDeferred(ctx, tf)
 				}
-				results[i] = repoInternal.applyDeferred(ctx, tf)
 				if action.CancelAfterAdd {
 					cancel()
 				}
 			}
+			// if tc.ExpectPanic {
+			// fmt.Println("expecting deferred recovery")
+			// defer func() {
+			// fmt.Println("trying to recover")
+			// if r := recover(); r == nil {
+			// t.Errorf("The code did not panic")
+			// }
+			// }()
+			// }
 			// Now release the slow transformer
 			finished <- struct{}{}
 			// Check for the correct errors
@@ -794,6 +922,13 @@ func TestApplyQueue(t *testing.T) {
 					t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, action.ExpectedError, err)
 				}
 			}
+			if len(tc.ExpectedReleases) > 0 {
+				releases, _ := repo.State().Releases("foo")
+				if !cmp.Equal(convertToSet(tc.ExpectedReleases), convertToSet(releases)) {
+					t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReleases, releases))
+				}
+			}
+
 		})
 	}
 }
