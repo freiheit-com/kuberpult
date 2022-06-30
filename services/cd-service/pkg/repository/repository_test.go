@@ -781,8 +781,6 @@ func TestApplyQueue(t *testing.T) {
 						"development": fmt.Sprintf("%d", i),
 					},
 				}
-				if action.Transformer != nil {
-				}
 				results[i] = repoInternal.applyDeferred(ctx, tf)
 				if action.CancelAfterAdd {
 					cancel()

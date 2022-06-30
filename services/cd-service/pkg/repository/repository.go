@@ -227,7 +227,7 @@ func (r *repository) work(ctx context.Context) {
 	defer func() {
 		close(r.queue.elements)
 		for e := range r.queue.elements {
-			e.result <- nil
+			e.result <- ctx.Err()
 		}
 	}()
 	for {
@@ -268,8 +268,10 @@ func (r *repository) applyMultiple(elements []element) ([]element, error) {
 	return elements, nil
 }
 
+var panicError = errors.New("Panic")
+
 func (r *repository) workOnce(e element) {
-	var err error
+	var err error = panicError
 	elements := []element{e}
 	defer func() {
 		for _, el := range elements {
@@ -350,6 +352,7 @@ dispatchmore:
 			err = &InternalError{inner: err}
 		}
 	}
+	err = nil
 	r.notify.Notify()
 }
 
