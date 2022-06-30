@@ -698,7 +698,6 @@ type PanicTransformer struct{}
 
 func (p *PanicTransformer) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
 	panic("panic tranformer")
-	// return "ok", nil
 }
 
 var TransformerError = errors.New("error transformer")
@@ -715,6 +714,116 @@ func convertToSet(list []uint64) map[int]bool {
 		set[int(i)] = true
 	}
 	return set
+}
+
+func TestApplyQueuePanic(t *testing.T) {
+	type action struct {
+		CancelBeforeAdd bool
+		CancelAfterAdd  bool
+		Transformer     Transformer
+		// Tests
+		ExpectedError error
+	}
+	tcs := []struct {
+		Name             string
+		Actions          []action
+		ExpectPanic      bool
+		ExpectedReleases []uint64
+	}{
+		{
+			Name: "panic at the start",
+			Actions: []action{
+				{
+					Transformer:   &PanicTransformer{},
+					ExpectedError: panicError,
+				}, {}, {},
+			},
+			ExpectedReleases: []uint64{
+				1, 2,
+			},
+		},
+		{
+			Name: "panic at the middle",
+			Actions: []action{
+				{}, {
+					Transformer:   &PanicTransformer{},
+					ExpectedError: panicError,
+				}, {},
+			},
+			ExpectedReleases: []uint64{
+				1, 3,
+			},
+		},
+		{
+			Name: "panic at the end",
+			Actions: []action{
+				{}, {}, {
+					Transformer:   &PanicTransformer{},
+					ExpectedError: panicError,
+				},
+			},
+			ExpectedReleases: []uint64{
+				1, 2,
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+			repo, err := New(
+				context.Background(),
+				Config{
+					URL:  "file://" + remoteDir,
+					Path: localDir,
+				},
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%e'", err)
+			}
+			repoInternal := repo.(*repository)
+			// Block the worker so that we have multiple items in the queue
+			finished := make(chan struct{})
+			started := make(chan struct{}, 1)
+			go func() {
+				repo.Apply(context.Background(), &SlowTransformer{finished, started})
+			}()
+			<-started
+			// The worker go routine is now blocked. We can move some items into the queue now.
+			results := make([]<-chan error, len(tc.Actions))
+			for i, action := range tc.Actions {
+				ctx, cancel := context.WithCancel(context.Background())
+				results[i] = repoInternal.applyDeferred(ctx, action.Transformer)
+				defer func() {
+					if r := recover(); r == nil {
+						t.Errorf("The code did not panic")
+					}
+				}()
+				repoInternal.Work(ctx)
+				defer cancel()
+			}
+			// Check for the correct errors
+			for i, action := range tc.Actions {
+				if err := <-results[i]; err != action.ExpectedError {
+					t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, action.ExpectedError, err)
+				}
+			}
+			if len(tc.ExpectedReleases) > 0 {
+				releases, _ := repo.State().Releases("foo")
+				if !cmp.Equal(convertToSet(tc.ExpectedReleases), convertToSet(releases)) {
+					t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReleases, releases))
+				}
+			}
+
+		})
+	}
 }
 
 func TestApplyQueue(t *testing.T) {
@@ -905,15 +1014,6 @@ func TestApplyQueue(t *testing.T) {
 					cancel()
 				}
 			}
-			// if tc.ExpectPanic {
-			// fmt.Println("expecting deferred recovery")
-			// defer func() {
-			// fmt.Println("trying to recover")
-			// if r := recover(); r == nil {
-			// t.Errorf("The code did not panic")
-			// }
-			// }()
-			// }
 			// Now release the slow transformer
 			finished <- struct{}{}
 			// Check for the correct errors

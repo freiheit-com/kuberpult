@@ -217,13 +217,13 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 			if _, err := state.GetEnvironmentConfigs(); err != nil {
 				return nil, err
 			}
-			go result.work(ctx)
+			go result.Work(ctx)
 			return result, nil
 		}
 	}
 }
 
-func (r *repository) work(ctx context.Context) {
+func (r *repository) Work(ctx context.Context) {
 	defer func() {
 		close(r.queue.elements)
 		for e := range r.queue.elements {
