@@ -815,7 +815,7 @@ func TestApplyQueue(t *testing.T) {
 			},
 		},
 		{
-			Name: "error in the start",
+			Name: "error at the start",
 			Actions: []action{
 				{
 					ExpectedError: TransformerError,
@@ -827,7 +827,7 @@ func TestApplyQueue(t *testing.T) {
 			},
 		},
 		{
-			Name: "error in the middle",
+			Name: "error at the middle",
 			Actions: []action{
 				{},
 				{
@@ -840,7 +840,7 @@ func TestApplyQueue(t *testing.T) {
 			},
 		},
 		{
-			Name: "error in the end",
+			Name: "error at the end",
 			Actions: []action{
 				{}, {},
 				{
