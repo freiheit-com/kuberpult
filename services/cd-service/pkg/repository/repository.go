@@ -240,23 +240,18 @@ func (r *repository) Work(ctx context.Context) {
 	}
 }
 
-func (r *repository) applyMultiple(elements []element) ([]element, error) {
+func (r *repository) applyMultiple(elements []element, allowFetchAndReset bool) ([]element, error) {
 	for i := 0; i < len(elements); {
 		e := elements[i]
 		applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
 		if applyErr != nil {
-			if errors.Is(applyErr, invalidJson) {
-				// Invalid state. fetch and reset and redo all items till now. add the rest of the items back to the queue
-				rest := elements[i:]
-				for _, item := range rest {
-					r.queue.addElement(item.ctx, item)
-				}
-				elements = elements[:i]
+			if errors.Is(applyErr, invalidJson) && allowFetchAndReset {
+				// Invalid state. fetch and reset and redo
 				err := r.FetchAndReset(e.ctx)
 				if err != nil {
 					return elements, err
 				}
-				return r.applyMultiple(elements)
+				return r.applyMultiple(elements, false)
 			} else {
 				e.result <- applyErr
 				elements = append(elements[:i], elements[i+1:]...)
@@ -313,7 +308,7 @@ dispatchmore:
 	}
 
 	// Apply the items
-	elements, err = r.applyMultiple(elements)
+	elements, err = r.applyMultiple(elements, true)
 	if err != nil {
 		return
 	}
@@ -333,16 +328,7 @@ dispatchmore:
 				return
 			}
 			// Apply the items
-			for i := 0; i < len(elements); {
-				e := elements[i]
-				applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
-				if applyErr != nil {
-					e.result <- applyErr
-					elements = append(elements[:i], elements[i+1:]...)
-				} else {
-					i++
-				}
-			}
+			elements, err = r.applyMultiple(elements, false)
 			if len(elements) == 0 {
 				return
 			}
