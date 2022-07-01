@@ -710,7 +710,7 @@ func (p *ErrorTransformer) Transform(ctx context.Context, fs billy.Filesystem) (
 
 func convertToSet(list []uint64) map[int]bool {
 	set := make(map[int]bool)
-	for i := range list {
+	for _, i := range list {
 		set[int(i)] = true
 	}
 	return set
@@ -1026,5 +1026,72 @@ func TestApplyQueue(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+func getTransformer(i int) (Transformer, error) {
+	transformerType := i % 4
+	switch transformerType {
+	case 0:
+	case 1:
+	case 2:
+		return &CreateApplicationVersion{
+			Application: "foo",
+			Manifests: map[string]string{
+				"development": fmt.Sprintf("%d", i),
+			},
+			Version: uint64(i + 1),
+		}, nil
+	case 3:
+		return &ErrorTransformer{}, TransformerError
+	}
+	return &ErrorTransformer{}, TransformerError
+}
+
+func BenchmarkApplyQueue(t *testing.B) {
+	t.StopTimer()
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	cmd.Start()
+	cmd.Wait()
+	repo, err := New(
+		context.Background(),
+		Config{
+			URL:  "file://" + remoteDir,
+			Path: localDir,
+		},
+	)
+	if err != nil {
+		t.Fatalf("new: expected no error, got '%e'", err)
+	}
+	repoInternal := repo.(*repository)
+	// The worker go routine is now blocked. We can move some items into the queue now.
+	results := make([]<-chan error, t.N)
+	expectedResults := make([]error, t.N)
+	expectedReleases := make(map[int]bool, t.N)
+
+	t.StartTimer()
+	for i := 0; i < t.N; i++ {
+		ctx, cancel := context.WithCancel(context.Background())
+		tf, expectedResult := getTransformer(i)
+		results[i] = repoInternal.applyDeferred(ctx, tf)
+		expectedResults[i] = expectedResult
+		if expectedResult == nil {
+			expectedReleases[i+1] = true
+		}
+		defer cancel()
+	}
+
+	t.StopTimer()
+	for i := 0; i < t.N; i++ {
+		if err := <-results[i]; err != expectedResults[i] {
+			t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, expectedResults[i], err)
+		}
+	}
+	releases, _ := repo.State().Releases("foo")
+	if !cmp.Equal(expectedReleases, convertToSet(releases)) {
+		t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, convertToSet(releases)))
 	}
 }
