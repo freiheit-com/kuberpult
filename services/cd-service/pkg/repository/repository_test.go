@@ -725,10 +725,9 @@ func TestApplyQueuePanic(t *testing.T) {
 		ExpectedError error
 	}
 	tcs := []struct {
-		Name             string
-		Actions          []action
-		ExpectPanic      bool
-		ExpectedReleases []uint64
+		Name        string
+		Actions     []action
+		ExpectPanic bool
 	}{
 		{
 			Name: "panic at the start",
@@ -736,34 +735,37 @@ func TestApplyQueuePanic(t *testing.T) {
 				{
 					Transformer:   &PanicTransformer{},
 					ExpectedError: panicError,
-				}, {}, {},
-			},
-			ExpectedReleases: []uint64{
-				1, 2,
+				}, {
+					ExpectedError: panicError,
+				}, {
+					ExpectedError: panicError,
+				},
 			},
 		},
 		{
 			Name: "panic at the middle",
 			Actions: []action{
-				{}, {
+				{
+					ExpectedError: panicError,
+				}, {
 					Transformer:   &PanicTransformer{},
 					ExpectedError: panicError,
-				}, {},
-			},
-			ExpectedReleases: []uint64{
-				1, 3,
+				}, {
+					ExpectedError: panicError,
+				},
 			},
 		},
 		{
 			Name: "panic at the end",
 			Actions: []action{
-				{}, {}, {
+				{
+					ExpectedError: panicError,
+				}, {
+					ExpectedError: panicError,
+				}, {
 					Transformer:   &PanicTransformer{},
 					ExpectedError: panicError,
 				},
-			},
-			ExpectedReleases: []uint64{
-				1, 2,
 			},
 		},
 	}
@@ -808,21 +810,15 @@ func TestApplyQueuePanic(t *testing.T) {
 				if r := recover(); r == nil {
 					t.Errorf("The code did not panic")
 				}
+				// Check for the correct errors
+				for i, action := range tc.Actions {
+					if err := <-results[i]; err != action.ExpectedError {
+						t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, action.ExpectedError, err)
+					}
+				}
 			}()
 			repoInternal.Work(ctx)
 			defer cancel()
-			// Check for the correct errors
-			for i, action := range tc.Actions {
-				if err := <-results[i]; err != action.ExpectedError {
-					t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, action.ExpectedError, err)
-				}
-			}
-			if len(tc.ExpectedReleases) > 0 {
-				releases, _ := repo.State().Releases("foo")
-				if !cmp.Equal(convertToSet(tc.ExpectedReleases), convertToSet(releases)) {
-					t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReleases, releases))
-				}
-			}
 
 		})
 	}
