@@ -1121,8 +1121,7 @@ func createGitWithCommit(remote string, local string, t *testing.B) {
 		"GIT_COMMITTER_NAME=kuberpult",
 		"EMAIL=test@kuberpult.com",
 	}
-	out, err := cmd.Output()
-	fmt.Println(string(out))
+	_, err = cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			t.Logf("stderr: %s\n", exitErr.Stderr)
