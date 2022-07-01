@@ -708,6 +708,12 @@ func (p *ErrorTransformer) Transform(ctx context.Context, fs billy.Filesystem) (
 	return "error", TransformerError
 }
 
+type InvalidJsonTransformer struct{}
+
+func (p *InvalidJsonTransformer) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
+	return "error", invalidJson
+}
+
 func convertToSet(list []uint64) map[int]bool {
 	set := make(map[int]bool)
 	for _, i := range list {
@@ -954,6 +960,46 @@ func TestApplyQueue(t *testing.T) {
 				1, 2,
 			},
 		},
+		{
+			Name: "Invalid json error at start",
+			Actions: []action{
+				{
+					ExpectedError: invalidJson,
+					Transformer:   &InvalidJsonTransformer{},
+				},
+				{}, {},
+			},
+			ExpectedReleases: []uint64{
+				2, 3,
+			},
+		},
+		{
+			Name: "Invalid json error at middle",
+			Actions: []action{
+				{},
+				{
+					ExpectedError: invalidJson,
+					Transformer:   &InvalidJsonTransformer{},
+				},
+				{},
+			},
+			ExpectedReleases: []uint64{
+				1, 3,
+			},
+		},
+		{
+			Name: "Invalid json error at end",
+			Actions: []action{
+				{}, {},
+				{
+					ExpectedError: invalidJson,
+					Transformer:   &InvalidJsonTransformer{},
+				},
+			},
+			ExpectedReleases: []uint64{
+				1, 2,
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -1025,7 +1071,7 @@ func TestApplyQueue(t *testing.T) {
 }
 
 func getTransformer(i int) (Transformer, error) {
-	transformerType := i % 4
+	transformerType := i % 5
 	switch transformerType {
 	case 0:
 	case 1:
@@ -1039,8 +1085,57 @@ func getTransformer(i int) (Transformer, error) {
 		}, nil
 	case 3:
 		return &ErrorTransformer{}, TransformerError
+	case 4:
+		return &InvalidJsonTransformer{}, invalidJson
 	}
 	return &ErrorTransformer{}, TransformerError
+}
+
+func createGitWithCommit(remote string, local string, t *testing.B) {
+	cmd := exec.Command("git", "init", "--bare", remote)
+	cmd.Start()
+	cmd.Wait()
+
+	cmd = exec.Command("git", "clone", remote, local) // Clone git dir
+	_, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd = exec.Command("touch", "a") // Add a new file to git
+	cmd.Dir = local
+	_, err = cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd = exec.Command("git", "add", "a") // Add a new file to git
+	cmd.Dir = local
+	_, err = cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "adding") // commit the new file
+	cmd.Dir = local
+	cmd.Env = []string{
+		"GIT_AUTHOR_NAME=kuberpult",
+		"GIT_COMMITTER_NAME=kuberpult",
+		"EMAIL=test@kuberpult.com",
+	}
+	out, err := cmd.Output()
+	fmt.Println(string(out))
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			t.Logf("stderr: %s\n", exitErr.Stderr)
+			t.Logf("stderr: %s\n", err)
+		}
+		t.Fatal(err)
+	}
+	cmd = exec.Command("git", "push", "origin", "HEAD") // push the new commit
+	cmd.Dir = local
+	_, err = cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func BenchmarkApplyQueue(t *testing.B) {
@@ -1048,9 +1143,8 @@ func BenchmarkApplyQueue(t *testing.B) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
+	createGitWithCommit(remoteDir, localDir, t)
+
 	repo, err := New(
 		context.Background(),
 		Config{
@@ -1066,6 +1160,8 @@ func BenchmarkApplyQueue(t *testing.B) {
 	results := make([]<-chan error, t.N)
 	expectedResults := make([]error, t.N)
 	expectedReleases := make(map[int]bool, t.N)
+	tf, _ := getTransformer(0)
+	repoInternal.Apply(context.Background(), tf)
 
 	t.StartTimer()
 	for i := 0; i < t.N; i++ {
@@ -1077,10 +1173,9 @@ func BenchmarkApplyQueue(t *testing.B) {
 		}
 	}
 
-	t.StopTimer()
 	for i := 0; i < t.N; i++ {
 		if err := <-results[i]; err != expectedResults[i] {
-			t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, expectedResults[i], err)
+			t.Errorf("result[%d] expected error \"%v\" but got \"%v\"", i, expectedResults[i], err)
 		}
 	}
 	releases, _ := repo.State().Releases("foo")
