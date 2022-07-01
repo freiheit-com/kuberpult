@@ -329,7 +329,7 @@ dispatchmore:
 			}
 			// Apply the items
 			elements, err = r.applyElements(elements, false)
-			if len(elements) == 0 {
+			if err != nil || len(elements) == 0 {
 				return
 			}
 			if pushErr := r.Push(e.ctx, pushAction); pushErr != nil {
