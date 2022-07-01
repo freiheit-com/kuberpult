@@ -801,11 +801,8 @@ func TestApplyQueuePanic(t *testing.T) {
 			// The worker go routine is now blocked. We can move some items into the queue now.
 			results := make([]<-chan error, len(tc.Actions))
 			for i, action := range tc.Actions {
-				ctx, cancel := context.WithCancel(context.Background())
-				results[i] = repoInternal.applyDeferred(ctx, action.Transformer)
-				defer cancel()
+				results[i] = repoInternal.applyDeferred(context.Background(), action.Transformer)
 			}
-			ctx, cancel := context.WithCancel(context.Background())
 			defer func() {
 				if r := recover(); r == nil {
 					t.Errorf("The code did not panic")
@@ -817,9 +814,7 @@ func TestApplyQueuePanic(t *testing.T) {
 					}
 				}
 			}()
-			repoInternal.Work(ctx)
-			defer cancel()
-
+			repoInternal.Work(context.Background())
 		})
 	}
 }
@@ -1074,14 +1069,12 @@ func BenchmarkApplyQueue(t *testing.B) {
 
 	t.StartTimer()
 	for i := 0; i < t.N; i++ {
-		ctx, cancel := context.WithCancel(context.Background())
 		tf, expectedResult := getTransformer(i)
-		results[i] = repoInternal.applyDeferred(ctx, tf)
+		results[i] = repoInternal.applyDeferred(context.Background(), tf)
 		expectedResults[i] = expectedResult
 		if expectedResult == nil {
 			expectedReleases[i+1] = true
 		}
-		defer cancel()
 	}
 
 	t.StopTimer()
