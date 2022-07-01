@@ -240,7 +240,7 @@ func (r *repository) Work(ctx context.Context) {
 	}
 }
 
-func (r *repository) applyMultiple(elements []element, allowFetchAndReset bool) ([]element, error) {
+func (r *repository) applyElements(elements []element, allowFetchAndReset bool) ([]element, error) {
 	for i := 0; i < len(elements); {
 		e := elements[i]
 		applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
@@ -251,7 +251,7 @@ func (r *repository) applyMultiple(elements []element, allowFetchAndReset bool) 
 				if err != nil {
 					return elements, err
 				}
-				return r.applyMultiple(elements, false)
+				return r.applyElements(elements, false)
 			} else {
 				e.result <- applyErr
 				elements = append(elements[:i], elements[i+1:]...)
@@ -308,7 +308,7 @@ dispatchmore:
 	}
 
 	// Apply the items
-	elements, err = r.applyMultiple(elements, true)
+	elements, err = r.applyElements(elements, true)
 	if err != nil {
 		return
 	}
@@ -328,7 +328,7 @@ dispatchmore:
 				return
 			}
 			// Apply the items
-			elements, err = r.applyMultiple(elements, false)
+			elements, err = r.applyElements(elements, false)
 			if len(elements) == 0 {
 				return
 			}
