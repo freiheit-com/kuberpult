@@ -1020,11 +1020,9 @@ func TestApplyQueue(t *testing.T) {
 					t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, action.ExpectedError, err)
 				}
 			}
-			if len(tc.ExpectedReleases) > 0 {
-				releases, _ := repo.State().Releases("foo")
-				if !cmp.Equal(convertToSet(tc.ExpectedReleases), convertToSet(releases)) {
-					t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReleases, releases))
-				}
+			releases, _ := repo.State().Releases("foo")
+			if !cmp.Equal(convertToSet(tc.ExpectedReleases), convertToSet(releases)) {
+				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReleases, releases))
 			}
 
 		})
