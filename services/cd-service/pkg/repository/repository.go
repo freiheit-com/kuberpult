@@ -282,6 +282,7 @@ func (r *repository) workOnce(e element) {
 	select {
 	case <-e.ctx.Done():
 		e.result <- e.ctx.Err()
+		return
 	default:
 	}
 	// Try to fetch more items from the queue in order to push more things together
