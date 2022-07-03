@@ -35,8 +35,6 @@ import LockIcon from '@material-ui/icons/Lock';
 import Tooltip from '@material-ui/core/Tooltip';
 import Typography from '@material-ui/core/Typography';
 
-import { useUnaryCallback } from './Api';
-
 import type {
     Application,
     Environment,
@@ -45,7 +43,6 @@ import type {
     Lock,
     Release,
 } from '../api/api';
-import { LockBehavior } from '../api/api';
 import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
 import AddLockIcon from '@material-ui/icons/EnhancedEncryption';
@@ -150,7 +147,7 @@ const QueueDiff = (props: { queued: number; target: number; releases: Release[] 
     );
 };
 
-const LockButtonGroup = (props: { applicationName?: string; addToCart?: () => void; inCart?: boolean }) => {
+const CreateLockButtonInner = (props: { applicationName?: string; addToCart?: () => void; inCart?: boolean }) => {
     const { applicationName, addToCart, inCart } = props;
 
     return applicationName ? (
@@ -166,7 +163,7 @@ const LockButtonGroup = (props: { applicationName?: string; addToCart?: () => vo
     );
 };
 
-const ReleaseLockButtonGroup = (props: {
+const ReleaseLockButtonInner = (props: {
     lock: Lock;
     inCart?: boolean;
     addToCart?: () => void;
@@ -186,7 +183,7 @@ const ReleaseLockButtonGroup = (props: {
     );
 };
 
-const DeployButton = (props: {
+const DeployButtonInner = (props: {
     version: number;
     currentlyDeployedVersion: number;
     addToCart?: () => void;
@@ -221,6 +218,20 @@ const DeployButton = (props: {
     }
 };
 
+const DeleteQueueButtonInner: VFC<{ addToCart?: () => void; inCart?: boolean }> = ({ addToCart, inCart }) => {
+    const queueMessage =
+        'Deletes the queue. ' +
+        'Technically, it deploys the version that is already deployed here, which as a side effect deletes the queue.';
+
+    return (
+        <Tooltip title={queueMessage}>
+            <Button variant="contained" onClick={addToCart} className={''} disabled={inCart}>
+                {'Delete Queue'}
+            </Button>
+        </Tooltip>
+    );
+};
+
 export const CreateLockButton = (props: { applicationName?: string; environmentName: string }) => {
     const { applicationName, environmentName } = props;
 
@@ -243,7 +254,7 @@ export const CreateLockButton = (props: { applicationName?: string; environmentN
 
     return (
         <ConfirmationDialogProvider action={act}>
-            <LockButtonGroup applicationName={applicationName} />
+            <CreateLockButtonInner applicationName={applicationName} />
         </ConfirmationDialogProvider>
     );
 };
@@ -277,7 +288,7 @@ export const ReleaseLockButton = (props: {
     );
     return (
         <ConfirmationDialogProvider action={act}>
-            <ReleaseLockButtonGroup lock={lock} queueHint={queueHint} />
+            <ReleaseLockButtonInner lock={lock} queueHint={queueHint} />
         </ConfirmationDialogProvider>
     );
 };
@@ -316,33 +327,32 @@ const ReleaseEnvironment: VFC<{
         [applicationName, version, environmentName]
     );
     const currentlyDeployedVersion = overview.environments[environmentName].applications[applicationName]?.version;
+
+    const deleteQueue: CartAction = useMemo(
+        () => ({
+            deleteQueue: {
+                application: applicationName,
+                environment: environmentName,
+                currentlyDeployedVersion: currentlyDeployedVersion,
+            },
+        }),
+        [applicationName, environmentName, currentlyDeployedVersion]
+    );
+
     const queuedVersion = overview.environments[environmentName].applications[applicationName]?.queuedVersion;
     const hasQueue = queuedVersion !== 0;
-    // delete queue is *almost* equal to deploy, just with a different version:
-    const [queueEnv] = useUnaryCallback(
-        React.useCallback(
-            (api) =>
-                api.deployService().Deploy({
-                    application: applicationName,
-                    version: currentlyDeployedVersion,
-                    environment: environmentName,
-                    lockBehavior: LockBehavior.Ignore,
-                }),
-            [applicationName, currentlyDeployedVersion, environmentName]
-        )
-    );
     const envLocks = Object.entries(overview.environments[environmentName].locks ?? {});
     const appLocks = Object.entries(overview.environments[environmentName]?.applications[applicationName]?.locks ?? {});
     const locked = envLocks.length > 0 || appLocks.length > 0;
     const undeployedUpstream = getUndeployedUpstream(overview.environments, environmentName, applicationName, version);
 
-    const button = (
+    const deployButton = (
         <ConfirmationDialogProvider
             action={act}
             locks={[...envLocks, ...appLocks]}
             undeployedUpstream={undeployedUpstream}
             syncWindows={syncWindows}>
-            <DeployButton
+            <DeployButtonInner
                 currentlyDeployedVersion={currentlyDeployedVersion}
                 version={version}
                 locked={locked}
@@ -378,9 +388,6 @@ const ReleaseEnvironment: VFC<{
         return 1;
     });
 
-    const queueMessage =
-        'Deletes the queue. ' +
-        'Technically, it deploys the version that is already deployed here, which as a side effect deletes the queue.';
     return (
         <Paper className="environment">
             <Typography variant="h5" component="div" className="name" width="30%" sx={{ textTransform: 'capitalize' }}>
@@ -396,13 +403,9 @@ const ReleaseEnvironment: VFC<{
                     releases={overview.applications[applicationName].releases}
                 />
                 {hasQueue ? (
-                    <span>
-                        <Tooltip title={queueMessage}>
-                            <Button variant="contained" onClick={queueEnv} className={''}>
-                                {'Delete Queue'}
-                            </Button>
-                        </Tooltip>
-                    </span>
+                    <ConfirmationDialogProvider action={deleteQueue}>
+                        <DeleteQueueButtonInner />
+                    </ConfirmationDialogProvider>
                 ) : null}
             </Typography>
             <Typography variant="subtitle1" component="div" className="current">
@@ -428,7 +431,7 @@ const ReleaseEnvironment: VFC<{
                 ))}
                 <CreateLockButton applicationName={applicationName} environmentName={environmentName} />
             </ButtonGroup>
-            <div className="buttons">{button}</div>
+            <div className="buttons">{deployButton}</div>
             {syncWindows && syncWindows.length > 0 && (
                 <Tooltip title="ArgoCD sync window(s) active! This can delay deployment.">
                     <div className="syncWindows">
