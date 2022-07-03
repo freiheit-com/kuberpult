@@ -167,6 +167,7 @@ func (o *OverviewServiceServer) getOverview(
 			app := api.Application{
 				Name:     appName,
 				Releases: []*api.Release{},
+				Team:     "",
 			}
 			if rels, err := s.GetApplicationReleases(appName); err != nil {
 				return nil, err
@@ -190,6 +191,11 @@ func (o *OverviewServiceServer) getOverview(
 						app.Releases = append(app.Releases, release)
 					}
 				}
+			}
+			if team, err := s.GetApplicationTeamOwner(appName); err != nil {
+				return nil, err
+			} else {
+				app.Team = team
 			}
 			result.Applications[appName] = &app
 		}
