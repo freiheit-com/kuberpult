@@ -38,6 +38,7 @@ import { useMemo } from 'react';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
 import Button from '@material-ui/core/Button';
 import { CartAction } from './ActionDetails';
+import { useSearchParams } from 'react-router-dom';
 export type EnvSortOrder = { [index: string]: number };
 
 const useStyles = makeStyles((theme) => ({
@@ -230,6 +231,7 @@ const ApplicationBox: React.FC<any> = (props: {
                 {warnings}
                 {name}
                 {undeployButton}
+                {application.team !== '' ? 'Owner: ' + application.team : null}
             </TableCell>
             <TableCell className="releases">
                 {releases?.map((release) => (
@@ -314,9 +316,25 @@ export const sortEnvironmentsByUpstream = (envs: Environment[], distance: EnvSor
 export const Releases: React.FC<any> = (props: { data: GetOverviewResponse }) => {
     const { data } = props;
     const classes = useStyles(data.environments);
+    const [searchParams] = useSearchParams();
+    let apps = Object.values(data.applications);
 
-    const keys = Object.keys(data.applications);
-    keys.sort();
+    if (searchParams.has('app')) {
+        apps = apps.filter((k) => k.name.includes(searchParams.get('app')!));
+    }
+    if (searchParams.has('team')) {
+        apps = apps.filter((k) => k.team.includes(searchParams.get('team')!));
+    }
+
+    apps.sort((a, b) => {
+        if (a.name < b.name) {
+            return -1;
+        } else if (a.name === b.name) {
+            return 0;
+        } else {
+            return 1;
+        }
+    });
     // calculate the distances with all envs before sending only subsets of the envs into release boxes
     // only run once per refresh
     const sortOrder = calculateDistanceToUpstream(Object.values(data.environments));
@@ -326,11 +344,11 @@ export const Releases: React.FC<any> = (props: { data: GetOverviewResponse }) =>
             <TableContainer>
                 <Table>
                     <TableBody className={classes.root}>
-                        {keys.map((name) => (
+                        {apps.map((app) => (
                             <ApplicationBox
-                                key={name}
-                                name={name}
-                                application={data.applications[name]}
+                                key={app.name}
+                                name={app.name}
+                                application={app}
                                 environments={data.environments}
                                 sortOrder={sortOrder}
                             />
