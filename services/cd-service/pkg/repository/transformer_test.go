@@ -647,6 +647,80 @@ func TestTransformer(t *testing.T) {
 			},
 		},
 		{
+			Name: "Release train for a Team",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance, // train drives from acceptance to production
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+					Team: "test",
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: "test",
+					Version:     1,
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+				},
+				&DeployApplicationVersion{
+					Environment: envAcceptance,
+					Application: "test",
+					Version:     1,
+				},
+				&DeployApplicationVersion{
+					Environment: envAcceptance,
+					Application: "test",
+					Version:     2,
+				},
+				&ReleaseTrain{
+					Environment: envProduction,
+					Team:        "test",
+				},
+			},
+			Test: func(t *testing.T, s *State) {
+				{
+					prodVersion, err := s.GetEnvironmentApplicationVersion(envProduction, "test")
+					if err != nil {
+						t.Fatal(err)
+					}
+					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(envAcceptance, "test")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if *acceptanceVersion != 2 {
+						t.Errorf("unexpected version: expected 2, actual %d", acceptanceVersion)
+					}
+					if *prodVersion != 2 {
+						t.Errorf("unexpected version: expected 2, actual %d", *prodVersion)
+					}
+				}
+			},
+		},
+		{
 			Name: "Lock environment",
 			Transformers: []Transformer{
 				&CreateEnvironment{Environment: "production"},
@@ -839,6 +913,30 @@ func TestTransformer(t *testing.T) {
 					}
 					if rel.SourceMessage != "changed something" {
 						t.Errorf("unexpected source author: expected \"changed something\", actual: %q", rel.SourceMessage)
+					}
+				}
+			},
+		}, {
+			Name: "Create version with team name",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Team: "test-team",
+				},
+			},
+			Test: func(t *testing.T, s *State) {
+				// Check that team is written
+				{
+					team, err := s.GetApplicationTeamOwner("test")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if team != "test-team" {
+						t.Errorf("expected team name to be test-team, but got %q", team)
 					}
 				}
 			},
