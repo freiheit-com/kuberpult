@@ -80,6 +80,13 @@ func TestOverviewService(t *testing.T) {
 					SourceCommitId: "deadbeef",
 					SourceMessage:  "changed something",
 				},
+				&repository.CreateApplicationVersion{
+					Application: "test-with-team",
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					Team: "test-team",
+				},
 				&repository.DeployApplicationVersion{
 					Application: "test",
 					Environment: "development",
@@ -207,8 +214,8 @@ func TestOverviewService(t *testing.T) {
 				}
 
 				// Check applications
-				if len(resp.Applications) != 1 {
-					t.Errorf("expected one application, got %#v", resp.Applications)
+				if len(resp.Applications) != 2 {
+					t.Errorf("expected two application, got %#v", resp.Applications)
 				}
 				if test, ok := resp.Applications["test"]; !ok {
 					t.Errorf("test application is missing in %#v", resp.Applications)
@@ -230,6 +237,13 @@ func TestOverviewService(t *testing.T) {
 					}
 					if test.Releases[0].SourceCommitId != "deadbeef" {
 						t.Errorf("expected test source commit id to be \"deadbeef\", but got %q", test.Releases[0].SourceCommitId)
+					}
+				}
+				if testWithTeam, ok := resp.Applications["test-with-team"]; !ok {
+					t.Errorf("test-with-team application is missing in %#v", resp.Applications)
+				} else {
+					if testWithTeam.Team != "test-team" {
+						t.Errorf("application team is not test-team but %q", testWithTeam.Team)
 					}
 				}
 			},

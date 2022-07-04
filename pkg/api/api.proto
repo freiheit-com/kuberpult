@@ -169,6 +169,7 @@ message Release {
 message Application {
   string name = 1;
   repeated Release releases = 2;
+  string team = 3;
 }
 
 message Commit {

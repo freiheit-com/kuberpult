@@ -757,6 +757,21 @@ type ReleaseTrain struct {
 	Team        string
 }
 
+func (s *State) GetApplicationTeamOwner(application string) (string, error) {
+	appDir := applicationDirectory(s.Filesystem, application)
+	appTeam := s.Filesystem.Join(appDir, "team")
+
+	if team, err := readFile(s.Filesystem, appTeam); err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		} else {
+			return "", fmt.Errorf("error while reading team owner file for application %v found: %w", application, err)
+		}
+	} else {
+		return string(team), nil
+	}
+}
+
 func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
 	var state = &State{Filesystem: fs}
 	var targetEnvName = c.Environment
@@ -799,15 +814,9 @@ func (c *ReleaseTrain) Transform(ctx context.Context, fs billy.Filesystem) (stri
 	completeMessage := ""
 	for _, appName := range apps {
 		if c.Team != "" {
-			appDir := applicationDirectory(fs, appName)
-			appTeam := fs.Join(appDir, "team")
-			if team, err := readFile(fs, appTeam); err != nil {
-				if os.IsNotExist(err) {
-					continue
-				} else {
-					return "", fmt.Errorf("error while reading team owner file for application %v found: %w", appName, err)
-				}
-			} else if c.Team != string(team) {
+			if team, err := state.GetApplicationTeamOwner(appName); err != nil {
+				return "", nil
+			} else if c.Team != team {
 				continue
 			}
 		}
