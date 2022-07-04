@@ -29,6 +29,7 @@ export enum ActionTypes {
     Deploy,
     PrepareUndeploy,
     Undeploy,
+    DeleteQueue,
     CreateEnvironmentLock,
     DeleteEnvironmentLock,
     CreateApplicationLock,
@@ -53,6 +54,14 @@ export type PrepareUndeploy = {
 export type Undeploy = {
     undeploy: {
         application: string;
+    };
+};
+
+export type DeleteQueue = {
+    deleteQueue: {
+        environment: string;
+        application: string;
+        currentlyDeployedVersion: number;
     };
 };
 
@@ -90,6 +99,7 @@ export type CartAction =
     | Deploy
     | PrepareUndeploy
     | Undeploy
+    | DeleteQueue
     | CreateEnvironmentLock
     | DeleteEnvironmentLock
     | CreateApplicationLock
@@ -100,7 +110,12 @@ type lockAction = typeof lockActions[number];
 export const hasLockAction = (actions: CartAction[]) =>
     actions.some((act) => lockActions.includes(getActionDetails(act).type as lockAction));
 
-const deployActions = [ActionTypes.Deploy, ActionTypes.Undeploy, ActionTypes.PrepareUndeploy] as const;
+const deployActions = [
+    ActionTypes.Deploy,
+    ActionTypes.PrepareUndeploy,
+    ActionTypes.Undeploy,
+    ActionTypes.DeleteQueue,
+] as const;
 type deployAction = typeof deployActions[number];
 export const isDeployAction = (act: CartAction) => deployActions.includes(getActionDetails(act).type as deployAction);
 
@@ -207,6 +222,24 @@ export const getActionDetails = (action: CartAction): ActionDetails => {
             summary: 'Undeploy and delete Application ' + action.undeploy.application,
             icon: <DeleteForeverRounded />,
             application: action.undeploy.application,
+        };
+    else if ('deleteQueue' in action)
+        return {
+            type: ActionTypes.DeleteQueue,
+            name: 'Delete Queue',
+            dialogTitle: 'Please be aware:',
+            description:
+                'This action deletes the queued releases for the service "' +
+                action.deleteQueue.application +
+                '" on ' +
+                action.deleteQueue.environment +
+                '.Technically, it deploys the version that is already deployed(' +
+                action.deleteQueue.currentlyDeployedVersion +
+                '), which as a side effect deletes the queue.',
+            summary: 'Delete queue for "' + action.deleteQueue.application + '" on ' + action.deleteQueue.environment,
+            icon: <MoveToInboxRounded />,
+            environment: action.deleteQueue.environment,
+            application: action.deleteQueue.application,
         };
     else
         return {
@@ -327,6 +360,20 @@ export const transformToBatch = (act: CartAction): BatchAction | null => {
                 $case: 'undeploy',
                 undeploy: {
                     application: act.undeploy.application,
+                },
+            },
+        };
+    else if ('deleteQueue' in act)
+        // Deleting the queue is just deploying the currently deployed version again
+        return {
+            action: {
+                $case: 'deploy',
+                deploy: {
+                    environment: act.deleteQueue.environment,
+                    application: act.deleteQueue.application,
+                    version: act.deleteQueue.currentlyDeployedVersion,
+                    lockBehavior: LockBehavior.Ignore,
+                    ignoreAllLocks: false,
                 },
             },
         };
