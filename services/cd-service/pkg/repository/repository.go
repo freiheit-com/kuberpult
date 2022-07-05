@@ -265,6 +265,24 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 
 var panicError = errors.New("Panic")
 
+func (r *repository) drainQueue(e element) []element {
+	elements := []element{e}
+	for {
+		select {
+		case f := <-r.queue.elements:
+			// Check that the item is not already cancelled
+			select {
+			case <-f.ctx.Done():
+				f.result <- f.ctx.Err()
+			default:
+				elements = append(elements, f)
+			}
+		default:
+			return elements
+		}
+	}
+}
+
 func (r *repository) ProcessQueueOnce(e element) {
 	var err error = panicError
 	elements := []element{e}
@@ -280,22 +298,9 @@ func (r *repository) ProcessQueueOnce(e element) {
 		return
 	default:
 	}
+
 	// Try to fetch more items from the queue in order to push more things together
-dispatchmore:
-	for {
-		select {
-		case f := <-r.queue.elements:
-			// Check that the item is not already cancelled
-			select {
-			case <-f.ctx.Done():
-				f.result <- f.ctx.Err()
-			default:
-				elements = append(elements, f)
-			}
-		default:
-			break dispatchmore
-		}
-	}
+	elements = r.drainQueue(e)
 
 	pushOptions := git.PushOptions{
 		RemoteCallbacks: git.RemoteCallbacks{
