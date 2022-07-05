@@ -4,9 +4,33 @@
 
 ### Added
 
+## 0.4.23
+
+**released 2022-07-05**
+
+### Added
+
+* Push multiple actions together as one [#202](https://github.com/freiheit-com/kuberpult/pull/202)
+
+## 0.4.22
+
+**released 2022-07-04**
+
+### Added
+
 * Allow configuration of "environment" datadog metrics and traces get reported to [#197](https://github.com/freiheit-com/kuberpult/pull/197)
 * Enhanced support for tracing Kuberpult internals [#198](https://github.com/freiheit-com/kuberpult/pull/198)
 * Get builder images from make get-builder-image [#199](https://github.com/freiheit-com/kuberpult/pull/199)
+* Update release instructions by @mnishamk-freiheit in https://github.com/freiheit-com/kuberpult/pull/193
+* Make datadog environment configurable by @fdcds in https://github.com/freiheit-com/kuberpult/pull/197
+* Support tracing of gRPC requests by @fdcds in https://github.com/freiheit-com/kuberpult/pull/198
+* Clearer job names for matrix jobs by @mnishamk-freiheit in https://github.com/freiheit-com/kuberpult/pull/202
+* Fix lint and test helm charts by @mnishamk-freiheit in https://github.com/freiheit-com/kuberpult/pull/196
+* Add documentation for Podman, fix typos and small errors by @tameremad in https://github.com/freiheit-com/kuberpult/pull/138
+* add Etymology of kuberpult by @sven-urbanski-freiheit-com in https://github.com/freiheit-com/kuberpult/pull/208
+* Move lock message inputs from inline to actions cart by @tameremad in https://github.com/freiheit-com/kuberpult/pull/128
+* Fix: Show sync window warning by @fdcds in https://github.com/freiheit-com/kuberpult/pull/203
+* SRX-4SBVE2 Add tracing envs to frontend by @hannesg in https://github.com/freiheit-com/kuberpult/pull/215
 
 ## 0.4.21
 
