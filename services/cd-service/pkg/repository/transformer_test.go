@@ -1752,6 +1752,9 @@ spec:
 								JSONPointers: []string{
 									"/spec/replicas",
 								},
+								JqPathExpressions: []string{
+									".foo.bar",
+								},
 							},
 						},
 					},
@@ -1796,6 +1799,8 @@ spec:
     server: localhost:8080
   ignoreDifferences:
   - group: apps
+    jqPathExpressions:
+    - .foo.bar
     jsonPointers:
     - /spec/replicas
     kind: Deployment
