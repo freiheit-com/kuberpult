@@ -1752,6 +1752,9 @@ spec:
 								JSONPointers: []string{
 									"/spec/replicas",
 								},
+								JqPathExpressions: []string{
+									".foo.bar",
+								},
 							},
 						},
 					},
@@ -1798,6 +1801,8 @@ spec:
   - group: apps
     jsonPointers:
     - /spec/replicas
+    jqPathExpressions:
+    - .foo.bar
     kind: Deployment
   project: staging
   source:

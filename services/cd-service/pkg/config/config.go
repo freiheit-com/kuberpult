@@ -54,9 +54,11 @@ type ArgoCdSyncWindow struct {
 }
 
 type ArgoCdIgnoreDifference struct {
-	Group        string   `json:"group,omitempty"`
-	Kind         string   `json:"kind"`
-	Name         string   `json:"name,omitempty"`
-	Namespace    string   `json:"namespace,omitempty"`
-	JSONPointers []string `json:"jsonPointers"`
+	Group                 string   `json:"group,omitempty"`
+	Kind                  string   `json:"kind"`
+	Name                  string   `json:"name,omitempty"`
+	Namespace             string   `json:"namespace,omitempty"`
+	JSONPointers          []string `json:"jsonPointers,omitempty"`
+	JqPathExpressions     []string `json:"jqPathExpressions,omitempty"`
+	ManagedFieldsManagers []string `json:"managedFieldsManagers,omitempty"`
 }
