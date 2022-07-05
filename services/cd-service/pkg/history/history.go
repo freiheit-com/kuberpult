@@ -208,7 +208,7 @@ func (h *History) LoadIndex(bfs billy.Filesystem) error {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		} else {
-			return fmt.Errorf("error opening .cache/v1: %w", err)
+			return fmt.Errorf("error opening .index/v1: %w", err)
 		}
 	}
 	_, err = readIndex(h.repository, h.cache, content)
@@ -224,6 +224,7 @@ type CommitHistory struct {
 	current    *git.Commit
 	root       *treeNode
 	cache      *Cache
+	cost       uint
 }
 
 func NewCommitHistory(repo *git.Repository, commit *git.Commit, cache *Cache) (*CommitHistory, error) {
@@ -268,8 +269,13 @@ func (h *CommitHistory) Change(path []string) (*git.Commit, error) {
 				Filemode: git.FilemodeTree,
 			}, cache)
 			h.current = parent
+			h.cost = h.cost + 1
 		}
 	}
+}
+
+func (h *CommitHistory) Cost() uint {
+	return h.cost
 }
 
 type treeEntry struct {

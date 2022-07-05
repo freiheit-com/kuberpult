@@ -36,7 +36,8 @@ func writeIndex(h *History, parent *git.Commit, out io.Writer) error {
 	// 1: seek if we have a cache already.
 	current := parent
 	var entry *resultNode
-	for {
+	// search for maximum 100 commits backwards
+	for i := 0 ; i < 100 ; i += 1 {
 		entry = c.get(*current.Id())
 		if entry != nil {
 			break
@@ -45,6 +46,9 @@ func writeIndex(h *History, parent *git.Commit, out io.Writer) error {
 		if current == nil {
 			return nil
 		}
+	}
+	if entry == nil {
+		return nil
 	}
 	// 2: serialize the index
 	return writeEntry(out, "", entry)
