@@ -724,9 +724,7 @@ func convertToSet(list []uint64) map[int]bool {
 
 func TestApplyQueuePanic(t *testing.T) {
 	type action struct {
-		CancelBeforeAdd bool
-		CancelAfterAdd  bool
-		Transformer     Transformer
+		Transformer Transformer
 		// Tests
 		ExpectedError error
 	}
