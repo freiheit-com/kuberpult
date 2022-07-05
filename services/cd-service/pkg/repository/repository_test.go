@@ -18,15 +18,19 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/go-git/go-billy/v5/util"
-	git "github.com/libgit2/git2go/v33"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
+	"github.com/google/go-cmp/cmp"
+	git "github.com/libgit2/git2go/v33"
 )
 
 func TestNew(t *testing.T) {
@@ -280,8 +284,8 @@ func TestNew(t *testing.T) {
 
 func TestConfigReload(t *testing.T) {
 	configFiles := []struct {
-		ConfigContent		string
-		ErrorExpected   bool
+		ConfigContent string
+		ErrorExpected bool
 	}{
 		{
 			ConfigContent: "{\"upstream\": {\"latest\": true }}",
@@ -378,11 +382,11 @@ func TestConfigReload(t *testing.T) {
 			},
 		)
 
-		if (err != nil) {
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		for _, configFile := range(configFiles) {
+		for _, configFile := range configFiles {
 			err = updateConfigFile(configFile.ConfigContent)
 			if err != nil {
 				t.Fatal(err)
@@ -399,6 +403,7 @@ func TestConfigReload(t *testing.T) {
 				}
 			} else {
 				if err != nil {
+					fmt.Println(err)
 					t.Errorf("Initialization failed with valid config.json")
 				}
 				cmd = exec.Command("git", "pull") // Add a new file to git
@@ -675,5 +680,501 @@ func TestRetrySsh(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+type SlowTransformer struct {
+	finished chan struct{}
+	started  chan struct{}
+}
+
+func (s *SlowTransformer) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
+	s.started <- struct{}{}
+	<-s.finished
+	return "ok", nil
+}
+
+type PanicTransformer struct{}
+
+func (p *PanicTransformer) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
+	panic("panic tranformer")
+}
+
+var TransformerError = errors.New("error transformer")
+
+type ErrorTransformer struct{}
+
+func (p *ErrorTransformer) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
+	return "error", TransformerError
+}
+
+type InvalidJsonTransformer struct{}
+
+func (p *InvalidJsonTransformer) Transform(ctx context.Context, fs billy.Filesystem) (string, error) {
+	return "error", invalidJson
+}
+
+func convertToSet(list []uint64) map[int]bool {
+	set := make(map[int]bool)
+	for _, i := range list {
+		set[int(i)] = true
+	}
+	return set
+}
+
+func TestApplyQueuePanic(t *testing.T) {
+	type action struct {
+		Transformer Transformer
+		// Tests
+		ExpectedError error
+	}
+	tcs := []struct {
+		Name    string
+		Actions []action
+	}{
+		{
+			Name: "panic at the start",
+			Actions: []action{
+				{
+					Transformer:   &PanicTransformer{},
+					ExpectedError: panicError,
+				}, {
+					ExpectedError: panicError,
+				}, {
+					ExpectedError: panicError,
+				},
+			},
+		},
+		{
+			Name: "panic at the middle",
+			Actions: []action{
+				{
+					ExpectedError: panicError,
+				}, {
+					Transformer:   &PanicTransformer{},
+					ExpectedError: panicError,
+				}, {
+					ExpectedError: panicError,
+				},
+			},
+		},
+		{
+			Name: "panic at the end",
+			Actions: []action{
+				{
+					ExpectedError: panicError,
+				}, {
+					ExpectedError: panicError,
+				}, {
+					Transformer:   &PanicTransformer{},
+					ExpectedError: panicError,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+			repo, err := New(
+				context.Background(),
+				Config{
+					URL:  "file://" + remoteDir,
+					Path: localDir,
+				},
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%e'", err)
+			}
+			repoInternal := repo.(*repository)
+			// Block the worker so that we have multiple items in the queue
+			finished := make(chan struct{})
+			started := make(chan struct{}, 1)
+			go func() {
+				repo.Apply(context.Background(), &SlowTransformer{finished, started})
+			}()
+			<-started
+			// The worker go routine is now blocked. We can move some items into the queue now.
+			results := make([]<-chan error, len(tc.Actions))
+			for i, action := range tc.Actions {
+				results[i] = repoInternal.applyDeferred(context.Background(), action.Transformer)
+			}
+			defer func() {
+				if r := recover(); r == nil {
+					t.Errorf("The code did not panic")
+				}
+				// Check for the correct errors
+				for i, action := range tc.Actions {
+					if err := <-results[i]; err != action.ExpectedError {
+						t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, action.ExpectedError, err)
+					}
+				}
+			}()
+			repoInternal.ProcessQueue(context.Background())
+		})
+	}
+}
+
+func TestApplyQueue(t *testing.T) {
+	type action struct {
+		CancelBeforeAdd bool
+		CancelAfterAdd  bool
+		Transformer     Transformer
+		// Tests
+		ExpectedError error
+	}
+	tcs := []struct {
+		Name             string
+		Actions          []action
+		ExpectedReleases []uint64
+	}{
+		{
+			Name: "simple",
+			Actions: []action{
+				{}, {}, {},
+			},
+			ExpectedReleases: []uint64{
+				1, 2, 3,
+			},
+		},
+		{
+			Name: "cancellation in the middle (after)",
+			Actions: []action{
+				{}, {
+					CancelAfterAdd: true,
+					ExpectedError:  context.Canceled,
+				}, {},
+			},
+			ExpectedReleases: []uint64{
+				1, 3,
+			},
+		},
+		{
+			Name: "cancellation at the start (after)",
+			Actions: []action{
+				{
+					CancelAfterAdd: true,
+					ExpectedError:  context.Canceled,
+				}, {}, {},
+			},
+			ExpectedReleases: []uint64{
+				2, 3,
+			},
+		},
+		{
+			Name: "cancellation at the end (after)",
+			Actions: []action{
+				{}, {},
+				{
+					CancelAfterAdd: true,
+					ExpectedError:  context.Canceled,
+				},
+			},
+			ExpectedReleases: []uint64{
+				1, 2,
+			},
+		},
+		{
+			Name: "cancellation in the middle (before)",
+			Actions: []action{
+				{}, {
+					CancelBeforeAdd: true,
+					ExpectedError:   context.Canceled,
+				}, {},
+			},
+			ExpectedReleases: []uint64{
+				1, 3,
+			},
+		},
+		{
+			Name: "cancellation at the start (before)",
+			Actions: []action{
+				{
+					CancelBeforeAdd: true,
+					ExpectedError:   context.Canceled,
+				}, {}, {},
+			},
+			ExpectedReleases: []uint64{
+				2, 3,
+			},
+		},
+		{
+			Name: "cancellation at the end (before)",
+			Actions: []action{
+				{}, {},
+				{
+					CancelBeforeAdd: true,
+					ExpectedError:   context.Canceled,
+				},
+			},
+			ExpectedReleases: []uint64{
+				1, 2,
+			},
+		},
+		{
+			Name: "error at the start",
+			Actions: []action{
+				{
+					ExpectedError: TransformerError,
+					Transformer:   &ErrorTransformer{},
+				}, {}, {},
+			},
+			ExpectedReleases: []uint64{
+				2, 3,
+			},
+		},
+		{
+			Name: "error at the middle",
+			Actions: []action{
+				{},
+				{
+					ExpectedError: TransformerError,
+					Transformer:   &ErrorTransformer{},
+				}, {},
+			},
+			ExpectedReleases: []uint64{
+				1, 3,
+			},
+		},
+		{
+			Name: "error at the end",
+			Actions: []action{
+				{}, {},
+				{
+					ExpectedError: TransformerError,
+					Transformer:   &ErrorTransformer{},
+				},
+			},
+			ExpectedReleases: []uint64{
+				1, 2,
+			},
+		},
+		{
+			Name: "Invalid json error at start",
+			Actions: []action{
+				{
+					ExpectedError: invalidJson,
+					Transformer:   &InvalidJsonTransformer{},
+				},
+				{}, {},
+			},
+			ExpectedReleases: []uint64{
+				2, 3,
+			},
+		},
+		{
+			Name: "Invalid json error at middle",
+			Actions: []action{
+				{},
+				{
+					ExpectedError: invalidJson,
+					Transformer:   &InvalidJsonTransformer{},
+				},
+				{},
+			},
+			ExpectedReleases: []uint64{
+				1, 3,
+			},
+		},
+		{
+			Name: "Invalid json error at end",
+			Actions: []action{
+				{}, {},
+				{
+					ExpectedError: invalidJson,
+					Transformer:   &InvalidJsonTransformer{},
+				},
+			},
+			ExpectedReleases: []uint64{
+				1, 2,
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+			repo, err := New(
+				context.Background(),
+				Config{
+					URL:  "file://" + remoteDir,
+					Path: localDir,
+				},
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%e'", err)
+			}
+			repoInternal := repo.(*repository)
+			// Block the worker so that we have multiple items in the queue
+			finished := make(chan struct{})
+			started := make(chan struct{}, 1)
+			go func() {
+				repo.Apply(context.Background(), &SlowTransformer{finished, started})
+			}()
+			<-started
+			// The worker go routine is now blocked. We can move some items into the queue now.
+			results := make([]<-chan error, len(tc.Actions))
+			for i, action := range tc.Actions {
+				ctx, cancel := context.WithCancel(context.Background())
+				if action.CancelBeforeAdd {
+					cancel()
+				}
+				if action.Transformer != nil {
+					results[i] = repoInternal.applyDeferred(ctx, action.Transformer)
+				} else {
+					tf := &CreateApplicationVersion{
+						Application: "foo",
+						Manifests: map[string]string{
+							"development": fmt.Sprintf("%d", i),
+						},
+						Version: uint64(i + 1),
+					}
+					results[i] = repoInternal.applyDeferred(ctx, tf)
+				}
+				if action.CancelAfterAdd {
+					cancel()
+				}
+			}
+			// Now release the slow transformer
+			finished <- struct{}{}
+			// Check for the correct errors
+			for i, action := range tc.Actions {
+				if err := <-results[i]; err != action.ExpectedError {
+					t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, action.ExpectedError, err)
+				}
+			}
+			releases, _ := repo.State().Releases("foo")
+			if !cmp.Equal(convertToSet(tc.ExpectedReleases), convertToSet(releases)) {
+				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReleases, releases))
+			}
+
+		})
+	}
+}
+
+func getTransformer(i int) (Transformer, error) {
+	transformerType := i % 5
+	switch transformerType {
+	case 0:
+	case 1:
+	case 2:
+		return &CreateApplicationVersion{
+			Application: "foo",
+			Manifests: map[string]string{
+				"development": fmt.Sprintf("%d", i),
+			},
+			Version: uint64(i + 1),
+		}, nil
+	case 3:
+		return &ErrorTransformer{}, TransformerError
+	case 4:
+		return &InvalidJsonTransformer{}, invalidJson
+	}
+	return &ErrorTransformer{}, TransformerError
+}
+
+func createGitWithCommit(remote string, local string, t *testing.B) {
+	cmd := exec.Command("git", "init", "--bare", remote)
+	cmd.Start()
+	cmd.Wait()
+
+	cmd = exec.Command("git", "clone", remote, local) // Clone git dir
+	_, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd = exec.Command("touch", "a") // Add a new file to git
+	cmd.Dir = local
+	_, err = cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd = exec.Command("git", "add", "a") // Add a new file to git
+	cmd.Dir = local
+	_, err = cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "adding") // commit the new file
+	cmd.Dir = local
+	cmd.Env = []string{
+		"GIT_AUTHOR_NAME=kuberpult",
+		"GIT_COMMITTER_NAME=kuberpult",
+		"EMAIL=test@kuberpult.com",
+	}
+	_, err = cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			t.Logf("stderr: %s\n", exitErr.Stderr)
+			t.Logf("stderr: %s\n", err)
+		}
+		t.Fatal(err)
+	}
+	cmd = exec.Command("git", "push", "origin", "HEAD") // push the new commit
+	cmd.Dir = local
+	_, err = cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func BenchmarkApplyQueue(t *testing.B) {
+	t.StopTimer()
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	createGitWithCommit(remoteDir, localDir, t)
+
+	repo, err := New(
+		context.Background(),
+		Config{
+			URL:  "file://" + remoteDir,
+			Path: localDir,
+		},
+	)
+	if err != nil {
+		t.Fatalf("new: expected no error, got '%e'", err)
+	}
+	repoInternal := repo.(*repository)
+	// The worker go routine is now blocked. We can move some items into the queue now.
+	results := make([]<-chan error, t.N)
+	expectedResults := make([]error, t.N)
+	expectedReleases := make(map[int]bool, t.N)
+	tf, _ := getTransformer(0)
+	repoInternal.Apply(context.Background(), tf)
+
+	t.StartTimer()
+	for i := 0; i < t.N; i++ {
+		tf, expectedResult := getTransformer(i)
+		results[i] = repoInternal.applyDeferred(context.Background(), tf)
+		expectedResults[i] = expectedResult
+		if expectedResult == nil {
+			expectedReleases[i+1] = true
+		}
+	}
+
+	for i := 0; i < t.N; i++ {
+		if err := <-results[i]; err != expectedResults[i] {
+			t.Errorf("result[%d] expected error \"%v\" but got \"%v\"", i, expectedResults[i], err)
+		}
+	}
+	releases, _ := repo.State().Releases("foo")
+	if !cmp.Equal(expectedReleases, convertToSet(releases)) {
+		t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, convertToSet(releases)))
 	}
 }
