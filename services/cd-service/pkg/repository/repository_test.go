@@ -731,9 +731,8 @@ func TestApplyQueuePanic(t *testing.T) {
 		ExpectedError error
 	}
 	tcs := []struct {
-		Name        string
-		Actions     []action
-		ExpectPanic bool
+		Name    string
+		Actions []action
 	}{
 		{
 			Name: "panic at the start",
@@ -836,7 +835,6 @@ func TestApplyQueue(t *testing.T) {
 	tcs := []struct {
 		Name             string
 		Actions          []action
-		ExpectPanic      bool
 		ExpectedReleases []uint64
 	}{
 		{
