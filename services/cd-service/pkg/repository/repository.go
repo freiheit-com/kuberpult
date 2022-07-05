@@ -265,8 +265,8 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 
 var panicError = errors.New("Panic")
 
-func (r *repository) drainQueue(e element) []element {
-	elements := []element{e}
+func (r *repository) drainQueue() []element {
+	elements := []element{}
 	for {
 		select {
 		case f := <-r.queue.elements:
@@ -300,7 +300,7 @@ func (r *repository) ProcessQueueOnce(e element) {
 	}
 
 	// Try to fetch more items from the queue in order to push more things together
-	elements = r.drainQueue(e)
+	elements = append(elements, r.drainQueue()...)
 
 	pushOptions := git.PushOptions{
 		RemoteCallbacks: git.RemoteCallbacks{
