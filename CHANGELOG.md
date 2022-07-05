@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.4.25
+
+**released 2022-07-06**
+
+### Added
+
+* Added support to ignore argo fields managedFieldsManagers and jqPathExpressions [#230](https://github.com/freiheit-com/kuberpult/pull/230)
+
 ## 0.4.24
 
 **released 2022-07-06**
@@ -7,14 +15,6 @@
 ### Fixed
 
 * Fix ArgoCd SyncWindow configuration [#227](https://github.com/freiheit-com/kuberpult/pull/227)
-
-## 0.4.24
-
-**released 2022-07-06**
-
-### Added
-
-* Added support to ignore argo fields managedFieldsManagers and jqPathExpressions [#230](https://github.com/freiheit-com/kuberpult/pull/230)
 
 ## 0.4.23
 
