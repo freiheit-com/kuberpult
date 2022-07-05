@@ -820,7 +820,7 @@ func TestApplyQueuePanic(t *testing.T) {
 					}
 				}
 			}()
-			repoInternal.Work(context.Background())
+			repoInternal.ProcessQueue(context.Background())
 		})
 	}
 }

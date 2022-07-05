@@ -217,13 +217,13 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 			if _, err := state.GetEnvironmentConfigs(); err != nil {
 				return nil, err
 			}
-			go result.Work(ctx)
+			go result.ProcessQueue(ctx)
 			return result, nil
 		}
 	}
 }
 
-func (r *repository) Work(ctx context.Context) {
+func (r *repository) ProcessQueue(ctx context.Context) {
 	defer func() {
 		close(r.queue.elements)
 		for e := range r.queue.elements {
@@ -235,7 +235,7 @@ func (r *repository) Work(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case e := <-r.queue.elements:
-			r.workOnce(e)
+			r.ProcessQueueOnce(e)
 		}
 	}
 }
@@ -265,7 +265,7 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 
 var panicError = errors.New("Panic")
 
-func (r *repository) workOnce(e element) {
+func (r *repository) ProcessQueueOnce(e element) {
 	var err error = panicError
 	elements := []element{e}
 	defer func() {
