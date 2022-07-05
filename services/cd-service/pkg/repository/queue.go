@@ -29,18 +29,18 @@ type element struct {
 }
 
 func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan error {
-	ch := make(chan error, 1)
+	resultChannel := make(chan error, 1)
 	e := element{
 		ctx:          ctx,
 		transformers: transformers,
-		result:       ch,
+		result:       resultChannel,
 	}
 	select {
 	case q.elements <- e:
-		return ch
+		return resultChannel
 	case <-ctx.Done():
-		ch <- ctx.Err()
-		return ch
+		resultChannel <- ctx.Err()
+		return resultChannel
 	}
 }
 
