@@ -1,10 +1,12 @@
 # Change Log
 
-## 0.4.22
+## 0.4.24
 
-**released 2022-07-04**
+**released 2022-07-06**
 
-### Added
+### Fixed
+
+* Fix ArgoCd SyncWindow configuration [#227](https://github.com/freiheit-com/kuberpult/pull/227)
 
 ## 0.4.23
 
@@ -13,6 +15,12 @@
 ### Added
 
 * Push multiple actions together as one [#202](https://github.com/freiheit-com/kuberpult/pull/202)
+
+## 0.4.22
+
+**released 2022-07-04**
+
+### Added
 
 ## 0.4.22
 
