@@ -1513,13 +1513,9 @@ spec:
   syncWindows:
   - applications:
     - '*'
-    clusters:
-    - '*'
     duration: 1h
     kind: deny
     manualSync: true
-    namespaces:
-    - '*'
     schedule: '* * * * *'
 `
 				if string(content) != expected {

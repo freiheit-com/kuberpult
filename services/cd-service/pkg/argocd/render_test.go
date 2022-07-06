@@ -161,13 +161,9 @@ spec:
   syncWindows:
   - applications:
     - '*'
-    clusters:
-    - '*'
     duration: invalid duration
     kind: neither deny nor allow
     manualSync: true
-    namespaces:
-    - '*'
     schedule: not a valid crontab entry
 `,
 		},
@@ -200,13 +196,9 @@ spec:
   syncWindows:
   - applications:
     - app*
-    clusters:
-    - '*'
     duration: invalid duration
     kind: neither deny nor allow
     manualSync: true
-    namespaces:
-    - '*'
     schedule: not a valid crontab entry
 `,
 		},
