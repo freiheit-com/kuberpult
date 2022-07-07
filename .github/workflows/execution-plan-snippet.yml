@@ -104,8 +104,6 @@ jobs:
           cat > credential.json << EOF
           ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
           EOF
-      - name: Test, Build and Publish
-        run: ${{ matrix.data.command }}
       - name: Update cache
         uses: actions/cache@v3
         if: matrix.data.cachefiles != ''
@@ -114,6 +112,8 @@ jobs:
           key: keyprefix-${{ matrix.data.cacheKey }}
           restore-keys: |
             keyprefix-${{ matrix.data.cacheKey }} 
+      - name: Test, Build and Publish
+        run: ${{ matrix.data.command }}
       - uses: actions/upload-artifact@v3
         if: matrix.data.artifacts != ''
         with:
