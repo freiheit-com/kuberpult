@@ -106,6 +106,13 @@ jobs:
           EOF
       - name: Test, Build and Publish
         run: ${{ matrix.data.command }}
+      - name: Update cache
+        uses: actions/cache@v3
+        if: matrix.data.cachefiles != ''
+        with:
+          path: |
+            ${{ matrix.data.cachefiles }}
+          key: keyprefix-${{ matrix.data.cacheKey }}
       - uses: actions/upload-artifact@v3
         if: matrix.data.artifacts != ''
         with:
