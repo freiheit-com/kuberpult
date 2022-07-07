@@ -109,9 +109,9 @@ jobs:
         if: matrix.data.cachefiles != ''
         with:
           path: ${{ matrix.data.cachefiles }}
-          key: keyprefix-${{ matrix.data.cacheKey }}
+          key: cache-${{ matrix.data.cacheKey }}
           restore-keys: |
-            keyprefix-${{ matrix.data.cacheKey }} 
+            cache-${{ matrix.data.cacheKey }} 
       - name: Test, Build and Publish
         run: ${{ matrix.data.command }}
       - uses: actions/upload-artifact@v3

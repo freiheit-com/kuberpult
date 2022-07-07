@@ -9,10 +9,3 @@ metadata:
 spec:
   dependsOn:
   - ../../charts/kuberpult
-cache:
-  cachefiles:
-  - cmd/server/main.go
-  - pkg/history/*.go
-  hashfiles:
-  - pkg/argocd/**/*.go
-  - pkg/cmd/server.go
