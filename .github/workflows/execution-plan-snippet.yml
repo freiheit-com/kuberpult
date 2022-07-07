@@ -112,6 +112,8 @@ jobs:
         with:
           path: ${{ matrix.data.cachefiles }}
           key: keyprefix-${{ matrix.data.cacheKey }}
+          restore-keys: |
+            keyprefix-${{ matrix.data.cacheKey }} 
       - uses: actions/upload-artifact@v3
         if: matrix.data.artifacts != ''
         with:
