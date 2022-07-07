@@ -17,10 +17,16 @@ Copyright 2021 freiheit.com*/
 package history
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io/fs"
+	"sort"
 	"strings"
 	"sync"
 
+	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
 	"github.com/hashicorp/golang-lru"
 	git "github.com/libgit2/git2go/v33"
 )
@@ -54,6 +60,18 @@ func (c *resultNode) store(commit *git.Commit) {
 	c.changedAt = commit
 }
 
+func (c *resultNode) storeAt(path string, commit *git.Commit) {
+	if path == "" {
+		c.store(commit)
+	}
+	idx := strings.SplitN(path, "/", 2)
+	if len(idx) == 1 {
+		c.getChild(path).store(commit)
+	} else {
+		c.getChild(idx[0]).storeAt(idx[1], commit)
+	}
+}
+
 func (c *resultNode) load() *git.Commit {
 	if c == nil {
 		return nil
@@ -61,6 +79,28 @@ func (c *resultNode) load() *git.Commit {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	return c.changedAt
+}
+
+func (c *resultNode) loadId() *git.Oid {
+	commit := c.load()
+	if commit != nil {
+		return commit.Id()
+	}
+	return nil
+}
+
+func (c *resultNode) childNames() []string {
+	if c == nil {
+		return []string{}
+	}
+	c.mx.Lock()
+	defer c.mx.Unlock()
+	children := make([]string, 0, len(c.children))
+	for name := range c.children {
+		children = append(children, name)
+	}
+	sort.Strings(children)
+	return children
 }
 
 func (c *resultNode) isEmpty() bool {
@@ -149,12 +189,42 @@ func (h *History) Of(from *git.Commit) (*CommitHistory, error) {
 	return NewCommitHistory(h.repository, from, h.cache)
 }
 
+func (h *History) WriteIndex(bfs billy.Filesystem, parent *git.Commit) error {
+	var buf bytes.Buffer
+	err := writeIndex(h, parent, &buf)
+	if err != nil {
+		return err
+	}
+	err = bfs.MkdirAll(".index", 0644)
+	if err != nil {
+		return err
+	}
+	return util.WriteFile(bfs, ".index/v1", buf.Bytes(), 0644)
+}
+
+func (h *History) LoadIndex(bfs billy.Filesystem) error {
+	content, err := util.ReadFile(bfs, ".index/v1")
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		} else {
+			return fmt.Errorf("error opening .index/v1: %w", err)
+		}
+	}
+	_, err = readIndex(h.repository, h.cache, content)
+	if err != nil {
+		return fmt.Errorf("error reading index: %w", err)
+	}
+	return nil
+}
+
 type CommitHistory struct {
 	repository *git.Repository
 	commit     *git.Commit
 	current    *git.Commit
 	root       *treeNode
 	cache      *Cache
+	cost       uint
 }
 
 func NewCommitHistory(repo *git.Repository, commit *git.Commit, cache *Cache) (*CommitHistory, error) {
@@ -191,6 +261,7 @@ func (h *CommitHistory) Change(path []string) (*git.Commit, error) {
 			if parent != nil {
 				parentTreeId = parent.TreeId()
 			}
+			// try get non-persistend cache
 			cache := h.cache.get(*h.current.Id())
 			h.root.push(h.current, &git.TreeEntry{
 				Id:       parentTreeId,
@@ -198,8 +269,13 @@ func (h *CommitHistory) Change(path []string) (*git.Commit, error) {
 				Filemode: git.FilemodeTree,
 			}, cache)
 			h.current = parent
+			h.cost = h.cost + 1
 		}
 	}
+}
+
+func (h *CommitHistory) Cost() uint {
+	return h.cost
 }
 
 type treeEntry struct {
