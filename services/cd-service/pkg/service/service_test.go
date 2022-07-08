@@ -65,6 +65,7 @@ func TestServeHttp(t *testing.T) {
 		Manifests        map[string]string
 		Signatures       map[string]string
 		AdditionalFields map[string]string
+		AdditionalFiles  map[string]string
 		KeyRing          openpgp.KeyRing
 		Setup            []repository.Transformer
 		ExpectedStatus   int
@@ -124,13 +125,13 @@ func TestServeHttp(t *testing.T) {
 			ExpectedError: "Please provide single application name",
 		},
 		{
-			Name:           "Proper error when long application provided",
+			Name:           "Proper error when long application name provided",
 			Application:    "demoWithTooManyCharactersInItsNameToBeValid",
 			ExpectedStatus: 400,
 			ExpectedError:  "Invalid application name",
 		},
 		{
-			Name:           "Proper error when invalid application name",
+			Name:           "Proper error when invalid application name provided",
 			Application:    "invalidCharactersInName?",
 			ExpectedStatus: 400,
 			ExpectedError:  "Invalid application name",
@@ -140,6 +141,16 @@ func TestServeHttp(t *testing.T) {
 			ExpectedStatus: 400,
 			Application:    "demo",
 			ExpectedError:  "No manifest files provided",
+		},
+		{
+			Name:           "Proper error when multiple manifests provided",
+			ExpectedStatus: 400,
+			Application:    "demo",
+			Manifests:      exampleManifests,
+			AdditionalFiles: map[string]string{
+				"manifests[development]": "content",
+			},
+			ExpectedError: `multiple manifests submitted for "development"`,
 		},
 		{
 			Name:           "It stores source information",
@@ -304,6 +315,15 @@ func TestServeHttp(t *testing.T) {
 				for k, v := range tc.AdditionalFields {
 					if err := body.WriteField(k, v); err != nil {
 						t.Fatal(err)
+					}
+				}
+			}
+			if len(tc.AdditionalFiles) > 0 {
+				for k, v := range tc.AdditionalFiles {
+					if w, err := body.CreateFormFile(k, "doesntmatter"); err != nil {
+						t.Fatal(err)
+					} else {
+						fmt.Fprint(w, v)
 					}
 				}
 			}
