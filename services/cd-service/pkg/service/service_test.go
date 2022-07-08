@@ -153,6 +153,25 @@ func TestServeHttp(t *testing.T) {
 			ExpectedError: `multiple manifests submitted for "development"`,
 		},
 		{
+			Name:           "Proper error when no signature provided",
+			ExpectedStatus: 400,
+			Application:    "demo",
+			Manifests:      exampleManifests,
+			KeyRing:        exampleKeyRing,
+			ExpectedError:  "Invalid signature",
+		},
+		{
+			Name:           "Proper error when invalid signature provided",
+			ExpectedStatus: 500,
+			Application:    "demo",
+			Manifests:      exampleManifests,
+			KeyRing:        exampleKeyRing,
+			Signatures: map[string]string{
+				"development": "invalid sign",
+			},
+			ExpectedError: "Internal: Invalid Signature: EOF",
+		},
+		{
 			Name:           "It stores source information",
 			Application:    "demo",
 			Manifests:      exampleManifests,

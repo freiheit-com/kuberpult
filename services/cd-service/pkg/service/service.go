@@ -115,7 +115,7 @@ func (s *Service) createTransformerFromRequest(r *http.Request) (repository.Crea
 						} else {
 							if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader(content), bytes.NewReader(signature)); err != nil {
 								if err != pgperrors.ErrUnknownIssuer {
-									return tf, fmt.Sprintf("Internal: %s", err), 500
+									return tf, fmt.Sprintf("Internal: Invalid Signature: %s", err), 500
 								}
 							} else {
 								validSignature = true
