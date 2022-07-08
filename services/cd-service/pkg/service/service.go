@@ -77,30 +77,24 @@ func (s *Service) ServeHTTPHealth(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "ok\n")
 }
 
-func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.Request) {
+func (s *Service) createTransformerFromRequest(r *http.Request) (repository.CreateApplicationVersion, string, int) {
 	tf := repository.CreateApplicationVersion{
 		Manifests: map[string]string{},
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
-		w.WriteHeader(400)
-		fmt.Fprintf(w, "Invalid body: %s", err)
-		return
+		return tf, fmt.Sprintf("Invalid body: %s", err), 400
 	}
 	form := r.MultipartForm
 	if len(form.Value["application"]) != 1 {
-		w.WriteHeader(400)
 		if len(form.Value["application"]) > 1 {
-			fmt.Fprintf(w, "Please provide single application name")
+			return tf, fmt.Sprintf("Please provide single application name"), 400
 		} else {
-			fmt.Fprintf(w, "Invalid application name")
+			return tf, fmt.Sprintf("Invalid application name"), 400
 		}
-		return
 	}
 	application := form.Value["application"][0]
 	if !valid.ApplicationName(application) {
-		w.WriteHeader(400)
-		fmt.Fprintf(w, "invalid app name")
-		return
+		return tf, fmt.Sprintf("Invalid application name"), 400
 	}
 	tf.Application = application
 	for k, v := range form.File {
@@ -108,28 +102,20 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 		if match != nil {
 			environmentName := match[1]
 			if len(v) != 1 {
-				w.WriteHeader(400)
-				fmt.Fprintf(w, "multiple manifests submitted for %q", environmentName)
-				return
+				return tf, fmt.Sprintf("multiple manifests submitted for %q", environmentName), 400
 			}
 			if content, err := readMultipartFile(v[0]); err != nil {
-				w.WriteHeader(500)
-				fmt.Fprintf(w, "internal: %s", err)
-				return
+				return tf, fmt.Sprintf("Internal: %s", err), 500
 			} else {
 				if s.KeyRing != nil {
 					validSignature := false
 					for _, sig := range form.File[fmt.Sprintf("signatures[%s]", environmentName)] {
 						if signature, err := readMultipartFile(sig); err != nil {
-							w.WriteHeader(500)
-							fmt.Fprintf(w, "internal: %s", err)
-							return
+							return tf, fmt.Sprintf("Internal: %s", err), 500
 						} else {
 							if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader(content), bytes.NewReader(signature)); err != nil {
 								if err != pgperrors.ErrUnknownIssuer {
-									w.WriteHeader(500)
-									fmt.Fprintf(w, "internal: %s", err)
-									return
+									return tf, fmt.Sprintf("Internal: %s", err), 500
 								}
 							} else {
 								validSignature = true
@@ -138,9 +124,7 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 						}
 					}
 					if !validSignature {
-						w.WriteHeader(400)
-						fmt.Fprintf(w, "invalid signature")
-						return
+						return tf, fmt.Sprintf("Invalid signature"), 400
 					}
 
 				}
@@ -151,9 +135,7 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 		}
 	}
 	if len(tf.Manifests) == 0 {
-		w.WriteHeader(400)
-		fmt.Fprintf(w, "No manifest files provided")
-		return
+		return tf, fmt.Sprintf("No manifest files provided"), 400
 	}
 
 	if team, ok := form.Value["team"]; ok {
@@ -183,13 +165,22 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 		if len(version) == 1 {
 			val, err := strconv.ParseUint(version[0], 10, 64)
 			if err != nil {
-				w.WriteHeader(400)
-				fmt.Fprintf(w, "invalid version: %s", err)
-				return
+				return tf, fmt.Sprintf("Invalid version: %s", err), 400
 			}
 			tf.Version = val
 		}
 	}
+	return tf, "", 201
+}
+
+func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.Request) {
+	tf, errorString, returnCode := s.createTransformerFromRequest(r)
+	if returnCode != 201 {
+		w.WriteHeader(returnCode)
+		fmt.Fprintf(w, errorString)
+		return
+	}
+
 	if err := s.Repository.Apply(r.Context(), &tf); err != nil {
 		if _, ok := err.(*repository.InternalError); ok {
 			w.WriteHeader(500)
