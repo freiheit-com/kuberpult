@@ -56,19 +56,20 @@ func TestServeHttp(t *testing.T) {
 	t.Logf("signatures: %#v\n", exampleSignatures)
 
 	tcs := []struct {
-		Name           string
-		Application    string
-		SourceCommitId string
-		SourceAuthor   string
-		SourceMessage  string
-		Version        string
-		Manifests      map[string]string
-		Signatures     map[string]string
-		KeyRing        openpgp.KeyRing
-		Setup          []repository.Transformer
-		ExpectedStatus int
-		ExpectedError  string
-		Tests          func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string)
+		Name             string
+		Application      string
+		SourceCommitId   string
+		SourceAuthor     string
+		SourceMessage    string
+		Version          string
+		Manifests        map[string]string
+		Signatures       map[string]string
+		AdditionalFields map[string]string
+		KeyRing          openpgp.KeyRing
+		Setup            []repository.Transformer
+		ExpectedStatus   int
+		ExpectedError    string
+		Tests            func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string)
 	}{
 		{
 			Name:           "It accepts a set of manifests",
@@ -110,6 +111,27 @@ func TestServeHttp(t *testing.T) {
 		},
 		{
 			Name:           "Proper error when no application provided",
+			ExpectedStatus: 400,
+			ExpectedError:  "Invalid application name",
+		},
+		{
+			Name:           "Proper error when multiple application provided",
+			ExpectedStatus: 400,
+			Application:    "demo",
+			AdditionalFields: map[string]string{
+				"application": "demo",
+			},
+			ExpectedError: "Please provide single application name",
+		},
+		{
+			Name:           "Proper error when long application provided",
+			Application:    "demoWithTooManyCharactersInItsNameToBeValid",
+			ExpectedStatus: 400,
+			ExpectedError:  "Invalid application name",
+		},
+		{
+			Name:           "Proper error when invalid application name",
+			Application:    "invalidCharactersInName?",
 			ExpectedStatus: 400,
 			ExpectedError:  "Invalid application name",
 		},
@@ -276,6 +298,13 @@ func TestServeHttp(t *testing.T) {
 			if tc.Application != "" {
 				if err := body.WriteField("application", tc.Application); err != nil {
 					t.Fatal(err)
+				}
+			}
+			if len(tc.AdditionalFields) > 0 {
+				for k, v := range tc.AdditionalFields {
+					if err := body.WriteField(k, v); err != nil {
+						t.Fatal(err)
+					}
 				}
 			}
 			for k, v := range tc.Manifests {
