@@ -83,13 +83,17 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
-		fmt.Fprintf(w, "invalid body: %s", err)
+		fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
 	form := r.MultipartForm
 	if len(form.Value["application"]) != 1 {
 		w.WriteHeader(400)
-		fmt.Fprintf(w, "invalid app name")
+		if len(form.Value["application"]) > 1 {
+			fmt.Fprintf(w, "Please provide single application name")
+		} else {
+			fmt.Fprintf(w, "Invalid application name")
+		}
 		return
 	}
 	application := form.Value["application"][0]
@@ -148,7 +152,7 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 	}
 	if len(tf.Manifests) == 0 {
 		w.WriteHeader(400)
-		fmt.Fprintf(w, "no manifests")
+		fmt.Fprintf(w, "No manifest files provided")
 		return
 	}
 

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -32,7 +33,7 @@ import (
 	"golang.org/x/crypto/openpgp"
 )
 
-func TestServeHttpSuccess(t *testing.T) {
+func TestServeHttp(t *testing.T) {
 	exampleManifests :=
 		map[string]string{
 			"development": "---\nkind: Test",
@@ -66,6 +67,7 @@ func TestServeHttpSuccess(t *testing.T) {
 		KeyRing        openpgp.KeyRing
 		Setup          []repository.Transformer
 		ExpectedStatus int
+		ExpectedError  string
 		Tests          func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string)
 	}{
 		{
@@ -105,6 +107,17 @@ func TestServeHttpSuccess(t *testing.T) {
 					}
 				}
 			},
+		},
+		{
+			Name:           "Proper error when no application provided",
+			ExpectedStatus: 400,
+			ExpectedError:  "Invalid application name",
+		},
+		{
+			Name:           "Proper error when no manifests provided",
+			ExpectedStatus: 400,
+			Application:    "demo",
+			ExpectedError:  "No manifest files provided",
 		},
 		{
 			Name:           "It stores source information",
@@ -260,8 +273,10 @@ func TestServeHttpSuccess(t *testing.T) {
 			// first request
 			var buf bytes.Buffer
 			body := multipart.NewWriter(&buf)
-			if err := body.WriteField("application", tc.Application); err != nil {
-				t.Fatal(err)
+			if tc.Application != "" {
+				if err := body.WriteField("application", tc.Application); err != nil {
+					t.Fatal(err)
+				}
 			}
 			for k, v := range tc.Manifests {
 				if w, err := body.CreateFormFile("manifests["+k+"]", "doesntmatter"); err != nil {
@@ -305,6 +320,17 @@ func TestServeHttpSuccess(t *testing.T) {
 				if resp.StatusCode != tc.ExpectedStatus {
 					t.Fatalf("expected http status %d, received %d", tc.ExpectedStatus, resp.StatusCode)
 				}
+				if len(tc.ExpectedError) > 0 {
+					bodyBytes, err := io.ReadAll(resp.Body)
+					if err != nil {
+						t.Fatal(err)
+					}
+					bodyString := string(bodyBytes)
+					if bodyString != tc.ExpectedError {
+						t.Fatalf(`expected http body "%s", received "%s"`, tc.ExpectedError, bodyString)
+					}
+
+				}
 				if tc.Tests != nil {
 					tc.Tests(t, repo, resp, remoteDir)
 				}
@@ -312,4 +338,82 @@ func TestServeHttpSuccess(t *testing.T) {
 		})
 	}
 
+}
+
+func TestServeHttpEmptyBody(t *testing.T) {
+	exampleKey, err := openpgp.NewEntity("Test", "", "test@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exampleKeyRing := openpgp.EntityList{exampleKey}
+	tcs := []struct {
+		Name           string
+		ExpectedStatus int
+		ExpectedError  string
+		FormMetaData   string
+	}{{
+		Name:           "Error when no boundary provided",
+		ExpectedStatus: 400,
+		ExpectedError:  "Invalid body: no multipart boundary param in Content-Type",
+		FormMetaData:   "multipart/form-data;",
+	}, {
+		Name:           "Error when no content provided",
+		ExpectedStatus: 400,
+		ExpectedError:  "Invalid body: multipart: NextPart: EOF",
+		FormMetaData:   "multipart/form-data;boundary=nonExistantBoundary;",
+	}}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// setup repository
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+			repo, err := repository.New(
+				context.Background(),
+				repository.Config{
+					URL:            remoteDir,
+					Path:           localDir,
+					CommitterEmail: "kuberpult@freiheit.com",
+					CommitterName:  "kuberpult",
+				},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// setup service
+			service := &Service{
+				Repository: repo,
+				KeyRing:    exampleKeyRing,
+			}
+			// start server
+			srv := httptest.NewServer(service)
+			defer srv.Close()
+			// first request
+			var buf bytes.Buffer
+			body := multipart.NewWriter(&buf)
+			body.Close()
+
+			if resp, err := http.Post(srv.URL+"/release", tc.FormMetaData, &buf); err != nil {
+				t.Fatal(err)
+			} else {
+				if resp.StatusCode != tc.ExpectedStatus {
+					t.Fatalf("expected http status %d, received %d", tc.ExpectedStatus, resp.StatusCode)
+				}
+				bodyBytes, err := io.ReadAll(resp.Body)
+				if err != nil {
+					t.Fatal(err)
+				}
+				bodyString := string(bodyBytes)
+				if bodyString != tc.ExpectedError {
+					t.Fatalf(`expected http body "%s", received "%s"`, tc.ExpectedError, bodyString)
+				}
+			}
+		})
+	}
 }
