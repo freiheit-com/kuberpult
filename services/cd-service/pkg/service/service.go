@@ -77,24 +77,32 @@ func (s *Service) ServeHTTPHealth(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "ok\n")
 }
 
-func (s *Service) createTransformerFromRequest(r *http.Request) (repository.CreateApplicationVersion, string, int) {
+func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.Request) {
 	tf := repository.CreateApplicationVersion{
 		Manifests: map[string]string{},
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
-		return tf, fmt.Sprintf("Invalid body: %s", err), 400
+		w.WriteHeader(400)
+		fmt.Fprintf(w, "Invalid body: %s", err)
+		return
 	}
 	form := r.MultipartForm
 	if len(form.Value["application"]) != 1 {
 		if len(form.Value["application"]) > 1 {
-			return tf, fmt.Sprintf("Please provide single application name"), 400
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Please provide single application name")
+			return
 		} else {
-			return tf, fmt.Sprintf("Invalid application name"), 400
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid application name")
+			return
 		}
 	}
 	application := form.Value["application"][0]
 	if !valid.ApplicationName(application) {
-		return tf, fmt.Sprintf("Invalid application name"), 400
+		w.WriteHeader(400)
+		fmt.Fprintf(w, "Invalid application name")
+		return
 	}
 	tf.Application = application
 	for k, v := range form.File {
@@ -102,20 +110,28 @@ func (s *Service) createTransformerFromRequest(r *http.Request) (repository.Crea
 		if match != nil {
 			environmentName := match[1]
 			if len(v) != 1 {
-				return tf, fmt.Sprintf("multiple manifests submitted for %q", environmentName), 400
+				w.WriteHeader(400)
+				fmt.Fprintf(w, "multiple manifests submitted for %q", environmentName)
+				return
 			}
 			if content, err := readMultipartFile(v[0]); err != nil {
-				return tf, fmt.Sprintf("Internal: %s", err), 500
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "Internal: %s", err)
+				return
 			} else {
 				if s.KeyRing != nil {
 					validSignature := false
 					for _, sig := range form.File[fmt.Sprintf("signatures[%s]", environmentName)] {
 						if signature, err := readMultipartFile(sig); err != nil {
-							return tf, fmt.Sprintf("Internal: %s", err), 500
+							w.WriteHeader(500)
+							fmt.Fprintf(w, "Internal: %s", err)
+							return
 						} else {
 							if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader(content), bytes.NewReader(signature)); err != nil {
 								if err != pgperrors.ErrUnknownIssuer {
-									return tf, fmt.Sprintf("Internal: Invalid Signature: %s", err), 500
+									w.WriteHeader(500)
+									fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+									return
 								}
 							} else {
 								validSignature = true
@@ -124,7 +140,9 @@ func (s *Service) createTransformerFromRequest(r *http.Request) (repository.Crea
 						}
 					}
 					if !validSignature {
-						return tf, fmt.Sprintf("Invalid signature"), 400
+						w.WriteHeader(400)
+						fmt.Fprintf(w, "Invalid signature")
+						return
 					}
 
 				}
@@ -135,7 +153,9 @@ func (s *Service) createTransformerFromRequest(r *http.Request) (repository.Crea
 		}
 	}
 	if len(tf.Manifests) == 0 {
-		return tf, fmt.Sprintf("No manifest files provided"), 400
+		w.WriteHeader(400)
+		fmt.Fprintf(w, "No manifest files provided")
+		return
 	}
 
 	if team, ok := form.Value["team"]; ok {
@@ -165,20 +185,12 @@ func (s *Service) createTransformerFromRequest(r *http.Request) (repository.Crea
 		if len(version) == 1 {
 			val, err := strconv.ParseUint(version[0], 10, 64)
 			if err != nil {
-				return tf, fmt.Sprintf("Invalid version: %s", err), 400
+				w.WriteHeader(400)
+				fmt.Fprintf(w, "Invalid version: %s", err)
+				return
 			}
 			tf.Version = val
 		}
-	}
-	return tf, "", 201
-}
-
-func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.Request) {
-	tf, errorString, returnCode := s.createTransformerFromRequest(r)
-	if returnCode != 201 {
-		w.WriteHeader(returnCode)
-		fmt.Fprintf(w, errorString)
-		return
 	}
 
 	if err := s.Repository.Apply(r.Context(), &tf); err != nil {
