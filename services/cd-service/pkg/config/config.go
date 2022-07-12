@@ -16,6 +16,8 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 package config
 
+type KuberpultConfig map[string]EnvironmentConfig
+
 type EnvironmentConfig struct {
 	Upstream *EnvironmentConfigUpstream `json:"upstream,omitempty"`
 	ArgoCd   *EnvironmentConfigArgoCd   `json:"argocd,omitempty"`

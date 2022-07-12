@@ -41,6 +41,8 @@ type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
 	GitUrl            string `required:"true" split_words:"true"`
 	GitBranch         string `default:"master" split_words:"true"`
+	BootstrapMode     string `default:"false" split_words:"true"`
+	ConfigPath        string `default:"/etc/kuberpult_config.json" split_words:"true"`
 	GitCommitterEmail string `default:"kuberpult@freiheit.com" split_words:"true"`
 	GitCommitterName  string `default:"kuberpult" split_words:"true"`
 	GitSshKey         string `default:"/etc/ssh/identity" split_words:"true"`
