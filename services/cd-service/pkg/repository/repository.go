@@ -98,6 +98,11 @@ type Config struct {
 	Branch string
 	//
 	GcFrequency uint
+	// Bootstrap mode controls where configurations are read from
+	// true: read from json file at KuberpultConfigPath
+	// false: read from config files in manifest repo
+	BoostrapMode           bool
+	EnvironmentConfigsPath string
 }
 
 func openOrCreate(path string) (*git.Repository, error) {
