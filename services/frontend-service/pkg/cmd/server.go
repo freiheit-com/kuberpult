@@ -135,6 +135,17 @@ func RunServer() {
 			if grpcWebServer.IsGrpcWebRequest(req) {
 				grpcWebServer.ServeHTTP(resp, req)
 			} else {
+				/**
+				The htst header is a security feature that tells the browser:
+				"If someone requests anything on this domain via http, do not do that request, instead make the request with https"
+				Docs: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security
+				Wiki: https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security
+				Parameter "preload" is not necessary as kuberpult is not on a publicly available domain.
+				Parameter "includeSubDomains" is not really necessary for kuberpult right now,
+				  but should be set anyway in case we ever have subdomains.
+				31536000 seconds = 1 year.
+				 */
+				resp.Header().Set("strict-Transport-Security", "max-age=31536000; includeSubDomains;")
 				mux.ServeHTTP(resp, req)
 			}
 		})
