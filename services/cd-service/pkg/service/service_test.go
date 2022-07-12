@@ -128,13 +128,13 @@ func TestServeHttp(t *testing.T) {
 			Name:           "Proper error when long application name provided",
 			Application:    "demoWithTooManyCharactersInItsNameToBeValid",
 			ExpectedStatus: 400,
-			ExpectedError:  "Invalid application name",
+			ExpectedError:  "Invalid application name: 'demoWithTooManyCharactersInItsNameToBeValid' - must match regexp '[a-z0-9]+(?:-[a-z0-9]+)*' and less than 40 characters",
 		},
 		{
 			Name:           "Proper error when invalid application name provided",
 			Application:    "invalidCharactersInName?",
 			ExpectedStatus: 400,
-			ExpectedError:  "Invalid application name",
+			ExpectedError:  "Invalid application name: 'invalidCharactersInName?' - must match regexp '[a-z0-9]+(?:-[a-z0-9]+)*' and less than 40 characters",
 		},
 		{
 			Name:           "Proper error when no manifests provided",

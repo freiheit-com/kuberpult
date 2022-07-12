@@ -101,7 +101,7 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 	application := form.Value["application"][0]
 	if !valid.ApplicationName(application) {
 		w.WriteHeader(400)
-		fmt.Fprintf(w, "Invalid application name")
+		fmt.Fprintf(w, "Invalid application name: '%s' - must match regexp '%s' and less than %d characters", application, `[a-z0-9]+(?:-[a-z0-9]+)*`, 40)
 		return
 	}
 	tf.Application = application
