@@ -101,11 +101,12 @@ func GaugeEnvAppLockMetric(fs billy.Filesystem, env, app string) {
 	}
 }
 
-func UpdateDatadogMetrics(fs billy.Filesystem) error {
+func UpdateDatadogMetrics(state State) error {
+	fs := state.Filesystem
 	if ddMetrics == nil {
 		return nil
 	}
-	configs, err := (&State{Filesystem: fs}).GetEnvironmentConfigs()
+	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return err
 	}
@@ -180,7 +181,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state State) (
 		return "", err
 	}
 
-	configs, err := (&State{Filesystem: fs}).GetEnvironmentConfigs()
+	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return "", err
 	}
@@ -206,7 +207,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state State) (
 		}
 	}
 	result := ""
-	isLatest, err := isLatestsVersion(fs, c.Application, version)
+	isLatest, err := isLatestsVersion(state, c.Application, version)
 	if err != nil {
 		return "", err
 	}
@@ -248,7 +249,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state State) (
 		}
 	} else {
 		// check that we can actually backfill this version
-		oldVersions, err := findOldApplicationVersions(fs, c.Application)
+		oldVersions, err := findOldApplicationVersions(state, c.Application)
 		if err != nil {
 			return "", err
 		}
@@ -285,8 +286,8 @@ func (c *CreateApplicationVersion) calculateVersion(bfs billy.Filesystem) (uint6
 	}
 }
 
-func isLatestsVersion(bfs billy.Filesystem, application string, version uint64) (bool, error) {
-	rels, err := (&State{Filesystem: bfs}).GetApplicationReleases(application)
+func isLatestsVersion(state State, application string, version uint64) (bool, error) {
+	rels, err := state.GetApplicationReleases(application)
 	if err != nil {
 		return false, err
 	}
@@ -317,7 +318,7 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 		return "", err
 	}
 
-	configs, err := (&State{Filesystem: fs}).GetEnvironmentConfigs()
+	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return "", err
 	}
@@ -379,7 +380,7 @@ func (u *UndeployApplication) Transform(ctx context.Context, state State) (strin
 	if lastRelease == 0 {
 		return "", fmt.Errorf("UndeployApplication: error cannot undeploy non-existing application '%v'", u.Application)
 	}
-	isUndeploy, err := (&State{Filesystem: fs}).IsUndeployVersion(u.Application, lastRelease)
+	isUndeploy, err := state.IsUndeployVersion(u.Application, lastRelease)
 	if err != nil {
 		return "", err
 	}
@@ -387,7 +388,7 @@ func (u *UndeployApplication) Transform(ctx context.Context, state State) (strin
 		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
 	}
 	appDir := applicationDirectory(fs, u.Application)
-	configs, err := (&State{Filesystem: fs}).GetEnvironmentConfigs()
+	configs, err := state.GetEnvironmentConfigs()
 	for env := range configs {
 		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
 		locksDir := fs.Join(envAppDir, "locks")
@@ -420,8 +421,7 @@ type CleanupOldApplicationVersions struct {
 }
 
 // Finds old releases for an application
-func findOldApplicationVersions(fs billy.Filesystem, name string) ([]uint64, error) {
-	var state = &State{Filesystem: fs}
+func findOldApplicationVersions(state State, name string) ([]uint64, error) {
 	// 1) get release in each env:
 	envConfigs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -462,7 +462,7 @@ func findOldApplicationVersions(fs billy.Filesystem, name string) ([]uint64, err
 
 func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state State) (string, error) {
 	fs := state.Filesystem
-	oldVersions, err := findOldApplicationVersions(fs, c.Application)
+	oldVersions, err := findOldApplicationVersions(state, c.Application)
 	if err != nil {
 		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
 	}
@@ -696,11 +696,11 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state State) (
 			envLocks, appLocks map[string]Lock
 			err                error
 		)
-		envLocks, err = (&State{Filesystem: fs}).GetEnvironmentLocks(c.Environment)
+		envLocks, err = state.GetEnvironmentLocks(c.Environment)
 		if err != nil {
 			return "", err
 		}
-		appLocks, err = (&State{Filesystem: fs}).GetEnvironmentApplicationLocks(c.Environment, c.Application)
+		appLocks, err = state.GetEnvironmentApplicationLocks(c.Environment, c.Application)
 		if err != nil {
 			return "", err
 		}

@@ -377,7 +377,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	if err != nil {
 		return err
 	}
-	err = UpdateDatadogMetrics(state.Filesystem)
+	err = UpdateDatadogMetrics(*state)
 	if err != nil {
 		return err
 	}
