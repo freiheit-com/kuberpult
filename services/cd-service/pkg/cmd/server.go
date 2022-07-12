@@ -39,21 +39,21 @@ import (
 
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
-	GitUrl                 string `required:"true" split_words:"true"`
-	GitBranch              string `default:"master" split_words:"true"`
-	BootstrapMode          bool   `default:"false" split_words:"true"`
-	EnvironmentConfigsPath string `default:"./environment_configs.json" split_words:"true"`
-	GitCommitterEmail      string `default:"kuberpult@freiheit.com" split_words:"true"`
-	GitCommitterName       string `default:"kuberpult" split_words:"true"`
-	GitSshKey              string `default:"/etc/ssh/identity" split_words:"true"`
-	GitSshKnownHosts       string `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
-	PgpKeyRing             string `split_words:"true"`
-	ArgoCdHost             string `default:"localhost:8080" split_words:"true"`
-	ArgoCdUser             string `default:"admin" split_words:"true"`
-	ArgoCdPass             string `default:"" split_words:"true"`
-	EnableTracing          bool   `default:"false" split_words:"true"`
-	EnableMetrics          bool   `default:"false" split_words:"true"`
-	DogstatsdAddr          string `default:"127.0.0.1:8125" split_words:"true"`
+	GitUrl        string `required:"true" split_words:"true"`
+	GitBranch     string `default:"master" split_words:"true"`
+	BootstrapMode bool   `default:"false" split_words:"true"`
+	// EnvironmentConfigsPath string `default:"./environment_configs.json" split_words:"true"`
+	GitCommitterEmail string `default:"kuberpult@freiheit.com" split_words:"true"`
+	GitCommitterName  string `default:"kuberpult" split_words:"true"`
+	GitSshKey         string `default:"/etc/ssh/identity" split_words:"true"`
+	GitSshKnownHosts  string `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
+	PgpKeyRing        string `split_words:"true"`
+	ArgoCdHost        string `default:"localhost:8080" split_words:"true"`
+	ArgoCdUser        string `default:"admin" split_words:"true"`
+	ArgoCdPass        string `default:"" split_words:"true"`
+	EnableTracing     bool   `default:"false" split_words:"true"`
+	EnableMetrics     bool   `default:"false" split_words:"true"`
+	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true"`
 }
 
 func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
@@ -136,8 +136,9 @@ func RunServer() {
 			},
 			Branch:                 c.GitBranch,
 			GcFrequency:            20,
-			BoostrapMode:           c.BootstrapMode,
-			EnvironmentConfigsPath: c.EnvironmentConfigsPath,
+			BootstrapMode:          c.BootstrapMode,
+			EnvironmentConfigsPath: "./environment_configs.json",
+			// EnvironmentConfigsPath: c.EnvironmentConfigsPath,
 		})
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))

@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"sort"
@@ -36,6 +37,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"gopkg.in/yaml.v2"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
@@ -101,7 +103,7 @@ type Config struct {
 	// Bootstrap mode controls where configurations are read from
 	// true: read from json file at KuberpultConfigPath
 	// false: read from config files in manifest repo
-	BoostrapMode           bool
+	BootstrapMode          bool
 	EnvironmentConfigsPath string
 }
 
@@ -593,10 +595,12 @@ func (r *repository) buildState() (*State, error) {
 			return nil, err
 		}
 		return &State{
-			Filesystem:    fs.NewTreeBuildFS(r.repository, commit.TreeId()),
-			Commit:        commit,
-			History:       r.history,
-			CommitHistory: commitHistory,
+			Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
+			Commit:                 commit,
+			History:                r.history,
+			CommitHistory:          commitHistory,
+			BootstrapMode:          r.config.BootstrapMode,
+			EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 		}, nil
 	}
 }
@@ -691,10 +695,12 @@ func (r *repository) maybeGc(ctx context.Context) {
 }
 
 type State struct {
-	Filesystem    billy.Filesystem
-	Commit        *git.Commit
-	History       *history.History
-	CommitHistory *history.CommitHistory
+	Filesystem             billy.Filesystem
+	Commit                 *git.Commit
+	History                *history.History
+	CommitHistory          *history.CommitHistory
+	BootstrapMode          bool
+	EnvironmentConfigsPath string
 }
 
 func (s *State) Applications() ([]string, error) {
@@ -867,25 +873,42 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 var invalidJson = errors.New("JSON file is not valid")
 
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
-	envs, err := s.Filesystem.ReadDir("environments")
-	if err != nil {
-		return nil, err
-	}
-	result := map[string]config.EnvironmentConfig{}
-	for _, env := range envs {
-		fileName := s.Filesystem.Join("environments", env.Name(), "config.json")
-		var config config.EnvironmentConfig
-		if err := decodeJsonFile(s.Filesystem, fileName, &config); err != nil {
+	if s.BootstrapMode {
+		result := map[string]config.EnvironmentConfig{}
+		buf, err := ioutil.ReadFile(s.EnvironmentConfigsPath)
+		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				result[env.Name()] = config
-			} else {
-				return nil, fmt.Errorf("%s : %w", fileName, invalidJson)
+				return result, nil
 			}
-		} else {
-			result[env.Name()] = config
+			return nil, err
 		}
+		err = yaml.Unmarshal(buf, &result)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(*(result)["development"].Upstream)
+		return result, nil
+	} else {
+		envs, err := s.Filesystem.ReadDir("environments")
+		if err != nil {
+			return nil, err
+		}
+		result := map[string]config.EnvironmentConfig{}
+		for _, env := range envs {
+			fileName := s.Filesystem.Join("environments", env.Name(), "config.json")
+			var config config.EnvironmentConfig
+			if err := decodeJsonFile(s.Filesystem, fileName, &config); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					result[env.Name()] = config
+				} else {
+					return nil, fmt.Errorf("%s : %w", fileName, invalidJson)
+				}
+			} else {
+				result[env.Name()] = config
+			}
+		}
+		return result, nil
 	}
-	return result, nil
 }
 
 func (s *State) GetEnvironmentApplications(environment string) ([]string, error) {
