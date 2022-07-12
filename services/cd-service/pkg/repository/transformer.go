@@ -101,7 +101,7 @@ func GaugeEnvAppLockMetric(fs billy.Filesystem, env, app string) {
 	}
 }
 
-func UpdateDatadogMetrics(state State) error {
+func UpdateDatadogMetrics(state *State) error {
 	fs := state.Filesystem
 	if ddMetrics == nil {
 		return nil
@@ -124,16 +124,16 @@ func UpdateDatadogMetrics(state State) error {
 
 // A Transformer updates the files in the worktree
 type Transformer interface {
-	Transform(context.Context, State) (commitMsg string, e error)
+	Transform(context.Context, *State) (commitMsg string, e error)
 }
 
-type TransformerFunc func(context.Context, State) (string, error)
+type TransformerFunc func(context.Context, *State) (string, error)
 
-func (t TransformerFunc) Transform(ctx context.Context, state State) (string, error) {
+func (t TransformerFunc) Transform(ctx context.Context, state *State) (string, error) {
 	return (t)(ctx, state)
 }
 
-var _ Transformer = TransformerFunc(func(_ context.Context, _ State) (string, error) { return "", nil })
+var _ Transformer = TransformerFunc(func(_ context.Context, _ *State) (string, error) { return "", nil })
 
 type CreateApplicationVersion struct {
 	Version        uint64
@@ -169,7 +169,7 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 	}
 }
 
-func (c *CreateApplicationVersion) Transform(ctx context.Context, state State) (string, error) {
+func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
 	version, err := c.calculateVersion(fs)
 	if err != nil {
@@ -286,7 +286,7 @@ func (c *CreateApplicationVersion) calculateVersion(bfs billy.Filesystem) (uint6
 	}
 }
 
-func isLatestsVersion(state State, application string, version uint64) (bool, error) {
+func isLatestsVersion(state *State, application string, version uint64) (bool, error) {
 	rels, err := state.GetApplicationReleases(application)
 	if err != nil {
 		return false, err
@@ -303,7 +303,7 @@ type CreateUndeployApplicationVersion struct {
 	Application string
 }
 
-func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state State) (string, error) {
+func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
 	lastRelease, err := GetLastRelease(fs, c.Application)
 	if err != nil {
@@ -371,7 +371,7 @@ type UndeployApplication struct {
 	Application string
 }
 
-func (u *UndeployApplication) Transform(ctx context.Context, state State) (string, error) {
+func (u *UndeployApplication) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
 	lastRelease, err := GetLastRelease(fs, u.Application)
 	if err != nil {
@@ -421,7 +421,7 @@ type CleanupOldApplicationVersions struct {
 }
 
 // Finds old releases for an application
-func findOldApplicationVersions(state State, name string) ([]uint64, error) {
+func findOldApplicationVersions(state *State, name string) ([]uint64, error) {
 	// 1) get release in each env:
 	envConfigs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -460,7 +460,7 @@ func findOldApplicationVersions(state State, name string) ([]uint64, error) {
 	return versions[0 : positionOfOldestVersion-(keptVersionsOnCleanup-1)], err
 }
 
-func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state State) (string, error) {
+func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
 	oldVersions, err := findOldApplicationVersions(state, c.Application)
 	if err != nil {
@@ -495,7 +495,7 @@ type CreateEnvironmentLock struct {
 	Message     string
 }
 
-func (c *CreateEnvironmentLock) Transform(ctx context.Context, state State) (string, error) {
+func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
@@ -531,7 +531,7 @@ type DeleteEnvironmentLock struct {
 	LockId      string
 }
 
-func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state State) (string, error) {
+func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
 	file := fs.Join("environments", c.Environment, "locks", c.LockId)
 	if err := fs.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -567,7 +567,7 @@ type CreateEnvironmentApplicationLock struct {
 	Message     string
 }
 
-func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state State) (string, error) {
+func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
@@ -597,7 +597,7 @@ type DeleteEnvironmentApplicationLock struct {
 	LockId      string
 }
 
-func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state State) (string, error) {
+func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
 	file := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
 	if err := fs.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -620,7 +620,7 @@ type CreateEnvironment struct {
 	Config      config.EnvironmentConfig
 }
 
-func (c *CreateEnvironment) Transform(ctx context.Context, state State) (string, error) {
+func (c *CreateEnvironment) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if err := fs.MkdirAll(envDir, 0777); err != nil {
@@ -645,7 +645,7 @@ type QueueApplicationVersion struct {
 	Version     uint64
 }
 
-func (c *QueueApplicationVersion) Transform(ctx context.Context, state State) (string, error) {
+func (c *QueueApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
 	// Create a symlink to the release
 	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
@@ -673,7 +673,7 @@ type DeployApplicationVersion struct {
 	LockBehaviour api.LockBehavior
 }
 
-func (c *DeployApplicationVersion) Transform(ctx context.Context, state State) (string, error) {
+func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
@@ -782,7 +782,7 @@ func (s *State) GetApplicationTeamOwner(application string) (string, error) {
 	}
 }
 
-func (c *ReleaseTrain) Transform(ctx context.Context, state State) (string, error) {
+func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, error) {
 	var targetEnvName = c.Environment
 
 	configs, err := state.GetEnvironmentConfigs()
