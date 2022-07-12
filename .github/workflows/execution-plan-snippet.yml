@@ -75,7 +75,7 @@ jobs:
       - name: Planner
         id: plan
         run: |
-          echo "::set-output name=matrix::$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-8 | tr -d '\n')"
+          echo "::set-output name=matrix::$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-9 | tr -d '\n')"
       - name: Print github matrix json
         run: |
           echo "${{ steps.plan.outputs.matrix }}"
@@ -104,6 +104,14 @@ jobs:
           cat > credential.json << EOF
           ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
           EOF
+      - name: Update cache
+        uses: actions/cache@v3
+        if: matrix.data.cachefiles != ''
+        with:
+          path: ${{ matrix.data.cachefiles }}
+          key: cache-${{ matrix.data.cacheKey }}
+          restore-keys: |
+            cache-${{ matrix.data.cacheKey }} 
       - name: Test, Build and Publish
         run: ${{ matrix.data.command }}
       - uses: actions/upload-artifact@v3
