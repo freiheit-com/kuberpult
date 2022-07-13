@@ -360,21 +360,14 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestBootstrapErrors(t *testing.T) {
+func TestBootstrapError(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		ConfigContent string
-		Permission    int
 	}{
 		{
 			Name:          "Invalid json in bootstrap configuration",
 			ConfigContent: `{"development": "upstream": {"latest": true}}}`,
-			Permission:    0644,
-		},
-		{
-			Name:          "Read error in bootstrap configuration",
-			ConfigContent: `{"development": {"upstream": {"latest": true}}}`,
-			Permission:    0000,
 		},
 	}
 
@@ -391,7 +384,7 @@ func TestBootstrapErrors(t *testing.T) {
 			cmd.Wait()
 
 			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
-			if err := os.WriteFile(environmentConfigsPath, []byte(tc.ConfigContent), fs.FileMode(tc.Permission)); err != nil {
+			if err := os.WriteFile(environmentConfigsPath, []byte(tc.ConfigContent), fs.FileMode(0644)); err != nil {
 				t.Fatal(err)
 			}
 
