@@ -626,6 +626,11 @@ func (c *CreateEnvironment) Transform(ctx context.Context, state *State) (string
 	if err := fs.MkdirAll(envDir, 0777); err != nil {
 		return "", err
 	} else {
+		// Creaetion of environment is possible, but configuring it is not if running in bootstrap mode.
+		// Configuration needs to be done by modifying config map in source repo
+		if state.BootstrapMode && c.Config != (config.EnvironmentConfig{}) {
+			return "", fmt.Errorf("Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead.")
+		}
 		configFile := fs.Join(envDir, "config.json")
 		file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
 		if err != nil {
