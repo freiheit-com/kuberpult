@@ -368,7 +368,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 	} else {
 		commitMsg := []string{}
 		for _, t := range transformers {
-			if msg, err := t.Transform(ctx, state.Filesystem); err != nil {
+			if msg, err := t.Transform(ctx, state); err != nil {
 				return nil, nil, err
 			} else {
 				commitMsg = append(commitMsg, msg)
@@ -384,11 +384,11 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	if err != nil {
 		return err
 	}
-	err = UpdateDatadogMetrics(state.Filesystem)
+	err = UpdateDatadogMetrics(state)
 	if err != nil {
 		return err
 	}
-	if err := r.afterTransform(ctx, state.Filesystem); err != nil {
+	if err := r.afterTransform(ctx, *state); err != nil {
 		return &InternalError{inner: err}
 	}
 
@@ -525,8 +525,7 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 	)
 }
 
-func (r *repository) afterTransform(ctx context.Context, fs billy.Filesystem) error {
-	state := State{Filesystem: fs}
+func (r *repository) afterTransform(ctx context.Context, state State) error {
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return err
@@ -1087,7 +1086,7 @@ func (s *State) ProcessQueue(ctx context.Context, fs billy.Filesystem, environme
 				Version:       *queuedVersion,
 				LockBehaviour: api.LockBehavior_Fail,
 			}
-			transform, err := d.Transform(ctx, fs)
+			transform, err := d.Transform(ctx, s)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {

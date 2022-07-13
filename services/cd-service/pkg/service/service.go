@@ -83,19 +83,25 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
-		fmt.Fprintf(w, "invalid body: %s", err)
+		fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
 	form := r.MultipartForm
 	if len(form.Value["application"]) != 1 {
-		w.WriteHeader(400)
-		fmt.Fprintf(w, "invalid app name")
-		return
+		if len(form.Value["application"]) > 1 {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Please provide single application name")
+			return
+		} else {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid application name")
+			return
+		}
 	}
 	application := form.Value["application"][0]
 	if !valid.ApplicationName(application) {
 		w.WriteHeader(400)
-		fmt.Fprintf(w, "invalid app name")
+		fmt.Fprintf(w, "Invalid application name: '%s' - must match regexp '%s' and less than %d characters", application, `[a-z0-9]+(?:-[a-z0-9]+)*`, 40)
 		return
 	}
 	tf.Application = application
@@ -110,7 +116,7 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 			}
 			if content, err := readMultipartFile(v[0]); err != nil {
 				w.WriteHeader(500)
-				fmt.Fprintf(w, "internal: %s", err)
+				fmt.Fprintf(w, "Internal: %s", err)
 				return
 			} else {
 				if s.KeyRing != nil {
@@ -118,13 +124,13 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 					for _, sig := range form.File[fmt.Sprintf("signatures[%s]", environmentName)] {
 						if signature, err := readMultipartFile(sig); err != nil {
 							w.WriteHeader(500)
-							fmt.Fprintf(w, "internal: %s", err)
+							fmt.Fprintf(w, "Internal: %s", err)
 							return
 						} else {
 							if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader(content), bytes.NewReader(signature)); err != nil {
 								if err != pgperrors.ErrUnknownIssuer {
 									w.WriteHeader(500)
-									fmt.Fprintf(w, "internal: %s", err)
+									fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
 									return
 								}
 							} else {
@@ -135,7 +141,7 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 					}
 					if !validSignature {
 						w.WriteHeader(400)
-						fmt.Fprintf(w, "invalid signature")
+						fmt.Fprintf(w, "Invalid signature")
 						return
 					}
 
@@ -148,7 +154,7 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 	}
 	if len(tf.Manifests) == 0 {
 		w.WriteHeader(400)
-		fmt.Fprintf(w, "no manifests")
+		fmt.Fprintf(w, "No manifest files provided")
 		return
 	}
 
@@ -180,12 +186,13 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 			val, err := strconv.ParseUint(version[0], 10, 64)
 			if err != nil {
 				w.WriteHeader(400)
-				fmt.Fprintf(w, "invalid version: %s", err)
+				fmt.Fprintf(w, "Invalid version: %s", err)
 				return
 			}
 			tf.Version = val
 		}
 	}
+
 	if err := s.Repository.Apply(r.Context(), &tf); err != nil {
 		if _, ok := err.(*repository.InternalError); ok {
 			w.WriteHeader(500)
