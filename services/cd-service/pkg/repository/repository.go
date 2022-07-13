@@ -101,7 +101,7 @@ type Config struct {
 	//
 	GcFrequency uint
 	// Bootstrap mode controls where configurations are read from
-	// true: read from json file at KuberpultConfigPath
+	// true: read from json file at EnvironmentConfigsPath
 	// false: read from config files in manifest repo
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
@@ -580,7 +580,11 @@ func (r *repository) buildState() (*State, error) {
 		var gerr *git.GitError
 		if errors.As(err, &gerr) {
 			if gerr.Code == git.ErrNotFound {
-				return &State{Filesystem: fs.NewEmptyTreeBuildFS(r.repository)}, nil
+				return &State{
+					Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
+					BootstrapMode:          r.config.BootstrapMode,
+					EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+				}, nil
 			}
 		}
 		return nil, err
