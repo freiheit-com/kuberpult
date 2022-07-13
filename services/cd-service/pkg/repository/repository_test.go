@@ -374,7 +374,7 @@ func TestBootstrapErrors(t *testing.T) {
 		{
 			Name:          "Read error in bootstrap configuration",
 			ConfigContent: `{"development": {"upstream": {"latest": true}}}`,
-			Permission:    0111,
+			Permission:    0000,
 		},
 	}
 
