@@ -35,10 +35,11 @@ import (
 
 func TestNew(t *testing.T) {
 	tcs := []struct {
-		Name   string
-		Branch string
-		Setup  func(t *testing.T, remoteDir, localDir string)
-		Test   func(t *testing.T, repo Repository, remoteDir string)
+		Name          string
+		Branch        string
+		BootstrapMode bool
+		Setup         func(t *testing.T, remoteDir, localDir string)
+		Test          func(t *testing.T, repo Repository, remoteDir string)
 	}{
 		{
 			Name:  "new in empty directory works",
@@ -251,6 +252,81 @@ func TestNew(t *testing.T) {
 				}
 			},
 		},
+		{
+			Name:          "new in empty directory in bootstrap mode works",
+			Setup:         func(_ *testing.T, _, _ string) {},
+			BootstrapMode: true,
+			Test: func(t *testing.T, repo Repository, remoteDir string) {
+				if !repo.State().BootstrapMode {
+					t.Fatal("BootstrapMode was not preserved")
+				}
+			},
+		},
+		{
+			Name: "new in initialized repository in bootstrap mode works",
+			Setup: func(t *testing.T, remoteDir, localDir string) {
+				// run the initialization code once
+				_, err := New(
+					context.Background(),
+					Config{
+						URL:  "file://" + remoteDir,
+						Path: localDir,
+					},
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+			},
+			BootstrapMode: true,
+			Test: func(t *testing.T, repo Repository, remoteDir string) {
+				state := repo.State()
+				entries, err := state.Filesystem.ReadDir("")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(entries) > 0 {
+					t.Errorf("repository is not empty but contains %d entries", len(entries))
+				}
+				if !state.BootstrapMode {
+					t.Fatal("BootstrapMode was not preserved")
+				}
+			},
+		},
+		{
+			Name:          "Reading config in bootstrap mode works",
+			BootstrapMode: true,
+			Setup: func(t *testing.T, remoteDir, localDir string) {
+				EnvironmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
+				configContent := `{"uniqueEnv": {"upstream": {"latest": true }}}`
+				err := os.WriteFile(EnvironmentConfigsPath, []byte(configContent), 0644)
+				if err != nil {
+					t.Fatal(err)
+				}
+			},
+			Test: func(t *testing.T, repo Repository, remoteDir string) {
+				state := repo.State()
+				entries, err := state.Filesystem.ReadDir("")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(entries) > 0 {
+					t.Errorf("repository is not empty but contains %d entries", len(entries))
+				}
+				if !state.BootstrapMode {
+					t.Fatal("BootstrapMode was not preserved")
+				}
+				configs, err := state.GetEnvironmentConfigs()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(configs) != 1 {
+					t.Fatal("Configuration not read properly")
+				}
+				if configs["uniqueEnv"].Upstream.Latest != true {
+					t.Fatal("Configuration not read properly")
+				}
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -267,9 +343,11 @@ func TestNew(t *testing.T) {
 			repo, err := New(
 				context.Background(),
 				Config{
-					URL:    "file://" + remoteDir,
-					Path:   localDir,
-					Branch: tc.Branch,
+					URL:                    "file://" + remoteDir,
+					Path:                   localDir,
+					Branch:                 tc.Branch,
+					BootstrapMode:          tc.BootstrapMode,
+					EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
 				},
 			)
 			if err != nil {
@@ -277,6 +355,57 @@ func TestNew(t *testing.T) {
 			}
 			if tc.Test != nil {
 				tc.Test(t, repo, remoteDir)
+			}
+		})
+	}
+}
+
+func TestBootstrapErrors(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		ConfigContent string
+		Permission    int
+	}{
+		{
+			Name:          "Invalid json in bootstrap configuration",
+			ConfigContent: `{"development": "upstream": {"latest": true}}}`,
+			Permission:    0644,
+		},
+		{
+			Name:          "Read error in bootstrap configuration",
+			ConfigContent: `{"development": {"upstream": {"latest": true}}}`,
+			Permission:    0111,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+
+			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
+			if err := os.WriteFile(environmentConfigsPath, []byte(tc.ConfigContent), fs.FileMode(tc.Permission)); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := New(
+				context.Background(),
+				Config{
+					URL:                    "file://" + remoteDir,
+					Path:                   localDir,
+					BootstrapMode:          true,
+					EnvironmentConfigsPath: environmentConfigsPath,
+				},
+			)
+			if err == nil {
+				t.Fatalf("New: Expected error but no error was thrown")
 			}
 		})
 	}
