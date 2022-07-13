@@ -1829,6 +1829,16 @@ spec:
 				}
 			},
 		},
+		{
+			Name:          "CreateEnvironment does not error in bootstrap mode without configuration",
+			BootstrapMode: true,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+				},
+			},
+			Test: func(t *testing.T, s *State) {},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
