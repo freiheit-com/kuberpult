@@ -80,7 +80,7 @@ gke:
   project_number: ""
 
 environment_configs:
-  bootstrap_mode: true
+  bootstrap_mode: false
   # environment_configs_json: |
   #   {
   #     "production": {
