@@ -81,13 +81,13 @@ gke:
 
 environment_configs:
   bootstrap_mode: true
-  environment_configs.json: |
-    {
-      "production": {
-        "upstream": {
-            "latest": true
-         },
-         "argocd" :{}
-      }
-    }
-  # environment_configs.json: null
+  # environment_configs_json: |
+  #   {
+  #     "production": {
+  #       "upstream": {
+  #           "latest": true
+  #        },
+  #        "argocd" :{}
+  #     }
+  #   }
+  environment_configs_json: null

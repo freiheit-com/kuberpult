@@ -16,4 +16,14 @@ frontend:
       cpu: 250m
     limits:
       cpu: 250m
-
+environment_configs:
+  environment_configs_json: |
+    {
+      "production": {
+        "upstream": {
+            "latest": true
+         },
+         "argocd" :{}
+      }
+    }
+ 
