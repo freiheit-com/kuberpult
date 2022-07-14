@@ -130,6 +130,8 @@ spec:
               name: kuberpult-argocd
               key: KUBERPULT_ARGO_CD_PASS
 {{- end }}
+        - name: KUBERPULT_BOOTSTRAP_MODE
+          value: {{ .Values.environment_configs.bootstrap_mode }}
         volumeMounts:
         - name: repository
           mountPath: /repository
