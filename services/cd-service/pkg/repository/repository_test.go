@@ -267,10 +267,9 @@ func TestNew(t *testing.T) {
 			repo, err := New(
 				context.Background(),
 				Config{
-					URL:                    "file://" + remoteDir,
-					Path:                   localDir,
-					Branch:                 tc.Branch,
-					EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+					URL:    "file://" + remoteDir,
+					Path:   localDir,
+					Branch: tc.Branch,
 				},
 			)
 			if err != nil {
