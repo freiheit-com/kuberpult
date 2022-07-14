@@ -876,11 +876,14 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 var invalidJson = errors.New("JSON file is not valid")
 
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
+	fmt.Println("In GetEnvironmentConfigs")
+	fmt.Println("bootstrap mode", s.BootstrapMode)
 	if s.BootstrapMode {
 		result := map[string]config.EnvironmentConfig{}
 		buf, err := ioutil.ReadFile(s.EnvironmentConfigsPath)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
+				fmt.Println("File not found", s.EnvironmentConfigsPath)
 				return result, nil
 			}
 			return nil, err
@@ -889,6 +892,7 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("File found", result)
 		for k, v := range result {
 			fmt.Println(k, v.Upstream.Latest)
 		}
