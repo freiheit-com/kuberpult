@@ -78,3 +78,16 @@ imagePullSecrets: []
 gke:
   backend_service_id: ""
   project_number: ""
+
+environment_configs:
+  bootstrap_mode: true
+  environment_configs.json: |
+    {
+      "production": {
+        "upstream": {
+            "latest": true
+         },
+         "argocd" :{}
+      }
+    }
+  # environment_configs.json: null
