@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.4.26
+
+**released 2022-07-14**
+
+### Added
+
+* Added HTST security header to frontend service [#241](https://github.com/freiheit-com/kuberpult/pull/241)
+
 ## 0.4.25
 
 **released 2022-07-06**
