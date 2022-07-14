@@ -267,9 +267,10 @@ func TestNew(t *testing.T) {
 			repo, err := New(
 				context.Background(),
 				Config{
-					URL:    "file://" + remoteDir,
-					Path:   localDir,
-					Branch: tc.Branch,
+					URL:                    "file://" + remoteDir,
+					Path:                   localDir,
+					Branch:                 tc.Branch,
+					EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
 				},
 			)
 			if err != nil {
@@ -277,6 +278,170 @@ func TestNew(t *testing.T) {
 			}
 			if tc.Test != nil {
 				tc.Test(t, repo, remoteDir)
+			}
+		})
+	}
+}
+
+func TestBootstrapModeNew(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		PreInitialize bool
+	}{
+		{
+			Name:          "New in empty repo",
+			PreInitialize: false,
+		},
+		{
+			Name:          "New in existing repo",
+			PreInitialize: true,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+
+			if tc.PreInitialize {
+				_, err := New(
+					context.Background(),
+					Config{
+						URL:  "file://" + remoteDir,
+						Path: localDir,
+					},
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
+
+			repo, err := New(
+				context.Background(),
+				Config{
+					URL:                    "file://" + remoteDir,
+					Path:                   localDir,
+					BootstrapMode:          true,
+					EnvironmentConfigsPath: environmentConfigsPath,
+				},
+			)
+			if err != nil {
+				t.Fatalf("New: Expected no error, error %e was thrown", err)
+			}
+
+			state := repo.State()
+			if !state.BootstrapMode {
+				t.Fatalf("Bootstrap mode not preserved")
+			}
+		})
+	}
+}
+
+func TestBootstrapModeReadConfig(t *testing.T) {
+	tcs := []struct {
+		Name string
+	}{
+		{
+			Name: "Config read correctly",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+
+			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
+			if err := os.WriteFile(environmentConfigsPath, []byte(`{"uniqueEnv": {"upstream": {"latest": true}}}`), fs.FileMode(0644)); err != nil {
+				t.Fatal(err)
+			}
+
+			repo, err := New(
+				context.Background(),
+				Config{
+					URL:                    "file://" + remoteDir,
+					Path:                   localDir,
+					BootstrapMode:          true,
+					EnvironmentConfigsPath: environmentConfigsPath,
+				},
+			)
+			if err != nil {
+				t.Fatalf("New: Expected no error, error %e was thrown", err)
+			}
+
+			state := repo.State()
+			if !state.BootstrapMode {
+				t.Fatalf("Bootstrap mode not preserved")
+			}
+			configs, err := state.GetEnvironmentConfigs()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(configs) != 1 {
+				t.Fatal("Configuration not read properly")
+			}
+			if configs["uniqueEnv"].Upstream.Latest != true {
+				t.Fatal("Configuration not read properly")
+			}
+		})
+	}
+}
+
+func TestBootstrapError(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		ConfigContent string
+	}{
+		{
+			Name:          "Invalid json in bootstrap configuration",
+			ConfigContent: `{"development": "upstream": {"latest": true}}}`,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+
+			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
+			if err := os.WriteFile(environmentConfigsPath, []byte(tc.ConfigContent), fs.FileMode(0644)); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := New(
+				context.Background(),
+				Config{
+					URL:                    "file://" + remoteDir,
+					Path:                   localDir,
+					BootstrapMode:          true,
+					EnvironmentConfigsPath: environmentConfigsPath,
+				},
+			)
+			if err == nil {
+				t.Fatalf("New: Expected error but no error was thrown")
 			}
 		})
 	}
