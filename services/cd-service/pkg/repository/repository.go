@@ -889,6 +889,7 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("test print", result["production"].Upstream.Latest)
 		return result, nil
 	} else {
 		envs, err := s.Filesystem.ReadDir("environments")
