@@ -7,6 +7,8 @@ services:
       - "8443:8443"
     volumes:
       - .:/kp/kuberpult
+    storage_opt:
+      size: '1G'
   frontend:
     build: infrastructure/docker/frontend
     container_name: kuberpult-frontend-service
