@@ -480,10 +480,11 @@ func TestTransformer(t *testing.T) {
 	c1 := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}}
 
 	tcs := []struct {
-		Name         string
-		Transformers []Transformer
-		Test         func(t *testing.T, s *State)
-		ErrorTest    func(t *testing.T, err error)
+		Name          string
+		Transformers  []Transformer
+		Test          func(t *testing.T, s *State)
+		ErrorTest     func(t *testing.T, err error)
+		BootstrapMode bool
 	}{
 		{
 			Name:         "Create Versions and do not clean up because not enough versions",
@@ -1815,6 +1816,29 @@ spec:
 				}
 			},
 		},
+		{
+			Name:          "CreateEnvironment errors in bootstrap mode",
+			BootstrapMode: true,
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production", Config: c1},
+			},
+			ErrorTest: func(t *testing.T, err error) {
+				expectedError := "Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead."
+				if err.Error() != expectedError {
+					t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
+				}
+			},
+		},
+		{
+			Name:          "CreateEnvironment does not error in bootstrap mode without configuration",
+			BootstrapMode: true,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+				},
+			},
+			Test: func(t *testing.T, s *State) {},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -1833,6 +1857,7 @@ spec:
 					Path:           localDir,
 					CommitterEmail: "kuberpult@freiheit.com",
 					CommitterName:  "kuberpult",
+					BootstrapMode:  tc.BootstrapMode,
 				},
 			)
 			if err != nil {
