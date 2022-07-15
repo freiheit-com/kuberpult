@@ -55,3 +55,115 @@ See `k8s-jenkins-cac.tf` in your project.
 There are 2 environments involved:
 * *target*: this is where the services will be deployed (where the version changes happen).
 * *upstream*: this is where the system tests are run. It is also the source for the *versions* of the apps.
+
+## Getting started
+
+### Creating a new environment
+
+The first thing you need to do after installing kuberpult is creating an environment. There is currently no UI component for doing this.
+
+Since kuberpult uses a git repository as its database, you only need to create a folder under `environments`. The folder name is the environment name.
+Kuberpult doesn't care too much how you name your environment but to make sure that apps in argocd are easy to recognize, environment names are limited to alpha numeric characters and dash and its length may not exceed 21 characters.
+
+You can put a file named `config.json` in the environment's directory to add further configuration. The options are documented further below. The implicit default content of this file is `{}`. It's not necessary to create this file but we highly suggest to create it to enable automatic provisioning from the start. In order to do that, use `{"upstream":{"latest":true}}` as the content of this file.
+
+Your initial repository could look like this:
+
+```
+environments/
++- development/
+  +- config.json # contains just '{"upstream":{"latest":true}}'
+```
+
+### Creating a new application
+
+After creating the first environment, you can directly create new releases. Applications will be automatically created as needed.
+
+### Creating a new release 
+
+In the default configuration, the endpoint to create a new a release is only exposed internally in the k8s cluster hosting the kuberpult deployment.
+
+In order to create a new release issue an http POST request to the `/release` endpoint of the `kuberpult-cd-service` in the cluster containing your application name and the manifests for the inidividual environments. `curl` is completely sufficient for this. Assuming that the manifests for the development enviornment are in `manifests_development.yaml` you can run:
+
+```
+curl --form-string 'application=myawesomeapplication' --form 'manifests[development]=@manifests_development.yaml' kuberpult-cd-service/release
+```
+
+This will create a new application and directly create a new release.
+
+You can add more details to the release using the form fields `source_commit_id`, `source_author` and `source_message`. Also remember to check the http response code ( curl doesn't do that automatically ).
+
+## Configuration
+
+### Environments
+
+In an environment's config.json file the following top-level options are recognized.
+
+`upstream`: configures the automatic deployment for this environment. Valid values are either `{"latest": true}` to indicate that this environment is supposed to always run on the latest version of an application or `{"environment":"<upstream env>"}` to indicate that this environment should be deployed from `upstream env` when using the release train.
+
+`argocd`: controlls how the argocd applications are created in this environment. The most important 
+
+
+```
+{
+  "argocd": {
+    // The destination of this environments application in argocd
+    "destination": {
+      "server": "https://34.90.211.131",
+      "namespace": "*"
+    },
+    // Annotations to apply to all argocd applications.
+    "applicationAnnotations": {
+      "notifications.argoproj.io/subscribe.on-degraded.teams":"",
+      "notifications.argoproj.io/subscribe.on-sync-failed.teams":""
+    },
+    // Cluster-wide resources must be listed here.
+    "accessList": [
+      {
+        "group": "*",
+        "kind": "ClusterSecretStore"
+      },
+      {
+        "group": "*",
+        "kind": "ClusterIssuer"
+      }
+    ],
+    // Configure ignored differences for all applications here.
+    "ignoreDifferences": [
+      {
+        "group": "apps",
+        "kind": "Deployment",
+        "jsonPointers": [
+          "/spec/replicas"
+        ]
+      }
+    ]
+  },
+  "upstream": {
+    // Setting latest to true causes this environment to use always the latest manifests.
+    "latest": true
+
+    // Setting an environment here will use that environment in the release train.
+    "environment": "$upstream env"
+
+    // "latest" and "environment" are mutually exclusive.
+  }
+}
+```
+
+Note: If kuberpult is running in bootstrap mode, (.Values.environment_configs.bootstrap is true), then configuration is read from the config map created by the value .Values.environment_configs.environment_configs_json
+Its content is of the form of a map from environmentName => environment config.
+
+```json
+{
+    "environmentName": {
+      "argocd": {},
+      "upstream": {}
+    },
+    "production": {
+        "argocd": {},
+        "upstream": {}
+    }
+}
+
+```
