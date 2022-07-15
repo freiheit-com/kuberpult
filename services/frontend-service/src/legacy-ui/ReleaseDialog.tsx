@@ -47,6 +47,7 @@ import { EnvSortOrder, sortEnvironmentsByUpstream } from './Releases';
 import { ConfirmationDialogProvider } from './ConfirmationDialog';
 import AddLockIcon from '@material-ui/icons/EnhancedEncryption';
 import { CartAction } from './ActionDetails';
+import Avatar from '@material-ui/core/Avatar';
 
 type Data = { applicationName: string; version: number };
 export const Context = React.createContext<{ setData: (d: Data | null) => void }>({
@@ -362,6 +363,23 @@ const ReleaseEnvironment: VFC<{
         </ConfirmationDialogProvider>
     );
 
+    const ArgoCdLink = React.useCallback(
+        () => (
+            <Tooltip
+                arrow
+                key={`${applicationName}-${environmentName}-${version}`}
+                title={`${applicationName}-${environmentName}-${version}`}>
+                <IconButton>
+                    <Avatar
+                        src={`https://cncf-branding.netlify.app/img/projects/argo/icon/color/argo-icon-color.svg`}
+                        alt={`argocd-link`}
+                    />
+                </IconButton>
+            </Tooltip>
+        ),
+        [applicationName, environmentName, version]
+    );
+
     let currentInfo;
     if (currentlyDeployedVersion !== undefined) {
         const currentRelease = overview.applications[applicationName].releases.find(
@@ -391,6 +409,7 @@ const ReleaseEnvironment: VFC<{
     return (
         <Paper className="environment">
             <Typography variant="h5" component="div" className="name" width="30%" sx={{ textTransform: 'capitalize' }}>
+                <ArgoCdLink />
                 {environmentName}
                 <VersionDiff
                     current={currentlyDeployedVersion}
