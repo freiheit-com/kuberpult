@@ -898,6 +898,21 @@ func (s *State) GetApplicationReleaseCommit(application string, version uint64) 
 	})
 }
 
+func (s *State) GetApplicationTeamOwner(application string) (string, error) {
+	appDir := applicationDirectory(s.Filesystem, application)
+	appTeam := s.Filesystem.Join(appDir, "team")
+
+	if team, err := readFile(s.Filesystem, appTeam); err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		} else {
+			return "", fmt.Errorf("error while reading team owner file for application %v found: %w", application, err)
+		}
+	} else {
+		return string(team), nil
+	}
+}
+
 func names(fs billy.Filesystem, path string) ([]string, error) {
 	files, err := fs.ReadDir(path)
 	if err != nil {
