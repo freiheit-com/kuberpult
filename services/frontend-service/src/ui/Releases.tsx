@@ -131,6 +131,9 @@ const useStyles = makeStyles((theme) => ({
             height: theme.spacing(1),
             width: '100%',
         },
+        '& .ownerText': {
+            color: '#808080',
+        },
     },
 }));
 
@@ -225,13 +228,15 @@ const ApplicationBox: React.FC<any> = (props: {
         </ConfirmationDialogProvider>
     );
 
+    const owner = <div className="ownerText">{application.team !== '' ? 'Owner: ' + application.team : null}</div>;
+
     return (
         <TableRow className="application">
             <TableCell className="applicationCard">
                 {warnings}
                 {name}
                 {undeployButton}
-                {application.team !== '' ? 'Owner: ' + application.team : null}
+                {owner}
             </TableCell>
             <TableCell className="releases">
                 {releases?.map((release) => (
