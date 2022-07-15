@@ -326,15 +326,8 @@ export const Releases: React.FC<any> = (props: { data: GetOverviewResponse }) =>
         apps = apps.filter((k) => k.team.includes(searchParams.get('team')!));
     }
 
-    apps.sort((a, b) => {
-        if (a.name < b.name) {
-            return -1;
-        } else if (a.name === b.name) {
-            return 0;
-        } else {
-            return 1;
-        }
-    });
+    // Sort by team, within team sort by name
+    apps.sort((a, b) => a.team?.localeCompare(b.team) || a.name?.localeCompare(b.name) || 0);
     // calculate the distances with all envs before sending only subsets of the envs into release boxes
     // only run once per refresh
     const sortOrder = calculateDistanceToUpstream(Object.values(data.environments));
