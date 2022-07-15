@@ -55,9 +55,7 @@ pgp:
   keyRing: null
 
 argocd:
-  enabled: false
-  user: admin
-  host: argo-cd-argocd-server
+  baseUrl: ""
 
 datadogTracing:
   enabled: false

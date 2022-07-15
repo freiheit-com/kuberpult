@@ -19,6 +19,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
+	"google.golang.org/grpc/reflection"
 	"io"
 	"net/http"
 
@@ -43,6 +46,7 @@ type Config struct {
 	GKEProjectNumber    string `default:"" split_words:"true"`
 	GKEBackendServiceID string `default:"" split_words:"true"`
 	EnableTracing       bool   `default:"false" split_words:"true"`
+	ArgocdBaseUrl       string `default:"" split_words:"true"`
 }
 
 var c Config
@@ -85,7 +89,7 @@ func RunServer() {
 			grpcUnaryInterceptors = append(grpcUnaryInterceptors,
 				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName("frontend-service")),
 			)
-			
+
 			grpcClientOpts = append(grpcClientOpts,
 				grpc.WithStreamInterceptor(
 					grpctrace.StreamClientInterceptor(grpctrace.WithServiceName("frontend-service")),
@@ -144,7 +148,7 @@ func RunServer() {
 				Parameter "includeSubDomains" is not really necessary for kuberpult right now,
 				  but should be set anyway in case we ever have subdomains.
 				31536000 seconds = 1 year.
-				 */
+				*/
 				resp.Header().Set("strict-Transport-Security", "max-age=31536000; includeSubDomains;")
 				mux.ServeHTTP(resp, req)
 			}
@@ -164,6 +168,10 @@ func RunServer() {
 			NextHandler: authHandler,
 		}
 
+		frontendConfigService := &service.FrontendConfigServiceServer{
+			Config: config.FrontendConfig{ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl}},
+		}
+
 		setup.Run(ctx, setup.Config{
 			HTTP: []setup.HTTPConfig{
 				{
@@ -171,6 +179,17 @@ func RunServer() {
 					Register: func(mux *http.ServeMux) {
 						mux.Handle("/", corsHandler)
 					},
+				},
+			},
+			GRPC: &setup.GRPCConfig{
+				Port: "8444",
+				Opts: []grpc.ServerOption{
+					grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
+					grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
+				},
+				Register: func(srv *grpc.Server) {
+					api.RegisterFrontendConfigServiceServer(srv, frontendConfigService)
+					reflection.Register(srv)
 				},
 			},
 		})

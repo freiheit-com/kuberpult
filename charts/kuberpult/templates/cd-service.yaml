@@ -119,17 +119,6 @@ spec:
         - name: KUBERPULT_PGP_KEY_RING
           value: /keyring/keyring.gpg
 {{- end }}
-{{- if .Values.argocd.enabled }}
-        - name: KUBERPULT_ARGO_CD_HOST
-          value: {{ .Values.argocd.host }}
-        - name: KUBERPULT_ARGO_CD_USER
-          value: {{ .Values.argocd.user }}
-        - name: KUBERPULT_ARGO_CD_PASS
-          valueFrom:
-            secretKeyRef:
-              name: kuberpult-argocd
-              key: KUBERPULT_ARGO_CD_PASS
-{{- end }}
 {{- if .Values.environment_configs.bootstrap_mode }}
         - name: KUBERPULT_BOOTSTRAP_MODE
           value: "{{ .Values.environment_configs.bootstrap_mode }}"

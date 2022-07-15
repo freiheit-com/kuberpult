@@ -47,9 +47,6 @@ type Config struct {
 	GitSshKey         string `default:"/etc/ssh/identity" split_words:"true"`
 	GitSshKnownHosts  string `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
 	PgpKeyRing        string `split_words:"true"`
-	ArgoCdHost        string `default:"localhost:8080" split_words:"true"`
-	ArgoCdUser        string `default:"admin" split_words:"true"`
-	ArgoCdPass        string `default:"" split_words:"true"`
 	EnableTracing     bool   `default:"false" split_words:"true"`
 	EnableMetrics     bool   `default:"false" split_words:"true"`
 	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true"`
@@ -80,13 +77,6 @@ func RunServer() {
 		pgpKeyRing, err := c.readPgpKeyRing()
 		if err != nil {
 			logger.FromContext(ctx).Fatal("pgp.read.error", zap.Error(err))
-		}
-
-		if c.ArgoCdPass != "" {
-			_, err := service.ArgocdLogin(c.ArgoCdHost, c.ArgoCdUser, c.ArgoCdPass)
-			if err != nil {
-				logger.FromContext(ctx).Fatal("argocd.login.error", zap.Error(err))
-			}
 		}
 
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
@@ -145,9 +135,6 @@ func RunServer() {
 		repositoryService := &service.Service{
 			Repository: repo,
 			KeyRing:    pgpKeyRing,
-			ArgoCdHost: c.ArgoCdHost,
-			ArgoCdUser: c.ArgoCdUser,
-			ArgoCdPass: c.ArgoCdPass,
 		}
 
 		span.Finish()

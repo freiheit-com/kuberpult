@@ -60,7 +60,6 @@ type Repository interface {
 	Push(ctx context.Context, pushAction func() error) error
 	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error)
 	State() *State
-
 	Notify() *notify.Notify
 }
 
