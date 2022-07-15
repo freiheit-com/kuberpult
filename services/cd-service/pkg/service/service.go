@@ -18,23 +18,18 @@ package service
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
-	"io"
-	"mime/multipart"
-	"net/http"
-	"os/exec"
-	"regexp"
-	"strconv"
-	"time"
-
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"golang.org/x/crypto/openpgp"
 	pgperrors "golang.org/x/crypto/openpgp/errors"
-	"golang.org/x/sync/errgroup"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"regexp"
+	"strconv"
 )
 
 const (
@@ -63,8 +58,6 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.ServeHTTPHealth(w, r)
 	case "release":
 		s.ServeHTTPRelease(tail, w, r)
-	case "sync":
-		s.ServeHTTPSync(tail[1:], w, r)
 	}
 	return
 }
@@ -209,52 +202,6 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 		fmt.Fprintf(w, "created")
 	}
 	return
-}
-
-func (s *Service) ServeHTTPSync(env string, w http.ResponseWriter, r *http.Request) {
-	state := s.Repository.State()
-	apps, err := state.GetEnvironmentApplications(env)
-	if err != nil {
-		w.WriteHeader(500)
-		fmt.Fprintf(w, "unexpected error: cannot read apps in environment %v\n", env)
-		return
-	}
-
-	g := new(errgroup.Group)
-	for idx := range apps {
-		argocd_app_name := env + "-" + apps[idx]
-		g.Go(func() error {
-			_, err := argocdSyncApp(argocd_app_name)
-			return err
-		})
-	}
-	err = g.Wait()
-	if err != nil {
-		w.WriteHeader(500)
-		fmt.Fprint(w, "cannot sync some apps\n")
-		return
-	}
-	w.WriteHeader(200)
-	fmt.Fprintf(w, "All apps synced in %v\n", env)
-	return
-}
-
-func argocdSyncApp(name string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "argocd", "app", "sync", name)
-	_, err := cmd.Output()
-	if ctx.Err() == context.DeadlineExceeded {
-		return "", wrapArgoError(err, name, "ArgoCD sync app timeout")
-	}
-	if err != nil {
-		return "", wrapArgoError(err, name, fmt.Sprintf("Cannot sync app: %v\n", name))
-	}
-	return "", nil
-}
-
-func wrapArgoError(e error, app string, message string) error {
-	return fmt.Errorf("%s '%s': %w", message, app, e)
 }
 
 func readMultipartFile(hdr *multipart.FileHeader) ([]byte, error) {
