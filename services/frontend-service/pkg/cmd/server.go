@@ -46,7 +46,7 @@ type Config struct {
 	GKEProjectNumber    string `default:"" split_words:"true"`
 	GKEBackendServiceID string `default:"" split_words:"true"`
 	EnableTracing       bool   `default:"false" split_words:"true"`
-	ArgocdBaseUrl       string `default:"Hello it's me'" split_words:"true"`
+	ArgocdBaseUrl       string `default:"" split_words:"true"`
 }
 
 var c Config
@@ -148,7 +148,7 @@ func RunServer() {
 				Parameter "includeSubDomains" is not really necessary for kuberpult right now,
 				  but should be set anyway in case we ever have subdomains.
 				31536000 seconds = 1 year.
-				 */
+				*/
 				resp.Header().Set("strict-Transport-Security", "max-age=31536000; includeSubDomains;")
 				mux.ServeHTTP(resp, req)
 			}
