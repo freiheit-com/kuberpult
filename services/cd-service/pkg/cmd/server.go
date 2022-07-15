@@ -47,7 +47,6 @@ type Config struct {
 	GitSshKey         string `default:"/etc/ssh/identity" split_words:"true"`
 	GitSshKnownHosts  string `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
 	PgpKeyRing        string `split_words:"true"`
-	ArgocdBaseUrl     string `default:"" split_words:"true"`
 	EnableTracing     bool   `default:"false" split_words:"true"`
 	EnableMetrics     bool   `default:"false" split_words:"true"`
 	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true"`

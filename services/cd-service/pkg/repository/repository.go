@@ -95,7 +95,6 @@ type Config struct {
 	Certificates   Certificates
 	CommitterEmail string
 	CommitterName  string
-	ArgocdBaseUrl  string
 	// default branch is master
 	Branch string
 	//
