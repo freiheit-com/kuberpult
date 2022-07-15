@@ -147,7 +147,7 @@ In an environment's config.json file the following top-level options are recogni
 }
 ```
 
-Note: If kuberpult is running in bootstrap mode, (.Values.environment_configs.bootstrap is true), then configuration is read from the config map created by the value .Values.environment_configs.environment_configs_json)
+Note: If kuberpult is running in bootstrap mode, (.Values.environment_configs.bootstrap is true), then configuration is read from the config map created by the value .Values.environment_configs.environment_configs_json
 Its content is of the form of a map from environmentName => environment config.
 
 ```json
