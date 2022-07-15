@@ -26,6 +26,7 @@ import {
 } from '../api/api';
 import { ActionsCartContext } from './App';
 import { Spy } from 'spy4js';
+import { BrowserRouter } from 'react-router-dom';
 
 describe('Releases', () => {
     const getRelease = (t?: Date) => {
@@ -77,9 +78,11 @@ describe('Releases', () => {
     const getNode = (overrides?: { data: GetOverviewResponse }) => {
         const defaultProps = { data: getDummyOverview() };
         return (
+          <BrowserRouter>
             <ActionsCartContext.Provider value={{ actions: [], setActions: Spy('setActions') }}>
                 <Releases {...defaultProps} {...overrides} />
             </ActionsCartContext.Provider>
+          </BrowserRouter>
         );
     };
     const getWrapper = (overrides?: { data: GetOverviewResponse }) => render(getNode(overrides));
