@@ -80,6 +80,8 @@ spec:
           value: {{ required ".Values.git.url is required" .Values.git.url | quote }}
         - name: KUBERPULT_GIT_BRANCH
           value: {{ .Values.git.branch | quote }}
+        - name: KUBERPULT_ARGOCD_BASE_URL
+          value: {{ .Values.argocd.baceUrl | quote }}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
@@ -118,17 +120,6 @@ spec:
 {{- if .Values.pgp.keyRing }}
         - name: KUBERPULT_PGP_KEY_RING
           value: /keyring/keyring.gpg
-{{- end }}
-{{- if .Values.argocd.enabled }}
-        - name: KUBERPULT_ARGO_CD_HOST
-          value: {{ .Values.argocd.host }}
-        - name: KUBERPULT_ARGO_CD_USER
-          value: {{ .Values.argocd.user }}
-        - name: KUBERPULT_ARGO_CD_PASS
-          valueFrom:
-            secretKeyRef:
-              name: kuberpult-argocd
-              key: KUBERPULT_ARGO_CD_PASS
 {{- end }}
 {{- if .Values.environment_configs.bootstrap_mode }}
         - name: KUBERPULT_BOOTSTRAP_MODE

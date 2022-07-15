@@ -54,9 +54,6 @@ var (
 type Service struct {
 	Repository repository.Repository
 	KeyRing    openpgp.KeyRing
-	ArgoCdHost string
-	ArgoCdUser string
-	ArgoCdPass string
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -252,20 +249,6 @@ func argocdSyncApp(name string) (string, error) {
 	}
 	if err != nil {
 		return "", wrapArgoError(err, name, fmt.Sprintf("Cannot sync app: %v\n", name))
-	}
-	return "", nil
-}
-
-func ArgocdLogin(host string, username string, password string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "argocd", "login", host, "--username", username, "--password", password, "--plaintext", "--logformat", "json")
-	_, err := cmd.Output()
-	if ctx.Err() == context.DeadlineExceeded {
-		return "", wrapArgoError(err, "login", "ArgoCD login timeout")
-	}
-	if err != nil {
-		return "", wrapArgoError(err, "login", "Cannot login to ArgoCD")
 	}
 	return "", nil
 }

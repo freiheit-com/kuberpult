@@ -109,8 +109,13 @@ message CreateEnvironmentRequest {
 }
 
 service OverviewService {
+  rpc GetConfig (google.protobuf.Empty) returns (GetConfigResponse) {}
   rpc GetOverview (GetOverviewRequest) returns (GetOverviewResponse) {}
   rpc StreamOverview (GetOverviewRequest) returns (stream GetOverviewResponse) {}
+}
+
+message GetConfigResponse {
+  string argocdBaseUrl = 1;
 }
 
 message GetOverviewRequest {

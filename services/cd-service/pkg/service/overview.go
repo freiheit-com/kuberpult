@@ -36,11 +36,17 @@ import (
 type OverviewServiceServer struct {
 	Repository repository.Repository
 	Shutdown   <-chan struct{}
+	config     repository.Config
 
 	notify notify.Notify
 
 	init     sync.Once
 	response atomic.Value
+}
+
+func (o *OverviewServiceServer) GetConfig(ctx context.Context) (*api.GetConfigResponse, error) {
+	result := api.GetConfigResponse{ArgocdBaseUrl: o.config.ArgocdBaseUrl}
+	return &result, nil
 }
 
 func (o *OverviewServiceServer) GetOverview(
