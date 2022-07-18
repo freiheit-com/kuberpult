@@ -26,7 +26,7 @@ import {
 } from '../api/api';
 import { ActionsCartContext } from './App';
 import { Spy } from 'spy4js';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 
 describe('Releases', () => {
     const getRelease = (t?: Date) => {
@@ -68,6 +68,17 @@ describe('Releases', () => {
             applications: {
                 app1: {
                     name: 'app1',
+                    team: 'team1',
+                    releases: [getRelease(t)],
+                },
+                app2: {
+                    name: 'app2',
+                    team: 'team1',
+                    releases: [getRelease(t)],
+                },
+                app3: {
+                    name: 'app3',
+                    team: 'team2',
                     releases: [getRelease(t)],
                 },
             },
@@ -75,17 +86,18 @@ describe('Releases', () => {
         return r;
     };
 
-    const getNode = (overrides?: { data: GetOverviewResponse }) => {
+    const getNode = (overrides?: { data: GetOverviewResponse; search?: any }) => {
         const defaultProps = { data: getDummyOverview() };
+        const initialEntries = [{ search: overrides?.search }];
         return (
-          <BrowserRouter>
-            <ActionsCartContext.Provider value={{ actions: [], setActions: Spy('setActions') }}>
-                <Releases {...defaultProps} {...overrides} />
-            </ActionsCartContext.Provider>
-          </BrowserRouter>
+            <MemoryRouter initialEntries={initialEntries}>
+                <ActionsCartContext.Provider value={{ actions: [], setActions: Spy('setActions') }}>
+                    <Releases {...defaultProps} {...overrides} />
+                </ActionsCartContext.Provider>
+            </MemoryRouter>
         );
     };
-    const getWrapper = (overrides?: { data: GetOverviewResponse }) => render(getNode(overrides));
+    const getWrapper = (overrides?: { data: GetOverviewResponse; search?: any }) => render(getNode(overrides));
 
     it('renders the releases component', () => {
         // when
@@ -271,6 +283,69 @@ describe('Releases', () => {
             const sortedList = sortedEnvs.map((a) => a.name);
             expect(sortOrder).toStrictEqual(testcase.order);
             expect(sortedList).toStrictEqual(testcase.expect);
+        });
+    });
+
+    const filterTestCases = [
+        {
+            name: 'App filter single result',
+            app: 'app1',
+            length: 1,
+        },
+        {
+            name: 'App filter multiple result',
+            app: 'app',
+            length: 3,
+        },
+        {
+            name: 'Team filter single result',
+            team: 'team2',
+            length: 1,
+        },
+        {
+            name: 'Team filter multiple result',
+            team: 'team1',
+            length: 2,
+        },
+        {
+            name: 'Team and app filter single result',
+            app: 'app1',
+            team: 'team1',
+            length: 1,
+        },
+        {
+            name: 'Team and app filter Multiple result',
+            app: 'app',
+            team: 'team1',
+            length: 2,
+        },
+        {
+            name: 'Team filter no result',
+            team: 'nonExisting',
+            length: 0,
+        },
+        {
+            name: 'App filter no result',
+            app: 'nonExisting',
+            length: 0,
+        },
+        {
+            name: 'Team and app filter no result',
+            team: 'team1',
+            app: 'non Existing',
+            length: 0,
+        },
+        {
+            name: 'No filter',
+            length: 3,
+        },
+    ];
+
+    describe.each(filterTestCases)(`Filters`, (testcase) => {
+        it(testcase.name, () => {
+            const { container } = getWrapper({ data: getDummyOverview(), search: testcase });
+            const ownerTextDivs = container.querySelectorAll('.ownerText');
+            expect(ownerTextDivs.length).toBe(testcase.length);
         });
     });
 });
