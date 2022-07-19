@@ -114,6 +114,7 @@ ignoredFiles: [
     "*/AUTH_SERVICE_EDDI_IDP_JWT_PUBLIC_KEY",
     "*/multi_line_config",
     "charts/*",
+    "*.nvmrc",
     "chart/*"
   ] #ignored file extensions
 testFiles: ["_test.go", "_test.dart"]
