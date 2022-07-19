@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"sort"
@@ -36,6 +37,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"gopkg.in/yaml.v2"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
@@ -47,6 +49,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v33"
 )
@@ -57,7 +60,6 @@ type Repository interface {
 	Push(ctx context.Context, pushAction func() error) error
 	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error)
 	State() *State
-
 	Notify() *notify.Notify
 }
 
@@ -69,6 +71,7 @@ type repository struct {
 	// Mutex gurading the writer
 	writeLock    sync.Mutex
 	writesDone   uint
+	queue        queue
 	remote       *git.Remote
 	config       *Config
 	credentials  *credentialsStore
@@ -76,9 +79,6 @@ type repository struct {
 
 	repository *git.Repository
 	history    *history.History
-
-	// Testing
-	nextError error
 
 	// Mutex guarding head
 	headLock sync.Mutex
@@ -99,6 +99,11 @@ type Config struct {
 	Branch string
 	//
 	GcFrequency uint
+	// Bootstrap mode controls where configurations are read from
+	// true: read from json file at EnvironmentConfigsPath
+	// false: read from config files in manifest repo
+	BootstrapMode          bool
+	EnvironmentConfigsPath string
 }
 
 func openOrCreate(path string) (*git.Repository, error) {
@@ -170,6 +175,7 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				certificates: certificates,
 				repository:   repo2,
 				history:      history.NewHistory(repo2),
+				queue:        makeQueue(),
 			}
 			result.headLock.Lock()
 
@@ -208,6 +214,12 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 					return nil, err
 				}
 			}
+			// load the persistent index
+			err = result.history.LoadIndex(osfs.New(cfg.Path))
+			if err != nil {
+				logger.Error("index.load", zap.Error(err))
+			}
+
 			// check that we can build the current state
 			state, err := result.buildState()
 			if err != nil {
@@ -218,10 +230,135 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 			if _, err := state.GetEnvironmentConfigs(); err != nil {
 				return nil, err
 			}
-
+			go result.ProcessQueue(ctx)
 			return result, nil
 		}
 	}
+}
+
+func (r *repository) ProcessQueue(ctx context.Context) {
+	defer func() {
+		close(r.queue.elements)
+		for e := range r.queue.elements {
+			e.result <- ctx.Err()
+		}
+	}()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case e := <-r.queue.elements:
+			r.ProcessQueueOnce(e)
+		}
+	}
+}
+
+func (r *repository) applyElements(elements []element, allowFetchAndReset bool) ([]element, error) {
+	for i := 0; i < len(elements); {
+		e := elements[i]
+		applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
+		if applyErr != nil {
+			if errors.Is(applyErr, invalidJson) && allowFetchAndReset {
+				// Invalid state. fetch and reset and redo
+				err := r.FetchAndReset(e.ctx)
+				if err != nil {
+					return elements, err
+				}
+				return r.applyElements(elements, false)
+			} else {
+				e.result <- applyErr
+				elements = append(elements[:i], elements[i+1:]...)
+			}
+		} else {
+			i++
+		}
+	}
+	return elements, nil
+}
+
+var panicError = errors.New("Panic")
+
+func (r *repository) drainQueue() []element {
+	elements := []element{}
+	for {
+		select {
+		case f := <-r.queue.elements:
+			// Check that the item is not already cancelled
+			select {
+			case <-f.ctx.Done():
+				f.result <- f.ctx.Err()
+			default:
+				elements = append(elements, f)
+			}
+		default:
+			return elements
+		}
+	}
+}
+
+func (r *repository) ProcessQueueOnce(e element) {
+	var err error = panicError
+	elements := []element{e}
+	defer func() {
+		for _, el := range elements {
+			el.result <- err
+		}
+	}()
+	// Check that the first element is not already canceled
+	select {
+	case <-e.ctx.Done():
+		e.result <- e.ctx.Err()
+		return
+	default:
+	}
+
+	// Try to fetch more items from the queue in order to push more things together
+	elements = append(elements, r.drainQueue()...)
+
+	pushOptions := git.PushOptions{
+		RemoteCallbacks: git.RemoteCallbacks{
+			CredentialsCallback:      r.credentials.CredentialsCallback(e.ctx),
+			CertificateCheckCallback: r.certificates.CertificateCheckCallback(e.ctx),
+		},
+	}
+	pushAction := func() error {
+		return r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
+	}
+
+	// Apply the items
+	elements, err = r.applyElements(elements, true)
+	if err != nil {
+		return
+	}
+
+	if len(elements) == 0 {
+		return
+	}
+
+	// Try pushing once
+	err = r.Push(e.ctx, pushAction)
+	if err != nil {
+		gerr := err.(*git.GitError)
+		// If it doesn't work because the branch diverged, try reset and apply again.
+		if gerr.Code == git.ErrorCodeNonFastForward {
+			err = r.FetchAndReset(e.ctx)
+			if err != nil {
+				return
+			}
+			// Apply the items
+			elements, err = r.applyElements(elements, false)
+			if err != nil || len(elements) == 0 {
+				return
+			}
+			if pushErr := r.Push(e.ctx, pushAction); pushErr != nil {
+				err = &InternalError{inner: pushErr}
+			}
+		} else {
+			err = &InternalError{inner: err}
+		}
+	}
+	err = nil
+	r.notify.Notify()
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error) {
@@ -230,7 +367,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 	} else {
 		commitMsg := []string{}
 		for _, t := range transformers {
-			if msg, err := t.Transform(ctx, state.Filesystem); err != nil {
+			if msg, err := t.Transform(ctx, state); err != nil {
 				return nil, nil, err
 			} else {
 				commitMsg = append(commitMsg, msg)
@@ -246,13 +383,14 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	if err != nil {
 		return err
 	}
-	err = UpdateDatadogMetrics(state.Filesystem)
+	err = UpdateDatadogMetrics(state)
 	if err != nil {
 		return err
 	}
-	if err := r.afterTransform(ctx, state.Filesystem); err != nil {
+	if err := r.afterTransform(ctx, *state); err != nil {
 		return &InternalError{inner: err}
 	}
+
 	treeId, err := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 	if err != nil {
 		return &InternalError{inner: err}
@@ -273,6 +411,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	if state.Commit != nil {
 		rev = state.Commit.Id()
 	}
+
 	if _, err := r.repository.CreateCommitFromIds(
 		fmt.Sprintf("refs/heads/%s", r.config.Branch),
 		author,
@@ -282,6 +421,11 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		rev,
 	); err != nil {
 		return &InternalError{inner: err}
+	}
+	// store the persistent index
+	err = r.history.WriteIndex(osfs.New(r.config.Path), state.Commit)
+	if err != nil {
+		logger.FromContext(ctx).Error("index.store", zap.Error(err))
 	}
 	return nil
 }
@@ -338,62 +482,21 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 }
 
 func (r *repository) Apply(ctx context.Context, transformers ...Transformer) error {
-	// Obtain a new worktree
-	r.writeLock.Lock()
-	defer r.writeLock.Unlock()
 	defer func() {
 		r.writesDone = r.writesDone + uint(len(transformers))
 		r.maybeGc(ctx)
 	}()
-	err := r.ApplyTransformers(ctx, transformers...)
-
-	pushOptions := git.PushOptions{
-		RemoteCallbacks: git.RemoteCallbacks{
-			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
-			CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
-		},
+	eCh := r.applyDeferred(ctx, transformers...)
+	select {
+	case err := <-eCh:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
 	}
+}
 
-	pushAction := func() error {
-		return r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
-	}
-
-	if err != nil {
-		if errors.Is(err, invalidJson) {
-			err = r.FetchAndReset(ctx)
-			if err != nil {
-				return err
-			}
-			err = r.ApplyTransformers(ctx, transformers...)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-
-	if err := r.Push(ctx, pushAction); err != nil {
-		gerr := err.(*git.GitError)
-		if gerr.Code == git.ErrorCodeNonFastForward {
-			err = r.FetchAndReset(ctx)
-			if err != nil {
-				return err
-			}
-			err = r.ApplyTransformers(ctx, transformers...)
-			if err != nil {
-				return err
-			}
-			if err := r.Push(ctx, pushAction); err != nil {
-				return &InternalError{inner: err}
-			}
-		} else {
-			return &InternalError{inner: err}
-		}
-	}
-	r.notify.Notify()
-
-	return nil
+func (r *repository) applyDeferred(ctx context.Context, transformers ...Transformer) <-chan error {
+	return r.queue.add(ctx, transformers)
 }
 
 func (r *repository) Push(ctx context.Context, pushAction func() error) error {
@@ -421,8 +524,7 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 	)
 }
 
-func (r *repository) afterTransform(ctx context.Context, fs billy.Filesystem) error {
-	state := State{Filesystem: fs}
+func (r *repository) afterTransform(ctx context.Context, state State) error {
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return err
@@ -477,7 +579,11 @@ func (r *repository) buildState() (*State, error) {
 		var gerr *git.GitError
 		if errors.As(err, &gerr) {
 			if gerr.Code == git.ErrNotFound {
-				return &State{Filesystem: fs.NewEmptyTreeBuildFS(r.repository)}, nil
+				return &State{
+					Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
+					BootstrapMode:          r.config.BootstrapMode,
+					EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+				}, nil
 			}
 		}
 		return nil, err
@@ -491,10 +597,12 @@ func (r *repository) buildState() (*State, error) {
 			return nil, err
 		}
 		return &State{
-			Filesystem:    fs.NewTreeBuildFS(r.repository, commit.TreeId()),
-			Commit:        commit,
-			History:       r.history,
-			CommitHistory: commitHistory,
+			Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
+			Commit:                 commit,
+			History:                r.history,
+			CommitHistory:          commitHistory,
+			BootstrapMode:          r.config.BootstrapMode,
+			EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 		}, nil
 	}
 }
@@ -589,10 +697,12 @@ func (r *repository) maybeGc(ctx context.Context) {
 }
 
 type State struct {
-	Filesystem    billy.Filesystem
-	Commit        *git.Commit
-	History       *history.History
-	CommitHistory *history.CommitHistory
+	Filesystem             billy.Filesystem
+	Commit                 *git.Commit
+	History                *history.History
+	CommitHistory          *history.CommitHistory
+	BootstrapMode          bool
+	EnvironmentConfigsPath string
 }
 
 func (s *State) Applications() ([]string, error) {
@@ -765,25 +875,41 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 var invalidJson = errors.New("JSON file is not valid")
 
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
-	envs, err := s.Filesystem.ReadDir("environments")
-	if err != nil {
-		return nil, err
-	}
-	result := map[string]config.EnvironmentConfig{}
-	for _, env := range envs {
-		fileName := s.Filesystem.Join("environments", env.Name(), "config.json")
-		var config config.EnvironmentConfig
-		if err := decodeJsonFile(s.Filesystem, fileName, &config); err != nil {
+	if s.BootstrapMode {
+		result := map[string]config.EnvironmentConfig{}
+		buf, err := ioutil.ReadFile(s.EnvironmentConfigsPath)
+		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				result[env.Name()] = config
-			} else {
-				return nil, fmt.Errorf("%s : %w", fileName, invalidJson)
+				return result, nil
 			}
-		} else {
-			result[env.Name()] = config
+			return nil, err
 		}
+		err = yaml.Unmarshal(buf, &result)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	} else {
+		envs, err := s.Filesystem.ReadDir("environments")
+		if err != nil {
+			return nil, err
+		}
+		result := map[string]config.EnvironmentConfig{}
+		for _, env := range envs {
+			fileName := s.Filesystem.Join("environments", env.Name(), "config.json")
+			var config config.EnvironmentConfig
+			if err := decodeJsonFile(s.Filesystem, fileName, &config); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					result[env.Name()] = config
+				} else {
+					return nil, fmt.Errorf("%s : %w", fileName, invalidJson)
+				}
+			} else {
+				result[env.Name()] = config
+			}
+		}
+		return result, nil
 	}
-	return result, nil
 }
 
 func (s *State) GetEnvironmentApplications(environment string) ([]string, error) {
@@ -977,7 +1103,7 @@ func (s *State) ProcessQueue(ctx context.Context, fs billy.Filesystem, environme
 				Version:       *queuedVersion,
 				LockBehaviour: api.LockBehavior_Fail,
 			}
-			transform, err := d.Transform(ctx, fs)
+			transform, err := d.Transform(ctx, s)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {

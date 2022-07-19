@@ -66,8 +66,6 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 		}
 		syncWindows = append(syncWindows, &v1alpha1.SyncWindow{
 			Applications: apps,
-			Clusters:     []string{"*"},
-			Namespaces:   []string{"*"},
 			Schedule:     w.Schedule,
 			Duration:     w.Duration,
 			Kind:         w.Kind,

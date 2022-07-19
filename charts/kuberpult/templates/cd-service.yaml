@@ -119,16 +119,9 @@ spec:
         - name: KUBERPULT_PGP_KEY_RING
           value: /keyring/keyring.gpg
 {{- end }}
-{{- if .Values.argocd.enabled }}
-        - name: KUBERPULT_ARGO_CD_HOST
-          value: {{ .Values.argocd.host }}
-        - name: KUBERPULT_ARGO_CD_USER
-          value: {{ .Values.argocd.user }}
-        - name: KUBERPULT_ARGO_CD_PASS
-          valueFrom:
-            secretKeyRef:
-              name: kuberpult-argocd
-              key: KUBERPULT_ARGO_CD_PASS
+{{- if .Values.environment_configs.bootstrap_mode }}
+        - name: KUBERPULT_BOOTSTRAP_MODE
+          value: "{{ .Values.environment_configs.bootstrap_mode }}"
 {{- end }}
         volumeMounts:
         - name: repository
@@ -144,6 +137,11 @@ spec:
           mountPath: {{ .Values.dogstatsdMetrics.hostSocketPath }}
           readOnly: true
 {{- end }}
+{{- if .Values.environment_configs.bootstrap_mode }}
+        - name: environment-configs
+          mountPath: /environment_configs.json
+          subPath: environment_configs.json
+{{- end }}
       volumes:
       - name: ssh
         secret:
@@ -152,6 +150,14 @@ spec:
       - name: keyring
         configMap:
           name: kuberpult-keyring
+{{- end }}
+{{- if .Values.environment_configs.bootstrap_mode }}
+      - name: environment-configs
+        configMap:
+          items: 
+          - key: environment_configs.json
+            path: environment_configs.json
+          name: environment-configs
 {{- end }}
 {{- if .Values.dogstatsdMetrics.enabled }}
       - name: dsdsocket
@@ -229,3 +235,13 @@ type: Opaque
 data:
   KUBERPULT_ARGO_CD_PASS: {{ .Values.argocd.password | b64enc }}
 {{- end }}
+{{- if .Values.environment_configs.bootstrap_mode }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: environment-configs 
+data:
+  environment_configs.json: {{ required ".Values.environment_configs.environment_configs_json is required when .Values.environment_configs.bootstrap is true" .Values.environment_configs.environment_configs_json | quote }}
+{{- end }}
+

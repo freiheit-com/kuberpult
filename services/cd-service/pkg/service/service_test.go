@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -32,7 +33,7 @@ import (
 	"golang.org/x/crypto/openpgp"
 )
 
-func TestServeHttpSuccess(t *testing.T) {
+func TestServeHttp(t *testing.T) {
 	exampleManifests :=
 		map[string]string{
 			"development": "---\nkind: Test",
@@ -55,18 +56,21 @@ func TestServeHttpSuccess(t *testing.T) {
 	t.Logf("signatures: %#v\n", exampleSignatures)
 
 	tcs := []struct {
-		Name           string
-		Application    string
-		SourceCommitId string
-		SourceAuthor   string
-		SourceMessage  string
-		Version        string
-		Manifests      map[string]string
-		Signatures     map[string]string
-		KeyRing        openpgp.KeyRing
-		Setup          []repository.Transformer
-		ExpectedStatus int
-		Tests          func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string)
+		Name             string
+		Application      string
+		SourceCommitId   string
+		SourceAuthor     string
+		SourceMessage    string
+		Version          string
+		Manifests        map[string]string
+		Signatures       map[string]string
+		AdditionalFields map[string]string
+		AdditionalFiles  map[string]string
+		KeyRing          openpgp.KeyRing
+		Setup            []repository.Transformer
+		ExpectedStatus   int
+		ExpectedError    string
+		Tests            func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string)
 	}{
 		{
 			Name:           "It accepts a set of manifests",
@@ -105,6 +109,67 @@ func TestServeHttpSuccess(t *testing.T) {
 					}
 				}
 			},
+		},
+		{
+			Name:           "Proper error when no application provided",
+			ExpectedStatus: 400,
+			ExpectedError:  "Invalid application name",
+		},
+		{
+			Name:           "Proper error when multiple application provided",
+			ExpectedStatus: 400,
+			Application:    "demo",
+			AdditionalFields: map[string]string{
+				"application": "demo",
+			},
+			ExpectedError: "Please provide single application name",
+		},
+		{
+			Name:           "Proper error when long application name provided",
+			Application:    "demoWithTooManyCharactersInItsNameToBeValid",
+			ExpectedStatus: 400,
+			ExpectedError:  "Invalid application name: 'demoWithTooManyCharactersInItsNameToBeValid' - must match regexp '[a-z0-9]+(?:-[a-z0-9]+)*' and less than 40 characters",
+		},
+		{
+			Name:           "Proper error when invalid application name provided",
+			Application:    "invalidCharactersInName?",
+			ExpectedStatus: 400,
+			ExpectedError:  "Invalid application name: 'invalidCharactersInName?' - must match regexp '[a-z0-9]+(?:-[a-z0-9]+)*' and less than 40 characters",
+		},
+		{
+			Name:           "Proper error when no manifests provided",
+			ExpectedStatus: 400,
+			Application:    "demo",
+			ExpectedError:  "No manifest files provided",
+		},
+		{
+			Name:           "Proper error when multiple manifests provided",
+			ExpectedStatus: 400,
+			Application:    "demo",
+			Manifests:      exampleManifests,
+			AdditionalFiles: map[string]string{
+				"manifests[development]": "content",
+			},
+			ExpectedError: `multiple manifests submitted for "development"`,
+		},
+		{
+			Name:           "Proper error when no signature provided",
+			ExpectedStatus: 400,
+			Application:    "demo",
+			Manifests:      exampleManifests,
+			KeyRing:        exampleKeyRing,
+			ExpectedError:  "Invalid signature",
+		},
+		{
+			Name:           "Proper error when invalid signature provided",
+			ExpectedStatus: 500,
+			Application:    "demo",
+			Manifests:      exampleManifests,
+			KeyRing:        exampleKeyRing,
+			Signatures: map[string]string{
+				"development": "invalid sign",
+			},
+			ExpectedError: "Internal: Invalid Signature: EOF",
 		},
 		{
 			Name:           "It stores source information",
@@ -154,14 +219,6 @@ func TestServeHttpSuccess(t *testing.T) {
 					t.Errorf("unexpected source message: expected \"\", actual %q", rel.SourceMessage)
 				}
 			},
-		},
-		{
-			Name:           "Rejects missing signatures",
-			Application:    "demo",
-			Manifests:      exampleManifests,
-			KeyRing:        exampleKeyRing,
-			ExpectedStatus: 400,
-			Tests:          func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {},
 		},
 		{
 			Name:           "Accepts valid signatures",
@@ -217,6 +274,7 @@ func TestServeHttpSuccess(t *testing.T) {
 			Manifests:      exampleManifests,
 			Version:        "foo",
 			ExpectedStatus: 400,
+			ExpectedError:  `Invalid version: strconv.ParseUint: parsing "foo": invalid syntax`,
 		},
 	}
 
@@ -260,8 +318,26 @@ func TestServeHttpSuccess(t *testing.T) {
 			// first request
 			var buf bytes.Buffer
 			body := multipart.NewWriter(&buf)
-			if err := body.WriteField("application", tc.Application); err != nil {
-				t.Fatal(err)
+			if tc.Application != "" {
+				if err := body.WriteField("application", tc.Application); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if len(tc.AdditionalFields) > 0 {
+				for k, v := range tc.AdditionalFields {
+					if err := body.WriteField(k, v); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if len(tc.AdditionalFiles) > 0 {
+				for k, v := range tc.AdditionalFiles {
+					if w, err := body.CreateFormFile(k, "doesntmatter"); err != nil {
+						t.Fatal(err)
+					} else {
+						fmt.Fprint(w, v)
+					}
+				}
 			}
 			for k, v := range tc.Manifests {
 				if w, err := body.CreateFormFile("manifests["+k+"]", "doesntmatter"); err != nil {
@@ -305,6 +381,17 @@ func TestServeHttpSuccess(t *testing.T) {
 				if resp.StatusCode != tc.ExpectedStatus {
 					t.Fatalf("expected http status %d, received %d", tc.ExpectedStatus, resp.StatusCode)
 				}
+				if len(tc.ExpectedError) > 0 {
+					bodyBytes, err := io.ReadAll(resp.Body)
+					if err != nil {
+						t.Fatal(err)
+					}
+					bodyString := string(bodyBytes)
+					if bodyString != tc.ExpectedError {
+						t.Fatalf(`expected http body "%s", received "%s"`, tc.ExpectedError, bodyString)
+					}
+
+				}
 				if tc.Tests != nil {
 					tc.Tests(t, repo, resp, remoteDir)
 				}
@@ -312,4 +399,82 @@ func TestServeHttpSuccess(t *testing.T) {
 		})
 	}
 
+}
+
+func TestServeHttpEmptyBody(t *testing.T) {
+	exampleKey, err := openpgp.NewEntity("Test", "", "test@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exampleKeyRing := openpgp.EntityList{exampleKey}
+	tcs := []struct {
+		Name           string
+		ExpectedStatus int
+		ExpectedError  string
+		FormMetaData   string
+	}{{
+		Name:           "Error when no boundary provided",
+		ExpectedStatus: 400,
+		ExpectedError:  "Invalid body: no multipart boundary param in Content-Type",
+		FormMetaData:   "multipart/form-data;",
+	}, {
+		Name:           "Error when no content provided",
+		ExpectedStatus: 400,
+		ExpectedError:  "Invalid body: multipart: NextPart: EOF",
+		FormMetaData:   "multipart/form-data;boundary=nonExistantBoundary;",
+	}}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			// setup repository
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+			repo, err := repository.New(
+				context.Background(),
+				repository.Config{
+					URL:            remoteDir,
+					Path:           localDir,
+					CommitterEmail: "kuberpult@freiheit.com",
+					CommitterName:  "kuberpult",
+				},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// setup service
+			service := &Service{
+				Repository: repo,
+				KeyRing:    exampleKeyRing,
+			}
+			// start server
+			srv := httptest.NewServer(service)
+			defer srv.Close()
+			// first request
+			var buf bytes.Buffer
+			body := multipart.NewWriter(&buf)
+			body.Close()
+
+			if resp, err := http.Post(srv.URL+"/release", tc.FormMetaData, &buf); err != nil {
+				t.Fatal(err)
+			} else {
+				if resp.StatusCode != tc.ExpectedStatus {
+					t.Fatalf("expected http status %d, received %d", tc.ExpectedStatus, resp.StatusCode)
+				}
+				bodyBytes, err := io.ReadAll(resp.Body)
+				if err != nil {
+					t.Fatal(err)
+				}
+				bodyString := string(bodyBytes)
+				if bodyString != tc.ExpectedError {
+					t.Fatalf(`expected http body "%s", received "%s"`, tc.ExpectedError, bodyString)
+				}
+			}
+		})
+	}
 }

@@ -41,14 +41,12 @@ type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
 	GitUrl            string `required:"true" split_words:"true"`
 	GitBranch         string `default:"master" split_words:"true"`
+	BootstrapMode     bool   `default:"false" split_words:"true"`
 	GitCommitterEmail string `default:"kuberpult@freiheit.com" split_words:"true"`
 	GitCommitterName  string `default:"kuberpult" split_words:"true"`
 	GitSshKey         string `default:"/etc/ssh/identity" split_words:"true"`
 	GitSshKnownHosts  string `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
 	PgpKeyRing        string `split_words:"true"`
-	ArgoCdHost        string `default:"localhost:8080" split_words:"true"`
-	ArgoCdUser        string `default:"admin" split_words:"true"`
-	ArgoCdPass        string `default:"" split_words:"true"`
 	EnableTracing     bool   `default:"false" split_words:"true"`
 	EnableMetrics     bool   `default:"false" split_words:"true"`
 	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true"`
@@ -79,13 +77,6 @@ func RunServer() {
 		pgpKeyRing, err := c.readPgpKeyRing()
 		if err != nil {
 			logger.FromContext(ctx).Fatal("pgp.read.error", zap.Error(err))
-		}
-
-		if c.ArgoCdPass != "" {
-			_, err := service.ArgocdLogin(c.ArgoCdHost, c.ArgoCdUser, c.ArgoCdPass)
-			if err != nil {
-				logger.FromContext(ctx).Fatal("argocd.login.error", zap.Error(err))
-			}
 		}
 
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
@@ -132,8 +123,10 @@ func RunServer() {
 			Certificates: repository.Certificates{
 				KnownHostsFile: c.GitSshKnownHosts,
 			},
-			Branch:      c.GitBranch,
-			GcFrequency: 20,
+			Branch:                 c.GitBranch,
+			GcFrequency:            20,
+			BootstrapMode:          c.BootstrapMode,
+			EnvironmentConfigsPath: "./environment_configs.json",
 		})
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
@@ -142,9 +135,6 @@ func RunServer() {
 		repositoryService := &service.Service{
 			Repository: repo,
 			KeyRing:    pgpKeyRing,
-			ArgoCdHost: c.ArgoCdHost,
-			ArgoCdUser: c.ArgoCdUser,
-			ArgoCdPass: c.ArgoCdPass,
 		}
 
 		span.Finish()

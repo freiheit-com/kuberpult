@@ -480,10 +480,11 @@ func TestTransformer(t *testing.T) {
 	c1 := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}}
 
 	tcs := []struct {
-		Name         string
-		Transformers []Transformer
-		Test         func(t *testing.T, s *State)
-		ErrorTest    func(t *testing.T, err error)
+		Name          string
+		Transformers  []Transformer
+		Test          func(t *testing.T, s *State)
+		ErrorTest     func(t *testing.T, err error)
+		BootstrapMode bool
 	}{
 		{
 			Name:         "Create Versions and do not clean up because not enough versions",
@@ -1513,13 +1514,9 @@ spec:
   syncWindows:
   - applications:
     - '*'
-    clusters:
-    - '*'
     duration: 1h
     kind: deny
     manualSync: true
-    namespaces:
-    - '*'
     schedule: '* * * * *'
 `
 				if string(content) != expected {
@@ -1752,6 +1749,9 @@ spec:
 								JSONPointers: []string{
 									"/spec/replicas",
 								},
+								JqPathExpressions: []string{
+									".foo.bar",
+								},
 							},
 						},
 					},
@@ -1796,6 +1796,8 @@ spec:
     server: localhost:8080
   ignoreDifferences:
   - group: apps
+    jqPathExpressions:
+    - .foo.bar
     jsonPointers:
     - /spec/replicas
     kind: Deployment
@@ -1813,6 +1815,29 @@ spec:
 					t.Fatalf("unexpected argocd manifest:\ndiff:\n%s\n\n", godebug.Diff(expected, string(content)))
 				}
 			},
+		},
+		{
+			Name:          "CreateEnvironment errors in bootstrap mode",
+			BootstrapMode: true,
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production", Config: c1},
+			},
+			ErrorTest: func(t *testing.T, err error) {
+				expectedError := "Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead."
+				if err.Error() != expectedError {
+					t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
+				}
+			},
+		},
+		{
+			Name:          "CreateEnvironment does not error in bootstrap mode without configuration",
+			BootstrapMode: true,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+				},
+			},
+			Test: func(t *testing.T, s *State) {},
 		},
 	}
 	for _, tc := range tcs {
@@ -1832,6 +1857,7 @@ spec:
 					Path:           localDir,
 					CommitterEmail: "kuberpult@freiheit.com",
 					CommitterName:  "kuberpult",
+					BootstrapMode:  tc.BootstrapMode,
 				},
 			)
 			if err != nil {

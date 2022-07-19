@@ -40,6 +40,16 @@ metadata:
   name: dev-app1
 spec:
   destination: {}
+  ignoreDifferences:
+  - group: a.b
+    jqPathExpressions:
+    - c
+    - d
+    kind: bar
+    managedFieldsManagers:
+    - e
+    - f
+    name: foo
   project: dev
   source:
     path: environments/dev/applications/app1/manifests
@@ -64,6 +74,16 @@ metadata:
   name: dev-app1
 spec:
   destination: {}
+  ignoreDifferences:
+  - group: a.b
+    jqPathExpressions:
+    - c
+    - d
+    kind: bar
+    managedFieldsManagers:
+    - e
+    - f
+    name: foo
   project: dev
   source:
     path: environments/dev/applications/app1/manifests
@@ -85,12 +105,20 @@ spec:
 			t.Parallel()
 			var (
 				annotations       = map[string]string{}
-				ignoreDifferences = []v1alpha1.ResourceIgnoreDifferences{}
-				destination       = v1alpha1.ApplicationDestination{}
-				GitUrl            = "example.com/github"
-				gitBranch         = "main"
-				env               = "dev"
-				appData           = AppData{
+				ignoreDifferences = []v1alpha1.ResourceIgnoreDifferences{
+					{
+						Group:                 "a.b",
+						Kind:                  "bar",
+						Name:                  "foo",
+						JqPathExpressions:     []string{"c", "d"},
+						ManagedFieldsManagers: []string{"e", "f"},
+					},
+				}
+				destination = v1alpha1.ApplicationDestination{}
+				GitUrl      = "example.com/github"
+				gitBranch   = "main"
+				env         = "dev"
+				appData     = AppData{
 					AppName:           "app1",
 					IsUndeployVersion: tc.IsUndeployVersion,
 				}
@@ -161,13 +189,9 @@ spec:
   syncWindows:
   - applications:
     - '*'
-    clusters:
-    - '*'
     duration: invalid duration
     kind: neither deny nor allow
     manualSync: true
-    namespaces:
-    - '*'
     schedule: not a valid crontab entry
 `,
 		},
@@ -200,13 +224,9 @@ spec:
   syncWindows:
   - applications:
     - app*
-    clusters:
-    - '*'
     duration: invalid duration
     kind: neither deny nor allow
     manualSync: true
-    namespaces:
-    - '*'
     schedule: not a valid crontab entry
 `,
 		},

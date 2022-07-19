@@ -2,6 +2,7 @@ bin
 services/cd-service/repository_checkedout
 services/cd-service/repository_remote
 services/cd-service/repository
+services/cd-service/environment_configs.json
 .DS_Store
 .install
 .idea/

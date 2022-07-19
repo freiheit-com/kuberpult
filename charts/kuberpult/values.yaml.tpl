@@ -55,9 +55,7 @@ pgp:
   keyRing: null
 
 argocd:
-  enabled: false
-  user: admin
-  host: argo-cd-argocd-server
+  baseUrl: ""
 
 datadogTracing:
   enabled: false
@@ -78,3 +76,16 @@ imagePullSecrets: []
 gke:
   backend_service_id: ""
   project_number: ""
+
+environment_configs:
+  bootstrap_mode: false
+  # environment_configs_json: |
+  #   {
+  #     "production": {
+  #       "upstream": {
+  #           "latest": true
+  #        },
+  #        "argocd" :{}
+  #     }
+  #   }
+  environment_configs_json: null

@@ -18,23 +18,18 @@ package service
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
-	"io"
-	"mime/multipart"
-	"net/http"
-	"os/exec"
-	"regexp"
-	"strconv"
-	"time"
-
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"golang.org/x/crypto/openpgp"
 	pgperrors "golang.org/x/crypto/openpgp/errors"
-	"golang.org/x/sync/errgroup"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"regexp"
+	"strconv"
 )
 
 const (
@@ -54,9 +49,6 @@ var (
 type Service struct {
 	Repository repository.Repository
 	KeyRing    openpgp.KeyRing
-	ArgoCdHost string
-	ArgoCdUser string
-	ArgoCdPass string
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -66,8 +58,6 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.ServeHTTPHealth(w, r)
 	case "release":
 		s.ServeHTTPRelease(tail, w, r)
-	case "sync":
-		s.ServeHTTPSync(tail[1:], w, r)
 	}
 	return
 }
@@ -83,19 +73,25 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
-		fmt.Fprintf(w, "invalid body: %s", err)
+		fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
 	form := r.MultipartForm
 	if len(form.Value["application"]) != 1 {
-		w.WriteHeader(400)
-		fmt.Fprintf(w, "invalid app name")
-		return
+		if len(form.Value["application"]) > 1 {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Please provide single application name")
+			return
+		} else {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid application name")
+			return
+		}
 	}
 	application := form.Value["application"][0]
 	if !valid.ApplicationName(application) {
 		w.WriteHeader(400)
-		fmt.Fprintf(w, "invalid app name")
+		fmt.Fprintf(w, "Invalid application name: '%s' - must match regexp '%s' and less than %d characters", application, `[a-z0-9]+(?:-[a-z0-9]+)*`, 40)
 		return
 	}
 	tf.Application = application
@@ -110,7 +106,7 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 			}
 			if content, err := readMultipartFile(v[0]); err != nil {
 				w.WriteHeader(500)
-				fmt.Fprintf(w, "internal: %s", err)
+				fmt.Fprintf(w, "Internal: %s", err)
 				return
 			} else {
 				if s.KeyRing != nil {
@@ -118,13 +114,13 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 					for _, sig := range form.File[fmt.Sprintf("signatures[%s]", environmentName)] {
 						if signature, err := readMultipartFile(sig); err != nil {
 							w.WriteHeader(500)
-							fmt.Fprintf(w, "internal: %s", err)
+							fmt.Fprintf(w, "Internal: %s", err)
 							return
 						} else {
 							if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader(content), bytes.NewReader(signature)); err != nil {
 								if err != pgperrors.ErrUnknownIssuer {
 									w.WriteHeader(500)
-									fmt.Fprintf(w, "internal: %s", err)
+									fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
 									return
 								}
 							} else {
@@ -135,7 +131,7 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 					}
 					if !validSignature {
 						w.WriteHeader(400)
-						fmt.Fprintf(w, "invalid signature")
+						fmt.Fprintf(w, "Invalid signature")
 						return
 					}
 
@@ -148,7 +144,7 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 	}
 	if len(tf.Manifests) == 0 {
 		w.WriteHeader(400)
-		fmt.Fprintf(w, "no manifests")
+		fmt.Fprintf(w, "No manifest files provided")
 		return
 	}
 
@@ -180,12 +176,13 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 			val, err := strconv.ParseUint(version[0], 10, 64)
 			if err != nil {
 				w.WriteHeader(400)
-				fmt.Fprintf(w, "invalid version: %s", err)
+				fmt.Fprintf(w, "Invalid version: %s", err)
 				return
 			}
 			tf.Version = val
 		}
 	}
+
 	if err := s.Repository.Apply(r.Context(), &tf); err != nil {
 		if _, ok := err.(*repository.InternalError); ok {
 			w.WriteHeader(500)
@@ -205,66 +202,6 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 		fmt.Fprintf(w, "created")
 	}
 	return
-}
-
-func (s *Service) ServeHTTPSync(env string, w http.ResponseWriter, r *http.Request) {
-	state := s.Repository.State()
-	apps, err := state.GetEnvironmentApplications(env)
-	if err != nil {
-		w.WriteHeader(500)
-		fmt.Fprintf(w, "unexpected error: cannot read apps in environment %v\n", env)
-		return
-	}
-
-	g := new(errgroup.Group)
-	for idx := range apps {
-		argocd_app_name := env + "-" + apps[idx]
-		g.Go(func() error {
-			_, err := argocdSyncApp(argocd_app_name)
-			return err
-		})
-	}
-	err = g.Wait()
-	if err != nil {
-		w.WriteHeader(500)
-		fmt.Fprint(w, "cannot sync some apps\n")
-		return
-	}
-	w.WriteHeader(200)
-	fmt.Fprintf(w, "All apps synced in %v\n", env)
-	return
-}
-
-func argocdSyncApp(name string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "argocd", "app", "sync", name)
-	_, err := cmd.Output()
-	if ctx.Err() == context.DeadlineExceeded {
-		return "", wrapArgoError(err, name, "ArgoCD sync app timeout")
-	}
-	if err != nil {
-		return "", wrapArgoError(err, name, fmt.Sprintf("Cannot sync app: %v\n", name))
-	}
-	return "", nil
-}
-
-func ArgocdLogin(host string, username string, password string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "argocd", "login", host, "--username", username, "--password", password, "--plaintext", "--logformat", "json")
-	_, err := cmd.Output()
-	if ctx.Err() == context.DeadlineExceeded {
-		return "", wrapArgoError(err, "login", "ArgoCD login timeout")
-	}
-	if err != nil {
-		return "", wrapArgoError(err, "login", "Cannot login to ArgoCD")
-	}
-	return "", nil
-}
-
-func wrapArgoError(e error, app string, message string) error {
-	return fmt.Errorf("%s '%s': %w", message, app, e)
 }
 
 func readMultipartFile(hdr *multipart.FileHeader) ([]byte, error) {

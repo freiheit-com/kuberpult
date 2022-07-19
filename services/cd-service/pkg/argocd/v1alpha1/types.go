@@ -137,19 +137,27 @@ type SyncWindow struct {
 	Duration string `json:"duration,omitempty" protobuf:"bytes,3,opt,name=duration"`
 	// Applications contains a list of applications that the window will apply to
 	Applications []string `json:"applications,omitempty" protobuf:"bytes,4,opt,name=applications"`
+
+	// NOTE: Applications, Clusters and Namespaces are an OR-expression in ArgoCd!
+	// Example: You set Application="my-app" and Clusters="*"
+	// This means: It applies to ALL applications.
+	// To avoid this, we omit the settings for Clusters and Namespaces completely.
+
 	// Namespaces contains a list of namespaces that the window will apply to
-	Namespaces []string `json:"namespaces,omitempty" protobuf:"bytes,5,opt,name=namespaces"`
+	//Namespaces []string `json:"namespaces,omitempty" protobuf:"bytes,5,opt,name=namespaces"`
 	// Clusters contains a list of clusters that the window will apply to
-	Clusters []string `json:"clusters,omitempty" protobuf:"bytes,6,opt,name=clusters"`
+	//Clusters []string `json:"clusters,omitempty" protobuf:"bytes,6,opt,name=clusters"`
 	// ManualSync enables manual syncs when they would otherwise be blocked
 	ManualSync bool `json:"manualSync,omitempty" protobuf:"bytes,7,opt,name=manualSync"`
 }
 
 // ResourceIgnoreDifferences contains resource filter and list of json paths which should be ignored during comparison with live state.
 type ResourceIgnoreDifferences struct {
-	Group        string   `json:"group,omitempty" protobuf:"bytes,1,opt,name=group"`
-	Kind         string   `json:"kind" protobuf:"bytes,2,opt,name=kind"`
-	Name         string   `json:"name,omitempty" protobuf:"bytes,3,opt,name=name"`
-	Namespace    string   `json:"namespace,omitempty" protobuf:"bytes,4,opt,name=namespace"`
-	JSONPointers []string `json:"jsonPointers" protobuf:"bytes,5,opt,name=jsonPointers"`
+	Group                 string   `json:"group,omitempty" protobuf:"bytes,1,opt,name=group"`
+	Kind                  string   `json:"kind" protobuf:"bytes,2,opt,name=kind"`
+	Name                  string   `json:"name,omitempty" protobuf:"bytes,3,opt,name=name"`
+	Namespace             string   `json:"namespace,omitempty" protobuf:"bytes,4,opt,name=namespace"`
+	JSONPointers          []string `json:"jsonPointers,omitempty" protobuf:"bytes,5,opt,name=jsonPointers"`
+	JqPathExpressions     []string `json:"jqPathExpressions,omitempty" protobuf:"bytes,6,opt,name=jqPathExpressions"`
+	ManagedFieldsManagers []string `json:"managedFieldsManagers,omitempty" protobuf:"bytes,7,opt,name=managedFieldsManagers"`
 }
