@@ -7,7 +7,6 @@ name: "Release kuberpult"
   pull_request:
 jobs:
   release:
-    needs: [execution-plan, lint-and-test-helm-chart]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
