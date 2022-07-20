@@ -80,7 +80,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Set version pr
+      - name: Set version pr/main
         if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
         run: |
           echo "VERSION=$(make version)" >> $GITHUB_ENV

@@ -24,9 +24,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-      - name: Save version
-        run: |
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
       - name: Create helm chart for release
         run: |
           make -C charts/kuberpult release-tag
@@ -34,9 +31,9 @@ jobs:
         uses: ./.github/actions/softprops-action-gh-release
         with:
           files: |
-            charts/kuberpult/kuberpult-${VERSION}.tgz
+            charts/kuberpult/kuberpult-${GITHUB_REF#refs/tags/}.tgz
           body: |
-            Release ${{ needs.generate_version.outputs.version }}
-          tag_name: ${{ needs.generate_version.outputs.version }}
+            Release ${GITHUB_REF#refs/tags/}
+          tag_name: ${GITHUB_REF#refs/tags/}
           generate_release_notes: true
           draft: true
