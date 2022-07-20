@@ -18,9 +18,7 @@ import { render } from '@testing-library/react';
 import { App } from './';
 
 describe('App', () => {
-    const getNode = (): JSX.Element | any => {
-        return <App />;
-    };
+    const getNode = (): JSX.Element | any => <App />;
     const getWrapper = () => render(getNode());
 
     it('Renders full app', () => {
