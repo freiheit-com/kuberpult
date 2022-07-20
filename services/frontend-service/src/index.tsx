@@ -17,13 +17,13 @@ Copyright 2021 freiheit.com*/
 import './assets/index.scss';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { App } from './ui/App';
+import { Routes } from './v2-ui/Routes';
 import { BrowserRouter } from 'react-router-dom';
 
 ReactDOM.render(
     <React.StrictMode>
         <BrowserRouter>
-            <App />
+            <Routes />
         </BrowserRouter>
     </React.StrictMode>,
     document.getElementById('root')
