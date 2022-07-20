@@ -28,7 +28,7 @@ jobs:
         run: |
           ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
       - name: Plan execution main
-        if: inputs.trigger == 'main'
+        if: inputs.trigger == 'main' || inputs.trigger == 'tag'
         run: |
           ./infrastructure/scripts/execution-plan/plan-main.sh > artifacts/execution-plan.json 
       - name: Print execution plan 
