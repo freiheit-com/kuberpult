@@ -83,6 +83,7 @@ jobs:
       - name: Set version pr/main
         if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           echo "VERSION=$(make version)" >> $GITHUB_ENV
       - name: Set version tag
         if: inputs.trigger == 'tag'

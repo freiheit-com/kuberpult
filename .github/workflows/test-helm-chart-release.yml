@@ -33,6 +33,8 @@ jobs:
         if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
         run: |
           echo "VERSION=$(make version)" >> $GITHUB_ENV
+      - run: |
+          echo $VERSION
       - name: Set version tag
         if: inputs.trigger == 'tag'
         run: |
