@@ -6,7 +6,21 @@ name: "Release kuberpult"
       - "*"
   pull_request:
 jobs:
+  execution-plan:
+    uses: ./.github/workflows/execution-plan-snippet.yml
+    with:
+      trigger: tag
+    secrets: inherit
+
+  lint-and-test-helm-chart:
+    needs: [execution-plan]
+    uses: ./.github/workflows/test-helm-chart-release.yml
+    with:
+      trigger: tag
+    secrets: inherit
+
   release:
+    needs: [execution-plan, lint-and-test-helm-chart]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -14,8 +28,7 @@ jobs:
       - name: Set version
         id: version
         run: |
-          # echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
-          echo "VERSION=0.4.27"  >> $GITHUB_ENV
+          echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
           echo "::set-output name=version::${GITHUB_REF#refs/tags/}"
       - name: Create helm chart for release
         run: |
