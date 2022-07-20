@@ -48,7 +48,6 @@ bin/:
 
 build: bin/main
 
-# dummychange
 build-pr: test docker
 	echo "build on pull request"
 
