@@ -18,7 +18,18 @@ Copyright 2021 freiheit.com*/
 import { Environment_Application_ArgoCD_SyncWindow, Lock } from '../api/api';
 import * as React from 'react';
 import { useCallback, useContext } from 'react';
-import { Alert, AlertTitle, Button, Dialog, DialogTitle, IconButton, Snackbar, Typography } from '@material-ui/core';
+import {
+    Alert,
+    AlertTitle,
+    Button,
+    Dialog,
+    DialogTitle,
+    IconButton,
+    Snackbar,
+    Typography,
+    Checkbox,
+    FormControlLabel,
+} from '@material-ui/core';
 import { Close, LockRounded } from '@material-ui/icons';
 import { ActionsCartContext } from './App';
 import { ActionTypes, CartAction, getActionDetails, isDeployAction } from './ActionDetails';
@@ -63,12 +74,14 @@ export interface ConfirmationDialogProviderProps {
     undeployedUpstream?: string;
     fin?: () => void;
     syncWindows?: Environment_Application_ArgoCD_SyncWindow[];
+    prefixActions?: CartAction[];
 }
 
 export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProps) => {
-    const { action, locks, fin, undeployedUpstream, syncWindows } = props;
+    const { action, locks, fin, undeployedUpstream, syncWindows, prefixActions } = props;
     const [openNotify, setOpenNotify] = React.useState(false);
     const [dialogOpen, setDialogOpen] = React.useState(false);
+    const [addEnvironmentLock, setAddEnvironmentLock] = React.useState(false);
     const { actions, setActions } = useContext(ActionsCartContext);
 
     const openNotification = useCallback(() => {
@@ -93,8 +106,12 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         openNotification();
         if (fin) fin();
         closeDialog();
-        setActions([...actions, action]);
-    }, [fin, closeDialog, openNotification, action, actions, setActions]);
+        if (addEnvironmentLock && prefixActions) {
+            setActions([...actions, ...prefixActions, action]);
+        } else {
+            setActions([...actions, action]);
+        }
+    }, [fin, closeDialog, openNotification, action, actions, setActions, addEnvironmentLock]);
 
     const conflicts = getCartConflicts(actions, action);
     const hasSyncWindows = syncWindows && syncWindows.length > 0;
@@ -108,6 +125,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
 
     const handleAddToCart = useCallback(() => {
         if (conflicts.size || locks?.length || undeployedUpstream || hasSyncWindows) {
+            setAddEnvironmentLock(true);
             setDialogOpen(true);
         } else {
             addAction();
@@ -120,19 +138,30 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         </IconButton>
     );
 
+    function handleUndeployedUpstreamCheckbox(event: any) {
+        setAddEnvironmentLock(event.target.checked);
+    }
+
     const undeployedUpstreamMessage = undeployedUpstream ? (
-        <Alert variant="outlined" sx={{ m: 1 }} severity="info">
-            <AlertTitle>Warning: Not deployed to "{undeployedUpstream}" yet!</AlertTitle>
-            {[
-                `This version is not yet deployed to "${undeployedUpstream}" environment.`,
-                'Your changes may be overridden by the next release train.',
-                `We suggest to first deploy this version to the "${undeployedUpstream}" environment.`,
-            ].map((line, id) => (
-                <div style={{ display: 'flex', alignItems: 'center' }} key={id}>
-                    <strong>{line}</strong>
-                </div>
-            ))}
-        </Alert>
+        <>
+            <Alert variant="outlined" sx={{ m: 1 }} severity="info">
+                <AlertTitle>Warning: Not deployed to "{undeployedUpstream}" yet!</AlertTitle>
+                {[
+                    `This version is not yet deployed to "${undeployedUpstream}" environment.`,
+                    'Your changes may be overridden by the next release train.',
+                    `We suggest to first deploy this version to the "${undeployedUpstream}" environment.`,
+                    'Alternatively, lock this application to prevent release train override.',
+                ].map((line, id) => (
+                    <div style={{ display: 'flex', alignItems: 'center' }} key={id}>
+                        <strong>{line}</strong>
+                    </div>
+                ))}
+                <FormControlLabel
+                    control={<Checkbox checked={addEnvironmentLock} onChange={handleUndeployedUpstreamCheckbox} />}
+                    label="Lock environment"
+                />
+            </Alert>
+        </>
     ) : null;
 
     const deployLocks = locks?.length ? (
