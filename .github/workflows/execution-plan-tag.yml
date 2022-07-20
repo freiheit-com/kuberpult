@@ -4,7 +4,6 @@ name: "Release kuberpult"
   push:
     tags:
       - "*"
-  pull_request:
 jobs:
   execution-plan:
     uses: ./.github/workflows/execution-plan-snippet.yml
