@@ -3,10 +3,10 @@ name: Lint and Test Charts
 on:
   workflow_call:
     inputs:
-      version:
+      trigger:
         required: true
         type: string
-        description: "Version tag of the kuberpult service images to be installed" 
+        description: 'The trigger which calls the workflow, one of [pull-request, main, tag]'
 
 jobs:
   lint-test:
@@ -29,10 +29,14 @@ jobs:
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.2.0
 
-      - name: Set version
+      - name: Set version pr
+        if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
         run: |
-          echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
- 
+          echo "VERSION=$(make version)" >> $GITHUB_ENV
+      - name: Set version tag
+        if: inputs.trigger == 'tag'
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
       - name: Create chart and test values
         run: |
           make -C charts/kuberpult ci/test-values.yaml
