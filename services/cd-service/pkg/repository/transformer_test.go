@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/go-git/go-billy/v5/util"
 	godebug "github.com/kylelemons/godebug/diff"
@@ -251,10 +252,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, err := setupRepositoryTest(t)
-			if err != nil {
-				t.Fatal(err)
-			}
+			repo := setupRepositoryTest(t)
 
 			ctx := context.Background()
 			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
@@ -367,10 +365,7 @@ func TestUndeployErrors(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, err := setupRepositoryTest(t)
-			if err != nil {
-				t.Fatal(err)
-			}
+			repo := setupRepositoryTest(t)
 			ctx := context.Background()
 			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			// note that we only check the LAST error here:
@@ -446,10 +441,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo, err := setupRepositoryTest(t)
-			if err != nil {
-				t.Fatal(err)
-			}
+			repo := setupRepositoryTest(t)
 			ctx := context.Background()
 			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			// note that we only check the LAST error here:
@@ -2029,7 +2021,7 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 	return res
 }
 
-func setupRepositoryTest(t *testing.T) (Repository, error) {
+func setupRepositoryTest(t *testing.T) Repository {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
@@ -2048,5 +2040,151 @@ func setupRepositoryTest(t *testing.T) (Repository, error) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return repo, nil
+	return repo
+}
+
+
+// Injects an error in the filesystem of the state
+type injectErr struct {
+	Transformer
+	collector *testfs.UsageCollector
+	operation testfs.Operation
+	filename  string
+	err       error
+}
+
+func (i *injectErr) Transform(ctx context.Context, state *State) (string, error) {
+	original := state.Filesystem
+	state.Filesystem = i.collector.WithError(state.Filesystem, i.operation, i.filename, i.err)
+	s, err := i.Transformer.Transform(ctx, state)
+	state.Filesystem = original
+	return s, err
+}
+
+func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
+	t.Parallel()
+	collector := &testfs.UsageCollector{}
+	tcs := []struct {
+		name          string
+		operation     testfs.Operation
+		filename      string
+		expectedError string
+	}{
+		{
+			name:          "delete lock succedes",
+		},
+		{
+			name:          "delete lock fails",
+			operation:     testfs.REMOVE,
+			filename:      "environments/dev/locks/foo",
+			expectedError: "failed to delete file \"environments/dev/locks/foo\": obscure error",
+		},
+		{
+			name:          "readdir fails",
+			operation:     testfs.READDIR,
+			filename:      "environments/dev/applications",
+			expectedError: "environment applications for \"dev\" not found: obscure error",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			repo := setupRepositoryTest(t)
+			err := repo.Apply(context.Background(), &CreateEnvironment{
+				Environment: "dev",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = repo.Apply(context.Background(), &injectErr{
+				Transformer: &DeleteEnvironmentLock{
+					Environment: "dev",
+					LockId:      "foo",
+				},
+				collector: collector,
+				operation: tc.operation,
+				filename:  tc.filename,
+				err:       fmt.Errorf("obscure error"),
+			})
+			if tc.expectedError != "" {
+			if err.Error() != tc.expectedError {
+				t.Errorf("expected error to be %q but got %q", tc.expectedError, err)
+			}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, but got %q", err)
+				}
+			}
+		})
+	}
+	untested := collector.UntestedOps()
+	for _, op := range untested {
+		t.Errorf("Untested operations %s %s", op.Operation, op.Filename)
+	}
+}
+
+func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
+	t.Parallel()
+	collector := &testfs.UsageCollector{}
+	tcs := []struct {
+		name          string
+		operation     testfs.Operation
+		filename      string
+		expectedError string
+	}{
+		{
+			name:          "delete lock succedes",
+		},
+		{
+			name:          "delete lock fails",
+			operation:     testfs.REMOVE,
+			filename:      "environments/dev/applications/bar/locks/foo",
+			expectedError: "failed to delete file \"environments/dev/applications/bar/locks/foo\": obscure error",
+		},
+		{
+			name:          "stat queue failes",
+			operation:     testfs.READLINK,
+			filename:      "environments/dev/applications/bar/queued_version",
+			expectedError: "failed reading symlink \"environments/dev/applications/bar/queued_version\": obscure error",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			repo := setupRepositoryTest(t)
+			err := repo.Apply(context.Background(), &CreateEnvironment{
+				Environment: "dev",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = repo.Apply(context.Background(), &injectErr{
+				Transformer: &DeleteEnvironmentApplicationLock{
+					Environment: "dev",
+					Application: "bar",
+					LockId:      "foo",
+				},
+				collector: collector,
+				operation: tc.operation,
+				filename:  tc.filename,
+				err:       fmt.Errorf("obscure error"),
+			})
+			if tc.expectedError != "" {
+			if err == nil {
+				t.Errorf("expected error to be %q but got <nil>", tc.expectedError)
+			} else if err.Error() != tc.expectedError {
+
+				t.Errorf("expected error to be %q but got %q", tc.expectedError, err)
+			}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, but got %q", err)
+				}
+			}
+		})
+	}
+	untested := collector.UntestedOps()
+	for _, op := range untested {
+		t.Errorf("Untested operations %s %s", op.Operation, op.Filename)
+	}
 }
