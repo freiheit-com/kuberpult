@@ -14,13 +14,12 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import React from 'react';
 import { render } from '@testing-library/react';
 import { App } from './';
 
 describe('App', () => {
     const getNode = (): JSX.Element | any => {
-        return <App/>;
+        return <App />;
     };
     const getWrapper = () => render(getNode());
 
