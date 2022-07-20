@@ -860,11 +860,12 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 			// if the link does not exist, we return nil
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed reading symlink %q: %w",version,err)
 	} else {
-		if stat, err := s.Filesystem.Stat(s.Filesystem.Join("environments", environment, "applications", application, lnk)); err != nil {
+		target := s.Filesystem.Join("environments", environment, "applications", application, lnk)
+		if stat, err := s.Filesystem.Stat(target); err != nil {
 			// if the file that the link points to does not exist, that's an error
-			return nil, err
+			return nil, fmt.Errorf("failed stating %q: %w",target,err)
 		} else {
 			res, err := strconv.ParseUint(stat.Name(), 10, 64)
 			return &res, err
