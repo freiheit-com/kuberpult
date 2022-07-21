@@ -111,7 +111,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         } else {
             setActions([...actions, action]);
         }
-    }, [fin, closeDialog, openNotification, action, actions, setActions, addEnvironmentLock]);
+    }, [fin, closeDialog, openNotification, action, actions, setActions, addEnvironmentLock, prefixActions]);
 
     const conflicts = getCartConflicts(actions, action);
     const hasSyncWindows = syncWindows && syncWindows.length > 0;

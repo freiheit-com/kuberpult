@@ -120,6 +120,7 @@ describe('Confirmation Dialog Provider', () => {
         act: CartAction;
         fin?: () => void;
         undeployedUpstream?: string;
+        prefixActions?: CartAction[];
         locks?: [string, Lock][];
         expect: {
             conflict: Set<CartAction>;
@@ -198,9 +199,10 @@ describe('Confirmation Dialog Provider', () => {
             type: 'Deploy Action With Undeployed Upstream Warning',
             act: sampleDeployActionOtherApplication,
             undeployedUpstream: 'staging',
+            prefixActions: [sampleCreateAppLock],
             expect: {
                 conflict: new Set(),
-                title: 'Are you sure you want to deploy this version?',
+                title: 'Please be aware:',
             },
         },
         {
@@ -220,7 +222,13 @@ describe('Confirmation Dialog Provider', () => {
         it(`${testcase.type}`, () => {
             // given
             const { container } = getWrapper(
-                { action: testcase.act, fin: testcase.fin, locks: testcase.locks },
+                {
+                    action: testcase.act,
+                    fin: testcase.fin,
+                    locks: testcase.locks,
+                    prefixActions: testcase.prefixActions,
+                    undeployedUpstream: testcase.undeployedUpstream,
+                },
                 sampleCartActions
             );
 
@@ -234,7 +242,7 @@ describe('Confirmation Dialog Provider', () => {
             // then ( this function only checks for conflicting actions. checking for locks is not part of it )
             if (!testcase.locks) expect(res).toStrictEqual(testcase.expect.conflict);
 
-            if (testcase.expect.conflict.size) {
+            if (testcase.expect.conflict.size || testcase.undeployedUpstream) {
                 // then a dialog shows up
                 const title = document.querySelector('.confirmation-title');
                 expect(title!.textContent).toBe(testcase.expect.title);
@@ -244,7 +252,11 @@ describe('Confirmation Dialog Provider', () => {
                 fireEvent.click(getByText(d! as HTMLElement, 'Add anyway').closest('button')!);
 
                 // then
-                mock_setActions.wasCalledWith([...sampleCartActions, testcase.act], Spy.IGNORE);
+                if (testcase.undeployedUpstream) {
+                  mock_setActions.wasCalledWith([...sampleCartActions, ...(testcase.prefixActions || []), testcase.act], Spy.IGNORE);
+                } else {
+                  mock_setActions.wasCalledWith([...sampleCartActions, testcase.act], Spy.IGNORE);
+                }
             } else {
                 // then no dialog will show up
                 expect(document.querySelector('.confirmation-title')).not.toBeTruthy();
