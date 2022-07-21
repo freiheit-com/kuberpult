@@ -1,5 +1,23 @@
 # Change Log
 
+## 0.4.27
+
+**released 2022-07-21**
+
+### Removed
+
+* Removed the argocd sync endpoint [#234](https://github.com/freiheit-com/kuberpult/pull/234)
+
+### Added
+
+* Added support for bootstrap mode in the helm chart [#240](https://github.com/freiheit-com/kuberpult/pull/240)
+* Display the owner of an application and add an url parameter to filter them [#222](https://github.com/freiheit-com/kuberpult/pull/222)
+
+### Improved
+
+* Better error messages for certain transformers [#244](https://github.com/freiheit-com/kuberpult/pull/244)
+* Improved the build system by generating the version in a dedicated step [#242](https://github.com/freiheit-com/kuberpult/pull/242) [#246](https://github.com/freiheit-com/kuberpult/pull/246) [#248](https://github.com/freiheit-com/kuberpult/pull/248)
+
 ## 0.4.26
 
 **released 2022-07-14**
