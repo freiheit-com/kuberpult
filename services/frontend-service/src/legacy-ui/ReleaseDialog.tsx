@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { useMemo, VFC } from 'react';
+import { useContext, useMemo, VFC } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import ArrowLeftIcon from '@material-ui/icons/ArrowLeft';
 import ArrowRightIcon from '@material-ui/icons/ArrowRight';
@@ -48,6 +48,7 @@ import { ConfirmationDialogProvider } from './ConfirmationDialog';
 import AddLockIcon from '@material-ui/icons/EnhancedEncryption';
 import { CartAction } from './ActionDetails';
 import Avatar from '@material-ui/core/Avatar';
+import { ConfigsContext } from './App';
 
 type Data = { applicationName: string; version: number };
 export const Context = React.createContext<{ setData: (d: Data | null) => void }>({
@@ -309,13 +310,39 @@ export const getUndeployedUpstream = (
     return '';
 };
 
+export const getFullUrl = (applicationName: string, environmentName: string, baseUrl?: string): string =>
+    `${baseUrl}/applications/${environmentName}-${applicationName}`;
+
+export const ArgoCdLink = (props: { baseUrl?: string; applicationName: string; environmentName: string }) => {
+    const { baseUrl, applicationName, environmentName } = props;
+
+    const navigate = React.useCallback(() => {
+        window.open(getFullUrl(baseUrl || '', applicationName, environmentName));
+    }, [baseUrl, environmentName, applicationName]);
+
+    return !!baseUrl ? (
+        <Tooltip
+            arrow
+            key={`${applicationName}-${environmentName}`}
+            title={`${baseUrl}/applications/${environmentName}-${applicationName}`}>
+            <IconButton onClick={navigate} data-testid={`argocd-link`}>
+                <Avatar
+                    src={`https://cncf-branding.netlify.app/img/projects/argo/icon/color/argo-icon-color.svg`}
+                    alt={`argocd-link`}
+                />
+            </IconButton>
+        </Tooltip>
+    ) : null;
+};
+
 const ReleaseEnvironment: VFC<{
     overview: GetOverviewResponse;
     applicationName: string;
     version: number; // the version we are currently looking at (not the version that is deployed)
     environmentName: string;
     syncWindows?: Environment_Application_ArgoCD_SyncWindow[];
-}> = ({ overview, applicationName, version, environmentName, syncWindows }) => {
+    argoCdBaseUrl?: string;
+}> = ({ overview, applicationName, version, environmentName, syncWindows, argoCdBaseUrl }) => {
     // deploy
     const act: CartAction = useMemo(
         () => ({
@@ -363,23 +390,6 @@ const ReleaseEnvironment: VFC<{
         </ConfirmationDialogProvider>
     );
 
-    const ArgoCdLink = React.useCallback(
-        () => (
-            <Tooltip
-                arrow
-                key={`${applicationName}-${environmentName}-${version}`}
-                title={`${applicationName}-${environmentName}-${version}`}>
-                <IconButton>
-                    <Avatar
-                        src={`https://cncf-branding.netlify.app/img/projects/argo/icon/color/argo-icon-color.svg`}
-                        alt={`argocd-link`}
-                    />
-                </IconButton>
-            </Tooltip>
-        ),
-        [applicationName, environmentName, version]
-    );
-
     let currentInfo;
     if (currentlyDeployedVersion !== undefined) {
         const currentRelease = overview.applications[applicationName].releases.find(
@@ -409,7 +419,11 @@ const ReleaseEnvironment: VFC<{
     return (
         <Paper className="environment">
             <Typography variant="h5" component="div" className="name" width="30%" sx={{ textTransform: 'capitalize' }}>
-                <ArgoCdLink />
+                <ArgoCdLink
+                    baseUrl={argoCdBaseUrl}
+                    applicationName={applicationName}
+                    environmentName={environmentName}
+                />
                 {environmentName}
                 <VersionDiff
                     current={currentlyDeployedVersion}
@@ -578,6 +592,7 @@ const ReleaseDialog = (props: {
 }) => {
     const { overview, applicationName, version, sortOrder } = props;
     const ctx = React.useContext(Context);
+    const { configs } = useContext(ConfigsContext);
     const closeDialog = React.useCallback(() => {
         ctx.setData(null);
     }, [ctx]);
@@ -647,6 +662,7 @@ const ReleaseDialog = (props: {
                             version={version}
                             overview={overview}
                             syncWindows={env.applications[applicationName]?.argoCD?.syncWindows}
+                            argoCdBaseUrl={configs?.argoCd?.baseUrl}
                         />
                     </Grid>
                 ))}

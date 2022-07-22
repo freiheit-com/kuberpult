@@ -14,7 +14,6 @@ services:
       - KUBERPULT_CDSERVER=kuberpult-cd-service:8443
     ports:
       - "8081:8081"
-      - "8444:8444"
     depends_on:
       - backend
     volumes:
@@ -22,6 +21,9 @@ services:
   ui:
     build: infrastructure/docker/ui
     container_name: kuberpult-ui
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
     ports:
       - "3000:3000"
     depends_on:
