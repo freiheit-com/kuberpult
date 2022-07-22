@@ -14,7 +14,6 @@ services:
       - KUBERPULT_CDSERVER=kuberpult-cd-service:8443
     ports:
       - "8081:8081"
-      - "8444:8444"
     depends_on:
       - backend
     volumes:
