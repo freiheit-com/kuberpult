@@ -171,7 +171,19 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: "5Gi"
+          storage: "10Mi"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: repository
+spec:
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 10Mi
+  hostPath:
+    path: /home/su/persistantvolume/
 ---
 apiVersion: v1
 kind: Service

@@ -8,7 +8,7 @@ services:
     volumes:
       - .:/kp/kuberpult
     storage_opt:
-      size: '1G'
+      size: '100M'
   frontend:
     build: infrastructure/docker/frontend
     container_name: kuberpult-frontend-service

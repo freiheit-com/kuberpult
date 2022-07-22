@@ -44,6 +44,8 @@ func (l *LockServiceServer) CreateEnvironmentLock(
 		Message:     in.Message,
 	})
 	if err != nil {
+		log := logger.FromContext(ctx)
+		log.Error("Internal Error in Create env lock!", zap.Error(err))
 		return nil, internalError(ctx, err)
 	}
 	return &emptypb.Empty{}, nil
