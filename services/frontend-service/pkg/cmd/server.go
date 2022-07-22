@@ -46,7 +46,7 @@ type Config struct {
 	GKEProjectNumber    string `default:"" split_words:"true"`
 	GKEBackendServiceID string `default:"" split_words:"true"`
 	EnableTracing       bool   `default:"false" split_words:"true"`
-	ArgocdBaseUrl       string `default:"" split_words:"true"`
+	ArgocdBaseUrl       string `default:"sdsds" split_words:"true"`
 }
 
 var c Config
