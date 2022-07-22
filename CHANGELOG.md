@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.4.28
+
+**released 2022-07-22**
+
+### Changed
+
+* Added fields `appProjectNamespace` and `applicationNamespace` to ArgoCD application config to allow for better control over generated manifests [#250](https://github.com/freiheit-com/kuberpult/pull/250)
+
 ## 0.4.27
 
 **released 2022-07-21**
