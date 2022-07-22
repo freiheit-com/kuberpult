@@ -15,11 +15,10 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import React from 'react';
-import { getByLabelText, getByTestId, render } from '@testing-library/react';
+import { getByTestId, render } from '@testing-library/react';
 import ReleaseDialog, { ArgoCdLink, getFullUrl, getUndeployedUpstream } from './ReleaseDialog';
 import { ActionsCartContext } from './App';
 import { Environment } from '../api/api';
-import { UndeployBtn } from './Warnings';
 
 describe('VersionDiff', () => {
     it.each([
