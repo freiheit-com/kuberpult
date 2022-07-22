@@ -48,10 +48,10 @@ bin/:
 
 build: bin/main
 
-build-pr: test docker
+build-pr: test docker publish
 	echo "build on pull request"
 
-build-main: test docker
+build-main: test docker publish
 	echo "build on main"
 
 ifeq ($(COMPILE_WITH_DOCKER),true)
