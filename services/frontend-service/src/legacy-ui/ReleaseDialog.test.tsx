@@ -83,7 +83,7 @@ describe('VersionDiff', () => {
             </ActionsCartContext.Provider>
         );
 
-        const diff = app.getByTestId('Argo');
+        const diff = app.getByTestId('version-diff');
         expect(diff).toHaveAttribute('aria-label', expectedLabel);
     });
 });

@@ -21,9 +21,6 @@ services:
   ui:
     build: infrastructure/docker/ui
     container_name: kuberpult-ui
-    environment:
-      - NODE_ENV=development
-      - CHOKIDAR_USEPOLLING=true
     ports:
       - "3000:3000"
     depends_on:
