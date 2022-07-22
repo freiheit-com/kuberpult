@@ -24,7 +24,7 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 import Releases from '../Releases';
 import * as api from '../../api/api';
 import Header from '../AppBar/Header';
-import { GrpcProvider, useObservable } from '../Api';
+import { GrpcProvider, useObservable, useUnary } from '../Api';
 
 import { theme, useStyles } from './styles';
 import { CartAction } from '../ActionDetails';
@@ -71,7 +71,7 @@ const Main = () => {
     const [configs, setConfigs] = useState({} as api.GetFrontendConfigResponse);
 
     const getConfig = React.useCallback((api) => api.configService().GetConfig(), []);
-    const config = useObservable<api.GetFrontendConfigResponse>(getConfig);
+    const config = useUnary<api.GetFrontendConfigResponse>(getConfig);
 
     React.useEffect(() => {
         if (config.state === 'resolved') {
