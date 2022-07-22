@@ -52,9 +52,15 @@ func Render(gitUrl string, gitBranch string, config config.EnvironmentConfig, en
 }
 
 func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentConfig, env string, appsData []AppData) ([]byte, error) {
-	destination := v1alpha1.ApplicationDestination{
+	applicationNs := ""
+	if config.ArgoCd.Destination.Namespace != nil {
+		applicationNs = *config.ArgoCd.Destination.Namespace
+	} else if config.ArgoCd.Destination.ApplicationNamespace != nil {
+		applicationNs = *config.ArgoCd.Destination.ApplicationNamespace
+	}
+	applicationDestination := v1alpha1.ApplicationDestination{
 		Name:      config.ArgoCd.Destination.Name,
-		Namespace: config.ArgoCd.Destination.Namespace,
+		Namespace: applicationNs,
 		Server:    config.ArgoCd.Destination.Server,
 	}
 	buf := []string{}
@@ -79,6 +85,16 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 			Group: w.Group,
 		})
 	}
+
+	appProjectNs := ""
+	appProjectDestination := applicationDestination
+	if config.ArgoCd.Destination.Namespace != nil {
+		appProjectNs = *config.ArgoCd.Destination.Namespace
+	} else if config.ArgoCd.Destination.AppProjectNamespace != nil {
+		appProjectNs = *config.ArgoCd.Destination.AppProjectNamespace
+	}
+	appProjectDestination.Namespace = appProjectNs
+
 	project := v1alpha1.AppProject{
 		TypeMeta: v1alpha1.AppProjectTypeMeta,
 		ObjectMeta: v1alpha1.ObjectMeta{
@@ -87,7 +103,7 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 		Spec: v1alpha1.AppProjectSpec{
 			Description:              env,
 			SourceRepos:              []string{"*"},
-			Destinations:             []v1alpha1.ApplicationDestination{destination},
+			Destinations:             []v1alpha1.ApplicationDestination{appProjectDestination},
 			SyncWindows:              syncWindows,
 			ClusterResourceWhitelist: accessEntries,
 		},
@@ -103,7 +119,7 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 	}
 	syncOptions := config.ArgoCd.SyncOptions
 	for _, appData := range appsData {
-		appManifest, err := RenderApp(gitUrl, gitBranch, config.ArgoCd.ApplicationAnnotations, env, appData, destination, ignoreDifferences, syncOptions)
+		appManifest, err := RenderApp(gitUrl, gitBranch, config.ArgoCd.ApplicationAnnotations, env, appData, applicationDestination, ignoreDifferences, syncOptions)
 		if err != nil {
 			return nil, err
 		}

@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/go-git/go-billy/v5/util"
@@ -1400,7 +1401,7 @@ func TestTransformer(t *testing.T) {
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: "staging",
+							Namespace: ptr.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 					},
@@ -1473,7 +1474,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: "not-staging",
+							Namespace: ptr.FromString("not-staging"),
 							Server:    "localhost:8080",
 						},
 						SyncWindows: []config.ArgoCdSyncWindow{
@@ -1522,7 +1523,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: "not-staging",
+							Namespace: ptr.FromString("not-staging"),
 							Server:    "localhost:8080",
 						},
 						ClusterResourceWhitelist: []config.AccessEntry{
@@ -1572,7 +1573,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: "staging",
+							Namespace: ptr.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 					},
@@ -1660,7 +1661,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: "staging",
+							Namespace: ptr.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 						ApplicationAnnotations: map[string]string{
@@ -1731,7 +1732,7 @@ spec:
 				&CreateEnvironment{Environment: "staging", Config: config.EnvironmentConfig{
 					ArgoCd: &config.EnvironmentConfigArgoCd{
 						Destination: config.ArgoCdDestination{
-							Namespace: "staging",
+							Namespace: ptr.FromString("staging"),
 							Server:    "localhost:8080",
 						},
 						IgnoreDifferences: []config.ArgoCdIgnoreDifference{
@@ -2043,7 +2044,6 @@ func setupRepositoryTest(t *testing.T) Repository {
 	return repo
 }
 
-
 // Injects an error in the filesystem of the state
 type injectErr struct {
 	Transformer
@@ -2071,7 +2071,7 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 		expectedError string
 	}{
 		{
-			name:          "delete lock succedes",
+			name: "delete lock succedes",
 		},
 		{
 			name:          "delete lock fails",
@@ -2107,9 +2107,9 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 				err:       fmt.Errorf("obscure error"),
 			})
 			if tc.expectedError != "" {
-			if err.Error() != tc.expectedError {
-				t.Errorf("expected error to be %q but got %q", tc.expectedError, err)
-			}
+				if err.Error() != tc.expectedError {
+					t.Errorf("expected error to be %q but got %q", tc.expectedError, err)
+				}
 			} else {
 				if err != nil {
 					t.Errorf("expected no error, but got %q", err)
@@ -2133,7 +2133,7 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 		expectedError string
 	}{
 		{
-			name:          "delete lock succedes",
+			name: "delete lock succedes",
 		},
 		{
 			name:          "delete lock fails",
@@ -2170,12 +2170,12 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 				err:       fmt.Errorf("obscure error"),
 			})
 			if tc.expectedError != "" {
-			if err == nil {
-				t.Errorf("expected error to be %q but got <nil>", tc.expectedError)
-			} else if err.Error() != tc.expectedError {
+				if err == nil {
+					t.Errorf("expected error to be %q but got <nil>", tc.expectedError)
+				} else if err.Error() != tc.expectedError {
 
-				t.Errorf("expected error to be %q but got %q", tc.expectedError, err)
-			}
+					t.Errorf("expected error to be %q but got %q", tc.expectedError, err)
+				}
 			} else {
 				if err != nil {
 					t.Errorf("expected no error, but got %q", err)
