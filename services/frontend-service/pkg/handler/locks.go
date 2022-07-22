@@ -76,7 +76,7 @@ func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Reques
 		Message:     body.Message,
 	})
 	if err != nil {
-		handleGRPCErrgor(req.Context(), w, err)
+		handleGRPCError(req.Context(), w, err)
 		return
 	}
 
