@@ -5,40 +5,30 @@ name: "Release kuberpult"
     tags:
       - "*"
 jobs:
-  generate_version:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get the version
-        id: get_version
-        run: |
-          echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
-    outputs:
-      version: ${{ steps.get_version.outputs.VERSION }}
-
   execution-plan:
-    needs: generate_version
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
-      trigger: main
-      version: ${{ needs.generate_version.outputs.version }}  
+      trigger: tag
     secrets: inherit
 
   lint-and-test-helm-chart:
-    needs: [generate_version, execution-plan]
+    needs: [execution-plan]
     uses: ./.github/workflows/test-helm-chart-release.yml
     with:
-      version: ${{ needs.generate_version.outputs.version }}
+      trigger: tag
     secrets: inherit
 
   release:
-    needs: [generate_version, execution-plan, lint-and-test-helm-chart]
+    needs: [execution-plan, lint-and-test-helm-chart]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-      - name: Save version
+      - name: Set version
+        id: version
         run: |
-          echo "VERSION=${{ needs.generate_version.outputs.version }}" >> $GITHUB_ENV
+          echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
+          echo "::set-output name=version::${GITHUB_REF#refs/tags/}"
       - name: Create helm chart for release
         run: |
           make -C charts/kuberpult release-tag
@@ -46,9 +36,9 @@ jobs:
         uses: ./.github/actions/softprops-action-gh-release
         with:
           files: |
-            charts/kuberpult/kuberpult-${{ needs.generate_version.outputs.version }}.tgz
+            charts/kuberpult/kuberpult-${{ steps.version.outputs.version }}.tgz
           body: |
-            Release ${{ needs.generate_version.outputs.version }}
-          tag_name: ${{ needs.generate_version.outputs.version }}
+            Release ${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.version }}
           generate_release_notes: true
           draft: true

@@ -535,7 +535,7 @@ func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (st
 	fs := state.Filesystem
 	file := fs.Join("environments", c.Environment, "locks", c.LockId)
 	if err := fs.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", err
+		return "", fmt.Errorf("failed to delete file %q: %w", file, err)
 	} else {
 		s := State{
 			Filesystem: fs,
@@ -601,7 +601,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state 
 	fs := state.Filesystem
 	file := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
 	if err := fs.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", err
+		return "", fmt.Errorf("failed to delete file %q: %w", file, err)
 	} else {
 		s := State{
 			Filesystem: fs,

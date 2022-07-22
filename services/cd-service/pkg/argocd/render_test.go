@@ -19,6 +19,7 @@ package argocd
 import (
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/google/go-cmp/cmp"
@@ -29,11 +30,13 @@ func TestRender(t *testing.T) {
 	tcs := []struct {
 		Name              string
 		IsUndeployVersion bool
+		Destination       v1alpha1.ApplicationDestination
 		ExpectedResult    string
 	}{
 		{
 			Name:              "deploy",
 			IsUndeployVersion: false,
+			Destination:       v1alpha1.ApplicationDestination{},
 			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -66,6 +69,7 @@ spec:
 		{
 			Name:              "undeploy",
 			IsUndeployVersion: true,
+			Destination:       v1alpha1.ApplicationDestination{},
 			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -74,6 +78,45 @@ metadata:
   name: dev-app1
 spec:
   destination: {}
+  ignoreDifferences:
+  - group: a.b
+    jqPathExpressions:
+    - c
+    - d
+    kind: bar
+    managedFieldsManagers:
+    - e
+    - f
+    name: foo
+  project: dev
+  source:
+    path: environments/dev/applications/app1/manifests
+    repoURL: example.com/github
+    targetRevision: main
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
+`,
+		},
+		{
+			Name:              "namespace test",
+			IsUndeployVersion: true,
+			Destination: v1alpha1.ApplicationDestination{
+				Namespace: "foo",
+			},
+			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  name: dev-app1
+spec:
+  destination:
+    namespace: foo
   ignoreDifferences:
   - group: a.b
     jqPathExpressions:
@@ -114,7 +157,7 @@ spec:
 						ManagedFieldsManagers: []string{"e", "f"},
 					},
 				}
-				destination = v1alpha1.ApplicationDestination{}
+				destination = tc.Destination
 				GitUrl      = "example.com/github"
 				gitBranch   = "main"
 				env         = "dev"
@@ -140,6 +183,7 @@ func TestRenderV1Alpha1(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  config.EnvironmentConfig
+		appData []AppData
 		want    string
 		wantErr bool
 	}{
@@ -230,6 +274,166 @@ spec:
     schedule: not a valid crontab entry
 `,
 		},
+		{
+			name: "namespace unset with app",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					Destination: config.ArgoCdDestination{
+						Namespace:            nil,
+						AppProjectNamespace:  ptr.FromString("bar1"),
+						ApplicationNamespace: ptr.FromString("bar2"),
+					},
+				},
+			},
+			appData: []AppData{
+				{
+					AppName:           "app1",
+					IsUndeployVersion: false,
+				},
+			},
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - namespace: bar1
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: test-env-app1
+spec:
+  destination:
+    namespace: bar2
+  project: test-env
+  source:
+    path: environments/test-env/applications/app1/manifests
+    repoURL: https://git.example.com/
+    targetRevision: branch-name
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+`,
+		},
+		{
+			name: "only set namespace for appProject",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					Destination: config.ArgoCdDestination{
+						Namespace:            nil,
+						AppProjectNamespace:  ptr.FromString("bar1"),
+						ApplicationNamespace: nil,
+					},
+				},
+			},
+			appData: []AppData{
+				{
+					AppName:           "app1",
+					IsUndeployVersion: false,
+				},
+			},
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - namespace: bar1
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: test-env-app1
+spec:
+  destination: {}
+  project: test-env
+  source:
+    path: environments/test-env/applications/app1/manifests
+    repoURL: https://git.example.com/
+    targetRevision: branch-name
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+`,
+		},
+		{
+			name: "namespace unset",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					Destination: config.ArgoCdDestination{
+						Namespace:            nil,
+						AppProjectNamespace:  ptr.FromString("bar1"),
+						ApplicationNamespace: ptr.FromString("bar2"),
+					},
+				},
+			},
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - namespace: bar1
+  sourceRepos:
+  - '*'
+`,
+		},
+		{
+			name: "namespace precedence",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					Destination: config.ArgoCdDestination{
+						Namespace:            ptr.FromString("foo"),
+						AppProjectNamespace:  ptr.FromString("bar1"),
+						ApplicationNamespace: ptr.FromString("bar2"),
+					},
+				},
+			},
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - namespace: foo
+  sourceRepos:
+  - '*'
+`,
+		},
+		{
+			name: "only namespace set",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					Destination: config.ArgoCdDestination{
+						Namespace:            ptr.FromString("foo"),
+						AppProjectNamespace:  nil,
+						ApplicationNamespace: nil,
+					},
+				},
+			},
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - namespace: foo
+  sourceRepos:
+  - '*'
+`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -238,7 +442,7 @@ spec:
 				gitBranch = "branch-name"
 				env       = "test-env"
 			)
-			got, err := RenderV1Alpha1(gitUrl, gitBranch, tt.config, env, nil)
+			got, err := RenderV1Alpha1(gitUrl, gitBranch, tt.config, env, tt.appData)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return
