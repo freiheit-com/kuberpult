@@ -29,6 +29,12 @@ import { GrpcProvider, useObservable } from '../Api';
 import { theme, useStyles } from './styles';
 import { CartAction } from '../ActionDetails';
 
+type ConfigContextType = {
+    configs: api.GetFrontendConfigResponse;
+    setConfigs: React.Dispatch<React.SetStateAction<api.GetFrontendConfigResponse>>;
+};
+export const ConfigsContext = React.createContext<ConfigContextType>({} as any);
+
 type ActionsCartContextType = {
     actions: CartAction[];
     setActions: React.Dispatch<React.SetStateAction<CartAction[]>>;
@@ -62,18 +68,31 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
 const Main = () => {
     const classes = useStyles();
     const [actions, setActions] = useState([] as CartAction[]);
+    const [configs, setConfigs] = useState({} as api.GetFrontendConfigResponse);
+
+    const getConfig = React.useCallback((api) => api.configService().GetConfig(), []);
+    const config = useObservable<api.GetFrontendConfigResponse>(getConfig);
+
+    React.useEffect(() => {
+        if (config.state === 'resolved') {
+            setConfigs(config.result);
+        }
+    }, [config]);
+
     return (
         <ActionsCartContext.Provider value={{ actions, setActions }}>
-            <GetOverview>
-                {(overview) => (
-                    <Box sx={{ display: 'flex', marginRight: '14%' }}>
-                        <Header overview={overview} />
-                        <Box component="main" className={classes.main}>
-                            <Releases data={overview} />
+            <ConfigsContext.Provider value={{ configs, setConfigs }}>
+                <GetOverview>
+                    {(overview) => (
+                        <Box sx={{ display: 'flex', marginRight: '14%' }}>
+                            <Header overview={overview} />
+                            <Box component="main" className={classes.main}>
+                                <Releases data={overview} />
+                            </Box>
                         </Box>
-                    </Box>
-                )}
-            </GetOverview>
+                    )}
+                </GetOverview>
+            </ConfigsContext.Provider>
         </ActionsCartContext.Provider>
     );
 };
