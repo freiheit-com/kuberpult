@@ -253,9 +253,12 @@ describe('Confirmation Dialog Provider', () => {
 
                 // then
                 if (testcase.undeployedUpstream) {
-                  mock_setActions.wasCalledWith([...sampleCartActions, ...(testcase.prefixActions || []), testcase.act], Spy.IGNORE);
+                    mock_setActions.wasCalledWith(
+                        [...sampleCartActions, ...(testcase.prefixActions || []), testcase.act],
+                        Spy.IGNORE
+                    );
                 } else {
-                  mock_setActions.wasCalledWith([...sampleCartActions, testcase.act], Spy.IGNORE);
+                    mock_setActions.wasCalledWith([...sampleCartActions, testcase.act], Spy.IGNORE);
                 }
             } else {
                 // then no dialog will show up
