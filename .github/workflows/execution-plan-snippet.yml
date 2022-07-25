@@ -73,8 +73,7 @@ jobs:
         data: ${{fromJSON(needs.github_convertor.outputs.matrix)}}
     name: ${{ matrix.data.directory }} - Build and Publish
     runs-on: ubuntu-latest
-    container: 
-      image: ${{ matrix.data.image }}
+    container: ${{ matrix.data.image }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
