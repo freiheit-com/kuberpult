@@ -28,10 +28,6 @@ build-main: check-license
 build-pr: check-license
 	echo "on pull request"
 
-.PHONY: publish
-publish:
-	echo "Nothing to do"
-
 .PHONY: get-builder-image
 get-builder-image:
 	@echo "$(KUBERPULT_BUILDER)"

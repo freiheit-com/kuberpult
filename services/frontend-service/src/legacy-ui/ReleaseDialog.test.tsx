@@ -15,8 +15,8 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import React from 'react';
-import { render } from '@testing-library/react';
-import ReleaseDialog, { getUndeployedUpstream } from './ReleaseDialog';
+import { getByTestId, render } from '@testing-library/react';
+import ReleaseDialog, { ArgoCdLink, getFullUrl, getUndeployedUpstream } from './ReleaseDialog';
 import { ActionsCartContext } from './App';
 import { Environment } from '../api/api';
 
@@ -277,6 +277,56 @@ describe('ReleaseDialog', () => {
 
             const syncWindowElements = document.querySelectorAll('.syncWindow');
             expect(syncWindowElements).toHaveLength(argoCD?.syncWindows.length ?? 0);
+        });
+    });
+});
+
+describe('Argocd Link', () => {
+    interface dataT {
+        name: string;
+        baseUrl: string;
+        applicationName: string;
+        environmentName: string;
+        expect: (container: HTMLElement, url?: string) => HTMLElement | void;
+    }
+
+    const data: dataT[] = [
+        {
+            name: 'renders the UndeployBtn component',
+            baseUrl: '',
+            applicationName: 'app1',
+            environmentName: 'env1',
+            expect: (container, url?: string) =>
+                expect(container.querySelector('.MuiButtonBase-root')).not.toBeTruthy(),
+        },
+        {
+            name: 'renders the ArgoCd component with baseUrl',
+            baseUrl: 'http://my-awsome-site.xyz',
+            applicationName: 'app1', //
+            environmentName: 'env1',
+            expect: (container, url?: string) =>
+                expect(getByTestId(container, 'argocd-link')).toHaveAttribute('aria-label', url),
+        },
+    ];
+
+    const getNode = (overrides?: {}): JSX.Element | any => {
+        // given
+        const defaultProps: any = {
+            children: null,
+        };
+        return <ArgoCdLink {...defaultProps} {...overrides} />;
+    };
+    const getWrapper = (overrides?: { baseUrl: string; applicationName: string; environmentName: string }) =>
+        render(getNode(overrides));
+
+    describe.each(data)(`Argocd Link btn`, (testcase) => {
+        it(testcase.name, () => {
+            const { applicationName, baseUrl, environmentName } = testcase;
+            // when
+            const { container } = getWrapper({ baseUrl, applicationName, environmentName });
+            // then
+            const url = getFullUrl(applicationName, environmentName, baseUrl);
+            testcase.expect(container, url);
         });
     });
 });

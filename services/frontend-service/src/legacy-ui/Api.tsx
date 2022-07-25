@@ -24,6 +24,7 @@ export interface Api {
     deployService(): api.DeployService;
     lockService(): api.LockService;
     batchService(): api.BatchService;
+    configService(): api.FrontendConfigService;
 }
 
 const DummyApi: Api = {
@@ -39,6 +40,9 @@ const DummyApi: Api = {
     batchService(): api.BatchService {
         throw new Error('batchService is unimplemented');
     },
+    configService(): api.FrontendConfigService {
+        throw new Error('configService is unimplemented');
+    },
 };
 
 class GrpcApi implements Api {
@@ -46,6 +50,7 @@ class GrpcApi implements Api {
     _deployService: api.DeployService;
     _lockService: api.LockService;
     _batchService: api.BatchService;
+    _configService: api.FrontendConfigService;
     constructor() {
         // eslint-disable-next-line no-restricted-globals
         const gcli = new api.GrpcWebImpl(location.protocol + '//' + location.host, {});
@@ -53,6 +58,7 @@ class GrpcApi implements Api {
         this._deployService = new api.DeployServiceClientImpl(gcli);
         this._lockService = new api.LockServiceClientImpl(gcli);
         this._batchService = new api.BatchServiceClientImpl(gcli);
+        this._configService = new api.FrontendConfigServiceClientImpl(gcli);
     }
     overviewService(): api.OverviewService {
         return this._overviewService;
@@ -65,6 +71,9 @@ class GrpcApi implements Api {
     }
     batchService(): api.BatchService {
         return this._batchService;
+    }
+    configService(): api.FrontendConfigService {
+        return this._configService;
     }
 }
 

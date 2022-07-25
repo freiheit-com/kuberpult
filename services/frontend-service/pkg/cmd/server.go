@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
-	"google.golang.org/grpc/reflection"
 	"io"
 	"net/http"
 
@@ -122,6 +121,12 @@ func RunServer() {
 		api.RegisterDeployServiceServer(gsrv, gproxy)
 		api.RegisterBatchServiceServer(gsrv, gproxy)
 
+		frontendConfigService := &service.FrontendConfigServiceServer{
+			Config: config.FrontendConfig{ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl}},
+		}
+
+		api.RegisterFrontendConfigServiceServer(gsrv, frontendConfigService)
+
 		grpcWebServer := grpcweb.WrapServer(gsrv)
 		httpHandler := handler.Server{
 			DeployClient: deployClient,
@@ -168,10 +173,6 @@ func RunServer() {
 			NextHandler: authHandler,
 		}
 
-		frontendConfigService := &service.FrontendConfigServiceServer{
-			Config: config.FrontendConfig{ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl}},
-		}
-
 		setup.Run(ctx, setup.Config{
 			HTTP: []setup.HTTPConfig{
 				{
@@ -179,17 +180,6 @@ func RunServer() {
 					Register: func(mux *http.ServeMux) {
 						mux.Handle("/", corsHandler)
 					},
-				},
-			},
-			GRPC: &setup.GRPCConfig{
-				Port: "8444",
-				Opts: []grpc.ServerOption{
-					grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
-					grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
-				},
-				Register: func(srv *grpc.Server) {
-					api.RegisterFrontendConfigServiceServer(srv, frontendConfigService)
-					reflection.Register(srv)
 				},
 			},
 		})

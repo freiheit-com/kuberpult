@@ -40,10 +40,15 @@ type EnvironmentConfigArgoCd struct {
 	SyncOptions              []string                 `json:"syncOptions,omitempty"`
 }
 
+// ArgoCdDestination
+// Namespace takes precedence over AppProjectNamespace and ApplicationNamespace. To use the latter attributes, omit the
+// Namespace attribute.
 type ArgoCdDestination struct {
-	Name      string `json:"name"`
-	Server    string `json:"server"`
-	Namespace string `json:"namespace,omitempty"`
+	Name                 string  `json:"name"`
+	Server               string  `json:"server"`
+	Namespace            *string `json:"namespace,omitempty"`
+	AppProjectNamespace  *string `json:"appProjectNamespace,omitempty"`
+	ApplicationNamespace *string `json:"applicationNamespace,omitempty"`
 }
 
 type ArgoCdSyncWindow struct {

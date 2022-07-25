@@ -14,15 +14,27 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { render } from '@testing-library/react';
-import { App } from './';
+import { App as LegacyApp } from '../legacy-ui/App';
+import { App } from './App';
+import { Routes as ReactRoutes, Route } from 'react-router-dom';
 
-describe('App', () => {
-    const getNode = (): JSX.Element | any => <App />;
-    const getWrapper = () => render(getNode());
+const prefix = 'v2';
+const routes = [
+    {
+        path: `/${prefix}`,
+        element: <App />,
+    },
+    {
+        // If none of the above paths are matched, then this route is chosen
+        path: '*',
+        element: <LegacyApp />,
+    },
+];
 
-    it('Renders full app', () => {
-        const { container } = getWrapper();
-        expect(container.textContent).toBe('hello world');
-    });
-});
+export const Routes: React.FC = () => (
+    <ReactRoutes>
+        {routes.map((route) => (
+            <Route key={route.path} path={route.path} element={route.element} />
+        ))}
+    </ReactRoutes>
+);
