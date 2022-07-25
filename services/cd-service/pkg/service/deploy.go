@@ -29,6 +29,7 @@ import (
 
 type DeployServiceServer struct {
 	Repository repository.Repository
+	HealthCheckResult HealthCheckResultPtr
 }
 
 func (d *DeployServiceServer) Deploy(
@@ -70,11 +71,11 @@ func (d *DeployServiceServer) Deploy(
 			}
 			stat, sErr := status.New(codes.FailedPrecondition, "locked").WithDetails(detail)
 			if sErr != nil {
-				return nil, internalError(ctx, sErr)
+				return nil, internalError(ctx, sErr, d.HealthCheckResult)
 			}
 			return nil, stat.Err()
 		}
-		return nil, internalError(ctx, err)
+		return nil, internalError(ctx, err, d.HealthCheckResult)
 	}
 
 	return &emptypb.Empty{}, nil
@@ -95,7 +96,7 @@ func (d *DeployServiceServer) ReleaseTrain(
 		Team:        in.Team,
 	})
 	if err != nil {
-		return nil, internalError(ctx, err)
+		return nil, internalError(ctx, err, d.HealthCheckResult)
 	}
 	return &emptypb.Empty{}, nil
 }

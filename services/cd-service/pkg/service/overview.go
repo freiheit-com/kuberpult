@@ -41,6 +41,8 @@ type OverviewServiceServer struct {
 
 	init     sync.Once
 	response atomic.Value
+
+	HealthCheckResult HealthCheckResultPtr
 }
 
 func (o *OverviewServiceServer) GetOverview(
@@ -57,7 +59,7 @@ func (o *OverviewServiceServer) getOverview(
 		Applications: map[string]*api.Application{},
 	}
 	if envs, err := s.GetEnvironmentConfigs(); err != nil {
-		return nil, internalError(ctx, err)
+		return nil, internalError(ctx, err, o.HealthCheckResult)
 	} else {
 		for envName, config := range envs {
 			env := api.Environment{
