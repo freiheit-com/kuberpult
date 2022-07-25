@@ -304,7 +304,7 @@ export const getUndeployedUpstream = (
     let upstreamEnv = (environments[environmentName]?.config?.upstream?.upstream as any)?.environment;
     while (upstreamEnv !== undefined) {
         const upstreamVersion = environments[upstreamEnv]?.applications[applicationName]?.version;
-        if (upstreamVersion < version) return upstreamEnv;
+        if (upstreamVersion !== version) return upstreamEnv;
         upstreamEnv = (environments[upstreamEnv]?.config?.upstream?.upstream as any)?.environment;
     }
     return '';
@@ -354,6 +354,16 @@ const ReleaseEnvironment: VFC<{
         }),
         [applicationName, version, environmentName]
     );
+    // lock action, required if upstream undeployed
+    const lockAction: CartAction = useMemo(
+        () => ({
+            createApplicationLock: {
+                environment: environmentName,
+                application: applicationName,
+            },
+        }),
+        [applicationName, environmentName]
+    );
     const currentlyDeployedVersion = overview.environments[environmentName].applications[applicationName]?.version;
 
     const deleteQueue: CartAction = useMemo(
@@ -379,6 +389,7 @@ const ReleaseEnvironment: VFC<{
             action={act}
             locks={[...envLocks, ...appLocks]}
             undeployedUpstream={undeployedUpstream}
+            prefixActions={undeployedUpstream ? [lockAction] : []}
             syncWindows={syncWindows}>
             <DeployButtonInner
                 currentlyDeployedVersion={currentlyDeployedVersion}
