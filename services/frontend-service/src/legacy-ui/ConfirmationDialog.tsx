@@ -158,7 +158,7 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
                 ))}
                 <FormControlLabel
                     control={<Checkbox checked={addEnvironmentLock} onChange={handleUndeployedUpstreamCheckbox} />}
-                    label="Lock environment"
+                    label="Lock application"
                 />
             </Alert>
         </>
