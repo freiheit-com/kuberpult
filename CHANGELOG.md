@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.4.29
+
+**released 2022-07-25**
+
+### Added
+
+When the upstream version of an application is different, and the application is deployed manually, a lock for the application is added automatically to prevent release train override [#258](https://github.com/freiheit-com/kuberpult/pull/258)
+
 ## 0.4.28
 
 **released 2022-07-22**
