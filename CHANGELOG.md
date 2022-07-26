@@ -1,12 +1,20 @@
 # Change Log
 
+## 0.4.30
+
+**released 2022-07-26**
+
+### Added
+* Added link to Argocd in UI [#254](https://github.com/freiheit-com/kuberpult/pull/254)
+* Added v2 route for the new kuberpult UI  [#245](https://github.com/freiheit-com/kuberpult/pull/245)
+
 ## 0.4.29
 
 **released 2022-07-25**
 
 ### Added
 
-When the upstream version of an application is different, and the application is deployed manually, a lock for the application is added automatically to prevent release train override [#258](https://github.com/freiheit-com/kuberpult/pull/258)
+* When the upstream version of an application is different, and the application is deployed manually, a lock for the application is added automatically to prevent release train override [#258](https://github.com/freiheit-com/kuberpult/pull/258)
 
 ## 0.4.28
 
