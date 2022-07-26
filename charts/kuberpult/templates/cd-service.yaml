@@ -143,6 +143,9 @@ spec:
           subPath: environment_configs.json
 {{- end }}
       volumes:
+      - name: repository
+        emptyDir:
+          sizeLimit: 10G
       - name: ssh
         secret:
           secretName: kuberpult-ssh
@@ -164,14 +167,6 @@ spec:
         hostPath:
           path: {{ .Values.dogstatsdMetrics.hostSocketPath }}
 {{- end }}
-  volumeClaimTemplates:
-  - metadata:
-      name: repository
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: "5Gi"
 ---
 apiVersion: v1
 kind: Service
