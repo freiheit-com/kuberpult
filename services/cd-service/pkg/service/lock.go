@@ -19,7 +19,9 @@ package service
 import (
 	"context"
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -105,6 +107,8 @@ func (l *LockServiceServer) DeleteEnvironmentApplicationLock(
 }
 
 func internalError(ctx context.Context, err error, result *HealthCheckResult) error {
+	logger := logger.FromContext(ctx)
+	logger.Error("grpc.internal", zap.Error(err))
 	if strings.Contains(strings.ToLower(err.Error()), "no space left on device") {
 		// detected that we ran out of storage
 		// we can't do anything here, except restart the pod (to get a new storage)
