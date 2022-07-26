@@ -113,7 +113,7 @@ func internalError(ctx context.Context, err error, result *HealthCheckResult) er
 		// detected that we ran out of storage
 		// we can't do anything here, except restart the pod (to get a new storage)
 		result.OK = false
-		result.HttpCode =507
+		result.HttpCode = 507
 	}
 	return status.Error(codes.Internal, "internal error")
 }

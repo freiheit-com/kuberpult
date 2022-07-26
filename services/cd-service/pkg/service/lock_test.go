@@ -296,3 +296,46 @@ func TestErrorLock(t *testing.T) {
 		})
 	}
 }
+
+func TestInternalError(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Error         error
+		ExpectedResult HealthCheckResult
+	}{
+		{
+			Name: "normal error",
+			Error: fmt.Errorf("normal error"),
+			ExpectedResult: HealthCheckResult{
+				OK:       true,
+				HttpCode: 200,
+			},
+		},
+		{
+			Name: "disk error",
+			Error: fmt.Errorf("No SpAcE left on device!!!"),
+			ExpectedResult: HealthCheckResult{
+				OK:       false,
+				HttpCode: 507,
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			var hcr = HealthCheckResult{
+				OK:       true,
+				HttpCode: 200,
+			}
+			_ = internalError(context.Background(), tc.Error, &hcr)
+			if hcr.OK != tc.ExpectedResult.OK {
+				t.Errorf("Expect OK to be '%t' but was '%t'", tc.ExpectedResult.OK, hcr.OK);
+			}
+			if hcr.HttpCode != tc.ExpectedResult.HttpCode {
+				t.Errorf("Expect HttpCode to be '%v' but was '%v'", tc.ExpectedResult.HttpCode, hcr.HttpCode);
+			}
+		})
+	}
+}
