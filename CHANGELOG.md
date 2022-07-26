@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.4.31
+
+**released 2022-07-26**
+
+### Fixed
+* fix argocd get full url function [#262](https://github.com/freiheit-com/kuberpult/pull/262)
+
 ## 0.4.30
 
 **released 2022-07-26**
