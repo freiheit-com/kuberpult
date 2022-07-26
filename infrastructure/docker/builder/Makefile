@@ -37,7 +37,3 @@ release:
 publish: login release
 	echo $(VERSION)
 	echo $(IMAGENAME)
-
-.PHONY: get-builder-image
-get-builder-image:
-	@echo "$(KUBERPULT_BUILDER)"
