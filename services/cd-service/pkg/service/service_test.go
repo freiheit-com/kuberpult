@@ -311,7 +311,7 @@ func TestServeHttp(t *testing.T) {
 			service := &Service{
 				Repository: repo,
 				KeyRing:    tc.KeyRing,
-				DiskSpaceOk: true,
+				HealthCheckResults: []HealthCheckResultPtr{},
 			}
 			// start server
 			srv := httptest.NewServer(service)
@@ -452,7 +452,7 @@ func TestServeHttpEmptyBody(t *testing.T) {
 			service := &Service{
 				Repository: repo,
 				KeyRing:    exampleKeyRing,
-				DiskSpaceOk: true,
+				HealthCheckResults: []HealthCheckResultPtr{},
 			}
 			// start server
 			srv := httptest.NewServer(service)
