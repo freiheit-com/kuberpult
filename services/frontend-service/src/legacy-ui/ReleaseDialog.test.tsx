@@ -325,7 +325,7 @@ describe('Argocd Link', () => {
             // when
             const { container } = getWrapper({ baseUrl, applicationName, environmentName });
             // then
-            const url = getFullUrl(applicationName, environmentName, baseUrl);
+            const url = getFullUrl(baseUrl, environmentName, applicationName);
             testcase.expect(container, url);
         });
     });

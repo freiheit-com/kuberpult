@@ -310,21 +310,21 @@ export const getUndeployedUpstream = (
     return '';
 };
 
-export const getFullUrl = (applicationName: string, environmentName: string, baseUrl?: string): string =>
+export const getFullUrl = (baseUrl: string, environmentName: string, applicationName: string): string =>
     `${baseUrl}/applications/${environmentName}-${applicationName}`;
 
 export const ArgoCdLink = (props: { baseUrl?: string; applicationName: string; environmentName: string }) => {
     const { baseUrl, applicationName, environmentName } = props;
 
     const navigate = React.useCallback(() => {
-        window.open(getFullUrl(baseUrl || '', applicationName, environmentName));
+        window.open(getFullUrl(baseUrl || '', environmentName, applicationName));
     }, [baseUrl, environmentName, applicationName]);
 
     return !!baseUrl ? (
         <Tooltip
             arrow
             key={`${applicationName}-${environmentName}`}
-            title={`${baseUrl}/applications/${environmentName}-${applicationName}`}>
+            title={getFullUrl(baseUrl || '', environmentName, applicationName)}>
             <IconButton onClick={navigate} data-testid={`argocd-link`}>
                 <Avatar
                     src={`https://cncf-branding.netlify.app/img/projects/argo/icon/color/argo-icon-color.svg`}
