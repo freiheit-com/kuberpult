@@ -133,8 +133,9 @@ func RunServer() {
 		}
 
 		repositoryService := &service.Service{
-			Repository: repo,
-			KeyRing:    pgpKeyRing,
+			Repository:     repo,
+			KeyRing:        pgpKeyRing,
+			//HealthCheckResults: filled in below
 		}
 
 		span.Finish()
@@ -158,27 +159,47 @@ func RunServer() {
 					grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 				},
 				Register: func(srv *grpc.Server) {
-					api.RegisterLockServiceServer(srv, &service.LockServiceServer{
-						Repository: repo,
-					})
-					api.RegisterDeployServiceServer(srv, &service.DeployServiceServer{
-						Repository: repo,
-					})
-					api.RegisterBatchServiceServer(srv, &service.BatchServer{
-						Repository: repo,
-					})
+					var healthCheckResults = []service.HealthCheckResultPtr{}
 
-					envSrv := &service.EnvironmentServiceServer{
+					lockServiceServer := service.LockServiceServer{
 						Repository: repo,
+						HealthCheckResult: makeHealthCheckResult(),
 					}
+					api.RegisterLockServiceServer(srv, &lockServiceServer)
+					healthCheckResults = append(healthCheckResults, lockServiceServer.HealthCheckResult)
+
+					deployServiceServer := service.DeployServiceServer{
+						Repository:        repo,
+						HealthCheckResult:  makeHealthCheckResult(),
+					}
+					api.RegisterDeployServiceServer(srv, &deployServiceServer)
+					healthCheckResults = append(healthCheckResults, deployServiceServer.HealthCheckResult)
+
+					batchServer := service.BatchServer{
+						Repository:        repo,
+						HealthCheckResult:  makeHealthCheckResult(),
+					}
+					api.RegisterBatchServiceServer(srv, &batchServer)
+					healthCheckResults = append(healthCheckResults, batchServer.HealthCheckResult)
+
+					environmentServiceServer := service.EnvironmentServiceServer{
+						Repository:        repo,
+						HealthCheckResult:  makeHealthCheckResult(),
+					}
+					envSrv := &environmentServiceServer
 					api.RegisterEnvironmentServiceServer(srv, envSrv)
+					healthCheckResults = append(healthCheckResults, environmentServiceServer.HealthCheckResult)
 
 					overviewSrv := &service.OverviewServiceServer{
-						Repository: repo,
-						Shutdown:   shutdownCh,
+						Repository:        repo,
+						Shutdown:          shutdownCh,
+						HealthCheckResult:  makeHealthCheckResult(),
 					}
+					healthCheckResults = append(healthCheckResults, overviewSrv.HealthCheckResult)
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
 					reflection.Register(srv)
+					repositoryService.HealthCheckResults = healthCheckResults
+
 				},
 			},
 			Shutdown: func(ctx context.Context) error {
@@ -188,4 +209,10 @@ func RunServer() {
 		})
 		return nil
 	})
+}
+
+func makeHealthCheckResult() *service.HealthCheckResult {
+	return &service.HealthCheckResult{
+		OK:       true,
+	}
 }

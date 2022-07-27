@@ -25,10 +25,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"os"
+	"strings"
 )
 
 type LockServiceServer struct {
-	Repository repository.Repository
+	Repository        repository.Repository
+	HealthCheckResult HealthCheckResultPtr
 }
 
 func (l *LockServiceServer) CreateEnvironmentLock(
@@ -44,7 +47,7 @@ func (l *LockServiceServer) CreateEnvironmentLock(
 		Message:     in.Message,
 	})
 	if err != nil {
-		return nil, internalError(ctx, err)
+		return nil, internalError(ctx, err, l.HealthCheckResult)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -61,7 +64,7 @@ func (l *LockServiceServer) DeleteEnvironmentLock(
 		LockId:      in.LockId,
 	})
 	if err != nil {
-		return nil, internalError(ctx, err)
+		return nil, internalError(ctx, err, l.HealthCheckResult)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -80,7 +83,7 @@ func (l *LockServiceServer) CreateEnvironmentApplicationLock(
 		Message:     in.Message,
 	})
 	if err != nil {
-		return nil, internalError(ctx, err)
+		return nil, internalError(ctx, err, l.HealthCheckResult)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -98,14 +101,22 @@ func (l *LockServiceServer) DeleteEnvironmentApplicationLock(
 		LockId:      in.LockId,
 	})
 	if err != nil {
-		return nil, internalError(ctx, err)
+		return nil, internalError(ctx, err, l.HealthCheckResult)
 	}
+
 	return &emptypb.Empty{}, nil
 }
 
-func internalError(ctx context.Context, err error) error {
+func internalError(ctx context.Context, err error, result *HealthCheckResult) error {
 	logger := logger.FromContext(ctx)
 	logger.Error("grpc.internal", zap.Error(err))
+	if strings.Contains(strings.ToLower(err.Error()), "no space left on device") {
+		// detected that we ran out of storage
+		// we can't do anything here, except restart the pod (to get a new storage)
+		result.OK = false
+		result.HttpCode = 507
+		os.Exit(0) // we use code==0 here to signal to kubernetes that everything is fine. In this case it will give us new storage TODO VALIDATE!
+	}
 	return status.Error(codes.Internal, "internal error")
 }
 

@@ -29,6 +29,7 @@ import (
 
 type BatchServer struct {
 	Repository repository.Repository
+	HealthCheckResult HealthCheckResultPtr
 }
 
 const maxBatchActions int = 100
@@ -186,8 +187,9 @@ func (d *BatchServer) ProcessBatch(
 	}
 	err := d.Repository.Apply(ctx, transformers...)
 	if err != nil {
-		return nil, internalError(ctx, fmt.Errorf("could not apply transformer: %w", err))
+		return nil, internalError(ctx, fmt.Errorf("could not apply transformer: %w", err), d.HealthCheckResult)
 	}
+
 	return &emptypb.Empty{}, nil
 }
 

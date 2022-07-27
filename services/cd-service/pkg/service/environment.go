@@ -26,6 +26,7 @@ import (
 
 type EnvironmentServiceServer struct {
 	Repository repository.Repository
+	HealthCheckResult HealthCheckResultPtr
 }
 
 func (e *EnvironmentServiceServer) CreateEnvironment(
@@ -36,7 +37,7 @@ func (e *EnvironmentServiceServer) CreateEnvironment(
 		Environment: in.Environment,
 	})
 	if err != nil {
-		return nil, internalError(ctx, err)
+		return nil, internalError(ctx, err, e.HealthCheckResult)
 	}
 	return &emptypb.Empty{}, nil
 }

@@ -46,9 +46,16 @@ var (
 	authorRx = regexp.MustCompile(`\A[^<\n]+( <[^@\n]+@[^>\n]+>)?\z`)
 )
 
+type HealthCheckResult struct {
+	 OK bool
+	 HttpCode int
+}
+type HealthCheckResultPtr * HealthCheckResult
+
 type Service struct {
 	Repository repository.Repository
 	KeyRing    openpgp.KeyRing
+	HealthCheckResults[]  HealthCheckResultPtr
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -63,6 +70,14 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) ServeHTTPHealth(w http.ResponseWriter, r *http.Request) {
+	for i := 0; i < len(s.HealthCheckResults); i++ {
+		var result = s.HealthCheckResults[i]
+		if ! result.OK {
+			w.WriteHeader(result.HttpCode)
+			fmt.Fprintf(w, "Internal Error\n") // details should be kept in the server logs
+			return
+		}
+	}
 	w.WriteHeader(200)
 	fmt.Fprintf(w, "ok\n")
 }
