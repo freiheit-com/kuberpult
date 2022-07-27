@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"os"
 	"strings"
 )
 
@@ -114,6 +115,7 @@ func internalError(ctx context.Context, err error, result *HealthCheckResult) er
 		// we can't do anything here, except restart the pod (to get a new storage)
 		result.OK = false
 		result.HttpCode = 507
+		os.Exit(0) // we use code==0 here to signal to kubernetes that everything is fine. In this case it will give us new storage TODO VALIDATE!
 	}
 	return status.Error(codes.Internal, "internal error")
 }
