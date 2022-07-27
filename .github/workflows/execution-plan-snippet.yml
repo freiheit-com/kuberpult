@@ -67,7 +67,7 @@ jobs:
 
   build_and_publish:
     needs: [github_convertor, execution_plan]
-    if: needs.github_convertor.outputs.matrix != '[]'
+    if: needs.github_convertor.outputs.matrix != '[]' && matrix.data.image != ""
     strategy:
       matrix: 
         data: ${{fromJSON(needs.github_convertor.outputs.matrix)}}
