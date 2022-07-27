@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.4.32
+
+**released 2022-07-27**
+
+### Fixed
+* Fixed issue with disk running full [#266](https://github.com/freiheit-com/kuberpult/pull/266)
+
+
 ## 0.4.31
 
 **released 2022-07-26**
