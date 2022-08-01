@@ -8,14 +8,23 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - id: convert
+      shell: sh
+      run: |
+        echo "::set-output name=data::${{ fromJSON(inputs.data) }}"
     - shell: sh
       run: |
         echo "Pre build action"
-    - if: contains(inputs.data.preBuildActions, 'check_flag_1') && inputs.data.directory == 'infrastructure/scripts/check-license'
+    - uses: actions/hello_world@main
+      with:
+        first_name: Mona
+        middle_name: The
+        last_name: Octocat  
+    - if: contains(steps.convert.outputs.data.preBuildActions, 'check_flag_1') && steps.convert.outputs..data.directory == 'infrastructure/scripts/check-license'
       shell: sh
       run: |
-        echo "custom pre build action for chekc-license with variable ${{ inputs.data.name }}"
-    - if: contains(inputs.data.preBuildActions, 'noFlagFound') && inputs.data.directory == 'infrastructure/scripts/check-license'
-      shell: bash
-      run: |
-        echo "can run different shells on different containers"
+        echo "custom pre build action for chekc-license with variable ${{ steps.convert.outputs..data.name }}"
+    # - if: contains(inputs.data.preBuildActions, 'noFlagFound') && inputs.data.directory == 'infrastructure/scripts/check-license'
+      # shell: bash
+      # run: |
+        # echo "can run different shells on different containers"
