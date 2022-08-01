@@ -8,6 +8,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - shell: bash
+    - shell: sh
       run: |
         echo "Pre build action"
