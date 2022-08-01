@@ -22,9 +22,9 @@ jobs:
     steps:
       - name: set
         run: |
-          echo "${{fromJSON(needs.create-json.outputs.matrix)}}"
-          VAR=${{fromJSON(needs.create-json.outputs.matrix)}}
-          echo $VAR
+          # echo "${{fromJSON(needs.create-json.outputs.matrix)}}"
+          # VAR=${{fromJSON(needs.create-json.outputs.matrix)}}
+          # echo $VAR
 
   printstuff:
     needs: [create-json]
