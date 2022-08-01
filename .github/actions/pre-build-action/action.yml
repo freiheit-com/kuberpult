@@ -14,8 +14,8 @@ runs:
     - if: contains(fromJSON(inputs.data).preBuildActions, 'check_flag_1') && fromJSON(inputs.data).directory == 'infrastructure/scripts/check-license'
       shell: sh
       run: |
-        echo "custom pre build action for chekc-license with variable ${{ fromJSON(inputs.data).name }}"
-    # - if: contains(inputs.data.preBuildActions, 'noFlagFound') && inputs.data.directory == 'infrastructure/scripts/check-license'
-      # shell: bash
-      # run: |
-        # echo "can run different shells on different containers"
+        echo "custom pre build action for chekc-license with variable ${{ fromJSON(inputs.data).directory }}"
+    - if: contains(fromJSON(inputs.data).preBuildActions, 'nonExistantFlag') && fromJSON(inputs.data).directory == 'infrastructure/scripts/check-license'
+      shell: bash
+      run: |
+        echo "can run different shells if different container with bash"

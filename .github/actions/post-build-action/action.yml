@@ -11,7 +11,7 @@ runs:
     - shell: sh
       run: |
         echo "Post build action"
-    - if: contains(inputs.data.postBuildActions, 'check_flag_1') && inputs.data.directory == 'infrastructure/scripts/check-license'
+    - if: contains(fromJSON(inputs.data).postBuildActions, 'check_flag_1') && fromJSON(inputs.data).directory == 'infrastructure/scripts/check-license'
       shell: sh
       run: |
-        echo "custom post build action for chekc-license with variable ${{ inputs.data.name }}"
+        echo "custom post build action for chekc-license with variable ${{ fromJSON(inputs.data).directory }}"
