@@ -37,13 +37,13 @@ jobs:
         run: echo truebool
       - if: matrix.data.falsebool 
         run: echo falsebool
-      - if: matrix.data.falsestring == "false" 
+      - if: matrix.data.falsestring == 'false'
         run: echo falsestring
-      - if: matrix.data.truestring == "true" 
+      - if: matrix.data.truestring == 'true' 
         run: echo truestring
-      - if: matrix.data.key1 != "" 
+      - if: matrix.data.key1 != '' 
         run: echo key1 exists with values ${{ matrix.data.key1 }}
-      - if: matrix.data.key2 != "" 
+      - if: matrix.data.key2 != '' 
         run: echo key2 exists with values ${{ matrix.data.key2 }}
  
 
