@@ -1,0 +1,12 @@
+name: "Post Build Action"
+description: "Runs after build action"
+author: "mnishamk-freiheit"
+inputs:
+  data:
+    description: "matrix data used by the build"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        echo "Post build action"

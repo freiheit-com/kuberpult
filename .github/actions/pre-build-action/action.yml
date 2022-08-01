@@ -1,0 +1,12 @@
+name: "Pre Build Action"
+description: "Runs before build action"
+author: "mnishamk-freiheit"
+inputs:
+  data:
+    description: "matrix data used by the build"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        echo "Pre build action"
