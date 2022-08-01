@@ -16,16 +16,6 @@ jobs:
     outputs:
       matrix: ${{ steps.json.outputs.matrix }}
 
-  test-json:
-    needs: [create-json]
-    runs-on: ubuntu-latest
-    steps:
-      - name: set
-        run: |
-          # echo "${{fromJSON(needs.create-json.outputs.matrix)}}"
-          # VAR=${{fromJSON(needs.create-json.outputs.matrix)}}
-          # echo $VAR
-
   printstuff:
     needs: [create-json]
     strategy:
