@@ -105,7 +105,7 @@ jobs:
       - name: Pre build actions
         uses: ./.github/actions/pre-build-action
         with:
-          data: ${{ fromJSON(toJSON(matrix.data)) }}
+          data: ${{ toJSON(matrix.data) }}
       - name: Test, Build and Publish
         run: ${{ matrix.data.command }}
       # - name: Post build actions

@@ -8,21 +8,13 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - id: convert
-      shell: sh
-      run: |
-        echo "::set-output name=data::${{ fromJSON(inputs.data) }}"
     - shell: sh
       run: |
         echo "Pre build action"
-    - shell: sh
-      run: |
-        echo "${{ steps.convert.outputs.data }}"
-        echo "${{ inputs.data }}"
-    - if: contains(steps.convert.outputs.data.preBuildActions, 'check_flag_1') && steps.convert.outputs.data.directory == 'infrastructure/scripts/check-license'
+    - if: contains(fromJSON(inputs.data).preBuildActions, 'check_flag_1') && fromJSON(inputs.data).directory == 'infrastructure/scripts/check-license'
       shell: sh
       run: |
-        echo "custom pre build action for chekc-license with variable ${{ steps.convert.outputs.data.name }}"
+        echo "custom pre build action for chekc-license with variable ${{ fromJSON(inputs.data).name }}"
     # - if: contains(inputs.data.preBuildActions, 'noFlagFound') && inputs.data.directory == 'infrastructure/scripts/check-license'
       # shell: bash
       # run: |
