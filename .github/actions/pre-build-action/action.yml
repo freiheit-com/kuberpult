@@ -20,10 +20,10 @@ runs:
         first_name: Mona
         middle_name: The
         last_name: Octocat  
-    - if: contains(steps.convert.outputs.data.preBuildActions, 'check_flag_1') && steps.convert.outputs..data.directory == 'infrastructure/scripts/check-license'
+    - if: contains(steps.convert.outputs.data.preBuildActions, 'check_flag_1') && steps.convert.outputs.data.directory == 'infrastructure/scripts/check-license'
       shell: sh
       run: |
-        echo "custom pre build action for chekc-license with variable ${{ steps.convert.outputs..data.name }}"
+        echo "custom pre build action for chekc-license with variable ${{ steps.convert.outputs.data.name }}"
     # - if: contains(inputs.data.preBuildActions, 'noFlagFound') && inputs.data.directory == 'infrastructure/scripts/check-license'
       # shell: bash
       # run: |
