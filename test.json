@@ -3,5 +3,7 @@
   "truestring": "true",
   "truebool": true,
   "falsestring": "false",
-  "falsebool": false
+  "falsebool": false,
+  "array": ["key1"],
+  "array2": []
 }]

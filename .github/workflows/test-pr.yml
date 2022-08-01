@@ -36,7 +36,14 @@ jobs:
         run: echo key1 exists with values ${{ matrix.data.key1 }}
       - if: matrix.data.key2 != '' 
         run: echo key2 exists with values ${{ matrix.data.key2 }}
- 
+      - if: contains(matrix.data.array,  'key1') 
+        run: key1 exists in array
+      - if: contains(matrix.data.array,  'key2') 
+        run: key2 exists in array
+      - if: contains(matrix.data.array2,  'key2') 
+        run: key2 exists in array2
+      - if: contains(matrix.data.array3,  'key2') 
+        run: key2 exists in array3
 
 
 
