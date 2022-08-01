@@ -1,0 +1,7 @@
+[{
+  "key1": "value1",
+  "truestring": "true",
+  "truebool": true,
+  "falsestring": "false",
+  "falsebool": false
+}]
