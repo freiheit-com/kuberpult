@@ -12,7 +12,8 @@ jobs:
       - name: set json
         id: json
         run: |
-          echo "::set-output name=matrix::$(cat test.json)"
+          cat test.json
+          echo "::set-output name=matrix::$(cat test.json | tr -d '\n')"
     outputs:
       matrix: ${{ steps.json.outputs.matrix }}
 
