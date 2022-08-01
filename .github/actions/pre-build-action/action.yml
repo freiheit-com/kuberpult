@@ -15,7 +15,8 @@ runs:
     - shell: sh
       run: |
         echo "Pre build action"
-    - run: |
+    - shell: sh
+      run: |
         echo "${{ steps.convert.outputs.data }}"
         echo "${{ inputs.data }}"
     - if: contains(steps.convert.outputs.data.preBuildActions, 'check_flag_1') && steps.convert.outputs.data.directory == 'infrastructure/scripts/check-license'
