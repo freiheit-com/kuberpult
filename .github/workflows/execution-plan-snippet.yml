@@ -105,13 +105,13 @@ jobs:
       - name: Pre build actions
         uses: ./.github/actions/pre-build-action
         with:
-          data: matrix.data
+          data: ${{ matrix.data }}
       - name: Test, Build and Publish
         run: ${{ matrix.data.command }}
       - name: Post build actions
         uses: ./.github/actions/post-build-action
         with:
-          data: matrix.data
+          data: ${{ matrix.data }}
       - uses: actions/upload-artifact@v3
         if: matrix.data.artifacts != ''
         with:
