@@ -11,3 +11,7 @@ runs:
     - shell: sh
       run: |
         echo "Post build action"
+    - if: contains(data.postBuildActions, 'check_flag_1') && data.directory == 'infrastructure/scripts/check-license'
+      shell: sh
+      run: |
+        echo "custom post build action for chekc-license with variable ${{ data.name }}"

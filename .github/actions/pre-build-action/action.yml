@@ -11,3 +11,11 @@ runs:
     - shell: sh
       run: |
         echo "Pre build action"
+    - if: contains(data.preBuildActions, 'check_flag_1') && data.directory == 'infrastructure/scripts/check-license'
+      shell: sh
+      run: |
+        echo "custom pre build action for chekc-license with variable ${{ data.name }}"
+    - if: contains(data.preBuildActions, 'noFlagFound') && data.directory == 'infrastructure/scripts/check-license'
+      shell: bash
+      run: |
+        echo "can run different shells on different containers"

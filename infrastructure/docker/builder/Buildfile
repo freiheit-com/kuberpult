@@ -2,4 +2,8 @@ metadata:
   name: kuberpult-builder
   builder: kuberpult-builder 
   version: 0.0.1
+pre_build_actions:
+  - check_flag_1
+post_build_actions:
+  - check_flag_2
 
