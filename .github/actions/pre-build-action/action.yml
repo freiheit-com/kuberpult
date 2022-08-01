@@ -15,11 +15,7 @@ runs:
     - shell: sh
       run: |
         echo "Pre build action"
-    - uses: actions/hello_world@main
-      with:
-        first_name: Mona
-        middle_name: The
-        last_name: Octocat  
+    - uses: actions/checkout@v3
     - if: contains(steps.convert.outputs.data.preBuildActions, 'check_flag_1') && steps.convert.outputs.data.directory == 'infrastructure/scripts/check-license'
       shell: sh
       run: |
