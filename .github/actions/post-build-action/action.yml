@@ -8,5 +8,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - run: |
+    - shell: bash
+      run: |
         echo "Post build action"
