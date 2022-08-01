@@ -5,6 +5,6 @@ spec:
   dependsOn:
   - ../../..
 pre_build_actions:
-  - check_flag_1
+  - check-license-sample-flag 
 post_build_actions:
-  - check_flag_2
+  - check-license-sample-flag 

@@ -10,8 +10,8 @@ runs:
   steps:
     - shell: sh
       run: |
-        echo "Post build action"
-    - if: contains(fromJSON(inputs.data).postBuildActions, 'check_flag_2') && fromJSON(inputs.data).directory == 'infrastructure/scripts/check-license'
+        echo "Customizable post build action"
+    - if: contains(fromJSON(inputs.data).postBuildActions, 'check-license-sample-flag') && fromJSON(inputs.data).directory == 'infrastructure/scripts/check-license'
       shell: sh
       run: |
-        echo "custom post build action for chekc-license with variable ${{ fromJSON(inputs.data).directory }}"
+        echo "Customizable post build action for check-license on directory ${{ fromJSON(inputs.data).directory }}"
