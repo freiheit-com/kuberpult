@@ -22,15 +22,15 @@ jobs:
     steps:
       - name: set
         run: |
-          echo "${{fromJSON(needs.github_convertor.outputs.matrix)}}"
-          VAR=${{fromJSON(needs.github_convertor.outputs.matrix)}}
+          echo "${{fromJSON(needs.create-json.outputs.matrix)}}"
+          VAR=${{fromJSON(needs.create-json.outputs.matrix)}}
           echo $VAR
 
   printstuff:
     needs: [create-json]
     strategy:
       matrix: 
-        data: ${{fromJSON(needs.github_convertor.outputs.matrix)}}
+        data: ${{fromJSON(needs.create-json.outputs.matrix)}}
     runs-on: ubuntu-latest
     steps:
       - if: matrix.data.truebool 
