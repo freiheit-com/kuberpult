@@ -4,3 +4,7 @@ metadata:
 spec:
   dependsOn:
   - ../../..
+pre_build_actions:
+  - check-license-sample-flag 
+post_build_actions:
+  - check-license-sample-flag 

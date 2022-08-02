@@ -1,0 +1,17 @@
+name: "Post Build Action"
+description: "Runs after build action"
+author: "mnishamk-freiheit"
+inputs:
+  data:
+    description: "matrix data used by the build"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - shell: sh
+      run: |
+        echo "Customizable post build action"
+    - if: contains(fromJSON(inputs.data).postBuildActions, 'check-license-sample-flag') && fromJSON(inputs.data).directory == 'infrastructure/scripts/check-license'
+      shell: sh
+      run: |
+        echo "Customizable post build action for check-license on directory ${{ fromJSON(inputs.data).directory }}"

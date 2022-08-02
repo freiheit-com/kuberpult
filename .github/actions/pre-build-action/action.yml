@@ -1,0 +1,17 @@
+name: "Pre Build Action"
+description: "Runs before build action"
+author: "mnishamk-freiheit"
+inputs:
+  data:
+    description: "matrix data used by the build"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - shell: sh
+      run: |
+        echo "Customizable pre build action"
+    - if: contains(fromJSON(inputs.data).preBuildActions, 'check-license-sample-flag') && fromJSON(inputs.data).directory == 'infrastructure/scripts/check-license'
+      shell: sh
+      run: |
+        echo "Customizable pre build action for check-license on directory ${{ fromJSON(inputs.data).directory }}"
