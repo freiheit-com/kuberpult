@@ -6,7 +6,7 @@ VERSION="1.7.0" && \
   curl -sSL \
     "https://github.com/bufbuild/buf/releases/download/v${VERSION}/buf-$(uname -s)-$(uname -m)" \
     -o "${BIN}/buf" && \
-  chmod +x "${BIN}/buf"
+  chmod +x "${BIN}/buf" \
 
 RUN echo 'ab8f1808a9add5e0578d9f0b45bc3b9e01d7f4192023328b1041614cf792076f  /usr/local/bin/buf' | sha256sum -c
 
