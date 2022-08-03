@@ -1,8 +1,14 @@
 FROM alpine:3.15
 
-RUN apk --update add --no-cache make go git libgit2-dev pkgconfig build-base
-RUN wget https://github.com/bufbuild/buf/releases/download/v1.4.0/buf-Linux-x86_64 -O /usr/local/bin/buf && chmod +x /usr/local/bin/buf
-RUN echo '9d38f8d504c01dd19ac9062285ac287f44788f643180545077c192eca9053a2c  /usr/local/bin/buf' | sha256sum -c
+RUN apk --update add --no-cache curl make go git libgit2-dev pkgconfig build-base
+RUN BIN="/usr/local/bin" && \
+VERSION="1.7.0" && \
+  curl -sSL \
+    "https://github.com/bufbuild/buf/releases/download/v${VERSION}/buf-$(uname -s)-$(uname -m)" \
+    -o "${BIN}/buf" && \
+  chmod +x "${BIN}/buf" \
+
+RUN echo 'ab8f1808a9add5e0578d9f0b45bc3b9e01d7f4192023328b1041614cf792076f  /usr/local/bin/buf' | sha256sum -c
 
 EXPOSE 8080
 EXPOSE 8443
