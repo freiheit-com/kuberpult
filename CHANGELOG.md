@@ -4,6 +4,11 @@
 
 **released 2022-07-27**
 
+### NOTE
+For helm installation:
+Due to a change in the statefulset, it is required to first tear down the `helm_release` kuberpult resource and then re-create it.
+Reason: Kubernetes forbids certain changes on stateful sets on the fly.
+
 ### Fixed
 * Fixed issue with disk running full [#266](https://github.com/freiheit-com/kuberpult/pull/266)
 
