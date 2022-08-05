@@ -128,7 +128,7 @@ backend:
   Afterwards, set your library path, e.g.: `export LD_LIBRARY_PATH='/usr/local/lib/'`
 
   For m1 mac:
-  brew and macports don't have a version of libgit2 that we need 1.3.0
+  brew and macports don't have the version of libgit2 that we need (1.3.0)
   so what we do is we install macports, then travel back in timie to when 1.3.0 was the latest and then install it.
 
   - install macports from [official site](https://www.macports.org/install.php)
