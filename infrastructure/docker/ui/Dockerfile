@@ -1,6 +1,6 @@
 FROM alpine:3.15
 
-RUN apk --update add --no-cache curl yarn make
+RUN apk --update add --no-cache curl pnpm make
 RUN BIN="/usr/local/bin" && \
   curl -sSL \
     "https://github.com/bufbuild/buf/releases/download/v1.7.0/buf-Linux-x86_64" \

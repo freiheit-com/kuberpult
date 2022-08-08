@@ -17,6 +17,7 @@
     "rxjs": "^6.6.7"
   },
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "build": "GENERATE_SOURCEMAP=false react-scripts build",
     "test": "react-scripts test --color",
     "start": "react-scripts start",
@@ -24,6 +25,7 @@
     "circular-check": "madge -c --extensions ts,tsx --ts-config tsconfig.json --no-spinner src/"
   },
   "devDependencies": {
+    "browser-headers": "^0.4.1",
     "@testing-library/jest-dom": "^5.11.9",
     "@testing-library/react": "^11.2.3",
     "@types/jest": "^26.0.20",
@@ -32,8 +34,10 @@
     "@types/react-dom": "^17.0.0",
     "eslint-config-prettier": "^7.2.0",
     "eslint-plugin-prettier": "^3.3.1",
+    "long": "^5.2.0",
     "madge": "^4.0.0",
     "prettier": "^2.2.1",
+    "protobufjs": "^6.11.2",
     "react-refresh": "^0.9.0",
     "sass": "^1.32.5",
     "spy4js": "^3.1.0",
