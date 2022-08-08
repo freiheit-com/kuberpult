@@ -252,11 +252,13 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
         envLocks.push(
             ...Object.entries(env.locks ?? {}).map((item) => ({
                 id: item[0],
-                author: item[1].commit?.authorName ?? '',
-                authorEmail: item[1].commit?.authorEmail ?? '',
+                // author: item[1].commit?.authorName ?? '',
+                author: item[1].message || 'DELETE ME 321321 message',
+                authorEmail: item[1].commit?.authorEmail || 'DELETE ME 321321 email',
                 message: item[1].message,
                 // use -1 to sort the locks with the newest on top
-                dateAdded: (item[1].commit?.authorTime?.valueOf() ?? -1) * -1,
+                // dateAdded: (item[1].commit?.authorTime?.valueOf() ?? -1) * -1,
+                dateAdded: (new Date().valueOf() ?? -1) * -1,
                 environment: env.name,
                 application: '',
             }))

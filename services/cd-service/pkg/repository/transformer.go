@@ -170,6 +170,7 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 }
 
 func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
+	println("CreateAppVersion 1")
 	fs := state.Filesystem
 	version, err := c.calculateVersion(fs)
 	if err != nil {
@@ -185,6 +186,9 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	if err != nil {
 		return "", err
 	}
+
+	println("CreateAppVersion 2 id:", c.SourceCommitId)
+	println("CreateAppVersion 2 author:", c.SourceAuthor)
 
 	if c.SourceCommitId != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_commit_id"), []byte(c.SourceCommitId), 0666); err != nil {
@@ -679,6 +683,7 @@ type DeployApplicationVersion struct {
 }
 
 func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
+	println("DeployAppVersion 1")
 	fs := state.Filesystem
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)

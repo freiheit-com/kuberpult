@@ -10,7 +10,7 @@
     "react/sort-comp": 2,
     "react/jsx-no-bind": 2,
     "arrow-body-style": ["error", "as-needed"],
-    "no-console": 2,
+    "no-console": 0,
     "eqeqeq": ["error", "always"],
     "@typescript-eslint/no-unused-vars": 2,
     "no-duplicate-imports": 0,

@@ -49,7 +49,6 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v33"
 )
@@ -174,7 +173,7 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				credentials:  credentials,
 				certificates: certificates,
 				repository:   repo2,
-				history:      history.NewHistory(repo2),
+				//history:      history.NewHistory(repo2),
 				queue:        makeQueue(),
 			}
 			result.headLock.Lock()
@@ -215,10 +214,10 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				}
 			}
 			// load the persistent index
-			err = result.history.LoadIndex(osfs.New(cfg.Path))
-			if err != nil {
-				logger.Error("index.load", zap.Error(err))
-			}
+			//err = result.history.LoadIndex(osfs.New(cfg.Path))
+			//if err != nil {
+			//	logger.Error("index.load", zap.Error(err))
+			//}
 
 			// check that we can build the current state
 			state, err := result.buildState()
@@ -423,10 +422,10 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		return &InternalError{inner: err}
 	}
 	// store the persistent index
-	err = r.history.WriteIndex(osfs.New(r.config.Path), state.Commit)
-	if err != nil {
-		logger.FromContext(ctx).Error("index.store", zap.Error(err))
-	}
+	//err = r.history.WriteIndex(osfs.New(r.config.Path), state.Commit)
+	//if err != nil {
+	//	logger.FromContext(ctx).Error("index.store", zap.Error(err))
+	//}
 	return nil
 }
 
@@ -592,15 +591,15 @@ func (r *repository) buildState() (*State, error) {
 		if err != nil {
 			return nil, err
 		}
-		commitHistory, err := r.history.Of(commit)
+		//commitHistory, err := r.history.Of(commit)
 		if err != nil {
 			return nil, err
 		}
 		return &State{
 			Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
 			Commit:                 commit,
-			History:                r.history,
-			CommitHistory:          commitHistory,
+			//History:                r.history,
+			//CommitHistory:          commitHistory,
 			BootstrapMode:          r.config.BootstrapMode,
 			EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 		}, nil
@@ -699,7 +698,7 @@ func (r *repository) maybeGc(ctx context.Context) {
 type State struct {
 	Filesystem             billy.Filesystem
 	Commit                 *git.Commit
-	History                *history.History
+	//History                *history.History
 	CommitHistory          *history.CommitHistory
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
@@ -773,41 +772,41 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 	}
 }
 
-func (s *State) GetEnvironmentApplicationVersionCommit(environment, application string) (*git.Commit, error) {
-	if s.Commit == nil {
-		return nil, nil
-	} else {
-		return s.CommitHistory.Change(
-			[]string{
-				"environments", environment,
-				"applications", application,
-				"version",
-			})
-	}
-}
-func (s *State) GetEnvironmentApplicationLocksCommit(environment, application string, lockId string) (*git.Commit, error) {
-	if s.Commit == nil {
-		return nil, nil
-	} else {
-		return s.CommitHistory.Change(
-			[]string{
-				"environments", environment,
-				"applications", application,
-				"locks", lockId,
-			})
-	}
-}
-func (s *State) GetEnvironmentLocksCommit(environment, lockId string) (*git.Commit, error) {
-	if s.Commit == nil {
-		return nil, nil
-	} else {
-		return s.CommitHistory.Change(
-			[]string{
-				"environments", environment,
-				"locks", lockId,
-			})
-	}
-}
+//func (s *State) GetEnvironmentApplicationVersionCommit(environment, application string) (*git.Commit, error) {
+//	if s.Commit == nil {
+//		return nil, nil
+//	} else {
+//		return s.CommitHistory.Change(
+//			[]string{
+//				"environments", environment,
+//				"applications", application,
+//				"version",
+//			})
+//	}
+//}
+//func (s *State) GetEnvironmentApplicationLocksCommit(environment, application string, lockId string) (*git.Commit, error) {
+//	if s.Commit == nil {
+//		return nil, nil
+//	} else {
+//		return s.CommitHistory.Change(
+//			[]string{
+//				"environments", environment,
+//				"applications", application,
+//				"locks", lockId,
+//			})
+//	}
+//}
+//func (s *State) GetEnvironmentLocksCommit(environment, lockId string) (*git.Commit, error) {
+//	if s.Commit == nil {
+//		return nil, nil
+//	} else {
+//		return s.CommitHistory.Change(
+//			[]string{
+//				"environments", environment,
+//				"locks", lockId,
+//			})
+//	}
+//}
 
 func (s *State) GetEnvironmentApplicationLocks(environment, application string) (map[string]Lock, error) {
 	base := s.Filesystem.Join("environments", environment, "applications", application, "locks")
@@ -1018,12 +1017,12 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 	return &release, nil
 }
 
-func (s *State) GetApplicationReleaseCommit(application string, version uint64) (*git.Commit, error) {
-	return s.CommitHistory.Change([]string{
-		"applications", application,
-		"releases", fmt.Sprintf("%d", version),
-	})
-}
+//func (s *State) GetApplicationReleaseCommit(application string, version uint64) (*git.Commit, error) {
+//	return s.CommitHistory.Change([]string{
+//		"applications", application,
+//		"releases", fmt.Sprintf("%d", version),
+//	})
+//}
 
 func (s *State) GetApplicationTeamOwner(application string) (string, error) {
 	appDir := applicationDirectory(s.Filesystem, application)

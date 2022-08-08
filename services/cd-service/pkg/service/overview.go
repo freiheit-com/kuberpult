@@ -52,6 +52,9 @@ func (o *OverviewServiceServer) GetOverview(
 func (o *OverviewServiceServer) getOverview(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {
+	//logger := logger.FromContext(ctx)
+	println("getOverview.start")
+
 	result := api.GetOverviewResponse{
 		Environments: map[string]*api.Environment{},
 		Applications: map[string]*api.Application{},
@@ -60,6 +63,7 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, internalError(ctx, err)
 	} else {
 		for envName, config := range envs {
+			println("getOverview.env.start", envName)
 			env := api.Environment{
 				Name: envName,
 				Config: &api.Environment_Config{
@@ -72,15 +76,15 @@ func (o *OverviewServiceServer) getOverview(
 				return nil, err
 			} else {
 				for lockId, lock := range locks {
-					var lockCommit *api.Commit = nil
-					if commit, err := s.GetEnvironmentLocksCommit(envName, lockId); err != nil {
-						return nil, err
-					} else {
-						lockCommit = transformCommit(commit)
-					}
+					//var lockCommit *api.Commit = nil
+					//if commit, err := s.GetEnvironmentLocksCommit(envName, lockId); err != nil {
+					//	return nil, err
+					//} else {
+					//	lockCommit = transformCommit(commit)
+					//}
 					env.Locks[lockId] = &api.Lock{
 						Message: lock.Message,
-						Commit:  lockCommit,
+						Commit:  nil,
 						LockId:  lockId,
 					}
 				}
@@ -103,13 +107,14 @@ func (o *OverviewServiceServer) getOverview(
 							app.Version = *version
 						}
 					}
-					if app.Version != 0 {
-						if commit, err := s.GetEnvironmentApplicationVersionCommit(envName, appName); err != nil {
-							return nil, err
-						} else {
-							app.VersionCommit = transformCommit(commit)
-						}
-					}
+					//if app.Version != 0 {
+					//	if commit, err := s.GetEnvironmentApplicationVersionCommit(envName, appName); err != nil {
+					//		return nil, err
+					//	} else {
+					//		app.VersionCommit = transformCommit(commit)
+					//	}
+					//}
+					app.VersionCommit = nil
 					if queuedVersion, err := s.GetQueuedVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
@@ -131,15 +136,15 @@ func (o *OverviewServiceServer) getOverview(
 						return nil, err
 					} else {
 						for lockId, lock := range appLocks {
-							var lockCommit *api.Commit = nil
-							if commit, err := s.GetEnvironmentApplicationLocksCommit(envName, appName, lockId); err != nil {
-								return nil, err
-							} else {
-								lockCommit = transformCommit(commit)
-							}
+							//var lockCommit *api.Commit = nil
+							//if commit, err := s.GetEnvironmentApplicationLocksCommit(envName, appName, lockId); err != nil {
+							//	return nil, err
+							//} else {
+							//	lockCommit = transformCommit(commit)
+							//}
 							app.Locks[lockId] = &api.Lock{
 								Message: lock.Message,
-								Commit:  lockCommit,
+								Commit:  nil,
 								LockId:  lockId,
 							}
 						}
@@ -160,6 +165,7 @@ func (o *OverviewServiceServer) getOverview(
 			result.Environments[envName] = &env
 		}
 	}
+	println("getOverview.B.apps")
 	if apps, err := s.GetApplications(); err != nil {
 		return nil, err
 	} else {
@@ -183,11 +189,12 @@ func (o *OverviewServiceServer) getOverview(
 							SourceMessage:   rel.SourceMessage,
 							UndeployVersion: rel.UndeployVersion,
 						}
-						if commit, err := s.GetApplicationReleaseCommit(appName, id); err != nil {
-							return nil, err
-						} else {
-							release.Commit = transformCommit(commit)
-						}
+						//if commit, err := s.GetApplicationReleaseCommit(appName, id); err != nil {
+						//	return nil, err
+						//} else {
+						//	release.Commit = transformCommit(commit)
+						//}
+						release.Commit = nil
 						app.Releases = append(app.Releases, release)
 					}
 				}
@@ -200,6 +207,7 @@ func (o *OverviewServiceServer) getOverview(
 			result.Applications[appName] = &app
 		}
 	}
+	println("getOverview.end")
 	return &result, nil
 }
 
