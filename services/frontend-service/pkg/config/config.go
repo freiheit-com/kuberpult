@@ -18,8 +18,19 @@ package config
 
 type FrontendConfig struct {
 	ArgoCd *ArgoCdConfig `json:"argocd"`
+	Auth   *AuthConfig   `json:"auth"`
 }
 
 type ArgoCdConfig struct {
 	BaseUrl string `json:"baseUrl"`
+}
+
+type AuthConfig struct {
+	AzureAuth *AzureAuthConfig `json:"azureAuth"`
+}
+
+type AzureAuthConfig struct {
+	Enabled  bool   `json:"enabled"`
+	ClientId string `json:"clientId"`
+	TenantId string `json:"tenantId"`
 }

@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 )
@@ -31,6 +32,13 @@ func (c *FrontendConfigServiceServer) GetConfig(
 	in *api.GetFrontendConfigRequest) (*api.GetFrontendConfigResponse, error) {
 	result := api.GetFrontendConfigResponse{
 		ArgoCd: &api.GetFrontendConfigResponse_ArgoCD{BaseUrl: c.Config.ArgoCd.BaseUrl},
+		AuthConfig: &api.GetFrontendConfigResponse_Auth{
+			&api.GetFrontendConfigResponse_AzureAuth{
+				Enabled:  c.Config.Auth.AzureAuth.Enabled,
+				ClientId: c.Config.Auth.AzureAuth.ClientId,
+				TenantId: c.Config.Auth.AzureAuth.TenantId,
+			},
+		},
 	}
 	return &result, nil
 }
