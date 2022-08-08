@@ -75,7 +75,7 @@ test-go: $(GO_FILES) proto
 
 test-ts: src/api/api.ts
 	pnpm eslint
-	#pnpm is run on powershell. Without the extra --, it will be `pnpm test watchAll`.
+	# The extra '--' was added because of pnpm, Usage: pnpm test [-- <args>...]
 	#To read more, follow this : [link](https://github.com/pnpm/pnpm/issues/2134)
 	pnpm test -- --watchAll=false
 
