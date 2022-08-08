@@ -20,6 +20,7 @@ import { useState } from 'react';
 import Box from '@material-ui/core/Box';
 import { ThemeProvider } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
+import { AuthProvider } from './AuthContext';
 
 import Releases from '../Releases';
 import * as api from '../../api/api';
@@ -82,16 +83,20 @@ const Main = () => {
     return (
         <ActionsCartContext.Provider value={{ actions, setActions }}>
             <ConfigsContext.Provider value={{ configs, setConfigs }}>
-                <GetOverview>
-                    {(overview) => (
-                        <Box sx={{ display: 'flex', marginRight: '14%' }}>
-                            <Header overview={overview} />
-                            <Box component="main" className={classes.main}>
-                                <Releases data={overview} />
-                            </Box>
-                        </Box>
-                    )}
-                </GetOverview>
+                {config.state !== 'pending' && (
+                    <AuthProvider>
+                        <GetOverview>
+                            {(overview) => (
+                                <Box sx={{ display: 'flex', marginRight: '14%' }}>
+                                    <Header overview={overview} />
+                                    <Box component="main" className={classes.main}>
+                                        <Releases data={overview} />
+                                    </Box>
+                                </Box>
+                            )}
+                        </GetOverview>
+                    </AuthProvider>
+                )}
             </ConfigsContext.Provider>
         </ActionsCartContext.Provider>
     );

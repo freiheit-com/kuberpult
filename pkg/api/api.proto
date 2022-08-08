@@ -119,13 +119,13 @@ message GetFrontendConfigResponse {
   message ArgoCD {
     string baseUrl = 1;
   }
-  message AzureAuth {
+  message AzureAuthConfig {
     bool enabled = 1;
     string clientId = 2;
     string tenantId = 3;
   }
   message Auth {
-    AzureAuth azureAuthConfig = 1;
+    AzureAuthConfig azureAuth= 1;
   }
   ArgoCD argoCd = 1;
   Auth authConfig = 2;

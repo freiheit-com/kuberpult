@@ -19,10 +19,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
 	"io"
 	"net/http"
+
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -122,7 +123,17 @@ func RunServer() {
 		api.RegisterBatchServiceServer(gsrv, gproxy)
 
 		frontendConfigService := &service.FrontendConfigServiceServer{
-			Config: config.FrontendConfig{ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl}},
+			Config: config.FrontendConfig{
+				ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl},
+				Auth: &config.AuthConfig{
+					AzureAuth: &config.AzureAuthConfig{
+						// TODO: change to data from values.yaml
+						Enabled:  true,
+						ClientId: "4ea93af7-3612-4a77-a0fe-9236dcdb4f06",
+						TenantId: "857a7b86-2d66-46f2-92e1-25be0c27e398",
+					},
+				},
+			},
 		}
 
 		api.RegisterFrontendConfigServiceServer(gsrv, frontendConfigService)

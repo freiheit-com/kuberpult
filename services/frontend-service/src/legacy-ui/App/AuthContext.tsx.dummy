@@ -1,0 +1,29 @@
+import * as React from 'react';
+
+type AuthContextType = {
+};
+const AuthContext = React.createContext<AuthContextType>({} as AuthContextType)
+
+export function AuthProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}): JSX.Element {
+  const [loggedIn, setLoggedIn] = React.useState<boolean>();
+
+  const memoedAuth = React.useMemo(
+    () => ({
+      loggedIn,
+    }),
+    [loggedIn]
+  );
+  return (
+    <AuthContext.Provider value={memoedAuth}>
+      { children }
+    </AuthContext.Provider>
+  );
+}
+
+export default function useAuth() {
+  return React.useContext(AuthContext);
+}
