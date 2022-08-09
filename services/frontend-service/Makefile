@@ -76,7 +76,6 @@ test-go: $(GO_FILES) proto
 test-ts: src/api/api.ts
 	pnpm eslint
 	# The extra '--' was added because of pnpm, Usage: pnpm test [-- <args>...]
-	#To read more, follow this : [link](https://github.com/pnpm/pnpm/issues/2134)
 	pnpm test -- --watchAll=false
 
 docker: bin/main | dist
