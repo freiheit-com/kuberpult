@@ -1,0 +1,11 @@
+// mdc variables which don't allow to use our CSS variables as the colors are being preprocessed by
+// SCSS functions in the Material styles
+$mdc-theme-primary: #2D70D6;
+$mdc-theme-on-primary: #ffffff;
+$mdc-theme-secondary: $mdc-theme-primary;
+$mdc-theme-on-secondary: $mdc-theme-on-primary;
+$mdc-theme-background: #ffffff;
+$mdc-theme-surface: darken($mdc-theme-background, 5%);
+$mdc-theme-on-surface: #050505;
+$mdc-theme-error: #eb5757;
+$mdc-theme-on-error: $mdc-theme-on-surface;

@@ -1,0 +1,95 @@
+@use '@material/button/mdc-button';
+@use '@material/button';
+@use "@material/drawer";
+@use "@material/ripple";
+@use "@material/list";
+@use "@material/floating-label/mdc-floating-label";
+@use "@material/notched-outline/mdc-notched-outline";
+@use "@material/notched-outline";
+@use "@material/textfield";
+@use "@material/icon-button/styles";
+@use "@material/top-app-bar";
+@use "@material/top-app-bar/mdc-top-app-bar";
+@use "./mdc_variables";
+
+html, body, #root, #root>div {
+  height: 100%;
+  width: 100%;
+  display: flex;
+}
+
+
+.mdc-drawer {
+  @include list.deprecated-core-styles;
+  @include drawer.surface-fill-color(mdc_variables.$mdc-theme-primary);
+
+  height: 100%;
+  position: fixed;
+  width: 6em;
+  z-index: 7;
+
+  .kp-logo {
+    padding: 28px 18px;
+  }
+
+  .mdc-drawer__content {
+    height: 100%;
+  }
+
+  .mdc-list {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    height: 40%;
+
+    .mdc-list-item {
+      height: 100%;
+      padding-top: 3em;
+    }
+  }
+}
+
+.mdc-drawer-app-content {
+  flex: auto;
+  overflow: auto;
+  position: relative;
+}
+
+.mdc-top-app-bar {
+  @include top-app-bar.fill-color(mdc_variables.$mdc-theme-background);
+  @include top-app-bar.ink-color(mdc_variables.$mdc-theme-primary);
+
+  padding: 2em 0 2em 6em;
+
+  .mdc-top-app-bar__row {
+    align-content: center;
+  }
+
+  .mdc-top-app-bar__title{
+    font-weight: 700;
+    font-size: 60px;
+    line-height: 93%;
+  }
+
+  .mdc-text-field {
+    @include textfield.core-styles;
+
+    .mdc-notched-outline {
+      @include notched-outline.shape-radius(10px);
+      @include notched-outline.color(mdc_variables.$mdc-theme-primary);
+    }
+  }
+}
+
+.main-content {
+  overflow: auto;
+  position:  relative;
+  padding: 8em 0 0 6em;
+  height: 100%;
+}
+
+
+.mdc-button {
+  @include button.ink-color(#84565E);
+}
