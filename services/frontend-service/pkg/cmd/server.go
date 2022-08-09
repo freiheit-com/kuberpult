@@ -47,6 +47,11 @@ type Config struct {
 	GKEBackendServiceID string `default:"" split_words:"true"`
 	EnableTracing       bool   `default:"false" split_words:"true"`
 	ArgocdBaseUrl       string `default:"" split_words:"true"`
+	AzureEnableAuth     bool   `default:"false" split_words:"true"`
+	AzureCloudInstance  string `default:"https://login.microsoftonline.com/" split_words:"true"`
+	AzureClientId       string `default:"" split_words:"true"`
+	AzureTenantId       string `default:"" split_words:"true"`
+	AzureRedirectUrl    string `default:"" split_words:"true"`
 }
 
 var c Config
@@ -127,12 +132,11 @@ func RunServer() {
 				ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl},
 				Auth: &config.AuthConfig{
 					AzureAuth: &config.AzureAuthConfig{
-						// TODO: change to data from values.yaml
-						Enabled:       true,
-						ClientId:      "4ea93af7-3612-4a77-a0fe-9236dcdb4f06",
-						TenantId:      "857a7b86-2d66-46f2-92e1-25be0c27e398",
-						RedirectURL:   "http://localhost:3000/",
-						CloudInstance: "https://login.microsoftonline.com/",
+						Enabled:       c.AzureEnableAuth,
+						ClientId:      c.AzureClientId,
+						TenantId:      c.AzureTenantId,
+						RedirectURL:   c.AzureRedirectUrl,
+						CloudInstance: c.AzureCloudInstance,
 					},
 				},
 			},
