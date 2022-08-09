@@ -89,3 +89,10 @@ environment_configs:
   #     }
   #   }
   environment_configs_json: null
+
+auth:
+  azureAuth:
+    enabled: false
+    cloudInstance: "https://login.microsoftonline.com/"
+    clientId: ""
+    tenantId: "" 
