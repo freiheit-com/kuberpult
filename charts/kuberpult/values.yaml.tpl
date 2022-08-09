@@ -95,4 +95,4 @@ auth:
     enabled: false
     cloudInstance: "https://login.microsoftonline.com/"
     clientId: ""
-    tenantId: "" 
+    tenantId: ""
