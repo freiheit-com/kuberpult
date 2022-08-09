@@ -1,6 +1,6 @@
 FROM alpine:3.15
 
-RUN apk --update add --no-cache curlÏ make nodejs npm
+RUN apk --update add --no-cache curl make nodejs npm
 RUN npm install pnpm
 RUN BIN="/usr/local/bin" && \
   curl -sSL \
