@@ -30,7 +30,9 @@ type AuthConfig struct {
 }
 
 type AzureAuthConfig struct {
-	Enabled  bool   `json:"enabled"`
-	ClientId string `json:"clientId"`
-	TenantId string `json:"tenantId"`
+	Enabled       bool   `json:"enabled"`
+	ClientId      string `json:"clientId"`
+	TenantId      string `json:"tenantId"`
+	CloudInstance string `json:"cloudInstance"`
+	RedirectURL   string `json:"redirectURL"`
 }

@@ -16,9 +16,8 @@ const AuthContext = React.createContext<AuthContextType>({} as AuthContextType);
 const getMsalConfig = (configs: any): Configuration => ({
     auth: {
         clientId: configs?.authConfig?.azureAuth?.clientId,
-        authority: `https://login.microsoftonline.com/${configs?.authConfig?.azureAuth?.tenantId}`,
-        // TODO: change to live url
-        redirectUri: 'http://localhost:3000',
+        authority: `${configs?.authConfig?.azureAuth?.cloudInstance}${configs?.authConfig?.azureAuth?.tenantId}`,
+        redirectUri: configs?.authConfig?.azureAuth?.redirectURL,
     },
     cache: {
         cacheLocation: 'sessionStorage',
@@ -30,7 +29,7 @@ const getLoginRequest = () => ({
     scopes: ['User.Read'],
 });
 
-const AutoSignIn = (props: {}) => {
+const AzureAutoSignIn = () => {
     const isAuthenticated = useIsAuthenticated();
     const loginRequest = React.useMemo(() => getLoginRequest(), []);
     const { instance } = useMsal();
@@ -52,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
                 <MsalProvider instance={msalInstance}>
                     <AuthenticatedTemplate>{children}</AuthenticatedTemplate>
                     <UnauthenticatedTemplate>
-                        <AutoSignIn />
+                        <AzureAutoSignIn />
                     </UnauthenticatedTemplate>
                 </MsalProvider>
             ) : (

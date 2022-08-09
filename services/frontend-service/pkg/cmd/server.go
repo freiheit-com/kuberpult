@@ -128,9 +128,11 @@ func RunServer() {
 				Auth: &config.AuthConfig{
 					AzureAuth: &config.AzureAuthConfig{
 						// TODO: change to data from values.yaml
-						Enabled:  true,
-						ClientId: "4ea93af7-3612-4a77-a0fe-9236dcdb4f06",
-						TenantId: "857a7b86-2d66-46f2-92e1-25be0c27e398",
+						Enabled:       true,
+						ClientId:      "4ea93af7-3612-4a77-a0fe-9236dcdb4f06",
+						TenantId:      "857a7b86-2d66-46f2-92e1-25be0c27e398",
+						RedirectURL:   "http://localhost:3000/",
+						CloudInstance: "https://login.microsoftonline.com/",
 					},
 				},
 			},

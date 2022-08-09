@@ -123,6 +123,8 @@ message GetFrontendConfigResponse {
     bool enabled = 1;
     string clientId = 2;
     string tenantId = 3;
+    string cloudInstance = 4;
+    string redirectURL = 5;
   }
   message Auth {
     AzureAuthConfig azureAuth= 1;

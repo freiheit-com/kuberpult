@@ -34,9 +34,11 @@ func (c *FrontendConfigServiceServer) GetConfig(
 		ArgoCd: &api.GetFrontendConfigResponse_ArgoCD{BaseUrl: c.Config.ArgoCd.BaseUrl},
 		AuthConfig: &api.GetFrontendConfigResponse_Auth{
 			AzureAuth: &api.GetFrontendConfigResponse_AzureAuthConfig{
-				Enabled:  c.Config.Auth.AzureAuth.Enabled,
-				ClientId: c.Config.Auth.AzureAuth.ClientId,
-				TenantId: c.Config.Auth.AzureAuth.TenantId,
+				Enabled:       c.Config.Auth.AzureAuth.Enabled,
+				ClientId:      c.Config.Auth.AzureAuth.ClientId,
+				TenantId:      c.Config.Auth.AzureAuth.TenantId,
+				CloudInstance: c.Config.Auth.AzureAuth.CloudInstance,
+				RedirectURL:   c.Config.Auth.AzureAuth.RedirectURL,
 			},
 		},
 	}
