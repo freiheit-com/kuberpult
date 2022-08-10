@@ -28,15 +28,18 @@ import {
 type AuthContextType = {
     useAzureAuth: boolean;
     useAuth: boolean;
+    msalConfig: Configuration;
 };
 
 const AuthContext = React.createContext<AuthContextType>({} as AuthContextType);
 
 const getMsalConfig = (configs: any): Configuration => ({
     auth: {
-        clientId: configs?.authConfig?.azureAuth?.clientId,
-        authority: `${configs?.authConfig?.azureAuth?.cloudInstance}${configs?.authConfig?.azureAuth?.tenantId}`,
-        redirectUri: configs?.authConfig?.azureAuth?.redirectURL,
+        clientId: configs?.authConfig?.azureAuth?.clientId || '',
+        authority: `${configs?.authConfig?.azureAuth?.cloudInstance || ''}${
+            configs?.authConfig?.azureAuth?.tenantId || ''
+        }`,
+        redirectUri: configs?.authConfig?.azureAuth?.redirectURL || '',
     },
     cache: {
         cacheLocation: 'sessionStorage',
@@ -84,6 +87,12 @@ function AzureAuthTokenProvider({ children }: { children: React.ReactNode }): JS
     return <AuthTokenContext.Provider value={{ token, authHeader }}>{children}</AuthTokenContext.Provider>;
 }
 
+function MsalProviderWrapper({ children }: { children: React.ReactNode }): JSX.Element {
+    const { msalConfig } = React.useContext(AuthContext);
+    const msalInstance = new PublicClientApplication(msalConfig);
+    return <MsalProvider instance={msalInstance}>{children}</MsalProvider>;
+}
+
 const AzureAutoSignIn = () => {
     const isAuthenticated = useIsAuthenticated();
     const loginRequest = React.useMemo(() => getLoginRequest(), []);
@@ -99,21 +108,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     const useAzureAuth = configs?.authConfig?.azureAuth?.enabled || false;
     const useAuth = useAzureAuth;
     const msalConfig = React.useMemo(() => getMsalConfig(configs), [configs]);
-    const msalInstance = new PublicClientApplication(msalConfig);
 
     return (
         <>
             {!!configs && Object.keys(configs).length > 0 && (
-                <AuthContext.Provider value={{ useAzureAuth, useAuth }}>
+                <AuthContext.Provider value={{ useAzureAuth, useAuth, msalConfig }}>
                     {useAzureAuth ? (
-                        <MsalProvider instance={msalInstance}>
+                        <MsalProviderWrapper>
                             <AuthenticatedTemplate>
                                 <AzureAuthTokenProvider>{children}</AzureAuthTokenProvider>
                             </AuthenticatedTemplate>
                             <UnauthenticatedTemplate>
                                 <AzureAutoSignIn />
                             </UnauthenticatedTemplate>
-                        </MsalProvider>
+                        </MsalProviderWrapper>
                     ) : (
                         <AuthTokenContext.Provider value={{ token: '', authHeader: {} }}>
                             {children}
