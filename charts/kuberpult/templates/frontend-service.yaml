@@ -92,7 +92,7 @@ spec:
         - name: KUBERPULT_AZURE_TENANT_ID
           value: "{{ .Values.auth.azureAuth.tenantId }}"
         - name: KUBERPULT_AZURE_REDIRECT_URL
-          value: {{ .Values.ingress.domainName | quote }} 
+          value: "https://{{ .Values.ingress.domainName }}"
 {{- end }}
 
 ---
