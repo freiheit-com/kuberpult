@@ -89,7 +89,7 @@ function AzureAuthTokenProvider({ children }: { children: React.ReactNode }): JS
 
 function MsalProviderWrapper({ children }: { children: React.ReactNode }): JSX.Element {
     const { msalConfig } = React.useContext(AuthContext);
-    const msalInstance = new PublicClientApplication(msalConfig);
+    const msalInstance = React.useMemo(() => new PublicClientApplication(msalConfig), [msalConfig]);
     return <MsalProvider instance={msalInstance}>{children}</MsalProvider>;
 }
 
@@ -107,8 +107,8 @@ const AzureAutoSignIn = () => {
 
 export function AuthProvider({ children }: { children: React.ReactNode }): JSX.Element {
     const { configs } = React.useContext(ConfigsContext);
-    const useAzureAuth = configs?.authConfig?.azureAuth?.enabled || false;
-    const useAuth = useAzureAuth;
+    const useAzureAuth = React.useMemo(() => configs?.authConfig?.azureAuth?.enabled || false, [configs]);
+    const useAuth = React.useMemo(() => useAzureAuth, [useAzureAuth]);
     const msalConfig = React.useMemo(() => getMsalConfig(configs), [configs]);
 
     return (
