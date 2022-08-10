@@ -97,9 +97,11 @@ const AzureAutoSignIn = () => {
     const isAuthenticated = useIsAuthenticated();
     const loginRequest = React.useMemo(() => getLoginRequest(), []);
     const { instance } = useMsal();
-    if (!isAuthenticated) {
-        instance.loginRedirect(loginRequest);
-    }
+    React.useEffect(() => {
+        if (!isAuthenticated) {
+            instance.loginRedirect(loginRequest);
+        }
+    }, [instance, isAuthenticated, loginRequest]);
     return <></>;
 };
 
