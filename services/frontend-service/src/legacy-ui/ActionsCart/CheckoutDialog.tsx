@@ -32,21 +32,25 @@ import { Close } from '@material-ui/icons';
 import { ActionsCartContext } from '../App';
 import { BatchAction, GetOverviewResponse } from '../../api/api';
 import { useUnaryCallback } from '../Api';
+import { AuthTokenContext } from '../App/AuthContext';
 import { addMessageToAction, CartAction, hasLockAction, isNonNullable } from '../ActionDetails';
 
 export const callbacks = {
-    useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
+    useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void, authHeader: any = {}) =>
         useUnaryCallback(
             useCallback(
                 (api) =>
                     api
                         .batchService()
-                        .ProcessBatch({
-                            actions: acts,
-                        })
+                        .ProcessBatch(
+                            {
+                                actions: acts,
+                            },
+                            authHeader
+                        )
                         .then(success)
                         .catch(fail),
-                [acts, success, fail]
+                [acts, success, fail, authHeader]
             )
         ),
 };
@@ -170,7 +174,13 @@ export const CheckoutCart: VFC<{ overview: GetOverviewResponse }> = ({ overview 
     }, [openNotification, closeDialog]);
 
     const actionsWithMessage = actions.map((act) => addMessageToAction(act, lockMessage)).filter(isNonNullable);
-    const [doActions, doActionsState] = callbacks.useBatch(actionsWithMessage, onActionsSucceeded, onActionsFailed);
+    const { authHeader } = React.useContext(AuthTokenContext);
+    const [doActions, doActionsState] = callbacks.useBatch(
+        actionsWithMessage,
+        onActionsSucceeded,
+        onActionsFailed,
+        authHeader
+    );
 
     const closeIcon = (
         <IconButton size="small" aria-label="close" color="secondary" onClick={closeNotification}>

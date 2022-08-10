@@ -52,11 +52,8 @@ export const Spinner: React.FC<any> = (props: any) => {
 };
 
 const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Element }): JSX.Element | null => {
-    const { token } = React.useContext(AuthTokenContext);
-    const getOverview = React.useCallback(
-        (api) => api.overviewService().StreamOverview({}, token ? { Authorization: token } : {}),
-        [token]
-    );
+    const { authHeader } = React.useContext(AuthTokenContext);
+    const getOverview = React.useCallback((api) => api.overviewService().StreamOverview({}, authHeader), [authHeader]);
     const overview = useObservable<api.GetOverviewResponse>(getOverview);
     switch (overview.state) {
         case 'resolved':

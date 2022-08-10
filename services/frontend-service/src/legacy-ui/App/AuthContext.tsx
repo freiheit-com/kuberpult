@@ -27,6 +27,7 @@ import {
 
 type AuthContextType = {
     useAzureAuth: boolean;
+    useAuth: boolean;
 };
 
 const AuthContext = React.createContext<AuthContextType>({} as AuthContextType);
@@ -49,16 +50,20 @@ const getLoginRequest = () => ({
 
 type AuthTokenContextType = {
     token: String;
+    authHeader: {
+        Authorization?: String;
+    };
 };
 
 export const AuthTokenContext = React.createContext<AuthTokenContextType>({} as AuthTokenContextType);
 
-function AuthTokenProvider({ children }: { children: React.ReactNode }): JSX.Element {
-    const { useAzureAuth } = React.useContext(AuthContext);
-    const { instance, accounts } = useMsal();
+function AzureAuthTokenProvider({ children }: { children: React.ReactNode }): JSX.Element {
     const loginRequest = React.useMemo(() => getLoginRequest(), []);
     const [token, setToken] = React.useState('');
-    if (useAzureAuth) {
+    const [authHeader, setAuthHeader] = React.useState({});
+    const { instance, accounts } = useMsal();
+
+    React.useEffect(() => {
         const request = {
             ...loginRequest,
             account: accounts[0],
@@ -67,14 +72,16 @@ function AuthTokenProvider({ children }: { children: React.ReactNode }): JSX.Ele
             .acquireTokenSilent(request)
             .then((response) => {
                 setToken(response.accessToken);
+                setAuthHeader({ Authorization: response.accessToken });
             })
             .catch(() => {
                 instance.acquireTokenPopup(request).then((response) => {
                     setToken(response.accessToken);
+                    setAuthHeader({ Authorization: response.accessToken });
                 });
             });
-    }
-    return <AuthTokenContext.Provider value={{ token }}>{children}</AuthTokenContext.Provider>;
+    }, [instance, accounts, loginRequest]);
+    return <AuthTokenContext.Provider value={{ token, authHeader }}>{children}</AuthTokenContext.Provider>;
 }
 
 const AzureAutoSignIn = () => {
@@ -90,24 +97,27 @@ const AzureAutoSignIn = () => {
 export function AuthProvider({ children }: { children: React.ReactNode }): JSX.Element {
     const { configs } = React.useContext(ConfigsContext);
     const useAzureAuth = configs?.authConfig?.azureAuth?.enabled || false;
+    const useAuth = useAzureAuth;
     const msalConfig = React.useMemo(() => getMsalConfig(configs), [configs]);
     const msalInstance = new PublicClientApplication(msalConfig);
 
     return (
         <>
             {!!configs && Object.keys(configs).length > 0 && (
-                <AuthContext.Provider value={{ useAzureAuth }}>
+                <AuthContext.Provider value={{ useAzureAuth, useAuth }}>
                     {useAzureAuth ? (
                         <MsalProvider instance={msalInstance}>
                             <AuthenticatedTemplate>
-                                <AuthTokenProvider>{children}</AuthTokenProvider>
+                                <AzureAuthTokenProvider>{children}</AzureAuthTokenProvider>
                             </AuthenticatedTemplate>
                             <UnauthenticatedTemplate>
                                 <AzureAutoSignIn />
                             </UnauthenticatedTemplate>
                         </MsalProvider>
                     ) : (
-                        <AuthTokenProvider>{children}</AuthTokenProvider>
+                        <AuthTokenContext.Provider value={{ token: '', authHeader: {} }}>
+                            {children}
+                        </AuthTokenContext.Provider>
                     )}
                 </AuthContext.Provider>
             )}
