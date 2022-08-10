@@ -25,7 +25,9 @@ import {
     useMsal,
 } from '@azure/msal-react';
 
-type AuthContextType = {};
+type AuthContextType = {
+    useAzureAuth: boolean;
+};
 
 const AuthContext = React.createContext<AuthContextType>({} as AuthContextType);
 
@@ -45,6 +47,36 @@ const getLoginRequest = () => ({
     scopes: ['User.Read'],
 });
 
+type AuthTokenContextType = {
+    token: String;
+};
+
+export const AuthTokenContext = React.createContext<AuthTokenContextType>({} as AuthTokenContextType);
+
+function AuthTokenProvider({ children }: { children: React.ReactNode }): JSX.Element {
+    const { useAzureAuth } = React.useContext(AuthContext);
+    const { instance, accounts } = useMsal();
+    const loginRequest = React.useMemo(() => getLoginRequest(), []);
+    const [token, setToken] = React.useState('');
+    if (useAzureAuth) {
+        const request = {
+            ...loginRequest,
+            account: accounts[0],
+        };
+        instance
+            .acquireTokenSilent(request)
+            .then((response) => {
+                setToken(response.accessToken);
+            })
+            .catch(() => {
+                instance.acquireTokenPopup(request).then((response) => {
+                    setToken(response.accessToken);
+                });
+            });
+    }
+    return <AuthTokenContext.Provider value={{ token }}>{children}</AuthTokenContext.Provider>;
+}
+
 const AzureAutoSignIn = () => {
     const isAuthenticated = useIsAuthenticated();
     const loginRequest = React.useMemo(() => getLoginRequest(), []);
@@ -62,17 +94,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     const msalInstance = new PublicClientApplication(msalConfig);
 
     return (
-        <AuthContext.Provider value={{}}>
-            {useAzureAuth ? (
-                <MsalProvider instance={msalInstance}>
-                    <AuthenticatedTemplate>{children}</AuthenticatedTemplate>
-                    <UnauthenticatedTemplate>
-                        <AzureAutoSignIn />
-                    </UnauthenticatedTemplate>
-                </MsalProvider>
-            ) : (
-                children
+        <>
+            {!!configs && Object.keys(configs).length > 0 && (
+                <AuthContext.Provider value={{ useAzureAuth }}>
+                    {useAzureAuth ? (
+                        <MsalProvider instance={msalInstance}>
+                            <AuthenticatedTemplate>
+                                <AuthTokenProvider>{children}</AuthTokenProvider>
+                            </AuthenticatedTemplate>
+                            <UnauthenticatedTemplate>
+                                <AzureAutoSignIn />
+                            </UnauthenticatedTemplate>
+                        </MsalProvider>
+                    ) : (
+                        <AuthTokenProvider>{children}</AuthTokenProvider>
+                    )}
+                </AuthContext.Provider>
             )}
-        </AuthContext.Provider>
+        </>
     );
 }
