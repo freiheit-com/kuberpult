@@ -14,7 +14,6 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import '../../assets/app-v2.scss';
 import { ReactComponent as Logo } from '../../images/kuberpult-logo.svg';
 import { ReactComponent as Home } from '../../images/Home.svg';
 import { ReactComponent as Environments } from '../../images/Environments.svg';
