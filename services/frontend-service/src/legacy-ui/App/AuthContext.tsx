@@ -15,6 +15,8 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
+import { grpc } from '@improbable-eng/grpc-web';
+import { BrowserHeaders } from 'browser-headers';
 import { ConfigsContext } from './index';
 import { Configuration, PublicClientApplication } from '@azure/msal-browser';
 import {
@@ -51,11 +53,13 @@ const getLoginRequest = () => ({
     scopes: ['User.Read'],
 });
 
+export type AuthHeaderType = grpc.Metadata & {
+    Authorization?: String;
+};
+
 type AuthTokenContextType = {
     token: String;
-    authHeader: {
-        Authorization?: String;
-    };
+    authHeader: AuthHeaderType;
 };
 
 export const AuthTokenContext = React.createContext<AuthTokenContextType>({} as AuthTokenContextType);
@@ -63,7 +67,7 @@ export const AuthTokenContext = React.createContext<AuthTokenContextType>({} as 
 function AzureAuthTokenProvider({ children }: { children: React.ReactNode }): JSX.Element {
     const loginRequest = React.useMemo(() => getLoginRequest(), []);
     const [token, setToken] = React.useState('');
-    const [authHeader, setAuthHeader] = React.useState({});
+    const [authHeader, setAuthHeader] = React.useState(new BrowserHeaders({}));
     const { instance, accounts } = useMsal();
 
     React.useEffect(() => {
@@ -75,12 +79,12 @@ function AzureAuthTokenProvider({ children }: { children: React.ReactNode }): JS
             .acquireTokenSilent(request)
             .then((response) => {
                 setToken(response.accessToken);
-                setAuthHeader({ Authorization: response.accessToken });
+                setAuthHeader(new BrowserHeaders({ Authorization: response.accessToken }));
             })
             .catch(() => {
                 instance.acquireTokenPopup(request).then((response) => {
                     setToken(response.accessToken);
-                    setAuthHeader({ Authorization: response.accessToken });
+                    setAuthHeader(new BrowserHeaders({ Authorization: response.accessToken }));
                 });
             });
     }, [instance, accounts, loginRequest]);
