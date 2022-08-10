@@ -7,6 +7,7 @@ on:
         type: string
         description: 'The trigger which calls the workflow, one of [pull-request, main, tag]'
 
+
 jobs:
   execution_plan:
     runs-on: ubuntu-latest
