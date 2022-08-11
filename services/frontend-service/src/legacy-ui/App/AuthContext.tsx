@@ -106,7 +106,7 @@ const AzureAutoSignIn = () => {
             instance.loginRedirect(loginRequest);
         }
     }, [instance, isAuthenticated, loginRequest]);
-    return <></>;
+    return <>Redirecting to login</>;
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }): JSX.Element {
