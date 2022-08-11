@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.4.33
+
+**released 2022-08-11**
+
+### Fixed
+* Temporarily going back to use a persistant volume [#290](https://github.com/freiheit-com/kuberpult/pull/290)
+
 ## 0.4.32
 
 **released 2022-07-27**
