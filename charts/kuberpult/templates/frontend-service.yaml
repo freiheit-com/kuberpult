@@ -82,6 +82,18 @@ spec:
         - name: KUBERPULT_ENABLE_TRACING
           value: "{{ .Values.datadogTracing.enabled }}"
 {{- end }}
+        - name: KUBERPULT_AZURE_ENABLE_AUTH
+          value: "{{ .Values.auth.azureAuth.enabled }}"
+{{- if .Values.auth.azureAuth.enabled }}
+        - name: KUBERPULT_AZURE_CLOUD_INSTANCE
+          value: "{{ .Values.auth.azureAuth.cloudInstance }}"
+        - name: KUBERPULT_AZURE_CLIENT_ID
+          value: "{{ .Values.auth.azureAuth.clientId }}"
+        - name: KUBERPULT_AZURE_TENANT_ID
+          value: "{{ .Values.auth.azureAuth.tenantId }}"
+        - name: KUBERPULT_AZURE_REDIRECT_URL
+          value: "https://{{ .Values.ingress.domainName }}"
+{{- end }}
 
 ---
 apiVersion: v1

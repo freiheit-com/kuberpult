@@ -4,11 +4,14 @@ importers:
 
   .:
     specifiers:
+      '@azure/msal-browser': ^2.28.1
+      '@azure/msal-react': ^1.4.5
       '@emotion/react': ^11.1.5
       '@emotion/styled': ^11.1.5
       '@improbable-eng/grpc-web': ^0.14.0
       '@material-ui/core': 5.0.0-alpha.34
       '@material-ui/icons': 5.0.0-alpha.34
+      '@peculiar/webcrypto': ^1.4.0
       '@testing-library/jest-dom': ^5.11.9
       '@testing-library/react': ^11.2.3
       '@types/jest': ^26.0.20
@@ -35,11 +38,14 @@ importers:
       ts-proto: ^1.76
       typescript: 4.1.3
     dependencies:
+      '@azure/msal-browser': 2.28.1
+      '@azure/msal-react': 1.4.5_jeoxo2cvrzjbo55bfnpykcda3a
       '@emotion/react': 11.4.0_dcomdg4o37szlezyxbr7nzoci4
       '@emotion/styled': 11.3.0_huyow77ei2yolaw7jsleguk33a
       '@improbable-eng/grpc-web': 0.14.0
       '@material-ui/core': 5.0.0-alpha.34_mjnoynnepudcnvbxlkepukxxey
       '@material-ui/icons': 5.0.0-alpha.34_dncwbqctaa3wik6u5aukjwv6eq
+      '@peculiar/webcrypto': 1.4.0
       '@types/react-beforeunload': 2.1.1
       react: 17.0.2
       react-beforeunload: 2.5.2_react@17.0.2
@@ -68,6 +74,29 @@ importers:
       typescript: 4.1.3
 
 packages:
+
+  /@azure/msal-browser/2.28.1:
+    resolution: {integrity: sha512-5uAfwpNGBSRzBGTSS+5l4Zw6msPV7bEmq99n0U3n/N++iTcha+nIp1QujxTPuOLHmTNCeySdMx9qzGqWuy22zQ==}
+    engines: {node: '>=0.8.0'}
+    dependencies:
+      '@azure/msal-common': 7.3.0
+    dev: false
+
+  /@azure/msal-common/7.3.0:
+    resolution: {integrity: sha512-revxB3z+QLjwAtU1d04nC1voFr+i3LfqTpUfgrWZVqKh/sSgg0mZZUvw4vKVWB57qtL95sul06G+TfdFZny1Xw==}
+    engines: {node: '>=0.8.0'}
+    dev: false
+
+  /@azure/msal-react/1.4.5_jeoxo2cvrzjbo55bfnpykcda3a:
+    resolution: {integrity: sha512-nvg9OQDiSFX+DGoyxnctbv1MwCZrln2svUjwO9zFWOB1KdmLclgrsA9/G1krbbupRO5WFBF6u/VzidHO4V2WEQ==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      '@azure/msal-browser': ^2.28.1
+      react: ^16.8.0 || ^17 || ^18
+    dependencies:
+      '@azure/msal-browser': 2.28.1
+      react: 17.0.2
+    dev: false
 
   /@babel/code-frame/7.10.4:
     resolution: {integrity: sha512-vG6SvB6oYEhvgisZNFRmRCUkLz11c7rp+tbNTynGqc6mS1d5ATd/sGyV6W0KZZnXRKMTzZDRgQT3Ou9jhpAfUg==}
@@ -3156,6 +3185,32 @@ packages:
       rimraf: 3.0.2
     dev: false
 
+  /@peculiar/asn1-schema/2.3.0:
+    resolution: {integrity: sha512-DtNLAG4vmDrdSJFPe7rypkcj597chNQL7u+2dBtYo5mh7VW2+im6ke+O0NVr8W1f4re4C3F71LhoMb0Yxqa48Q==}
+    dependencies:
+      asn1js: 3.0.5
+      pvtsutils: 1.3.2
+      tslib: 2.4.0
+    dev: false
+
+  /@peculiar/json-schema/1.1.12:
+    resolution: {integrity: sha512-coUfuoMeIB7B8/NMekxaDzLhaYmp0HZNPEjYRm9goRou8UZIC3z21s0sL9AWoCw4EG876QyO3kYrc61WNF9B/w==}
+    engines: {node: '>=8.0.0'}
+    dependencies:
+      tslib: 2.4.0
+    dev: false
+
+  /@peculiar/webcrypto/1.4.0:
+    resolution: {integrity: sha512-U58N44b2m3OuTgpmKgf0LPDOmP3bhwNz01vAnj1mBwxBASRhptWYK+M3zG+HBkDqGQM+bFsoIihTW8MdmPXEqg==}
+    engines: {node: '>=10.12.0'}
+    dependencies:
+      '@peculiar/asn1-schema': 2.3.0
+      '@peculiar/json-schema': 1.1.12
+      pvtsutils: 1.3.2
+      tslib: 2.4.0
+      webcrypto-core: 1.7.5
+    dev: false
+
   /@pmmmwh/react-refresh-webpack-plugin/0.4.3_t4ezke4netssl24gycl5qjajya:
     resolution: {integrity: sha512-br5Qwvh8D2OQqSXpd1g/xqXKnK0r+Jz6qVKBbWmpUcrbGOxUrf39V5oZ1876084CGn18uMdR5uvPqBv9UqtBjQ==}
     engines: {node: '>= 10.x'}
@@ -4296,6 +4351,15 @@ packages:
       safer-buffer: 2.1.2
     dev: false
 
+  /asn1js/3.0.5:
+    resolution: {integrity: sha512-FVnvrKJwpt9LP2lAMl8qZswRNm3T4q9CON+bxldk2iwk3FFpuwhx2FfinyitizWHsVYyaY+y5JzDR0rCMV5yTQ==}
+    engines: {node: '>=12.0.0'}
+    dependencies:
+      pvtsutils: 1.3.2
+      pvutils: 1.1.3
+      tslib: 2.4.0
+    dev: false
+
   /assert/1.5.0:
     resolution: {integrity: sha512-EDsgawzwoun2CZkCgtxJbv392v4nbk9XDD06zI+kQYoBM/3RBWLlEyJARDOmhAAosBjWACEkKL6S+lIZtcAubA==}
     dependencies:
@@ -5033,7 +5097,7 @@ packages:
     resolution: {integrity: sha512-gxGWBrTT1JuMx6R+o5PTXMmUnhnVzLQ9SNutD4YqKtI6ap897t3tKECYla6gCWEkplXnlNybEkZg9GEGxKFCgw==}
     dependencies:
       pascal-case: 3.1.2
-      tslib: 2.3.0
+      tslib: 2.4.0
     dev: false
 
   /camelcase/5.3.1:
@@ -6308,7 +6372,7 @@ packages:
     resolution: {integrity: sha512-Kv5nKlh6yRrdrGvxeJ2e5y2eRUpkUosIW4A2AS38zwSz27zu7ufDwQPi5Jhs3XAlGNetl3bmnGhQsMtkKJnj3w==}
     dependencies:
       no-case: 3.0.4
-      tslib: 2.3.0
+      tslib: 2.4.0
     dev: false
 
   /dot-prop/5.3.0:
@@ -9409,7 +9473,7 @@ packages:
   /lower-case/2.0.2:
     resolution: {integrity: sha512-7fm3l3NAF9WfN6W3JOmf5drwpVqX78JtoGJ3A6W0a6ZnldM41w2fV5D490psKFTpMds8TJse/eHLFFsNHHjHgg==}
     dependencies:
-      tslib: 2.3.0
+      tslib: 2.4.0
     dev: false
 
   /lru-cache/5.1.1:
@@ -9888,7 +9952,7 @@ packages:
     resolution: {integrity: sha512-fgAN3jGAh+RoxUGZHTSOLJIqUc2wmoBwGR4tbpNAKmmovFoWq0OdRkb0VkldReO2a2iBT/OEulG9XSUc10r3zg==}
     dependencies:
       lower-case: 2.0.2
-      tslib: 2.3.0
+      tslib: 2.4.0
     dev: false
 
   /node-forge/0.10.0:
@@ -10324,7 +10388,7 @@ packages:
     resolution: {integrity: sha512-RXlj7zCYokReqWpOPH9oYivUzLYZ5vAPIfEmCTNViosC78F8F0H9y7T7gG2M39ymgutxF5gcFEsyZQSph9Bp3A==}
     dependencies:
       dot-case: 3.0.4
-      tslib: 2.3.0
+      tslib: 2.4.0
     dev: false
 
   /parent-module/1.0.1:
@@ -10380,7 +10444,7 @@ packages:
     resolution: {integrity: sha512-uWlGT3YSnK9x3BQJaOdcZwrnV6hPpd8jFH1/ucpiLRPh/2zCVJKS19E4GvYHvaCcACn3foXZ0cLB9Wrx1KGe5g==}
     dependencies:
       no-case: 3.0.4
-      tslib: 2.3.0
+      tslib: 2.4.0
     dev: false
 
   /pascalcase/0.1.1:
@@ -11441,6 +11505,17 @@ packages:
   /punycode/2.1.1:
     resolution: {integrity: sha512-XRsRjdf+j5ml+y/6GKHPZbrF/8p2Yga0JPtdqTIY2Xe5ohJPD9saDJJLPvp9+NSBprVvevdXZybnj2cv8OEd0A==}
     engines: {node: '>=6'}
+    dev: false
+
+  /pvtsutils/1.3.2:
+    resolution: {integrity: sha512-+Ipe2iNUyrZz+8K/2IOo+kKikdtfhRKzNpQbruF2URmqPtoqAs8g3xS7TJvFF2GcPXjh7DkqMnpVveRFq4PgEQ==}
+    dependencies:
+      tslib: 2.4.0
+    dev: false
+
+  /pvutils/1.1.3:
+    resolution: {integrity: sha512-pMpnA0qRdFp32b1sJl1wOJNxZLQ2cbQx+k6tjNtZ8CpvVhNqEPRgivZ2WOUev2YMajecdH7ctUPDvEe87nariQ==}
+    engines: {node: '>=6.0.0'}
     dev: false
 
   /q/1.5.1:
@@ -13313,8 +13388,8 @@ packages:
   /tslib/1.14.1:
     resolution: {integrity: sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg==}
 
-  /tslib/2.3.0:
-    resolution: {integrity: sha512-N82ooyxVNm6h1riLCoyS9e3fuJ3AMG2zIZs2Gd1ATcSFjSA23Q0fzjjZeh0jbJvWVDZ0cJT8yaNNaaXHzueNjg==}
+  /tslib/2.4.0:
+    resolution: {integrity: sha512-d6xOpEDfsi2CZVlPQzGeux8XMwLT9hssAsaPYExaQMuYskwb+x1x7J371tWlbBdWHroy99KnVB6qIkUbs5X3UQ==}
     dev: false
 
   /tsutils/3.21.0_typescript@3.9.10:
@@ -13710,6 +13785,16 @@ packages:
     dependencies:
       defaults: 1.0.3
     dev: true
+
+  /webcrypto-core/1.7.5:
+    resolution: {integrity: sha512-gaExY2/3EHQlRNNNVSrbG2Cg94Rutl7fAaKILS1w8ZDhGxdFOaw6EbCfHIxPy9vt/xwp5o0VQAx9aySPF6hU1A==}
+    dependencies:
+      '@peculiar/asn1-schema': 2.3.0
+      '@peculiar/json-schema': 1.1.12
+      asn1js: 3.0.5
+      pvtsutils: 1.3.2
+      tslib: 2.4.0
+    dev: false
 
   /webidl-conversions/5.0.0:
     resolution: {integrity: sha512-VlZwKPCkYKxQgeSbH5EyngOmRp7Ww7I9rQLERETtf5ofd9pGeswWiOtogpEO850jziPRarreGxn5QIiTqpb2wA==}
