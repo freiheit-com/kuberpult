@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.4.33
+
+**released 2022-08-11**
+### Fixed
+* Fixed issue with cache being ineffective [#266](https://github.com/freiheit-com/kuberpult/pull/266)
+
 ## 0.4.32
 
 **released 2022-07-27**
