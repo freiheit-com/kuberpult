@@ -61,6 +61,7 @@ html, body, #root, #root>div {
   @include top-app-bar.ink-color(mdc_variables.$mdc-theme-primary);
 
   padding: 2em 0 2em 6em;
+  z-index: 2;
 
   .mdc-top-app-bar__row {
     align-content: center;

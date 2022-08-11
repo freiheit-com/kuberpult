@@ -8,7 +8,6 @@
     "@improbable-eng/grpc-web": "^0.14.0",
     "@material-ui/core": "5.0.0-alpha.34",
     "@material-ui/icons": "5.0.0-alpha.34",
-    "@material/top-app-bar": "^14.0.0",
     "@types/react-beforeunload": "^2.1.1",
     "material-components-web": "^14.0.0",
     "react": "^17.0.1",
