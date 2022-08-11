@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
                             </UnauthenticatedTemplate>
                         </MsalProviderWrapper>
                     ) : (
-                        <AuthTokenContext.Provider value={{ token: '', authHeader: {} }}>
+                        <AuthTokenContext.Provider value={{ token: '', authHeader: new BrowserHeaders({}) }}>
                             {children}
                         </AuthTokenContext.Provider>
                     )}
