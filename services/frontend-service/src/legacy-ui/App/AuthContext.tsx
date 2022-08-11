@@ -97,7 +97,7 @@ function MsalProviderWrapper({ children }: { children: React.ReactNode }): JSX.E
     return <MsalProvider instance={msalInstance}>{children}</MsalProvider>;
 }
 
-const AzureAutoSignIn = () => {
+export const AzureAutoSignIn = () => {
     const isAuthenticated = useIsAuthenticated();
     const loginRequest = React.useMemo(() => getLoginRequest(), []);
     const { instance } = useMsal();
