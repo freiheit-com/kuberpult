@@ -22,12 +22,23 @@ export const TopAppBar: React.FC = () => (
                 <span className="mdc-top-app-bar__title">Kuberpult</span>
             </section>
             <section className="mdc-top-app-bar__section text-field-container">
-                <label className="mdc-text-field mdc-text-field--outlined mdc-text-field--no-label">
+                <label className="mdc-text-field mdc-text-field--outlined mdc-text-field--with-leading-icon">
                     <span className="mdc-notched-outline">
                         <span className="mdc-notched-outline__leading"></span>
+                        <span className="mdc-notched-outline__notch">
+                            <span className="mdc-floating-label" id="my-label-id">
+                                Search
+                            </span>
+                        </span>
                         <span className="mdc-notched-outline__trailing"></span>
                     </span>
-                    <input className="mdc-text-field__input" type="text" aria-label="Search" />
+                    <i
+                        className="material-icons mdc-text-field__icon mdc-text-field__icon--leading"
+                        tabIndex={0}
+                        role="button">
+                        search
+                    </i>
+                    <input className="mdc-text-field__input" type="text" aria-labelledby="Search" />
                 </label>
             </section>
             <section className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">

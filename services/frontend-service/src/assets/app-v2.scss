@@ -7,10 +7,18 @@
 @use "@material/notched-outline/mdc-notched-outline";
 @use "@material/notched-outline";
 @use "@material/textfield";
+@use "@material/textfield/icon";
 @use "@material/icon-button/styles";
 @use "@material/top-app-bar";
 @use "@material/top-app-bar/mdc-top-app-bar";
 @use "./mdc_variables";
+@import url("https://fonts.googleapis.com/icon?family=Material+Icons");
+
+@include textfield.core-styles;
+@include notched-outline.shape-radius(15px);
+@include notched-outline.color(mdc_variables.$mdc-theme-primary);
+@include list.deprecated-core-styles;
+@include icon.icon-core-styles;
 
 html, body, #root, #root>div {
   height: 100%;
@@ -20,7 +28,6 @@ html, body, #root, #root>div {
 
 
 .mdc-drawer {
-  @include list.deprecated-core-styles;
   @include drawer.surface-fill-color(mdc_variables.$mdc-theme-primary);
 
   height: 100%;
@@ -74,12 +81,10 @@ html, body, #root, #root>div {
   }
 
   .mdc-text-field {
-    @include textfield.core-styles;
+    @include notched-outline.shape-radius(10px);
+    @include notched-outline.color(mdc_variables.$mdc-theme-primary);
 
-    .mdc-notched-outline {
-      @include notched-outline.shape-radius(10px);
-      @include notched-outline.color(mdc_variables.$mdc-theme-primary);
-    }
+    width: 100%;
   }
 }
 
