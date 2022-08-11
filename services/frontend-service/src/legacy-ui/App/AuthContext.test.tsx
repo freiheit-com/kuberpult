@@ -44,7 +44,7 @@ describe('AuthProvider', () => {
             enableAzureAuth: false,
             content: 'Content',
         },
-    ])(`Checkout`, (testcase: any) => {
+    ])(`Authorized Content`, (testcase: any) => {
         it(`${testcase.name}`, async () => {
             getWrapper(testcase);
             await act(async () => await global.nextTick());
