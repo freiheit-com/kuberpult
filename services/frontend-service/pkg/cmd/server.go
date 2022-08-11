@@ -19,10 +19,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
 	"io"
 	"net/http"
+
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -46,6 +47,11 @@ type Config struct {
 	GKEBackendServiceID string `default:"" split_words:"true"`
 	EnableTracing       bool   `default:"false" split_words:"true"`
 	ArgocdBaseUrl       string `default:"" split_words:"true"`
+	AzureEnableAuth     bool   `default:"false" split_words:"true"`
+	AzureCloudInstance  string `default:"https://login.microsoftonline.com/" split_words:"true"`
+	AzureClientId       string `default:"" split_words:"true"`
+	AzureTenantId       string `default:"" split_words:"true"`
+	AzureRedirectUrl    string `default:"" split_words:"true"`
 }
 
 var c Config
@@ -122,7 +128,18 @@ func RunServer() {
 		api.RegisterBatchServiceServer(gsrv, gproxy)
 
 		frontendConfigService := &service.FrontendConfigServiceServer{
-			Config: config.FrontendConfig{ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl}},
+			Config: config.FrontendConfig{
+				ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl},
+				Auth: &config.AuthConfig{
+					AzureAuth: &config.AzureAuthConfig{
+						Enabled:       c.AzureEnableAuth,
+						ClientId:      c.AzureClientId,
+						TenantId:      c.AzureTenantId,
+						RedirectURL:   c.AzureRedirectUrl,
+						CloudInstance: c.AzureCloudInstance,
+					},
+				},
+			},
 		}
 
 		api.RegisterFrontendConfigServiceServer(gsrv, frontendConfigService)

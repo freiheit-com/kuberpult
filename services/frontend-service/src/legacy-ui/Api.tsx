@@ -18,6 +18,7 @@ import * as React from 'react';
 import { Observable } from 'rxjs';
 
 import * as api from '../api/api';
+import { AuthTokenContext, AuthHeaderType } from './App/AuthContext';
 
 export interface Api {
     overviewService(): api.OverviewService;
@@ -108,28 +109,32 @@ contains all states from UnaryState and one additional state that is used when t
 */
 export type UnaryCallbackState<T> = UnaryState<T> | { state: 'waiting' };
 
-export function useUnaryCallback<T>(callback: (api: Api) => Promise<T>): [() => void, UnaryCallbackState<T>] {
+export function useUnaryCallback<T>(
+    callback: (api: Api, authHeader: AuthHeaderType) => Promise<T>
+): [() => void, UnaryCallbackState<T>] {
+    const { authHeader } = React.useContext(AuthTokenContext);
     const api = React.useContext(Context);
     const [state, setState] = React.useState<UnaryCallbackState<T>>({ state: 'waiting' });
     const cb = React.useCallback(() => {
         setState({ state: 'pending' });
-        callback(api).then(
+        callback(api, authHeader).then(
             (result) => setState({ result, state: 'resolved' }),
             (error) => setState({ error, state: 'rejected' })
         );
-    }, [api, callback]);
+    }, [api, authHeader, callback]);
     return [cb, state];
 }
 
-export function useObservable<T>(callback: (api: Api) => Observable<T>): UnaryState<T> {
+export function useObservable<T>(callback: (api: Api, authHeader: AuthHeaderType) => Observable<T>): UnaryState<T> {
+    const { authHeader } = React.useContext(AuthTokenContext);
     const api = React.useContext(Context);
     const [state, setState] = React.useState<UnaryState<T>>({ state: 'pending' });
     React.useEffect(() => {
-        const subscription = callback(api).subscribe(
+        const subscription = callback(api, authHeader).subscribe(
             (result) => setState({ result, state: 'resolved' }),
             (error) => setState({ error, state: 'rejected' })
         );
         return () => subscription.unsubscribe();
-    }, [api, callback]);
+    }, [api, authHeader, callback]);
     return state;
 }
