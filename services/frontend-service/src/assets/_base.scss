@@ -1,0 +1,18 @@
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+}
+
+.mdc-drawer-app-content {
+  flex: auto;
+  overflow: auto;
+  position: relative;
+}
+
+.main-content {
+  overflow: auto;
+  position:  relative;
+  padding: 0 0 0 6em;
+  height: 100%;
+}

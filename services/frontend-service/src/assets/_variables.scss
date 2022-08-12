@@ -1,0 +1,29 @@
+// Navigation variables
+$nav-bar-width: 6em;
+$nav-list-height: 40%;
+$nav-list-item-padding: 3em;
+
+// Top App Bar
+$top-app-bar-height: 4em; // 4em = 64px
+$top-app-bar-padding: 2em 0 2em $nav-bar-width; // 2em on top and bottom each
+$top-app-bar-z-index: 2;
+
+// Logo
+// 6em = 96px - Logo_width(60px) = 36px / 2 = 18px
+// 2em + 2em + mdc_top_bar_height(4em) = 128px - Logo_height(72px) = 56px / 2 = 28px
+$kp-logo-padding: 28px 18px;
+
+// Logo font properties from figma
+$kp-logo-font-font-weight: 700;
+$kp-logo-font-font-size: 60px;
+$kp-logo-font-line-height: 93%;
+
+
+:root {
+  // Colors
+  --mdc-theme-primary: #2D70D6;
+  --mdc-theme-on-primary: #ffffff;
+  --mdc-theme-background: #ffffff;
+  --mdc-theme-surface: #F5F5F5;
+  --mdc-theme-on-surface: #4A4A4A;
+}
