@@ -19,6 +19,6 @@ html, body, #root {
 .main-content {
   overflow: auto;
   position:  relative;
-  padding: 0 0 0 6em;
+  padding: $top-app-bar-height 0 0 $nav-bar-width;
   height: 100%;
 }

@@ -4,13 +4,12 @@ $nav-list-height: 40%;
 $nav-list-item-padding: 3em;
 
 // Top App Bar
-$top-app-bar-height: 4em; // 4em = 64px
 $top-app-bar-padding: 2em 0 2em $nav-bar-width; // 2em on top and bottom each
-$top-app-bar-z-index: 2;
+$top-app-bar-height: 8em; // 8em = 128px
 
 // Logo
 // 6em = 96px - Logo_width(60px) = 36px / 2 = 18px
-// 2em + 2em + mdc_top_bar_height(4em) = 128px - Logo_height(72px) = 56px / 2 = 28px
+// top_bar_height(8em) = 128px - Logo_height(72px) = 56px / 2 = 28px
 $kp-logo-padding: 28px 18px;
 
 // Logo font properties from figma
