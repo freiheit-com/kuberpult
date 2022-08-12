@@ -54,6 +54,8 @@ spec:
           value: kuberpult-cd-service:8443
         - name: KUBERPULT_ARGOCD_BASE_URL
           value: {{ .Values.argocd.baseUrl | quote }}
+        - name: KUBERPULT_VERSION
+          value: {{ .Values.tag || quote}}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL

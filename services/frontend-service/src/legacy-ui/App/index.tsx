@@ -85,7 +85,7 @@ const Main = () => {
                 <GetOverview>
                     {(overview) => (
                         <Box sx={{ display: 'flex', marginRight: '14%' }}>
-                            <Header overview={overview} />
+                            <Header overview={overview} configs={configs} />
                             <Box component="main" className={classes.main}>
                                 <Releases data={overview} />
                             </Box>

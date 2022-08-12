@@ -120,6 +120,8 @@ message GetFrontendConfigResponse {
     string baseUrl = 1;
   }
   ArgoCD argoCd = 1;
+
+  string version = 2;
 }
 
 
