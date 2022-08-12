@@ -1,0 +1,16 @@
+@use '@material/list';
+
+@include list.deprecated-core-styles;
+
+.mdc-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  height: $nav-list-height;
+
+  .mdc-list-item {
+    height: 100%;
+    padding-top: $nav-list-item-padding;
+  }
+}
