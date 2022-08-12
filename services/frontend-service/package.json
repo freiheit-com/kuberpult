@@ -12,6 +12,7 @@
     "@material-ui/icons": "5.0.0-alpha.34",
     "@peculiar/webcrypto": "^1.4.0",
     "@types/react-beforeunload": "^2.1.1",
+    "material-components-web": "^14.0.0",
     "react": "^17.0.1",
     "react-beforeunload": "^2.5.2",
     "react-dom": "^17.0.1",

@@ -138,9 +138,12 @@ export const ConfirmationDialogProvider = (props: ConfirmationDialogProviderProp
         </IconButton>
     );
 
-    function handleUndeployedUpstreamCheckbox(event: any) {
-        setAddEnvironmentLock(event.target.checked);
-    }
+    const handleUndeployedUpstreamCheckbox = useCallback(
+        (event: any) => {
+            setAddEnvironmentLock(event.target.checked);
+        },
+        [setAddEnvironmentLock]
+    );
 
     const undeployedUpstreamMessage = undeployedUpstream ? (
         <>
