@@ -158,7 +158,7 @@ func RunServer() {
 						CloudInstance: c.AzureCloudInstance,
 					},
 				},
-				Version: c.Version,
+				KuberpultVersion: c.Version,
 			},
 		}
 

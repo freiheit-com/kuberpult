@@ -18,9 +18,9 @@ Copyright 2021 freiheit.com*/
 package config
 
 type FrontendConfig struct {
-	ArgoCd  *ArgoCdConfig `json:"argocd"`
-	Auth    *AuthConfig   `json:"auth"`
-	Version string        `json:"version"`
+	ArgoCd           *ArgoCdConfig `json:"argocd"`
+	Auth             *AuthConfig   `json:"auth"`
+	KuberpultVersion string        `json:"version"`
 }
 
 type ArgoCdConfig struct {

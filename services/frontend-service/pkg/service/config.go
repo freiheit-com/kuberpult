@@ -42,7 +42,7 @@ func (c *FrontendConfigServiceServer) GetConfig(
 				RedirectURL:   c.Config.Auth.AzureAuth.RedirectURL,
 			},
 		},
-		KuberpultVersion: c.Config.Version,
+		KuberpultVersion: c.Config.KuberpultVersion,
 	}
 	return &result, nil
 }
