@@ -21,7 +21,7 @@ import { Routes as ReactRoutes, Route } from 'react-router-dom';
 const prefix = 'v2';
 const routes = [
     {
-        path: `/${prefix}`,
+        path: `/${prefix}/*`,
         element: <App />,
     },
     {
