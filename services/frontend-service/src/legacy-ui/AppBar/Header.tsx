@@ -41,7 +41,7 @@ const Header: React.FC<any> = (props: {
                 </Typography>
                 <AppDrawer data={overview} />
                 <LocksDrawer data={overview} />
-                <ActionsCart overview={overview} />ß
+                <ActionsCart overview={overview} />
             </Box>
         </AppBar>
     );
