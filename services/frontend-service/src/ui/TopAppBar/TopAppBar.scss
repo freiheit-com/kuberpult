@@ -3,12 +3,11 @@
 @use '@material/notched-outline/mdc-notched-outline';
 @use '@material/notched-outline';
 
-.mdc-top-app-bar--fixed {
+.mdc-top-app-bar {
   @include top-app-bar.fill-color(var(--mdc-theme-background));
   @include top-app-bar.ink-color(var(--mdc-theme-primary));
 
   padding: $top-app-bar-padding;
-  z-index: $top-app-bar-z-index;
 
   .mdc-top-app-bar__row {
     align-content: center;

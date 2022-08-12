@@ -32,7 +32,7 @@ export const TopAppBar: React.FC = () => {
     }, []);
 
     return (
-        <div className="mdc-top-app-bar--fixed" ref={control}>
+        <div className="mdc-top-app-bar" ref={control}>
             <div className="mdc-top-app-bar__row">
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
                     <span className="mdc-top-app-bar__title">Kuberpult</span>
