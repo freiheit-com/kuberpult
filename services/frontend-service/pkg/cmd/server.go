@@ -70,7 +70,7 @@ type Config struct {
 	AzureClientId       string `default:"" split_words:"true"`
 	AzureTenantId       string `default:"" split_words:"true"`
 	AzureRedirectUrl    string `default:"" split_words:"true"`
-	Version             string `default:"testing"`
+	Version             string `default:""`
 }
 
 var c Config
