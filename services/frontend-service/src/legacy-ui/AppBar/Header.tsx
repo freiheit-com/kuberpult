@@ -34,7 +34,7 @@ const Header: React.FC<any> = (props: {
             <Box sx={{ display: 'flex' }}>
                 <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1, width: '24rem' }}>
                     <strong>
-                        <Tooltip title={`Kuberpult ${configs.version || ''}`}>
+                        <Tooltip title={`Kuberpult ${configs.kuberpultVersion || 'KUBERPULT UI'}`}>
                             <code>KUBERPULT UI</code>
                         </Tooltip>
                     </strong>
