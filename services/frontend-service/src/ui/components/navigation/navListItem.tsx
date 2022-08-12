@@ -17,7 +17,7 @@ Copyright 2021 freiheit.com*/
 import classNames from 'classnames';
 import { cloneElement, useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 export const NavListItem = (props: { className?: string; to: string; icon?: JSX.Element }) => {
     const MDComponent = useRef<MDCRipple>();
@@ -33,20 +33,21 @@ export const NavListItem = (props: { className?: string; to: string; icon?: JSX.
     }, []);
 
     return (
-        <a
+        <Link
+            aria-label={to}
             className={classNames(
                 'mdc-list-item',
                 pathname.startsWith(to) ? 'mdc-list-item--activated' : '',
                 className
             )}
             ref={control}
-            href={to}
+            to={to}
             tabIndex={pathname.startsWith(to) ? 0 : undefined}>
             <div className="mdc-list-item__ripple" />
             {icon &&
                 cloneElement(icon, {
                     key: 'icon',
                 })}
-        </a>
+        </Link>
     );
 };
