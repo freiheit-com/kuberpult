@@ -22,15 +22,21 @@ import { AppDrawer } from './AppDrawer';
 import * as api from '../../api/api';
 import { LocksDrawer } from './LocksDrawer';
 import { ActionsCart } from '../ActionsCart/ActionsCart';
+import Tooltip from '@material-ui/core/Tooltip';
 
-const Header: React.FC<any> = (props: { overview: api.GetOverviewResponse }) => {
-    const { overview } = props;
+const Header: React.FC<any> = (props: {
+    overview: api.GetOverviewResponse;
+    configs: api.GetFrontendConfigResponse;
+}) => {
+    const { overview, configs } = props;
     return (
         <AppBar>
             <Box sx={{ display: 'flex' }}>
                 <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1, width: '24rem' }}>
                     <strong>
-                        <code>KUBERPULT UI</code>
+                        <Tooltip title={`Kuberpult ${configs.kuberpultVersion || ''}`}>
+                            <code>KUBERPULT UI</code>
+                        </Tooltip>
                     </strong>
                 </Typography>
                 <AppDrawer data={overview} />

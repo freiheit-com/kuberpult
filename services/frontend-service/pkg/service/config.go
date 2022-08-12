@@ -14,6 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
+
 package service
 
 import (
@@ -41,6 +42,7 @@ func (c *FrontendConfigServiceServer) GetConfig(
 				RedirectURL:   c.Config.Auth.AzureAuth.RedirectURL,
 			},
 		},
+		KuberpultVersion: c.Config.KuberpultVersion,
 	}
 	return &result, nil
 }

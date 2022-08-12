@@ -131,6 +131,8 @@ message GetFrontendConfigResponse {
   }
   ArgoCD argoCd = 1;
   Auth authConfig = 2;
+  string kuberpultVersion = 3;
+
 }
 
 

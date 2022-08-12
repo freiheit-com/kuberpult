@@ -14,11 +14,13 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
+
 package config
 
 type FrontendConfig struct {
-	ArgoCd *ArgoCdConfig `json:"argocd"`
-	Auth   *AuthConfig   `json:"auth"`
+	ArgoCd           *ArgoCdConfig `json:"argocd"`
+	Auth             *AuthConfig   `json:"auth"`
+	KuberpultVersion string        `json:"version"`
 }
 
 type ArgoCdConfig struct {
