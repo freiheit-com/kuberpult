@@ -33,7 +33,7 @@ export const NavList = (props: { className?: string; children: React.ReactElemen
 
     return (
         <nav className={classNames('mdc-list', className)} ref={control}>
-            {children.map((e) => cloneElement(e, { key: e.key }))}
+            {children.map((e) => cloneElement(e, { key: e.props.to }))}
         </nav>
     );
 };
