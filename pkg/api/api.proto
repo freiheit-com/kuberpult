@@ -130,7 +130,11 @@ message GetFrontendConfigResponse {
     AzureAuthConfig azureAuth= 1;
   }
   ArgoCD argoCd = 1;
+
   Auth authConfig = 2;
+
+  string version = 3;
+
 }
 
 
