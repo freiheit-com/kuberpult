@@ -6,7 +6,6 @@
 
 * Adding azure AD auth in UI on kuberpult [#285](https://github.com/freiheit-com/kuberpult/pull/285)
 * Add material components [#287](https://github.com/freiheit-com/kuberpult/pull/287)
-* Show kuberpult version in UI [#291](https://github.com/freiheit-com/kuberpult/pull/291)
 
 ## 0.4.33
 
