@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.4.34
+
+**released 2022-08-15**
+
+* Adding azure AD auth in UI on kuberpult [#285](https://github.com/freiheit-com/kuberpult/pull/285)
+* Add material components [#287](https://github.com/freiheit-com/kuberpult/pull/287)
+
 ## 0.4.33
 
 **released 2022-08-11**
