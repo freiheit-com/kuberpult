@@ -14,17 +14,15 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import './assets/index.scss';
-import React from 'react';
-import ReactDOM from 'react-dom';
-import { Routes } from './Routes';
-import { BrowserRouter } from 'react-router-dom';
+import { render } from '@testing-library/react';
+import { LocksPage } from './LocksPage';
 
-ReactDOM.render(
-    <React.StrictMode>
-        <BrowserRouter>
-            <Routes />
-        </BrowserRouter>
-    </React.StrictMode>,
-    document.getElementById('root')
-);
+describe('EnvironmentsPage', () => {
+    const getNode = (): JSX.Element | any => <LocksPage />;
+    const getWrapper = () => render(getNode());
+
+    it('Renders full app', () => {
+        const { container } = getWrapper();
+        expect(container.textContent).toBe('List All Locks Here');
+    });
+});

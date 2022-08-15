@@ -14,15 +14,5 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { render } from '@testing-library/react';
-import { App } from './';
 
-describe('App', () => {
-    const getNode = (): JSX.Element | any => <App />;
-    const getWrapper = () => render(getNode());
-
-    it('Renders full app', () => {
-        const { container } = getWrapper();
-        expect(container.textContent).toBe('hello world');
-    });
-});
+export const LocksPage: React.FC = () => <main className="main-content">List All Locks Here</main>;

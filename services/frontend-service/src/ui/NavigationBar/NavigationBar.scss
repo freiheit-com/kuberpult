@@ -1,0 +1,18 @@
+@use '@material/drawer';
+
+@include drawer.core-styles;
+
+.mdc-drawer {
+  @include drawer.surface-fill-color(var(--mdc-theme-primary));
+
+  position: fixed;
+  width: $nav-bar-width;
+
+  .kp-logo {
+    padding: $kp-logo-padding;
+  }
+
+  .mdc-drawer__content {
+    height: 100%;
+  }
+}

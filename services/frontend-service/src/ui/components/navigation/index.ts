@@ -14,17 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import './assets/index.scss';
-import React from 'react';
-import ReactDOM from 'react-dom';
-import { Routes } from './Routes';
-import { BrowserRouter } from 'react-router-dom';
+import { NavListItem } from './navListItem';
+import { NavList } from './navList';
 
-ReactDOM.render(
-    <React.StrictMode>
-        <BrowserRouter>
-            <Routes />
-        </BrowserRouter>
-    </React.StrictMode>,
-    document.getElementById('root')
-);
+export { NavListItem, NavList };

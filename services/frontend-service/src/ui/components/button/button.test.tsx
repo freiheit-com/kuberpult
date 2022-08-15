@@ -14,17 +14,28 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import './assets/index.scss';
-import React from 'react';
-import ReactDOM from 'react-dom';
-import { Routes } from './Routes';
-import { BrowserRouter } from 'react-router-dom';
+import { Button } from './button';
+import { render } from '@testing-library/react';
 
-ReactDOM.render(
-    <React.StrictMode>
-        <BrowserRouter>
-            <Routes />
-        </BrowserRouter>
-    </React.StrictMode>,
-    document.getElementById('root')
-);
+describe('Button', () => {
+    const getNode = () => <Button className={'button--test'} label={'Test Me'} />;
+    const getWrapper = () => render(getNode());
+    it('renders a button', () => {
+        const { container } = getWrapper();
+        expect(container.firstChild).toMatchInlineSnapshot(`
+    <button
+      aria-label="Test Me"
+      class="mdc-button button--test"
+    >
+      <div
+        class="mdc-button__ripple"
+      />
+      <span
+        class="mdc-button__label"
+      >
+        Test Me
+      </span>
+    </button>
+  `);
+    });
+});
