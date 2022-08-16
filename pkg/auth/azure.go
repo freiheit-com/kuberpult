@@ -24,11 +24,19 @@ import (
 
 	"github.com/MicahParks/keyfunc"
 	jwt "github.com/golang-jwt/jwt/v4"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 var jwks *keyfunc.JWKS = nil
+var clientId string
+var tenantId string
 
-func JWKSInitAzure(ctx context.Context) error {
+func JWKSInitAzure(ctx context.Context, _clientId string, _tenantId string) error {
+	clientId = _clientId
+	tenantId = _tenantId
 	jwksURL := "https://login.microsoftonline.com/common/discovery/v2.0/keys"
 	options := keyfunc.Options{
 		Ctx: ctx,
@@ -48,7 +56,7 @@ func JWKSInitAzure(ctx context.Context) error {
 	return nil
 }
 
-func ValidateToken(jwtB64 string, clientId string, tenantId string) (*User, error) {
+func ValidateToken(jwtB64 string) (*User, error) {
 	var token *jwt.Token
 	if jwks == nil {
 		return nil, fmt.Errorf("JWKS not initialized.")
@@ -84,4 +92,53 @@ func ValidateToken(jwtB64 string, clientId string, tenantId string) (*User, erro
 		Email: email.(string),
 		Name:  name.(string),
 	}, nil
+}
+
+func authorize(ctx context.Context) error {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return status.Errorf(codes.InvalidArgument, "Retrieving metadata failed")
+	}
+
+	authHeader, ok := md["authorization"]
+	if !ok {
+		return status.Errorf(codes.Unauthenticated, "Authorization token not supplied")
+	}
+
+	token := authHeader[0]
+	_, err := ValidateToken(token)
+
+	if err != nil {
+		return status.Errorf(codes.Unauthenticated, err.Error())
+	}
+	return nil
+}
+
+func UnaryInterceptor(ctx context.Context,
+	req interface{},
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler) (interface{}, error) {
+
+	if info.FullMethod != "/api.v1.FrontendConfigService/GetConfig" {
+		err := authorize(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	h, err := handler(ctx, req)
+	return h, err
+}
+
+func StreamInterceptor(
+	srv interface{},
+	stream grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+	handler grpc.StreamHandler,
+) error {
+	err := authorize(stream.Context())
+	if err != nil {
+		return err
+	}
+	return handler(srv, stream)
 }
