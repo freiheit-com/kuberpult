@@ -7,6 +7,7 @@ require (
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/go-git/go-billy/v5 v5.3.1
+	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/go-cmp v0.5.8
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/hashicorp/golang-lru v0.5.4
@@ -29,6 +30,7 @@ require (
 	cloud.google.com/go v0.65.0 // indirect
 	github.com/DataDog/datadog-go v4.4.0+incompatible // indirect
 	github.com/DataDog/sketches-go v1.0.0 // indirect
+	github.com/MicahParks/keyfunc v1.2.2 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/go-logr/logr v0.4.0 // indirect
