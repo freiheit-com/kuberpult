@@ -69,9 +69,6 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("config.parse", zap.Error(err))
 		}
 
-		if c.AzureEnableAuth {
-			auth.JWKSInitAzure(ctx, c.AzureClientId, c.AzureTenantId)
-		}
 		logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
 		logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
 
@@ -110,6 +107,7 @@ func RunServer() {
 		}
 
 		if c.AzureEnableAuth {
+			auth.JWKSInitAzure(ctx, c.AzureClientId, c.AzureTenantId)
 			grpcUnaryInterceptors = append(grpcUnaryInterceptors, auth.UnaryInterceptor)
 			grpcStreamInterceptors = append(grpcStreamInterceptors, auth.StreamInterceptor)
 		}
