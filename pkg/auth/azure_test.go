@@ -11,7 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestValidateToken(t *testing.T) {
+func TestValidateTokenStatic(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		Token         string
@@ -51,10 +51,15 @@ func TestValidateToken(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
+			var jwks *keyfunc.JWKS
+			var err error
 			if !(tc.noInit) {
-				JWKSInitAzure(ctx, "clientId", "tenantId")
+				jwks, err = JWKSInitAzure(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
-			err := ValidateToken(tc.Token)
+			err = ValidateToken(tc.Token, jwks, "clientId", "tenantId")
 			if diff := cmp.Diff(err.Error(), tc.ExpectedError); diff != "" {
 				t.Errorf("Error mismatch (-want +got):\n%s", diff)
 			}
@@ -176,8 +181,6 @@ func TestValidateTokenGenerated(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctx := context.Background()
-			JWKSInitAzure(ctx, "clientId", "tenantId")
 			duration, err := time.ParseDuration("10m")
 			if err != nil {
 				t.Fatal(err)
@@ -190,11 +193,11 @@ func TestValidateTokenGenerated(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			Jwks, err = getJwks()
+			jwks, err := getJwks()
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = ValidateToken(tokenString)
+			err = ValidateToken(tokenString, jwks, "clientId", "tenantId")
 			if len(tc.ExpectedError) > 0 {
 				if err == nil {
 					t.Fatalf("Expected error \n%s, got nil", tc.ExpectedError)
