@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/MicahParks/keyfunc"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
 
@@ -69,6 +70,13 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("config.parse", zap.Error(err))
 		}
 
+		var jwks *keyfunc.JWKS = nil
+		if c.AzureEnableAuth {
+			jwks, err = auth.JWKSInitAzure(ctx)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("Unable to initialize jwks for azure auth")
+			}
+		}
 		logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
 		logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
 
@@ -107,10 +115,6 @@ func RunServer() {
 		}
 
 		if c.AzureEnableAuth {
-			jwks, err := auth.JWKSInitAzure(ctx)
-			if err != nil {
-				logger.FromContext(ctx).Fatal("Unable to initialize jwks for azure auth")
-			}
 			var AzureUnaryInterceptor = func(ctx context.Context,
 				req interface{},
 				info *grpc.UnaryServerInfo,
@@ -197,6 +201,11 @@ func RunServer() {
 				31536000 seconds = 1 year.
 				*/
 				resp.Header().Set("strict-Transport-Security", "max-age=31536000; includeSubDomains;")
+				if c.AzureEnableAuth {
+					if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId); err != nil {
+						return
+					}
+				}
 				mux.ServeHTTP(resp, req)
 			}
 		})
@@ -207,7 +216,7 @@ func RunServer() {
 			PolicyFor: func(r *http.Request) *setup.CORSPolicy {
 				return &setup.CORSPolicy{
 					AllowMethods:     "POST",
-					AllowHeaders:     "content-type,x-grpc-web",
+					AllowHeaders:     "content-type,x-grpc-web,authorization",
 					AllowOrigin:      "*",
 					AllowCredentials: true,
 				}
