@@ -98,7 +98,7 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 	err := ValidateToken(token, jwks, clientId, tenantId)
 
 	if err != nil {
-		return status.Errorf(codes.Unauthenticated, err.Error())
+		return status.Errorf(codes.Unauthenticated, "Invalid authorization token provided")
 	}
 	return nil
 }
