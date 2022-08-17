@@ -30,7 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var jwks *keyfunc.JWKS = nil
+var Jwks *keyfunc.JWKS = nil
 var clientId string
 var tenantId string
 
@@ -41,7 +41,7 @@ func JWKSInitAzure(ctx context.Context, _clientId string, _tenantId string) erro
 	options := keyfunc.Options{
 		Ctx: ctx,
 		RefreshErrorHandler: func(err error) {
-			log.Printf("There was an error with the jwt.Keyfunc\nError: %s", err.Error())
+			log.Printf("There was an error with the jwt.Keyfunc. Error: %s", err.Error())
 		},
 		RefreshInterval:   time.Hour,
 		RefreshRateLimit:  time.Minute * 5,
@@ -49,20 +49,20 @@ func JWKSInitAzure(ctx context.Context, _clientId string, _tenantId string) erro
 		RefreshUnknownKID: true,
 	}
 	var err error
-	jwks, err = keyfunc.Get(jwksURL, options)
+	Jwks, err = keyfunc.Get(jwksURL, options)
 	if err != nil {
-		return fmt.Errorf("Failed to create JWKS from resource at the given URL.\nError: %s", err.Error())
+		return fmt.Errorf("Failed to create JWKS from resource at the given URL. Error: %s", err.Error())
 	}
 	return nil
 }
 
 func ValidateToken(jwtB64 string) error {
 	var token *jwt.Token
-	if jwks == nil {
+	if Jwks == nil {
 		return fmt.Errorf("JWKS not initialized.")
 	}
 	claims := jwt.MapClaims{}
-	token, err := jwt.ParseWithClaims(jwtB64, claims, jwks.Keyfunc)
+	token, err := jwt.ParseWithClaims(jwtB64, claims, Jwks.Keyfunc)
 	if err != nil {
 		return fmt.Errorf("Failed to parse the JWT.\nError: %s", err.Error())
 	}
