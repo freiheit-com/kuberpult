@@ -30,13 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var Jwks *keyfunc.JWKS = nil
-var clientId string
-var tenantId string
-
-func JWKSInitAzure(ctx context.Context, _clientId string, _tenantId string) error {
-	clientId = _clientId
-	tenantId = _tenantId
+func JWKSInitAzure(ctx context.Context) (*keyfunc.JWKS, error) {
 	jwksURL := "https://login.microsoftonline.com/common/discovery/v2.0/keys"
 	options := keyfunc.Options{
 		Ctx: ctx,
@@ -49,20 +43,20 @@ func JWKSInitAzure(ctx context.Context, _clientId string, _tenantId string) erro
 		RefreshUnknownKID: true,
 	}
 	var err error
-	Jwks, err = keyfunc.Get(jwksURL, options)
+	jwks, err := keyfunc.Get(jwksURL, options)
 	if err != nil {
-		return fmt.Errorf("Failed to create JWKS from resource at the given URL. Error: %s", err.Error())
+		return nil, fmt.Errorf("Failed to create JWKS from resource at the given URL. Error: %s", err.Error())
 	}
-	return nil
+	return jwks, nil
 }
 
-func ValidateToken(jwtB64 string) error {
+func ValidateToken(jwtB64 string, jwks *keyfunc.JWKS, clientId string, tenantId string) error {
 	var token *jwt.Token
-	if Jwks == nil {
+	if jwks == nil {
 		return fmt.Errorf("JWKS not initialized.")
 	}
 	claims := jwt.MapClaims{}
-	token, err := jwt.ParseWithClaims(jwtB64, claims, Jwks.Keyfunc)
+	token, err := jwt.ParseWithClaims(jwtB64, claims, jwks.Keyfunc)
 	if err != nil {
 		return fmt.Errorf("Failed to parse the JWT.\nError: %s", err.Error())
 	}
@@ -88,7 +82,7 @@ func ValidateToken(jwtB64 string) error {
 	return nil
 }
 
-func authorize(ctx context.Context) error {
+func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantId string) error {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return status.Errorf(codes.InvalidArgument, "Retrieving metadata failed")
@@ -100,7 +94,7 @@ func authorize(ctx context.Context) error {
 	}
 
 	token := authHeader[0]
-	err := ValidateToken(token)
+	err := ValidateToken(token, jwks, clientId, tenantId)
 
 	if err != nil {
 		return status.Errorf(codes.Unauthenticated, err.Error())
@@ -111,10 +105,12 @@ func authorize(ctx context.Context) error {
 func UnaryInterceptor(ctx context.Context,
 	req interface{},
 	info *grpc.UnaryServerInfo,
-	handler grpc.UnaryHandler) (interface{}, error) {
-
+	handler grpc.UnaryHandler,
+	jwks *keyfunc.JWKS,
+	clientId string,
+	tenantId string) (interface{}, error) {
 	if info.FullMethod != "/api.v1.FrontendConfigService/GetConfig" {
-		err := authorize(ctx)
+		err := authorize(ctx, jwks, clientId, tenantId)
 		if err != nil {
 			return nil, err
 		}
@@ -129,8 +125,12 @@ func StreamInterceptor(
 	stream grpc.ServerStream,
 	info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler,
+	jwks *keyfunc.JWKS,
+	clientId string,
+	tenantId string,
+
 ) error {
-	err := authorize(stream.Context())
+	err := authorize(stream.Context(), jwks, clientId, tenantId)
 	if err != nil {
 		return err
 	}

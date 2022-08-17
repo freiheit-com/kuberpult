@@ -107,9 +107,26 @@ func RunServer() {
 		}
 
 		if c.AzureEnableAuth {
-			auth.JWKSInitAzure(ctx, c.AzureClientId, c.AzureTenantId)
-			grpcUnaryInterceptors = append(grpcUnaryInterceptors, auth.UnaryInterceptor)
-			grpcStreamInterceptors = append(grpcStreamInterceptors, auth.StreamInterceptor)
+			jwks, err := auth.JWKSInitAzure(ctx)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("Unable to initialize jwks for azure auth")
+			}
+			var AzureUnaryInterceptor = func(ctx context.Context,
+				req interface{},
+				info *grpc.UnaryServerInfo,
+				handler grpc.UnaryHandler) (interface{}, error) {
+				return auth.UnaryInterceptor(ctx, req, info, handler, jwks, c.AzureClientId, c.AzureTenantId)
+			}
+			var AzureStreamInterceptor = func(
+				srv interface{},
+				stream grpc.ServerStream,
+				info *grpc.StreamServerInfo,
+				handler grpc.StreamHandler,
+			) error {
+				return auth.StreamInterceptor(srv, stream, info, handler, jwks, c.AzureClientId, c.AzureTenantId)
+			}
+			grpcUnaryInterceptors = append(grpcUnaryInterceptors, AzureUnaryInterceptor)
+			grpcStreamInterceptors = append(grpcStreamInterceptors, AzureStreamInterceptor)
 		}
 
 		gsrv := grpc.NewServer(
