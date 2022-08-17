@@ -56,42 +56,36 @@ func JWKSInitAzure(ctx context.Context, _clientId string, _tenantId string) erro
 	return nil
 }
 
-func ValidateToken(jwtB64 string) (*User, error) {
+func ValidateToken(jwtB64 string) error {
 	var token *jwt.Token
 	if jwks == nil {
-		return nil, fmt.Errorf("JWKS not initialized.")
+		return fmt.Errorf("JWKS not initialized.")
 	}
 	claims := jwt.MapClaims{}
 	token, err := jwt.ParseWithClaims(jwtB64, claims, jwks.Keyfunc)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse the JWT.\nError: %s", err.Error())
+		return fmt.Errorf("Failed to parse the JWT.\nError: %s", err.Error())
 	}
 	if !token.Valid {
-		return nil, fmt.Errorf("Invalid token provided.")
+		return fmt.Errorf("Invalid token provided.")
 	}
 	if val, ok := claims["aud"]; ok {
 		if val != clientId {
-			return nil, fmt.Errorf("Unknown client id provided: %s", val)
+			return fmt.Errorf("Unknown client id provided: %s", val)
 		}
 	} else {
-		return nil, fmt.Errorf("Client id not found in token.")
+		return fmt.Errorf("Client id not found in token.")
 	}
 
 	if val, ok := claims["tid"]; ok {
 		if val != tenantId {
-			return nil, fmt.Errorf("Unknown tenant id provided: %s", val)
+			return fmt.Errorf("Unknown tenant id provided: %s", val)
 		}
 	} else {
-		return nil, fmt.Errorf("Tenant id not found in token.")
+		return fmt.Errorf("Tenant id not found in token.")
 	}
 
-	email, _ := claims["preferred_username"]
-	name, _ := claims["name"]
-
-	return &User{
-		Email: email.(string),
-		Name:  name.(string),
-	}, nil
+	return nil
 }
 
 func authorize(ctx context.Context) error {
@@ -106,7 +100,7 @@ func authorize(ctx context.Context) error {
 	}
 
 	token := authHeader[0]
-	_, err := ValidateToken(token)
+	err := ValidateToken(token)
 
 	if err != nil {
 		return status.Errorf(codes.Unauthenticated, err.Error())
