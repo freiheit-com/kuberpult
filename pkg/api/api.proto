@@ -91,7 +91,7 @@ message ReleaseTrainRequest {
 
 message Lock {
   string message = 1;
-  Commit commit = 2;
+  Metadata metadata = 2;
   string lock_id = 3;
 }
 
@@ -174,7 +174,7 @@ message Environment {
     uint64 version = 2;
     map<string, Lock> locks = 3;
     uint64 queuedVersion = 4;
-    Commit versionCommit = 5;
+    Metadata versionMetadata = 5;
     bool undeployVersion = 6;
     ArgoCD argoCD = 7;
   }
@@ -190,7 +190,7 @@ message Release {
   string source_commit_id = 2;
   string source_author = 3;
   string source_message = 4;
-  Commit commit = 5;
+  Metadata metadata = 5;
   bool undeployVersion = 6;
 }
 
@@ -200,7 +200,7 @@ message Application {
   string team = 3;
 }
 
-message Commit {
+message Metadata {
   google.protobuf.Timestamp author_time = 1; 
   string author_name = 2;
   string author_email = 3;
