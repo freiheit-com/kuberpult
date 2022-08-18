@@ -19,6 +19,8 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -228,6 +230,91 @@ func TestValidateTokenGenerated(t *testing.T) {
 					t.Fatalf("Expected no error got):\n%s", err.Error())
 				}
 			}
+		})
+	}
+}
+
+func TestHttpMiddleware(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Path          string
+		ExpectedError string
+		Authenticated bool
+	}{
+		{
+			Name:          "root path",
+			Path:          "/",
+			ExpectedError: "",
+		},
+		{
+			Name:          "js path",
+			Path:          "/static/js/content.js",
+			ExpectedError: "",
+		},
+		{
+			Name:          "css path",
+			Path:          "/static/css/content.css",
+			ExpectedError: "",
+		},
+		{
+			Name:          "api call",
+			Path:          "/environment/production/locks/999",
+			ExpectedError: "Failed to parse the JWT.\nError: token contains an invalid number of segments",
+			Authenticated: false,
+		},
+		{
+			Name:          "api call",
+			Path:          "/environment/production/locks/999",
+			ExpectedError: "",
+			Authenticated: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			req, err := http.NewRequest("GET", tc.Path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			duration, err := time.ParseDuration("10m")
+			if err != nil {
+				t.Fatal(err)
+			}
+			expiry := time.Now().Add(duration).Unix()
+			tokenString, err := getToken("clientId", "tenantId", "testKey", expiry)
+			if err != nil {
+				t.Fatal(err)
+			}
+			jwks, err := getJwks()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if tc.Authenticated {
+				req.Header.Set("Authorization", tokenString)
+			}
+			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				err := HttpAuthMiddleWare(w, r, jwks, "clientId", "tenantId", []string{"/"}, []string{"/static/js", "/static/css"})
+				if len(tc.ExpectedError) > 0 {
+
+					if err == nil {
+						t.Fatalf("Expected error %s, got nil", tc.ExpectedError)
+					}
+					if diff := cmp.Diff(err.Error(), tc.ExpectedError); diff != "" {
+						t.Fatalf("Error mismatch (-want +got):\n%s", diff)
+					}
+				} else {
+					if err != nil {
+						t.Fatalf("Expected no error, got %s", err.Error())
+					}
+				}
+			})
+			rw := httptest.NewRecorder()
+			handler := testHandler
+			handler.ServeHTTP(rw, req)
 		})
 	}
 }
