@@ -78,13 +78,13 @@ function AzureAuthTokenProvider({ children }: { children: React.ReactNode }): JS
         instance
             .acquireTokenSilent(request)
             .then((response) => {
-                setToken(response.accessToken);
-                setAuthHeader(new BrowserHeaders({ Authorization: response.accessToken }));
+                setToken(response.idToken);
+                setAuthHeader(new BrowserHeaders({ Authorization: response.idToken }));
             })
             .catch(() => {
                 instance.acquireTokenPopup(request).then((response) => {
-                    setToken(response.accessToken);
-                    setAuthHeader(new BrowserHeaders({ Authorization: response.accessToken }));
+                    setToken(response.idToken);
+                    setAuthHeader(new BrowserHeaders({ Authorization: response.idToken }));
                 });
             });
     }, [instance, accounts, loginRequest]);
