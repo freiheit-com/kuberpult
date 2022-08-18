@@ -43,7 +43,6 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/history"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"go.uber.org/zap"
 
@@ -77,7 +76,6 @@ type repository struct {
 	certificates *certificateStore
 
 	repository *git.Repository
-	history    *history.History
 
 	// Mutex guarding head
 	headLock sync.Mutex
@@ -173,7 +171,6 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				credentials:  credentials,
 				certificates: certificates,
 				repository:   repo2,
-				//history:      history.NewHistory(repo2),
 				queue:        makeQueue(),
 			}
 			result.headLock.Lock()
@@ -213,11 +210,6 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 					return nil, err
 				}
 			}
-			// load the persistent index
-			//err = result.history.LoadIndex(osfs.New(cfg.Path))
-			//if err != nil {
-			//	logger.Error("index.load", zap.Error(err))
-			//}
 
 			// check that we can build the current state
 			state, err := result.buildState()
@@ -421,11 +413,6 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	); err != nil {
 		return &InternalError{inner: err}
 	}
-	// store the persistent index
-	//err = r.history.WriteIndex(osfs.New(r.config.Path), state.Commit)
-	//if err != nil {
-	//	logger.FromContext(ctx).Error("index.store", zap.Error(err))
-	//}
 	return nil
 }
 
@@ -591,15 +578,9 @@ func (r *repository) buildState() (*State, error) {
 		if err != nil {
 			return nil, err
 		}
-		//commitHistory, err := r.history.Of(commit)
-		if err != nil {
-			return nil, err
-		}
 		return &State{
 			Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
 			Commit:                 commit,
-			//History:                r.history,
-			//CommitHistory:          commitHistory,
 			BootstrapMode:          r.config.BootstrapMode,
 			EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 		}, nil
@@ -698,8 +679,6 @@ func (r *repository) maybeGc(ctx context.Context) {
 type State struct {
 	Filesystem             billy.Filesystem
 	Commit                 *git.Commit
-	//History                *history.History
-	CommitHistory          *history.CommitHistory
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
 }
@@ -750,10 +729,11 @@ func (s *State) ReleaseManifests(application string, release uint64) (map[string
 }
 
 type Lock struct {
-	Message string
+	Message  string
+	Metadata *api.Metadata
 }
 
-func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) { // TODO TE
 	base := s.Filesystem.Join("environments", environment, "locks")
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err
@@ -764,7 +744,8 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 				return nil, err
 			} else {
 				result[e.Name()] = Lock{
-					Message: string(buf),
+					Message:  string(buf),
+					Metadata: nil,
 				}
 			}
 		}
@@ -772,43 +753,21 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 	}
 }
 
-//func (s *State) GetEnvironmentApplicationVersionCommit(environment, application string) (*git.Commit, error) {
-//	if s.Commit == nil {
-//		return nil, nil
-//	} else {
-//		return s.CommitHistory.Change(
-//			[]string{
-//				"environments", environment,
-//				"applications", application,
-//				"version",
-//			})
-//	}
-//}
-//func (s *State) GetEnvironmentApplicationLocksCommit(environment, application string, lockId string) (*git.Commit, error) {
-//	if s.Commit == nil {
-//		return nil, nil
-//	} else {
-//		return s.CommitHistory.Change(
-//			[]string{
-//				"environments", environment,
-//				"applications", application,
-//				"locks", lockId,
-//			})
-//	}
-//}
-//func (s *State) GetEnvironmentLocksCommit(environment, lockId string) (*git.Commit, error) {
-//	if s.Commit == nil {
-//		return nil, nil
-//	} else {
-//		return s.CommitHistory.Change(
-//			[]string{
-//				"environments", environment,
-//				"locks", lockId,
-//			})
-//	}
-//}
+func (s *State) GetEnvironmentApplicationVersionCommit(environment, application string) (*api.Metadata, error) { // TODO TE
+	//	if s.Commit == nil {
+	//		return nil, nil
+	//	} else {
+	//		return s.CommitHistory.Change(
+	//			[]string{
+	//				"environments", environment,
+	//				"applications", application,
+	//				"version",
+	//			})
+	//	}
+	return nil, nil
+}
 
-func (s *State) GetEnvironmentApplicationLocks(environment, application string) (map[string]Lock, error) {
+func (s *State) GetEnvironmentApplicationLocks(environment, application string) (map[string]Lock, error) { // TODO TE
 	base := s.Filesystem.Join("environments", environment, "applications", application, "locks")
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err
@@ -819,7 +778,8 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 				return nil, err
 			} else {
 				result[e.Name()] = Lock{
-					Message: string(buf),
+					Message:  string(buf),
+					Metadata: nil,
 				}
 			}
 		}
@@ -859,12 +819,12 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 			// if the link does not exist, we return nil
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed reading symlink %q: %w",version,err)
+		return nil, fmt.Errorf("failed reading symlink %q: %w", version, err)
 	} else {
 		target := s.Filesystem.Join("environments", environment, "applications", application, lnk)
 		if stat, err := s.Filesystem.Stat(target); err != nil {
 			// if the file that the link points to does not exist, that's an error
-			return nil, fmt.Errorf("failed stating %q: %w",target,err)
+			return nil, fmt.Errorf("failed stating %q: %w", target, err)
 		} else {
 			res, err := strconv.ParseUint(stat.Name(), 10, 64)
 			return &res, err
@@ -1017,12 +977,12 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 	return &release, nil
 }
 
-//func (s *State) GetApplicationReleaseCommit(application string, version uint64) (*git.Commit, error) {
-//	return s.CommitHistory.Change([]string{
-//		"applications", application,
-//		"releases", fmt.Sprintf("%d", version),
-//	})
-//}
+func (s *State) GetApplicationReleaseCommit(application string, version uint64) (*api.Metadata, error) { // TODO TE	//	return s.CommitHistory.Change([]string{
+	//		"applications", application,
+	//		"releases", fmt.Sprintf("%d", version),
+	//	})
+	return nil, nil
+}
 
 func (s *State) GetApplicationTeamOwner(application string) (string, error) {
 	appDir := applicationDirectory(s.Filesystem, application)
