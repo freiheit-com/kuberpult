@@ -202,7 +202,7 @@ func RunServer() {
 				*/
 				resp.Header().Set("strict-Transport-Security", "max-age=31536000; includeSubDomains;")
 				if c.AzureEnableAuth {
-					if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId, []string{"/"}, []string{"/static/js", "/static/css"}); err != nil {
+					if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId, []string{"/", "/manifest.json", "/favicon.png"}, []string{"/static/js", "/static/css"}); err != nil {
 						return
 					}
 				}
