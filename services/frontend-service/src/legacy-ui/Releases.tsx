@@ -164,7 +164,7 @@ const ReleaseBox = (props: { name: string; release: Release; envs: Array<Environ
                 <div className={'details'}>
                     <span className="commitId">{release.sourceCommitId}</span>
                 </div>
-                <Avatar className={'version ' + getFreshnessColor(release.commit?.authorTime)} />
+                <Avatar className={'version ' + getFreshnessColor(release.metadata?.authorTime)} />
                 <AvatarGroup className="envs">
                     {sortedEnvs.map((env) => (
                         <EnvAvatar env={env} application={props.name} key={env.name} />
