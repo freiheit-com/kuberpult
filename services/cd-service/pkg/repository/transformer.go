@@ -170,7 +170,6 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 }
 
 func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
-	println("CreateAppVersion 1")
 	fs := state.Filesystem
 	version, err := c.calculateVersion(fs)
 	if err != nil {
@@ -186,9 +185,6 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	if err != nil {
 		return "", err
 	}
-
-	println("CreateAppVersion 2 id:", c.SourceCommitId)
-	println("CreateAppVersion 2 author:", c.SourceAuthor)
 
 	if c.SourceCommitId != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_commit_id"), []byte(c.SourceCommitId), 0666); err != nil {
@@ -518,7 +514,7 @@ func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (st
 	}
 }
 
-func createLock(fs billy.Filesystem, lockId, message string) error {
+func createLock(fs billy.Filesystem, lockId, message string) error { // TODO TE
 	locksDir := "locks"
 	if err := fs.MkdirAll(locksDir, 0777); err != nil {
 		return err
@@ -530,7 +526,7 @@ func createLock(fs billy.Filesystem, lockId, message string) error {
 	return nil
 }
 
-type DeleteEnvironmentLock struct {
+type DeleteEnvironmentLock struct { // TODO TE
 	Environment string
 	LockId      string
 }
@@ -595,7 +591,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state 
 	}
 }
 
-type DeleteEnvironmentApplicationLock struct {
+type DeleteEnvironmentApplicationLock struct { // TODO TE
 	Environment string
 	Application string
 	LockId      string
@@ -683,7 +679,6 @@ type DeployApplicationVersion struct {
 }
 
 func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
-	println("DeployAppVersion 1")
 	fs := state.Filesystem
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
