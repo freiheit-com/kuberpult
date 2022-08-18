@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.4.36
+**released 2022-08-18**
+
+* Remove authentication requirement from path "/" in frontend [#302](https://github.com/freiheit-com/kuberpult/pull/302)
+
 ## 0.4.35
 
 **released 2022-08-18**
