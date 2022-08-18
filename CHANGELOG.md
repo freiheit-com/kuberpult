@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.4.35
+
+**released 2022-08-18**
+
+* Add authentication to grpc api calls in frontend [#299](https://github.com/freiheit-com/kuberpult/pull/299)
+* Add Basic Structure of the New UI [#294](https://github.com/freiheit-com/kuberpult/pull/294)
+
 ## 0.4.34
 
 **released 2022-08-15**
