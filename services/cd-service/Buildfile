@@ -9,3 +9,4 @@ metadata:
 spec:
   dependsOn:
   - ../../charts/kuberpult
+  - ../../pkg
