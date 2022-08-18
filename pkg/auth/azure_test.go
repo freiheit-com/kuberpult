@@ -62,20 +62,22 @@ func TestValidateTokenStatic(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
+	var jwks *keyfunc.JWKS
+	var err error
+	jwks, err = JWKSInitAzure(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctx := context.Background()
-			var jwks *keyfunc.JWKS
-			var err error
-			if !(tc.noInit) {
-				jwks, err = JWKSInitAzure(ctx)
-				if err != nil {
-					t.Fatal(err)
-				}
+			if tc.noInit {
+				err = ValidateToken(tc.Token, nil, "clientId", "tenantId")
+			} else {
+				err = ValidateToken(tc.Token, jwks, "clientId", "tenantId")
 			}
-			err = ValidateToken(tc.Token, jwks, "clientId", "tenantId")
 			if diff := cmp.Diff(err.Error(), tc.ExpectedError); diff != "" {
 				t.Errorf("Error mismatch (-want +got):\n%s", diff)
 			}
