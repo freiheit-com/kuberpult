@@ -20,6 +20,7 @@ import { useState } from 'react';
 import Box from '@material-ui/core/Box';
 import { ThemeProvider } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
+import { AuthProvider } from './AuthContext';
 
 import Releases from '../Releases';
 import * as api from '../../api/api';
@@ -51,7 +52,10 @@ export const Spinner: React.FC<any> = (props: any) => {
 };
 
 const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Element }): JSX.Element | null => {
-    const getOverview = React.useCallback((api) => api.overviewService().StreamOverview({}), []);
+    const getOverview = React.useCallback(
+        (api, authHeader) => api.overviewService().StreamOverview({}, authHeader),
+        []
+    );
     const overview = useObservable<api.GetOverviewResponse>(getOverview);
     switch (overview.state) {
         case 'resolved':
@@ -82,16 +86,18 @@ const Main = () => {
     return (
         <ActionsCartContext.Provider value={{ actions, setActions }}>
             <ConfigsContext.Provider value={{ configs, setConfigs }}>
-                <GetOverview>
-                    {(overview) => (
-                        <Box sx={{ display: 'flex', marginRight: '14%' }}>
-                            <Header overview={overview} />
-                            <Box component="main" className={classes.main}>
-                                <Releases data={overview} />
+                <AuthProvider>
+                    <GetOverview>
+                        {(overview) => (
+                            <Box sx={{ display: 'flex', marginRight: '14%' }}>
+                                <Header overview={overview} configs={configs} />
+                                <Box component="main" className={classes.main}>
+                                    <Releases data={overview} />
+                                </Box>
                             </Box>
-                        </Box>
-                    )}
-                </GetOverview>
+                        )}
+                    </GetOverview>
+                </AuthProvider>
             </ConfigsContext.Provider>
         </ActionsCartContext.Provider>
     );

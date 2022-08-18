@@ -38,12 +38,15 @@ export const callbacks = {
     useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
         useUnaryCallback(
             useCallback(
-                (api) =>
+                (api, authHeader) =>
                     api
                         .batchService()
-                        .ProcessBatch({
-                            actions: acts,
-                        })
+                        .ProcessBatch(
+                            {
+                                actions: acts,
+                            },
+                            authHeader as any
+                        )
                         .then(success)
                         .catch(fail),
                 [acts, success, fail]

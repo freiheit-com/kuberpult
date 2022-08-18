@@ -58,7 +58,7 @@ login:
 publish: login release
 
 start: src/api/api.ts
-	yarn && yarn start
+	pnpm i && pnpm start
 
 clean:
 	git clean -Xfd
@@ -74,8 +74,9 @@ test-go: $(GO_FILES) proto
 	$(GO) test ./...
 
 test-ts: src/api/api.ts
-	yarn eslint
-	yarn test --watchAll=false
+	pnpm eslint
+	# The extra '--' was added because of pnpm, Usage: pnpm test [-- <args>...]
+	pnpm test -- --watchAll=false
 
 docker: bin/main | dist
 	docker build -t $(IMAGENAME) .
@@ -88,12 +89,12 @@ all: test docker
 .PHONY: all release test docker clean
 
 ## Node part
-NODE_BIN_DIR=$(shell yarn bin)
+NODE_BIN_DIR=$(shell pnpm bin)
 
 deps: .deps.sentinel
 
 .deps.sentinel: package.json
-	yarn install && touch .deps.sentinel
+	pnpm i && touch .deps.sentinel
 
 src/api/api.ts: ../../pkg/api/api.proto | deps
 	mkdir -p src/api
@@ -103,7 +104,7 @@ dist: .dist.sentinel
 
 .dist.sentinel: src/api/api.ts $(shell find public src -type f)
 	rm -rf build/*
-	yarn build && touch .dist.sentinel
+	pnpm build && touch .dist.sentinel
 
 
 .DEFAULT_GOAL := all

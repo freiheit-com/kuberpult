@@ -1,0 +1,24 @@
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+}
+
+.app-container--v2 {
+  height: 100%;
+  width: 100%;
+  display: flex;
+}
+
+.mdc-drawer-app-content {
+  flex: auto;
+  overflow: auto;
+  position: relative;
+}
+
+.main-content {
+  overflow: auto;
+  position:  relative;
+  padding: $top-app-bar-height 0 0 $nav-bar-width;
+  height: 100%;
+}

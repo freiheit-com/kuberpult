@@ -19,10 +19,12 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
 	"io"
 	"net/http"
+
+	"github.com/MicahParks/keyfunc"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -46,6 +48,12 @@ type Config struct {
 	GKEBackendServiceID string `default:"" split_words:"true"`
 	EnableTracing       bool   `default:"false" split_words:"true"`
 	ArgocdBaseUrl       string `default:"" split_words:"true"`
+	AzureEnableAuth     bool   `default:"false" split_words:"true"`
+	AzureCloudInstance  string `default:"https://login.microsoftonline.com/" split_words:"true"`
+	AzureClientId       string `default:"" split_words:"true"`
+	AzureTenantId       string `default:"" split_words:"true"`
+	AzureRedirectUrl    string `default:"" split_words:"true"`
+	Version             string `default:""`
 }
 
 var c Config
@@ -62,6 +70,13 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("config.parse", zap.Error(err))
 		}
 
+		var jwks *keyfunc.JWKS = nil
+		if c.AzureEnableAuth {
+			jwks, err = auth.JWKSInitAzure(ctx)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("Unable to initialize jwks for azure auth")
+			}
+		}
 		logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
 		logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
 
@@ -99,6 +114,25 @@ func RunServer() {
 			)
 		}
 
+		if c.AzureEnableAuth {
+			var AzureUnaryInterceptor = func(ctx context.Context,
+				req interface{},
+				info *grpc.UnaryServerInfo,
+				handler grpc.UnaryHandler) (interface{}, error) {
+				return auth.UnaryInterceptor(ctx, req, info, handler, jwks, c.AzureClientId, c.AzureTenantId)
+			}
+			var AzureStreamInterceptor = func(
+				srv interface{},
+				stream grpc.ServerStream,
+				info *grpc.StreamServerInfo,
+				handler grpc.StreamHandler,
+			) error {
+				return auth.StreamInterceptor(srv, stream, info, handler, jwks, c.AzureClientId, c.AzureTenantId)
+			}
+			grpcUnaryInterceptors = append(grpcUnaryInterceptors, AzureUnaryInterceptor)
+			grpcStreamInterceptors = append(grpcStreamInterceptors, AzureStreamInterceptor)
+		}
+
 		gsrv := grpc.NewServer(
 			grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
 			grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
@@ -122,7 +156,19 @@ func RunServer() {
 		api.RegisterBatchServiceServer(gsrv, gproxy)
 
 		frontendConfigService := &service.FrontendConfigServiceServer{
-			Config: config.FrontendConfig{ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl}},
+			Config: config.FrontendConfig{
+				ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl},
+				Auth: &config.AuthConfig{
+					AzureAuth: &config.AzureAuthConfig{
+						Enabled:       c.AzureEnableAuth,
+						ClientId:      c.AzureClientId,
+						TenantId:      c.AzureTenantId,
+						RedirectURL:   c.AzureRedirectUrl,
+						CloudInstance: c.AzureCloudInstance,
+					},
+				},
+				KuberpultVersion: c.Version,
+			},
 		}
 
 		api.RegisterFrontendConfigServiceServer(gsrv, frontendConfigService)
@@ -155,6 +201,11 @@ func RunServer() {
 				31536000 seconds = 1 year.
 				*/
 				resp.Header().Set("strict-Transport-Security", "max-age=31536000; includeSubDomains;")
+				if c.AzureEnableAuth {
+					if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId); err != nil {
+						return
+					}
+				}
 				mux.ServeHTTP(resp, req)
 			}
 		})
@@ -165,7 +216,7 @@ func RunServer() {
 			PolicyFor: func(r *http.Request) *setup.CORSPolicy {
 				return &setup.CORSPolicy{
 					AllowMethods:     "POST",
-					AllowHeaders:     "content-type,x-grpc-web",
+					AllowHeaders:     "content-type,x-grpc-web,authorization",
 					AllowOrigin:      "*",
 					AllowCredentials: true,
 				}

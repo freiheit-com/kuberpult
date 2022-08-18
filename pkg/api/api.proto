@@ -119,7 +119,20 @@ message GetFrontendConfigResponse {
   message ArgoCD {
     string baseUrl = 1;
   }
+  message Auth {
+    message AzureAuthConfig {
+      bool enabled = 1;
+      string clientId = 2;
+      string tenantId = 3;
+      string cloudInstance = 4;
+      string redirectURL = 5;
+    } 
+    AzureAuthConfig azureAuth= 1;
+  }
   ArgoCD argoCd = 1;
+  Auth authConfig = 2;
+  string kuberpultVersion = 3;
+
 }
 
 

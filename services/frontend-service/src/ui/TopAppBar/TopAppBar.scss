@@ -1,0 +1,26 @@
+@use '@material/top-app-bar';
+@use '@material/top-app-bar/mdc-top-app-bar';
+@use '@material/notched-outline/mdc-notched-outline';
+@use '@material/notched-outline';
+
+.mdc-top-app-bar {
+  @include top-app-bar.fill-color(var(--mdc-theme-background));
+  @include top-app-bar.ink-color(var(--mdc-theme-primary));
+
+  padding: $top-app-bar-padding;
+
+  .mdc-top-app-bar__row {
+    align-content: center;
+  }
+
+  .mdc-top-app-bar__title{
+    font-weight: $kp-logo-font-font-weight;
+    font-size: $kp-logo-font-font-size;
+    line-height: $kp-logo-font-line-height;
+  }
+
+  .mdc-text-field {
+    @include notched-outline.shape-radius(10px);
+    @include notched-outline.color(var(--mdc-theme-primary));
+  }
+}

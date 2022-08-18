@@ -75,7 +75,7 @@ cd ../../..
 
 Go tests would be part of the same package as the main code, but ending the file names with `_test.go`. When adding new test cases, please use [table driven tests](https://revolution.dev/app/-JqFGExX46gs9mH7vxR5/WORKSPACE_DOCUMENT/-MjkBXy5_eugWYQsxyHl/)
 
-To run tests, the root makefile has the test command, which runs the test commands in `services/cd-service/Makefile` and `services/frontend-service/Makefile`, which, in turn, run tests for go and yarn files.
+To run tests, the root makefile has the test command, which runs the test commands in `services/cd-service/Makefile` and `services/frontend-service/Makefile`, which, in turn, run tests for go and pnpm files.
 
 ```bash
 make test
@@ -113,7 +113,7 @@ backend:
 
 - [docker](https://docs.docker.com/get-docker/) - for docker build for cd-service - optional
 - [node](https://nodejs.org/en/download/) - ensure you're using an LTS version (or use [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
-- [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable)
+- [pnpm](https://pnpm.io/installation)
 
 ## Libraries required
 - libgit2 >= 1.0

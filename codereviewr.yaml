@@ -115,6 +115,7 @@ ignoredFiles: [
     "*/multi_line_config",
     "charts/*",
     "*.nvmrc",
+    "*.npmrc",
     "chart/*"
   ] #ignored file extensions
 testFiles: ["_test.go", "_test.dart"]

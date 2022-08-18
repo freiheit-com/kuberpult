@@ -14,14 +14,14 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { App as LegacyApp } from '../legacy-ui/App';
-import { App } from './App';
+import { App as LegacyApp } from './legacy-ui/App';
+import { App } from './ui/App';
 import { Routes as ReactRoutes, Route } from 'react-router-dom';
 
 const prefix = 'v2';
 const routes = [
     {
-        path: `/${prefix}`,
+        path: `/${prefix}/*`,
         element: <App />,
     },
     {

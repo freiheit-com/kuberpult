@@ -7,6 +7,7 @@ services/cd-service/environment_configs.json
 .install
 .idea/
 .*.sentinel
+.pnpm-store
 build/
 
 # used by envrc https://direnv.net/

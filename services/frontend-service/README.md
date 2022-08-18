@@ -3,7 +3,7 @@
 ## Initial Setup
 
 ```shell
-yarn
+pnpm i
 make all
 ```
 
@@ -16,7 +16,7 @@ make all
 To start the ui itself, run
 ```shell
 (cd ../../pkg/api/; make all)
-yarn && yarn start
+pnpm i && pnpm start
 ```
 
 ## other
@@ -30,6 +30,6 @@ Note that you probably also need the `cd-service`.
 Run this, but adapt the image name first for the project (here 'nemo')
 ```shell
 make clean
-yarn
+pnpm i
 make release
 ```

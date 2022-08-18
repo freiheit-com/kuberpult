@@ -23,7 +23,7 @@ misc/
 .eslintcache
 
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+pnpm-debug.log*
+pnpm-error.log*
 /src/api
 /src/google

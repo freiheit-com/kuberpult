@@ -17,7 +17,7 @@ Copyright 2021 freiheit.com*/
 import './assets/index.scss';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { Routes } from './ui/Routes';
+import { Routes } from './Routes';
 import { BrowserRouter } from 'react-router-dom';
 
 ReactDOM.render(

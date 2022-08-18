@@ -7,6 +7,7 @@ require (
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/go-git/go-billy/v5 v5.3.1
+	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/go-cmp v0.5.8
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/hashicorp/golang-lru v0.5.4
@@ -16,11 +17,11 @@ require (
 	github.com/libgit2/git2go/v33 v33.0.4
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/api v0.30.0
 	google.golang.org/grpc v1.46.2
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.34.0
+	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apimachinery v0.21.1
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -29,6 +30,7 @@ require (
 	cloud.google.com/go v0.65.0 // indirect
 	github.com/DataDog/datadog-go v4.4.0+incompatible // indirect
 	github.com/DataDog/sketches-go v1.0.0 // indirect
+	github.com/MicahParks/keyfunc v1.2.2 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/go-logr/logr v0.4.0 // indirect
@@ -58,7 +60,6 @@ require (
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.8.0 // indirect
 	nhooyr.io/websocket v1.8.6 // indirect
