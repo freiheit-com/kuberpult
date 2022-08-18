@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/MicahParks/keyfunc"
@@ -140,7 +141,7 @@ func StreamInterceptor(
 
 func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfunc.JWKS, clientId string, tenantId string) error {
 	token := req.Header.Get("authorization")
-	if req.URL.Path != "/" {
+	if strings.HasPrefix(req.URL.Path, "/environments") {
 		err := ValidateToken(token, jwks, clientId, tenantId)
 		if err != nil {
 			resp.WriteHeader(http.StatusUnauthorized)
