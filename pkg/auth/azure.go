@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/MicahParks/keyfunc"
@@ -138,15 +139,23 @@ func StreamInterceptor(
 	return handler(srv, stream)
 }
 
-func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfunc.JWKS, clientId string, tenantId string) error {
+func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfunc.JWKS, clientId string, tenantId string, allowedPaths []string, allowedPrefixes []string) error {
 	token := req.Header.Get("authorization")
-	if req.URL.Path != "/" {
-		err := ValidateToken(token, jwks, clientId, tenantId)
-		if err != nil {
-			resp.WriteHeader(http.StatusUnauthorized)
-			resp.Write([]byte("Invalid authorization header provided"))
+	for _, allowedPath := range allowedPaths {
+		if req.URL.Path == allowedPath {
+			return nil
 		}
-		return err
 	}
-	return nil
+	for _, allowedPrefix := range allowedPrefixes {
+		if strings.HasPrefix(req.URL.Path, allowedPrefix) {
+			return nil
+		}
+	}
+
+	err := ValidateToken(token, jwks, clientId, tenantId)
+	if err != nil {
+		resp.WriteHeader(http.StatusUnauthorized)
+		resp.Write([]byte("Invalid authorization header provided"))
+	}
+	return err
 }
