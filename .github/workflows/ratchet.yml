@@ -9,7 +9,7 @@ jobs:
   check-workflows:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # ratchet:actions/checkout@v3
       - name: install ratchet
         run: wget https://github.com/sethvargo/ratchet/releases/download/v0.3.0/ratchet_0.3.0_linux_amd64.tar.gz && tar -zxf ratchet_0.3.0_linux_amd64.tar.gz
       - name: check workflows

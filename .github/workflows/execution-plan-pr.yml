@@ -9,11 +9,9 @@ jobs:
     with:
       trigger: pull-request
     secrets: inherit
-
   lint-and-test-helm-chart:
     needs: [execution-plan]
     uses: ./.github/workflows/test-helm-chart-release.yml
     with:
       trigger: pull-request
     secrets: inherit
-

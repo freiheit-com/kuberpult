@@ -5,18 +5,15 @@ name: "Execution Plan on main"
       - "**"
     branches:
       - main
-
 jobs:
   execution-plan:
     uses: ./.github/workflows/execution-plan-snippet.yml
     with:
       trigger: main
     secrets: inherit
-
   lint-and-test-helm-chart:
     needs: [execution-plan]
     uses: ./.github/workflows/test-helm-chart-release.yml
     with:
       trigger: main
     secrets: inherit
-

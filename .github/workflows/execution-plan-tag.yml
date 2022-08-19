@@ -10,20 +10,18 @@ jobs:
     with:
       trigger: tag
     secrets: inherit
-
   lint-and-test-helm-chart:
     needs: [execution-plan]
     uses: ./.github/workflows/test-helm-chart-release.yml
     with:
       trigger: tag
     secrets: inherit
-
   release:
     needs: [execution-plan, lint-and-test-helm-chart]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # ratchet:actions/checkout@v2
       - name: Set version
         id: version
         run: |
