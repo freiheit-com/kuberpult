@@ -18,7 +18,7 @@ do
         echo Lock ID: "$(basename "$lock")" - Lock Message: "$(cat "$lock")"
         LOCK_DIR="$(dirname "$lock")"/lock_"$(basename "$lock")"
         mkdir -p "$LOCK_DIR"
-        git log -1 --format="%ad" -- "$lock" > "$LOCK_DIR"/author_date
+        TZ=UTC0 git log -1 --date=local --format="%ad" -- "$lock" > "$LOCK_DIR"/author_date
         git log -1 --format="%an" -- "$lock" > "$LOCK_DIR"/author_name
         git log -1 --format="%ae" -- "$lock" > "$LOCK_DIR"/author_email
         basename "$lock" > "$LOCK_DIR"/lock_id
@@ -37,7 +37,7 @@ do
       echo Lock ID: "$(basename "$lock")" - Lock Message: "$(cat "$lock")"
       LOCK_DIR="$(dirname "$lock")"/lock_"$(basename "$lock")"
       mkdir -p "$LOCK_DIR"
-      git log -1 --format="%ad" -- "$lock" > "$LOCK_DIR"/author_date
+      TZ=UTC0 git log -1 --date=local --format="%ad" -- "$lock" > "$LOCK_DIR"/author_date
       git log -1 --format="%an" -- "$lock" > "$LOCK_DIR"/author_name
       git log -1 --format="%ae" -- "$lock" > "$LOCK_DIR"/author_email
       basename "$lock" > "$LOCK_DIR"/lock_id
