@@ -91,8 +91,10 @@ message ReleaseTrainRequest {
 
 message Lock {
   string message = 1;
-  Metadata metadata = 2;
   string lock_id = 3;
+  google.protobuf.Timestamp author_time = 4;
+  string author_name = 5;
+  string author_email = 6;
 }
 
 message LockedError {
@@ -174,7 +176,7 @@ message Environment {
     uint64 version = 2;
     map<string, Lock> locks = 3;
     uint64 queuedVersion = 4;
-    // Metadata versionMetadata = 5;  // This is never used
+    // google.protobuf.Timestamp deploy_date = 5; // This is never used
     bool undeployVersion = 6;
     ArgoCD argoCD = 7;
   }
@@ -190,7 +192,7 @@ message Release {
   string source_commit_id = 2;
   string source_author = 3;
   string source_message = 4;
-  Metadata metadata = 5;
+  google.protobuf.Timestamp release_date = 5;
   bool undeployVersion = 6;
 }
 
@@ -198,10 +200,4 @@ message Application {
   string name = 1;
   repeated Release releases = 2;
   string team = 3;
-}
-
-message Metadata {
-  google.protobuf.Timestamp author_time = 1; 
-  string author_name = 2;
-  string author_email = 3;
 }
