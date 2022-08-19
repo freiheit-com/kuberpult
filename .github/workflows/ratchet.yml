@@ -13,4 +13,4 @@ jobs:
       - name: install ratchet
         run: wget https://github.com/sethvargo/ratchet/releases/download/v0.3.0/ratchet_0.3.0_linux_amd64.tar.gz && tar -zxf ratchet_0.3.0_linux_amd64.tar.gz
       - name: check workflows
-        run: find .github/workflows -name "*.yml" -exec ./ratchet check {} \;
+        run: for wk in .github/workflows/*.yml; do ./ratchet check $wk; done
