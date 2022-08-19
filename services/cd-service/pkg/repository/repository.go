@@ -753,20 +753,6 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 	}
 }
 
-func (s *State) GetEnvironmentApplicationVersionCommit(environment, application string) (*api.Metadata, error) { // TODO TE
-	//	if s.Commit == nil {
-	//		return nil, nil
-	//	} else {
-	//		return s.CommitHistory.Change(
-	//			[]string{
-	//				"environments", environment,
-	//				"applications", application,
-	//				"version",
-	//			})
-	//	}
-	return nil, nil
-}
-
 func (s *State) GetEnvironmentApplicationLocks(environment, application string) (map[string]Lock, error) { // TODO TE
 	base := s.Filesystem.Join("environments", environment, "applications", application, "locks")
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {

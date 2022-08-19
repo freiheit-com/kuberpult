@@ -99,7 +99,6 @@ func (o *OverviewServiceServer) getOverview(
 							app.Version = *version
 						}
 					}
-					app.VersionMetadata = nil // TODO TE
 					if queuedVersion, err := s.GetQueuedVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {

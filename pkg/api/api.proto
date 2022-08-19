@@ -174,7 +174,7 @@ message Environment {
     uint64 version = 2;
     map<string, Lock> locks = 3;
     uint64 queuedVersion = 4;
-    Metadata versionMetadata = 5;
+    // Metadata versionMetadata = 5;  // This is never used
     bool undeployVersion = 6;
     ArgoCD argoCD = 7;
   }
