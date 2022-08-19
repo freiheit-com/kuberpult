@@ -1,0 +1,16 @@
+name: "Check all workflows"
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows
+jobs:
+  check-workflows:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: install ratchet
+        run: wget https://github.com/sethvargo/ratchet/releases/download/v0.3.0/ratchet_0.3.0_linux_amd64.tar.gz && tar -zxf ratchet_0.3.0_linux_amd64.tar.gz
+      - name: check workflows
+        run: find .github/workflows -name "*.yml" -exec ./ratchet check {} \;
