@@ -11,7 +11,7 @@ do
     # If $app has version
     echo Application Version: "$app"
     if [ -d "$app"/version ]; then
-      TZ=UTC0 git log -1 --date=local --format="%ad" -- "$app"/version > "$app"/deploy_date
+      git log -1 --date=iso-strict --format="%ad" -- "$app"/version > "$app"/deploy_date
     fi
   done
 done

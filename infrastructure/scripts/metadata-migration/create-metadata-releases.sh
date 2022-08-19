@@ -10,7 +10,7 @@ do
   for release in "$app"/releases/*
   do
     echo Release: "$(basename "$release")"
-    TZ=UTC0 git log -1 --date=local --format="%ad" -- "$release" > "$release"/release_date
+    git log -1 --date=iso-strict --format="%ad" -- "$release" > "$release"/release_date
   done
 done
 echo --------------------Releases------------------------------
