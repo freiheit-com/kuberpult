@@ -50,7 +50,6 @@ func (o *OverviewServiceServer) GetOverview(
 func (o *OverviewServiceServer) getOverview(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {
-
 	result := api.GetOverviewResponse{
 		Environments: map[string]*api.Environment{},
 		Applications: map[string]*api.Application{},

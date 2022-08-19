@@ -640,7 +640,6 @@ const ReleaseDialog = (props: {
     ) : (
         ''
     );
-    console.info('RELEASE: ', release);
 
     return (
         <Dialog open={true} fullWidth={true} maxWidth="lg">
