@@ -974,12 +974,12 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		return nil, err
 	}
 	release.UndeployVersion = isUndeploy
-	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "author_date")); err != nil {
+	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "release_date")); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
 	} else {
-		if releaseTime, err := time.Parse(time.ANSIC, string(cnt)); err != nil {
+		if releaseTime, err := time.Parse(time.RFC3339, strings.TrimSpace(string(cnt))); err != nil {
 			return nil, err
 		} else {
 			release.ReleaseDate = timestamppb.New(releaseTime)

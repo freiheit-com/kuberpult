@@ -621,7 +621,7 @@ const ReleaseDialog = (props: {
     const hasNextRelease = application.releases.find((r) => r.version > version) !== undefined;
     const hasPrevRelease = application.releases.find((r) => r.version < version) !== undefined;
     const sortedEnvs = sortEnvironmentsByUpstream(envs, sortOrder);
-    const authorTime = release?.metadata?.authorTime;
+    const authorTime = release?.releaseDate;
     const commitTime = authorTime
         ? authorTime?.getFullYear().toString() +
           '-' +
