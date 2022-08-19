@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"io/ioutil"
 	"os"
@@ -744,8 +745,12 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 				return nil, err
 			} else {
 				result[e.Name()] = Lock{
-					Message:  string(buf),
-					Metadata: nil,
+					Message: string(buf),
+					Metadata: &api.Metadata{
+						AuthorEmail: "sre@freiheit.com",
+						AuthorName:  "Tamer SRE",
+						AuthorTime:  timestamppb.Now(),
+					},
 				}
 			}
 		}
@@ -764,8 +769,12 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 				return nil, err
 			} else {
 				result[e.Name()] = Lock{
-					Message:  string(buf),
-					Metadata: nil,
+					Message: string(buf),
+					Metadata: &api.Metadata{
+						AuthorEmail: "sre@freiheit.com",
+						AuthorName:  "Tamer SRE",
+						AuthorTime:  timestamppb.Now(),
+					},
 				}
 			}
 		}
@@ -891,6 +900,7 @@ type Release struct {
 	SourceAuthor    string
 	SourceCommitId  string
 	SourceMessage   string
+	Metadata        *api.Metadata
 }
 
 func (s *State) IsLatestUndeployVersion(application string) (bool, error) {
@@ -960,15 +970,12 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		return nil, err
 	}
 	release.UndeployVersion = isUndeploy
+	release.Metadata = &api.Metadata{
+		AuthorEmail: "sre@freiheit.com",
+		AuthorName:  "Tamer SRE",
+		AuthorTime:  timestamppb.Now(),
+	}
 	return &release, nil
-}
-
-func (s *State) GetApplicationReleaseCommit(application string, version uint64) (*api.Metadata, error) { // TODO TE
-	// 	return s.CommitHistory.Change([]string{
-	//		"applications", application,
-	//		"releases", fmt.Sprintf("%d", version),
-	//	})
-	return nil, nil
 }
 
 func (s *State) GetApplicationTeamOwner(application string) (string, error) {

@@ -166,8 +166,8 @@ func (o *OverviewServiceServer) getOverview(
 							SourceCommitId:  rel.SourceCommitId,
 							SourceMessage:   rel.SourceMessage,
 							UndeployVersion: rel.UndeployVersion,
+							Metadata:        rel.Metadata,
 						}
-						release.Metadata = nil // TODO TE
 						app.Releases = append(app.Releases, release)
 					}
 				}
