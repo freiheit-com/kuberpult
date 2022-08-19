@@ -622,7 +622,7 @@ const ReleaseDialog = (props: {
     const hasPrevRelease = application.releases.find((r) => r.version < version) !== undefined;
     const sortedEnvs = sortEnvironmentsByUpstream(envs, sortOrder);
     // const authorTime = release?.commit?.authorTime;
-    const authorTime = new Date(2010, 3, 4, 5); // "TODO authortime1"
+    const authorTime = new Date(2010, 3, 4, 5); // "TODO TE authortime1"
     const commitTime = authorTime
         ? authorTime?.getFullYear().toString() +
           '-' +

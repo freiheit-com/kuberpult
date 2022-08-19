@@ -252,7 +252,7 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
         envLocks.push(
             ...Object.entries(env.locks ?? {}).map((item) => ({
                 id: item[0],
-                // author: item[1].commit?.authorName ?? '',  "TODO authortime2"
+                // author: item[1].commit?.authorName ?? '',  "TODO TE authortime2"
                 author: item[1].message || 'DELETE ME 321321 message',
                 authorEmail: item[1].metadata?.authorEmail || 'DELETE ME 321321 email',
                 message: item[1].message,

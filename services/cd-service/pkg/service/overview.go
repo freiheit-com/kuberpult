@@ -99,7 +99,7 @@ func (o *OverviewServiceServer) getOverview(
 							app.Version = *version
 						}
 					}
-					app.VersionMetadata = nil // TODO
+					app.VersionMetadata = nil // TODO TE
 					if queuedVersion, err := s.GetQueuedVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
 					} else {
@@ -168,7 +168,7 @@ func (o *OverviewServiceServer) getOverview(
 							SourceMessage:   rel.SourceMessage,
 							UndeployVersion: rel.UndeployVersion,
 						}
-						release.Metadata = nil // TODO
+						release.Metadata = nil // TODO TE
 						app.Releases = append(app.Releases, release)
 					}
 				}

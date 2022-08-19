@@ -977,7 +977,8 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 	return &release, nil
 }
 
-func (s *State) GetApplicationReleaseCommit(application string, version uint64) (*api.Metadata, error) { // TODO TE	//	return s.CommitHistory.Change([]string{
+func (s *State) GetApplicationReleaseCommit(application string, version uint64) (*api.Metadata, error) { // TODO TE
+	// 	return s.CommitHistory.Change([]string{
 	//		"applications", application,
 	//		"releases", fmt.Sprintf("%d", version),
 	//	})
