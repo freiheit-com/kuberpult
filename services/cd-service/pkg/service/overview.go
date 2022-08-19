@@ -50,8 +50,6 @@ func (o *OverviewServiceServer) GetOverview(
 func (o *OverviewServiceServer) getOverview(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {
-	//logger := logger.FromContext(ctx)
-	println("getOverview.start")
 
 	result := api.GetOverviewResponse{
 		Environments: map[string]*api.Environment{},
@@ -61,7 +59,6 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, internalError(ctx, err)
 	} else {
 		for envName, config := range envs {
-			println("getOverview.env.start", envName)
 			env := api.Environment{
 				Name: envName,
 				Config: &api.Environment_Config{
@@ -143,7 +140,6 @@ func (o *OverviewServiceServer) getOverview(
 			result.Environments[envName] = &env
 		}
 	}
-	println("getOverview.B.apps")
 	if apps, err := s.GetApplications(); err != nil {
 		return nil, err
 	} else {
@@ -180,7 +176,6 @@ func (o *OverviewServiceServer) getOverview(
 			result.Applications[appName] = &app
 		}
 	}
-	println("getOverview.end")
 	return &result, nil
 }
 

@@ -741,6 +741,9 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 	} else {
 		result := make(map[string]Lock, len(entries))
 		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
 			if buf, err := readFile(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
 				return nil, err
 			} else {
@@ -765,6 +768,9 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 	} else {
 		result := make(map[string]Lock, len(entries))
 		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
 			if buf, err := readFile(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
 				return nil, err
 			} else {
