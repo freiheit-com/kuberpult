@@ -730,8 +730,10 @@ func (s *State) ReleaseManifests(application string, release uint64) (map[string
 }
 
 type Lock struct {
-	Message  string
-	Metadata *api.Metadata
+	Message     string
+	AuthorName  string
+	AuthorEmail string
+	AuthorTime  *timestamppb.Timestamp
 }
 
 func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) { // TODO TE
@@ -748,12 +750,10 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 				return nil, err
 			} else {
 				result[e.Name()] = Lock{
-					Message: string(buf),
-					Metadata: &api.Metadata{
-						AuthorEmail: "sre@freiheit.com",
-						AuthorName:  "Tamer SRE",
-						AuthorTime:  timestamppb.Now(),
-					},
+					Message:     string(buf),
+					AuthorEmail: "sre@freiheit.com",
+					AuthorName:  "Tamer SRE",
+					AuthorTime:  timestamppb.Now(),
 				}
 			}
 		}
@@ -775,12 +775,10 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 				return nil, err
 			} else {
 				result[e.Name()] = Lock{
-					Message: string(buf),
-					Metadata: &api.Metadata{
-						AuthorEmail: "sre@freiheit.com",
-						AuthorName:  "Tamer SRE",
-						AuthorTime:  timestamppb.Now(),
-					},
+					Message:     string(buf),
+					AuthorEmail: "sre@freiheit.com",
+					AuthorName:  "Tamer SRE",
+					AuthorTime:  timestamppb.Now(),
 				}
 			}
 		}
@@ -906,7 +904,7 @@ type Release struct {
 	SourceAuthor    string
 	SourceCommitId  string
 	SourceMessage   string
-	Metadata        *api.Metadata
+	ReleaseDate     *timestamppb.Timestamp
 }
 
 func (s *State) IsLatestUndeployVersion(application string) (bool, error) {
@@ -976,10 +974,16 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		return nil, err
 	}
 	release.UndeployVersion = isUndeploy
-	release.Metadata = &api.Metadata{
-		AuthorEmail: "sre@freiheit.com",
-		AuthorName:  "Tamer SRE",
-		AuthorTime:  timestamppb.Now(),
+	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "author_date")); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+	} else {
+		if releaseTime, err := time.Parse(time.ANSIC, string(cnt)); err != nil {
+			return nil, err
+		} else {
+			release.ReleaseDate = timestamppb.New(releaseTime)
+		}
 	}
 	return &release, nil
 }
