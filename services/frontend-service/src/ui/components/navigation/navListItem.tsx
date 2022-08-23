@@ -19,6 +19,17 @@ import { cloneElement, useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
 import { Link, useLocation } from 'react-router-dom';
 
+export const NavbarIndicator = (props: { pathname: string; to: string }) => {
+    const { pathname, to } = props;
+    return (
+        <div
+            className={classNames(
+                'mdc-list-item-indicator',
+                pathname.startsWith('/v2/' + to) ? 'mdc-list-item-indicator--activated' : ''
+            )}></div>
+    );
+};
+
 export const NavListItem = (props: { className?: string; to: string; icon?: JSX.Element }) => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLAnchorElement>(null);
@@ -33,21 +44,24 @@ export const NavListItem = (props: { className?: string; to: string; icon?: JSX.
     }, []);
 
     return (
-        <Link
-            aria-label={to}
-            className={classNames(
-                'mdc-list-item',
-                pathname.startsWith(to) ? 'mdc-list-item--activated' : '',
-                className
-            )}
-            ref={control}
-            to={to}
-            tabIndex={pathname.startsWith(to) ? 0 : undefined}>
-            <div className="mdc-list-item__ripple" />
-            {icon &&
-                cloneElement(icon, {
-                    key: 'icon',
-                })}
-        </Link>
+        <div className="mdc-list-item-container" style={{ display: 'flex' }}>
+            <NavbarIndicator pathname={pathname} to={to} />
+            <Link
+                aria-label={to}
+                className={classNames(
+                    'mdc-list-item',
+                    pathname.startsWith(to) ? 'mdc-list-item--activated' : '',
+                    className
+                )}
+                ref={control}
+                to={to}
+                tabIndex={pathname.startsWith(to) ? 0 : undefined}>
+                <div className="mdc-list-item__ripple" />
+                {icon &&
+                    cloneElement(icon, {
+                        key: 'icon',
+                    })}
+            </Link>
+        </div>
     );
 };
