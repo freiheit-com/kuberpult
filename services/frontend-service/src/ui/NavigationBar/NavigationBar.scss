@@ -13,6 +13,20 @@
   }
 
   .mdc-drawer__content {
-    height: 100%;
+    height: 95%;
+  }
+
+  .mdc-list-item-indicator {
+    background-color: transparent;
+    width: 5%;
+  }
+
+  .mdc-list-item-indicator--activated {
+    background-color: orange;
+    transition: background-color 0.2s ease-in-out;
+  }
+
+  .mdc-list-item-container {
+    display: flex
   }
 }
