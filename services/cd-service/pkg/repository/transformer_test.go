@@ -20,19 +20,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"os/exec"
-	"path"
-	"reflect"
-	"regexp"
-	"testing"
-
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/go-git/go-billy/v5/util"
 	godebug "github.com/kylelemons/godebug/diff"
+	"io"
+	"os/exec"
+	"path"
+	"reflect"
+	"regexp"
+	"testing"
 )
 
 const (
@@ -731,10 +730,22 @@ func TestTransformer(t *testing.T) {
 				}
 				expected := map[string]Lock{
 					"manual": {
-						Message: "don't",
+						ID:          "manual",
+						Message:     "don't",
+						AuthorName:  "defaultUser",
+						AuthorEmail: "local.user@freiheit.com",
 					},
 				}
-				if !reflect.DeepEqual(locks, expected) {
+				if !reflect.DeepEqual(locks["manual"].AuthorEmail, expected["manual"].AuthorEmail) {
+					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
+				}
+				if !reflect.DeepEqual(locks["manual"].AuthorName, expected["manual"].AuthorName) {
+					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
+				}
+				if !reflect.DeepEqual(locks["manual"].ID, expected["manual"].ID) {
+					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
+				}
+				if !reflect.DeepEqual(locks["manual"].Message, expected["manual"].Message) {
 					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
 				}
 			},
@@ -761,10 +772,22 @@ func TestTransformer(t *testing.T) {
 				}
 				expected := map[string]Lock{
 					"manual": {
-						Message: "just don't",
+						ID:          "manual",
+						Message:     "just don't",
+						AuthorName:  "defaultUser",
+						AuthorEmail: "local.user@freiheit.com",
 					},
 				}
-				if !reflect.DeepEqual(locks, expected) {
+				if !reflect.DeepEqual(locks["manual"].AuthorEmail, expected["manual"].AuthorEmail) {
+					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
+				}
+				if !reflect.DeepEqual(locks["manual"].AuthorName, expected["manual"].AuthorName) {
+					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
+				}
+				if !reflect.DeepEqual(locks["manual"].ID, expected["manual"].ID) {
+					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
+				}
+				if !reflect.DeepEqual(locks["manual"].Message, expected["manual"].Message) {
 					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
 				}
 			},
@@ -1177,7 +1200,7 @@ func TestTransformer(t *testing.T) {
 							Message: "don't",
 						},
 					}
-					if !reflect.DeepEqual(expectedEnvLocks, lockErr.EnvironmentLocks) {
+					if !reflect.DeepEqual(expectedEnvLocks["manual"].Message, lockErr.EnvironmentLocks["manual"].Message) {
 						t.Errorf("unexpected environment locks: expected %q, actual: %q", expectedEnvLocks, lockErr.EnvironmentLocks)
 					}
 				}
@@ -1260,7 +1283,7 @@ func TestTransformer(t *testing.T) {
 							Message: "don't",
 						},
 					}
-					if !reflect.DeepEqual(expectedEnvLocks, lockErr.EnvironmentApplicationLocks) {
+					if !reflect.DeepEqual(expectedEnvLocks["manual"].Message, lockErr.EnvironmentApplicationLocks["manual"].Message) {
 						t.Errorf("unexpected environment locks: expected %q, actual: %q", expectedEnvLocks, lockErr.EnvironmentApplicationLocks)
 					}
 				}
@@ -2076,8 +2099,8 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 		{
 			name:          "delete lock fails",
 			operation:     testfs.REMOVE,
-			filename:      "environments/dev/locks/foo",
-			expectedError: "failed to delete file \"environments/dev/locks/foo\": obscure error",
+			filename:      "environments/dev/locks/lock_foo",
+			expectedError: "failed to delete directory \"environments/dev/locks/lock_foo\": obscure error",
 		},
 		{
 			name:          "readdir fails",
@@ -2138,8 +2161,8 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 		{
 			name:          "delete lock fails",
 			operation:     testfs.REMOVE,
-			filename:      "environments/dev/applications/bar/locks/foo",
-			expectedError: "failed to delete file \"environments/dev/applications/bar/locks/foo\": obscure error",
+			filename:      "environments/dev/applications/bar/locks/lock_foo",
+			expectedError: "failed to delete directory \"environments/dev/applications/bar/locks/lock_foo\": obscure error",
 		},
 		{
 			name:          "stat queue failes",
