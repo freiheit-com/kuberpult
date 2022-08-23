@@ -714,7 +714,7 @@ func TestTransformer(t *testing.T) {
 			},
 		},
 		{
-			Name: "Lock environment",
+			Name: "Lock environment", // TODO TE: add test for application lock
 			Transformers: []Transformer{
 				&CreateEnvironment{Environment: "production"},
 				&CreateEnvironmentLock{
@@ -733,7 +733,7 @@ func TestTransformer(t *testing.T) {
 						ID:          "manual",
 						Message:     "don't",
 						AuthorName:  "defaultUser",
-						AuthorEmail: "local.user@freiheit.com",
+						AuthorEmail: "local.user@freiheit.com", // TODO TE: mock time and check author_date here
 					},
 				}
 				if !reflect.DeepEqual(locks["manual"].AuthorEmail, expected["manual"].AuthorEmail) {
@@ -879,7 +879,7 @@ func TestTransformer(t *testing.T) {
 				}
 				// Check that reading is possible
 				{
-					rel, err := s.GetApplicationRelease("test", 1)
+					rel, err := s.GetApplicationRelease("test", 1) // TODO TE: mock time and check release_date here.
 					if err != nil {
 						t.Fatal(err)
 					}
