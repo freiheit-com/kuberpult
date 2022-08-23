@@ -764,15 +764,15 @@ func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
 	}
 
 	return &Lock{
-		ID:          string(id),
-		Message:     string(msg),
-		AuthorEmail: string(authorEmail),
-		AuthorName:  string(authorName),
+		ID:          strings.TrimSpace(string(id)),
+		Message:     strings.TrimSpace(string(msg)),
+		AuthorEmail: strings.TrimSpace(string(authorEmail)),
+		AuthorName:  strings.TrimSpace(string(authorName)),
 		AuthorTime:  timestamppb.New(authorDate),
 	}, nil
 }
 
-func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) { // TODO TE
+func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) {
 	base := s.Filesystem.Join("environments", environment, "locks")
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err
@@ -792,7 +792,7 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 	}
 }
 
-func (s *State) GetEnvironmentApplicationLocks(environment, application string) (map[string]Lock, error) { // TODO TE
+func (s *State) GetEnvironmentApplicationLocks(environment, application string) (map[string]Lock, error) {
 	base := s.Filesystem.Join("environments", environment, "applications", application, "locks")
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err

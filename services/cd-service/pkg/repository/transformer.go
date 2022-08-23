@@ -27,6 +27,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -516,7 +517,7 @@ func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (st
 	}
 }
 
-func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string) error { // TODO TE
+func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string) error {
 	locksDir := "locks"
 	if err := fs.MkdirAll(locksDir, 0777); err != nil {
 		return err
@@ -555,16 +556,17 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string
 	return nil
 }
 
-type DeleteEnvironmentLock struct { // TODO TE
+type DeleteEnvironmentLock struct {
 	Environment string
 	LockId      string
 }
 
 func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
-	file := fs.Join("environments", c.Environment, "locks", c.LockId)
-	if err := fs.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete file %q: %w", file, err)
+	lockName := strings.TrimSpace("lock_" + c.LockId)
+	lockDir := fs.Join("environments", c.Environment, "locks", lockName)
+	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
 		s := State{
 			Filesystem: fs,
@@ -620,7 +622,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state 
 	}
 }
 
-type DeleteEnvironmentApplicationLock struct { // TODO TE
+type DeleteEnvironmentApplicationLock struct {
 	Environment string
 	Application string
 	LockId      string
@@ -628,9 +630,10 @@ type DeleteEnvironmentApplicationLock struct { // TODO TE
 
 func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
-	file := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
-	if err := fs.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete file %q: %w", file, err)
+	lockName := strings.TrimSpace("lock_" + c.LockId)
+	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", lockName)
+	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
 		s := State{
 			Filesystem: fs,
