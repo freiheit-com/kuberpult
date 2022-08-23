@@ -377,7 +377,7 @@ const ReleaseEnvironment: VFC<{
         [applicationName, environmentName, currentlyDeployedVersion]
     );
 
-    const queuedVersion = overview.environments[environmentName].applications[applicationName]?.queuedVersion;
+    const queuedVersion = overview.environments[environmentName].applications[applicationName]?.queuedVersion || 0;
     const hasQueue = queuedVersion !== 0;
     const envLocks = Object.entries(overview.environments[environmentName].locks ?? {});
     const appLocks = Object.entries(overview.environments[environmentName]?.applications[applicationName]?.locks ?? {});
@@ -426,6 +426,11 @@ const ReleaseEnvironment: VFC<{
         if (a[0] === b[0]) return 0;
         return 1;
     });
+
+    const envHasAppDeployed = overview.environments[environmentName].applications[applicationName];
+    if (!envHasAppDeployed) {
+        return <div />;
+    }
 
     return (
         <Paper className="environment">
