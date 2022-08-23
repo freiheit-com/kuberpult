@@ -21,11 +21,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"io"
 	"io/fs"
 	"os"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -504,7 +506,7 @@ func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (st
 		if chroot, err := fs.Chroot(envDir); err != nil {
 			return "", err
 		} else {
-			if err := createLock(chroot, c.LockId, c.Message); err != nil {
+			if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
 				return "", err
 			} else {
 				GaugeEnvLockMetric(fs, c.Environment)
@@ -514,13 +516,40 @@ func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (st
 	}
 }
 
-func createLock(fs billy.Filesystem, lockId, message string) error { // TODO TE
+func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string) error { // TODO TE
 	locksDir := "locks"
 	if err := fs.MkdirAll(locksDir, 0777); err != nil {
 		return err
 	}
-	locksFile := fs.Join(locksDir, lockId)
-	if err := util.WriteFile(fs, locksFile, []byte(message), 0666); err != nil {
+
+	// create lock file
+	newLockDir := fs.Join(locksDir, "lock_"+lockId)
+	if err := fs.MkdirAll(newLockDir, 0777); err != nil {
+		return err
+	}
+
+	// write ID
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "lock_id"), []byte(lockId), 0666); err != nil {
+		return err
+	}
+
+	// write Message
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "lock_message"), []byte(message), 0666); err != nil {
+		return err
+	}
+
+	// write author email
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "author_email"), []byte(auth.Extract(ctx).Email), 0666); err != nil {
+		return err
+	}
+
+	// write author name
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "author_name"), []byte(auth.Extract(ctx).Name), 0666); err != nil {
+		return err
+	}
+
+	// write author date in iso format
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "author_date"), []byte(time.Now().Format(time.RFC3339)), 0666); err != nil {
 		return err
 	}
 	return nil
@@ -581,7 +610,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state 
 		if chroot, err := fs.Chroot(appDir); err != nil {
 			return "", err
 		} else {
-			if err := createLock(chroot, c.LockId, c.Message); err != nil {
+			if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
 				return "", err
 			} else {
 				GaugeEnvAppLockMetric(fs, c.Environment, c.Application)

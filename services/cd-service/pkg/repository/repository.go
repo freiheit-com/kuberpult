@@ -730,10 +730,46 @@ func (s *State) ReleaseManifests(application string, release uint64) (map[string
 }
 
 type Lock struct {
+	ID          string
 	Message     string
 	AuthorName  string
 	AuthorEmail string
 	AuthorTime  *timestamppb.Timestamp
+}
+
+func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
+	id, err := readFile(fs, fs.Join(lockDir, "lock_id"))
+	if err != nil {
+		return nil, err
+	}
+	msg, err := readFile(fs, fs.Join(lockDir, "lock_message"))
+	if err != nil {
+		return nil, err
+	}
+	authorEmail, err := readFile(fs, fs.Join(lockDir, "author_email"))
+	if err != nil {
+		return nil, err
+	}
+	authorName, err := readFile(fs, fs.Join(lockDir, "author_name"))
+	if err != nil {
+		return nil, err
+	}
+	date, err := readFile(fs, fs.Join(lockDir, "author_date"))
+	if err != nil {
+		return nil, err
+	}
+	authorDate, err := time.Parse(time.RFC3339, strings.TrimSpace(string(date)))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Lock{
+		ID:          string(id),
+		Message:     string(msg),
+		AuthorEmail: string(authorEmail),
+		AuthorName:  string(authorName),
+		AuthorTime:  timestamppb.New(authorDate),
+	}, nil
 }
 
 func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) { // TODO TE
@@ -743,18 +779,13 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 	} else {
 		result := make(map[string]Lock, len(entries))
 		for _, e := range entries {
-			if e.IsDir() {
+			if !e.IsDir() {
 				continue
 			}
-			if buf, err := readFile(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
+			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
 				return nil, err
 			} else {
-				result[e.Name()] = Lock{
-					Message:     string(buf),
-					AuthorEmail: "sre@freiheit.com",
-					AuthorName:  "Tamer SRE",
-					AuthorTime:  timestamppb.Now(),
-				}
+				result[lock.ID] = *lock
 			}
 		}
 		return result, nil
@@ -768,18 +799,13 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 	} else {
 		result := make(map[string]Lock, len(entries))
 		for _, e := range entries {
-			if e.IsDir() {
+			if !e.IsDir() {
 				continue
 			}
-			if buf, err := readFile(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
+			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
 				return nil, err
 			} else {
-				result[e.Name()] = Lock{
-					Message:     string(buf),
-					AuthorEmail: "sre@freiheit.com",
-					AuthorName:  "Tamer SRE",
-					AuthorTime:  timestamppb.Now(),
-				}
+				result[lock.ID] = *lock
 			}
 		}
 		return result, nil
