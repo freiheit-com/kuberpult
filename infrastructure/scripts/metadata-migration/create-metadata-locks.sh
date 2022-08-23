@@ -23,6 +23,7 @@ do
         git log -1 --format="%ae" -- "$lock" > "$LOCK_DIR"/author_email
         basename "$lock" > "$LOCK_DIR"/lock_id
         cat "$lock" > "$LOCK_DIR"/lock_message
+        rm "$lock"
       done
     fi
   done
