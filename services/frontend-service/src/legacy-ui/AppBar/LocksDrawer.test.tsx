@@ -30,19 +30,17 @@ describe('All locks drawer', () => {
                 name: 'development',
                 locks: {
                     'ui-3vycs8': {
-                        commit: {
-                            authorEmail: 'test@test.com',
-                            authorName: 'tester',
-                            authorTime: new Date('Thu Dec 16 2021 15:49:13 GMT+0100 (Central European Standard Time)'),
-                        },
+                        lockId: 'ui-3vycs8',
+                        authorEmail: 'test@test.com',
+                        authorName: 'tester',
+                        authorTime: new Date('Thu Dec 16 2021 15:49:13 GMT+0100 (Central European Standard Time)'),
                         message: 'test',
                     },
                     'ui-cw3wdp': {
-                        commit: {
-                            authorEmail: 'test2@test.com',
-                            authorName: 'tester2',
-                            authorTime: new Date('Thu Dec 16 2021 11:15:34 GMT+0100 (Central European Standard Time)'),
-                        },
+                        lockId: 'ui-cw3wdp',
+                        authorEmail: 'test2@test.com',
+                        authorName: 'tester2',
+                        authorTime: new Date('Thu Dec 16 2021 11:15:34 GMT+0100 (Central European Standard Time)'),
                         message: 'test2',
                     },
                 },
@@ -105,19 +103,17 @@ describe('All locks drawer', () => {
                 name: 'development',
                 locks: {
                     'ui-3vycs8': {
-                        commit: {
-                            authorEmail: 'test@test.com',
-                            authorName: 'tester',
-                            authorTime: new Date(Date.now()),
-                        },
+                        lockId: 'ui-3vycs8',
+                        authorEmail: 'test@test.com',
+                        authorName: 'tester',
+                        authorTime: new Date(Date.now()),
                         message: 'test',
                     },
                     'ui-cw3wdp': {
-                        commit: {
-                            authorEmail: 'test2@test.com',
-                            authorName: 'tester2',
-                            authorTime: new Date(Date.now()),
-                        },
+                        lockId: 'ui-cw3wdp',
+                        authorEmail: 'test2@test.com',
+                        authorName: 'tester2',
+                        authorTime: new Date(Date.now()),
                         message: 'test2',
                     },
                 },

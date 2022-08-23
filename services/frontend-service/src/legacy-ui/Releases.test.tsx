@@ -36,14 +36,8 @@ describe('Releases', () => {
             sourceAuthor: 'testing test',
             sourceMessage: 'this is a test',
             undeployVersion: false,
+            releaseDate: t,
         };
-        if (t) {
-            r.commit = {
-                authorEmail: 'randomemail@example.com',
-                authorName: 'random',
-                authorTime: t,
-            };
-        }
         return r;
     };
     const dummyApp1: Environment_Application = {
