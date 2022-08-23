@@ -18,7 +18,6 @@ import classNames from 'classnames';
 import { cloneElement, useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
 import { Link, useLocation } from 'react-router-dom';
-import './navListItem.scss';
 
 export const NavbarIndicator = (props: { pathname: string; to: string }) => {
     const { pathname, to } = props;
