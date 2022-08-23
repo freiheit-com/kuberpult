@@ -204,6 +204,9 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 			return "", err
 		}
 	}
+	if err := util.WriteFile(fs, fs.Join(releaseDir, "release_date"), []byte(time.Now().Format(time.RFC3339)), 0666); err != nil {
+		return "", err
+	}
 	if c.Team != "" {
 		if err := util.WriteFile(fs, fs.Join(appDir, "team"), []byte(c.Team), 0666); err != nil {
 			return "", err
@@ -327,6 +330,9 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 	}
 	// this is a flag to indicate that this is the special "undeploy" version
 	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
+		return "", err
+	}
+	if err := util.WriteFile(fs, fs.Join(releaseDir, "release_date"), []byte(time.Now().Format(time.RFC3339)), 0666); err != nil {
 		return "", err
 	}
 	result := ""
@@ -770,6 +776,9 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		return "", err
 	}
 	if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
+		return "", err
+	}
+	if err := util.WriteFile(fs, fs.Join(applicationDir, "deploy_date"), []byte(time.Now().Format(time.RFC3339)), 0666); err != nil {
 		return "", err
 	}
 	// Copy the manifest for argocd
