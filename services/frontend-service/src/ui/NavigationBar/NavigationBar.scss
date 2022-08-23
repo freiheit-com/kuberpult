@@ -25,4 +25,8 @@
     background-color: orange;
     transition: background-color 0.2s ease-in-out;
   }
+
+  .mdc-list-item-container {
+    display: flex
+  }
 }

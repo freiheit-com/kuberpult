@@ -25,7 +25,7 @@ export const NavbarIndicator = (props: { pathname: string; to: string }) => {
         <div
             className={classNames(
                 'mdc-list-item-indicator',
-                pathname.startsWith('/v2/' + to) ? 'mdc-list-item-indicator--activated' : ''
+                pathname.startsWith(`/v2/${to}`) ? 'mdc-list-item-indicator--activated' : ''
             )}></div>
     );
 };
@@ -44,13 +44,13 @@ export const NavListItem = (props: { className?: string; to: string; icon?: JSX.
     }, []);
 
     return (
-        <div className="mdc-list-item-container" style={{ display: 'flex' }}>
+        <div className="mdc-list-item-container">
             <NavbarIndicator pathname={pathname} to={to} />
             <Link
                 aria-label={to}
                 className={classNames(
                     'mdc-list-item',
-                    pathname.startsWith(to) ? 'mdc-list-item--activated' : '',
+                    pathname.startsWith(`/v2/${to}`) ? 'mdc-list-item--activated' : '',
                     className
                 )}
                 ref={control}
