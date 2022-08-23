@@ -1,0 +1,16 @@
+@import '../../../assets/_variables.scss';
+
+.mdc-list-item-container {
+  display: flex;
+  height: 100%;
+}
+
+.mdc-list-item-indicator {
+  background-color: transparent;
+  width: $nav-indicator-width;
+}
+
+.mdc-list-item-indicator--activated {
+  background-color: orange;
+  transition: background-color 0.2s ease-in-out;
+}
