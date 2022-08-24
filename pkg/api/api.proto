@@ -149,6 +149,16 @@ message GetOverviewResponse {
   map<string, Application> applications = 2;
 }
 
+message GetDeployedOverviewRequest {
+  string filter = 1;
+}
+
+message GetDeployedOverviewResponse {
+  map<string, Environment> environments = 1;
+  map<string, Application> applications = 2;
+}
+
+
 message Environment {
   message Config {
     message Upstream {
