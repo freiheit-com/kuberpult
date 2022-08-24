@@ -191,7 +191,6 @@ func (o *OverviewServiceServer) getDeployedOverview(
 						} else {
 							release.Commit = transformCommit(commit)
 						}
-						fmt.Println(filter)
 						if filter == "important" {
 							for _, env := range result.Environments {
 								if env.Applications[appName] != nil {
