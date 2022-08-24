@@ -30,7 +30,8 @@ import {
     Checkbox,
     FormControlLabel,
 } from '@material-ui/core';
-import { Close, LockRounded } from '@material-ui/icons';
+import Close from '@material-ui/icons/Close';
+import LockRounded from '@material-ui/icons/LockRounded';
 import { ActionsCartContext } from './App';
 import { ActionTypes, CartAction, getActionDetails, isDeployAction } from './ActionDetails';
 import { SyncWindow } from './ReleaseDialog';

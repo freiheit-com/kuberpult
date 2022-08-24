@@ -14,14 +14,12 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import {
-    DeleteForeverRounded,
-    DeleteOutlineRounded,
-    Error,
-    LockOpenRounded,
-    LockRounded,
-    MoveToInboxRounded,
-} from '@material-ui/icons';
+import DeleteForeverRounded from '@material-ui/icons/DeleteForeverRounded';
+import DeleteOutlineRounded from '@material-ui/icons/DeleteOutlineRounded';
+import Error from '@material-ui/icons/Error';
+import LockOpenRounded from '@material-ui/icons/LockOpenRounded';
+import LockRounded from '@material-ui/icons/LockRounded';
+import MoveToInboxRounded from '@material-ui/icons/MoveToInboxRounded';
 import * as React from 'react';
 import { BatchAction, LockBehavior } from '../api/api';
 
