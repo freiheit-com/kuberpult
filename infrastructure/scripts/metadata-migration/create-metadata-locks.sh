@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -eu # protection
+set -eou pipefail # protection
 #set -x # enable debug logs
 
 for env in environments/* # $(find environments  -maxdepth 1 -mindepth 1 -type d)
