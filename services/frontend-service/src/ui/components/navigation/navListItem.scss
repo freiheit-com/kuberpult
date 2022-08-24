@@ -6,6 +6,7 @@
 .mdc-list-item-indicator {
   background-color: transparent;
   width: $nav-indicator-width;
+  border-radius: $nav-indicator-border-radius;
 }
 
 .mdc-list-item-indicator--activated {
