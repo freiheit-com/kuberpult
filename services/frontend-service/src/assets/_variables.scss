@@ -2,7 +2,8 @@
 $nav-bar-width: 6em;
 $nav-list-height: 40%;
 $nav-list-item-padding: 3em;
-$nav-indicator-width: 5%;
+$nav-indicator-width: 8px;
+$nav-indicator-border-radius: 0px 5px 5px 0px;
 
 // Top App Bar
 $top-app-bar-padding: 2em 0 2em $nav-bar-width; // 2em on top and bottom each

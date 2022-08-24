@@ -55,7 +55,7 @@ export const NavListItem = (props: { className?: string; to: string; icon?: JSX.
                 )}
                 ref={control}
                 to={to}
-                tabIndex={pathname.startsWith(to) ? 0 : undefined}>
+                tabIndex={pathname.startsWith(`/v2/${to}`) ? 0 : -1}>
                 <div className="mdc-list-item__ripple" />
                 {icon &&
                     cloneElement(icon, {
