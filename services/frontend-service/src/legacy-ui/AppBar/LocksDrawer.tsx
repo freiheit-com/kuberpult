@@ -34,7 +34,7 @@ import {
 
 import { GetOverviewResponse } from '../../api/api';
 import { theme } from '../App/styles';
-import { WarningRounded } from '@material-ui/icons';
+import WarningRounded from '@material-ui/icons/WarningRounded';
 
 interface LocksRow {
     id: string;

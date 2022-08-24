@@ -29,7 +29,7 @@ import {
     Typography,
 } from '@material-ui/core';
 
-import { ClearRounded } from '@material-ui/icons';
+import ClearRounded from '@material-ui/icons/ClearRounded';
 import { ActionsCartContext } from '../App';
 import { GetOverviewResponse } from '../../api/api';
 import { theme } from '../App/styles';

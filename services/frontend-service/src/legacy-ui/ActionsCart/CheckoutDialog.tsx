@@ -28,7 +28,7 @@ import {
     TextField,
     Typography,
 } from '@material-ui/core';
-import { Close } from '@material-ui/icons';
+import Close from '@material-ui/icons/Close';
 import { ActionsCartContext } from '../App';
 import { BatchAction, GetOverviewResponse } from '../../api/api';
 import { useUnaryCallback } from '../Api';
