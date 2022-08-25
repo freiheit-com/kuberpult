@@ -32,6 +32,7 @@ import (
 	"reflect"
 	"regexp"
 	"testing"
+	"time"
 )
 
 const (
@@ -39,6 +40,8 @@ const (
 	envProduction      = "production"
 	additionalVersions = 7
 )
+
+var timeNowOld = time.Date(1999, 01, 02, 03, 04, 05, 0, time.UTC)
 
 func TestUndeployApplicationErrors(t *testing.T) {
 	tcs := []struct {
@@ -1903,7 +1906,7 @@ spec:
 			}
 
 			for i, tf := range tc.Transformers {
-				ctxWithTime := WithTimeNow(context.Background(), timeNowOld)
+				ctxWithTime := withTimeNow(context.Background(), timeNowOld)
 				err = repo.Apply(ctxWithTime, tf)
 				if err != nil {
 					if tc.ErrorTest != nil && i == len(tc.Transformers)-1 {

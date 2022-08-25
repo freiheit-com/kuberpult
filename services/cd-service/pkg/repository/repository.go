@@ -357,7 +357,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 		return nil, nil, &InternalError{inner: err}
 	} else {
 		commitMsg := []string{}
-		ctxWithTime := WithTimeNow(ctx, time.Now())
+		ctxWithTime := withTimeNow(ctx, time.Now())
 		for _, t := range transformers {
 			if msg, err := t.Transform(ctxWithTime, state); err != nil {
 				return nil, nil, err

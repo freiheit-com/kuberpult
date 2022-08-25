@@ -35,7 +35,7 @@ func getTimeNow(ctx context.Context) time.Time {
 	return t
 }
 
-func WithTimeNow(ctx context.Context, t time.Time) context.Context {
+func withTimeNow(ctx context.Context, t time.Time) context.Context {
 	if _, ok := ctx.Value(ctxMarkerKey).(time.Time); ok {
 		// already has time. used in testing
 		return ctx

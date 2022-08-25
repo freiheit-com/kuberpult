@@ -20,6 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/go-git/go-billy/v5/util"
+	"github.com/google/go-cmp/cmp"
+	git "github.com/libgit2/git2go/v33"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -27,14 +30,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/go-git/go-billy/v5/util"
-	"github.com/google/go-cmp/cmp"
-	git "github.com/libgit2/git2go/v33"
 )
-
-var timeNowOld = time.Date(1999, 01, 02, 03, 04, 05, 0, time.UTC)
 
 func TestNew(t *testing.T) {
 	tcs := []struct {
