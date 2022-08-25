@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -13,7 +14,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2021 freiheit.com*/
+Copyright 2021 freiheit.com
+*/
 package cmd
 
 import (
@@ -330,6 +332,30 @@ func (p *GrpcProxy) StreamOverview(
 	in *api.GetOverviewRequest,
 	stream api.OverviewService_StreamOverviewServer) error {
 	if resp, err := p.OverviewClient.StreamOverview(stream.Context(), in); err != nil {
+		return err
+	} else {
+		for {
+			if item, err := resp.Recv(); err != nil {
+				return err
+			} else {
+				if err := stream.Send(item); err != nil {
+					return err
+				}
+			}
+		}
+	}
+}
+
+func (p *GrpcProxy) GetDeployedOverview(
+	ctx context.Context,
+	in *api.GetDeployedOverviewRequest) (*api.GetDeployedOverviewResponse, error) {
+	return p.OverviewClient.GetDeployedOverview(ctx, in)
+}
+
+func (p *GrpcProxy) StreamDeployedOverview(
+	in *api.GetDeployedOverviewRequest,
+	stream api.OverviewService_StreamDeployedOverviewServer) error {
+	if resp, err := p.OverviewClient.StreamDeployedOverview(stream.Context(), in); err != nil {
 		return err
 	} else {
 		for {
