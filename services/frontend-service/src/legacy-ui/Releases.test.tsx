@@ -36,7 +36,7 @@ describe('Releases', () => {
             sourceAuthor: 'testing test',
             sourceMessage: 'this is a test',
             undeployVersion: false,
-            releaseDate: t,
+            createdAt: t,
         };
         return r;
     };
