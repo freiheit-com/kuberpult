@@ -925,7 +925,7 @@ type Release struct {
 	SourceAuthor    string
 	SourceCommitId  string
 	SourceMessage   string
-	ReleaseDate     *timestamppb.Timestamp
+	CreatedAt       *timestamppb.Timestamp
 }
 
 func (s *State) IsLatestUndeployVersion(application string) (bool, error) {
@@ -1003,7 +1003,7 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		if releaseTime, err := time.Parse(time.RFC3339, strings.TrimSpace(string(cnt))); err != nil {
 			return nil, err
 		} else {
-			release.ReleaseDate = timestamppb.New(releaseTime)
+			release.CreatedAt = timestamppb.New(releaseTime)
 		}
 	}
 	return &release, nil

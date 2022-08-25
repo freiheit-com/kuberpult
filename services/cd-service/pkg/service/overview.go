@@ -163,7 +163,7 @@ func (o *OverviewServiceServer) getOverview(
 							SourceCommitId:  rel.SourceCommitId,
 							SourceMessage:   rel.SourceMessage,
 							UndeployVersion: rel.UndeployVersion,
-							CreatedAt:       rel.ReleaseDate,
+							CreatedAt:       rel.CreatedAt,
 						}
 						app.Releases = append(app.Releases, release)
 					}
