@@ -26,12 +26,14 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/go-git/go-billy/v5/util"
 	godebug "github.com/kylelemons/godebug/diff"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"os/exec"
 	"path"
 	"reflect"
 	"regexp"
 	"testing"
+	"time"
 )
 
 const (
@@ -40,7 +42,11 @@ const (
 	additionalVersions = 7
 )
 
+var timeNowSample = time.Date(2222, 02, 22, 22, 22, 22, 22, time.UTC)
+
 func TestUndeployApplicationErrors(t *testing.T) {
+	ctxWithTime := withTimeNow(context.Background(), timeNowSample)
+
 	tcs := []struct {
 		Name              string
 		Transformers      []Transformer
@@ -254,8 +260,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
 
-			ctx := context.Background()
-			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -281,6 +286,8 @@ func TestUndeployApplicationErrors(t *testing.T) {
 
 // Tests various error cases in the prepare-Undeploy endpoint, specifically the error messages returned.
 func TestUndeployErrors(t *testing.T) {
+	ctxWithTime := withTimeNow(context.Background(), timeNowSample)
+
 	tcs := []struct {
 		Name              string
 		Transformers      []Transformer
@@ -366,8 +373,7 @@ func TestUndeployErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			ctx := context.Background()
-			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -393,6 +399,8 @@ func TestUndeployErrors(t *testing.T) {
 
 // Tests various error cases in the release train, specifically the error messages returned.
 func TestReleaseTrainErrors(t *testing.T) {
+	ctxWithTime := withTimeNow(context.Background(), timeNowSample)
+
 	tcs := []struct {
 		Name              string
 		Transformers      []Transformer
@@ -442,8 +450,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			ctx := context.Background()
-			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -469,6 +476,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 }
 
 func TestTransformer(t *testing.T) {
+	ctxWithTime := withTimeNow(context.Background(), timeNowSample)
 	c1 := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}}
 
 	tcs := []struct {
@@ -730,22 +738,15 @@ func TestTransformer(t *testing.T) {
 				}
 				expected := map[string]Lock{
 					"manual": {
-						ID:          "manual",
-						Message:     "don't",
-						AuthorName:  "defaultUser",
-						AuthorEmail: "local.user@freiheit.com", // TODO TE: mock time and check author_date here
+						Message: "don't",
+						CreatedBy: &api.Actor{
+							Name:  "defaultUser",
+							Email: "local.user@freiheit.com", // TODO TE: mock time and check author_date here
+						},
+						CreatedAt: timestamppb.New(timeNowSample),
 					},
 				}
-				if !reflect.DeepEqual(locks["manual"].AuthorEmail, expected["manual"].AuthorEmail) {
-					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
-				}
-				if !reflect.DeepEqual(locks["manual"].AuthorName, expected["manual"].AuthorName) {
-					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
-				}
-				if !reflect.DeepEqual(locks["manual"].ID, expected["manual"].ID) {
-					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
-				}
-				if !reflect.DeepEqual(locks["manual"].Message, expected["manual"].Message) {
+				if !reflect.DeepEqual(locks, expected) {
 					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
 				}
 			},
@@ -772,22 +773,15 @@ func TestTransformer(t *testing.T) {
 				}
 				expected := map[string]Lock{
 					"manual": {
-						ID:          "manual",
-						Message:     "just don't",
-						AuthorName:  "defaultUser",
-						AuthorEmail: "local.user@freiheit.com",
+						Message: "just don't",
+						CreatedBy: &api.Actor{
+							Name:  "defaultUser",
+							Email: "local.user@freiheit.com",
+						},
+						CreatedAt: timestamppb.New(timeNowSample),
 					},
 				}
-				if !reflect.DeepEqual(locks["manual"].AuthorEmail, expected["manual"].AuthorEmail) {
-					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
-				}
-				if !reflect.DeepEqual(locks["manual"].AuthorName, expected["manual"].AuthorName) {
-					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
-				}
-				if !reflect.DeepEqual(locks["manual"].ID, expected["manual"].ID) {
-					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
-				}
-				if !reflect.DeepEqual(locks["manual"].Message, expected["manual"].Message) {
+				if !reflect.DeepEqual(locks, expected) {
 					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
 				}
 			},
@@ -1881,7 +1875,7 @@ spec:
 			}
 
 			for i, tf := range tc.Transformers {
-				err = repo.Apply(context.Background(), tf)
+				err = repo.Apply(ctxWithTime, tf)
 				if err != nil {
 					if tc.ErrorTest != nil && i == len(tc.Transformers)-1 {
 						tc.ErrorTest(t, err)
