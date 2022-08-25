@@ -473,7 +473,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		r.writesDone = r.writesDone + uint(len(transformers))
 		r.maybeGc(ctx)
 	}()
-	eCh := r.applyDeferred(ctx, transformers...)
+	eCh := r.applyDeferred(withTimeNow(ctx, time.Now()), transformers...)
 	select {
 	case err := <-eCh:
 		return err
@@ -730,46 +730,40 @@ func (s *State) ReleaseManifests(application string, release uint64) (map[string
 }
 
 type Lock struct {
-	ID        string
 	Message   string
-	CreatedBy api.Actor
+	CreatedBy *api.Actor
 	CreatedAt *timestamppb.Timestamp
 }
 
 func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
-	id, err := readFile(fs, fs.Join(lockDir, "lock_id"))
+	msg, err := readFile(fs, fs.Join(lockDir, "message"))
 	if err != nil {
 		return nil, err
 	}
-	msg, err := readFile(fs, fs.Join(lockDir, "lock_message"))
+	email, err := readFile(fs, fs.Join(lockDir, "created_by_email"))
 	if err != nil {
 		return nil, err
 	}
-	authorEmail, err := readFile(fs, fs.Join(lockDir, "author_email"))
+	name, err := readFile(fs, fs.Join(lockDir, "created_by_name"))
 	if err != nil {
 		return nil, err
 	}
-	authorName, err := readFile(fs, fs.Join(lockDir, "author_name"))
+	date, err := readFile(fs, fs.Join(lockDir, "created_at"))
 	if err != nil {
 		return nil, err
 	}
-	date, err := readFile(fs, fs.Join(lockDir, "author_date"))
-	if err != nil {
-		return nil, err
-	}
-	authorDate, err := time.Parse(time.RFC3339, strings.TrimSpace(string(date)))
+	createdAt, err := time.Parse(time.RFC3339, strings.TrimSpace(string(date)))
 	if err != nil {
 		return nil, err
 	}
 
 	return &Lock{
-		ID:      strings.TrimSpace(string(id)),
 		Message: strings.TrimSpace(string(msg)),
-		CreatedBy: api.Actor{
-			Name:  strings.TrimSpace(string(authorName)),
-			Email: strings.TrimSpace(string(authorEmail)),
+		CreatedBy: &api.Actor{
+			Name:  strings.TrimSpace(string(name)),
+			Email: strings.TrimSpace(string(email)),
 		},
-		CreatedAt: timestamppb.New(authorDate),
+		CreatedAt: timestamppb.New(createdAt),
 	}, nil
 }
 
@@ -786,7 +780,7 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
 				return nil, err
 			} else {
-				result[lock.ID] = *lock
+				result[e.Name()] = *lock
 			}
 		}
 		return result, nil
@@ -806,7 +800,7 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
 				return nil, err
 			} else {
-				result[lock.ID] = *lock
+				result[e.Name()] = *lock
 			}
 		}
 		return result, nil
@@ -1001,7 +995,7 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		return nil, err
 	}
 	release.UndeployVersion = isUndeploy
-	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "release_date")); err != nil {
+	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "created_at")); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}

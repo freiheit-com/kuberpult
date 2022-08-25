@@ -74,7 +74,7 @@ func (o *OverviewServiceServer) getOverview(
 						Message:   lock.Message,
 						LockId:    lockId,
 						CreatedAt: lock.CreatedAt,
-						CreatedBy: &lock.CreatedBy,
+						CreatedBy: lock.CreatedBy,
 					}
 				}
 			}
@@ -121,7 +121,7 @@ func (o *OverviewServiceServer) getOverview(
 								Message:   lock.Message,
 								LockId:    lockId,
 								CreatedAt: lock.CreatedAt,
-								CreatedBy: &lock.CreatedBy,
+								CreatedBy: lock.CreatedBy,
 							}
 						}
 					}

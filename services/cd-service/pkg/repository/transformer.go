@@ -204,7 +204,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 			return "", err
 		}
 	}
-	if err := util.WriteFile(fs, fs.Join(releaseDir, "release_date"), []byte(time.Now().Format(time.RFC3339)), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(releaseDir, "created_at"), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return "", err
 	}
 	if c.Team != "" {
@@ -332,7 +332,7 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
 		return "", err
 	}
-	if err := util.WriteFile(fs, fs.Join(releaseDir, "release_date"), []byte(time.Now().Format(time.RFC3339)), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(releaseDir, "created_at"), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return "", err
 	}
 	result := ""
@@ -529,34 +529,29 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string
 		return err
 	}
 
-	// create lock file
-	newLockDir := fs.Join(locksDir, "lock_"+lockId)
+	// create lock dir
+	newLockDir := fs.Join(locksDir, lockId)
 	if err := fs.MkdirAll(newLockDir, 0777); err != nil {
 		return err
 	}
 
-	// write ID
-	if err := util.WriteFile(fs, fs.Join(newLockDir, "lock_id"), []byte(lockId), 0666); err != nil {
+	// write message
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "message"), []byte(message), 0666); err != nil {
 		return err
 	}
 
-	// write Message
-	if err := util.WriteFile(fs, fs.Join(newLockDir, "lock_message"), []byte(message), 0666); err != nil {
+	// write email
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_by_email"), []byte(auth.Extract(ctx).Email), 0666); err != nil {
 		return err
 	}
 
-	// write author email
-	if err := util.WriteFile(fs, fs.Join(newLockDir, "author_email"), []byte(auth.Extract(ctx).Email), 0666); err != nil {
+	// write name
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_by_name"), []byte(auth.Extract(ctx).Name), 0666); err != nil {
 		return err
 	}
 
-	// write author name
-	if err := util.WriteFile(fs, fs.Join(newLockDir, "author_name"), []byte(auth.Extract(ctx).Name), 0666); err != nil {
-		return err
-	}
-
-	// write author date in iso format
-	if err := util.WriteFile(fs, fs.Join(newLockDir, "author_date"), []byte(time.Now().Format(time.RFC3339)), 0666); err != nil {
+	// write date in iso format
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_at"), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return err
 	}
 	return nil
@@ -776,9 +771,6 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		return "", err
 	}
 	if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
-		return "", err
-	}
-	if err := util.WriteFile(fs, fs.Join(applicationDir, "deploy_date"), []byte(time.Now().Format(time.RFC3339)), 0666); err != nil {
 		return "", err
 	}
 	// Copy the manifest for argocd
