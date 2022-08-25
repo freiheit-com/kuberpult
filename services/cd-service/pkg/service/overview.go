@@ -47,13 +47,12 @@ type OverviewServiceServer struct {
 func (o *OverviewServiceServer) GetDeployedOverview(
 	ctx context.Context,
 	in *api.GetDeployedOverviewRequest) (*api.GetDeployedOverviewResponse, error) {
-	filter := in.GetFilter()
-	return o.getDeployedOverview(ctx, o.Repository.State(), filter)
+	return o.getDeployedOverview(ctx, o.Repository.State())
 }
 
 func (o *OverviewServiceServer) getDeployedOverview(
 	ctx context.Context,
-	s *repository.State, filter string) (*api.GetDeployedOverviewResponse, error) {
+	s *repository.State) (*api.GetDeployedOverviewResponse, error) {
 	result := api.GetDeployedOverviewResponse{
 		Environments: map[string]*api.Environment{},
 		Applications: map[string]*api.Application{},
@@ -190,18 +189,14 @@ func (o *OverviewServiceServer) getDeployedOverview(
 						} else {
 							release.Commit = transformCommit(commit)
 						}
-						if filter == "important" {
-							for _, env := range result.Environments {
-								if env.Applications[appName] != nil {
-									version := env.Applications[appName].Version
-									if version == release.Version {
-										app.Releases = append(app.Releases, release)
-										break
-									}
+						for _, env := range result.Environments {
+							if env.Applications[appName] != nil {
+								version := env.Applications[appName].Version
+								if version == release.Version {
+									app.Releases = append(app.Releases, release)
+									break
 								}
 							}
-						} else {
-							app.Releases = append(app.Releases, release)
 						}
 					}
 				}
@@ -397,6 +392,26 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 	}
 }
 
+func (o *OverviewServiceServer) StreamDeployedOverview(in *api.GetDeployedOverviewRequest,
+	stream api.OverviewService_StreamDeployedOverviewServer) error {
+	ch, unsubscribe := o.subscribeDeployed()
+	defer unsubscribe()
+	done := stream.Context().Done()
+	for {
+		select {
+		case <-o.Shutdown:
+			return nil
+		case <-ch:
+			ov := o.response.Load().(*api.GetDeployedOverviewResponse)
+			if err := stream.Send(ov); err != nil {
+				return err
+			}
+		case <-done:
+			return nil
+		}
+	}
+}
+
 func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe) {
 	o.init.Do(func() {
 		ch, unsub := o.Repository.Notify().Subscribe()
@@ -422,8 +437,42 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 	return o.notify.Subscribe()
 }
 
+func (o *OverviewServiceServer) subscribeDeployed() (<-chan struct{}, notify.Unsubscribe) {
+	o.init.Do(func() {
+		ch, unsub := o.Repository.Notify().Subscribe()
+		// Channels obtained from subscribe are by default triggered
+		//
+		// This means, we have to wait here until the first overview is loaded.
+		select {
+		case <-ch:
+			o.updateDeployed(o.Repository.State())
+		}
+		go func() {
+			defer unsub()
+			for {
+				select {
+				case <-o.Shutdown:
+					return
+				case <-ch:
+					o.updateDeployed(o.Repository.State())
+				}
+			}
+		}()
+	})
+	return o.notify.Subscribe()
+}
+
 func (o *OverviewServiceServer) update(s *repository.State) {
 	r, err := o.getOverview(context.Background(), s)
+	if err != nil {
+		panic(err)
+	}
+	o.response.Store(r)
+	o.notify.Notify()
+}
+
+func (o *OverviewServiceServer) updateDeployed(s *repository.State) {
+	r, err := o.getDeployedOverview(context.Background(), s)
 	if err != nil {
 		panic(err)
 	}
