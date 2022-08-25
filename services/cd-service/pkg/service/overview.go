@@ -71,11 +71,10 @@ func (o *OverviewServiceServer) getOverview(
 			} else {
 				for lockId, lock := range locks {
 					env.Locks[lockId] = &api.Lock{
-						Message:     lock.Message,
-						LockId:      lockId,
-						AuthorTime:  lock.AuthorTime,
-						AuthorName:  lock.AuthorName,
-						AuthorEmail: lock.AuthorEmail,
+						Message:   lock.Message,
+						LockId:    lockId,
+						CreatedAt: lock.CreatedAt,
+						CreatedBy: &lock.CreatedBy,
 					}
 				}
 			}
@@ -119,11 +118,10 @@ func (o *OverviewServiceServer) getOverview(
 					} else {
 						for lockId, lock := range appLocks {
 							app.Locks[lockId] = &api.Lock{
-								Message:     lock.Message,
-								LockId:      lockId,
-								AuthorTime:  lock.AuthorTime,
-								AuthorName:  lock.AuthorName,
-								AuthorEmail: lock.AuthorEmail,
+								Message:   lock.Message,
+								LockId:    lockId,
+								CreatedAt: lock.CreatedAt,
+								CreatedBy: &lock.CreatedBy,
 							}
 						}
 					}
@@ -165,7 +163,7 @@ func (o *OverviewServiceServer) getOverview(
 							SourceCommitId:  rel.SourceCommitId,
 							SourceMessage:   rel.SourceMessage,
 							UndeployVersion: rel.UndeployVersion,
-							ReleaseDate:     rel.ReleaseDate,
+							CreatedAt:       rel.ReleaseDate,
 						}
 						app.Releases = append(app.Releases, release)
 					}

@@ -730,11 +730,10 @@ func (s *State) ReleaseManifests(application string, release uint64) (map[string
 }
 
 type Lock struct {
-	ID          string
-	Message     string
-	AuthorName  string
-	AuthorEmail string
-	AuthorTime  *timestamppb.Timestamp
+	ID        string
+	Message   string
+	CreatedBy api.Actor
+	CreatedAt *timestamppb.Timestamp
 }
 
 func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
@@ -764,11 +763,13 @@ func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
 	}
 
 	return &Lock{
-		ID:          strings.TrimSpace(string(id)),
-		Message:     strings.TrimSpace(string(msg)),
-		AuthorEmail: strings.TrimSpace(string(authorEmail)),
-		AuthorName:  strings.TrimSpace(string(authorName)),
-		AuthorTime:  timestamppb.New(authorDate),
+		ID:      strings.TrimSpace(string(id)),
+		Message: strings.TrimSpace(string(msg)),
+		CreatedBy: api.Actor{
+			Name:  strings.TrimSpace(string(authorName)),
+			Email: strings.TrimSpace(string(authorEmail)),
+		},
+		CreatedAt: timestamppb.New(authorDate),
 	}, nil
 }
 
