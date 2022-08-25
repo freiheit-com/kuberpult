@@ -41,8 +41,6 @@ const (
 )
 
 func TestUndeployApplicationErrors(t *testing.T) {
-	ctx := context.Background()
-
 	tcs := []struct {
 		Name              string
 		Transformers      []Transformer
@@ -255,8 +253,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-
-			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -282,8 +279,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 
 // Tests various error cases in the prepare-Undeploy endpoint, specifically the error messages returned.
 func TestUndeployErrors(t *testing.T) {
-	ctx := context.Background()
-
 	tcs := []struct {
 		Name              string
 		Transformers      []Transformer
@@ -369,7 +364,7 @@ func TestUndeployErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -395,8 +390,6 @@ func TestUndeployErrors(t *testing.T) {
 
 // Tests various error cases in the release train, specifically the error messages returned.
 func TestReleaseTrainErrors(t *testing.T) {
-	ctx := context.Background()
-
 	tcs := []struct {
 		Name              string
 		Transformers      []Transformer
@@ -446,7 +439,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -472,7 +465,6 @@ func TestReleaseTrainErrors(t *testing.T) {
 }
 
 func TestTransformer(t *testing.T) {
-	ctxWithTime := withTimeNow(context.Background(), timeNowDefault)
 	c1 := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}}
 
 	tcs := []struct {
@@ -739,7 +731,7 @@ func TestTransformer(t *testing.T) {
 							Name:  "defaultUser",
 							Email: "local.user@freiheit.com",
 						},
-						CreatedAt: timeNowDefault,
+						CreatedAt: timeNowOld,
 					},
 				}
 				if !reflect.DeepEqual(locks, expected) {
@@ -776,7 +768,7 @@ func TestTransformer(t *testing.T) {
 							Name:  "defaultUser",
 							Email: "local.user@freiheit.com",
 						},
-						CreatedAt: timeNowDefault,
+						CreatedAt: timeNowOld,
 					},
 				}
 				if !reflect.DeepEqual(locks, expected) {
@@ -811,7 +803,7 @@ func TestTransformer(t *testing.T) {
 							Name:  "defaultUser",
 							Email: "local.user@freiheit.com",
 						},
-						CreatedAt: timeNowDefault,
+						CreatedAt: timeNowOld,
 					},
 				}
 				if !reflect.DeepEqual(locks, expected) {
@@ -958,8 +950,8 @@ func TestTransformer(t *testing.T) {
 					if rel.SourceMessage != "changed something" {
 						t.Errorf("unexpected source author: expected \"changed something\", actual: %q", rel.SourceMessage)
 					}
-					if rel.CreatedAt != timeNowDefault {
-						t.Errorf("unexpected created at: expected: %q, actual: %q", timeNowDefault, rel.SourceMessage)
+					if rel.CreatedAt != timeNowOld {
+						t.Errorf("unexpected created at: expected: %q, actual: %q", timeNowOld, rel.SourceMessage)
 					}
 				}
 			},
@@ -1911,6 +1903,7 @@ spec:
 			}
 
 			for i, tf := range tc.Transformers {
+				ctxWithTime := WithTimeNow(context.Background(), timeNowOld)
 				err = repo.Apply(ctxWithTime, tf)
 				if err != nil {
 					if tc.ErrorTest != nil && i == len(tc.Transformers)-1 {

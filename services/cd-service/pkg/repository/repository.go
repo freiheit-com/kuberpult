@@ -62,8 +62,7 @@ type Repository interface {
 }
 
 var (
-	ddMetrics      *statsd.Client
-	timeNowDefault = time.Date(2222, 02, 22, 22, 22, 22, 0, time.UTC)
+	ddMetrics *statsd.Client
 )
 
 type repository struct {
@@ -358,8 +357,9 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 		return nil, nil, &InternalError{inner: err}
 	} else {
 		commitMsg := []string{}
+		ctxWithTime := WithTimeNow(ctx, time.Now())
 		for _, t := range transformers {
-			if msg, err := t.Transform(withTimeNow(ctx, timeNowDefault), state); err != nil {
+			if msg, err := t.Transform(ctxWithTime, state); err != nil {
 				return nil, nil, err
 			} else {
 				commitMsg = append(commitMsg, msg)
@@ -473,7 +473,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		r.writesDone = r.writesDone + uint(len(transformers))
 		r.maybeGc(ctx)
 	}()
-	eCh := r.applyDeferred(withTimeNow(ctx, time.Now()), transformers...)
+	eCh := r.applyDeferred(ctx, transformers...)
 	select {
 	case err := <-eCh:
 		return err
