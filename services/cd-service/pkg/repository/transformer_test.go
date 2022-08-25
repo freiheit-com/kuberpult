@@ -26,14 +26,12 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/go-git/go-billy/v5/util"
 	godebug "github.com/kylelemons/godebug/diff"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"os/exec"
 	"path"
 	"reflect"
 	"regexp"
 	"testing"
-	"time"
 )
 
 const (
@@ -42,10 +40,8 @@ const (
 	additionalVersions = 7
 )
 
-var timeNowSample = time.Date(2222, 02, 22, 22, 22, 22, 22, time.UTC)
-
 func TestUndeployApplicationErrors(t *testing.T) {
-	ctxWithTime := withTimeNow(context.Background(), timeNowSample)
+	ctx := context.Background()
 
 	tcs := []struct {
 		Name              string
@@ -260,7 +256,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
 
-			commitMsg, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -286,7 +282,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 
 // Tests various error cases in the prepare-Undeploy endpoint, specifically the error messages returned.
 func TestUndeployErrors(t *testing.T) {
-	ctxWithTime := withTimeNow(context.Background(), timeNowSample)
+	ctx := context.Background()
 
 	tcs := []struct {
 		Name              string
@@ -373,7 +369,7 @@ func TestUndeployErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -399,7 +395,7 @@ func TestUndeployErrors(t *testing.T) {
 
 // Tests various error cases in the release train, specifically the error messages returned.
 func TestReleaseTrainErrors(t *testing.T) {
-	ctxWithTime := withTimeNow(context.Background(), timeNowSample)
+	ctx := context.Background()
 
 	tcs := []struct {
 		Name              string
@@ -450,7 +446,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -476,7 +472,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 }
 
 func TestTransformer(t *testing.T) {
-	ctxWithTime := withTimeNow(context.Background(), timeNowSample)
+	ctxWithTime := withTimeNow(context.Background(), timeNowDefault)
 	c1 := config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}}
 
 	tcs := []struct {
@@ -722,7 +718,7 @@ func TestTransformer(t *testing.T) {
 			},
 		},
 		{
-			Name: "Lock environment", // TODO TE: add test for application lock
+			Name: "Lock environment",
 			Transformers: []Transformer{
 				&CreateEnvironment{Environment: "production"},
 				&CreateEnvironmentLock{
@@ -739,11 +735,48 @@ func TestTransformer(t *testing.T) {
 				expected := map[string]Lock{
 					"manual": {
 						Message: "don't",
-						CreatedBy: &api.Actor{
+						CreatedBy: Actor{
 							Name:  "defaultUser",
-							Email: "local.user@freiheit.com", // TODO TE: mock time and check author_date here
+							Email: "local.user@freiheit.com",
 						},
-						CreatedAt: timestamppb.New(timeNowSample),
+						CreatedAt: timeNowDefault,
+					},
+				}
+				if !reflect.DeepEqual(locks, expected) {
+					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
+				}
+			},
+		},
+		{
+			Name: "Lock application",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					Message:     "don't",
+					LockId:      "manual",
+				},
+			},
+			Test: func(t *testing.T, s *State) {
+				locks, err := s.GetEnvironmentApplicationLocks("production", "test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				expected := map[string]Lock{
+					"manual": {
+						Message: "don't",
+						CreatedBy: Actor{
+							Name:  "defaultUser",
+							Email: "local.user@freiheit.com",
+						},
+						CreatedAt: timeNowDefault,
 					},
 				}
 				if !reflect.DeepEqual(locks, expected) {
@@ -774,11 +807,11 @@ func TestTransformer(t *testing.T) {
 				expected := map[string]Lock{
 					"manual": {
 						Message: "just don't",
-						CreatedBy: &api.Actor{
+						CreatedBy: Actor{
 							Name:  "defaultUser",
 							Email: "local.user@freiheit.com",
 						},
-						CreatedAt: timestamppb.New(timeNowSample),
+						CreatedAt: timeNowDefault,
 					},
 				}
 				if !reflect.DeepEqual(locks, expected) {
@@ -873,7 +906,7 @@ func TestTransformer(t *testing.T) {
 				}
 				// Check that reading is possible
 				{
-					rel, err := s.GetApplicationRelease("test", 1) // TODO TE: mock time and check release_date here.
+					rel, err := s.GetApplicationRelease("test", 1)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -924,6 +957,9 @@ func TestTransformer(t *testing.T) {
 					}
 					if rel.SourceMessage != "changed something" {
 						t.Errorf("unexpected source author: expected \"changed something\", actual: %q", rel.SourceMessage)
+					}
+					if rel.CreatedAt != timeNowDefault {
+						t.Errorf("unexpected created at: expected: %q, actual: %q", timeNowDefault, rel.SourceMessage)
 					}
 				}
 			},
@@ -2093,8 +2129,8 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 		{
 			name:          "delete lock fails",
 			operation:     testfs.REMOVE,
-			filename:      "environments/dev/locks/lock_foo",
-			expectedError: "failed to delete directory \"environments/dev/locks/lock_foo\": obscure error",
+			filename:      "environments/dev/locks/foo",
+			expectedError: "failed to delete directory \"environments/dev/locks/foo\": obscure error",
 		},
 		{
 			name:          "readdir fails",
@@ -2155,8 +2191,8 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 		{
 			name:          "delete lock fails",
 			operation:     testfs.REMOVE,
-			filename:      "environments/dev/applications/bar/locks/lock_foo",
-			expectedError: "failed to delete directory \"environments/dev/applications/bar/locks/lock_foo\": obscure error",
+			filename:      "environments/dev/applications/bar/locks/foo",
+			expectedError: "failed to delete directory \"environments/dev/applications/bar/locks/foo\": obscure error",
 		},
 		{
 			name:          "stat queue failes",
