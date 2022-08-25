@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"io/ioutil"
 	"os"
@@ -63,7 +62,8 @@ type Repository interface {
 }
 
 var (
-	ddMetrics *statsd.Client
+	ddMetrics      *statsd.Client
+	timeNowDefault = time.Date(2222, 02, 22, 22, 22, 22, 0, time.UTC)
 )
 
 type repository struct {
@@ -359,7 +359,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 	} else {
 		commitMsg := []string{}
 		for _, t := range transformers {
-			if msg, err := t.Transform(ctx, state); err != nil {
+			if msg, err := t.Transform(withTimeNow(ctx, timeNowDefault), state); err != nil {
 				return nil, nil, err
 			} else {
 				commitMsg = append(commitMsg, msg)
@@ -729,10 +729,15 @@ func (s *State) ReleaseManifests(application string, release uint64) (map[string
 	}
 }
 
+type Actor struct {
+	Name  string
+	Email string
+}
+
 type Lock struct {
 	Message   string
-	CreatedBy *api.Actor
-	CreatedAt *timestamppb.Timestamp
+	CreatedBy Actor
+	CreatedAt time.Time
 }
 
 func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
@@ -759,11 +764,11 @@ func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
 
 	return &Lock{
 		Message: strings.TrimSpace(string(msg)),
-		CreatedBy: &api.Actor{
+		CreatedBy: Actor{
 			Name:  strings.TrimSpace(string(name)),
 			Email: strings.TrimSpace(string(email)),
 		},
-		CreatedAt: timestamppb.New(createdAt),
+		CreatedAt: createdAt,
 	}, nil
 }
 
@@ -925,7 +930,7 @@ type Release struct {
 	SourceAuthor    string
 	SourceCommitId  string
 	SourceMessage   string
-	CreatedAt       *timestamppb.Timestamp
+	CreatedAt       time.Time
 }
 
 func (s *State) IsLatestUndeployVersion(application string) (bool, error) {
@@ -1003,7 +1008,7 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		if releaseTime, err := time.Parse(time.RFC3339, strings.TrimSpace(string(cnt))); err != nil {
 			return nil, err
 		} else {
-			release.CreatedAt = timestamppb.New(releaseTime)
+			release.CreatedAt = releaseTime
 		}
 	}
 	return &release, nil

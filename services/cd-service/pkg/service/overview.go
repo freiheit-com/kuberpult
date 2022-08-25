@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"os"
 	"path/filepath"
 	"sync"
@@ -73,8 +74,11 @@ func (o *OverviewServiceServer) getOverview(
 					env.Locks[lockId] = &api.Lock{
 						Message:   lock.Message,
 						LockId:    lockId,
-						CreatedAt: lock.CreatedAt,
-						CreatedBy: lock.CreatedBy,
+						CreatedAt: timestamppb.New(lock.CreatedAt),
+						CreatedBy: &api.Actor{
+							Name:  lock.CreatedBy.Name,
+							Email: lock.CreatedBy.Email,
+						},
 					}
 				}
 			}
@@ -120,8 +124,11 @@ func (o *OverviewServiceServer) getOverview(
 							app.Locks[lockId] = &api.Lock{
 								Message:   lock.Message,
 								LockId:    lockId,
-								CreatedAt: lock.CreatedAt,
-								CreatedBy: lock.CreatedBy,
+								CreatedAt: timestamppb.New(lock.CreatedAt),
+								CreatedBy: &api.Actor{
+									Name:  lock.CreatedBy.Name,
+									Email: lock.CreatedBy.Email,
+								},
 							}
 						}
 					}
@@ -163,7 +170,7 @@ func (o *OverviewServiceServer) getOverview(
 							SourceCommitId:  rel.SourceCommitId,
 							SourceMessage:   rel.SourceMessage,
 							UndeployVersion: rel.UndeployVersion,
-							CreatedAt:       rel.CreatedAt,
+							CreatedAt:       timestamppb.New(rel.CreatedAt),
 						}
 						app.Releases = append(app.Releases, release)
 					}
