@@ -1,0 +1,11 @@
+@use "@material/card";
+
+@include card.core-styles;
+
+.mdc-card__primary-action {
+  height: 100%;
+}
+
+.mdc-card-content {
+  padding: 16px;
+}

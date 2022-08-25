@@ -15,9 +15,14 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { Button } from '../../components/button';
+import { ReleaseCard } from '../../ReleaseCard/ReleaseCard';
 
 export const Home: React.FC = () => (
     <main className="main-content">
+        <ReleaseCard />
+        <ReleaseCard />
+        <ReleaseCard />
+
         <Button label={'Button 1'} />
         <Button label={'Button 2'} />
         <Button label={'Button 3'} />
