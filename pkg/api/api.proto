@@ -92,9 +92,8 @@ message ReleaseTrainRequest {
 message Lock {
   string message = 1;
   string lock_id = 3;
-  google.protobuf.Timestamp author_time = 4;
-  string author_name = 5;
-  string author_email = 6;
+  google.protobuf.Timestamp created_at = 4;
+  Actor created_by = 5;
 }
 
 message LockedError {
@@ -192,7 +191,7 @@ message Release {
   string source_commit_id = 2;
   string source_author = 3;
   string source_message = 4;
-  google.protobuf.Timestamp release_date = 5;
+  google.protobuf.Timestamp created_at = 5;
   bool undeployVersion = 6;
 }
 
@@ -200,4 +199,9 @@ message Application {
   string name = 1;
   repeated Release releases = 2;
   string team = 3;
+}
+
+message Actor {
+  string name = 1;
+  string email = 2;
 }
