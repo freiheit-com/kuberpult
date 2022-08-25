@@ -16,14 +16,16 @@ do
       find "$app"/locks  -maxdepth 1 -mindepth 1 -type f -print0 | while IFS= read -r -d '' lock
       do
         echo Lock ID: "$(basename "$lock")" - Lock Message: "$(cat "$lock")"
-        LOCK_DIR="$(dirname "$lock")"/lock_"$(basename "$lock")"
-        mkdir -p "$LOCK_DIR"
-        git log -1 --date=iso-strict --format="%ad" -- "$lock" > "$LOCK_DIR"/author_date
-        git log -1 --format="%an" -- "$lock" > "$LOCK_DIR"/author_name
-        git log -1 --format="%ae" -- "$lock" > "$LOCK_DIR"/author_email
-        basename "$lock" > "$LOCK_DIR"/lock_id
-        cat "$lock" > "$LOCK_DIR"/lock_message
+        date=$(git log -1 --date=iso-strict --format="%ad" -- "$lock")
+        name=$(git log -1 --format="%an" -- "$lock")
+        email=$(git log -1 --format="%ae" -- "$lock")
+        msg=$(cat "$lock")
         rm "$lock"
+        mkdir -p "$lock"
+        echo "$date" > "$lock"/created_at
+        echo "$name" > "$lock"/created_by_name
+        echo "$email" > "$lock"/created_by_email
+        echo "$msg" > "$lock"/message
       done
     fi
   done
@@ -36,13 +38,16 @@ do
     find "$env"/locks  -maxdepth 1 -mindepth 1 -type f -print0 | while IFS= read -r -d '' lock
     do
       echo Lock ID: "$(basename "$lock")" - Lock Message: "$(cat "$lock")"
-      LOCK_DIR="$(dirname "$lock")"/lock_"$(basename "$lock")"
-      mkdir -p "$LOCK_DIR"
-      git log -1 --date=iso-strict --format="%ad" -- "$lock" > "$LOCK_DIR"/author_date
-      git log -1 --format="%an" -- "$lock" > "$LOCK_DIR"/author_name
-      git log -1 --format="%ae" -- "$lock" > "$LOCK_DIR"/author_email
-      basename "$lock" > "$LOCK_DIR"/lock_id
-      cat "$lock" > "$LOCK_DIR"/lock_message
+      date=$(git log -1 --date=iso-strict --format="%ad" -- "$lock")
+      name=$(git log -1 --format="%an" -- "$lock")
+      email=$(git log -1 --format="%ae" -- "$lock")
+      msg=$(cat "$lock")
+      rm "$lock"
+      mkdir -p "$lock"
+      echo "$date" > "$lock"/created_at
+      echo "$name" > "$lock"/created_by_name
+      echo "$email" > "$lock"/created_by_email
+      echo "$msg" > "$lock"/message
     done
   fi
   echo -----------------Environment Locks------------------------
