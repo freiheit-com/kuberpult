@@ -27,7 +27,6 @@ import (
 	"os"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -564,8 +563,7 @@ type DeleteEnvironmentLock struct {
 
 func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
-	lockName := strings.TrimSpace("lock_" + c.LockId)
-	lockDir := fs.Join("environments", c.Environment, "locks", lockName)
+	lockDir := fs.Join("environments", c.Environment, "locks", c.LockId)
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
@@ -631,8 +629,7 @@ type DeleteEnvironmentApplicationLock struct {
 
 func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
-	lockName := strings.TrimSpace("lock_" + c.LockId)
-	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", lockName)
+	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
