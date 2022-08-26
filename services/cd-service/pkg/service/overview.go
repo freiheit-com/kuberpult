@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -188,6 +190,11 @@ func (o *OverviewServiceServer) getOverview(
 						} else {
 							release.Commit = transformCommit(commit)
 						}
+						if extractionResult := extractPrNumber(release.SourceMessage); extractionResult == nil {
+							release.PrNumber = "None"
+						} else {
+							release.PrNumber = *extractionResult
+						}
 						app.Releases = append(app.Releases, release)
 					}
 				}
@@ -306,4 +313,23 @@ func transformSyncWindows(syncWindows []config.ArgoCdSyncWindow, appName string)
 		}
 	}
 	return envAppSyncWindows, nil
+}
+
+func extractPrNumber(sourceMessage string) *string {
+	left := "("
+	right := ")"
+	rx := regexp.MustCompile(`(?s)` + regexp.QuoteMeta(left) + `(.*?)` + regexp.QuoteMeta(right))
+	matches := rx.FindAllStringSubmatch(sourceMessage, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	prID := matches[len(matches)-1][0]
+	prID = strings.Trim(prID, "()")
+	if prID == "" {
+		return nil
+	}
+	r := regexp.MustCompile(`[ ]`)
+	split := r.Split(prID, -2)
+	t := strings.Trim(split[len(split)-1], "#")
+	return &t
 }

@@ -119,6 +119,9 @@ message GetFrontendConfigResponse {
   message ArgoCD {
     string baseUrl = 1;
   }
+  message Git {
+    string url = 1;
+  }
   message Auth {
     message AzureAuthConfig {
       bool enabled = 1;
@@ -130,8 +133,9 @@ message GetFrontendConfigResponse {
     AzureAuthConfig azureAuth= 1;
   }
   ArgoCD argoCd = 1;
-  Auth authConfig = 2;
-  string kuberpultVersion = 3;
+  Git git = 2;
+  Auth authConfig = 3;
+  string kuberpultVersion = 4;
 
 }
 
@@ -192,6 +196,7 @@ message Release {
   string source_message = 4;
   Commit commit = 5;
   bool undeployVersion = 6;
+  string prNumber = 7;
 }
 
 message Application {

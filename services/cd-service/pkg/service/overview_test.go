@@ -78,7 +78,7 @@ func TestOverviewService(t *testing.T) {
 					},
 					SourceAuthor:   "example <example@example.com>",
 					SourceCommitId: "deadbeef",
-					SourceMessage:  "changed something",
+					SourceMessage:  "changed something (#678)",
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test-with-team",
@@ -89,6 +89,11 @@ func TestOverviewService(t *testing.T) {
 				},
 				&repository.DeployApplicationVersion{
 					Application: "test",
+					Environment: "development",
+					Version:     1,
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test-with-team",
 					Environment: "development",
 					Version:     1,
 				},
@@ -112,6 +117,20 @@ func TestOverviewService(t *testing.T) {
 				if len(resp.Environments) != 3 {
 					t.Errorf("expected three environments, got %q", resp.Environments)
 				}
+				releases := resp.Applications["test"].Releases
+				if len(releases) != 1 {
+					t.Errorf("Expected one release, but got %#q", len(releases))
+				}
+				if releases[0].PrNumber != "678" {
+					t.Errorf("Release should have PR number \"678\", but got %q", releases[0].PrNumber)
+				}
+				releases = resp.Applications["test-with-team"].Releases
+				if len(releases) != 1 {
+					t.Errorf("Expected one release, but got %#q", len(releases))
+				}
+				if releases[0].PrNumber != "None" {
+					t.Errorf("Release should not have PR number")
+				}
 				// Check Dev
 				dev, ok := resp.Environments["development"]
 				if !ok {
@@ -133,7 +152,7 @@ func TestOverviewService(t *testing.T) {
 						t.Errorf("development environment manual lock has wrong message: %q", lck.Message)
 					}
 				}
-				if len(dev.Applications) != 1 {
+				if len(dev.Applications) != 2 {
 					t.Errorf("development environment has wrong applications: %#v", dev.Applications)
 				}
 				if app, ok := dev.Applications["test"]; !ok {
@@ -232,7 +251,7 @@ func TestOverviewService(t *testing.T) {
 					if test.Releases[0].SourceAuthor != "example <example@example.com>" {
 						t.Errorf("expected test source author to be \"example <example@example.com>\", but got %q", test.Releases[0].SourceAuthor)
 					}
-					if test.Releases[0].SourceMessage != "changed something" {
+					if test.Releases[0].SourceMessage != "changed something (#678)" {
 						t.Errorf("expected test source message to be \"changed something\", but got %q", test.Releases[0].SourceMessage)
 					}
 					if test.Releases[0].SourceCommitId != "deadbeef" {
