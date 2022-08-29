@@ -20,6 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/go-git/go-billy/v5/util"
+	"github.com/google/go-cmp/cmp"
+	git "github.com/libgit2/git2go/v33"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -27,10 +30,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/go-git/go-billy/v5/util"
-	"github.com/google/go-cmp/cmp"
-	git "github.com/libgit2/git2go/v33"
 )
 
 func TestNew(t *testing.T) {
@@ -1226,88 +1225,6 @@ func TestApplyQueue(t *testing.T) {
 				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReleases, releases))
 			}
 
-		})
-	}
-}
-
-func TestItPersistsTheIndex(t *testing.T) {
-	tcs := []struct {
-		Name string
-	}{
-		{
-			Name: "It stores the index and reads it again",
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			dir := t.TempDir()
-			remoteDir := path.Join(dir, "remote")
-			localDir := path.Join(dir, "local")
-			cmd := exec.Command("git", "init", "--bare", remoteDir)
-			cmd.Start()
-			cmd.Wait()
-			repo, err := New(
-				context.Background(),
-				Config{
-					URL:  "file://" + remoteDir,
-					Path: localDir,
-				},
-			)
-			if err != nil {
-				t.Fatalf("new: expected no error, got '%e'", err)
-			}
-
-			err = repo.Apply(context.Background(), &CreateEnvironment{
-				Environment: "development",
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			for i := 1; i < 10; i += 1 {
-				err = repo.Apply(context.Background(), &CreateApplicationVersion{
-					Version:     uint64(i),
-					Application: "test",
-					Manifests: map[string]string{
-						"development": "test",
-					},
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-				state := repo.State()
-				state.GetApplicationReleaseCommit("test", 1)
-			}
-
-			// check that the index file is written
-			_, err = os.Stat(filepath.Join(localDir, ".index", "v1"))
-			if err != nil {
-				if errors.Is(err, fs.ErrNotExist) {
-					t.Errorf("index file doesn't exist")
-				} else {
-					t.Fatalf("error stating file: %s", err)
-				}
-			}
-
-			// reopen the repo, check that the costs are considerably lower than 9
-			repo2, err := New(
-				context.Background(),
-				Config{
-					URL:  "file://" + remoteDir,
-					Path: localDir,
-				},
-			)
-			if err != nil {
-				t.Fatalf("new: expected no error, got '%e'", err)
-			}
-			state2 := repo2.State()
-			state2.GetApplicationReleaseCommit("test", 1)
-			// This check here is the most important one.
-			// Before adding the persistant index the cost of calculating this would have been 9 because we needed to check 9 commits before finding this one.
-			if state2.CommitHistory.Cost() != 2 {
-				t.Errorf("the cost for calculating the version is not 2 but %d", state2.CommitHistory.Cost())
-			}
 		})
 	}
 }

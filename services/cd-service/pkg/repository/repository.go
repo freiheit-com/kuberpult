@@ -43,13 +43,11 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/history"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v33"
 )
@@ -78,7 +76,6 @@ type repository struct {
 	certificates *certificateStore
 
 	repository *git.Repository
-	history    *history.History
 
 	// Mutex guarding head
 	headLock sync.Mutex
@@ -174,7 +171,6 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				credentials:  credentials,
 				certificates: certificates,
 				repository:   repo2,
-				history:      history.NewHistory(repo2),
 				queue:        makeQueue(),
 			}
 			result.headLock.Lock()
@@ -213,11 +209,6 @@ func New(ctx context.Context, cfg Config) (Repository, error) {
 				if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
 					return nil, err
 				}
-			}
-			// load the persistent index
-			err = result.history.LoadIndex(osfs.New(cfg.Path))
-			if err != nil {
-				logger.Error("index.load", zap.Error(err))
 			}
 
 			// check that we can build the current state
@@ -366,8 +357,9 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 		return nil, nil, &InternalError{inner: err}
 	} else {
 		commitMsg := []string{}
+		ctxWithTime := withTimeNow(ctx, time.Now())
 		for _, t := range transformers {
-			if msg, err := t.Transform(ctx, state); err != nil {
+			if msg, err := t.Transform(ctxWithTime, state); err != nil {
 				return nil, nil, err
 			} else {
 				commitMsg = append(commitMsg, msg)
@@ -421,11 +413,6 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		rev,
 	); err != nil {
 		return &InternalError{inner: err}
-	}
-	// store the persistent index
-	err = r.history.WriteIndex(osfs.New(r.config.Path), state.Commit)
-	if err != nil {
-		logger.FromContext(ctx).Error("index.store", zap.Error(err))
 	}
 	return nil
 }
@@ -592,15 +579,9 @@ func (r *repository) buildState() (*State, error) {
 		if err != nil {
 			return nil, err
 		}
-		commitHistory, err := r.history.Of(commit)
-		if err != nil {
-			return nil, err
-		}
 		return &State{
 			Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
 			Commit:                 commit,
-			History:                r.history,
-			CommitHistory:          commitHistory,
 			BootstrapMode:          r.config.BootstrapMode,
 			EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 		}, nil
@@ -699,8 +680,6 @@ func (r *repository) maybeGc(ctx context.Context) {
 type State struct {
 	Filesystem             billy.Filesystem
 	Commit                 *git.Commit
-	History                *history.History
-	CommitHistory          *history.CommitHistory
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
 }
@@ -750,8 +729,47 @@ func (s *State) ReleaseManifests(application string, release uint64) (map[string
 	}
 }
 
+type Actor struct {
+	Name  string
+	Email string
+}
+
 type Lock struct {
-	Message string
+	Message   string
+	CreatedBy Actor
+	CreatedAt time.Time
+}
+
+func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
+	msg, err := readFile(fs, fs.Join(lockDir, "message"))
+	if err != nil {
+		return nil, err
+	}
+	email, err := readFile(fs, fs.Join(lockDir, "created_by_email"))
+	if err != nil {
+		return nil, err
+	}
+	name, err := readFile(fs, fs.Join(lockDir, "created_by_name"))
+	if err != nil {
+		return nil, err
+	}
+	date, err := readFile(fs, fs.Join(lockDir, "created_at"))
+	if err != nil {
+		return nil, err
+	}
+	createdAt, err := time.Parse(time.RFC3339, strings.TrimSpace(string(date)))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Lock{
+		Message: strings.TrimSpace(string(msg)),
+		CreatedBy: Actor{
+			Name:  strings.TrimSpace(string(name)),
+			Email: strings.TrimSpace(string(email)),
+		},
+		CreatedAt: createdAt,
+	}, nil
 }
 
 func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) {
@@ -761,51 +779,16 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 	} else {
 		result := make(map[string]Lock, len(entries))
 		for _, e := range entries {
-			if buf, err := readFile(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
+			if !e.IsDir() {
+				continue
+			}
+			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
 				return nil, err
 			} else {
-				result[e.Name()] = Lock{
-					Message: string(buf),
-				}
+				result[e.Name()] = *lock
 			}
 		}
 		return result, nil
-	}
-}
-
-func (s *State) GetEnvironmentApplicationVersionCommit(environment, application string) (*git.Commit, error) {
-	if s.Commit == nil {
-		return nil, nil
-	} else {
-		return s.CommitHistory.Change(
-			[]string{
-				"environments", environment,
-				"applications", application,
-				"version",
-			})
-	}
-}
-func (s *State) GetEnvironmentApplicationLocksCommit(environment, application string, lockId string) (*git.Commit, error) {
-	if s.Commit == nil {
-		return nil, nil
-	} else {
-		return s.CommitHistory.Change(
-			[]string{
-				"environments", environment,
-				"applications", application,
-				"locks", lockId,
-			})
-	}
-}
-func (s *State) GetEnvironmentLocksCommit(environment, lockId string) (*git.Commit, error) {
-	if s.Commit == nil {
-		return nil, nil
-	} else {
-		return s.CommitHistory.Change(
-			[]string{
-				"environments", environment,
-				"locks", lockId,
-			})
 	}
 }
 
@@ -816,12 +799,13 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 	} else {
 		result := make(map[string]Lock, len(entries))
 		for _, e := range entries {
-			if buf, err := readFile(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
+			if !e.IsDir() {
+				continue
+			}
+			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
 				return nil, err
 			} else {
-				result[e.Name()] = Lock{
-					Message: string(buf),
-				}
+				result[e.Name()] = *lock
 			}
 		}
 		return result, nil
@@ -860,12 +844,12 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 			// if the link does not exist, we return nil
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed reading symlink %q: %w",version,err)
+		return nil, fmt.Errorf("failed reading symlink %q: %w", version, err)
 	} else {
 		target := s.Filesystem.Join("environments", environment, "applications", application, lnk)
 		if stat, err := s.Filesystem.Stat(target); err != nil {
 			// if the file that the link points to does not exist, that's an error
-			return nil, fmt.Errorf("failed stating %q: %w",target,err)
+			return nil, fmt.Errorf("failed stating %q: %w", target, err)
 		} else {
 			res, err := strconv.ParseUint(stat.Name(), 10, 64)
 			return &res, err
@@ -946,6 +930,7 @@ type Release struct {
 	SourceAuthor    string
 	SourceCommitId  string
 	SourceMessage   string
+	CreatedAt       time.Time
 }
 
 func (s *State) IsLatestUndeployVersion(application string) (bool, error) {
@@ -1015,14 +1000,18 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		return nil, err
 	}
 	release.UndeployVersion = isUndeploy
+	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "created_at")); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+	} else {
+		if releaseTime, err := time.Parse(time.RFC3339, strings.TrimSpace(string(cnt))); err != nil {
+			return nil, err
+		} else {
+			release.CreatedAt = releaseTime
+		}
+	}
 	return &release, nil
-}
-
-func (s *State) GetApplicationReleaseCommit(application string, version uint64) (*git.Commit, error) {
-	return s.CommitHistory.Change([]string{
-		"applications", application,
-		"releases", fmt.Sprintf("%d", version),
-	})
 }
 
 func (s *State) GetApplicationTeamOwner(application string) (string, error) {

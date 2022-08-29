@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"os"
 	"path/filepath"
 	"sync"
@@ -30,8 +31,6 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	git "github.com/libgit2/git2go/v33"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type OverviewServiceServer struct {
@@ -241,16 +240,14 @@ func (o *OverviewServiceServer) getOverview(
 				return nil, err
 			} else {
 				for lockId, lock := range locks {
-					var lockCommit *api.Commit = nil
-					if commit, err := s.GetEnvironmentLocksCommit(envName, lockId); err != nil {
-						return nil, err
-					} else {
-						lockCommit = transformCommit(commit)
-					}
 					env.Locks[lockId] = &api.Lock{
-						Message: lock.Message,
-						Commit:  lockCommit,
-						LockId:  lockId,
+						Message:   lock.Message,
+						LockId:    lockId,
+						CreatedAt: timestamppb.New(lock.CreatedAt),
+						CreatedBy: &api.Actor{
+							Name:  lock.CreatedBy.Name,
+							Email: lock.CreatedBy.Email,
+						},
 					}
 				}
 			}
@@ -270,13 +267,6 @@ func (o *OverviewServiceServer) getOverview(
 							app.Version = 0
 						} else {
 							app.Version = *version
-						}
-					}
-					if app.Version != 0 {
-						if commit, err := s.GetEnvironmentApplicationVersionCommit(envName, appName); err != nil {
-							return nil, err
-						} else {
-							app.VersionCommit = transformCommit(commit)
 						}
 					}
 					if queuedVersion, err := s.GetQueuedVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -300,16 +290,14 @@ func (o *OverviewServiceServer) getOverview(
 						return nil, err
 					} else {
 						for lockId, lock := range appLocks {
-							var lockCommit *api.Commit = nil
-							if commit, err := s.GetEnvironmentApplicationLocksCommit(envName, appName, lockId); err != nil {
-								return nil, err
-							} else {
-								lockCommit = transformCommit(commit)
-							}
 							app.Locks[lockId] = &api.Lock{
-								Message: lock.Message,
-								Commit:  lockCommit,
-								LockId:  lockId,
+								Message:   lock.Message,
+								LockId:    lockId,
+								CreatedAt: timestamppb.New(lock.CreatedAt),
+								CreatedBy: &api.Actor{
+									Name:  lock.CreatedBy.Name,
+									Email: lock.CreatedBy.Email,
+								},
 							}
 						}
 					}
@@ -351,11 +339,7 @@ func (o *OverviewServiceServer) getOverview(
 							SourceCommitId:  rel.SourceCommitId,
 							SourceMessage:   rel.SourceMessage,
 							UndeployVersion: rel.UndeployVersion,
-						}
-						if commit, err := s.GetApplicationReleaseCommit(appName, id); err != nil {
-							return nil, err
-						} else {
-							release.Commit = transformCommit(commit)
+							CreatedAt:       timestamppb.New(rel.CreatedAt),
 						}
 						app.Releases = append(app.Releases, release)
 					}
@@ -499,18 +483,6 @@ func transformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environm
 		}
 	}
 	return nil
-}
-
-func transformCommit(commit *git.Commit) *api.Commit {
-	if commit == nil {
-		return nil
-	}
-	author := commit.Author()
-	return &api.Commit{
-		AuthorName:  author.Name,
-		AuthorEmail: author.Email,
-		AuthorTime:  timestamppb.New(author.When),
-	}
 }
 
 func transformSyncWindows(syncWindows []config.ArgoCdSyncWindow, appName string) ([]*api.Environment_Application_ArgoCD_SyncWindow, error) {
