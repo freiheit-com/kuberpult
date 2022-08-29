@@ -19,4 +19,13 @@ The new kuberpult will only read the data in the new format and will ignore old 
    * cd and run the scripts in the top dir.
    * Add the created files. and commit the changes to the manifests
      repo (use a different branch to get approval first).
+     ```bash
+     git clone $MANIFEST_REPO
+     git checkout -b kuberpult_migrate
+     ./create-metadata-locks.sh
+     ./create-metadata-releases.sh
+     git add .
+     git commit -m "migration to new kuberpult"
+     git push
+     ```
 3) Merge and then Deploy new kuberpult version that reads new data
