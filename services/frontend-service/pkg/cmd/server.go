@@ -72,7 +72,6 @@ type Config struct {
 	AzureTenantId       string `default:"" split_words:"true"`
 	AzureRedirectUrl    string `default:"" split_words:"true"`
 	Version             string `default:""`
-	GitUrl              string `default:"" split_words:"true"`
 }
 
 var c Config
@@ -177,7 +176,6 @@ func RunServer() {
 		frontendConfigService := &service.FrontendConfigServiceServer{
 			Config: config.FrontendConfig{
 				ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl},
-				Git:    &config.GitConfig{Url: c.GitUrl},
 				Auth: &config.AuthConfig{
 					AzureAuth: &config.AzureAuthConfig{
 						Enabled:       c.AzureEnableAuth,

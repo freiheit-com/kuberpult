@@ -56,8 +56,6 @@ spec:
           value: {{ .Values.argocd.baseUrl | quote }}
         - name: KUBERPULT_VERSION
           value: {{ .Values.tag | quote}}
-        - name: KUBERPULT_GIT_URL
-          value: {{ .Values.git.url | quote}}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL

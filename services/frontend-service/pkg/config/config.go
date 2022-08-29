@@ -21,15 +21,10 @@ type FrontendConfig struct {
 	ArgoCd           *ArgoCdConfig `json:"argocd"`
 	Auth             *AuthConfig   `json:"auth"`
 	KuberpultVersion string        `json:"version"`
-	Git              *GitConfig    `json:"git"`
 }
 
 type ArgoCdConfig struct {
 	BaseUrl string `json:"baseUrl"`
-}
-
-type GitConfig struct {
-	Url string `json:"url"`
 }
 
 type AuthConfig struct {
