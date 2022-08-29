@@ -202,7 +202,8 @@ message Release {
 message Application {
   string name = 1;
   repeated Release releases = 2;
-  string team = 3;
+  string urlTemplate = 3;
+  string team = 4;
 }
 
 message Commit {

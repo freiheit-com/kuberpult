@@ -860,12 +860,12 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 			// if the link does not exist, we return nil
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed reading symlink %q: %w",version,err)
+		return nil, fmt.Errorf("failed reading symlink %q: %w", version, err)
 	} else {
 		target := s.Filesystem.Join("environments", environment, "applications", application, lnk)
 		if stat, err := s.Filesystem.Stat(target); err != nil {
 			// if the file that the link points to does not exist, that's an error
-			return nil, fmt.Errorf("failed stating %q: %w",target,err)
+			return nil, fmt.Errorf("failed stating %q: %w", target, err)
 		} else {
 			res, err := strconv.ParseUint(stat.Name(), 10, 64)
 			return &res, err
@@ -1037,6 +1037,21 @@ func (s *State) GetApplicationTeamOwner(application string) (string, error) {
 		}
 	} else {
 		return string(team), nil
+	}
+}
+
+func (s *State) GetApplicationUrlTemplate(application string) (string, error) {
+	appDir := applicationDirectory(s.Filesystem, application)
+	appTeam := s.Filesystem.Join(appDir, "urlTemplate")
+
+	if url, err := readFile(s.Filesystem, appTeam); err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		} else {
+			return "", fmt.Errorf("error while reading team owner file for application %v found: %w", application, err)
+		}
+	} else {
+		return string(url), nil
 	}
 }
 

@@ -167,9 +167,10 @@ func (o *OverviewServiceServer) getOverview(
 	} else {
 		for _, appName := range apps {
 			app := api.Application{
-				Name:     appName,
-				Releases: []*api.Release{},
-				Team:     "",
+				Name:        appName,
+				Releases:    []*api.Release{},
+				UrlTemplate: "",
+				Team:        "",
 			}
 			if rels, err := s.GetApplicationReleases(appName); err != nil {
 				return nil, err
@@ -203,6 +204,11 @@ func (o *OverviewServiceServer) getOverview(
 				return nil, err
 			} else {
 				app.Team = team
+			}
+			if url, err := s.GetApplicationUrlTemplate(appName); err != nil {
+				return nil, err
+			} else {
+				app.UrlTemplate = url
 			}
 			result.Applications[appName] = &app
 		}

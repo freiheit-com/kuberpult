@@ -142,6 +142,7 @@ type CreateApplicationVersion struct {
 	SourceCommitId string
 	SourceAuthor   string
 	SourceMessage  string
+	UrlTemplate    string
 	Team           string
 }
 
@@ -203,6 +204,11 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 	if c.Team != "" {
 		if err := util.WriteFile(fs, fs.Join(appDir, "team"), []byte(c.Team), 0666); err != nil {
+			return "", err
+		}
+	}
+	if c.UrlTemplate != "" {
+		if err := util.WriteFile(fs, fs.Join(appDir, "urlTemplate"), []byte(c.UrlTemplate), 0666); err != nil {
 			return "", err
 		}
 	}
