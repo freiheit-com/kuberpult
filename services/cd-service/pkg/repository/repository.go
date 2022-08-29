@@ -790,7 +790,7 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 		result := make(map[string]Lock, len(entries))
 		for _, e := range entries {
 			if !e.IsDir() {
-				continue
+				return nil, fmt.Errorf("error getting environment locks: found file in the locks directory. run migration script to generate correct metadata")
 			}
 			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
 				return nil, err
@@ -810,7 +810,7 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 		result := make(map[string]Lock, len(entries))
 		for _, e := range entries {
 			if !e.IsDir() {
-				continue
+				return nil, fmt.Errorf("error getting application locks: found file in the locks directory. run migration script to generate correct metadata")
 			}
 			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
 				return nil, err
