@@ -741,35 +741,45 @@ type Lock struct {
 }
 
 func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
-	msg, err := readFile(fs, fs.Join(lockDir, "message"))
-	if err != nil {
-		return nil, err
-	}
-	email, err := readFile(fs, fs.Join(lockDir, "created_by_email"))
-	if err != nil {
-		return nil, err
-	}
-	name, err := readFile(fs, fs.Join(lockDir, "created_by_name"))
-	if err != nil {
-		return nil, err
-	}
-	date, err := readFile(fs, fs.Join(lockDir, "created_at"))
-	if err != nil {
-		return nil, err
-	}
-	createdAt, err := time.Parse(time.RFC3339, strings.TrimSpace(string(date)))
-	if err != nil {
-		return nil, err
+	lock := &Lock{}
+
+	if cnt, err := readFile(fs, fs.Join(lockDir, "message")); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+	} else {
+		lock.Message = string(cnt)
 	}
 
-	return &Lock{
-		Message: strings.TrimSpace(string(msg)),
-		CreatedBy: Actor{
-			Name:  strings.TrimSpace(string(name)),
-			Email: strings.TrimSpace(string(email)),
-		},
-		CreatedAt: createdAt,
-	}, nil
+	if cnt, err := readFile(fs, fs.Join(lockDir, "created_by_email")); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+	} else {
+		lock.CreatedBy.Email = string(cnt)
+	}
+
+	if cnt, err := readFile(fs, fs.Join(lockDir, "created_by_name")); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+	} else {
+		lock.CreatedBy.Name = string(cnt)
+	}
+
+	if cnt, err := readFile(fs, fs.Join(lockDir, "created_at")); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+	} else {
+		if createdAt, err := time.Parse(time.RFC3339, strings.TrimSpace(string(cnt))); err != nil {
+			return nil, err
+		} else {
+			lock.CreatedAt = createdAt
+		}
+	}
+
+	return lock, nil
 }
 
 func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) {
