@@ -14,6 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
+
 package service
 
 import (
@@ -41,6 +42,174 @@ type OverviewServiceServer struct {
 
 	init     sync.Once
 	response atomic.Value
+}
+
+func (o *OverviewServiceServer) GetDeployedOverview(
+	ctx context.Context,
+	in *api.GetDeployedOverviewRequest) (*api.GetDeployedOverviewResponse, error) {
+	return o.getDeployedOverview(ctx, o.Repository.State())
+}
+
+func (o *OverviewServiceServer) getDeployedOverview(
+	ctx context.Context,
+	s *repository.State) (*api.GetDeployedOverviewResponse, error) {
+	result := api.GetDeployedOverviewResponse{
+		Environments: map[string]*api.Environment{},
+		Applications: map[string]*api.Application{},
+	}
+	if envs, err := s.GetEnvironmentConfigs(); err != nil {
+		return nil, internalError(ctx, err)
+	} else {
+		for envName, config := range envs {
+			env := api.Environment{
+				Name: envName,
+				Config: &api.Environment_Config{
+					Upstream: transformUpstream(config.Upstream),
+				},
+				Locks:        map[string]*api.Lock{},
+				Applications: map[string]*api.Environment_Application{},
+			}
+			if locks, err := s.GetEnvironmentLocks(envName); err != nil {
+				return nil, err
+			} else {
+				for lockId, lock := range locks {
+					var lockCommit *api.Commit = nil
+					if commit, err := s.GetEnvironmentLocksCommit(envName, lockId); err != nil {
+						return nil, err
+					} else {
+						lockCommit = transformCommit(commit)
+					}
+					env.Locks[lockId] = &api.Lock{
+						Message: lock.Message,
+						Commit:  lockCommit,
+						LockId:  lockId,
+					}
+				}
+			}
+			if apps, err := s.GetEnvironmentApplications(envName); err != nil {
+				return nil, err
+			} else {
+				for _, appName := range apps {
+					app := api.Environment_Application{
+						Name:  appName,
+						Locks: map[string]*api.Lock{},
+					}
+					var version *uint64
+					if version, err = s.GetEnvironmentApplicationVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
+						return nil, err
+					} else {
+						if version == nil {
+							app.Version = 0
+						} else {
+							app.Version = *version
+						}
+					}
+					if app.Version != 0 {
+						if commit, err := s.GetEnvironmentApplicationVersionCommit(envName, appName); err != nil {
+							return nil, err
+						} else {
+							app.VersionCommit = transformCommit(commit)
+						}
+					}
+					if queuedVersion, err := s.GetQueuedVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
+						return nil, err
+					} else {
+						if queuedVersion == nil {
+							app.QueuedVersion = 0
+						} else {
+							app.QueuedVersion = *queuedVersion
+						}
+					}
+					app.UndeployVersion = false
+					if version != nil {
+						if release, err := s.GetApplicationRelease(appName, *version); err != nil && !errors.Is(err, os.ErrNotExist) {
+							return nil, err
+						} else if release != nil {
+							app.UndeployVersion = release.UndeployVersion
+						}
+					}
+					if appLocks, err := s.GetEnvironmentApplicationLocks(envName, appName); err != nil {
+						return nil, err
+					} else {
+						for lockId, lock := range appLocks {
+							var lockCommit *api.Commit = nil
+							if commit, err := s.GetEnvironmentApplicationLocksCommit(envName, appName, lockId); err != nil {
+								return nil, err
+							} else {
+								lockCommit = transformCommit(commit)
+							}
+							app.Locks[lockId] = &api.Lock{
+								Message: lock.Message,
+								Commit:  lockCommit,
+								LockId:  lockId,
+							}
+						}
+					}
+					if config.ArgoCd != nil {
+						if syncWindows, err := transformSyncWindows(config.ArgoCd.SyncWindows, appName); err != nil {
+							return nil, err
+						} else {
+							app.ArgoCD = &api.Environment_Application_ArgoCD{
+								SyncWindows: syncWindows,
+							}
+						}
+					}
+
+					env.Applications[appName] = &app
+				}
+			}
+			result.Environments[envName] = &env
+		}
+	}
+	if apps, err := s.GetApplications(); err != nil {
+		return nil, err
+	} else {
+		for _, appName := range apps {
+			app := api.Application{
+				Name:     appName,
+				Releases: []*api.Release{},
+				Team:     "",
+			}
+			if rels, err := s.GetApplicationReleases(appName); err != nil {
+				return nil, err
+			} else {
+				for _, id := range rels {
+					if rel, err := s.GetApplicationRelease(appName, id); err != nil {
+						return nil, err
+					} else {
+						release := &api.Release{
+							Version:         id,
+							SourceAuthor:    rel.SourceAuthor,
+							SourceCommitId:  rel.SourceCommitId,
+							SourceMessage:   rel.SourceMessage,
+							UndeployVersion: rel.UndeployVersion,
+						}
+						if commit, err := s.GetApplicationReleaseCommit(appName, id); err != nil {
+							return nil, err
+						} else {
+							release.Commit = transformCommit(commit)
+						}
+						for _, env := range result.Environments {
+							if env.Applications[appName] != nil {
+								version := env.Applications[appName].Version
+								if version == release.Version {
+									app.Releases = append(app.Releases, release)
+									break
+								}
+							}
+						}
+					}
+				}
+			}
+			if team, err := s.GetApplicationTeamOwner(appName); err != nil {
+				return nil, err
+			} else {
+				app.Team = team
+			}
+			result.Applications[appName] = &app
+		}
+	}
+	return &result, nil
 }
 
 func (o *OverviewServiceServer) GetOverview(
@@ -223,6 +392,26 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 	}
 }
 
+func (o *OverviewServiceServer) StreamDeployedOverview(in *api.GetDeployedOverviewRequest,
+	stream api.OverviewService_StreamDeployedOverviewServer) error {
+	ch, unsubscribe := o.subscribeDeployed()
+	defer unsubscribe()
+	done := stream.Context().Done()
+	for {
+		select {
+		case <-o.Shutdown:
+			return nil
+		case <-ch:
+			ov := o.response.Load().(*api.GetDeployedOverviewResponse)
+			if err := stream.Send(ov); err != nil {
+				return err
+			}
+		case <-done:
+			return nil
+		}
+	}
+}
+
 func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe) {
 	o.init.Do(func() {
 		ch, unsub := o.Repository.Notify().Subscribe()
@@ -248,8 +437,42 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 	return o.notify.Subscribe()
 }
 
+func (o *OverviewServiceServer) subscribeDeployed() (<-chan struct{}, notify.Unsubscribe) {
+	o.init.Do(func() {
+		ch, unsub := o.Repository.Notify().Subscribe()
+		// Channels obtained from subscribe are by default triggered
+		//
+		// This means, we have to wait here until the first overview is loaded.
+		select {
+		case <-ch:
+			o.updateDeployed(o.Repository.State())
+		}
+		go func() {
+			defer unsub()
+			for {
+				select {
+				case <-o.Shutdown:
+					return
+				case <-ch:
+					o.updateDeployed(o.Repository.State())
+				}
+			}
+		}()
+	})
+	return o.notify.Subscribe()
+}
+
 func (o *OverviewServiceServer) update(s *repository.State) {
 	r, err := o.getOverview(context.Background(), s)
+	if err != nil {
+		panic(err)
+	}
+	o.response.Store(r)
+	o.notify.Notify()
+}
+
+func (o *OverviewServiceServer) updateDeployed(s *repository.State) {
+	r, err := o.getDeployedOverview(context.Background(), s)
 	if err != nil {
 		panic(err)
 	}
