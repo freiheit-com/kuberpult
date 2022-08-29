@@ -72,16 +72,14 @@ func (o *OverviewServiceServer) getDeployedOverview(
 				return nil, err
 			} else {
 				for lockId, lock := range locks {
-					var lockCommit *api.Commit = nil
-					if commit, err := s.GetEnvironmentLocksCommit(envName, lockId); err != nil {
-						return nil, err
-					} else {
-						lockCommit = transformCommit(commit)
-					}
 					env.Locks[lockId] = &api.Lock{
-						Message: lock.Message,
-						Commit:  lockCommit,
-						LockId:  lockId,
+						Message:   lock.Message,
+						LockId:    lockId,
+						CreatedAt: timestamppb.New(lock.CreatedAt),
+						CreatedBy: &api.Actor{
+							Name:  lock.CreatedBy.Name,
+							Email: lock.CreatedBy.Email,
+						},
 					}
 				}
 			}
@@ -101,13 +99,6 @@ func (o *OverviewServiceServer) getDeployedOverview(
 							app.Version = 0
 						} else {
 							app.Version = *version
-						}
-					}
-					if app.Version != 0 {
-						if commit, err := s.GetEnvironmentApplicationVersionCommit(envName, appName); err != nil {
-							return nil, err
-						} else {
-							app.VersionCommit = transformCommit(commit)
 						}
 					}
 					if queuedVersion, err := s.GetQueuedVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -131,16 +122,14 @@ func (o *OverviewServiceServer) getDeployedOverview(
 						return nil, err
 					} else {
 						for lockId, lock := range appLocks {
-							var lockCommit *api.Commit = nil
-							if commit, err := s.GetEnvironmentApplicationLocksCommit(envName, appName, lockId); err != nil {
-								return nil, err
-							} else {
-								lockCommit = transformCommit(commit)
-							}
 							app.Locks[lockId] = &api.Lock{
-								Message: lock.Message,
-								Commit:  lockCommit,
-								LockId:  lockId,
+								Message:   lock.Message,
+								LockId:    lockId,
+								CreatedAt: timestamppb.New(lock.CreatedAt),
+								CreatedBy: &api.Actor{
+									Name:  lock.CreatedBy.Name,
+									Email: lock.CreatedBy.Email,
+								},
 							}
 						}
 					}
@@ -182,11 +171,7 @@ func (o *OverviewServiceServer) getDeployedOverview(
 							SourceCommitId:  rel.SourceCommitId,
 							SourceMessage:   rel.SourceMessage,
 							UndeployVersion: rel.UndeployVersion,
-						}
-						if commit, err := s.GetApplicationReleaseCommit(appName, id); err != nil {
-							return nil, err
-						} else {
-							release.Commit = transformCommit(commit)
+							CreatedAt:       timestamppb.New(rel.CreatedAt),
 						}
 						for _, env := range result.Environments {
 							if env.Applications[appName] != nil {
