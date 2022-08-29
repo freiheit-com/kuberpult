@@ -21,6 +21,7 @@ type FrontendConfig struct {
 	ArgoCd           *ArgoCdConfig `json:"argocd"`
 	Auth             *AuthConfig   `json:"auth"`
 	KuberpultVersion string        `json:"version"`
+	SourceRepoUrl    string        `json:"source"`
 }
 
 type ArgoCdConfig struct {

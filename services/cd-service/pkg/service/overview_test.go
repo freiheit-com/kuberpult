@@ -79,7 +79,7 @@ func TestOverviewService(t *testing.T) {
 					SourceAuthor:   "example <example@example.com>",
 					SourceCommitId: "deadbeef",
 					SourceMessage:  "changed something (#678)",
-					UrlTemplate:    "testing@testing.com/abc",
+					SourceRepoUrl:  "testing@testing.com/abc",
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test-with-team",
@@ -119,8 +119,8 @@ func TestOverviewService(t *testing.T) {
 					t.Errorf("expected three environments, got %q", resp.Environments)
 				}
 				testApp := resp.Applications["test"]
-				if testApp.UrlTemplate != "testing@testing.com/abc" {
-					t.Errorf("Expected \"testing@testing.com/abc\", but got %#q", resp.Applications["test"].UrlTemplate)
+				if testApp.SourceRepoUrl != "testing@testing.com/abc" {
+					t.Errorf("Expected \"testing@testing.com/abc\", but got %#q", resp.Applications["test"].SourceRepoUrl)
 				}
 				releases := testApp.Releases
 				if len(releases) != 1 {
@@ -130,8 +130,8 @@ func TestOverviewService(t *testing.T) {
 					t.Errorf("Release should have PR number \"678\", but got %q", releases[0].PrNumber)
 				}
 				testApp = resp.Applications["test-with-team"]
-				if testApp.UrlTemplate != "" {
-					t.Errorf("Expected \"\", but got %#q", resp.Applications["test"].UrlTemplate)
+				if testApp.SourceRepoUrl != "" {
+					t.Errorf("Expected \"\", but got %#q", resp.Applications["test"].SourceRepoUrl)
 				}
 				releases = testApp.Releases
 				if len(releases) != 1 {

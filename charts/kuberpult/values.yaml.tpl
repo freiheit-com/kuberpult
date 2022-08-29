@@ -9,6 +9,8 @@ git:
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 tag: "$VERSION"
 
+sourceRepoUrl: ""
+
 log:
   # Possible values are "gcp" for a gcp-optimized format and "default" for json
   format: ""

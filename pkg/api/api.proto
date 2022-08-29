@@ -131,7 +131,8 @@ message GetFrontendConfigResponse {
   }
   ArgoCD argoCd = 1;
   Auth authConfig = 2;
-  string kuberpultVersion = 3;
+  string sourceRepoUrl = 3;
+  string kuberpultVersion = 4;
 
 }
 
@@ -198,7 +199,7 @@ message Release {
 message Application {
   string name = 1;
   repeated Release releases = 2;
-  string urlTemplate = 3;
+  string sourceRepoUrl= 3;
   string team = 4;
 }
 

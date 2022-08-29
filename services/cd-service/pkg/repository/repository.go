@@ -1040,11 +1040,11 @@ func (s *State) GetApplicationTeamOwner(application string) (string, error) {
 	}
 }
 
-func (s *State) GetApplicationUrlTemplate(application string) (string, error) {
+func (s *State) GetApplicationSourceRepoUrl(application string) (string, error) {
 	appDir := applicationDirectory(s.Filesystem, application)
-	appTeam := s.Filesystem.Join(appDir, "urlTemplate")
+	appSourceRepoUrl := s.Filesystem.Join(appDir, "sourceRepoUrl")
 
-	if url, err := readFile(s.Filesystem, appTeam); err != nil {
+	if url, err := readFile(s.Filesystem, appSourceRepoUrl); err != nil {
 		if os.IsNotExist(err) {
 			return "", nil
 		} else {
