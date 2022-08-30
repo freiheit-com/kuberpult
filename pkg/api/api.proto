@@ -91,8 +91,9 @@ message ReleaseTrainRequest {
 
 message Lock {
   string message = 1;
-  Commit commit = 2;
   string lock_id = 3;
+  google.protobuf.Timestamp created_at = 4;
+  Actor created_by = 5;
 }
 
 message LockedError {
@@ -131,14 +132,17 @@ message GetFrontendConfigResponse {
   }
   ArgoCD argoCd = 1;
   Auth authConfig = 2;
-  string kuberpultVersion = 3;
+  string sourceRepoUrl = 3;
+  string kuberpultVersion = 4;
 
 }
 
 
 service OverviewService {
   rpc GetOverview (GetOverviewRequest) returns (GetOverviewResponse) {}
+  rpc GetDeployedOverview (GetDeployedOverviewRequest) returns (GetDeployedOverviewResponse) {}
   rpc StreamOverview (GetOverviewRequest) returns (stream GetOverviewResponse) {}
+  rpc StreamDeployedOverview (GetDeployedOverviewRequest) returns (stream GetDeployedOverviewResponse) {}
 }
 
 message GetOverviewRequest {
@@ -148,6 +152,16 @@ message GetOverviewResponse {
   map<string, Environment> environments = 1;
   map<string, Application> applications = 2;
 }
+
+message GetDeployedOverviewRequest {
+
+}
+
+message GetDeployedOverviewResponse {
+  map<string, Environment> environments = 1;
+  map<string, Application> applications = 2;
+}
+
 
 message Environment {
   message Config {
@@ -174,7 +188,7 @@ message Environment {
     uint64 version = 2;
     map<string, Lock> locks = 3;
     uint64 queuedVersion = 4;
-    Commit versionCommit = 5;
+    // google.protobuf.Timestamp deploy_date = 5; // This is never used
     bool undeployVersion = 6;
     ArgoCD argoCD = 7;
   }
@@ -190,18 +204,19 @@ message Release {
   string source_commit_id = 2;
   string source_author = 3;
   string source_message = 4;
-  Commit commit = 5;
+  google.protobuf.Timestamp created_at = 5;
   bool undeployVersion = 6;
+  string prNumber = 7;
 }
 
 message Application {
   string name = 1;
   repeated Release releases = 2;
-  string team = 3;
+  string sourceRepoUrl= 3;
+  string team = 4;
 }
 
-message Commit {
-  google.protobuf.Timestamp author_time = 1; 
-  string author_name = 2;
-  string author_email = 3;
+message Actor {
+  string name = 1;
+  string email = 2;
 }

@@ -14,28 +14,31 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
+package repository
 
-package config
+import (
+	"context"
+	"time"
+)
 
-type FrontendConfig struct {
-	ArgoCd           *ArgoCdConfig `json:"argocd"`
-	Auth             *AuthConfig   `json:"auth"`
-	KuberpultVersion string        `json:"version"`
-	SourceRepoUrl    string        `json:"source"`
+type ctxMarker struct{}
+
+var (
+	ctxMarkerKey = &ctxMarker{}
+)
+
+func getTimeNow(ctx context.Context) time.Time {
+	t, ok := ctx.Value(ctxMarkerKey).(time.Time)
+	if !ok {
+		panic("no time in context")
+	}
+	return t
 }
 
-type ArgoCdConfig struct {
-	BaseUrl string `json:"baseUrl"`
-}
-
-type AuthConfig struct {
-	AzureAuth *AzureAuthConfig `json:"azureAuth"`
-}
-
-type AzureAuthConfig struct {
-	Enabled       bool   `json:"enabled"`
-	ClientId      string `json:"clientId"`
-	TenantId      string `json:"tenantId"`
-	CloudInstance string `json:"cloudInstance"`
-	RedirectURL   string `json:"redirectURL"`
+func withTimeNow(ctx context.Context, t time.Time) context.Context {
+	if _, ok := ctx.Value(ctxMarkerKey).(time.Time); ok {
+		// already has time. used in testing
+		return ctx
+	}
+	return context.WithValue(ctx, ctxMarkerKey, t)
 }

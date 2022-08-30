@@ -1,5 +1,21 @@
 # Change Log
 
+## 0.4.39
+**released 2022-08-30**
+* Increase memory limit for frontend service [#321](https://github.com/freiheit-com/kuberpult/pull/321)
+* Add PR number in overview service [#316](https://github.com/freiheit-com/kuberpult/pull/316)
+
+## 0.4.38
+**released 2022-08-29**
+
+* don't show delete queue button for undeployed version [#310](https://github.com/freiheit-com/kuberpult/pull/310)
+* Add navigation indicator [#311](https://github.com/freiheit-com/kuberpult/pull/311)
+* Return deployed releases [#315](https://github.com/freiheit-com/kuberpult/pull/315)
+#### Breaking Changes:
+* run the migration script during downtime in deployment to avoid errors [Readme](https://github.com/freiheit-com/kuberpult/blob/main/infrastructure/scripts/metadata-migration/Migration.md) 
+* Remove History package and persistent cache. [#282](https://github.com/freiheit-com/kuberpult/pull/282)
+* Add scripts for metadata migration. [#307](https://github.com/freiheit-com/kuberpult/pull/307)
+
 ## 0.4.37
 **released 2022-08-18**
 

@@ -5,6 +5,7 @@
 git:
   url:  # git@github.com/.../...
   branch: "master"
+  sourceRepoUrl: ""
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 tag: "$VERSION"
@@ -31,10 +32,10 @@ frontend:
   resources:
     limits:
       cpu: 500m
-      memory: 100Mi
+      memory: 250Mi
     requests:
       cpu: 500m
-      memory: 100Mi
+      memory: 250Mi
 ingress:
   annotations: {}
   domainName: null

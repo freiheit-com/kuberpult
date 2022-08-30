@@ -21,11 +21,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"io"
 	"io/fs"
 	"os"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -142,6 +144,7 @@ type CreateApplicationVersion struct {
 	SourceCommitId string
 	SourceAuthor   string
 	SourceMessage  string
+	SourceRepoUrl  string
 	Team           string
 }
 
@@ -201,8 +204,16 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 			return "", err
 		}
 	}
+	if err := util.WriteFile(fs, fs.Join(releaseDir, "created_at"), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+		return "", err
+	}
 	if c.Team != "" {
 		if err := util.WriteFile(fs, fs.Join(appDir, "team"), []byte(c.Team), 0666); err != nil {
+			return "", err
+		}
+	}
+	if c.SourceRepoUrl != "" {
+		if err := util.WriteFile(fs, fs.Join(appDir, "sourceRepoUrl"), []byte(c.SourceRepoUrl), 0666); err != nil {
 			return "", err
 		}
 	}
@@ -324,6 +335,9 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 	}
 	// this is a flag to indicate that this is the special "undeploy" version
 	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
+		return "", err
+	}
+	if err := util.WriteFile(fs, fs.Join(releaseDir, "created_at"), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return "", err
 	}
 	result := ""
@@ -504,7 +518,7 @@ func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (st
 		if chroot, err := fs.Chroot(envDir); err != nil {
 			return "", err
 		} else {
-			if err := createLock(chroot, c.LockId, c.Message); err != nil {
+			if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
 				return "", err
 			} else {
 				GaugeEnvLockMetric(fs, c.Environment)
@@ -514,13 +528,35 @@ func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (st
 	}
 }
 
-func createLock(fs billy.Filesystem, lockId, message string) error {
+func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string) error {
 	locksDir := "locks"
 	if err := fs.MkdirAll(locksDir, 0777); err != nil {
 		return err
 	}
-	locksFile := fs.Join(locksDir, lockId)
-	if err := util.WriteFile(fs, locksFile, []byte(message), 0666); err != nil {
+
+	// create lock dir
+	newLockDir := fs.Join(locksDir, lockId)
+	if err := fs.MkdirAll(newLockDir, 0777); err != nil {
+		return err
+	}
+
+	// write message
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "message"), []byte(message), 0666); err != nil {
+		return err
+	}
+
+	// write email
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_by_email"), []byte(auth.Extract(ctx).Email), 0666); err != nil {
+		return err
+	}
+
+	// write name
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_by_name"), []byte(auth.Extract(ctx).Name), 0666); err != nil {
+		return err
+	}
+
+	// write date in iso format
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_at"), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return err
 	}
 	return nil
@@ -533,9 +569,9 @@ type DeleteEnvironmentLock struct {
 
 func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
-	file := fs.Join("environments", c.Environment, "locks", c.LockId)
-	if err := fs.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete file %q: %w", file, err)
+	lockDir := fs.Join("environments", c.Environment, "locks", c.LockId)
+	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
 		s := State{
 			Filesystem: fs,
@@ -581,7 +617,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state 
 		if chroot, err := fs.Chroot(appDir); err != nil {
 			return "", err
 		} else {
-			if err := createLock(chroot, c.LockId, c.Message); err != nil {
+			if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
 				return "", err
 			} else {
 				GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
@@ -599,9 +635,9 @@ type DeleteEnvironmentApplicationLock struct {
 
 func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
-	file := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
-	if err := fs.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete file %q: %w", file, err)
+	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
+	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
 		s := State{
 			Filesystem: fs,

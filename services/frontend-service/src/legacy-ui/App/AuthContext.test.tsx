@@ -15,8 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { act, render, screen, waitFor } from '@testing-library/react';
-import { AuthProvider, AzureAutoSignIn } from './AuthContext';
-import { ConfigsContext } from './index';
+import { AzureAutoSignIn } from './AuthContext';
 import { Crypto } from '@peculiar/webcrypto';
 import { PublicClientApplication, IPublicClientApplication, Configuration, AccountInfo } from '@azure/msal-browser';
 import { AuthenticatedTemplate, MsalProvider, UnauthenticatedTemplate } from '@azure/msal-react';
@@ -37,50 +36,10 @@ describe('AuthProvider', () => {
             clientId,
         },
     };
-    const getAuthProvider = ({ enableAzureAuth }: { enableAzureAuth: boolean }) => {
-        const configs = {
-            authConfig: {
-                azureAuth: {
-                    enabled: enableAzureAuth,
-                    clientId,
-                    cloudInstance: 'https://login.microsoftonline.com/',
-                    redirectURL: 'http://localhost:3000',
-                    tenantId,
-                },
-            },
-        };
-        const setConfigs = () => {};
-        return (
-            <ConfigsContext.Provider value={{ configs, setConfigs }}>
-                <AuthProvider>
-                    <>Content</>
-                </AuthProvider>
-            </ConfigsContext.Provider>
-        );
-    };
 
     beforeAll(() => {
         Object.defineProperty(window, 'crypto', {
             value: new Crypto(),
-        });
-    });
-
-    describe.each([
-        {
-            name: 'Shows unauthed content when not logged in',
-            enableAzureAuth: true,
-            content: 'Redirecting to login',
-        },
-        {
-            name: 'Shows normal content when not auth not enabled',
-            enableAzureAuth: false,
-            content: 'Content',
-        },
-    ])(`Use azure auth`, (testcase: any) => {
-        it(testcase.name, async () => {
-            render(getAuthProvider(testcase));
-            await act(async () => await global.nextTick());
-            expect(screen.getByText(testcase.content)).toBeInTheDocument();
         });
     });
 

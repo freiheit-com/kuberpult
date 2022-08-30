@@ -252,11 +252,11 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
         envLocks.push(
             ...Object.entries(env.locks ?? {}).map((item) => ({
                 id: item[0],
-                author: item[1].commit?.authorName ?? '',
-                authorEmail: item[1].commit?.authorEmail ?? '',
+                author: item[1].createdBy?.name ?? '',
+                authorEmail: item[1].createdBy?.email ?? '',
                 message: item[1].message,
                 // use -1 to sort the locks with the newest on top
-                dateAdded: (item[1].commit?.authorTime?.valueOf() ?? -1) * -1,
+                dateAdded: (item[1].createdAt?.valueOf() ?? -1) * -1,
                 environment: env.name,
                 application: '',
             }))
@@ -266,11 +266,11 @@ export const LocksDrawer = (props: { data: GetOverviewResponse }) => {
             appLocks.push(
                 ...Object.entries(app.locks ?? {}).map((item) => ({
                     id: item[0],
-                    author: item[1].commit?.authorName ?? '',
-                    authorEmail: item[1].commit?.authorEmail ?? '',
+                    author: item[1].createdBy?.name ?? '',
+                    authorEmail: item[1].createdBy?.email ?? '',
                     message: item[1].message,
                     // use -1 to sort the locks with the newest on top
-                    dateAdded: (item[1].commit?.authorTime?.valueOf() ?? -1) * -1,
+                    dateAdded: (item[1].createdAt?.valueOf() ?? -1) * -1,
                     environment: env.name,
                     application: app.name,
                 }))

@@ -54,6 +54,7 @@ type Config struct {
 	AzureTenantId       string `default:"" split_words:"true"`
 	AzureRedirectUrl    string `default:"" split_words:"true"`
 	Version             string `default:""`
+	SourceRepoUrl       string `default:"" split_words:"true"`
 }
 
 var c Config
@@ -167,6 +168,7 @@ func RunServer() {
 						CloudInstance: c.AzureCloudInstance,
 					},
 				},
+				SourceRepoUrl:    c.SourceRepoUrl,
 				KuberpultVersion: c.Version,
 			},
 		}
@@ -330,6 +332,30 @@ func (p *GrpcProxy) StreamOverview(
 	in *api.GetOverviewRequest,
 	stream api.OverviewService_StreamOverviewServer) error {
 	if resp, err := p.OverviewClient.StreamOverview(stream.Context(), in); err != nil {
+		return err
+	} else {
+		for {
+			if item, err := resp.Recv(); err != nil {
+				return err
+			} else {
+				if err := stream.Send(item); err != nil {
+					return err
+				}
+			}
+		}
+	}
+}
+
+func (p *GrpcProxy) GetDeployedOverview(
+	ctx context.Context,
+	in *api.GetDeployedOverviewRequest) (*api.GetDeployedOverviewResponse, error) {
+	return p.OverviewClient.GetDeployedOverview(ctx, in)
+}
+
+func (p *GrpcProxy) StreamDeployedOverview(
+	in *api.GetDeployedOverviewRequest,
+	stream api.OverviewService_StreamDeployedOverviewServer) error {
+	if resp, err := p.OverviewClient.StreamDeployedOverview(stream.Context(), in); err != nil {
 		return err
 	} else {
 		for {
