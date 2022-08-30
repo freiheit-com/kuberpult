@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -13,7 +14,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2021 freiheit.com*/
+Copyright 2021 freiheit.com
+*/
 package service
 
 import (
@@ -23,7 +25,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -191,11 +192,9 @@ func (o *OverviewServiceServer) getOverview(
 						} else {
 							release.Commit = transformCommit(commit)
 						}
-						if extractionResult := extractPrNumber(release.SourceMessage); extractionResult == nil {
-							release.PrNumber = ""
-						} else {
-							release.PrNumber = *extractionResult
-						}
+
+						release.PrNumber = extractPrNumber(release.SourceMessage)
+
 						app.Releases = append(app.Releases, release)
 					}
 				}
@@ -321,21 +320,13 @@ func transformSyncWindows(syncWindows []config.ArgoCdSyncWindow, appName string)
 	return envAppSyncWindows, nil
 }
 
-func extractPrNumber(sourceMessage string) *string {
-	left := "("
-	right := ")"
-	rx := regexp.MustCompile(`(?s)` + regexp.QuoteMeta(left) + `(.*?)` + regexp.QuoteMeta(right))
-	matches := rx.FindAllStringSubmatch(sourceMessage, -1)
-	if len(matches) == 0 {
-		return nil
+func extractPrNumber(sourceMessage string) string {
+	re := regexp.MustCompile("\\((#(([0-9])+))\\)")
+	res := re.FindAllStringSubmatch(sourceMessage, -1)
+
+	if len(res) == 0 {
+		return ""
+	} else {
+		return res[len(res)-1][2]
 	}
-	prID := matches[len(matches)-1][0]
-	prID = strings.Trim(prID, "()")
-	if prID == "" {
-		return nil
-	}
-	r := regexp.MustCompile(`[ ]`)
-	split := r.Split(prID, -2)
-	t := strings.Trim(split[len(split)-1], "#")
-	return &t
 }
