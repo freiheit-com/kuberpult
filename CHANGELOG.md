@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.4.39
+**released 2022-08-30**
+* Remove persistent volume. and use emptyDir. [#320](https://github.com/freiheit-com/kuberpult/pull/320)
+
 ## 0.4.38
 **released 2022-08-29**
 
