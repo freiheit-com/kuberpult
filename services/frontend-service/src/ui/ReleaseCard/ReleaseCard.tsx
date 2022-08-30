@@ -16,4 +16,8 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { Card } from '../components/card';
 
-export const ReleaseCard: React.FC = () => <Card className={'release-card'} />;
+export const ReleaseCard: React.FC = () => (
+    <Card className={'release-card'} title={'Add foo-feature to Main #24'} headerAction={'6dvsdfak'}>
+        <div className="release__metadata mdc-typography--subtitle1">{'Release date 02-08-2022  -  16:26'}</div>
+    </Card>
+);

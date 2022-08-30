@@ -17,11 +17,17 @@ Copyright 2021 freiheit.com*/
 import classNames from 'classnames';
 import { cloneElement, useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
+import { Button } from '../button';
 
-export const Card = (props: { className?: string; children?: React.ReactElement }) => {
+export const Card = (props: {
+    className?: string;
+    title?: string;
+    headerAction?: string;
+    children?: React.ReactElement;
+}) => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLDivElement>(null);
-    const { className, children } = props;
+    const { className, children, title, headerAction } = props;
 
     useEffect(() => {
         if (control.current) {
@@ -32,12 +38,13 @@ export const Card = (props: { className?: string; children?: React.ReactElement 
 
     return (
         <div className={classNames('mdc-card', className)}>
+            <div className="mdc-card__header">
+                <div className="mdc-card__title mdc-typography--headline6">{title}</div>
+                <Button className="mdc-card__header-action" label={headerAction} />
+            </div>
             <div className="mdc-card__primary-action" ref={control} tabIndex={0}>
                 <div className="mdc-card__ripple"></div>
-                <div className="mdc-card-content">
-                    Hello
-                    {children && cloneElement(children)}
-                </div>
+                <div className="mdc-card-content">{children && cloneElement(children)}</div>
             </div>
         </div>
     );

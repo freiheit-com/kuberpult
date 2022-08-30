@@ -1,4 +1,14 @@
+@use "@material/typography/mdc-typography";
+
 .release-card {
-  height: 228px;
-  width: 512px;
+  min-height: 228px;
+  min-width: 512px;
+  margin: 12px;
+
+  .release-metadata {
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 32px;
+    color: var(--mdc-theme-on-surface);
+  }
 }
