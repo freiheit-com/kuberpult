@@ -88,6 +88,26 @@ func TestOverviewService(t *testing.T) {
 					},
 					Team: "test-team",
 				},
+				&repository.CreateApplicationVersion{
+					Application: "test-with-incorrect-pr-number",
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeef",
+					SourceMessage:  "changed something (#678",
+					SourceRepoUrl:  "testing@testing.com/abc",
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test-with-only-pr-number",
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "deadbeef",
+					SourceMessage:  "(#678)",
+					SourceRepoUrl:  "testing@testing.com/abc",
+				},
 				&repository.DeployApplicationVersion{
 					Application: "test",
 					Environment: "development",
@@ -139,6 +159,22 @@ func TestOverviewService(t *testing.T) {
 				}
 				if releases[0].PrNumber != "" {
 					t.Errorf("Release should not have PR number")
+				}
+				testApp = resp.Applications["test-with-incorrect-pr-number"]
+				releases = testApp.Releases
+				if len(releases) != 1 {
+					t.Errorf("Expected one release, but got %#q", len(releases))
+				}
+				if releases[0].PrNumber != "" {
+					t.Errorf("Release should not have PR number since is an invalid PR number")
+				}
+				testApp = resp.Applications["test-with-only-pr-number"]
+				releases = testApp.Releases
+				if len(releases) != 1 {
+					t.Errorf("Expected one release, but got %#q", len(releases))
+				}
+				if releases[0].PrNumber == "" {
+					t.Errorf("Release should have PR number \"678\", but got %q", releases[0].PrNumber)
 				}
 				// Check Dev
 				dev, ok := resp.Environments["development"]
@@ -242,7 +278,7 @@ func TestOverviewService(t *testing.T) {
 				}
 
 				// Check applications
-				if len(resp.Applications) != 2 {
+				if len(resp.Applications) != 4 {
 					t.Errorf("expected two application, got %#v", resp.Applications)
 				}
 				if test, ok := resp.Applications["test"]; !ok {
