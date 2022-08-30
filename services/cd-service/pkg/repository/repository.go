@@ -1039,6 +1039,21 @@ func (s *State) GetApplicationTeamOwner(application string) (string, error) {
 	}
 }
 
+func (s *State) GetApplicationSourceRepoUrl(application string) (string, error) {
+	appDir := applicationDirectory(s.Filesystem, application)
+	appSourceRepoUrl := s.Filesystem.Join(appDir, "sourceRepoUrl")
+
+	if url, err := readFile(s.Filesystem, appSourceRepoUrl); err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		} else {
+			return "", fmt.Errorf("error while reading sourceRepoUrl file for application %v found: %w", application, err)
+		}
+	} else {
+		return string(url), nil
+	}
+}
+
 func names(fs billy.Filesystem, path string) ([]string, error) {
 	files, err := fs.ReadDir(path)
 	if err != nil {

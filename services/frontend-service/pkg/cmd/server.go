@@ -54,6 +54,7 @@ type Config struct {
 	AzureTenantId       string `default:"" split_words:"true"`
 	AzureRedirectUrl    string `default:"" split_words:"true"`
 	Version             string `default:""`
+	SourceRepoUrl       string `default:"" split_words:"true"`
 }
 
 var c Config
@@ -167,6 +168,7 @@ func RunServer() {
 						CloudInstance: c.AzureCloudInstance,
 					},
 				},
+				SourceRepoUrl:    c.SourceRepoUrl,
 				KuberpultVersion: c.Version,
 			},
 		}

@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"sync/atomic"
 
@@ -307,9 +308,10 @@ func (o *OverviewServiceServer) getOverview(
 	} else {
 		for _, appName := range apps {
 			app := api.Application{
-				Name:     appName,
-				Releases: []*api.Release{},
-				Team:     "",
+				Name:          appName,
+				Releases:      []*api.Release{},
+				SourceRepoUrl: "",
+				Team:          "",
 			}
 			if rels, err := s.GetApplicationReleases(appName); err != nil {
 				return nil, err
@@ -326,6 +328,9 @@ func (o *OverviewServiceServer) getOverview(
 							UndeployVersion: rel.UndeployVersion,
 							CreatedAt:       timestamppb.New(rel.CreatedAt),
 						}
+
+						release.PrNumber = extractPrNumber(release.SourceMessage)
+
 						app.Releases = append(app.Releases, release)
 					}
 				}
@@ -334,6 +339,11 @@ func (o *OverviewServiceServer) getOverview(
 				return nil, err
 			} else {
 				app.Team = team
+			}
+			if url, err := s.GetApplicationSourceRepoUrl(appName); err != nil {
+				return nil, err
+			} else {
+				app.SourceRepoUrl = url
 			}
 			result.Applications[appName] = &app
 		}
@@ -486,4 +496,15 @@ func transformSyncWindows(syncWindows []config.ArgoCdSyncWindow, appName string)
 		}
 	}
 	return envAppSyncWindows, nil
+}
+
+func extractPrNumber(sourceMessage string) string {
+	re := regexp.MustCompile("\\(#(\\d+)\\)")
+	res := re.FindAllStringSubmatch(sourceMessage, -1)
+
+	if len(res) == 0 {
+		return ""
+	} else {
+		return res[len(res)-1][1]
+	}
 }
