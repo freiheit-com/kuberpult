@@ -319,12 +319,12 @@ func transformSyncWindows(syncWindows []config.ArgoCdSyncWindow, appName string)
 }
 
 func extractPrNumber(sourceMessage string) string {
-	re := regexp.MustCompile("\\((#(([0-9])+))\\)")
+	re := regexp.MustCompile("\\(#(\\d+)\\)")
 	res := re.FindAllStringSubmatch(sourceMessage, -1)
 
 	if len(res) == 0 {
 		return ""
 	} else {
-		return res[len(res)-1][2]
+		return res[len(res)-1][1]
 	}
 }
