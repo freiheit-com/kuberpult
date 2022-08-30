@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.4.39
+**released 2022-08-30**
+* Increase memory limit for frontend service [#321](https://github.com/freiheit-com/kuberpult/pull/321)
+* Add PR number in overview service [#316](https://github.com/freiheit-com/kuberpult/pull/316)
+
 ## 0.4.38
 **released 2022-08-29**
 
