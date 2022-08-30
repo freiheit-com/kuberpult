@@ -22,3 +22,8 @@ html, body, #root {
   padding: $top-app-bar-height 0 0 $nav-bar-width;
   height: 100%;
 }
+
+.service-releases {
+  display: flex;
+  overflow: scroll;
+}

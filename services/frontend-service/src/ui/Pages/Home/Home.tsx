@@ -19,10 +19,11 @@ import { ReleaseCard } from '../../ReleaseCard/ReleaseCard';
 
 export const Home: React.FC = () => (
     <main className="main-content">
-        <ReleaseCard />
-        <ReleaseCard />
-        <ReleaseCard />
-
+        <div className="service-releases">
+            <ReleaseCard />
+            <ReleaseCard />
+            <ReleaseCard />
+        </div>
         <Button label={'Button 1'} />
         <Button label={'Button 2'} />
         <Button label={'Button 3'} />
