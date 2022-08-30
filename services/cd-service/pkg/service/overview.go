@@ -192,7 +192,7 @@ func (o *OverviewServiceServer) getOverview(
 							release.Commit = transformCommit(commit)
 						}
 						if extractionResult := extractPrNumber(release.SourceMessage); extractionResult == nil {
-							release.PrNumber = "None"
+							release.PrNumber = ""
 						} else {
 							release.PrNumber = *extractionResult
 						}
