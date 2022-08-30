@@ -32,10 +32,10 @@ frontend:
   resources:
     limits:
       cpu: 500m
-      memory: 100Mi
+      memory: 250Mi
     requests:
       cpu: 500m
-      memory: 100Mi
+      memory: 250Mi
 ingress:
   annotations: {}
   domainName: null
