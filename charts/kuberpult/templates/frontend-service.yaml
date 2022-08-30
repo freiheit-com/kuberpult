@@ -57,7 +57,7 @@ spec:
         - name: KUBERPULT_VERSION
           value: {{ .Values.tag | quote}}
         - name: KUBERPULT_SOURCE_REPO_URL
-          value: {{ .Values.sourceRepoUrl | quote}}
+          value: {{ .Values.git.sourceRepoUrl | quote}}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL

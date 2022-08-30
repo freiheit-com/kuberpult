@@ -1048,7 +1048,7 @@ func (s *State) GetApplicationSourceRepoUrl(application string) (string, error) 
 		if os.IsNotExist(err) {
 			return "", nil
 		} else {
-			return "", fmt.Errorf("error while reading team owner file for application %v found: %w", application, err)
+			return "", fmt.Errorf("error while reading sourceRepoUrl file for application %v found: %w", application, err)
 		}
 	} else {
 		return string(url), nil
