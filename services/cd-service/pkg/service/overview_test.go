@@ -137,7 +137,7 @@ func TestOverviewService(t *testing.T) {
 				if len(releases) != 1 {
 					t.Errorf("Expected one release, but got %#q", len(releases))
 				}
-				if releases[0].PrNumber != "None" {
+				if releases[0].PrNumber != "" {
 					t.Errorf("Release should not have PR number")
 				}
 				// Check Dev
