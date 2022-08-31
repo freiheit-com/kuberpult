@@ -14,10 +14,54 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { Card } from '../components/card';
+import classNames from 'classnames';
+import { Button } from '../components/button';
+import { useEffect, useRef } from 'react';
+import { MDCRipple } from '@material/ripple';
+import { Chip } from '../components/chip';
 
-export const ReleaseCard: React.FC = () => (
-    <Card className={'release-card'} title={'Add foo-feature to Main #24'} headerAction={'6dvsdfak'}>
-        <div className="release__metadata mdc-typography--subtitle1">{'Release date 02-08-2022  -  16:26'}</div>
-    </Card>
-);
+export type ReleaseCardProps = {
+    className?: string;
+    title: string;
+    hash: string;
+    createdAt: Date;
+    author: string;
+    environments: string[];
+};
+
+export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
+    const MDComponent = useRef<MDCRipple>();
+    const control = useRef<HTMLDivElement>(null);
+    const { className, title, hash, createdAt, author, environments } = props;
+
+    useEffect(() => {
+        if (control.current) {
+            MDComponent.current = new MDCRipple(control.current);
+        }
+        return () => MDComponent.current?.destroy();
+    }, []);
+
+    return (
+        <div className={classNames('mdc-card release-card', className)}>
+            <div className="release-card__header">
+                <div className="release-card__title mdc-typography--headline6">{title}</div>
+                <Button className="release-card__hash" label={hash} />
+            </div>
+            <div className="mdc-card__primary-action release-card__description" ref={control} tabIndex={0}>
+                <div className="mdc-card__ripple"></div>
+                <div className="release-card__details">
+                    <div className="release__metadata mdc-typography--subtitle2">
+                        <div>{'Created at: ' + createdAt.toLocaleDateString()}</div>
+                        <div>{'Time ' + createdAt.toLocaleTimeString()}</div>
+                    </div>
+                    <div className="release__author mdc-typography--body1">{'Author: ' + author}</div>
+                </div>
+                <div className="release-card__environments">
+                    {environments.map((env) => (
+                        <Chip className={'release-environment release-environment--' + env} label={env} key={env} />
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
