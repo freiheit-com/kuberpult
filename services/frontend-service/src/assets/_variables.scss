@@ -20,11 +20,7 @@ $kp-logo-font-font-size: 60px;
 $kp-logo-font-line-height: 93%;
 
 // Main content padding
-$main-content-padding-top: ($top-app-bar-height + 0.5em);
-$main-content-padding-right: 2em;
-$main-content-padding-bottom: 2em;
-$main-content-padding-left: ($nav-bar-width + 2em);
-$main-content-padding: $main-content-padding-top $main-content-padding-right $main-content-padding-bottom $main-content-padding-left;
+$main-content-padding: ($top-app-bar-height + 0.5em) 2em 2em ($nav-bar-width + 2em);
 
 :root {
   // Colors
