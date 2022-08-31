@@ -18,9 +18,27 @@ import { Button } from '../../components/button';
 import { ReleaseCard, ReleaseCardProps } from '../../ReleaseCard/ReleaseCard';
 
 const rels: ReleaseCardProps[] = [
-    { hash: 'x65ashj64s', title: 'Add foo-feature to Service #123' },
-    { hash: '6sdf55sdf6', title: 'Add bar-feature to Service #445' },
-    { hash: 'bv54f154df', title: 'Add foo-feature to Service #8989' },
+    {
+        hash: 'x65ashj64s',
+        title: 'Add foo-feature to Service #123',
+        createdAt: new Date(),
+        author: 'defaultUser <local.user@freiheit.com>',
+        environments: ['development', 'staging'],
+    },
+    {
+        hash: '6sdf55sdf6',
+        title: 'Add bar-feature to Service #445',
+        createdAt: new Date(),
+        author: 'defaultUser <local.user@freiheit.com>',
+        environments: ['acceptance', 'production'],
+    },
+    {
+        hash: 'bv54f154df',
+        title: 'Add foo-feature to Service #8989',
+        createdAt: new Date(),
+        author: 'defaultUser <local.user@freiheit.com>',
+        environments: ['integration'],
+    },
 ];
 
 export const Home: React.FC = () => (
@@ -28,7 +46,11 @@ export const Home: React.FC = () => (
         <h1>Application-No.-12342</h1>
         <div className="service-releases">
             {rels.map((rel, i) => (
-                <ReleaseCard {...rel} key={rel.hash} />
+                <ReleaseCard
+                    {...rel}
+                    key={rel.hash}
+                    className={i % 2 ? 'release-card--dark' : 'release-card--bright'}
+                />
             ))}
         </div>
         <Button label={'Button 1'} />
