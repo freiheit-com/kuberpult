@@ -34,43 +34,31 @@ jobs:
       - name: Print execution plan 
         run: |
           cat artifacts/execution-plan.json
+      - name: Convert plan to github specific format
+        id: plan
+        run: |
+          GITHUB_CONVERTOR_IMAGE="eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-10"
+          cat artifacts/execution-plan.json | docker run -i "${GITHUB_CONVERTOR_IMAGE}" > artifacts/github-convertor.json
+          echo "::set-output name=matrix::$(cat artifacts/github-convertor.json | tr -d '\n')"
+      - name: Print github converted plan
+        run: |
+          cat artifacts/github-convertor.json
       - uses: actions/upload-artifact@v3
         name: Upload execution plan
         with:
           name: execution-plan.json
-          path: artifacts/execution-plan.json
-
-  github_convertor:
-    needs: execution_plan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@master
-        with:
-          name: execution-plan.json 
-          path: artifacts
-      - uses: google-github-actions/auth@v0 
-        name: 'Authenticate to Google Cloud'
-        with:
-          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
-      - name: gcloud authorize
-        run: |
-          gcloud auth configure-docker
-      - name: Planner
-        id: plan
-        run: |
-          echo "::set-output name=matrix::$(cat artifacts/execution-plan.json | docker run -i eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-10 | tr -d '\n')"
-      - name: Print github matrix json
-        run: |
-          echo "${{ steps.plan.outputs.matrix }}"
+          path: |
+            artifacts/execution-plan.json
+            artifacts/github-convertor.json
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
 
   build_and_publish:
-    needs: [github_convertor, execution_plan]
-    if: needs.github_convertor.outputs.matrix != '[]'
+    needs: [execution_plan]
+    if: needs.execution_plan.outputs.matrix && fromJSON(needs.execution_plan.outputs.matrix).buildable != "[]"
     strategy:
       matrix: 
-        data: ${{fromJSON(needs.github_convertor.outputs.matrix)}}
+        data: ${{fromJSON(needs.execution_plan.outputs.matrix).buildable}}
     name: ${{ matrix.data.directory }} - Build and Publish
     runs-on: ubuntu-latest
     container: 
