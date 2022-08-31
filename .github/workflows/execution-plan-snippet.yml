@@ -37,7 +37,7 @@ jobs:
       - name: Convert plan to github specific format
         id: plan
         run: |
-          GITHUB_CONVERTOR_IMAGE="eu.gcr.io/freiheit-core/images/github-convertor:0.8-scratch-NG-10"
+          GITHUB_CONVERTOR_IMAGE="eu.gcr.io/freiheit-core/images/github-convertor:1.0-scratch-NG-0"
           cat artifacts/execution-plan.json | docker run -i "${GITHUB_CONVERTOR_IMAGE}" > artifacts/github-convertor.json
           echo "::set-output name=matrix::$(cat artifacts/github-convertor.json | tr -d '\n')"
       - name: Print github converted plan
