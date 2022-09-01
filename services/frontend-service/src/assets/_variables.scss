@@ -19,6 +19,8 @@ $kp-logo-font-font-weight: 700;
 $kp-logo-font-font-size: 60px;
 $kp-logo-font-line-height: 93%;
 
+// Main content padding
+$main-content-padding: ($top-app-bar-height + 0.5em) 2em 2em ($nav-bar-width + 2em);
 
 :root {
   // Colors
@@ -27,4 +29,6 @@ $kp-logo-font-line-height: 93%;
   --mdc-theme-background: #ffffff;
   --mdc-theme-surface: #F5F5F5;
   --mdc-theme-on-surface: #4A4A4A;
+  --mdc-theme-secondary: #00AFFF;
+  --mdc-theme-on-secondary: #FFFFFF;
 }
