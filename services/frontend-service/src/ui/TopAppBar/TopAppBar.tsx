@@ -26,10 +26,10 @@ export const TopAppBar: React.FC = () => {
     const MDComponent = useRef<MDCTopAppBar>();
 
     const displaySideBar = useCallback(() => {
-        const sideBarRef = document.getElementById('SideBar');
-        if (sideBarRef?.classList.contains('hidden-true')) {
-            sideBarRef?.classList.remove('hidden-true');
-            sideBarRef?.classList.add('hidden-false');
+        const sideBarRef = document.getElementsByClassName('mdc-drawer--hidden')[0];
+        if (sideBarRef?.classList.contains('mdc-drawer--hidden')) {
+            sideBarRef?.classList.remove('mdc-drawer--hidden');
+            sideBarRef?.classList.add('mdc-drawer--displayed');
         }
     }, []);
 
@@ -49,7 +49,7 @@ export const TopAppBar: React.FC = () => {
                 <div className="mdc-top-app-bar__section">
                     <Textfield className={'top-app-bar-search-field'} floatingLabel={'Search'} leadingIcon={'search'} />
                 </div>
-                <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end" id={'SideBarButton'}>
+                <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong>{'Planned Actions'}</strong>
                     <Button className="mdc-top-button" icon={'navigate_before'} clickFunction={displaySideBar} />
                     <SideBar />

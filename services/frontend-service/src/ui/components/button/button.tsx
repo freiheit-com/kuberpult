@@ -34,6 +34,7 @@ export const Button = (props: { className?: string; label?: string; icon?: strin
 
     return (
         <button
+            data-testid={'display-sideBar'}
             className={classNames('mdc-button', className)}
             onClick={toClick}
             ref={control}

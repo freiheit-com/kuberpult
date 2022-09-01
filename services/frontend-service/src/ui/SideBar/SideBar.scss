@@ -6,24 +6,24 @@
   @include drawer.surface-fill-color(var(--mdc-theme-primary));
 
   color: white;
-  vertical-align: center;
   display: flex;
+  border-radius: $sidebar-planned-actions-border-radius;
 
 }
 
 .sidebar-header-button{
-  margin: $sidebar-header-button-margin;
+  margin: $sidebar-planned-actions-button-margin;
   font-weight: bold;
 }
 
 .sidebar-header-title{
   text-align: right;
-  padding-right: $sidebar-header-title-rpadding;
+  padding-right: $sidebar-planned-actions-title-right-centering;
   width: 100%;
 }
 
 .sidebar-content{
-  height: 100%;
+  @include drawer.surface-fill-color(var(--mdc-theme-background));
 }
 
 .sidebar-footer-button{
@@ -31,28 +31,27 @@
 
   color: white;
   width: 100%;
-  height: $sidebar-footer-button-height;
+  height: $sidebar-apply-button-height;
   line-height: 100%;
-  font-size: $sidebar-footer-font-size;
+  border-radius: $sidebar-apply-border-radius;
+  font-size: $sidebar-apply-font-size;
   font-weight: bold;
 }
 
-.hidden-false {
+.mdc-drawer--displayed {
   position: absolute;
   right: 0%;
+  top: 0%;
   width: $sidebar-width;
-  height: $sidebar-height;
-  border-top-left-radius: $sidebar-border-left-radius;
-  border-bottom-left-radius: $sidebar-border-left-radius;
+  height: 100%;
   transition: $sidebar-transition-duration;
 
 }
-.hidden-true{
+.mdc-drawer--hidden{
   position: absolute;
-  right: $sidebar-hidden-displacement !important;
+  right: $sidebar-hidden-displacement;
+  top: 0%;
   width: $sidebar-width;
-  height: $sidebar-height;
-  border-top-left-radius: $sidebar-border-left-radius;
-  border-bottom-left-radius: $sidebar-border-left-radius;
+  height: 100%;
   transition: $sidebar-transition-duration;
 }

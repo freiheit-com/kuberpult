@@ -21,7 +21,7 @@ import { ReactComponent as Locks } from '../../images/Locks.svg';
 import { NavList, NavListItem } from '../components/navigation';
 
 export const NavigationBar: React.FC = () => (
-    <aside className="mdc-drawer" id={'NavigationBar'}>
+    <aside className="mdc-drawer">
         <div className="kp-logo">
             <Logo />
         </div>

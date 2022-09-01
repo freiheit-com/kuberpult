@@ -15,8 +15,8 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import React from 'react';
-import { render } from '@testing-library/react';
-import { SideBar } from './SideBar';
+import { render, getAllByTestId } from '@testing-library/react';
+import { TopAppBar } from '../TopAppBar/TopAppBar';
 
 describe('Show and Hide Sidebar', () => {
     interface dataT {
@@ -27,11 +27,15 @@ describe('Show and Hide Sidebar', () => {
     const data: dataT[] = [
         {
             name: 'Sidebar is hidden',
-            expect: (container) => expect(container.getElementsByClassName('hidden-true')).toBeTruthy(),
+            expect: (container) => expect(container.getElementsByClassName('mdc-drawer--hidden')[0]).toBeTruthy(),
         },
         {
             name: 'Sidebar is displayed',
-            expect: (container) => expect(container.getElementsByClassName('hidden-false')).toBeTruthy(),
+            expect: (container) => {
+                const result = getAllByTestId(container, 'display-sideBar')[0];
+                result.click();
+                expect(container.getElementsByClassName('mdc-drawer--displayed')[0]).toBeTruthy();
+            },
         },
     ];
 
@@ -40,7 +44,7 @@ describe('Show and Hide Sidebar', () => {
         const defaultProps: any = {
             children: null,
         };
-        return <SideBar {...defaultProps} {...overrides} />;
+        return <TopAppBar {...defaultProps} {...overrides} />;
     };
     const getWrapper = (overrides?: {}) => render(getNode(overrides));
 

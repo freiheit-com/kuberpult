@@ -18,7 +18,7 @@
       @include top-app-bar.fill-color(var(--mdc-theme-background));
       @include top-app-bar.ink-color(var(--mdc-theme-primary));
 
-      padding-right: 0em !important;
+      padding-right: 0em;
     }
   }
 
@@ -34,7 +34,7 @@
   }
 }
 
-.mdc-top-button{
+.mdc-top-button {
   @include button.ink-color(var(--mdc-theme-background));
   @include top-app-bar.fill-color(var(--mdc-theme-primary));
 
@@ -43,9 +43,6 @@
   width: 5em;
   height: 4.5em;
   font-weight: bold;
-  border-top-left-radius: 1em;
-  border-bottom-left-radius: 1em;
-  border-bottom-right-radius: 0em !important;
-  border-top-right-radius: 0em !important;
+  border-radius: $sidebar-display-button-border-radius;
 }
 

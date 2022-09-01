@@ -14,24 +14,26 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { Button } from '../components/button';
 
 export const SideBar: React.FC = () => {
-    const [sideBarState, hideSideBar] = useState<boolean>(true);
-
-    const sideBarStateCallback = useCallback(() => {
-        hideSideBar(!sideBarState);
-    }, [sideBarState]);
+    const hideSideBar = useCallback(() => {
+        const sideBarRef = document.getElementsByClassName('mdc-drawer--displayed')[0];
+        if (sideBarRef?.classList.contains('mdc-drawer--displayed')) {
+            sideBarRef?.classList.remove('mdc-drawer--displayed');
+            sideBarRef?.classList.add('mdc-drawer--hidden');
+        }
+    }, []);
 
     return (
-        <aside className={`mdc-drawer mdc-drawer--dismissible demo-drawer hidden-` + sideBarState} id={'SideBar'}>
+        <aside className={`mdc-drawer--hidden`}>
             <nav className="mdc-drawer__drawer sidebar-content">
                 <div className="sidebar-header">
-                    <Button className="mdc-top-button" icon={'navigate_next'} clickFunction={sideBarStateCallback} />
+                    <Button className="mdc-top-button" icon={'navigate_next'} clickFunction={hideSideBar} />
                     <h1 className="sidebar-header-title">Planned Actions</h1>
                 </div>
-                <nav className="mdc-drawer__content">
+                <nav className="mdc-drawer-content">
                     <div id="icon-with-text-demo" className="mdc-list">
                         <div>{'Action 1'}</div>
 
