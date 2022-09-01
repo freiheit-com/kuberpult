@@ -15,10 +15,10 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import classNames from 'classnames';
-import { cloneElement, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { MDCList } from '@material/list';
 
-export const NavList = (props: { className?: string; children: React.ReactElement[] }) => {
+export const NavList: React.FC<{ className?: string }> = (props) => {
     const MDComponent = useRef<MDCList>();
     const control = useRef<HTMLElement>(null);
     const { className, children } = props;
@@ -33,7 +33,7 @@ export const NavList = (props: { className?: string; children: React.ReactElemen
 
     return (
         <nav className={classNames('mdc-list', className)} ref={control}>
-            {children.map((e) => cloneElement(e, { key: e.props.to }))}
+            {children}
         </nav>
     );
 };

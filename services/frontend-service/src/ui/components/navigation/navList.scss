@@ -8,6 +8,7 @@
   align-items: center;
   justify-content: space-between;
   height: $nav-list-height;
+  overflow: hidden;
 
   .mdc-list-item {
     height: 100%;
