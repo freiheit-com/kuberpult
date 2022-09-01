@@ -5,6 +5,18 @@ $nav-list-item-padding: 3em;
 $nav-indicator-width: 8px;
 $nav-indicator-border-radius: 0px 5px 5px 0px;
 
+//Sidebar variables
+$sidebar-width: 30em;
+$sidebar-height: 95vh;
+$sidebar-header-button-margin: 5em;
+$sidebar-header-title-rpadding: 9em;
+$sidebar-footer-button-height: 4em;
+$sidebar-footer-button-font-weight: 1.5em;
+$sidebar-border-left-radius: 1em;
+$sidebar-hidden-displacement: -50%;
+$sidebar-transition-duration: 1s;
+$sidebar-footer-font-size: 1.5em;
+
 // Top App Bar
 $top-app-bar-padding: 2em 0 2em $nav-bar-width; // 2em on top and bottom each
 $top-app-bar-height: 8em; // 8em = 128px

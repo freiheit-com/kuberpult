@@ -16,13 +16,22 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { MDCTopAppBar } from '@material/top-app-bar';
 
-import { Button } from '../components/button';
 import { Textfield } from '../components/textfield';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { SideBar } from '../SideBar/SideBar';
+import { Button } from '../components/button';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);
     const MDComponent = useRef<MDCTopAppBar>();
+
+    const displaySideBar = useCallback(() => {
+        const sideBarRef = document.getElementById('SideBar');
+        if (sideBarRef?.classList.contains('hidden-true')) {
+            sideBarRef?.classList.remove('hidden-true');
+            sideBarRef?.classList.add('hidden-false');
+        }
+    }, []);
 
     useEffect(() => {
         if (control.current) {
@@ -40,8 +49,10 @@ export const TopAppBar: React.FC = () => {
                 <div className="mdc-top-app-bar__section">
                     <Textfield className={'top-app-bar-search-field'} floatingLabel={'Search'} leadingIcon={'search'} />
                 </div>
-                <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
-                    <Button label={'Planned Actions'} />
+                <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end" id={'SideBarButton'}>
+                    <strong>{'Planned Actions'}</strong>
+                    <Button className="mdc-top-button" icon={'navigate_before'} clickFunction={displaySideBar} />
+                    <SideBar />
                 </div>
             </div>
         </div>

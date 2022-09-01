@@ -1,0 +1,58 @@
+@use '@material/drawer';
+
+@include drawer.core-styles;
+
+.sidebar-header{
+  @include drawer.surface-fill-color(var(--mdc-theme-primary));
+
+  color: white;
+  vertical-align: center;
+  display: flex;
+
+}
+
+.sidebar-header-button{
+  margin: $sidebar-header-button-margin;
+  font-weight: bold;
+}
+
+.sidebar-header-title{
+  text-align: right;
+  padding-right: $sidebar-header-title-rpadding;
+  width: 100%;
+}
+
+.sidebar-content{
+  height: 100%;
+}
+
+.sidebar-footer-button{
+  @include drawer.surface-fill-color(var(--mdc-theme-primary));
+
+  color: white;
+  width: 100%;
+  height: $sidebar-footer-button-height;
+  line-height: 100%;
+  font-size: $sidebar-footer-font-size;
+  font-weight: bold;
+}
+
+.hidden-false {
+  position: absolute;
+  right: 0%;
+  width: $sidebar-width;
+  height: $sidebar-height;
+  border-top-left-radius: $sidebar-border-left-radius;
+  border-bottom-left-radius: $sidebar-border-left-radius;
+  transition: $sidebar-transition-duration;
+
+}
+.hidden-true{
+  position: absolute;
+  right: $sidebar-hidden-displacement !important;
+  width: $sidebar-width;
+  height: $sidebar-height;
+  border-top-left-radius: $sidebar-border-left-radius;
+  border-bottom-left-radius: $sidebar-border-left-radius;
+  transition: $sidebar-transition-duration;
+}
