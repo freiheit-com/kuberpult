@@ -16,7 +16,79 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import React from 'react';
 import { render } from '@testing-library/react';
-import { NavbarIndicator } from './navListItem';
+import { NavbarIndicator, NavListItem } from './navListItem';
+import { MemoryRouter } from 'react-router-dom';
+
+describe('Navigation List Item', () => {
+    const getNode = (overrides?: {}, entries?: string[]): JSX.Element | any => {
+        // given
+        const defaultProps: any = {
+            to: '/test',
+            className: 'test-item',
+        };
+        return (
+            <MemoryRouter initialEntries={entries}>
+                <NavListItem {...defaultProps} {...overrides} />
+            </MemoryRouter>
+        );
+    };
+    const getWrapper = (overrides?: { to?: string; icon?: JSX.Element }, entries?: string[]) =>
+        render(getNode(overrides, entries));
+
+    it(`Renders a navigation item base`, () => {
+        // when
+        const { container } = getWrapper();
+        // then
+        expect(container.firstChild).toMatchSnapshot();
+    });
+
+    interface dataT {
+        name: string;
+        initialEntries: string[];
+        to: string;
+        expect: (container: HTMLElement) => void;
+    }
+
+    const data: dataT[] = [
+        {
+            name: 'Navigation Item Selected',
+            initialEntries: ['/v2/test'],
+            to: 'test',
+            expect: (container) =>
+                expect(container.querySelectorAll('a')[0]?.className).toEqual(
+                    'mdc-list-item mdc-list-item--activated test-item'
+                ),
+        },
+        {
+            name: 'Navigation Item Not Selected',
+            initialEntries: ['/v2/not-test'],
+            to: 'test',
+            expect: (container) =>
+                expect(container.querySelectorAll('a')[0]?.className).toEqual('mdc-list-item test-item'),
+        },
+    ];
+
+    describe.each(data)(`Renders a navigation item with selected`, (testcase) => {
+        it(testcase.name, () => {
+            const { initialEntries, to } = testcase;
+            // when
+            const { container } = getWrapper({ to: to }, initialEntries);
+            // then
+            testcase.expect(container);
+        });
+    });
+
+    it(`Renders a navigation item with icon`, () => {
+        // when
+        const { container } = getWrapper({ icon: <svg>iconic</svg> });
+        // when & then
+        expect(container.querySelector('svg')).toMatchInlineSnapshot(`
+    <svg>
+      iconic
+    </svg>
+  `);
+    });
+});
 
 describe('Display sidebar indicator', () => {
     interface dataT {
