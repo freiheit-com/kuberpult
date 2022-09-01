@@ -1,0 +1,81 @@
+@use "@material/typography/mdc-typography";
+@use "@material/card";
+
+@include card.core-styles;
+
+.release-card {
+  border-radius: 10px;
+  min-height: 228px;
+  min-width: 512px;
+  margin: 12px;
+  color: var(--mdc-theme-on-surface);
+
+  .mdc-card__primary-action {
+    height: 100%;
+  }
+
+  &--dark {
+    .release-card__hash {
+      background: var(--mdc-theme-secondary);
+      color: var(--mdc-theme-on-secondary);
+    }
+  }
+
+  &--bright {
+    .release-card__hash {
+      color: var(--mdc-theme-secondary);
+    }
+  }
+}
+
+.release-card__header {
+  padding: 16px 16px 8px 16px;
+  display: flex;
+  justify-content: space-between;
+
+  .release-card__title {
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 32px;
+  }
+
+  .release-card__hash {
+    font-weight: 700;
+    font-size: 12px;
+    line-height: 12px;
+    border: 1px solid var(--mdc-theme-secondary);
+    border-radius: 15px;
+  }
+}
+
+.release-card__details {
+  padding: 0 16px;
+  height: 100%;
+
+  .release__metadata {
+    display: flex;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 32px;
+    div:first-child {
+      margin-right: 2em;
+    }
+  }
+
+  .release__author {
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 32px;
+  }
+}
+
+.release-card__environments {
+  padding: 8px 16px 16px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 32px;
+
+  > *:not(:last-child) {
+    margin-right: 8px;
+  }
+}
