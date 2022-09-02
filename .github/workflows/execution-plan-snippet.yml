@@ -59,7 +59,7 @@ jobs:
     needs: [execution_plan]
     steps:
       - run: |
-        echo "$${{ needs.execution_plan.outputs.buildable }}"
+        echo "${{ needs.execution_plan.outputs.buildable }}"
 
   build_and_publish:
     needs: [execution_plan]
