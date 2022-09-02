@@ -16,7 +16,7 @@
 #Copyright 2021 freiheit.com
 ---
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: kuberpult-cd-service
   labels:
@@ -27,7 +27,6 @@ metadata:
     tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
 {{- end }}
 spec:
-  serviceName: kuberpult-cd-service
   replicas: 1
   selector:
     matchLabels:
