@@ -59,15 +59,6 @@ jobs:
       integration_test: ${{ steps.splitplan.outputs.integration_test }}
       cleanup: ${{ steps.splitplan.outputs.cleanup }}
 
-  test_job:
-    needs: [execution_plan]
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          echo "${{ needs.execution_plan.outputs.buildable }}"
-          echo "${{ needs.execution_plan.outputs.integration_test }}"
-          echo "${{ needs.execution_plan.outputs.cleanup }}"
-
   build_and_publish:
     needs: [execution_plan]
     if: needs.execution_plan.outputs.buildable != '[]'
