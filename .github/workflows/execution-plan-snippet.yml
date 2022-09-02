@@ -66,7 +66,7 @@ jobs:
 
   build_and_publish:
     needs: [execution_plan]
-    if: needs.execution_plan.outputs.buildable != "[]"
+    if: needs.execution_plan.outputs.buildable != '[]'
     strategy:
       matrix: 
         data: ${{fromJSON(needs.execution_plan.outputs.buildable)}}
