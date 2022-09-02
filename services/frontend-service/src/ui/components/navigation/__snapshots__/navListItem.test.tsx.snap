@@ -1,0 +1,21 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Navigation List Item Renders a navigation item base 1`] = `
+<div
+  class="mdc-list-item-container"
+>
+  <div
+    class="mdc-list-item-indicator"
+  />
+  <a
+    aria-label="/test"
+    class="mdc-list-item test-item"
+    href="/test"
+    tabindex="-1"
+  >
+    <div
+      class="mdc-list-item__ripple"
+    />
+  </a>
+</div>
+`;
