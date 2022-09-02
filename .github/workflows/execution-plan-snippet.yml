@@ -37,7 +37,7 @@ jobs:
       - name: Convert plan to github specific format
         id: plan
         run: |
-          GITHUB_CONVERTOR_IMAGE="eu.gcr.io/freiheit-core/images/github-convertor:1.0-scratch-NG-1"
+          GITHUB_CONVERTOR_IMAGE="eu.gcr.io/freiheit-core/images/github-convertor:1.0-scratch-NG-2"
           cat artifacts/execution-plan.json | docker run -i "${GITHUB_CONVERTOR_IMAGE}" > artifacts/github-convertor.json
           echo "::set-output name=matrix::$(cat artifacts/github-convertor.json | tr -d '\n')"
       - name: Print github converted plan
@@ -52,7 +52,7 @@ jobs:
             artifacts/github-convertor.json
     outputs:
       buildable: ${{ fromJSON(steps.plan.outputs.matrix).buildable }}
-      integration_test: ${{ fromJSON(steps.plan.outputs.matrix)['integration-test'] }}
+      integration_test: ${{ fromJSON(steps.plan.outputs.matrix).integration_test }}
       cleanup: ${{ fromJSON(steps.plan.outputs.matrix).cleanup }}
 
   test_job:
