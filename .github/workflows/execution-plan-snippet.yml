@@ -55,7 +55,7 @@ jobs:
             artifacts/execution-plan.json
             artifacts/github-convertor.json
     outputs:
-      buildable: ${{ fromJSON(steps.splitplan.outputs.matrix).buildable }}
+      buildable: ${{ steps.splitplan.outputs.buildable }}
       # integration_test: ${{ toJSON(fromJSON(steps.plan.outputs.matrix).integration_test) }}
       # cleanup: ${{ toJSON(fromJSON(steps.plan.outputs.matrix).cleanup) }}
 
