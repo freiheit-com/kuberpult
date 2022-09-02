@@ -17,21 +17,16 @@ Copyright 2021 freiheit.com*/
 import { MDCTopAppBar } from '@material/top-app-bar';
 
 import { Textfield } from '../components/textfield';
-import { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SideBar } from '../SideBar/SideBar';
 import { Button } from '../components/button';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);
     const MDComponent = useRef<MDCTopAppBar>();
+    const [sideBar, showSideBar] = useState(false);
 
-    const displaySideBar = useCallback(() => {
-        const sideBarRef = document.getElementsByClassName('mdc-drawer--hidden')[0];
-        if (sideBarRef?.classList.contains('mdc-drawer--hidden')) {
-            sideBarRef?.classList.remove('mdc-drawer--hidden');
-            sideBarRef?.classList.add('mdc-drawer--displayed');
-        }
-    }, []);
+    const displaySideBar = useCallback(() => showSideBar(!sideBar), [sideBar]);
 
     useEffect(() => {
         if (control.current) {
@@ -52,7 +47,10 @@ export const TopAppBar: React.FC = () => {
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong>{'Planned Actions'}</strong>
                     <Button className="mdc-top-button" icon={'navigate_before'} clickFunction={displaySideBar} />
-                    <SideBar />
+                    <SideBar
+                        className={`mdc-drawer` + (sideBar ? '--displayed' : '--hidden')}
+                        reference={displaySideBar}
+                    />
                 </div>
             </div>
         </div>

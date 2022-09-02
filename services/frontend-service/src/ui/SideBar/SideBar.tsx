@@ -14,23 +14,16 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { useCallback } from 'react';
 import { Button } from '../components/button';
 
-export const SideBar: React.FC = () => {
-    const hideSideBar = useCallback(() => {
-        const sideBarRef = document.getElementsByClassName('mdc-drawer--displayed')[0];
-        if (sideBarRef?.classList.contains('mdc-drawer--displayed')) {
-            sideBarRef?.classList.remove('mdc-drawer--displayed');
-            sideBarRef?.classList.add('mdc-drawer--hidden');
-        }
-    }, []);
+export const SideBar: React.FC<any> = (props: { className: string; reference: any }) => {
+    const { className, reference } = props;
 
     return (
-        <aside className={`mdc-drawer--hidden`}>
+        <aside className={className}>
             <nav className="mdc-drawer__drawer sidebar-content">
                 <div className="sidebar-header">
-                    <Button className="mdc-top-button" icon={'navigate_next'} clickFunction={hideSideBar} />
+                    <Button className="mdc-top-button" icon={'navigate_next'} clickFunction={reference} />
                     <h1 className="sidebar-header-title">Planned Actions</h1>
                 </div>
                 <nav className="mdc-drawer-content">
