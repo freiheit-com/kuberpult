@@ -52,7 +52,7 @@ jobs:
             artifacts/github-convertor.json
     outputs:
       buildable: ${{ fromJSON(steps.plan.outputs.matrix).buildable }}
-      integrationTest: ${{ fromJSON(steps.plan.outputs.matrix)["integration-test"] }}
+      integration_test: ${{ fromJSON(steps.plan.outputs.matrix)["integration-test"] }}
       cleanup: ${{ fromJSON(steps.plan.outputs.matrix).cleanup }}
 
   test_job:
@@ -60,6 +60,8 @@ jobs:
     steps:
       - run: |
           echo "${{ needs.execution_plan.outputs.buildable }}"
+          echo "${{ needs.execution_plan.outputs.integration_test }}"
+          echo "${{ needs.execution_plan.outputs.cleanup }}"
 
   build_and_publish:
     needs: [execution_plan]
