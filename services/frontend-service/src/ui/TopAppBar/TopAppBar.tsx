@@ -26,7 +26,7 @@ export const TopAppBar: React.FC = () => {
     const MDComponent = useRef<MDCTopAppBar>();
     const [sideBar, showSideBar] = useState(false);
 
-    const toggleSideBar = useCallback(() => showSideBar(!sideBar), [sideBar]);
+    const toggleSideBar = useCallback(() => showSideBar((old) => !old), [showSideBar]);
 
     useEffect(() => {
         if (control.current) {
