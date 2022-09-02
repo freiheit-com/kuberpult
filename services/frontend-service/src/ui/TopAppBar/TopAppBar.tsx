@@ -26,7 +26,7 @@ export const TopAppBar: React.FC = () => {
     const MDComponent = useRef<MDCTopAppBar>();
     const [sideBar, showSideBar] = useState(false);
 
-    const displaySideBar = useCallback(() => showSideBar(!sideBar), [sideBar]);
+    const toggleSideBar = useCallback(() => showSideBar(!sideBar), [sideBar]);
 
     useEffect(() => {
         if (control.current) {
@@ -46,10 +46,10 @@ export const TopAppBar: React.FC = () => {
                 </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong>{'Planned Actions'}</strong>
-                    <Button className="mdc-top-button" icon={'navigate_before'} onClick={displaySideBar} />
+                    <Button className="mdc-top-button" icon={'navigate_before'} onClick={toggleSideBar} />
                     <SideBar
                         className={`mdc-drawer` + (sideBar ? '--displayed' : '--hidden')}
-                        reference={displaySideBar}
+                        toggleSidebar={toggleSideBar}
                     />
                 </div>
             </div>

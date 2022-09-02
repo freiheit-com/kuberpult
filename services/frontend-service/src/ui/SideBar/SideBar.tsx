@@ -16,14 +16,14 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { Button } from '../components/button';
 
-export const SideBar: React.FC<any> = (props: { className: string; reference: any }) => {
-    const { className, reference } = props;
+export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }> = (props) => {
+    const { className, toggleSidebar } = props;
 
     return (
         <aside className={className}>
             <nav className="mdc-drawer__drawer sidebar-content">
                 <div className="sidebar-header">
-                    <Button className="mdc-top-button" icon={'navigate_next'} onClick={reference} />
+                    <Button className="mdc-top-button" icon={'navigate_next'} onClick={toggleSidebar} />
                     <h1 className="sidebar-header-title">Planned Actions</h1>
                 </div>
                 <nav className="mdc-drawer-content">
