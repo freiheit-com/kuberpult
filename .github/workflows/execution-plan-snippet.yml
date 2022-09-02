@@ -51,13 +51,16 @@ jobs:
             artifacts/execution-plan.json
             artifacts/github-convertor.json
     outputs:
-      matrix: ${{ steps.plan.outputs.matrix }}
+      buildable: ${{ fromJSON(steps.plan.outputs.matrix).buildable }}
+      integration-test: ${{ fromJSON(steps.plan.outputs.matrix)["integration-test"] }}
+      cleanup: ${{ fromJSON(steps.plan.outputs.matrix).cleanup }}
 
   build_and_publish:
     needs: [execution_plan]
+    if: needs.execution_plan.outputs.buildable != "[]"
     strategy:
       matrix: 
-        data: ${{fromJSON(needs.execution_plan.outputs.matrix).buildable}}
+        data: ${{fromJSON(needs.execution_plan.outputs.buildable)}}
     name: ${{ matrix.data.directory }} - Build and Publish
     runs-on: ubuntu-latest
     container: 
