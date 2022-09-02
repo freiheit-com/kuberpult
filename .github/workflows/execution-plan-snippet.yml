@@ -55,6 +55,12 @@ jobs:
       integration-test: ${{ fromJSON(steps.plan.outputs.matrix)["integration-test"] }}
       cleanup: ${{ fromJSON(steps.plan.outputs.matrix).cleanup }}
 
+  test_job:
+    needs: [execution_plan]
+    steps:
+      - run: |
+        echo "$${{ needs.execution_plan.outputs.buildable }}"
+
   build_and_publish:
     needs: [execution_plan]
     if: needs.execution_plan.outputs.buildable != "[]"
