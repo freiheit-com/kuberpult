@@ -23,7 +23,7 @@ export const SideBar: React.FC<any> = (props: { className: string; reference: an
         <aside className={className}>
             <nav className="mdc-drawer__drawer sidebar-content">
                 <div className="sidebar-header">
-                    <Button className="mdc-top-button" icon={'navigate_next'} clickFunction={reference} />
+                    <Button className="mdc-top-button" icon={'navigate_next'} onClick={reference} />
                     <h1 className="sidebar-header-title">Planned Actions</h1>
                 </div>
                 <nav className="mdc-drawer-content">

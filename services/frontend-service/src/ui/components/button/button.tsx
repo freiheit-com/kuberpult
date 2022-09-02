@@ -18,12 +18,12 @@ import { useRef, useEffect, useCallback } from 'react';
 import classNames from 'classnames';
 import { MDCRipple } from '@material/ripple';
 
-export const Button = (props: { className?: string; label?: string; icon?: string; clickFunction?: any }) => {
+export const Button = (props: { className?: string; label?: string; icon?: string; onClick?: any }) => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLButtonElement>(null);
-    const { className, label, icon, clickFunction } = props;
+    const { className, label, icon, onClick } = props;
 
-    const toClick = useCallback(clickFunction, [clickFunction]);
+    const toClick = useCallback(onClick, [onClick]);
 
     useEffect(() => {
         if (control.current) {

@@ -46,7 +46,7 @@ export const TopAppBar: React.FC = () => {
                 </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong>{'Planned Actions'}</strong>
-                    <Button className="mdc-top-button" icon={'navigate_before'} clickFunction={displaySideBar} />
+                    <Button className="mdc-top-button" icon={'navigate_before'} onClick={displaySideBar} />
                     <SideBar
                         className={`mdc-drawer` + (sideBar ? '--displayed' : '--hidden')}
                         reference={displaySideBar}
