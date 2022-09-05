@@ -46,11 +46,7 @@ export const Home: React.FC = () => (
         <h1>Application-No.-12342</h1>
         <div className="service-releases">
             {rels.map((rel, i) => (
-                <ReleaseCard
-                    {...rel}
-                    key={rel.hash}
-                    className={i % 2 ? 'release-card--dark' : 'release-card--bright'}
-                />
+                <ReleaseCard {...rel} key={rel.hash} />
             ))}
         </div>
         <Button label={'Button 1'} />
