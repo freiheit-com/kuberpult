@@ -1,6 +1,1 @@
-@use '@material/button';
 @use '@material/button/mdc-button';
-
-.mdc-button {
-  @include button.ink-color(var(--mdc-theme-primary));
-}

@@ -1,0 +1,8 @@
+@use '@material/theme' with (
+  $primary: #2D70D6,
+  $secondary: #00AFFF,
+  $on-secondary: #FFFFFF,
+  $surface: #F5F5F5,
+  $on-surface: #4A4A4A,
+);
+@use '@material/theme/mdc-theme';
