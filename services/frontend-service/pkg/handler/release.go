@@ -19,26 +19,21 @@ package handler
 import (
 	"fmt"
 	"net/http"
-
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	xpath "github.com/freiheit-com/kuberpult/pkg/path"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
+	"net/http/httputil"
+	"net/url"
 )
 
-type Server struct {
-	DeployClient api.DeployServiceClient
-	LockClient   api.LockServiceClient
-	Config       config.ServerConfig
-}
-
-func (s Server) Handle(w http.ResponseWriter, req *http.Request) {
-	group, tail := xpath.Shift(req.URL.Path)
-	switch group {
-	case "environments":
-		s.HandleEnvironments(w, req, tail)
-	case "release":
-		s.HandleRelease(w, req, tail)
-	default:
-		http.Error(w, fmt.Sprintf("unknown group '%s'", group), http.StatusNotFound)
+func (s Server) HandleRelease(w http.ResponseWriter, req *http.Request, tail string) {
+	if tail != "/" {
+		http.Error(w, fmt.Sprintf("Release does not accept additional path arguments, got: %s", tail), http.StatusNotFound)
+		return
 	}
+	url, err := url.Parse(s.Config.HttpCdServer + "/release")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	cdServiceProxy := httputil.NewSingleHostReverseProxy(url)
+	cdServiceProxy.ServeHTTP(w, req)
 }
