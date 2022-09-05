@@ -35,14 +35,18 @@ jobs:
         run: |
           cat artifacts/execution-plan.json
       - name: Convert plan to github specific format
-        id: plan
         run: |
-          GITHUB_CONVERTOR_IMAGE="eu.gcr.io/freiheit-core/images/github-convertor:1.0-scratch-NG-0"
+          GITHUB_CONVERTOR_IMAGE="eu.gcr.io/freiheit-core/images/github-convertor:1.0-scratch-NG-2"
           cat artifacts/execution-plan.json | docker run -i "${GITHUB_CONVERTOR_IMAGE}" > artifacts/github-convertor.json
-          echo "::set-output name=matrix::$(cat artifacts/github-convertor.json | tr -d '\n')"
       - name: Print github converted plan
         run: |
           cat artifacts/github-convertor.json
+      - name: Split up plan into individual parts
+        id: splitplan
+        run: |
+          echo "::set-output name=buildable::$(cat artifacts/github-convertor.json | jq '.buildable' -c)"
+          echo "::set-output name=integration_test::$(cat artifacts/github-convertor.json | jq '.integration_test' -c)"
+          echo "::set-output name=cleanup::$(cat artifacts/github-convertor.json | jq '.cleanup' -c)"
       - uses: actions/upload-artifact@v3
         name: Upload execution plan
         with:
@@ -51,13 +55,16 @@ jobs:
             artifacts/execution-plan.json
             artifacts/github-convertor.json
     outputs:
-      matrix: ${{ steps.plan.outputs.matrix }}
+      buildable: ${{ steps.splitplan.outputs.buildable }}
+      integration_test: ${{ steps.splitplan.outputs.integration_test }}
+      cleanup: ${{ steps.splitplan.outputs.cleanup }}
 
   build_and_publish:
     needs: [execution_plan]
+    if: needs.execution_plan.outputs.buildable != '[]'
     strategy:
       matrix: 
-        data: ${{fromJSON(needs.execution_plan.outputs.matrix).buildable}}
+        data: ${{fromJSON(needs.execution_plan.outputs.buildable)}}
     name: ${{ matrix.data.directory }} - Build and Publish
     runs-on: ubuntu-latest
     container: 
