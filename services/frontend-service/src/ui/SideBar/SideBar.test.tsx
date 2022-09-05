@@ -27,14 +27,15 @@ describe('Show and Hide Sidebar', () => {
     const data: dataT[] = [
         {
             name: 'Sidebar is hidden',
-            expect: (container) => expect(container.getElementsByClassName('mdc-drawer--hidden')[0]).toBeTruthy(),
+            expect: (container) =>
+                expect(container.getElementsByClassName('mdc-drawer-sidebar--hidden')[0]).toBeTruthy(),
         },
         {
             name: 'Sidebar is displayed',
             expect: (container) => {
                 const result = getAllByTestId(container, 'display-sideBar')[0];
                 result.click();
-                expect(container.getElementsByClassName('mdc-drawer--displayed')[0]).toBeTruthy();
+                expect(container.getElementsByClassName('mdc-drawer-sidebar--displayed')[0]).toBeTruthy();
             },
         },
     ];
