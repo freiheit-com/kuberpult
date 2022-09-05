@@ -8,15 +8,21 @@ $nav-indicator-border-radius: 0px 5px 5px 0px;
 //Sidebar variables
 $sidebar-width: 30em;
 $sidebar-height: 95vh;
-$sidebar-planned-actions-button-margin: 5em;
+$sidebar-planned-actions-button-margin: 1em;
 $sidebar-planned-actions-title-right-centering: 9em;
-$sidebar-apply-button-height: 4em;
+$sidebar-apply-button-height: 3em;
 $sidebar-apply-button-font-weight: 1.5em;
 $sidebar-planned-actions-border-radius: 1em 0 0 0;
 $sidebar-apply-border-radius: 0 0 0 1em;
 $sidebar-display-button-border-radius: 1em 0 0 1em;
-$sidebar-hidden-displacement: -50%;
-$sidebar-transition-duration: 1s;
+$sidebar-hidden-displacement-large-screen: -100vw;
+$sidebar-transition-duration-large-screen: 1.5s;
+$sidebar-hidden-displacement-medium-screen: -200vw;
+$sidebar-transition-duration-medium-screen: 2s;
+$sidebar-hidden-displacement-small-screen: -400vw;
+$sidebar-transition-duration-small-screen: 3s;
+$sidebar-hidden-displacement-tiny-screen: -500vw;
+$sidebar-transition-duration-tiny-screen: 4s;
 $sidebar-apply-font-size: 1.5em;
 
 // Top App Bar
