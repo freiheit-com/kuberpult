@@ -15,7 +15,7 @@
   .mdc-drawer-sidebar-header__button{
     position: relative;
     height: auto;
-    color: white !important;
+    color: white;
     margin: $sidebar-planned-actions-button-margin;
     font-weight: bold;
   }
@@ -28,10 +28,10 @@
   background-color: white;
 }
 
-.mdc-drawer-sidebar-apply-button{
+.mdc-drawer-sidebar .mdc-sidebar-sidebar-footer .mdc-drawer-sidebar-apply-button{
   position: relative;
   background-color: var(--mdc-theme-primary);
-  color: white !important;
+  color: white;
   text-transform: none;
   letter-spacing: 0;
   width: 100%;

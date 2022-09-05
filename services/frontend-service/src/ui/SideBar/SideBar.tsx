@@ -24,7 +24,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
             <nav className="mdc-drawer-sidebar mdc-drawer__drawer sidebar-content">
                 <div className="mdc-drawer-sidebar mdc-drawer-sidebar-header">
                     <Button
-                        className="mdc-drawer-sidebar-header__button"
+                        className={'mdc-drawer-sidebar mdc-drawer-sidebar-header mdc-drawer-sidebar-header__button'}
                         icon={'navigate_next'}
                         onClick={toggleSidebar}
                     />
@@ -41,8 +41,11 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                         <div>{'Action 4'}</div>
                     </div>
                 </nav>
-                <div className="mdc-drawer-sidebar sidebar-footer-button">
-                    <Button className="mdc-drawer-sidebar mdc-drawer-sidebar-apply-button" label={'Apply'} />
+                <div className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer">
+                    <Button
+                        className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer mdc-drawer-sidebar-apply-button"
+                        label={'Apply'}
+                    />
                 </div>
             </nav>
         </aside>
