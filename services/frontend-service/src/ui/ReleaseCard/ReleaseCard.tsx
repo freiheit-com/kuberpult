@@ -44,19 +44,19 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     return (
         <div className={classNames('mdc-card release-card', className)}>
             <div className="release-card__header">
-                <div className="release-card__title mdc-typography--headline6">{title}</div>
-                <Button className="release-card__hash" label={hash} />
+                <div className="release__title mdc-typography--headline6">{title}</div>
+                <Button className="release__hash" label={hash} />
             </div>
             <div className="mdc-card__primary-action release-card__description" ref={control} tabIndex={0}>
                 <div className="mdc-card__ripple"></div>
-                <div className="release-card__details">
+                <div className="release__details">
                     <div className="release__metadata mdc-typography--subtitle2">
                         <div>{'Created at: ' + createdAt.toLocaleDateString()}</div>
                         <div>{'Time ' + createdAt.toLocaleTimeString()}</div>
                     </div>
                     <div className="release__author mdc-typography--body1">{'Author: ' + author}</div>
                 </div>
-                <div className="release-card__environments">
+                <div className="release__environments">
                     {environments.map((env) => (
                         <Chip className={'release-environment release-environment--' + env} label={env} key={env} />
                     ))}
