@@ -1,9 +1,7 @@
-@use '@material/drawer';
-
-@include drawer.core-styles;
+@use '@material/drawer/mdc-drawer';
 
 .mdc-drawer {
-  @include drawer.surface-fill-color(var(--mdc-theme-primary));
+  background: var(--mdc-theme-primary);
 
   position: fixed;
   width: $nav-bar-width;

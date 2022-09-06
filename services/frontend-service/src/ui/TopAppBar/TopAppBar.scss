@@ -1,13 +1,10 @@
-@use '@material/top-app-bar';
 @use '@material/top-app-bar/mdc-top-app-bar';
 @use '@material/notched-outline/mdc-notched-outline';
 @use '@material/notched-outline';
-@use '@material/button';
-@use '@material/button/mdc-button';
 
 .mdc-top-app-bar {
-  @include top-app-bar.fill-color(var(--mdc-theme-background));
-  @include top-app-bar.ink-color(var(--mdc-theme-primary));
+  background: var(--mdc-theme-background);
+  color: var(--mdc-theme-primary);
 
   padding: $top-app-bar-padding;
 
@@ -15,7 +12,7 @@
     align-content: center;
 
     .mdc-top-app-bar__section--align-end{
-      padding-right: 0em;
+      padding-right: 0;
     }
   }
 
@@ -29,16 +26,15 @@
     @include notched-outline.shape-radius(10px);
     @include notched-outline.color(var(--mdc-theme-primary));
   }
+
+  .mdc-show-button {
+    color: var(--mdc-theme-background);
+    background: var(--mdc-theme-primary);
+
+    margin-left: 1em;
+    margin-right: 0;
+    width: 5em;
+    height: 4.5em;
+    border-radius: $sidebar-display-button-border-radius;
+  }
 }
-
-.mdc-show-button {
-  @include button.ink-color(var(--mdc-theme-background));
-  @include top-app-bar.fill-color(var(--mdc-theme-primary));
-
-  margin-left: 1em;
-  margin-right: 0em;
-  width: 5em;
-  height: 4.5em;
-  border-radius: $sidebar-display-button-border-radius;
-}
-
