@@ -113,7 +113,7 @@ jobs:
           path: ${{ matrix.data.artifacts }}
 
   cleanup:
-    needs: [build_and_publish]
+    needs: [build_and_publish, execution_plan]
     if: needs.execution_plan.outputs.cleanup != '[]'
     strategy:
       matrix: 
