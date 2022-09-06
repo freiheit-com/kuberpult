@@ -111,3 +111,28 @@ jobs:
         with:
           name: ${{ matrix.data.artifactName }}
           path: ${{ matrix.data.artifacts }}
+
+  cleanup:
+    needs: [build_and_publish, execution_plan]
+    if: needs.execution_plan.outputs.cleanup != '[]'
+    strategy:
+      matrix: 
+        data: ${{fromJSON(needs.execution_plan.outputs.cleanup)}}
+    name: ${{ matrix.data.directory }} - Cleanup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Set version pr/main
+        if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          echo "VERSION=$(make version)" >> $GITHUB_ENV
+      - name: Set version tag
+        if: inputs.trigger == 'tag'
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
+      - name: Cleanup
+        run: ${{ matrix.data.command }}
