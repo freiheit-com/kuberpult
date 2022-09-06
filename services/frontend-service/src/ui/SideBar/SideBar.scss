@@ -56,28 +56,25 @@
 
 .mdc-drawer-sidebar--hidden{
   position: absolute;
-  right: $sidebar-hidden-displacement-large-screen;
+  right: $sidebar-hidden-displacement;
   top: 0%;
   width: $sidebar-width;
 }
 
 @media screen and (min-width: 351px) and (max-width: 600px) {
   .mdc-drawer-sidebar--hidden {
-    right: $sidebar-hidden-displacement-medium-screen;
     transition: $sidebar-transition-duration-medium-screen;
   }
 }
 
 @media screen and (min-width: 251px) and (max-width: 350px) {
   .mdc-drawer-sidebar--hidden {
-    right: $sidebar-hidden-displacement-small-screen;
     transition: $sidebar-transition-duration-small-screen;
   }
 }
 
 @media screen and (max-width: 250px) {
   .mdc-drawer-sidebar--hidden {
-    right: $sidebar-hidden-displacement-tiny-screen;
     transition: $sidebar-transition-duration-tiny-screen;
   }
 }

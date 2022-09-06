@@ -15,9 +15,6 @@
     align-content: center;
 
     .mdc-top-app-bar__section--align-end{
-      @include top-app-bar.fill-color(var(--mdc-theme-background));
-      @include top-app-bar.ink-color(var(--mdc-theme-primary));
-
       padding-right: 0em;
     }
   }
@@ -34,7 +31,7 @@
   }
 }
 
-.mdc-top-button {
+.mdc-show-button {
   @include button.ink-color(var(--mdc-theme-background));
   @include top-app-bar.fill-color(var(--mdc-theme-primary));
 
@@ -42,7 +39,6 @@
   margin-right: 0em;
   width: 5em;
   height: 4.5em;
-  font-weight: bold;
   border-radius: $sidebar-display-button-border-radius;
 }
 

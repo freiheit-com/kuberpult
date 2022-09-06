@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect } from 'react';
 import classNames from 'classnames';
 import { MDCRipple } from '@material/ripple';
 
@@ -22,8 +22,6 @@ export const Button = (props: { className?: string; label?: string; icon?: strin
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLButtonElement>(null);
     const { className, label, icon, onClick } = props;
-
-    const toClick = useCallback(onClick, [onClick]);
 
     useEffect(() => {
         if (control.current) {
@@ -34,9 +32,8 @@ export const Button = (props: { className?: string; label?: string; icon?: strin
 
     return (
         <button
-            data-testid={'display-sideBar'}
             className={classNames('mdc-button', className)}
-            onClick={toClick}
+            onClick={onClick}
             ref={control}
             aria-label={label || ''}>
             <div className="mdc-button__ripple" />
