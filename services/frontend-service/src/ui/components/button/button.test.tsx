@@ -26,7 +26,6 @@ describe('Button', () => {
     <button
       aria-label="Test Me"
       class="mdc-button button--test"
-      data-testid="display-sideBar"
     >
       <div
         class="mdc-button__ripple"
