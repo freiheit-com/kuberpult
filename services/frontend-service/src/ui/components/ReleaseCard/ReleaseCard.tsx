@@ -15,10 +15,10 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import classNames from 'classnames';
-import { Button } from '../components/button';
+import { Button } from '../button';
 import { useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
-import { Chip } from '../components/chip';
+import { Chip } from '../chip';
 
 export type ReleaseCardProps = {
     className?: string;

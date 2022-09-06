@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { Button } from '../../components/button';
-import { ReleaseCard, ReleaseCardProps } from '../../ReleaseCard/ReleaseCard';
+import { ReleaseCard, ReleaseCardProps } from '../../components/ReleaseCard/ReleaseCard';
 
 const rels: ReleaseCardProps[] = [
     {
