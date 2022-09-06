@@ -23,7 +23,7 @@ import { Chip } from '../components/chip';
 export type ReleaseCardProps = {
     className?: string;
     title: string;
-    hash: string;
+    hash?: string;
     createdAt: Date;
     author: string;
     environments: string[];
@@ -45,7 +45,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
         <div className={classNames('mdc-card release-card', className)}>
             <div className="release-card__header">
                 <div className="release__title mdc-typography--headline6">{title}</div>
-                <Button className="release__hash" label={hash} />
+                {!!hash && <Button className="release__hash" label={hash} />}
             </div>
             <div className="mdc-card__primary-action release-card__description" ref={control} tabIndex={0}>
                 <div className="mdc-card__ripple"></div>

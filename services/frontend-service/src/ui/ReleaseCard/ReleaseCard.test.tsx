@@ -17,10 +17,10 @@ Copyright 2021 freiheit.com*/
 import { ReleaseCard, ReleaseCardProps } from './ReleaseCard';
 import { render } from '@testing-library/react';
 
-const getSampleRelease = (n: string): ReleaseCardProps => ({
+const getSampleRelease = (n?: string): ReleaseCardProps => ({
     title: 'test' + n,
     author: 'tester' + n + '@freiheit.com',
-    hash: '12345' + n,
+    hash: n,
     createdAt: new Date(2002),
     environments: ['dev'],
 });
@@ -32,14 +32,22 @@ describe('Release Card', () => {
     const data = [
         {
             name: 'sample release',
-            rel: getSampleRelease('0'),
+            rel: getSampleRelease('0hash012'),
+        },
+        {
+            name: 'sample release - without hash',
+            rel: getSampleRelease(),
         },
     ];
 
     describe.each(data)(`Renders a`, (testcase) => {
         it(testcase.name, () => {
             const { container } = getWrapper(testcase.rel);
-            expect(container.querySelector('.release__hash')?.textContent).toBe(testcase.rel.hash);
+            if (testcase.rel.hash) {
+                expect(container.querySelector('.release__hash')?.textContent).toBe(testcase.rel.hash);
+            } else {
+                expect(container.querySelector('.release__hash')).toBe(null);
+            }
             expect(container.querySelector('.release__author')?.textContent).toContain(testcase.rel.author);
             expect(container.querySelector('.release__environments')?.textContent).toContain(
                 testcase.rel.environments[0]
