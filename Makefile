@@ -78,3 +78,11 @@ check-license:
 .PHONY: version
 version:
 	@echo $(VERSION)
+
+.PHONY: cleanup-pr
+cleanup-pr:
+	@echo "Nothing to do"
+
+.PHONY: cleanup-main
+cleanup-main:
+	@echo "Nothing to do"
