@@ -18,7 +18,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import classNames from 'classnames';
 import { MDCRipple } from '@material/ripple';
 
-export const Button = (props: { className?: string; label?: string; icon?: string; onClick?: any }) => {
+export const Button = (props: { className?: string; label?: string; icon?: string; onClick?: () => void }) => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLButtonElement>(null);
     const { className, label, icon, onClick } = props;
