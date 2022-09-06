@@ -15,9 +15,40 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { Button } from '../../components/button';
+import { ReleaseCard, ReleaseCardProps } from '../../components/ReleaseCard/ReleaseCard';
+
+const rels: ReleaseCardProps[] = [
+    {
+        hash: 'x65ashj64s',
+        title: 'Add foo-feature to Service #123',
+        createdAt: new Date(),
+        author: 'defaultUser <local.user@freiheit.com>',
+        environments: ['development', 'staging'],
+    },
+    {
+        hash: '6sdf55sdf6',
+        title: 'Add bar-feature to Service #445',
+        createdAt: new Date(),
+        author: 'defaultUser <local.user@freiheit.com>',
+        environments: ['acceptance', 'production'],
+    },
+    {
+        hash: 'bv54f154df',
+        title: 'Add foo-feature to Service #8989',
+        createdAt: new Date(),
+        author: 'defaultUser <local.user@freiheit.com>',
+        environments: ['integration'],
+    },
+];
 
 export const Home: React.FC = () => (
     <main className="main-content">
+        <h1>Application-No.-12342</h1>
+        <div className="service-releases">
+            {rels.map((rel, i) => (
+                <ReleaseCard {...rel} key={rel.hash} />
+            ))}
+        </div>
         <Button label={'Button 1'} />
         <Button label={'Button 2'} />
         <Button label={'Button 3'} />

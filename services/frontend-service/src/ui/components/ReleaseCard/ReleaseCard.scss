@@ -1,0 +1,78 @@
+@use '@material/typography/mdc-typography';
+@use '@material/card/mdc-card';
+
+.release-card {
+  border-radius: 10px;
+  min-height: 228px;
+  min-width: 512px;
+  max-width: 512px;
+  margin: 12px;
+  color: var(--mdc-theme-on-surface);
+
+  .release-card__description {
+    height: 100%;
+    padding: 0 16px 16px 16px;
+  }
+}
+
+.release-card__header {
+  padding: 16px 16px 8px 16px;
+  display: flex;
+  justify-content: space-between;
+
+  .release__title {
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 32px;
+
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .release__hash {
+    font-weight: 700;
+    font-size: 12px;
+    line-height: 12px;
+    min-width: auto;
+    border: 1px solid var(--mdc-theme-secondary);
+    border-radius: 15px;
+    color: var(--mdc-theme-secondary);
+  }
+
+  .release__hash:hover {
+    background: var(--mdc-theme-secondary);
+    color: var(--mdc-theme-on-secondary);
+  }
+}
+
+.release__details {
+  height: 100%;
+
+  .release__metadata {
+    display: flex;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 32px;
+    div:first-child {
+      margin-right: 2em;
+    }
+  }
+
+  .release__author {
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 32px;
+  }
+}
+
+.release__environments {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 32px;
+
+  > *:not(:last-child) {
+    margin-right: 8px;
+  }
+}

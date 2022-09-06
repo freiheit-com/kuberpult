@@ -19,6 +19,12 @@ html, body, #root {
 .main-content {
   overflow: auto;
   position:  relative;
-  padding: $top-app-bar-height 0 0 $nav-bar-width;
+  padding: $main-content-padding;
   height: 100%;
+}
+
+.service-releases {
+  display: flex;
+  overflow-x: auto;
+  box-shadow: inset 0px -8px 16px 8px var(--mdc-theme-surface);
 }
