@@ -24,12 +24,18 @@
     font-weight: 700;
     font-size: 20px;
     line-height: 32px;
+
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 
   .release__hash {
     font-weight: 700;
     font-size: 12px;
     line-height: 12px;
+    min-width: auto;
     border: 1px solid var(--mdc-theme-secondary);
     border-radius: 15px;
     color: var(--mdc-theme-secondary);
