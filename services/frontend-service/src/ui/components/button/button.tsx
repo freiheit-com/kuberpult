@@ -18,10 +18,10 @@ import { useRef, useEffect } from 'react';
 import classNames from 'classnames';
 import { MDCRipple } from '@material/ripple';
 
-export const Button = (props: { className?: string; label?: string }) => {
+export const Button = (props: { className?: string; label?: string; icon?: string; onClick?: () => void }) => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLButtonElement>(null);
-    const { className, label } = props;
+    const { className, label, icon, onClick } = props;
 
     useEffect(() => {
         if (control.current) {
@@ -31,8 +31,17 @@ export const Button = (props: { className?: string; label?: string }) => {
     }, []);
 
     return (
-        <button className={classNames('mdc-button', className)} ref={control} aria-label={label || ''}>
+        <button
+            className={classNames('mdc-button', className)}
+            onClick={onClick}
+            ref={control}
+            aria-label={label || ''}>
             <div className="mdc-button__ripple" />
+            {!!icon && (
+                <i className="medium material-icons mdc-list-item__graphic" aria-hidden="true">
+                    {icon}
+                </i>
+            )}
             {!!label && (
                 <span key="label" className="mdc-button__label">
                     {label}

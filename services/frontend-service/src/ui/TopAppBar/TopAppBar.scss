@@ -2,6 +2,8 @@
 @use '@material/top-app-bar/mdc-top-app-bar';
 @use '@material/notched-outline/mdc-notched-outline';
 @use '@material/notched-outline';
+@use '@material/button';
+@use '@material/button/mdc-button';
 
 .mdc-top-app-bar {
   @include top-app-bar.fill-color(var(--mdc-theme-background));
@@ -11,6 +13,10 @@
 
   .mdc-top-app-bar__row {
     align-content: center;
+
+    .mdc-top-app-bar__section--align-end{
+      padding-right: 0em;
+    }
   }
 
   .mdc-top-app-bar__title{
@@ -24,3 +30,15 @@
     @include notched-outline.color(var(--mdc-theme-primary));
   }
 }
+
+.mdc-show-button {
+  @include button.ink-color(var(--mdc-theme-background));
+  @include top-app-bar.fill-color(var(--mdc-theme-primary));
+
+  margin-left: 1em;
+  margin-right: 0em;
+  width: 5em;
+  height: 4.5em;
+  border-radius: $sidebar-display-button-border-radius;
+}
+

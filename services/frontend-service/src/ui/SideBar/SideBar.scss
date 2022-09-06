@@ -1,0 +1,67 @@
+.mdc-drawer-sidebar-header{
+  position: relative;
+  color: white;
+  background-color: var(--mdc-theme-primary);
+  display: flex;
+  border-radius: $sidebar-planned-actions-border-radius;
+
+  .mdc-drawer-sidebar-header-title{
+    position: relative;
+    text-align: right;
+    padding-right: $sidebar-planned-actions-title-right-centering;
+    width: 100%;
+  }
+
+  .mdc-drawer-sidebar-header__button{
+    position: relative;
+    height: auto;
+    color: white;
+    margin: $sidebar-planned-actions-button-margin;
+    font-weight: bold;
+  }
+}
+
+.mdc-drawer-sidebar-content{
+  position: relative;
+  text-align: center;
+  width: 100%;
+  background-color: white;
+}
+
+.mdc-drawer-sidebar .mdc-sidebar-sidebar-footer .mdc-drawer-sidebar-apply-button{
+  position: relative;
+  background-color: var(--mdc-theme-primary);
+  color: white;
+  text-transform: none;
+  letter-spacing: 0;
+  width: 100%;
+  height: $sidebar-apply-button-height;
+  line-height: 100%;
+  border-radius: $sidebar-apply-border-radius;
+  font-size: $sidebar-apply-font-size;
+  font-weight: bold;
+}
+
+.mdc-drawer-sidebar-container{
+  height: 100%;
+  transition: $sidebar-transition-duration-large-screen;
+}
+
+.mdc-drawer-sidebar--displayed{
+  position: absolute;
+  right: 0%;
+  top: 0%;
+  width: $sidebar-width;
+}
+
+.mdc-drawer-sidebar--hidden{
+  position: absolute;
+  right: $sidebar-hidden-displacement;
+  top: 0%;
+  width: $sidebar-width;
+}
+
+
+
+
+

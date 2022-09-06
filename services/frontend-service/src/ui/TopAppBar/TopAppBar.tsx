@@ -16,13 +16,17 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { MDCTopAppBar } from '@material/top-app-bar';
 
-import { Button } from '../components/button';
 import { Textfield } from '../components/textfield';
-import { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { SideBar } from '../SideBar/SideBar';
+import { Button } from '../components/button';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);
     const MDComponent = useRef<MDCTopAppBar>();
+    const [sideBar, showSideBar] = useState(false);
+
+    const toggleSideBar = useCallback(() => showSideBar((old) => !old), [showSideBar]);
 
     useEffect(() => {
         if (control.current) {
@@ -41,7 +45,15 @@ export const TopAppBar: React.FC = () => {
                     <Textfield className={'top-app-bar-search-field'} floatingLabel={'Search'} leadingIcon={'search'} />
                 </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
-                    <Button label={'Planned Actions'} />
+                    <strong>{'Planned Actions'}</strong>
+                    <Button className="mdc-show-button" icon={'navigate_before'} onClick={toggleSideBar} />
+                    <SideBar
+                        className={
+                            `mdc-drawer-sidebar mdc-drawer-sidebar-container mdc-drawer-sidebar` +
+                            (sideBar ? '--displayed' : '--hidden')
+                        }
+                        toggleSidebar={toggleSideBar}
+                    />
                 </div>
             </div>
         </div>

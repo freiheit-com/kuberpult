@@ -5,6 +5,19 @@ $nav-list-item-padding: 3em;
 $nav-indicator-width: 8px;
 $nav-indicator-border-radius: 0px 5px 5px 0px;
 
+//Sidebar variables
+$sidebar-width: 30em;
+$sidebar-planned-actions-button-margin: 1em;
+$sidebar-planned-actions-title-right-centering: 9em;
+$sidebar-apply-button-height: 3em;
+$sidebar-apply-button-font-weight: 1.5em;
+$sidebar-planned-actions-border-radius: 1em 0 0 0;
+$sidebar-apply-border-radius: 0 0 0 1em;
+$sidebar-display-button-border-radius: 1em 0 0 1em;
+$sidebar-hidden-displacement: -$sidebar-width;
+$sidebar-transition-duration-large-screen: .4s;
+$sidebar-apply-font-size: 1.5em;
+
 // Top App Bar
 $top-app-bar-padding: 2em 0 2em $nav-bar-width; // 2em on top and bottom each
 $top-app-bar-height: 8em; // 8em = 128px
