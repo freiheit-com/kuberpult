@@ -34,6 +34,8 @@ func (s Server) HandleRelease(w http.ResponseWriter, req *http.Request, tail str
 		return
 	}
 
+	// Release api requires file uploads in it, which is hard to implement in grpc.
+	// Release api in cd-service only exists in REST right now, so this endpoint directly calls the REST endpoint of cd-service instead of a grpc one.
 	cdServiceProxy := httputil.NewSingleHostReverseProxy(url)
 	cdServiceProxy.ServeHTTP(w, req)
 }
