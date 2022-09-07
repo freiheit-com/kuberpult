@@ -39,6 +39,7 @@ bin/main: $(GO_FILES) | proto
 GARBAGE += bin/main
 
 export KUBERPULT_CDSERVER?=localhost:8443
+export KUBERPULT_HTTP_CD_SERVER?=http://localhost:8080
 run: bin/main
 	./bin/main
 
