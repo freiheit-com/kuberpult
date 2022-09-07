@@ -16,10 +16,10 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { MDCTopAppBar } from '@material/top-app-bar';
 
-import { Textfield } from '../components/textfield';
+import { Textfield } from '../textfield';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SideBar } from '../SideBar/SideBar';
-import { Button } from '../components/button';
+import { Button } from '../button';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);
