@@ -14,17 +14,9 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { NavigationBar } from '../components/NavigationBar/NavigationBar';
-import { TopAppBar } from '../components/TopAppBar/TopAppBar';
-import { PageRoutes } from './PageRoutes';
-import '../../assets/app-v2.scss';
+import { ReactComponent as Logo } from './kuberpult-logo.svg';
+import { ReactComponent as Home } from './Home.svg';
+import { ReactComponent as Environments } from './Environments.svg';
+import { ReactComponent as Locks } from './Locks.svg';
 
-export const App: React.FC = () => (
-    <div className={'app-container--v2'}>
-        <NavigationBar />
-        <div className="mdc-drawer-app-content">
-            <TopAppBar />
-            <PageRoutes />
-        </div>
-    </div>
-);
+export { Logo, Home, Locks, Environments };
