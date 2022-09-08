@@ -24,15 +24,16 @@ export type ReleaseCardProps = {
     className?: string;
     title: string;
     hash?: string;
-    createdAt: Date;
+    createdAt?: Date;
     author: string;
+    version?: string;
     environments: string[];
 };
 
 export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLDivElement>(null);
-    const { className, title, hash, createdAt, author, environments } = props;
+    const { className, title, hash, createdAt, author, environments, version } = props;
 
     useEffect(() => {
         if (control.current) {
@@ -50,11 +51,15 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
             <div className="mdc-card__primary-action release-card__description" ref={control} tabIndex={0}>
                 <div className="mdc-card__ripple"></div>
                 <div className="release__details">
-                    <div className="release__metadata mdc-typography--subtitle2">
-                        <div>{'Created at: ' + createdAt.toLocaleDateString()}</div>
-                        <div>{'Time ' + createdAt.toLocaleTimeString()}</div>
+                    {!!createdAt && (
+                        <div className="release__metadata mdc-typography--subtitle2">
+                            <div>{'Created at: ' + createdAt.toLocaleDateString()}</div>
+                            <div>{'Time ' + createdAt.toLocaleTimeString()}</div>
+                        </div>
+                    )}
+                    <div className="release__author mdc-typography--body1">
+                        {'Author: ' + author + ' Version: ' + version}
                     </div>
-                    <div className="release__author mdc-typography--body1">{'Author: ' + author}</div>
                 </div>
                 <div className="release__environments">
                     {environments.map((env) => (
