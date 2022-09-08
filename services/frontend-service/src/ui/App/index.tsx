@@ -18,13 +18,40 @@ import { NavigationBar } from '../components/NavigationBar/NavigationBar';
 import { TopAppBar } from '../components/TopAppBar/TopAppBar';
 import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
+import * as React from 'react';
+import { PanicOverview, UpdateOverview } from '../utils/store';
+import { useApi } from '../utils/GrpcApi';
 
-export const App: React.FC = () => (
-    <div className={'app-container--v2'}>
-        <NavigationBar />
-        <div className="mdc-drawer-app-content">
-            <TopAppBar />
-            <PageRoutes />
+export const App: React.FC = () => {
+    const api = useApi;
+    React.useEffect(() => {
+        const subscription = api
+            .overviewService()
+            .StreamOverview({}) // TODO TE: add auth header
+            .subscribe(
+                (result) => {
+                    UpdateOverview.set(result);
+                    PanicOverview.set({});
+                },
+                (error) => PanicOverview.set(JSON.stringify(error))
+            );
+        return () => subscription.unsubscribe();
+    }, [api]);
+
+    PanicOverview.listen(
+        (err) => err,
+        (err) => {
+            alert('Error: Cannot connect to server!');
+        }
+    );
+
+    return (
+        <div className={'app-container--v2'}>
+            <NavigationBar />
+            <div className="mdc-drawer-app-content">
+                <TopAppBar />
+                <PageRoutes />
+            </div>
         </div>
-    </div>
-);
+    );
+};
