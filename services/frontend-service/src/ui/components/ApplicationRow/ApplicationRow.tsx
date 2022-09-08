@@ -20,6 +20,7 @@ import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 export const ApplicationRow: React.FC<{ app: string }> = (props) => {
     const { app } = props;
     const releases = useAllApplicationReleases(app);
+    releases.sort((a, b) => a.version - b.version);
     return (
         <div key={app}>
             <h1>{app}</h1>

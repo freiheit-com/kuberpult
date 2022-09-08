@@ -20,8 +20,15 @@ import { GetOverviewResponse } from '../../api/api';
 const emptyOverview: GetOverviewResponse = { applications: {}, environments: {} };
 export const [useOverview, UpdateOverview] = createStore(emptyOverview);
 
-export const [useOverviewError, PanicOverview] = createStore({ error: '' });
+export const [_, PanicOverview] = createStore({ error: '' });
 
 export const useAllApplicationNames = () => useOverview(({ applications }) => Object.keys(applications));
 
-export const useAllApplicationReleases = (name: string) => useOverview(({ applications: z }) => z[name].releases);
+export const useAllApplicationReleases = (name: string) =>
+    useOverview(
+        ({
+            applications: {
+                [name]: { releases },
+            },
+        }) => releases
+    );

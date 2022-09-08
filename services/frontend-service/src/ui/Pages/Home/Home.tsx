@@ -19,6 +19,7 @@ import { ApplicationRow } from '../../components/ApplicationRow/ApplicationRow';
 
 export const Home: React.FC = () => {
     const apps = useAllApplicationNames();
+    apps.sort((a, b) => a.localeCompare(b));
     return (
         <main className="main-content">
             {apps.map((app) => (

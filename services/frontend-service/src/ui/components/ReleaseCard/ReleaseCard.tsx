@@ -57,9 +57,8 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                             <div>{'Time ' + createdAt.toLocaleTimeString()}</div>
                         </div>
                     )}
-                    <div className="release__author mdc-typography--body1">
-                        {'Author: ' + author + ' Version: ' + version}
-                    </div>
+                    <div className="release__version mdc-typography--body2">{'Version: ' + version}</div>
+                    <div className="release__author mdc-typography--body1">{'Author: ' + author}</div>
                 </div>
                 <div className="release__environments">
                     {environments.map((env) => (
