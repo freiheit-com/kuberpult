@@ -31,17 +31,17 @@ export const App: React.FC = () => {
             .subscribe(
                 (result) => {
                     UpdateOverview.set(result);
-                    PanicOverview.set({});
+                    PanicOverview.set({ error: '' });
                 },
-                (error) => PanicOverview.set(JSON.stringify(error))
+                (error) => PanicOverview.set({ error: JSON.stringify(error) })
             );
         return () => subscription.unsubscribe();
     }, [api]);
 
     PanicOverview.listen(
-        (err) => err,
+        (err) => err.error,
         (err) => {
-            alert('Error: Cannot connect to server!');
+            alert('Error: Cannot connect to server!\n' + err);
         }
     );
 

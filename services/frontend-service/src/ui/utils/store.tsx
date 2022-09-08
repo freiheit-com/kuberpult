@@ -20,4 +20,4 @@ import { GetOverviewResponse } from '../../api/api';
 const emptyOverview: GetOverviewResponse = { applications: {}, environments: {} };
 export const [useOverview, UpdateOverview] = createStore(emptyOverview);
 
-export const [useOverviewError, panicOverview] = createStore({ error: null });
+export const [useOverviewError, PanicOverview] = createStore({ error: '' });
