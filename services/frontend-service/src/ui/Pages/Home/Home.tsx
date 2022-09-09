@@ -14,16 +14,15 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { useAllApplicationNames } from '../../utils/store';
-import { ApplicationRow } from '../../components/ApplicationRow/ApplicationRow';
+import { useApplicationNames } from '../../utils/store';
+import { ServiceLane } from '../../components/ServiceLane/ServiceLane';
 
 export const Home: React.FC = () => {
-    const apps = useAllApplicationNames();
-    apps.sort((a, b) => a.localeCompare(b));
+    const apps = useApplicationNames();
     return (
         <main className="main-content">
             {apps.map((app) => (
-                <ApplicationRow app={app} />
+                <ServiceLane application={app} key={app} />
             ))}
         </main>
     );

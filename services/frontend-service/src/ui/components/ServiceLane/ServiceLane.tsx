@@ -14,27 +14,18 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { useAllApplicationReleases } from '../../utils/store';
+import { useDeployedReleases } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 
-export const ApplicationRow: React.FC<{ app: string }> = (props) => {
-    const { app } = props;
-    const releases = useAllApplicationReleases(app);
-    releases.sort((a, b) => a.version - b.version);
+export const ServiceLane: React.FC<{ application: string }> = (props) => {
+    const { application } = props;
+    const releases = useDeployedReleases(application);
     return (
-        <div key={app}>
-            <h1>{app}</h1>
+        <div>
+            <h1>{application}</h1>
             <div className="service-releases">
                 {releases.map((rel) => (
-                    <ReleaseCard
-                        author={rel.sourceAuthor}
-                        title={rel.sourceMessage}
-                        createdAt={rel.createdAt}
-                        hash={rel.sourceCommitId}
-                        key={rel.sourceCommitId + '-' + app}
-                        environments={[]}
-                        version={rel.version.toString()}
-                    />
+                    <ReleaseCard app={application} version={rel} key={application + '-' + rel} />
                 ))}
             </div>
         </div>
