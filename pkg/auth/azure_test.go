@@ -116,7 +116,7 @@ zlPl5AxNZ3g1yELWYbm9+ygTtlgzznMvcZvIMiffJANqtXv1r+vctkvlLB0iUJap
 		claims["name"] = name
 	}
 	if len(email) > 0 {
-		claims["email"] = email
+		claims["preferred_username"] = email
 	}
 
 	claims["exp"] = expiry

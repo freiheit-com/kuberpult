@@ -264,26 +264,38 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.U
 	return u
 }
 
-func getRequestAuthorFromAzure(r *http.Request) *auth.User {
+func getRequestAuthorFromAzure(r *http.Request) (*auth.User, error) {
 	username := r.Header.Get("username")
+	if username == "" {
+		return nil, fmt.Errorf("Username is not valid")
+	}
+
 	email := r.Header.Get("email")
+	if email == "" {
+		return nil, fmt.Errorf("Email is not valid")
+	}
+
 	u := &auth.User{
 		Name:  username,
 		Email: email,
 	}
-	return u
+	return u, nil
 }
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger.Wrap(r.Context(), func(ctx context.Context) error {
-		u := &auth.User{}
 		if c.AzureEnableAuth {
-			u = getRequestAuthorFromAzure(r)
+			if u, err := getRequestAuthorFromAzure(r); err != nil {
+				return err
+			} else {
+				p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(ctx, u)))
+			}
+
 		} else {
-			u = getRequestAuthorFromGoogleIAP(ctx, r)
+			u := getRequestAuthorFromGoogleIAP(ctx, r)
+			p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(ctx, u)))
 		}
 
-		p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(ctx, u)))
 		return nil
 	})
 }
