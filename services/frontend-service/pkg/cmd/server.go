@@ -234,7 +234,7 @@ type Auth struct {
 	HttpServer http.Handler
 }
 
-func getRequestAuthor(ctx context.Context, r *http.Request) *auth.User {
+func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.User {
 	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
 	if iapJWT == "" {
 		// not using iap (local), default user
@@ -264,9 +264,25 @@ func getRequestAuthor(ctx context.Context, r *http.Request) *auth.User {
 	return u
 }
 
+func getRequestAuthorFromAzure(r *http.Request) *auth.User {
+	username := r.Header.Get("username")
+	email := r.Header.Get("email")
+	u := &auth.User{
+		Name:  username,
+		Email: email,
+	}
+	return u
+}
+
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger.Wrap(r.Context(), func(ctx context.Context) error {
-		u := getRequestAuthor(ctx, r)
+		u := &auth.User{}
+		if c.AzureEnableAuth {
+			u = getRequestAuthorFromAzure(r)
+		} else {
+			u = getRequestAuthorFromGoogleIAP(ctx, r)
+		}
+
 		p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(ctx, u)))
 		return nil
 	})

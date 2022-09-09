@@ -19,8 +19,10 @@ package auth
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -76,9 +78,9 @@ func TestValidateTokenStatic(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			if tc.noInit {
-				err = ValidateToken(tc.Token, nil, "clientId", "tenantId")
+				_, err = ValidateToken(tc.Token, nil, "clientId", "tenantId")
 			} else {
-				err = ValidateToken(tc.Token, jwks, "clientId", "tenantId")
+				_, err = ValidateToken(tc.Token, jwks, "clientId", "tenantId")
 			}
 			if diff := cmp.Diff(err.Error(), tc.ExpectedError); diff != "" {
 				t.Errorf("Error mismatch (-want +got):\n%s", diff)
@@ -87,7 +89,7 @@ func TestValidateTokenStatic(t *testing.T) {
 	}
 }
 
-func getToken(clientId string, tenantId string, kid string, expiry int64) (string, error) {
+func getToken(clientId string, tenantId string, kid string, expiry int64, name string, email string) (string, error) {
 	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(`-----BEGIN RSA PRIVATE KEY-----
 MIICXQIBAAKBgQC/oyqURHIPNzx4vcKrUUZYr6Bxq2OSD44a63zeIDA1oZkR+sac
 tmkub+8NI49GqrbssWf944v3ZLp8KXMh6i+U9pkSdDfvKcQUProQ+Tlm/m0SFXa6
@@ -110,6 +112,13 @@ zlPl5AxNZ3g1yELWYbm9+ygTtlgzznMvcZvIMiffJANqtXv1r+vctkvlLB0iUJap
 	if len(tenantId) > 0 {
 		claims["tid"] = tenantId
 	}
+	if len(name) > 0 {
+		claims["name"] = name
+	}
+	if len(email) > 0 {
+		claims["email"] = email
+	}
+
 	claims["exp"] = expiry
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	jwtToken.Header["kid"] = kid
@@ -209,7 +218,7 @@ func TestValidateTokenGenerated(t *testing.T) {
 			if tc.Expiry != 0 {
 				expiry = tc.Expiry
 			}
-			tokenString, err := getToken(tc.ClientId, tc.TenantId, tc.Kid, expiry)
+			tokenString, err := getToken(tc.ClientId, tc.TenantId, tc.Kid, expiry, "", "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -217,7 +226,7 @@ func TestValidateTokenGenerated(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = ValidateToken(tokenString, jwks, "clientId", "tenantId")
+			_, err = ValidateToken(tokenString, jwks, "clientId", "tenantId")
 			if len(tc.ExpectedError) > 0 {
 				if err == nil {
 					t.Fatalf("Expected error \n%s, got nil", tc.ExpectedError)
@@ -274,8 +283,9 @@ func TestHttpMiddleware(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-
-			req, err := http.NewRequest("GET", tc.Path, nil)
+			r := strings.NewReader("Test message incoming")
+			sr := io.Reader(r)
+			req, err := http.NewRequest("GET", tc.Path, sr)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -284,7 +294,7 @@ func TestHttpMiddleware(t *testing.T) {
 				t.Fatal(err)
 			}
 			expiry := time.Now().Add(duration).Unix()
-			tokenString, err := getToken("clientId", "tenantId", "testKey", expiry)
+			tokenString, err := getToken("clientId", "tenantId", "testKey", expiry, "testName", "test.email@com")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -307,6 +317,18 @@ func TestHttpMiddleware(t *testing.T) {
 						t.Fatalf("Error mismatch (-want +got):\n%s", diff)
 					}
 				} else {
+					if tc.Authenticated {
+						username := req.Header.Get("userName")
+						email := req.Header.Get("email")
+
+						if username != "testName" {
+							t.Fatalf("Expected username testName but got %q", username)
+						}
+						if email != "test.email@com" {
+							t.Fatalf("Expected email test.email@com but got %q", email)
+						}
+
+					}
 					if err != nil {
 						t.Fatalf("Expected no error, got %s", err.Error())
 					}
