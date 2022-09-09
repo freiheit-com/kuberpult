@@ -22,13 +22,43 @@ export const [useOverview, UpdateOverview] = createStore(emptyOverview);
 
 export const [_, PanicOverview] = createStore({ error: '' });
 
-export const useAllApplicationNames = () => useOverview(({ applications }) => Object.keys(applications));
+// returns all application names
+export const useApplicationNames = () =>
+    useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
 
-export const useAllApplicationReleases = (name: string) =>
+// returns the release number {$version} of {$application}
+export const useRelease = (application: string, version: number) =>
     useOverview(
-        ({
-            applications: {
-                [name]: { releases },
-            },
-        }) => releases
+        ({ applications }) =>
+            applications[application].releases.find((r) =>
+                version === -1 ? r.undeployVersion : r.version === version
+            )!
+    );
+
+// returns the release versions that are currently deployed to at least one environment
+export const useDeployedReleases = (application: string) =>
+    useOverview(({ environments }) =>
+        [
+            ...new Set(
+                Object.values(environments)
+                    .filter((env) => env.applications[application])
+                    .map((env) =>
+                        env.applications[application].undeployVersion ? -1 : env.applications[application].version
+                    )
+            ),
+        ].sort((a, b) => (a === -1 ? -1 : b === -1 ? 1 : b - a))
+    );
+
+// returns the environments where a release is currently deployed
+export const useCurrentlyDeployedAt = (application: string, version: number) =>
+    useOverview(({ environments }) =>
+        Object.values(environments)
+            .filter(
+                (env) =>
+                    env.applications[application] &&
+                    (version === -1
+                        ? env.applications[application].undeployVersion
+                        : env.applications[application].version === version)
+            )
+            .map((e) => e.name)
     );
