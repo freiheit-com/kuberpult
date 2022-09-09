@@ -18,6 +18,7 @@ import { render } from '@testing-library/react';
 import { Home } from './Home';
 
 describe('App', () => {
+    // TODO TE
     const getNode = (): JSX.Element | any => <Home />;
     const getWrapper = () => render(getNode());
 
