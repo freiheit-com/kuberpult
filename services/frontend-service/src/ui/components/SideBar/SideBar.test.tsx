@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import React from 'react';
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 
 describe('Show and Hide Sidebar', () => {
@@ -34,7 +34,9 @@ describe('Show and Hide Sidebar', () => {
             name: 'Sidebar is displayed',
             expect: (container) => {
                 const result = container.querySelector('.mdc-show-button')! as HTMLElement;
-                result.click();
+                act(() => {
+                    result.click();
+                });
                 expect(container.getElementsByClassName('mdc-drawer-sidebar--displayed')[0]).toBeTruthy();
             },
         },

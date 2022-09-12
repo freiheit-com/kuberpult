@@ -15,10 +15,10 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import classNames from 'classnames';
-import { useEffect, useRef } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { MDCList } from '@material/list';
 
-export const NavList: React.FC<{ className?: string }> = (props) => {
+export const NavList: React.FC<{ children?: ReactNode; className?: string }> = (props) => {
     const MDComponent = useRef<MDCList>();
     const control = useRef<HTMLElement>(null);
     const { className, children } = props;
