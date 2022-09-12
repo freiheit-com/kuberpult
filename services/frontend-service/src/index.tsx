@@ -16,15 +16,16 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import './assets/index.scss';
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { Routes } from './Routes';
 import { BrowserRouter } from 'react-router-dom';
 
-ReactDOM.render(
+const container = document.getElementById('root');
+const root = createRoot(container!); // createRoot(container!) using TypeScript
+root.render(
     <React.StrictMode>
         <BrowserRouter>
             <Routes />
         </BrowserRouter>
-    </React.StrictMode>,
-    document.getElementById('root')
+    </React.StrictMode>
 );
