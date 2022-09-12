@@ -153,10 +153,9 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 	}
 
 	claims, err := ValidateToken(token, jwks, clientId, tenantId)
-	if _, ok := claims["aud"]; ok {
+	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
 		req.Header.Set("username", claims["name"].(string))
-		req.Header.Set("email", claims["preferred_username"].(string))
-
+		req.Header.Set("email", claims["email"].(string))
 	}
 	if err != nil {
 		resp.WriteHeader(http.StatusUnauthorized)

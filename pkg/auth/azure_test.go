@@ -116,7 +116,7 @@ zlPl5AxNZ3g1yELWYbm9+ygTtlgzznMvcZvIMiffJANqtXv1r+vctkvlLB0iUJap
 		claims["name"] = name
 	}
 	if len(email) > 0 {
-		claims["preferred_username"] = email
+		claims["email"] = email
 	}
 
 	claims["exp"] = expiry
@@ -318,9 +318,8 @@ func TestHttpMiddleware(t *testing.T) {
 					}
 				} else {
 					if tc.Authenticated {
-						username := req.Header.Get("userName")
+						username := req.Header.Get("username")
 						email := req.Header.Get("email")
-
 						if username != "testName" {
 							t.Fatalf("Expected username testName but got %q", username)
 						}
