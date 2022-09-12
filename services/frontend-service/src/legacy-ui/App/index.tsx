@@ -20,7 +20,7 @@ import { useState } from 'react';
 import Box from '@material-ui/core/Box';
 import { ThemeProvider } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import { AuthProvider } from './AuthContext';
+import { AuthHeaderType, AuthProvider } from './AuthContext';
 
 import Releases from '../Releases';
 import * as api from '../../api/api';
@@ -53,7 +53,7 @@ export const Spinner: React.FC<any> = (props: any) => {
 
 const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Element }): JSX.Element | null => {
     const getOverview = React.useCallback(
-        (api, authHeader) => api.overviewService().StreamOverview({}, authHeader),
+        (api: any, authHeader: AuthHeaderType) => api.overviewService().StreamOverview({}, authHeader),
         []
     );
     const overview = useObservable<api.GetOverviewResponse>(getOverview);
@@ -74,7 +74,7 @@ const Main = () => {
     const [actions, setActions] = useState([] as CartAction[]);
     const [configs, setConfigs] = useState({} as api.GetFrontendConfigResponse);
 
-    const getConfig = React.useCallback((api) => api.configService().GetConfig(), []);
+    const getConfig = React.useCallback((api: any) => api.configService().GetConfig(), []);
     const config = useUnary<api.GetFrontendConfigResponse>(getConfig);
 
     React.useEffect(() => {
