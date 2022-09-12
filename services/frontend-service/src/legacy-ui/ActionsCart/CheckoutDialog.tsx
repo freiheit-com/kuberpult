@@ -134,7 +134,10 @@ export const CheckoutCart: VFC<{ overview: GetOverviewResponse }> = ({ overview 
     const { actions, setActions } = useContext(ActionsCartContext);
     const [lockMessage, setLockMessage] = useState('');
 
-    const updateLockMessage = useCallback((e) => setLockMessage(e.target.value), [setLockMessage]);
+    const updateLockMessage = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => setLockMessage(e.target.value),
+        [setLockMessage]
+    );
 
     const openNotification = useCallback(
         (msg: string) => {
