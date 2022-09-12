@@ -15,6 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import '@testing-library/jest-dom/extend-expect';
+import 'react-use-sub/test-util';
 
 // test utility to await all running promises
 global.nextTick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
