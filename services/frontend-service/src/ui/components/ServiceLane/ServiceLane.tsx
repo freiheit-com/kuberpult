@@ -16,14 +16,29 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { useDeployedReleases } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
+import { Button } from '../button';
 
 export const ServiceLane: React.FC<{ application: string }> = (props) => {
     const { application } = props;
     const releases = useDeployedReleases(application);
     return (
-        <div>
-            <h1>{application}</h1>
-            <div className="service-releases">
+        <div className="service-lane">
+            <div className="service-lane__header">
+                <div className="service__name">{application}</div>
+                <div className="service__actions">
+                    <Button
+                        className="service-action service-action--prepare-undeploy"
+                        label={'Prepare to delete'}
+                        icon={'delete'}
+                    />
+                    <Button
+                        className="service-action service-action--history"
+                        label={'View history'}
+                        icon={'history'}
+                    />
+                </div>
+            </div>
+            <div className="service__releases">
                 {releases.map((rel) => (
                     <ReleaseCard app={application} version={rel} key={application + '-' + rel} />
                 ))}
