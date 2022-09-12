@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { Button } from '../components/button';
+import { Button } from '../button';
 
 export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }> = (props) => {
     const { className, toggleSidebar } = props;

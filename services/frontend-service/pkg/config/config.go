@@ -17,6 +17,22 @@ Copyright 2021 freiheit.com*/
 
 package config
 
+type ServerConfig struct {
+	CdServer            string `default:"kuberpult-cd-service:8443"`
+	HttpCdServer        string `default:"http://kuberpult-cd-service:80" split_words:"true"`
+	GKEProjectNumber    string `default:"" split_words:"true"`
+	GKEBackendServiceID string `default:"" split_words:"true"`
+	EnableTracing       bool   `default:"false" split_words:"true"`
+	ArgocdBaseUrl       string `default:"" split_words:"true"`
+	AzureEnableAuth     bool   `default:"false" split_words:"true"`
+	AzureCloudInstance  string `default:"https://login.microsoftonline.com/" split_words:"true"`
+	AzureClientId       string `default:"" split_words:"true"`
+	AzureTenantId       string `default:"" split_words:"true"`
+	AzureRedirectUrl    string `default:"" split_words:"true"`
+	Version             string `default:""`
+	SourceRepoUrl       string `default:"" split_words:"true"`
+}
+
 type FrontendConfig struct {
 	ArgoCd           *ArgoCdConfig `json:"argocd"`
 	Auth             *AuthConfig   `json:"auth"`

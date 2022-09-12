@@ -42,22 +42,7 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-type Config struct {
-	CdServer            string `default:"kuberpult-cd-service:8443"`
-	GKEProjectNumber    string `default:"" split_words:"true"`
-	GKEBackendServiceID string `default:"" split_words:"true"`
-	EnableTracing       bool   `default:"false" split_words:"true"`
-	ArgocdBaseUrl       string `default:"" split_words:"true"`
-	AzureEnableAuth     bool   `default:"false" split_words:"true"`
-	AzureCloudInstance  string `default:"https://login.microsoftonline.com/" split_words:"true"`
-	AzureClientId       string `default:"" split_words:"true"`
-	AzureTenantId       string `default:"" split_words:"true"`
-	AzureRedirectUrl    string `default:"" split_words:"true"`
-	Version             string `default:""`
-	SourceRepoUrl       string `default:"" split_words:"true"`
-}
-
-var c Config
+var c config.ServerConfig
 
 func readAllAndClose(r io.ReadCloser, maxBytes int64) {
 	_, _ = io.ReadAll(io.LimitReader(r, maxBytes))
@@ -179,9 +164,14 @@ func RunServer() {
 		httpHandler := handler.Server{
 			DeployClient: deployClient,
 			LockClient:   lockClient,
+			Config:       c,
 		}
 		mux := http.NewServeMux()
 		mux.Handle("/environments/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			defer readAllAndClose(req.Body, 1024)
+			httpHandler.Handle(w, req)
+		}))
+		mux.Handle("/release", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			defer readAllAndClose(req.Body, 1024)
 			httpHandler.Handle(w, req)
 		}))

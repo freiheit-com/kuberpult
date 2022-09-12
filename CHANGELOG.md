@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.4.40
+
+**released 2022-09-07**
+* Update kuberpult to use multi-stage execution plan [#324](https://github.com/freiheit-com/kuberpult/pull/324)
+* Add sidebar in kuberpult ui [#325](https://github.com/freiheit-com/kuberpult/pull/325)
+* Add chip component [#328](https://github.com/freiheit-com/kuberpult/pull/328)
+* Add Release card component [#329](https://github.com/freiheit-com/kuberpult/pull/329)
+* Add release api in frontend [#334](https://github.com/freiheit-com/kuberpult/pull/334)
+
 ## 0.4.39
 **released 2022-08-30**
 * Increase memory limit for frontend service [#321](https://github.com/freiheit-com/kuberpult/pull/321)

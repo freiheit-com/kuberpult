@@ -14,11 +14,8 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { ReactComponent as Logo } from '../../images/kuberpult-logo.svg';
-import { ReactComponent as Home } from '../../images/Home.svg';
-import { ReactComponent as Environments } from '../../images/Environments.svg';
-import { ReactComponent as Locks } from '../../images/Locks.svg';
-import { NavList, NavListItem } from '../components/navigation';
+import { Logo, Home, Locks, Environments } from '../../../images';
+import { NavList, NavListItem } from '../navigation';
 
 export const NavigationBar: React.FC = () => (
     <aside className="mdc-drawer">

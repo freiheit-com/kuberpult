@@ -22,11 +22,13 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 )
 
 type Server struct {
 	DeployClient api.DeployServiceClient
 	LockClient   api.LockServiceClient
+	Config       config.ServerConfig
 }
 
 func (s Server) Handle(w http.ResponseWriter, req *http.Request) {
@@ -34,6 +36,8 @@ func (s Server) Handle(w http.ResponseWriter, req *http.Request) {
 	switch group {
 	case "environments":
 		s.HandleEnvironments(w, req, tail)
+	case "release":
+		s.HandleRelease(w, req, tail)
 	default:
 		http.Error(w, fmt.Sprintf("unknown group '%s'", group), http.StatusNotFound)
 	}
