@@ -18,15 +18,15 @@ import React from 'react';
 import { fireEvent, getByText, render } from '@testing-library/react';
 import { ActionsCart } from './ActionsCart';
 import { Spy } from 'spy4js';
-import { BatchAction, LockBehavior } from '../../api/api';
 import { ActionsCartContext } from '../App';
 import { mockGetOverviewResponseForActions } from './apiMock';
+import { CartAction } from '../ActionDetails';
 
 Spy.mockReactComponents('./CheckoutDialog', 'CheckoutCart');
 const mock_setActions = Spy('setActions');
 
 describe('Actions Cart', () => {
-    const getNode = (actions: BatchAction[]) => {
+    const getNode = (actions: CartAction[]) => {
         const value = { actions: actions, setActions: mock_setActions };
         return (
             <ActionsCartContext.Provider value={value}>
@@ -34,11 +34,11 @@ describe('Actions Cart', () => {
             </ActionsCartContext.Provider>
         );
     };
-    const getWrapper = (actions: BatchAction[]) => render(getNode(actions));
+    const getWrapper = (actions: CartAction[]) => render(getNode(actions));
 
     interface dataT {
         type: string;
-        cart: BatchAction[];
+        cart: CartAction[];
         expect: {
             cartEmptyMessage?: string;
         };
@@ -49,36 +49,21 @@ describe('Actions Cart', () => {
             type: 'Multiple cart actions',
             cart: [
                 {
-                    action: {
-                        $case: 'deploy',
-                        deploy: {
-                            application: 'dummy application',
-                            version: 22,
-                            environment: 'dummy environment',
-                            ignoreAllLocks: false,
-                            lockBehavior: LockBehavior.Ignore,
-                        },
+                    deploy: {
+                        application: 'dummy application',
+                        version: 22,
+                        environment: 'dummy environment',
                     },
                 },
                 {
-                    action: {
-                        $case: 'createEnvironmentLock',
-                        createEnvironmentLock: {
-                            environment: 'dummy environment',
-                            lockId: '1234',
-                            message: 'hello',
-                        },
+                    createEnvironmentLock: {
+                        environment: 'dummy environment',
                     },
                 },
                 {
-                    action: {
-                        $case: 'createEnvironmentApplicationLock',
-                        createEnvironmentApplicationLock: {
-                            application: 'dummy application',
-                            environment: 'dummy environment',
-                            lockId: '1111',
-                            message: 'hi',
-                        },
+                    createApplicationLock: {
+                        application: 'dummy application',
+                        environment: 'dummy environment',
                     },
                 },
             ],

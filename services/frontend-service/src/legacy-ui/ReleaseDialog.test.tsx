@@ -57,6 +57,8 @@ describe('VersionDiff', () => {
                             name: 'demo',
                             version: deployedVersion,
                             locks: {},
+                            team: 'testing',
+                            sourceRepoUrl: 'git.test/repo',
                             queuedVersion: 0,
                             undeployVersion: false,
                         },
@@ -66,10 +68,13 @@ describe('VersionDiff', () => {
             applications: {
                 demo: {
                     name: 'demo',
+                    team: 'testing',
+                    sourceRepoUrl: 'git.test/repo',
                     releases: availableVersions.map((v) => ({
                         version: v,
                         sourceCommitId: '',
                         sourceAuthor: '',
+                        prNumber: '123',
                         sourceMessage: '',
                         undeployVersion: false,
                     })),
@@ -189,6 +194,8 @@ describe('QueueDiff', () => {
                             name: 'demo',
                             queuedVersion: queuedVersion,
                             locks: {},
+                            team: 'testing',
+                            sourceRepoUrl: 'git.test/repo',
                             version: 1,
                             undeployVersion: false,
                         },
@@ -198,11 +205,14 @@ describe('QueueDiff', () => {
             applications: {
                 demo: {
                     name: 'demo',
+                    team: 'testing',
+                    sourceRepoUrl: 'git.test/repo',
                     releases: availableVersions.map((v) => ({
                         version: v,
                         sourceCommitId: '',
                         sourceAuthor: '',
                         sourceMessage: '',
+                        prNumber: '123',
                         undeployVersion: false,
                     })),
                 },
@@ -246,6 +256,8 @@ describe('ReleaseDialog', () => {
                                 name: 'demo',
                                 version: 1,
                                 locks: {},
+                                team: 'testing',
+                                sourceRepoUrl: 'git.test/repo',
                                 queuedVersion: 1,
                                 undeployVersion: false,
                                 argoCD,
@@ -256,11 +268,14 @@ describe('ReleaseDialog', () => {
                 applications: {
                     demo: {
                         name: 'demo',
+                        team: 'testing',
+                        sourceRepoUrl: 'git.test/repo',
                         releases: [
                             {
                                 version: 1,
                                 sourceCommitId: '',
                                 sourceAuthor: '',
+                                prNumber: '123',
                                 sourceMessage: '',
                                 undeployVersion: false,
                             },
