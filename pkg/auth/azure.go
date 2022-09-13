@@ -52,36 +52,36 @@ func JWKSInitAzure(ctx context.Context) (*keyfunc.JWKS, error) {
 	return jwks, nil
 }
 
-func ValidateToken(jwtB64 string, jwks *keyfunc.JWKS, clientId string, tenantId string) error {
+func ValidateToken(jwtB64 string, jwks *keyfunc.JWKS, clientId string, tenantId string) (jwt.MapClaims, error) {
 	var token *jwt.Token
 	if jwks == nil {
-		return fmt.Errorf("JWKS not initialized.")
+		return nil, fmt.Errorf("JWKS not initialized.")
 	}
 	claims := jwt.MapClaims{}
 	token, err := jwt.ParseWithClaims(jwtB64, claims, jwks.Keyfunc)
 	if err != nil {
-		return fmt.Errorf("Failed to parse the JWT.\nError: %s", err.Error())
+		return nil, fmt.Errorf("Failed to parse the JWT.\nError: %s", err.Error())
 	}
 	if !token.Valid {
-		return fmt.Errorf("Invalid token provided.")
+		return nil, fmt.Errorf("Invalid token provided.")
 	}
 	if val, ok := claims["aud"]; ok {
 		if val != clientId {
-			return fmt.Errorf("Unknown client id provided: %s", val)
+			return nil, fmt.Errorf("Unknown client id provided: %s", val)
 		}
 	} else {
-		return fmt.Errorf("Client id not found in token.")
+		return nil, fmt.Errorf("Client id not found in token.")
 	}
 
 	if val, ok := claims["tid"]; ok {
 		if val != tenantId {
-			return fmt.Errorf("Unknown tenant id provided: %s", val)
+			return nil, fmt.Errorf("Unknown tenant id provided: %s", val)
 		}
 	} else {
-		return fmt.Errorf("Tenant id not found in token.")
+		return nil, fmt.Errorf("Tenant id not found in token.")
 	}
 
-	return nil
+	return claims, nil
 }
 
 func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantId string) error {
@@ -96,7 +96,7 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 	}
 
 	token := authHeader[0]
-	err := ValidateToken(token, jwks, clientId, tenantId)
+	_, err := ValidateToken(token, jwks, clientId, tenantId)
 
 	if err != nil {
 		return status.Errorf(codes.Unauthenticated, "Invalid authorization token provided")
@@ -152,7 +152,11 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 		}
 	}
 
-	err := ValidateToken(token, jwks, clientId, tenantId)
+	claims, err := ValidateToken(token, jwks, clientId, tenantId)
+	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
+		req.Header.Set("username", claims["name"].(string))
+		req.Header.Set("email", claims["email"].(string))
+	}
 	if err != nil {
 		resp.WriteHeader(http.StatusUnauthorized)
 		resp.Write([]byte("Invalid authorization header provided"))
