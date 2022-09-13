@@ -12,7 +12,7 @@
     width: 100%;
   }
 
-  .mdc-drawer-sidebar-header__button{
+  .mdc-drawer-sidebar-header__button {
     position: relative;
     height: auto;
     color: white;
@@ -49,19 +49,14 @@
 
 .mdc-drawer-sidebar--displayed{
   position: absolute;
-  right: 0%;
-  top: 0%;
+  right: 0;
+  top: 0;
   width: $sidebar-width;
 }
 
 .mdc-drawer-sidebar--hidden{
   position: absolute;
   right: $sidebar-hidden-displacement;
-  top: 0%;
+  top: 0;
   width: $sidebar-width;
 }
-
-
-
-
-

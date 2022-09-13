@@ -50,7 +50,7 @@ const getMsalConfig = (configs: any): Configuration => ({
 });
 
 const getLoginRequest = () => ({
-    scopes: ['User.Read'],
+    scopes: ['User.Read', 'email'],
 });
 
 export type AuthHeaderType = grpc.Metadata & {
