@@ -276,6 +276,7 @@ func getRequestAuthorFromAzure(r *http.Request) *auth.User {
 		Email: email,
 	}
 	return u
+
 }
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -283,12 +284,10 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if c.AzureEnableAuth {
 			u := getRequestAuthorFromAzure(r)
 			p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(ctx, u)))
-
 		} else {
 			u := getRequestAuthorFromGoogleIAP(ctx, r)
 			p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(ctx, u)))
 		}
-
 		return nil
 	})
 }

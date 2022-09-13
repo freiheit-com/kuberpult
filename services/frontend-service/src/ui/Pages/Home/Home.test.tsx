@@ -16,13 +16,29 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { render } from '@testing-library/react';
 import { Home } from './Home';
+import { UpdateOverview } from '../../utils/store';
+import { Spy } from 'spy4js';
+
+const mock_ServiceLane = Spy.mockReactComponents('../../components/ServiceLane/ServiceLane', 'ServiceLane');
 
 describe('App', () => {
     const getNode = (): JSX.Element | any => <Home />;
     const getWrapper = () => render(getNode());
-
     it('Renders full app', () => {
-        const { container } = getWrapper();
-        expect(container.textContent).toContain('Lorem ipsum');
+        // when
+        UpdateOverview.set({
+            environments: {},
+            applications: {
+                app1: {} as any,
+                app3: {} as any,
+                app2: {} as any,
+            },
+        } as any);
+        getWrapper();
+
+        // then apps are sorted and Service Lane is called
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(0, 0)).toStrictEqual({ application: 'app1' });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(1, 0)).toStrictEqual({ application: 'app2' });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(2, 0)).toStrictEqual({ application: 'app3' });
     });
 });

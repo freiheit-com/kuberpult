@@ -1,6 +1,4 @@
-@use '@material/list';
-
-@include list.deprecated-core-styles;
+@use '@material/list/mdc-list';
 
 .mdc-list {
   display: flex;
