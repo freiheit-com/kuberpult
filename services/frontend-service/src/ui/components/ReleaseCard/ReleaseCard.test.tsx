@@ -16,14 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { ReleaseCard, ReleaseCardProps } from './ReleaseCard';
 import { render } from '@testing-library/react';
-
-const getSampleRelease = (n?: string): ReleaseCardProps => ({
-    title: 'test' + n,
-    author: 'tester' + n + '@freiheit.com',
-    hash: n,
-    createdAt: new Date(2002),
-    environments: ['dev'],
-});
+import { UpdateOverview } from '../../utils/store';
 
 describe('Release Card', () => {
     const getNode = (overrides: ReleaseCardProps) => <ReleaseCard {...overrides} />;
@@ -31,27 +24,121 @@ describe('Release Card', () => {
 
     const data = [
         {
-            name: 'sample release',
-            rel: getSampleRelease('0hash012'),
+            name: 'using a sample release - useRelease hook',
+            props: { app: 'test1', version: 2 },
+            rels: [{ version: 2, sourceMessage: 'test-rel' }],
         },
         {
-            name: 'sample release - without hash',
-            rel: getSampleRelease(),
+            name: 'using a sample undeploy release - useRelease hook',
+            props: { app: 'test2', version: -1 },
+            rels: [{ undeployVersion: true, sourceMessage: 'test-rel' }],
+        },
+        {
+            name: 'using a full release - component test',
+            props: { app: 'test2', version: 2 },
+            rels: [
+                {
+                    undeployVersion: false,
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                    sourceCommitId: '12s3',
+                    sourceAuthor: 'test-author',
+                    createdAt: new Date(2002),
+                } as any,
+            ],
+        },
+        {
+            name: 'using a deployed release - useDeployedAt test',
+            props: { app: 'test2', version: 2 },
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                } as any,
+            ],
+            environments: {
+                foo: {
+                    name: 'foo',
+                    applications: {
+                        test2: {
+                            version: 2,
+                        },
+                    },
+                },
+            },
+        },
+        {
+            name: 'using an undeployed release - useDeployedAt test',
+            props: { app: 'test2', version: 2 },
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                } as any,
+            ],
+            environments: {
+                undeployed: {
+                    name: 'undeployed',
+                    applications: {
+                        test2: {
+                            version: 3,
+                        },
+                    },
+                },
+            },
+        },
+        {
+            name: 'using another environment - useDeployedAt test',
+            props: { app: 'test2', version: 2 },
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                } as any,
+            ],
+            environments: {
+                other: {
+                    name: 'other',
+                    applications: {
+                        test3: {
+                            version: 3,
+                        },
+                    },
+                },
+            },
         },
     ];
 
-    describe.each(data)(`Renders a`, (testcase) => {
+    describe.each(data)(`Renders a Release Card`, (testcase) => {
         it(testcase.name, () => {
-            const { container } = getWrapper(testcase.rel);
-            if (testcase.rel.hash) {
-                expect(container.querySelector('.release__hash')?.textContent).toBe(testcase.rel.hash);
-            } else {
-                expect(container.querySelector('.release__hash')).toBe(null);
+            // when
+            UpdateOverview.set({
+                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
+                environments: testcase.environments ?? {},
+            } as any);
+            const { container } = getWrapper(testcase.props);
+
+            expect(container.querySelector('.release__title')?.textContent).toContain(testcase.rels[0].sourceMessage);
+
+            if (testcase.rels[0].sourceCommitId) {
+                expect(container.querySelector('.release__hash')?.textContent).toContain(
+                    testcase.rels[0].sourceCommitId
+                );
             }
-            expect(container.querySelector('.release__author')?.textContent).toContain(testcase.rel.author);
-            expect(container.querySelector('.release__environments')?.textContent).toContain(
-                testcase.rel.environments[0]
-            );
+            if (testcase.rels[0].createdAt) {
+                expect(container.querySelector('.release__metadata')?.textContent).toContain(
+                    (testcase.rels[0].createdAt as Date).toLocaleDateString()
+                );
+            }
+            if (testcase.environments?.foo) {
+                expect(container.querySelector('.release-environment')?.textContent).toContain('foo');
+            }
+            if (testcase.environments?.undeployed) {
+                expect(container.querySelector('.release-environment')).toBe(null);
+            }
+            if (testcase.environments?.other) {
+                expect(container.querySelector('.release-environment')).toBe(null);
+            }
         });
     });
 });
