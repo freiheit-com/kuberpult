@@ -118,16 +118,19 @@ func UnaryInterceptor(ctx context.Context,
 	jwks *keyfunc.JWKS,
 	clientId string,
 	tenantId string) (interface{}, error) {
+	var newCtx context.Context
 	if info.FullMethod != "/api.v1.FrontendConfigService/GetConfig" {
 		userData, err := authorize(ctx, jwks, clientId, tenantId)
 		if err != nil {
 			return nil, err
 		}
-		ctx = ToContext(ctx, userData)
+		newCtx = ToContext(ctx, userData)
+	} else {
+		newCtx = ctx
 	}
-
-	h, err := handler(ctx, req)
+	h, err := handler(newCtx, req)
 	return h, err
+
 }
 
 func StreamInterceptor(
