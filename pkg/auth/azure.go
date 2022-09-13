@@ -84,24 +84,31 @@ func ValidateToken(jwtB64 string, jwks *keyfunc.JWKS, clientId string, tenantId 
 	return claims, nil
 }
 
-func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantId string) error {
+func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantId string) (*User, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return status.Errorf(codes.InvalidArgument, "Retrieving metadata failed")
+		return nil, status.Errorf(codes.InvalidArgument, "Retrieving metadata failed")
 	}
 
 	authHeader, ok := md["authorization"]
 	if !ok {
-		return status.Errorf(codes.Unauthenticated, "Authorization token not supplied")
+		return nil, status.Errorf(codes.Unauthenticated, "Authorization token not supplied")
 	}
 
 	token := authHeader[0]
-	_, err := ValidateToken(token, jwks, clientId, tenantId)
+	claims, err := ValidateToken(token, jwks, clientId, tenantId)
+	u := DefaultUser
+	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
+		u = &User{
+			Email: claims["email"].(string),
+			Name:  claims["name"].(string),
+		}
+	}
 
 	if err != nil {
-		return status.Errorf(codes.Unauthenticated, "Invalid authorization token provided")
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid authorization token provided")
 	}
-	return nil
+	return u, nil
 }
 
 func UnaryInterceptor(ctx context.Context,
@@ -112,10 +119,11 @@ func UnaryInterceptor(ctx context.Context,
 	clientId string,
 	tenantId string) (interface{}, error) {
 	if info.FullMethod != "/api.v1.FrontendConfigService/GetConfig" {
-		err := authorize(ctx, jwks, clientId, tenantId)
+		userData, err := authorize(ctx, jwks, clientId, tenantId)
 		if err != nil {
 			return nil, err
 		}
+		ctx = ToContext(ctx, userData)
 	}
 
 	h, err := handler(ctx, req)
@@ -132,7 +140,7 @@ func StreamInterceptor(
 	tenantId string,
 
 ) error {
-	err := authorize(stream.Context(), jwks, clientId, tenantId)
+	_, err := authorize(stream.Context(), jwks, clientId, tenantId)
 	if err != nil {
 		return err
 	}
