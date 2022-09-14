@@ -97,6 +97,10 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 
 	token := authHeader[0]
 	claims, err := ValidateToken(token, jwks, clientId, tenantId)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid authorization token provided")
+	}
+
 	u := DefaultUser
 	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
 		u = &User{
@@ -105,9 +109,6 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 		}
 	}
 
-	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid authorization token provided")
-	}
 	return u, nil
 }
 
