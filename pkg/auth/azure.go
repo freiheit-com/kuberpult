@@ -65,12 +65,20 @@ func ValidateToken(jwtB64 string, jwks *keyfunc.JWKS, clientId string, tenantId 
 	if !token.Valid {
 		return nil, fmt.Errorf("Invalid token provided.")
 	}
-	if val, ok := claims["aud"]; ok {
+	// For access token appid is provided and aud has incorrect value
+	if val, ok := claims["appid"]; ok {
 		if val != clientId {
 			return nil, fmt.Errorf("Unknown client id provided: %s", val)
 		}
 	} else {
-		return nil, fmt.Errorf("Client id not found in token.")
+		// for id token aud is provided with value as clientId
+		if val, ok := claims["aud"]; ok {
+			if val != clientId {
+				return nil, fmt.Errorf("Unknown client id provided: %s", val)
+			}
+		} else {
+			return nil, fmt.Errorf("Client id not found in token.")
+		}
 	}
 
 	if val, ok := claims["tid"]; ok {
