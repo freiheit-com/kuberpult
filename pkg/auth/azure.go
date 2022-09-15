@@ -19,15 +19,16 @@ package auth
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc/codes"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/MicahParks/keyfunc"
+	oidc "github.com/coreos/go-oidc/v3/oidc"
 	jwt "github.com/golang-jwt/jwt/v4"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -53,43 +54,60 @@ func JWKSInitAzure(ctx context.Context) (*keyfunc.JWKS, error) {
 }
 
 func ValidateToken(jwtB64 string, jwks *keyfunc.JWKS, clientId string, tenantId string) (jwt.MapClaims, error) {
-	var token *jwt.Token
-	if jwks == nil {
-		return nil, fmt.Errorf("JWKS not initialized.")
+	ctx := context.Background()
+	jwksURL := "https://login.microsoftonline.com/common/discovery/v2.0/keys"
+	remoteKeySet := oidc.NewRemoteKeySet(ctx, jwksURL)
+
+	verifierConfig := &oidc.Config{
+		ClientID:             clientId,
+		SupportedSigningAlgs: []string{oidc.RS256},
 	}
-	claims := jwt.MapClaims{}
-	token, err := jwt.ParseWithClaims(jwtB64, claims, jwks.Keyfunc)
+	oidcVerifier := oidc.NewVerifier("https://login.microsoftonline.com/"+tenantId+"/v2.0", remoteKeySet, verifierConfig)
+
+	token, err := oidcVerifier.Verify(ctx, jwtB64)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse the JWT.\nError: %s", err.Error())
+		fmt.Printf("didn't work: %s", err)
 	}
-	if !token.Valid {
-		return nil, fmt.Errorf("Invalid token provided.")
-	}
-	// For access token appid is provided and aud has incorrect value
-	if val, ok := claims["appid"]; ok {
-		if val != clientId {
-			return nil, fmt.Errorf("Unknown client id provided: %s", val)
-		}
-	} else {
-		// for id token aud is provided with value as clientId
-		if val, ok := claims["aud"]; ok {
-			if val != clientId {
-				return nil, fmt.Errorf("Unknown client id provided: %s", val)
-			}
-		} else {
-			return nil, fmt.Errorf("Client id not found in token.")
-		}
-	}
+	fmt.Printf(token.AccessTokenHash)
 
-	if val, ok := claims["tid"]; ok {
-		if val != tenantId {
-			return nil, fmt.Errorf("Unknown tenant id provided: %s", val)
-		}
-	} else {
-		return nil, fmt.Errorf("Tenant id not found in token.")
-	}
-
-	return claims, nil
+	return nil, err
+	//var token *jwt.Token
+	//if jwks == nil {
+	//	return nil, fmt.Errorf("JWKS not initialized.")
+	//}
+	//claims := jwt.MapClaims{}
+	//token, err := jwt.ParseWithClaims(jwtB64, claims, jwks.Keyfunc)
+	//if err != nil {
+	//	return nil, fmt.Errorf("Failed to parse the JWT.\nError: %s", err.Error())
+	//}
+	//if !token.Valid {
+	//	return nil, fmt.Errorf("Invalid token provided.")
+	//}
+	//// For access token appid is provided and aud has incorrect value
+	//if val, ok := claims["appid"]; ok {
+	//	if val != clientId {
+	//		return nil, fmt.Errorf("Unknown client id provided: %s", val)
+	//	}
+	//} else {
+	//	// for id token aud is provided with value as clientId
+	//	if val, ok := claims["aud"]; ok {
+	//		if val != clientId {
+	//			return nil, fmt.Errorf("Unknown client id provided: %s", val)
+	//		}
+	//	} else {
+	//		return nil, fmt.Errorf("Client id not found in token.")
+	//	}
+	//}
+	//
+	//if val, ok := claims["tid"]; ok {
+	//	if val != tenantId {
+	//		return nil, fmt.Errorf("Unknown tenant id provided: %s", val)
+	//	}
+	//} else {
+	//	return nil, fmt.Errorf("Tenant id not found in token.")
+	//}
+	//
+	//return claims, nil
 }
 
 func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantId string) (*User, error) {

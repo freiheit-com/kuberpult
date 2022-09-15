@@ -24,11 +24,11 @@ type ServerConfig struct {
 	GKEBackendServiceID string `default:"" split_words:"true"`
 	EnableTracing       bool   `default:"false" split_words:"true"`
 	ArgocdBaseUrl       string `default:"" split_words:"true"`
-	AzureEnableAuth     bool   `default:"false" split_words:"true"`
+	AzureEnableAuth     bool   `default:"true" split_words:"true"`
 	AzureCloudInstance  string `default:"https://login.microsoftonline.com/" split_words:"true"`
-	AzureClientId       string `default:"" split_words:"true"`
-	AzureTenantId       string `default:"" split_words:"true"`
-	AzureRedirectUrl    string `default:"" split_words:"true"`
+	AzureClientId       string `default:"9a6af420-4648-42de-b05f-8ee745a1e90c" split_words:"true"`
+	AzureTenantId       string `default:"857a7b86-2d66-46f2-92e1-25be0c27e398" split_words:"true"`
+	AzureRedirectUrl    string `default:"http://localhost:3000" split_words:"true"`
 	Version             string `default:""`
 	SourceRepoUrl       string `default:"" split_words:"true"`
 }
