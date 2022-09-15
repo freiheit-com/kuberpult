@@ -99,7 +99,7 @@ deps: .deps.sentinel
 
 src/api/api.ts: ../../pkg/api/api.proto | deps
 	mkdir -p src/api
-	buf generate --path api
+	buf generate --path api --timeout 5m
 
 dist: .dist.sentinel
 
