@@ -37,6 +37,7 @@ describe('Releases', () => {
             sourceMessage: 'this is a test',
             undeployVersion: false,
             createdAt: t,
+            prNumber: '12',
         };
         return r;
     };
@@ -63,16 +64,19 @@ describe('Releases', () => {
                 app1: {
                     name: 'app1',
                     team: 'team1',
+                    sourceRepoUrl: 'git.test/repo',
                     releases: [getRelease(t)],
                 },
                 app2: {
                     name: 'app2',
                     team: 'team1',
+                    sourceRepoUrl: 'git.test/repo',
                     releases: [getRelease(t)],
                 },
                 app3: {
                     name: 'app3',
                     team: 'team2',
+                    sourceRepoUrl: 'git.test/repo',
                     releases: [getRelease(t)],
                 },
             },
