@@ -119,6 +119,8 @@ spec:
         - name: KUBERPULT_PGP_KEY_RING
           value: /keyring/keyring.gpg
 {{- end }}
+        - name: KUBERPULT_AZURE_ENABLE_AUTH
+          value: "{{ .Values.auth.azureAuth.enabled }}"
 {{- if .Values.environment_configs.bootstrap_mode }}
         - name: KUBERPULT_BOOTSTRAP_MODE
           value: "{{ .Values.environment_configs.bootstrap_mode }}"
