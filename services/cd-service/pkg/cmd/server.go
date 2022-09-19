@@ -80,7 +80,7 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("pgp.read.error", zap.Error(err))
 		}
 		if c.AzureEnableAuth && pgpKeyRing == nil {
-			logger.FromContext(ctx).Fatal("azure.auth.error: pgpKeyRing is required to authenticate manifests")
+			logger.FromContext(ctx).Fatal("azure.auth.error: pgpKeyRing is required to authenticate manifests when \"KUBERPULT_AZURE_ENABLE_AUTH\" is true")
 		}
 
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
