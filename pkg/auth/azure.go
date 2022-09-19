@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -159,6 +160,12 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 		if strings.HasPrefix(req.URL.Path, allowedPrefix) {
 			return nil
 		}
+	}
+	// Skip authentication with ID for `/release` and `/releasetrain` endpoints. The requests will be validated with pgp signature
+	// usage in requests made by GitHub Actions and the Publish.sh script.
+	releaseTrainRx := regexp.MustCompile("/environments/[a-z]*/releasetrain")
+	if releaseTrainRx.MatchString(req.URL.Path) {
+		return nil
 	}
 
 	claims, err := ValidateToken(token, jwks, clientId, tenantId)

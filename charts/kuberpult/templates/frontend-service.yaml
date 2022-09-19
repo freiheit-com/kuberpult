@@ -88,6 +88,10 @@ spec:
         - name: KUBERPULT_ENABLE_TRACING
           value: "{{ .Values.datadogTracing.enabled }}"
 {{- end }}
+{{- if .Values.pgp.keyRing }}
+        - name: KUBERPULT_PGP_KEY_RING
+          value: /keyring/keyring.gpg
+{{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH
           value: "{{ .Values.auth.azureAuth.enabled }}"
 {{- if .Values.auth.azureAuth.enabled }}

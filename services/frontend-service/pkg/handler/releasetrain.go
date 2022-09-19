@@ -18,7 +18,10 @@ package handler
 
 import (
 	"fmt"
+	"golang.org/x/crypto/openpgp"
+	pgperrors "golang.org/x/crypto/openpgp/errors"
 	"net/http"
+	"strings"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 )
@@ -30,6 +33,29 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, env
 	}
 	if tail != "/" {
 		http.Error(w, fmt.Sprintf("releasetrain does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
+		return
+	}
+
+	validSignature := false
+	signature := req.Header.Get("signature")
+	if signature == "" {
+		w.WriteHeader(500)
+		fmt.Fprintf(w, "Internal: Invalid signature: Signature is empty")
+		return
+	} else {
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment), strings.NewReader(signature)); err != nil {
+			if err != pgperrors.ErrUnknownIssuer {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				return
+			}
+		} else {
+			validSignature = true
+		}
+	}
+	if !validSignature {
+		w.WriteHeader(400)
+		fmt.Fprintf(w, "Invalid signature")
 		return
 	}
 
