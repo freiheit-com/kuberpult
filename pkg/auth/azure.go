@@ -163,7 +163,7 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 	}
 	// Skip authentication with ID for `/release` and `/releasetrain` endpoints. The requests will be validated with pgp signature
 	// usage in requests made by GitHub Actions and the Publish.sh script.
-	releaseTrainRx := regexp.MustCompile("/environments/[a-z]*/releasetrain")
+	releaseTrainRx := regexp.MustCompile("/environments/[^/]*/releasetrain")
 	if releaseTrainRx.MatchString(req.URL.Path) {
 		return nil
 	}
