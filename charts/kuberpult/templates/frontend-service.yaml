@@ -104,6 +104,17 @@ spec:
         - name: KUBERPULT_AZURE_REDIRECT_URL
           value: "https://{{ .Values.ingress.domainName }}"
 {{- end }}
+        volumeMounts:
+{{ - if .Values.pgp.keyRing }}
+        - name: keyring
+          mountPath: /keyring
+{{ - end }}
+      volumes:
+{{- if .Values.pgp.keyRing }}
+      - name: keyring
+        configMap:
+          name: kuberpult-keyring
+{{- end }}
 
 ---
 apiVersion: v1
