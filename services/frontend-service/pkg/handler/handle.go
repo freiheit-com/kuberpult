@@ -31,6 +31,7 @@ type Server struct {
 	LockClient   api.LockServiceClient
 	Config       config.ServerConfig
 	KeyRing      openpgp.KeyRing
+	AzureAuth    bool
 }
 
 func (s Server) Handle(w http.ResponseWriter, req *http.Request) {

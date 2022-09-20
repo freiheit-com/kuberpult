@@ -36,27 +36,24 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, env
 		return
 	}
 
-	validSignature := false
-	signature := req.Header.Get("signature")
-	if signature == "" {
-		w.WriteHeader(500)
-		fmt.Fprintf(w, "Internal: Invalid signature: Signature is empty")
-		return
-	} else {
-		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment), strings.NewReader(signature)); err != nil {
-			if err != pgperrors.ErrUnknownIssuer {
-				w.WriteHeader(500)
-				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+	if s.AzureAuth {
+		signature := req.Header.Get("signature")
+		if signature == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("Missing signature header"))
+			return
+		} else {
+			if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment), strings.NewReader(signature)); err != nil {
+				if err != pgperrors.ErrUnknownIssuer {
+					w.WriteHeader(500)
+					fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+					return
+				}
+				w.WriteHeader(http.StatusUnauthorized)
+				fmt.Fprintf(w, "Invalid signature")
 				return
 			}
-		} else {
-			validSignature = true
 		}
-	}
-	if !validSignature {
-		w.WriteHeader(400)
-		fmt.Fprintf(w, "Invalid signature")
-		return
 	}
 
 	_, err := s.DeployClient.ReleaseTrain(req.Context(), &api.ReleaseTrainRequest{
