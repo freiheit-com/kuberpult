@@ -105,10 +105,10 @@ spec:
           value: "https://{{ .Values.ingress.domainName }}"
 {{- end }}
         volumeMounts:
-{{ - if .Values.pgp.keyRing }}
+{{- if .Values.pgp.keyRing }}
         - name: keyring
           mountPath: /keyring
-{{ - end }}
+{{- end }}
       volumes:
 {{- if .Values.pgp.keyRing }}
       - name: keyring
