@@ -49,7 +49,7 @@ describe('Application Card', () => {
             expect: (container) => expect(container.getElementsByClassName('app-lock-display')).toHaveLength(1),
         },
         {
-            name: 'one existing lock',
+            name: 'one existing lock with normal date',
             lock: [new Date(), 'asda', 'asdas'],
             expect: (container) => expect(container.getElementsByClassName('date-display--normal')).toHaveLength(1),
         },
