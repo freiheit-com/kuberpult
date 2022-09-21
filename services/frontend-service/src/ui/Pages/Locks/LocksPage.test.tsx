@@ -17,12 +17,12 @@ Copyright 2021 freiheit.com*/
 import { render } from '@testing-library/react';
 import { LocksPage } from './LocksPage';
 
-describe('EnvironmentsPage', () => {
+describe('LocksPage', () => {
     const getNode = (): JSX.Element | any => <LocksPage />;
     const getWrapper = () => render(getNode());
 
     it('Renders full app', () => {
         const { container } = getWrapper();
-        expect(container.textContent).toBe('List All Locks Here');
+        expect(container.getElementsByClassName('mdc-env-data-table')[0]).toBeTruthy();
     });
 });
