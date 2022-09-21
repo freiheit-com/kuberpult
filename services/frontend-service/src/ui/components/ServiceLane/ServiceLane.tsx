@@ -17,6 +17,7 @@ Copyright 2021 freiheit.com*/
 import { useDeployedReleases } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { Button } from '../button';
+import { DeleteWhite, HistoryWhite } from '../../../images';
 
 export const ServiceLane: React.FC<{ application: string }> = (props) => {
     const { application } = props;
@@ -29,12 +30,12 @@ export const ServiceLane: React.FC<{ application: string }> = (props) => {
                     <Button
                         className="service-action service-action--prepare-undeploy"
                         label={'Prepare to delete'}
-                        icon={'delete'}
+                        icon={<DeleteWhite />}
                     />
                     <Button
                         className="service-action service-action--history"
                         label={'View history'}
-                        icon={'history'}
+                        icon={<HistoryWhite />}
                     />
                 </div>
             </div>

@@ -15,4 +15,12 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 
-export const LocksPage: React.FC = () => <main className="main-content">List All Locks Here</main>;
+import { EnvironmentLocksCard } from '../../components/EnvironmentLocksCard/EnvironmentLocksCard';
+import { ApplicationLocksCard } from '../../components/ApplicationLocksCard/ApplicationLocksCard';
+
+export const LocksPage: React.FC = () => (
+    <main className="main-content">
+        <EnvironmentLocksCard></EnvironmentLocksCard>
+        <ApplicationLocksCard></ApplicationLocksCard>
+    </main>
+);

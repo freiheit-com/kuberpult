@@ -1,0 +1,33 @@
+@use "@material/data-table/data-table";
+
+.mdc-env-data-table__table{
+  width: 100%;
+}
+
+.mdc-env-data-table{
+  margin: $locks-list-margin;
+}
+
+.mdc-env-data-indicator{
+  background-color: var(--mdc-theme-primary);
+  color: var(--mdc-theme-on-primary);
+  height: $locks-list-header-height;
+  font-weight: bold;
+  line-height: $locks-subheader-line-height;
+  border-radius: $locks-list-header-border-radius;
+
+  .mdc-env-data-indicator-header{
+    display: flex;
+    padding-inline: $locks-list-header-padding;
+  }
+
+  .mdc-env-data-header-title{
+    font-size: $locks-header-font-size;
+  }
+
+  .mdc-env-data-indicator-field{
+    flex: 1;
+    line-height: $locks-list-header-line-height;
+    font-size: $locks-subheader-font-size;
+  }
+}

@@ -15,6 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { Button } from '../button';
+import { HideBarWhite } from '../../../images';
 
 export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }> = (props) => {
     const { className, toggleSidebar } = props;
@@ -25,7 +26,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                 <div className="mdc-drawer-sidebar mdc-drawer-sidebar-header">
                     <Button
                         className={'mdc-drawer-sidebar mdc-drawer-sidebar-header mdc-drawer-sidebar-header__button'}
-                        icon={'navigate_next'}
+                        icon={<HideBarWhite />}
                         onClick={toggleSidebar}
                     />
                     <h1 className="mdc-drawer-sidebar mdc-drawer-sidebar-header-title">Planned Actions</h1>

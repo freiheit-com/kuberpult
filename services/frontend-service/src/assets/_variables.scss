@@ -22,6 +22,23 @@ $sidebar-apply-font-size: 1.5em;
 $top-app-bar-padding: 2em 0 2em $nav-bar-width; // 2em on top and bottom each
 $top-app-bar-height: 8em; // 8em = 128px
 
+$locks-list-header-border-radius: 10px;
+$locks-list-header-height: 3em;
+$locks-list-header-padding: .5em;
+$locks-list-header-line-height: 2em;
+$locks-list-header-font-size: 1.1em;
+$locks-list-row-spacing: -.3em 0;
+$locks-list-row-height: 3.5em;
+$locks-list-row-margin: .5em;
+$locks-button-delete-height: 4em;
+$locks-date-outdated-color: #FF8A00;
+$locks-row-font-size: 16px;
+$locks-header-font-size: 28px;
+$locks-subheader-font-size: 18px;
+$locks-subheader-line-height: 2em;
+$locks-list-margin: 0 0 2em 0;
+
+
 // Logo
 // 6em = 96px - Logo_width(60px) = 36px / 2 = 18px
 // top_bar_height(8em) = 128px - Logo_height(72px) = 56px / 2 = 28px

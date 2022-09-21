@@ -1,0 +1,36 @@
+@use "@material/data-table/data-table";
+
+.app-lock-display__table{
+  width: 100%;
+  background-color: var(--mdc-theme-surface, #fff);
+  margin: $locks-list-row-spacing;
+  justify-content: center;
+  align-items: center;
+  height: $locks-list-row-height;
+  font-size: $locks-row-font-size;
+}
+
+.app-lock-display-table{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: $locks-list-row-margin;
+}
+
+.app-lock-display-info{
+  flex: 1;
+  text-align: center;
+}
+
+.lock-action{
+  height: $locks-button-delete-height;
+}
+
+.service-action--delete{
+  padding: 0;
+}
+
+.date-display--outdated{
+  color: $locks-date-outdated-color;
+}
+

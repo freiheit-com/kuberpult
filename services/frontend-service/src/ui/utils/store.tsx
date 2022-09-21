@@ -26,6 +26,70 @@ export const [_, PanicOverview] = createStore({ error: '' });
 export const useApplicationNames = () =>
     useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
 
+// return all environment locks
+export const useEnvironmentLocks = () =>
+    useOverview(({ environments }) =>
+        Object.values(environments)
+            .map((environment) =>
+                Object.entries(environment.locks).map((lockInfo) => [
+                    lockInfo[1].createdAt,
+                    environment.name,
+                    lockInfo[0],
+                    lockInfo[1].message,
+                    lockInfo[1].createdBy?.name,
+                    lockInfo[1].createdBy?.email,
+                ])
+            )
+            .filter((content) => content.length !== 0)
+            .reduce((acc, val) => acc.concat(val), [])
+            .sort((a, b) => {
+                if (a !== undefined && b !== undefined) {
+                    if (a[0] !== undefined && b[0] !== undefined) {
+                        if (a[0] > b[0]) {
+                            return -1;
+                        } else if (a[0] === b[0]) {
+                            return 0;
+                        }
+                        return 1;
+                    }
+                }
+                return 1;
+            })
+    );
+
+// return all applications locks
+export const useApplicationLocks = () =>
+    useOverview(({ environments }) =>
+        Object.values(environments)
+            .map((environment) =>
+                Object.values(environment.applications)
+                    .map((application) =>
+                        Object.values(application.locks).map((lockInfo) => [
+                            lockInfo.createdAt,
+                            application.name,
+                            environment.name,
+                            lockInfo.lockId,
+                            lockInfo.message,
+                            lockInfo.createdBy?.name,
+                            lockInfo.createdBy?.email,
+                        ])
+                    )
+                    .reduce((acc, val) => acc.concat(val), [])
+            )
+            .reduce((acc, val) => acc.concat(val), [])
+            .sort((a, b) => {
+                if (a !== undefined && b !== undefined) {
+                    if (a[0] !== undefined && b[0] !== undefined) {
+                        if (a[0] > b[0]) {
+                            return -1;
+                        }
+                        return 1;
+                    }
+                }
+                return 1;
+            })
+    );
+
 // returns the release number {$version} of {$application}
 export const useRelease = (application: string, version: number) =>
     useOverview(
