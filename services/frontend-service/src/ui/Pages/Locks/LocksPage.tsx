@@ -33,7 +33,15 @@ const environmentFieldHeaders = ['Date', 'Environment', 'Lock Id', 'Message', 'A
 
 export const LocksPage: React.FC = () => (
     <main className="main-content">
-        <LocksTable headerTitle="App Locks" columnHeaders={environmentFieldHeaders} locks={useEnvironmentLocks()} />
-        <LocksTable headerTitle="App Locks" columnHeaders={applicationFieldHeaders} locks={useApplicationLocks()} />
+        <LocksTable
+            headerTitle="Environment Locks"
+            columnHeaders={environmentFieldHeaders}
+            locks={useEnvironmentLocks()}
+        />
+        <LocksTable
+            headerTitle="Application Locks"
+            columnHeaders={applicationFieldHeaders}
+            locks={useApplicationLocks()}
+        />
     </main>
 );
