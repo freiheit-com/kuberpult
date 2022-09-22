@@ -37,14 +37,10 @@ export const Button = (props: { className?: string; label?: string; icon?: JSX.E
             ref={control}
             aria-label={label || ''}>
             <div className="mdc-button__ripple" />
-            {!!icon && (
-                <i className="medium material-icons mdc-list-item__graphic" aria-hidden="true">
-                    {icon &&
-                        cloneElement(icon, {
-                            key: 'icon',
-                        })}
-                </i>
-            )}
+            {icon &&
+                cloneElement(icon, {
+                    key: 'icon',
+                })}
             {!!label && (
                 <span key="label" className="mdc-button__label">
                     {label}

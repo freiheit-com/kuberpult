@@ -23,6 +23,7 @@ describe('LocksPage', () => {
 
     it('Renders full app', () => {
         const { container } = getWrapper();
-        expect(container.getElementsByClassName('mdc-env-data-table')[0]).toBeTruthy();
+        expect(container.getElementsByClassName('mdc-env-data-table')[0]).toHaveTextContent('Environment Locks');
+        expect(container.getElementsByClassName('mdc-app-data-table')[0]).toHaveTextContent('Application Locks');
     });
 });

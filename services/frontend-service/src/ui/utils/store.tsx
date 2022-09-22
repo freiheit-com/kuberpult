@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { GetOverviewResponse } from '../../api/api';
+import { DisplayLock, GetOverviewResponse } from '../../api/api';
 
 const emptyOverview: GetOverviewResponse = { applications: {}, environments: {} };
 export const [useOverview, UpdateOverview] = createStore(emptyOverview);
@@ -31,30 +31,20 @@ export const useEnvironmentLocks = () =>
     useOverview(({ environments }) =>
         Object.values(environments)
             .map((environment) =>
-                Object.entries(environment.locks).map((lockInfo) => [
-                    lockInfo[1].createdAt,
-                    environment.name,
-                    lockInfo[0],
-                    lockInfo[1].message,
-                    lockInfo[1].createdBy?.name,
-                    lockInfo[1].createdBy?.email,
-                ])
+                Object.values(environment.locks).map(
+                    (lockInfo) =>
+                        ({
+                            date: lockInfo.createdAt,
+                            environment: environment.name,
+                            lockId: lockInfo.lockId,
+                            message: lockInfo.message,
+                            authorName: lockInfo.createdBy?.name,
+                            authorEmail: lockInfo.createdBy?.email,
+                        } as DisplayLock)
+                )
             )
-            .filter((content) => content.length !== 0)
-            .reduce((acc, val) => acc.concat(val), [])
-            .sort((a, b) => {
-                if (a !== undefined && b !== undefined) {
-                    if (a[0] !== undefined && b[0] !== undefined) {
-                        if (a[0] > b[0]) {
-                            return -1;
-                        } else if (a[0] === b[0]) {
-                            return 0;
-                        }
-                        return 1;
-                    }
-                }
-                return 1;
-            })
+            .filter((displayLock) => displayLock.length !== 0)
+            .flat()
     );
 
 // return all applications locks
@@ -64,30 +54,24 @@ export const useApplicationLocks = () =>
             .map((environment) =>
                 Object.values(environment.applications)
                     .map((application) =>
-                        Object.values(application.locks).map((lockInfo) => [
-                            lockInfo.createdAt,
-                            application.name,
-                            environment.name,
-                            lockInfo.lockId,
-                            lockInfo.message,
-                            lockInfo.createdBy?.name,
-                            lockInfo.createdBy?.email,
-                        ])
+                        Object.values(application.locks).map(
+                            (lockInfo) =>
+                                ({
+                                    date: lockInfo.createdAt,
+                                    application: application.name,
+                                    environment: environment.name,
+                                    lockId: lockInfo.lockId,
+                                    message: lockInfo.message,
+                                    authorName: lockInfo.createdBy?.name,
+                                    authorEmail: lockInfo.createdBy?.email,
+                                } as DisplayLock)
+                        )
                     )
-                    .reduce((acc, val) => acc.concat(val), [])
+                    .filter((displayLock) => displayLock.length !== 0)
             )
-            .reduce((acc, val) => acc.concat(val), [])
-            .sort((a, b) => {
-                if (a !== undefined && b !== undefined) {
-                    if (a[0] !== undefined && b[0] !== undefined) {
-                        if (a[0] > b[0]) {
-                            return -1;
-                        }
-                        return 1;
-                    }
-                }
-                return 1;
-            })
+            .filter((displayLock) => displayLock.length !== 0)
+            .map((displayLock) => displayLock[0])
+            .flat()
     );
 
 // returns the release number {$version} of {$application}

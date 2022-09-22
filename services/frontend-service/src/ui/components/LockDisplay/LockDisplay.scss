@@ -1,6 +1,6 @@
 @use "@material/data-table/data-table";
 
-.env-lock-display__table{
+.lock-display__table{
   width: 100%;
   background-color: var(--mdc-theme-surface, #fff);
   margin: $locks-list-row-spacing;
@@ -10,14 +10,14 @@
   font-size: $locks-row-font-size;
 }
 
-.env-lock-display-table{
+.lock-display-table{
   display: flex;
   justify-content: center;
   align-items: center;
   margin: $locks-list-row-margin;
 }
 
-.env-lock-display-info{
+.lock-display-info{
   flex: 1;
   text-align: center;
 }

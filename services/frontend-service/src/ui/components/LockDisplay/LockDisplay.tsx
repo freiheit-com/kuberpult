@@ -16,26 +16,27 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { Button } from '../button';
 import { Delete } from '../../../images';
+import { DisplayLock } from '../../../api/api';
 
-export const ApplicationLockDisplay: React.FC<{ lock: (string | Date | undefined)[] }> = (props) => {
+export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
     const { lock } = props;
     return (
-        <div className="app-lock-display">
-            <div className="app-lock-display__table">
-                <div className="app-lock-display-table">
+        <div className="lock-display">
+            <div className="-lock-display__table">
+                <div className="lock-display-table">
                     <div
                         className={
-                            'app-lock-display-info date-display--' + (isOutdated(lock[0]) ? 'outdated' : 'normal')
+                            'lock-display-info date-display--' + (isOutdated(lock.date) ? 'outdated' : 'normal')
                         }>
-                        {daysToString(calcLockAge(lock[0]))}
+                        {daysToString(calcLockAge(lock.date))}
                     </div>
-                    <div className="app-lock-display-info">{lock[1]?.toString()}</div>
-                    <div className="app-lock-display-info">{lock[2]?.toString()}</div>
-                    <div className="app-lock-display-info">{lock[3]?.toString()}</div>
-                    <div className="app-lock-display-info">{lock[4]?.toString()}</div>
-                    <div className="app-lock-display-info">{lock[5]?.toString()}</div>
-                    <div className="app-lock-display-info">{lock[6]?.toString()}</div>
-                    <Button className="app-lock-display-info lock-action service-action--delete" icon={<Delete />} />
+                    <div className="lock-display-info">{lock.environment}</div>
+                    {lock.application !== undefined && <div className="lock-display-info">{lock.application}</div>}
+                    <div className="lock-display-info">{lock.lockId}</div>
+                    <div className="lock-display-info">{lock.message}</div>
+                    <div className="lock-display-info">{lock.authorName}</div>
+                    <div className="lock-display-info">{lock.authorEmail}</div>
+                    <Button className="lock-display-info lock-action service-action--delete" icon={<Delete />} />
                 </div>
             </div>
         </div>
