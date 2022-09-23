@@ -24,7 +24,6 @@ export const LocksTable: React.FC<{
     locks: DisplayLock[];
 }> = (props) => {
     const { headerTitle, columnHeaders, locks } = props;
-    const sortedLocks = sortLocks(locks);
     return (
         <div className="mdc-data-table">
             <div className="mdc-data-table__table-container">
@@ -49,7 +48,7 @@ export const LocksTable: React.FC<{
                         </tr>
                     </thead>
                     <tbody className="mdc-data-table__content">
-                        {sortedLocks.map((lock) => (
+                        {locks.map((lock) => (
                             <LockDisplay lock={lock} />
                         ))}
                     </tbody>
@@ -58,20 +57,3 @@ export const LocksTable: React.FC<{
         </div>
     );
 };
-
-const sortLocks = (displayLocks: DisplayLock[]) =>
-    displayLocks.sort((a: DisplayLock, b: DisplayLock) => {
-        if (a.date === b.date) {
-            if (a.environment === b.environment) {
-                if (a.application !== undefined && b.application !== undefined) {
-                    if (a.application === b.application) {
-                        return a.lockId < b.lockId ? -1 : a.lockId === b.lockId ? 0 : 1;
-                    }
-                    return a.application < b.application ? -1 : 1;
-                }
-                return a.lockId < b.lockId ? -1 : a.lockId === b.lockId ? 0 : 1;
-            }
-            return a.environment < b.environment ? -1 : 1;
-        }
-        return a.date > b.date ? -1 : 1;
-    });

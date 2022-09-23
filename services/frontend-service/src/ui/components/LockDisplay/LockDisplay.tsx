@@ -18,6 +18,25 @@ import { Button } from '../button';
 import { Delete } from '../../../images';
 import { DisplayLock } from '../../../api/api';
 
+export const daysToString = (days: number) => {
+    if (days === -1) return '';
+    if (days === 0) return '< 1 day ago';
+    if (days === 1) return '1 day ago';
+    return `${days} days ago`;
+};
+
+export const calcLockAge = (time: Date | string | undefined): number => {
+    if (time !== undefined && typeof time !== 'string') {
+        const curTime = new Date().getTime();
+        const diffTime = curTime.valueOf() - time.valueOf();
+        const msPerDay = 1000 * 60 * 60 * 24;
+        return Math.floor(diffTime / msPerDay);
+    }
+    return -1;
+};
+
+export const isOutdated = (dateAdded: Date | string | undefined): boolean => calcLockAge(dateAdded) > 2;
+
 export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
     const { lock } = props;
     return (
@@ -31,7 +50,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                         {daysToString(calcLockAge(lock.date))}
                     </div>
                     <div className="lock-display-info">{lock.environment}</div>
-                    { !! lock.application && <div className="lock-display-info">{lock.application}</div>}
+                    {!!lock.application && <div className="lock-display-info">{lock.application}</div>}
                     <div className="lock-display-info">{lock.lockId}</div>
                     <div className="lock-display-info">{lock.message}</div>
                     <div className="lock-display-info">{lock.authorName}</div>
@@ -41,28 +60,4 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
             </div>
         </div>
     );
-};
-
-const daysToString = (days: number) => {
-    if (days === -1) return '';
-    if (days === 0) return '< 1 day ago';
-    if (days === 1) return '1 day ago';
-    return `${days} days ago`;
-};
-
-const calcLockAge = (time: Date | string | undefined): number => {
-    if (time !== undefined && typeof time !== 'string') {
-        const curTime = new Date().getTime();
-        const diffTime = curTime.valueOf() - time.valueOf();
-        const msPerDay = 1000 * 60 * 60 * 24;
-        return Math.floor(diffTime / msPerDay);
-    }
-    return -1;
-};
-
-const isOutdated = (dateAdded: Date | string | undefined): boolean => {
-    if (!!dateAdded && typeof dateAdded !== 'string') {
-        return calcLockAge(dateAdded) > 2;
-    }
-    return false;
 };
