@@ -31,7 +31,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                         {daysToString(calcLockAge(lock.date))}
                     </div>
                     <div className="lock-display-info">{lock.environment}</div>
-                    {lock.application !== undefined && <div className="lock-display-info">{lock.application}</div>}
+                    { !! lock.application && <div className="lock-display-info">{lock.application}</div>}
                     <div className="lock-display-info">{lock.lockId}</div>
                     <div className="lock-display-info">{lock.message}</div>
                     <div className="lock-display-info">{lock.authorName}</div>
