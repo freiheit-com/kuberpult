@@ -17,7 +17,9 @@ Copyright 2021 freiheit.com*/
 package handler
 
 import (
+	"bytes"
 	"context"
+	"golang.org/x/crypto/openpgp"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -34,9 +36,26 @@ import (
 )
 
 func TestServer_Handle(t *testing.T) {
+	exampleKey, err := openpgp.NewEntity("Test", "", "test@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exampleKeyRing := openpgp.EntityList{exampleKey}
+	exampleSignature := ""
+	exampleEnvironment := "development"
+	signatureBuffer := bytes.Buffer{}
+	err = openpgp.ArmoredDetachSign(&signatureBuffer, exampleKey, bytes.NewReader([]byte(exampleEnvironment)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exampleSignature = signatureBuffer.String()
+
 	tests := []struct {
 		name                                            string
 		req                                             *http.Request
+		KeyRing                                         openpgp.KeyRing
+		signature                                       string
+		AzureAuthEnabled                                bool
 		expectedResp                                    *http.Response
 		expectedBody                                    string
 		expectedDeployRequest                           *api.DeployRequest
@@ -111,6 +130,54 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusNotFound,
 			},
 			expectedBody: "releasetrain does not accept additional path arguments, got: '/junk'\n",
+		},
+		{
+			name:             "release train - Azure enabled",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain",
+				},
+				Body: io.NopCloser(strings.NewReader(exampleSignature)),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody:                "",
+			expectedReleaseTrainRequest: &api.ReleaseTrainRequest{Environment: "development"},
+		},
+		{
+			name:             "release train - Azure enabled - missing signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "missing request body",
+		},
+		{
+			name:             "release train - Azure enabled - invalid signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain",
+				},
+				Body: io.NopCloser(strings.NewReader("uncool")),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+			},
+			expectedBody: "Internal: Invalid Signature: EOF",
 		},
 		{
 			name: "lock env",
@@ -420,6 +487,8 @@ func TestServer_Handle(t *testing.T) {
 			s := Server{
 				DeployClient: deployClient,
 				LockClient:   lockClient,
+				KeyRing:      tt.KeyRing,
+				AzureAuth:    tt.AzureAuthEnabled,
 			}
 
 			w := httptest.NewRecorder()

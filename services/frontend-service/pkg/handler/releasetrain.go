@@ -38,16 +38,20 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, env
 	}
 
 	if s.AzureAuth {
-		defer req.Body.Close()
+		if req.Body == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "missing request body")
+			return
+		}
 		signature, err := io.ReadAll(req.Body)
 		if err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "Can't read request body %s", err)
 			return
 		}
 
 		if len(signature) == 0 {
-			w.WriteHeader(http.StatusUnauthorized)
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Missing signature in request body"))
 			return
 		}
