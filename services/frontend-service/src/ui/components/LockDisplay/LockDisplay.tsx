@@ -61,7 +61,7 @@ const calcLockAge = (time: Date | string | undefined): number => {
 };
 
 const isOutdated = (dateAdded: Date | string | undefined): boolean => {
-    if (dateAdded !== undefined && typeof dateAdded !== 'string') {
+    if (!!dateAdded && typeof dateAdded !== 'string') {
         return calcLockAge(dateAdded) > 2;
     }
     return false;
