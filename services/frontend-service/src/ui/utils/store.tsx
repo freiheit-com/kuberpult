@@ -81,8 +81,7 @@ export const useApplicationLocks = () =>
                     .filter((displayLock) => displayLock.length !== 0)
             )
             .filter((displayLock) => displayLock.length !== 0)
-            .map((displayLock) => displayLock[0])
-            .flat();
+            .flat(2);
         return sortLocks(locks, 'descending');
     });
 
