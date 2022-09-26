@@ -29,7 +29,7 @@ export const LocksTable: React.FC<{
 }> = (props) => {
     const { headerTitle, columnHeaders, locks } = props;
 
-    const [sort, setSort] = React.useState<string>('descending');
+    const [sort, setSort] = React.useState<string>('ascending');
 
     const sortOnClick = useCallback(() => {
         if (sort === 'ascending') {
@@ -57,7 +57,7 @@ export const LocksTable: React.FC<{
                                 scope="col">
                                 <div className="mdc-data-indicator-header">
                                     {columnHeaders.map((columnHeader) => (
-                                        <div className="mdc-data-indicator-field">
+                                        <div key={columnHeader} className="mdc-data-indicator-field">
                                             {columnHeader}
                                             {columnHeader === 'Date' && sort === 'ascending' && (
                                                 <Button
@@ -81,7 +81,7 @@ export const LocksTable: React.FC<{
                     </thead>
                     <tbody className="mdc-data-table__content">
                         {locks.map((lock) => (
-                            <LockDisplay lock={lock} />
+                            <LockDisplay key={lock.lockId} lock={lock} />
                         ))}
                     </tbody>
                 </table>

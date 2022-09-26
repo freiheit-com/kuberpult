@@ -53,7 +53,7 @@ export const useEnvironmentLocks = () =>
             )
         );
         const locksFiltered = locks.filter((displayLock) => displayLock.length !== 0);
-        return sortLocks(locksFiltered.flat(), 'ascending');
+        return sortLocks(locksFiltered.flat(), 'descending');
     });
 
 // return all applications locks
