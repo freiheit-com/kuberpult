@@ -19,7 +19,7 @@ if [ ! -z ${CODE_REVIEWER_PROJECT:-} ]; then
 fi
 
 if [ $DRY_RUN -eq 1 ]; then
-    @"${CODE_REVIEWER_LOCATION}" analyse multiple . --commit "${FROM_REVISION}" --config codereviewr.yaml ${PROJECT} --dry-run
+    echo "${CODE_REVIEWER_LOCATION}" analyse multiple . --commit "${FROM_REVISION}" --config codereviewr.yaml ${PROJECT} --dry-run
 else
-    @"${CODE_REVIEWER_LOCATION}" analyse multiple . --commit "${FROM_REVISION}" --config codereviewr.yaml ${PROJECT}
+    echo "${CODE_REVIEWER_LOCATION}" analyse multiple . --commit "${FROM_REVISION}" --config codereviewr.yaml ${PROJECT}
 fi
