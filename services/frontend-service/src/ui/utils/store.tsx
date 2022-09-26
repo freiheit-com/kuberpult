@@ -39,53 +39,50 @@ export const useApplicationNames = () =>
 // return all environment locks
 export const useEnvironmentLocks = () =>
     useOverview(({ environments }) => {
-        const locks = Object.values(environments)
-            .map((environment) =>
-                Object.values(environment.locks).map(
-                    (lockInfo) =>
-                        ({
-                            date: lockInfo.createdAt,
-                            environment: environment.name,
-                            lockId: lockInfo.lockId,
-                            message: lockInfo.message,
-                            authorName: lockInfo.createdBy?.name,
-                            authorEmail: lockInfo.createdBy?.email,
-                        } as DisplayLock)
-                )
+        const locks = Object.values(environments).map((environment) =>
+            Object.values(environment.locks).map(
+                (lockInfo) =>
+                    ({
+                        date: lockInfo.createdAt,
+                        environment: environment.name,
+                        lockId: lockInfo.lockId,
+                        message: lockInfo.message,
+                        authorName: lockInfo.createdBy?.name,
+                        authorEmail: lockInfo.createdBy?.email,
+                    } as DisplayLock)
             )
-            .filter((displayLock) => displayLock.length !== 0)
-            .flat();
-        return sortLocks(locks, 'descending');
+        );
+        const locksFiltered = locks.filter((displayLock) => displayLock.length !== 0);
+        return sortLocks(locksFiltered.flat(), 'ascending');
     });
 
 // return all applications locks
 export const useApplicationLocks = () =>
     useOverview(({ environments }) => {
-        const locks = Object.values(environments)
-            .map((environment) =>
-                Object.values(environment.applications)
-                    .map((application) =>
-                        Object.values(application.locks).map(
-                            (lockInfo) =>
-                                ({
-                                    date: lockInfo.createdAt,
-                                    application: application.name,
-                                    environment: environment.name,
-                                    lockId: lockInfo.lockId,
-                                    message: lockInfo.message,
-                                    authorName: lockInfo.createdBy?.name,
-                                    authorEmail: lockInfo.createdBy?.email,
-                                } as DisplayLock)
-                        )
-                    )
-                    .filter((displayLock) => displayLock.length !== 0)
-            )
-            .filter((displayLock) => displayLock.length !== 0)
-            .flat(2);
-        return sortLocks(locks, 'descending');
+        const finalLocks: DisplayLock[] = [];
+        Object.values(environments)
+            .map((environment) => ({ envName: environment.name, apps: environment.applications }))
+            .forEach((app) => {
+                Object.values(app.apps)
+                    .map((myApp) => ({ environment: app.envName, appName: myApp.name, locks: myApp.locks }))
+                    .forEach((lock) => {
+                        Object.values(lock.locks).forEach((cena) =>
+                            finalLocks.push({
+                                date: cena.createdAt,
+                                application: lock.appName,
+                                environment: lock.environment,
+                                lockId: cena.lockId,
+                                message: cena.message,
+                                authorName: cena.createdBy?.name,
+                                authorEmail: cena.createdBy?.email,
+                            } as DisplayLock)
+                        );
+                    });
+            });
+        return sortLocks(finalLocks, 'descending');
     });
 
-const sortLocks = (displayLocks: DisplayLock[], sorting: string) => {
+export const sortLocks = (displayLocks: DisplayLock[], sorting: string) => {
     const sortMethod = sorting === 'descending' ? -1 : 1;
     displayLocks.sort((a: DisplayLock, b: DisplayLock) => {
         const aValues: (Date | string)[] = [];

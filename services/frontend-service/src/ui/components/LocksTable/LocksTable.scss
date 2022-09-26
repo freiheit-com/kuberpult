@@ -30,4 +30,8 @@
     line-height: $locks-list-header-line-height;
     font-size: $locks-subheader-font-size;
   }
+
+  .mdc-data-indicator-sort-button{
+    padding-inline: 0;
+  }
 }
