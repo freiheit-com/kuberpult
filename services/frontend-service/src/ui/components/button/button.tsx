@@ -14,11 +14,11 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, cloneElement } from 'react';
 import classNames from 'classnames';
 import { MDCRipple } from '@material/ripple';
 
-export const Button = (props: { className?: string; label?: string; icon?: string; onClick?: () => void }) => {
+export const Button = (props: { className?: string; label?: string; icon?: JSX.Element; onClick?: () => void }) => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLButtonElement>(null);
     const { className, label, icon, onClick } = props;
@@ -37,11 +37,10 @@ export const Button = (props: { className?: string; label?: string; icon?: strin
             ref={control}
             aria-label={label || ''}>
             <div className="mdc-button__ripple" />
-            {!!icon && (
-                <i className="medium material-icons mdc-list-item__graphic" aria-hidden="true">
-                    {icon}
-                </i>
-            )}
+            {icon &&
+                cloneElement(icon, {
+                    key: 'icon',
+                })}
             {!!label && (
                 <span key="label" className="mdc-button__label">
                     {label}

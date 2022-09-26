@@ -15,4 +15,33 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 
-export const LocksPage: React.FC = () => <main className="main-content">List All Locks Here</main>;
+import { LocksTable } from '../../components/LocksTable/LocksTable';
+import { useApplicationLocks, useEnvironmentLocks } from '../../utils/store';
+
+const applicationFieldHeaders = [
+    'Date',
+    'Environment',
+    'Application',
+    'Lock Id',
+    'Message',
+    'Author Name',
+    'Author Email',
+    '',
+];
+
+const environmentFieldHeaders = ['Date', 'Environment', 'Lock Id', 'Message', 'Author Name', 'Author Email', ''];
+
+export const LocksPage: React.FC = () => (
+    <main className="main-content">
+        <LocksTable
+            headerTitle="Environment Locks"
+            columnHeaders={environmentFieldHeaders}
+            locks={useEnvironmentLocks()}
+        />
+        <LocksTable
+            headerTitle="Application Locks"
+            columnHeaders={applicationFieldHeaders}
+            locks={useApplicationLocks()}
+        />
+    </main>
+);

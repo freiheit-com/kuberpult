@@ -20,7 +20,6 @@ import { UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
 
 const mock_ReleaseCard = Spy.mockReactComponents('../../components/ReleaseCard/ReleaseCard', 'ReleaseCard');
-
 const sampleEnvs = {
     foo: {
         // third release card contains two environments
