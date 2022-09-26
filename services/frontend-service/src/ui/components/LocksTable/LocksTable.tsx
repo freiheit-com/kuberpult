@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 
-import { DisplayLock } from '../../../api/api';
+import { DisplayLock } from '../../utils/store';
 import { LockDisplay } from '../LockDisplay/LockDisplay';
 
 export const LocksTable: React.FC<{
