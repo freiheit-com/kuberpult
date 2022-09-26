@@ -96,6 +96,16 @@ message Lock {
   Actor created_by = 5;
 }
 
+message DisplayLock {
+  google.protobuf.Timestamp date = 1;
+  string environment = 2;
+  string application = 3;
+  string message = 4;
+  string lockId = 5;
+  string authorName = 6;
+  string authorEmail =7;
+}
+
 message LockedError {
   map<string, Lock> environment_locks = 1;
   map<string, Lock> environment_application_locks = 2;
