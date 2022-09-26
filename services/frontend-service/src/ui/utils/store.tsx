@@ -15,7 +15,17 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { DisplayLock, GetOverviewResponse } from '../../api/api';
+import { GetOverviewResponse } from '../../api/api';
+
+export interface DisplayLock {
+    date: Date;
+    environment: string;
+    application?: string;
+    message: string;
+    lockId: string;
+    authorName: string;
+    authorEmail: string;
+}
 
 const emptyOverview: GetOverviewResponse = { applications: {}, environments: {} };
 export const [useOverview, UpdateOverview] = createStore(emptyOverview);

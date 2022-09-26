@@ -16,7 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { Button } from '../button';
 import { Delete } from '../../../images';
-import { DisplayLock } from '../../../api/api';
+import { DisplayLock } from '../../utils/store';
 
 export const daysToString = (days: number) => {
     if (days === -1) return '';
