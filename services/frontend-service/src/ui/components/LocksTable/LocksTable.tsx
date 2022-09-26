@@ -15,6 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 
+
 import { DisplayLock, sortLocks } from '../../utils/store';
 import { LockDisplay } from '../LockDisplay/LockDisplay';
 import * as React from 'react';
