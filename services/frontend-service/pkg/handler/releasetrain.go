@@ -17,10 +17,14 @@ Copyright 2021 freiheit.com*/
 package handler
 
 import (
+	"bytes"
 	"fmt"
-	"net/http"
-
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"golang.org/x/crypto/openpgp"
+	pgperrors "golang.org/x/crypto/openpgp/errors"
+	"io"
+	"net/http"
+	"strings"
 )
 
 func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, environment, tail string) {
@@ -31,6 +35,37 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, env
 	if tail != "/" {
 		http.Error(w, fmt.Sprintf("releasetrain does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
 		return
+	}
+
+	if s.AzureAuth {
+		if req.Body == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "missing request body")
+			return
+		}
+		signature, err := io.ReadAll(req.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Can't read request body %s", err)
+			return
+		}
+
+		if len(signature) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Missing signature in request body"))
+			return
+		}
+
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment), bytes.NewReader(signature)); err != nil {
+			if err != pgperrors.ErrUnknownIssuer {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				return
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "Invalid signature")
+			return
+		}
 	}
 
 	_, err := s.DeployClient.ReleaseTrain(req.Context(), &api.ReleaseTrainRequest{

@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"golang.org/x/crypto/openpgp"
 	"net/http"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -29,6 +30,8 @@ type Server struct {
 	DeployClient api.DeployServiceClient
 	LockClient   api.LockServiceClient
 	Config       config.ServerConfig
+	KeyRing      openpgp.KeyRing
+	AzureAuth    bool
 }
 
 func (s Server) Handle(w http.ResponseWriter, req *http.Request) {

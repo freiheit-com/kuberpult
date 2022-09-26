@@ -19,8 +19,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"golang.org/x/crypto/openpgp"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/MicahParks/keyfunc"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
@@ -47,6 +49,18 @@ var c config.ServerConfig
 func readAllAndClose(r io.ReadCloser, maxBytes int64) {
 	_, _ = io.ReadAll(io.LimitReader(r, maxBytes))
 	_ = r.Close()
+}
+
+func readPgpKeyRing() (openpgp.KeyRing, error) {
+	if c.PgpKeyRing == "" {
+		return nil, nil
+	}
+	file, err := os.Open(c.PgpKeyRing)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	return openpgp.ReadArmoredKeyRing(file)
 }
 
 func RunServer() {
@@ -119,6 +133,14 @@ func RunServer() {
 			grpcStreamInterceptors = append(grpcStreamInterceptors, AzureStreamInterceptor)
 		}
 
+		pgpKeyRing, err := readPgpKeyRing()
+		if err != nil {
+			logger.FromContext(ctx).Fatal("pgp.read.error", zap.Error(err))
+		}
+		if c.AzureEnableAuth && pgpKeyRing == nil {
+			logger.FromContext(ctx).Fatal("azure.auth.error: pgpKeyRing is required to authenticate manifests when \"KUBERPULT_AZURE_ENABLE_AUTH\" is true")
+		}
+
 		gsrv := grpc.NewServer(
 			grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
 			grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
@@ -165,6 +187,8 @@ func RunServer() {
 			DeployClient: deployClient,
 			LockClient:   lockClient,
 			Config:       c,
+			KeyRing:      pgpKeyRing,
+			AzureAuth:    c.AzureEnableAuth,
 		}
 		mux := http.NewServeMux()
 		mux.Handle("/environments/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -194,7 +218,7 @@ func RunServer() {
 				*/
 				resp.Header().Set("strict-Transport-Security", "max-age=31536000; includeSubDomains;")
 				if c.AzureEnableAuth {
-					if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId, []string{"/", "/manifest.json", "/favicon.png"}, []string{"/static/js", "/static/css"}); err != nil {
+					if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId, []string{"/", "/release", "/manifest.json", "/favicon.png"}, []string{"/static/js", "/static/css"}); err != nil {
 						return
 					}
 				}

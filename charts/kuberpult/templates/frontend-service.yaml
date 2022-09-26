@@ -88,6 +88,10 @@ spec:
         - name: KUBERPULT_ENABLE_TRACING
           value: "{{ .Values.datadogTracing.enabled }}"
 {{- end }}
+{{- if .Values.pgp.keyRing }}
+        - name: KUBERPULT_PGP_KEY_RING
+          value: /keyring/keyring.gpg
+{{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH
           value: "{{ .Values.auth.azureAuth.enabled }}"
 {{- if .Values.auth.azureAuth.enabled }}
@@ -99,6 +103,17 @@ spec:
           value: "{{ .Values.auth.azureAuth.tenantId }}"
         - name: KUBERPULT_AZURE_REDIRECT_URL
           value: "https://{{ .Values.ingress.domainName }}"
+{{- end }}
+        volumeMounts:
+{{- if .Values.pgp.keyRing }}
+        - name: keyring
+          mountPath: /keyring
+{{- end }}
+      volumes:
+{{- if .Values.pgp.keyRing }}
+      - name: keyring
+        configMap:
+          name: kuberpult-keyring
 {{- end }}
 
 ---
