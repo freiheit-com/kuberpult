@@ -45,7 +45,7 @@ export const useEnvironmentLocks = () =>
             )
             .filter((displayLock) => displayLock.length !== 0)
             .flat();
-        return sortLocks(locks);
+        return sortLocks(locks, 'descending');
     });
 
 // return all applications locks
@@ -73,25 +73,32 @@ export const useApplicationLocks = () =>
             .filter((displayLock) => displayLock.length !== 0)
             .map((displayLock) => displayLock[0])
             .flat();
-        return sortLocks(locks);
+        return sortLocks(locks, 'descending');
     });
 
-const sortLocks = (displayLocks: DisplayLock[]) =>
+const sortLocks = (displayLocks: DisplayLock[], sorting: string) => {
+    const sortMethod = sorting === 'descending' ? -1 : 1;
     displayLocks.sort((a: DisplayLock, b: DisplayLock) => {
-        if (a.date === b.date) {
-            if (a.environment === b.environment) {
-                if (a.application !== undefined && b.application !== undefined) {
-                    if (a.application === b.application) {
-                        return a.lockId < b.lockId ? -1 : a.lockId === b.lockId ? 0 : 1;
-                    }
-                    return a.application < b.application ? -1 : 1;
-                }
-                return a.lockId < b.lockId ? -1 : a.lockId === b.lockId ? 0 : 1;
+        const aValues: (Date | string)[] = [];
+        const bValues: (Date | string)[] = [];
+        Object.values(a).forEach((val) => aValues.push(val));
+        Object.values(b).forEach((val) => bValues.push(val));
+        for (let i = 0; i < aValues.length; i++) {
+            if (aValues[i] < bValues[i]) {
+                if (aValues[i] instanceof Date) return -sortMethod;
+                return sortMethod;
+            } else if (aValues[i] > bValues[i]) {
+                if (aValues[i] instanceof Date) return sortMethod;
+                return -sortMethod;
             }
-            return a.environment < b.environment ? -1 : 1;
+            if (aValues[aValues.length - 1] === bValues[aValues.length - 1]) {
+                return 0;
+            }
         }
-        return a.date > b.date ? -1 : 1;
+        return 0;
     });
+    return displayLocks;
+};
 
 // returns the release number {$version} of {$application}
 export const useRelease = (application: string, version: number) =>
