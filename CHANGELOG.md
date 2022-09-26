@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.4.41
+
+**released 2022-09-26**
+* Upgrade to React 18, Add react-use-sub [#345](https://github.com/freiheit-com/kuberpult/pull/345)
+* Refactoring in new ui components [#340](https://github.com/freiheit-com/kuberpult/pull/340)
+* Use logged-in userdata from Azure [#343](https://github.com/freiheit-com/kuberpult/pull/343)
+* Add service lanes and show the new kuberpult homepage [#347](https://github.com/freiheit-com/kuberpult/pull/347)
+* Force using gpg when on Azure authentication [#355](https://github.com/freiheit-com/kuberpult/pull/355)
+* Verify releasetrain requests with pgp [#357](https://github.com/freiheit-com/kuberpult/pull/357)
+
 ## 0.4.40
 
 **released 2022-09-07**
