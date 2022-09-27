@@ -17,14 +17,17 @@ Copyright 2021 freiheit.com*/
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
+	"golang.org/x/crypto/openpgp"
+	pgperrors "golang.org/x/crypto/openpgp/errors"
+	"io"
+	"net/http"
+	"strings"
 )
 
 func (s Server) handleEnvironmentLocks(w http.ResponseWriter, req *http.Request, environment, tail string) {
@@ -70,6 +73,27 @@ func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Reques
 		http.Error(w, invalidMessage, http.StatusBadRequest)
 		return
 	}
+
+	if s.AzureAuth {
+		signature := body.Signature
+		if len(signature) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Missing signature in request body"))
+			return
+		}
+
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), strings.NewReader(signature)); err != nil {
+			if err != pgperrors.ErrUnknownIssuer {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				return
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "Invalid signature")
+			return
+		}
+	}
+
 	_, err := s.LockClient.CreateEnvironmentLock(req.Context(), &api.CreateEnvironmentLockRequest{
 		Environment: environment,
 		LockId:      lockID,
@@ -84,6 +108,37 @@ func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Reques
 }
 
 func (s Server) handleDeleteEnvironmentLock(w http.ResponseWriter, req *http.Request, environment, lockID string) {
+	if s.AzureAuth {
+		if req.Body == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "missing request body")
+			return
+		}
+		signature, err := io.ReadAll(req.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Can't read request body %s", err)
+			return
+		}
+
+		if len(signature) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Missing signature in request body"))
+			return
+		}
+
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), bytes.NewReader(signature)); err != nil {
+			if err != pgperrors.ErrUnknownIssuer {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				return
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "Invalid signature")
+			return
+		}
+	}
+
 	_, err := s.LockClient.DeleteEnvironmentLock(req.Context(), &api.DeleteEnvironmentLockRequest{
 		Environment: environment,
 		LockId:      lockID,
