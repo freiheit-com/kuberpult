@@ -161,10 +161,14 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 			return nil
 		}
 	}
-	// Skip azure authentication with ID for `/release` and `/releasetrain` endpoints. The requests will be validated with pgp signature
+	// Skip azure authentication with ID for `/release`, `/releasetrain` and `/locks`  endpoints. The requests will be validated with pgp signature
 	// usage in requests from outside the cluster (e.g. by GitHub Actions and the publish.sh script).
-	releaseTrainRx := regexp.MustCompile("/environments/[^/]*/releasetrain")
+	releaseTrainRx := regexp.MustCompile("/environments/[^/]+/releasetrain")
 	if releaseTrainRx.MatchString(req.URL.Path) {
+		return nil
+	}
+	environmentLocksRx := regexp.MustCompile("/environments/[^/]+/locks/[^/]+")
+	if environmentLocksRx.MatchString(req.URL.Path) {
 		return nil
 	}
 
