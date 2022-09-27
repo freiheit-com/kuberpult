@@ -19,6 +19,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"golang.org/x/crypto/openpgp"
 	"io"
 	"net/http"
@@ -41,14 +42,24 @@ func TestServer_Handle(t *testing.T) {
 		t.Fatal(err)
 	}
 	exampleKeyRing := openpgp.EntityList{exampleKey}
-	exampleSignature := ""
 	exampleEnvironment := "development"
+	exampleLockId := "test"
 	signatureBuffer := bytes.Buffer{}
 	err = openpgp.ArmoredDetachSign(&signatureBuffer, exampleKey, bytes.NewReader([]byte(exampleEnvironment)), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	exampleSignature = signatureBuffer.String()
+	exampleSignature := signatureBuffer.String()
+	signatureBuffer = bytes.Buffer{}
+	err = openpgp.ArmoredDetachSign(&signatureBuffer, exampleKey, bytes.NewReader([]byte(exampleEnvironment+exampleLockId)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exampleLockSignature := signatureBuffer.String()
+	lockRequestJSON, _ := json.Marshal(putLockRequest{
+		Message:   "test message",
+		Signature: exampleLockSignature,
+	})
 
 	tests := []struct {
 		name                                            string
@@ -200,6 +211,49 @@ func TestServer_Handle(t *testing.T) {
 				LockId:      "test",
 				Message:     "test message",
 			},
+		},
+		{
+			name:             "lock env - Azure Enabled",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/locks/test",
+				},
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(bytes.NewReader(lockRequestJSON)),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "",
+			expectedCreateEnvironmentLockRequest: &api.CreateEnvironmentLockRequest{
+				Environment: "development",
+				LockId:      "test",
+				Message:     "test message",
+			},
+		},
+		{
+			name:             "lock env - Azure Enabled - wrong signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/staging/locks/test",
+				},
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(bytes.NewReader(lockRequestJSON)),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+			},
+			expectedBody: "Internal: Invalid Signature: openpgp: invalid signature: hash tag doesn't match",
 		},
 		{
 			name: "lock env but missing lock ID",
