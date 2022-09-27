@@ -15,7 +15,6 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 
-import { DisplayLock, sortLocks } from '../../utils/store';
 import { LockDisplay } from '../LockDisplay/LockDisplay';
 import * as React from 'react';
 import { Button } from '../button';
@@ -25,7 +24,7 @@ import { useCallback } from 'react';
 export const LocksTable: React.FC<{
     headerTitle: string;
     columnHeaders: string[];
-    locks: DisplayLock[];
+    locks: string[];
 }> = (props) => {
     const { headerTitle, columnHeaders, locks } = props;
 
@@ -37,8 +36,7 @@ export const LocksTable: React.FC<{
         } else {
             setSort('ascending');
         }
-        sortLocks(locks, sort);
-    }, [locks, sort]);
+    }, [sort]);
 
     return (
         <div className="mdc-data-table">
@@ -80,8 +78,8 @@ export const LocksTable: React.FC<{
                         </tr>
                     </thead>
                     <tbody className="mdc-data-table__content">
-                        {locks.map((lock) => (
-                            <LockDisplay key={lock.lockId} lock={lock} />
+                        {locks.map((lockId) => (
+                            <LockDisplay key={lockId} lockId={lockId} />
                         ))}
                     </tbody>
                 </table>
