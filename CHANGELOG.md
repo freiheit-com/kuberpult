@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.4.42
+
+**released 2022-09-27**
+* implement locks page in new ui [#358](https://github.com/freiheit-com/kuberpult/pull/358)
+* Verify put and delete environment lock requests with pgp [#365](https://github.com/freiheit-com/kuberpult/pull/365)
+
 ## 0.4.41
 
 **released 2022-09-26**
