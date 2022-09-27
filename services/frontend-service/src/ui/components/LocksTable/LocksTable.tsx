@@ -15,8 +15,12 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 
-import { DisplayLock } from '../../utils/store';
+import { DisplayLock, sortLocks } from '../../utils/store';
 import { LockDisplay } from '../LockDisplay/LockDisplay';
+import * as React from 'react';
+import { Button } from '../button';
+import { SortAscending, SortDescending } from '../../../images';
+import { useCallback } from 'react';
 
 export const LocksTable: React.FC<{
     headerTitle: string;
@@ -24,6 +28,18 @@ export const LocksTable: React.FC<{
     locks: DisplayLock[];
 }> = (props) => {
     const { headerTitle, columnHeaders, locks } = props;
+
+    const [sort, setSort] = React.useState<string>('ascending');
+
+    const sortOnClick = useCallback(() => {
+        if (sort === 'ascending') {
+            setSort('descending');
+        } else {
+            setSort('ascending');
+        }
+        sortLocks(locks, sort);
+    }, [locks, sort]);
+
     return (
         <div className="mdc-data-table">
             <div className="mdc-data-table__table-container">
@@ -41,7 +57,23 @@ export const LocksTable: React.FC<{
                                 scope="col">
                                 <div className="mdc-data-indicator-header">
                                     {columnHeaders.map((columnHeader) => (
-                                        <div className="mdc-data-indicator-field">{columnHeader}</div>
+                                        <div key={columnHeader} className="mdc-data-indicator-field">
+                                            {columnHeader}
+                                            {columnHeader === 'Date' && sort === 'ascending' && (
+                                                <Button
+                                                    className={'mdc-data-indicator-sort-button'}
+                                                    onClick={sortOnClick}
+                                                    icon={<SortAscending />}
+                                                />
+                                            )}
+                                            {columnHeader === 'Date' && sort === 'descending' && (
+                                                <Button
+                                                    className={'mdc-data-indicator-sort-button'}
+                                                    onClick={sortOnClick}
+                                                    icon={<SortDescending />}
+                                                />
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
                             </th>
@@ -49,7 +81,7 @@ export const LocksTable: React.FC<{
                     </thead>
                     <tbody className="mdc-data-table__content">
                         {locks.map((lock) => (
-                            <LockDisplay lock={lock} />
+                            <LockDisplay key={lock.lockId} lock={lock} />
                         ))}
                     </tbody>
                 </table>

@@ -26,6 +26,8 @@ import { ReactComponent as HideBar } from './HideBar.svg';
 import { ReactComponent as ShowBarWhite } from './ShowBar_White.svg';
 import { ReactComponent as HideBarWhite } from './HideBar_White.svg';
 import { ReactComponent as History } from './History.svg';
+import { ReactComponent as SortAscending } from './Up_White.svg';
+import { ReactComponent as SortDescending } from './Down_White.svg';
 
 export {
     Logo,
@@ -40,4 +42,6 @@ export {
     HistoryWhite,
     ShowBarWhite,
     HideBarWhite,
+    SortAscending,
+    SortDescending,
 };
