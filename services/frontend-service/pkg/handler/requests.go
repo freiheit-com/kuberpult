@@ -17,5 +17,6 @@ Copyright 2021 freiheit.com*/
 package handler
 
 type putLockRequest struct {
-	Message string `json:"message"`
+	Message   string `json:"message"`
+	Signature string `json:"signature,omitempty"`
 }
