@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -13,13 +14,16 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2021 freiheit.com*/
+Copyright 2021 freiheit.com
+*/
 package cmd
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -63,6 +67,23 @@ func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
 	}
 	defer file.Close()
 	return openpgp.ReadArmoredKeyRing(file)
+}
+
+// send Datadog metrics for each time interval specified with `interval` (number of seconds)
+func sendTimedDatadogMetrics(repoState *repository.State, interval int) {
+	metricEventTimer := time.NewTicker(time.Duration(interval) * time.Second)
+	done := make(chan bool)
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-metricEventTimer.C:
+			if err := repository.UpdateDatadogMetrics(repoState); err != nil {
+				fmt.Errorf(err.Error())
+			}
+		}
+	}
 }
 
 func RunServer() {
@@ -142,6 +163,8 @@ func RunServer() {
 		}
 
 		span.Finish()
+
+		go sendTimedDatadogMetrics(repositoryService.Repository.State(), 10)
 
 		// Shutdown channel is used to terminate server side streams.
 		shutdownCh := make(chan struct{})
