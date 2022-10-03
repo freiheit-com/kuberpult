@@ -2237,3 +2237,116 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 		t.Errorf("Untested operations %s %s", op.Operation, op.Filename)
 	}
 }
+
+type GenericTesting interface {
+	exec(repo Repository, interval int)
+}
+
+type mockMetricTesting struct {
+	closeCh chan struct{}
+}
+
+func (m *mockMetricTesting) exec(repo Repository, interval int) {
+
+	go SendRegularlyDatadogMetrics(repo, interval)
+	time.Sleep(3 * time.Second)
+	close(m.closeCh)
+}
+
+func mockSendMetrics(intr GenericTesting, repo Repository, interval int) {
+	intr.exec(repo, interval)
+}
+
+func TestSendRegularlyDatadogMetrics(t *testing.T) {
+	tcs := []struct {
+		Name                string
+		Transformers        []Transformer
+		createMetricsClient bool
+		expectedValue       string
+		shouldSucceed       bool
+	}{
+		{
+			Name:                "No repository state is provided",
+			createMetricsClient: true,
+			expectedValue:       "error",
+		},
+		{
+			Name: "One lock is added and that is sent to the metrics",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "acceptance",
+					Application: "app1",
+					LockId:      "22133",
+					Message:     "test",
+				},
+			},
+			createMetricsClient: true,
+			expectedValue:       "",
+		},
+		{
+			Name: "One environment lock is added",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateEnvironmentLock{
+					Environment: "acceptance",
+					LockId:      "22133",
+					Message:     "test",
+				},
+			},
+			createMetricsClient: true,
+			expectedValue:       "",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo := setupRepositoryTest(t)
+			_, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !tc.createMetricsClient {
+				t.Fatal("A metrics client is expected")
+			}
+
+			mock := &mockMetricTesting{
+				closeCh: make(chan struct{}),
+			}
+
+			returnMessage := ""
+			mockSendMetrics(mock, repo, 2)
+
+			select {
+			case <-mock.closeCh:
+				returnMessage = "Send Metrics routing was ran"
+			case <-time.After(time.Second * 50):
+				t.Fatalf("expected call to mock.exec method")
+			}
+
+			if returnMessage != "Send Metrics routing was ran" {
+				t.Fatal("An error occurred during the go routine")
+			}
+
+		})
+	}
+}

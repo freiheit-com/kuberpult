@@ -18,10 +18,6 @@ package cmd
 
 import (
 	"context"
-	"net/http"
-	"os"
-	"time"
-
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -36,6 +32,8 @@ import (
 	"google.golang.org/grpc/reflection"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"net/http"
+	"os"
 )
 
 type Config struct {
@@ -67,19 +65,6 @@ func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
 }
 
 // send Datadog metrics for each time interval specified with `interval` (number of minutes)
-func sendRegularlyDatadogMetrics(repo repository.Repository, ctx context.Context, interval int) {
-	metricEventTimer := time.NewTicker(time.Duration(interval) * time.Minute)
-
-	for {
-		select {
-		case <-metricEventTimer.C:
-			repoState := repo.State()
-			if err := repository.UpdateDatadogMetrics(repoState); err != nil {
-				panic(err.Error())
-			}
-		}
-	}
-}
 
 func RunServer() {
 	logger.Wrap(context.Background(), func(ctx context.Context) error {
@@ -159,7 +144,7 @@ func RunServer() {
 
 		span.Finish()
 
-		go sendRegularlyDatadogMetrics(repositoryService.Repository, ctx, 1)
+		go repository.SendRegularlyDatadogMetrics(repo, 10)
 
 		// Shutdown channel is used to terminate server side streams.
 		shutdownCh := make(chan struct{})
