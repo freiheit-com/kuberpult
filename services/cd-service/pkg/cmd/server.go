@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -13,11 +14,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2021 freiheit.com*/
+Copyright 2021 freiheit.com
+*/
 package cmd
 
 import (
 	"context"
+	"net/http"
+	"os"
+
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -32,8 +37,6 @@ import (
 	"google.golang.org/grpc/reflection"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"net/http"
-	"os"
 )
 
 type Config struct {
@@ -63,8 +66,6 @@ func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
 	defer file.Close()
 	return openpgp.ReadArmoredKeyRing(file)
 }
-
-// send Datadog metrics for each time interval specified with `interval` (number of minutes)
 
 func RunServer() {
 	logger.Wrap(context.Background(), func(ctx context.Context) error {
