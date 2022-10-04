@@ -144,7 +144,7 @@ func RunServer() {
 
 		span.Finish()
 
-		go repository.SendRegularlyDatadogMetrics(repo, 10)
+		go repository.SendRegularlyDatadogMetrics(repo, 10, repository.GetRepositoryStateAndUpdateMetrics)
 
 		// Shutdown channel is used to terminate server side streams.
 		shutdownCh := make(chan struct{})

@@ -124,7 +124,7 @@ func UpdateDatadogMetrics(state *State) error {
 	return nil
 }
 
-func SendRegularlyDatadogMetrics(repo Repository, interval int) {
+func SendRegularlyDatadogMetrics(repo Repository, interval int, callBack func(repository Repository)) {
 	metricEventTimer := time.NewTicker(time.Duration(interval) * time.Second)
 	done := make(chan bool)
 	for {
@@ -132,11 +132,15 @@ func SendRegularlyDatadogMetrics(repo Repository, interval int) {
 		case <-done:
 			return
 		case <-metricEventTimer.C:
-			repoState := repo.State()
-			if err := UpdateDatadogMetrics(repoState); err != nil {
-				panic(err.Error())
-			}
+			callBack(repo)
 		}
+	}
+}
+
+func GetRepositoryStateAndUpdateMetrics(repo Repository) {
+	repoState := repo.State()
+	if err := UpdateDatadogMetrics(repoState); err != nil {
+		panic(err.Error())
 	}
 }
 

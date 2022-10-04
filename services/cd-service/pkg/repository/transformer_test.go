@@ -43,6 +43,8 @@ const (
 
 var timeNowOld = time.Date(1999, 01, 02, 03, 04, 05, 0, time.UTC)
 
+var returnMessage = ""
+
 func TestUndeployApplicationErrors(t *testing.T) {
 	tcs := []struct {
 		Name              string
@@ -2238,40 +2240,48 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 	}
 }
 
-type GenericTesting interface {
-	exec(repo Repository, interval int)
+func mockGetRepositoryStateandUpdateMetrics(repo Repository) {
+	returnMessage = "Callback was called"
 }
 
-type mockMetricTesting struct {
-	closeCh chan struct{}
-}
-
-func (m *mockMetricTesting) exec(repo Repository, interval int) {
-
-	go SendRegularlyDatadogMetrics(repo, interval)
-	time.Sleep(3 * time.Second)
-	close(m.closeCh)
-}
-
-func mockSendMetrics(intr GenericTesting, repo Repository, interval int) {
-	intr.exec(repo, interval)
+func mockSendMetrics(repo Repository, interval int) {
+	go SendRegularlyDatadogMetrics(repo, interval, mockGetRepositoryStateandUpdateMetrics)
+	time.Sleep(2 * time.Second)
 }
 
 func TestSendRegularlyDatadogMetrics(t *testing.T) {
 	tcs := []struct {
-		Name                string
-		Transformers        []Transformer
-		createMetricsClient bool
-		expectedValue       string
-		shouldSucceed       bool
+		Name          string
+		shouldSucceed bool
 	}{
 		{
-			Name:                "No repository state is provided",
-			createMetricsClient: true,
-			expectedValue:       "error",
+			Name: "Testing ticker",
 		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo := setupRepositoryTest(t)
+
+			mockSendMetrics(repo, 1)
+
+			if returnMessage != "Callback was called" {
+				t.Fatal("An error occurred during the go routine")
+			}
+
+		})
+	}
+}
+
+func TestUpdateDatadogMetrics(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		expectedError string
+		shouldSucceed bool
+	}{
 		{
-			Name: "One lock is added and that is sent to the metrics",
+			Name: "Application Lock metric is sent",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "acceptance",
@@ -2290,11 +2300,10 @@ func TestSendRegularlyDatadogMetrics(t *testing.T) {
 					Message:     "test",
 				},
 			},
-			createMetricsClient: true,
-			expectedValue:       "",
+			shouldSucceed: true,
 		},
 		{
-			Name: "One environment lock is added",
+			Name: "Application Lock metric is sent",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "acceptance",
@@ -2312,41 +2321,36 @@ func TestSendRegularlyDatadogMetrics(t *testing.T) {
 					Message:     "test",
 				},
 			},
-			createMetricsClient: true,
-			expectedValue:       "",
+			shouldSucceed: true,
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
 			repo := setupRepositoryTest(t)
 			_, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("Got an unexpected error: %v", err)
 			}
 
-			if !tc.createMetricsClient {
-				t.Fatal("A metrics client is expected")
+			err = UpdateDatadogMetrics(repo.State())
+
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Fatalf("Expected an error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
+				}
 			}
-
-			mock := &mockMetricTesting{
-				closeCh: make(chan struct{}),
-			}
-
-			returnMessage := ""
-			mockSendMetrics(mock, repo, 2)
-
-			select {
-			case <-mock.closeCh:
-				returnMessage = "Send Metrics routing was ran"
-			case <-time.After(time.Second * 50):
-				t.Fatalf("expected call to mock.exec method")
-			}
-
-			if returnMessage != "Send Metrics routing was ran" {
-				t.Fatal("An error occurred during the go routine")
-			}
-
 		})
 	}
 }
