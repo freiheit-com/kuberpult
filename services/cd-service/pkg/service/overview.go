@@ -210,6 +210,7 @@ func (o *OverviewServiceServer) getOverview(
 		Environments: map[string]*api.Environment{},
 		Applications: map[string]*api.Application{},
 	}
+	//return nil, internalError(ctx, fmt.Errorf("Hello world error."))
 	if envs, err := s.GetEnvironmentConfigs(); err != nil {
 		return nil, internalError(ctx, err)
 	} else {

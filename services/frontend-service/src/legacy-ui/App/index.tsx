@@ -15,17 +15,17 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import Box from '@material-ui/core/Box';
 import { ThemeProvider } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import { AuthHeaderType, AuthProvider } from './AuthContext';
+import { AuthProvider } from './AuthContext';
 
 import Releases from '../Releases';
 import * as api from '../../api/api';
 import Header from '../AppBar/Header';
-import { GrpcProvider, useObservable, useUnary } from '../Api';
+import { GrpcProvider, useUnary } from '../Api';
 
 import { theme, useStyles } from './styles';
 import { CartAction } from '../ActionDetails';
@@ -51,17 +51,53 @@ export const Spinner: React.FC<any> = (props: any) => {
     );
 };
 
+export const useInterval = (callback: () => void, delay: number) => {
+    const savedCallback = useRef();
+    useEffect(() => {
+        savedCallback.current = callback;
+    }, [callback]);
+    useEffect(() => {
+        function tick() {
+            if (savedCallback) {
+                savedCallback.current();
+            }
+        }
+        if (delay !== null) {
+            const id = setInterval(tick, delay);
+            return () => clearInterval(id);
+        }
+    }, [delay]);
+};
+
 const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Element }): JSX.Element | null => {
+    // const [restart, setRestart] = useState(false);
+    const [count, setCount] = useState(0);
     const getOverview = React.useCallback(
-        (api: any, authHeader: AuthHeaderType) => api.overviewService().StreamOverview({}, authHeader),
-        []
+        (api: any) => api.overviewService().GetOverview({}),
+        // eslint-disable-next-line
+        [count]
     );
-    const overview = useObservable<api.GetOverviewResponse>(getOverview);
+    const overview = useUnary<api.GetOverviewResponse>(getOverview);
+    useInterval(() => {
+        setCount(count + 1);
+    }, 10 * 1000);
+
+    // setOverview(useUnary<api.GetOverviewResponse>(getOverview));
+
+    // const [overview, overviewState] = useUnaryCallback<api.GetOverviewResponse>(getOverview);
+    const backupState = useRef({} as api.GetOverviewResponse);
+    // if (!overview) {
+    //     return <Spinner />;
+    // }
     switch (overview.state) {
         case 'resolved':
-            return props.children(overview.result);
+            backupState.current = overview.result;
+            return props.children(backupState.current);
         case 'rejected':
-            return <div>Error: {JSON.stringify(overview.error)}</div>;
+            // eslint-disable-next-line no-console
+            console.log('2 restarting streamoverview due to error: ', overview.error);
+            // setRestart(!restart);
+            return props.children(backupState.current);
         case 'pending':
             return <Spinner />;
         default:
