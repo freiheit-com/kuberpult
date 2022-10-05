@@ -53,7 +53,7 @@ export const Spinner: React.FC<any> = (props: any) => {
 
 const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Element }): JSX.Element | null => {
     const [overview, setOverview] = useState<UnaryState<api.GetOverviewResponse>>({ state: 'pending' });
-    const Tdelay = 10 * 1000;
+    const reloadDelayMillis = 30 * 1000;
     const api = React.useContext(Context);
     const { authHeader } = React.useContext(AuthTokenContext);
 
@@ -67,12 +67,15 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
     }, [api, authHeader]);
 
     React.useEffect(() => {
-        const id = setInterval(updateOverview, Tdelay);
+        const id = setInterval(updateOverview, reloadDelayMillis);
         return () => clearInterval(id);
-    }, [Tdelay, updateOverview]);
+    }, [reloadDelayMillis, updateOverview]);
 
     const backupState = useRef<api.GetOverviewResponse>();
-    if (backupState.current === undefined) updateOverview();
+    if (backupState.current === undefined) {
+        backupState.current = {} as api.GetOverviewResponse;
+        updateOverview();
+    }
 
     switch (overview.state) {
         case 'resolved':
@@ -81,8 +84,7 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
         case 'rejected':
             // eslint-disable-next-line no-console
             console.log('2 restarting streamoverview due to error: ', overview.error);
-            // setRestart(!restart);
-            return props.children(backupState.current!);
+            return props.children(backupState.current);
         case 'pending':
             return <Spinner />;
         default:
