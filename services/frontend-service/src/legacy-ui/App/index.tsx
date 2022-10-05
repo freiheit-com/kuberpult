@@ -15,17 +15,17 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import Box from '@material-ui/core/Box';
 import { ThemeProvider } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import { AuthProvider } from './AuthContext';
+import { AuthProvider, AuthTokenContext } from './AuthContext';
 
 import Releases from '../Releases';
 import * as api from '../../api/api';
 import Header from '../AppBar/Header';
-import { GrpcProvider, useUnary } from '../Api';
+import { Context, GrpcProvider, UnaryState, useUnary } from '../Api';
 
 import { theme, useStyles } from './styles';
 import { CartAction } from '../ActionDetails';
@@ -51,44 +51,29 @@ export const Spinner: React.FC<any> = (props: any) => {
     );
 };
 
-export const useInterval = (callback: () => void, delay: number) => {
-    const savedCallback = useRef();
-    useEffect(() => {
-        savedCallback.current = callback;
-    }, [callback]);
-    useEffect(() => {
-        function tick() {
-            if (savedCallback) {
-                savedCallback.current();
-            }
-        }
-        if (delay !== null) {
-            const id = setInterval(tick, delay);
-            return () => clearInterval(id);
-        }
-    }, [delay]);
-};
-
 const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Element }): JSX.Element | null => {
-    // const [restart, setRestart] = useState(false);
-    const [count, setCount] = useState(0);
-    const getOverview = React.useCallback(
-        (api: any) => api.overviewService().GetOverview({}),
-        // eslint-disable-next-line
-        [count]
-    );
-    const overview = useUnary<api.GetOverviewResponse>(getOverview);
-    useInterval(() => {
-        setCount(count + 1);
-    }, 10 * 1000);
+    const [overview, setOverview] = useState<UnaryState<api.GetOverviewResponse>>({ state: 'pending' });
+    const Tdelay = 10 * 1000;
+    const api = React.useContext(Context);
+    const { authHeader } = React.useContext(AuthTokenContext);
 
-    // setOverview(useUnary<api.GetOverviewResponse>(getOverview));
+    const updateOverview = React.useCallback(() => {
+        api.overviewService()
+            .GetOverview({}, authHeader)
+            .then(
+                (result) => setOverview({ result, state: 'resolved' }),
+                (error) => setOverview({ error, state: 'rejected' })
+            );
+    }, [api, authHeader]);
 
-    // const [overview, overviewState] = useUnaryCallback<api.GetOverviewResponse>(getOverview);
-    const backupState = useRef({} as api.GetOverviewResponse);
-    // if (!overview) {
-    //     return <Spinner />;
-    // }
+    React.useEffect(() => {
+        const id = setInterval(updateOverview, Tdelay);
+        return () => clearInterval(id);
+    }, [Tdelay, updateOverview]);
+
+    const backupState = useRef<api.GetOverviewResponse>();
+    if (backupState.current === undefined) updateOverview();
+
     switch (overview.state) {
         case 'resolved':
             backupState.current = overview.result;
@@ -97,7 +82,7 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
             // eslint-disable-next-line no-console
             console.log('2 restarting streamoverview due to error: ', overview.error);
             // setRestart(!restart);
-            return props.children(backupState.current);
+            return props.children(backupState.current!);
         case 'pending':
             return <Spinner />;
         default:
