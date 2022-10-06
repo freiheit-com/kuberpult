@@ -21,6 +21,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SideBar } from '../SideBar/SideBar';
 import { Button } from '../button';
 import { ShowBarWhite } from '../../../images';
+import { Dropdown } from '../dropdown';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);
@@ -44,6 +45,7 @@ export const TopAppBar: React.FC = () => {
                 </div>
                 <div className="mdc-top-app-bar__section">
                     <Textfield className={'top-app-bar-search-field'} floatingLabel={'Search'} leadingIcon={'search'} />
+                    <Dropdown className={'top-app-bar-search-field'} floatingLabel={'Teams'} leadingIcon={'search'} />
                 </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong>{'Planned Actions'}</strong>

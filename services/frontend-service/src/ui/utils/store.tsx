@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { GetOverviewResponse } from '../../api/api';
+import { Application, GetOverviewResponse } from '../../api/api';
 
 export interface DisplayLock {
     date: Date;
@@ -31,6 +31,16 @@ const emptyOverview: GetOverviewResponse = { applications: {}, environments: {} 
 export const [useOverview, UpdateOverview] = createStore(emptyOverview);
 
 export const [_, PanicOverview] = createStore({ error: '' });
+
+// returns all application names
+export const useTeamNames = () =>
+    useOverview(({ applications }) => [
+        ...new Set(
+            Object.values(applications)
+                .filter((app: Application) => app.team !== '')
+                .map((app: Application) => app.team)
+        ),
+    ]);
 
 // returns all application names
 export const useApplicationNames = () =>
