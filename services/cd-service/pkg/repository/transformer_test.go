@@ -43,8 +43,6 @@ const (
 
 var timeNowOld = time.Date(1999, 01, 02, 03, 04, 05, 0, time.UTC)
 
-var returnMessage = ""
-
 func TestUndeployApplicationErrors(t *testing.T) {
 	tcs := []struct {
 		Name              string
@@ -2240,13 +2238,9 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 	}
 }
 
-func mockGetRepositoryStateandUpdateMetrics(repo Repository) {
-	returnMessage = "Callback was called"
-}
-
 func mockSendMetrics(repo Repository, interval int) <-chan bool {
-        ch := make(chan bool,1)
-	go SendRegularlyDatadogMetrics(repo, interval, func(repo Repository){ ch <- true } )
+	ch := make(chan bool, 1)
+	go SendRegularlyDatadogMetrics(repo, interval, func(repo Repository) { ch <- true })
 	return ch
 }
 
@@ -2266,7 +2260,7 @@ func TestSendRegularlyDatadogMetrics(t *testing.T) {
 
 			select {
 			case <-mockSendMetrics(repo, 1):
-			case <-time.After(4*time.Second):
+			case <-time.After(4 * time.Second):
 				t.Fatal("An error occurred during the go routine")
 			}
 

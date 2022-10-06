@@ -126,11 +126,8 @@ func UpdateDatadogMetrics(state *State) error {
 
 func SendRegularlyDatadogMetrics(repo Repository, interval int, callBack func(repository Repository)) {
 	metricEventTimer := time.NewTicker(time.Duration(interval) * time.Second)
-	done := make(chan bool)
 	for {
 		select {
-		case <-done:
-			return
 		case <-metricEventTimer.C:
 			callBack(repo)
 		}
