@@ -33,6 +33,7 @@ import { ActionsCartContext } from '../App';
 import { BatchAction, GetOverviewResponse } from '../../api/api';
 import { useUnaryCallback } from '../Api';
 import { addMessageToAction, CartAction, hasLockAction, isNonNullable } from '../ActionDetails';
+import refreshStore from '../App/RefreshStore';
 
 export const callbacks = {
     useBatch: (acts: BatchAction[], success?: () => void, fail?: () => void) =>
@@ -169,6 +170,7 @@ export const CheckoutCart: VFC<{ overview: GetOverviewResponse }> = ({ overview 
         closeDialog();
         setLockMessage('');
         openNotification('Actions were applied successfully!');
+        refreshStore.setRefresh(true);
     }, [setActions, openNotification, closeDialog, setLockMessage]);
     const onActionsFailed = useCallback(() => {
         closeDialog();

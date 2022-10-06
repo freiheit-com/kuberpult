@@ -29,6 +29,7 @@ import { Context, GrpcProvider, UnaryState, useUnary } from '../Api';
 
 import { theme, useStyles } from './styles';
 import { CartAction } from '../ActionDetails';
+import refreshStore from './RefreshStore';
 
 type ConfigContextType = {
     configs: api.GetFrontendConfigResponse;
@@ -61,7 +62,10 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
         api.overviewService()
             .GetOverview({}, authHeader)
             .then(
-                (result) => setOverview({ result, state: 'resolved' }),
+                (result) => {
+                    setOverview({ result, state: 'resolved' });
+                    refreshStore.setRefresh(false);
+                },
                 (error) => setOverview({ error, state: 'rejected' })
             );
     }, [api, authHeader]);
@@ -72,7 +76,9 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
     }, [reloadDelayMillis, updateOverview]);
 
     const backupState = useRef<api.GetOverviewResponse>();
-    if (backupState.current === undefined) {
+    if (backupState.current === undefined || refreshStore.shouldRefresh()) {
+        // eslint-disable-next-line no-console
+        console.info('refreshing because backup ', backupState.current, ' refresh=', refreshStore.shouldRefresh());
         backupState.current = {} as api.GetOverviewResponse;
         updateOverview();
     }
@@ -83,7 +89,7 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
             return props.children(backupState.current);
         case 'rejected':
             // eslint-disable-next-line no-console
-            console.log('2 restarting streamoverview due to error: ', overview.error);
+            console.log('restarting streamoverview due to error: ', overview.error);
             return props.children(backupState.current);
         case 'pending':
             return <Spinner />;
