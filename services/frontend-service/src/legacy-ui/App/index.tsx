@@ -77,8 +77,6 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
 
     const backupState = useRef<api.GetOverviewResponse>();
     if (backupState.current === undefined || refreshStore.shouldRefresh()) {
-        // eslint-disable-next-line no-console
-        console.info('refreshing because backup ', backupState.current, ' refresh=', refreshStore.shouldRefresh());
         backupState.current = {} as api.GetOverviewResponse;
         updateOverview();
     }
