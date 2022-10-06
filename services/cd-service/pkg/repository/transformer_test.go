@@ -2244,9 +2244,10 @@ func mockGetRepositoryStateandUpdateMetrics(repo Repository) {
 	returnMessage = "Callback was called"
 }
 
-func mockSendMetrics(repo Repository, interval int) {
-	go SendRegularlyDatadogMetrics(repo, interval, mockGetRepositoryStateandUpdateMetrics)
-	time.Sleep(2 * time.Second)
+func mockSendMetrics(repo Repository, interval int) <-chan bool {
+        ch := make(chan bool,1)
+	go SendRegularlyDatadogMetrics(repo, interval, func(repo Repository){ ch <- true } )
+	return ch
 }
 
 func TestSendRegularlyDatadogMetrics(t *testing.T) {
@@ -2263,9 +2264,9 @@ func TestSendRegularlyDatadogMetrics(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			repo := setupRepositoryTest(t)
 
-			mockSendMetrics(repo, 1)
-
-			if returnMessage != "Callback was called" {
+			select {
+			case <-mockSendMetrics(repo, 1):
+			case <-time.After(4*time.Second):
 				t.Fatal("An error occurred during the go routine")
 			}
 
