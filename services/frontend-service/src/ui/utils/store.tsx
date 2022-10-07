@@ -42,16 +42,10 @@ export const setFilter = () => {
 
 export const getFilter = () => appFilter;
 
-const getUrlQuery = () => {
-    const url = new URL(window.location.toString());
-    return url.searchParams.get('application');
-};
-
 // returns all application names
 export const useFilteredApplicationNames = () => {
     const apps = useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
-    const queryContent = getUrlQuery();
-    return apps.filter((val) => filter(queryContent, val));
+    return apps.filter((val) => filter(appFilter, val));
 };
 
 export const useApplicationNames = () =>
@@ -80,7 +74,6 @@ export const useEnvironmentLocks = () =>
 // return all applications locks
 export const useFilteredApplicationLocks = () =>
     useOverview(({ environments }) => {
-        const queryContent = getUrlQuery();
         const finalLocks: DisplayLock[] = [];
         Object.values(environments)
             .map((environment) => ({ envName: environment.name, apps: environment.applications }))
@@ -101,7 +94,7 @@ export const useFilteredApplicationLocks = () =>
                         );
                     });
             });
-        const filteredLocks = finalLocks.filter((val) => filter(queryContent, val.application));
+        const filteredLocks = finalLocks.filter((val) => filter(appFilter, val.application));
         return sortLocks(filteredLocks, 'descending');
     });
 
