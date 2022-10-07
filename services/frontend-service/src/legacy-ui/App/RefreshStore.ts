@@ -18,6 +18,7 @@ Copyright 2021 freiheit.com*/
  * The RefreshStore is solution to refresh the state (GetOverview).
  * This is currently needed as an addition to polling.
  * This will be re-worked in v2.
+ * See story SRX-0ELJF9.
  */
 
 class RefreshStore {
