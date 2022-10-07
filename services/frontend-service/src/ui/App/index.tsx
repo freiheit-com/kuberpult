@@ -24,6 +24,7 @@ import { useApi } from '../utils/GrpcApi';
 
 export const App: React.FC = () => {
     const api = useApi;
+
     React.useEffect(() => {
         const subscription = api
             .overviewService()

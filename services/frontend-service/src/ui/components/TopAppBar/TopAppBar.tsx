@@ -21,6 +21,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SideBar } from '../SideBar/SideBar';
 import { Button } from '../button';
 import { ShowBarWhite } from '../../../images';
+import { setFilter } from '../../utils/store';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);
@@ -28,6 +29,10 @@ export const TopAppBar: React.FC = () => {
     const [sideBar, showSideBar] = useState(false);
 
     const toggleSideBar = useCallback(() => showSideBar((old) => !old), [showSideBar]);
+
+    const query = new URLSearchParams(new URL(window.location.href).search).get('application');
+
+    setFilter();
 
     useEffect(() => {
         if (control.current) {
@@ -43,7 +48,21 @@ export const TopAppBar: React.FC = () => {
                     <span className="mdc-top-app-bar__title">Kuberpult</span>
                 </div>
                 <div className="mdc-top-app-bar__section">
-                    <Textfield className={'top-app-bar-search-field'} floatingLabel={'Search'} leadingIcon={'search'} />
+                    {!!query && (
+                        <Textfield
+                            className={'top-app-bar-search-field'}
+                            floatingLabel={'Search'}
+                            value={query}
+                            leadingIcon={'search'}
+                        />
+                    )}
+                    {!query && (
+                        <Textfield
+                            className={'top-app-bar-search-field'}
+                            floatingLabel={'Search'}
+                            leadingIcon={'search'}
+                        />
+                    )}
                 </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong>{'Planned Actions'}</strong>

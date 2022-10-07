@@ -15,4 +15,11 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 
-export const EnvironmentsPage: React.FC = () => <main className="main-content">List All Environments Here</main>;
+import { updateUrlQuery } from '../../components/textfield/textfield';
+import { useSearchParams } from 'react-router-dom';
+
+export const EnvironmentsPage: React.FC = () => {
+    const search = useSearchParams();
+    updateUrlQuery('application', search[0].get('application'));
+    return <main className="main-content">List All Environments Here</main>;
+};

@@ -29,10 +29,42 @@ export interface DisplayLock {
 
 const emptyOverview: GetOverviewResponse = { applications: {}, environments: {} };
 export const [useOverview, UpdateOverview] = createStore(emptyOverview);
+export const [useFilteredOverview, UpdateFilteredOverview] = createStore(emptyOverview);
 
 export const [_, PanicOverview] = createStore({ error: '' });
 
+let appFilter: string | null = null;
+
+export const setFilter = () => {
+    const query = new URLSearchParams(window.location.search);
+    appFilter = query.get('application');
+};
+
+export const getFilter = () => appFilter;
+
+const getUrlQuery = () => {
+    const url = new URL(window.location.toString());
+    return url.searchParams.get('application');
+};
+
 // returns all application names
+export const useFilteredApplicationNames = () => {
+    const apps = useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
+    const queryContent = getUrlQuery();
+    const filteredApps = apps.filter((val) => {
+        if (queryContent) {
+            if (val.includes(queryContent)) {
+                return val;
+            }
+            return null;
+        } else {
+            return val;
+        }
+    });
+
+    return filteredApps;
+};
+
 export const useApplicationNames = () =>
     useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
 
@@ -54,6 +86,43 @@ export const useEnvironmentLocks = () =>
         );
         const locksFiltered = locks.filter((displayLock) => displayLock.length !== 0);
         return sortLocks(locksFiltered.flat(), 'descending');
+    });
+
+// return all applications locks
+export const useFilteredApplicationLocks = () =>
+    useOverview(({ environments }) => {
+        const queryContent = getUrlQuery();
+        const finalLocks: DisplayLock[] = [];
+        Object.values(environments)
+            .map((environment) => ({ envName: environment.name, apps: environment.applications }))
+            .forEach((app) => {
+                Object.values(app.apps)
+                    .map((myApp) => ({ environment: app.envName, appName: myApp.name, locks: myApp.locks }))
+                    .forEach((lock) => {
+                        Object.values(lock.locks).forEach((cena) =>
+                            finalLocks.push({
+                                date: cena.createdAt,
+                                application: lock.appName,
+                                environment: lock.environment,
+                                lockId: cena.lockId,
+                                message: cena.message,
+                                authorName: cena.createdBy?.name,
+                                authorEmail: cena.createdBy?.email,
+                            } as DisplayLock)
+                        );
+                    });
+            });
+        const filteredLocks = finalLocks.filter((val) => {
+            if (queryContent) {
+                if (val.application?.includes(queryContent)) {
+                    return val;
+                }
+                return null;
+            } else {
+                return val;
+            }
+        });
+        return sortLocks(filteredLocks, 'descending');
     });
 
 // return all applications locks

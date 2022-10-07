@@ -14,11 +14,15 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { useApplicationNames } from '../../utils/store';
+import { useFilteredApplicationNames } from '../../utils/store';
 import { ServiceLane } from '../../components/ServiceLane/ServiceLane';
+import { updateUrlQuery } from '../../components/textfield/textfield';
+import { useSearchParams } from 'react-router-dom';
 
 export const Home: React.FC = () => {
-    const apps = useApplicationNames();
+    const apps = useFilteredApplicationNames();
+    const search = useSearchParams();
+    updateUrlQuery('application', search[0].get('application'));
     return (
         <main className="main-content">
             {apps.map((app) => (

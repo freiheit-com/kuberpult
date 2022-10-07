@@ -14,15 +14,26 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import classNames from 'classnames';
 import { MDCTextField } from '@material/textfield';
+import { getFilter, setFilter } from '../../utils/store';
+import { useSearchParams } from 'react-router-dom';
 
 export type TextfieldProps = {
     className?: string;
     floatingLabel?: string;
     value?: string | number;
     leadingIcon?: string;
+};
+
+export const updateUrlQuery = (filterKey: string, filterValue: string | null) => {
+    filterValue = getFilter();
+    if (filterValue) {
+        const url = new URL(window.location.toString());
+        url.searchParams.set(filterKey, filterValue);
+        window.history.pushState({}, '', url.toString());
+    }
 };
 
 export const Textfield = (props: TextfieldProps) => {
@@ -44,6 +55,9 @@ export const Textfield = (props: TextfieldProps) => {
         }
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_, setSearchParams] = useSearchParams();
+
     const allClassName = classNames(
         'mdc-text-field',
         'mdc-text-field--outlined',
@@ -54,6 +68,18 @@ export const Textfield = (props: TextfieldProps) => {
         className
     );
 
+    const setQueryParam = useCallback(
+        (event: any) => {
+            if (event.target.value !== '') {
+                setSearchParams({ application: event.target.value });
+            } else {
+                setSearchParams({});
+            }
+            setFilter();
+        },
+        [setSearchParams]
+    );
+
     return (
         <div className={allClassName} ref={control}>
             <span className="mdc-notched-outline">
@@ -62,7 +88,10 @@ export const Textfield = (props: TextfieldProps) => {
                     <span className="mdc-notched-outline__notch">
                         <span
                             className={classNames('mdc-floating-label', {
-                                'mdc-floating-label--float-above': !!value || input.current === document.activeElement,
+                                'mdc-floating-label--float-above':
+                                    !!value ||
+                                    (input.current && input.current.value !== '') ||
+                                    input.current === document.activeElement,
                             })}>
                             {floatingLabel}
                         </span>
@@ -71,14 +100,18 @@ export const Textfield = (props: TextfieldProps) => {
                 <span className="mdc-notched-outline__trailing" />
             </span>
             {leadingIcon && (
-                <i
-                    className="material-icons mdc-text-field__icon mdc-text-field__icon--leading"
-                    tabIndex={0}
-                    role="button">
+                <i className="material-icons mdc-text-field__icon mdc-text-field__icon--leading" tabIndex={0}>
                     {leadingIcon}
                 </i>
             )}
-            <input type="text" className="mdc-text-field__input" value={value} ref={input} aria-label={floatingLabel} />
+            <input
+                type="text"
+                className="mdc-text-field__input"
+                defaultValue={value}
+                ref={input}
+                aria-label={floatingLabel}
+                onChange={setQueryParam}
+            />
         </div>
     );
 };
