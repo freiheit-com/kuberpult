@@ -51,18 +51,7 @@ const getUrlQuery = () => {
 export const useFilteredApplicationNames = () => {
     const apps = useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
     const queryContent = getUrlQuery();
-    const filteredApps = apps.filter((val) => {
-        if (queryContent) {
-            if (val.includes(queryContent)) {
-                return val;
-            }
-            return null;
-        } else {
-            return val;
-        }
-    });
-
-    return filteredApps;
+    return apps.filter((val) => filter(queryContent, val));
 };
 
 export const useApplicationNames = () =>
@@ -112,18 +101,20 @@ export const useFilteredApplicationLocks = () =>
                         );
                     });
             });
-        const filteredLocks = finalLocks.filter((val) => {
-            if (queryContent) {
-                if (val.application?.includes(queryContent)) {
-                    return val;
-                }
-                return null;
-            } else {
-                return val;
-            }
-        });
+        const filteredLocks = finalLocks.filter((val) => filter(queryContent, val.application));
         return sortLocks(filteredLocks, 'descending');
     });
+
+const filter = (queryContent: string | null, val: string | undefined) => {
+    if (!!val && queryContent) {
+        if (val.includes(queryContent)) {
+            return val;
+        }
+        return null;
+    } else {
+        return val;
+    }
+};
 
 // return all applications locks
 export const useApplicationLocks = () =>
