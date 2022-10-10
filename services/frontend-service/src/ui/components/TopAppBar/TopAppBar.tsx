@@ -31,6 +31,7 @@ export const TopAppBar: React.FC = () => {
     const toggleSideBar = useCallback(() => showSideBar((old) => !old), [showSideBar]);
 
     const query = new URLSearchParams(new URL(window.location.href).search).get('application');
+    const queryContent = query ? query : undefined;
 
     setFilter();
 
@@ -48,21 +49,12 @@ export const TopAppBar: React.FC = () => {
                     <span className="mdc-top-app-bar__title">Kuberpult</span>
                 </div>
                 <div className="mdc-top-app-bar__section">
-                    {!!query && (
-                        <Textfield
-                            className={'top-app-bar-search-field'}
-                            floatingLabel={'Search'}
-                            value={query}
-                            leadingIcon={'search'}
-                        />
-                    )}
-                    {!query && (
-                        <Textfield
-                            className={'top-app-bar-search-field'}
-                            floatingLabel={'Search'}
-                            leadingIcon={'search'}
-                        />
-                    )}
+                    <Textfield
+                        className={'top-app-bar-search-field'}
+                        floatingLabel={'Search'}
+                        value={queryContent}
+                        leadingIcon={'search'}
+                    />
                 </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong>{'Planned Actions'}</strong>
