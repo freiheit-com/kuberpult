@@ -16,9 +16,14 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { render } from '@testing-library/react';
 import { EnvironmentsPage } from './EnvironmentsPage';
+import { MemoryRouter } from 'react-router-dom';
 
 describe('EnvironmentsPage', () => {
-    const getNode = (): JSX.Element | any => <EnvironmentsPage />;
+    const getNode = (): JSX.Element | any => (
+        <MemoryRouter>
+            <EnvironmentsPage />
+        </MemoryRouter>
+    );
     const getWrapper = () => render(getNode());
 
     it('Renders full app', () => {

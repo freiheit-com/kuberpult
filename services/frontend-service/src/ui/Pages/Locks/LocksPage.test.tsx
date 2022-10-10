@@ -19,6 +19,8 @@ import { LocksPage } from './LocksPage';
 import { DisplayLock } from '../../../api/api';
 import React from 'react';
 import { LocksTable } from '../../components/LocksTable/LocksTable';
+import { Memory } from '@material-ui/icons';
+import { MemoryRouter } from 'react-router-dom';
 
 const filterLocks = (locks: DisplayLock[], queryContent: string | null) =>
     locks.filter((val) => {
@@ -33,7 +35,11 @@ const filterLocks = (locks: DisplayLock[], queryContent: string | null) =>
     });
 
 describe('LocksPage', () => {
-    const getNode = (): JSX.Element | any => <LocksPage />;
+    const getNode = (): JSX.Element | any => (
+        <MemoryRouter>
+            <LocksPage />
+        </MemoryRouter>
+    );
     const getWrapper = () => render(getNode());
 
     it('Renders full app', () => {

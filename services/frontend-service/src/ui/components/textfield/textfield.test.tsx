@@ -23,14 +23,22 @@ import { MemoryRouter } from 'react-router-dom';
 describe('Textfield', () => {
     it('renders correctly using Snapshot', () => {
         // given
-        const { container } = render(<Textfield floatingLabel="Floating label" />);
+        const { container } = render(
+            <MemoryRouter>
+                <Textfield floatingLabel="Floating label" />
+            </MemoryRouter>
+        );
         // when & then
         expect(container.firstChild).toMatchSnapshot();
     });
 
     test('renders correctly with leading icon', () => {
         // given
-        const { container } = render(<Textfield leadingIcon="search" />);
+        const { container } = render(
+            <MemoryRouter>
+                <Textfield leadingIcon="search" />
+            </MemoryRouter>
+        );
         // when & then
         expect(container.querySelectorAll('div')[0]?.className).toEqual(
             'mdc-text-field mdc-text-field--outlined mdc-text-field--no-label mdc-text-field--with-leading-icon'
