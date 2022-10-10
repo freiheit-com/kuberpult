@@ -98,7 +98,7 @@ export const useFilteredApplicationLocks = () =>
         return sortLocks(filteredLocks, 'descending');
     });
 
-const filter = (queryContent: string | null, val: string | undefined) => {
+export const filter = (queryContent: string | null, val: string | undefined) => {
     if (!!val && queryContent) {
         if (val.includes(queryContent)) {
             return val;

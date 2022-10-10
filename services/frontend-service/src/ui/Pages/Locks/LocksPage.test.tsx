@@ -140,7 +140,7 @@ describe('Test Filter for Locks Table', () => {
                     authorEmail: 'testEmail.com',
                 },
             ] as DisplayLock[],
-            query: 'v1',
+            query: 'v2',
             headerTitle: 'test-title',
             columnHeaders: ['Date', 'Environment', 'Lock Id', 'Message', 'Author Name', 'Author Email', ''],
             expect: (container) => expect(container.getElementsByClassName('lock-display')).toHaveLength(0),

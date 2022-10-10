@@ -16,16 +16,19 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { render } from '@testing-library/react';
 import { Home } from './Home';
-import { UpdateOverview } from '../../utils/store';
+import { filter, UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
-import { Application } from '../../../api/api';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 const mock_ServiceLane = Spy.mockReactComponents('../../components/ServiceLane/ServiceLane', 'ServiceLane');
 
 describe('App', () => {
-    const getNode = (): JSX.Element | any => <Home />;
+    const getNode = (): JSX.Element | any => (
+        <MemoryRouter>
+            <Home />
+        </MemoryRouter>
+    );
     const getWrapper = () => render(getNode());
     it('Renders full app', () => {
         // when
@@ -50,8 +53,8 @@ describe('Application Filter', () => {
     interface dataT {
         name: string;
         query: string;
-        applications: { [key: string]: Application };
-        expect: (container: HTMLElement) => HTMLElement | void;
+        applications: string[];
+        expect: (nrLocks: number) => void;
     }
 
     const getNode = (overrides?: {}): JSX.Element | any => {
@@ -69,37 +72,34 @@ describe('Application Filter', () => {
 
     const data: dataT[] = [
         {
-            name: 'using a deployed release - useDeployedAt test',
-            applications: {
-                test: {
-                    name: 'test',
-                } as Application,
-                foo: {
-                    name: 'test',
-                } as Application,
-                dummy: {
-                    name: 'test',
-                } as Application,
-                test2: {
-                    name: 'test',
-                } as Application,
-            },
-            query: 'http://localhost?application=foo',
+            name: 'filter applications - 1 result',
+            applications: ['dummy', 'test', 'test2', 'foo'],
+            query: 'dummy',
             // eslint-disable-next-line no-console
-            expect: (container) => console.log(container.outerHTML),
+            expect: (nrLocks) => expect(nrLocks).toStrictEqual(1),
+        },
+        {
+            name: 'filter applications - 0 results',
+            applications: ['dummy', 'test', 'test2'],
+            query: 'foo',
+            // eslint-disable-next-line no-console
+            expect: (nrLocks) => expect(nrLocks).toStrictEqual(0),
+        },
+        {
+            name: 'filter applications - 2 results',
+            applications: ['dummy', 'test', 'test2'],
+            query: 'test',
+            // eslint-disable-next-line no-console
+            expect: (nrLocks) => expect(nrLocks).toStrictEqual(2),
         },
     ];
 
     describe.each(data)(`Renders an Application Card`, (testcase) => {
         it(testcase.name, () => {
             // when
-            UpdateOverview.set({
-                applications: testcase.applications,
-                environments: {},
-            } as any);
-
-            const { container } = getWrapper({});
-            testcase.expect(container);
+            const nrLocks = testcase.applications.filter((val) => filter(testcase.query, val)).length;
+            getWrapper({});
+            testcase.expect(nrLocks);
         });
     });
 });
