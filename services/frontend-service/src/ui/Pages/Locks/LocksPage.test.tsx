@@ -20,18 +20,10 @@ import { DisplayLock } from '../../../api/api';
 import React from 'react';
 import { LocksTable } from '../../components/LocksTable/LocksTable';
 import { MemoryRouter } from 'react-router-dom';
+import { searchCustomFilter } from '../../utils/store';
 
 const filterLocks = (locks: DisplayLock[], queryContent: string | null) =>
-    locks.filter((val) => {
-        if (queryContent) {
-            if (val.application?.includes(queryContent)) {
-                return val;
-            }
-            return null;
-        } else {
-            return val;
-        }
-    });
+    locks.filter((val) => searchCustomFilter(queryContent, val));
 
 describe('LocksPage', () => {
     const getNode = (): JSX.Element | any => (

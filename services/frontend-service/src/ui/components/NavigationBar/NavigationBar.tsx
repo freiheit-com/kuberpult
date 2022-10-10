@@ -27,13 +27,9 @@ export const NavigationBar: React.FC = () => {
             </div>
             <div className="mdc-drawer__content">
                 <NavList>
-                    <NavListItem to={'home'} search={location.search ? location.search : ''} icon={<Home />} />
-                    <NavListItem
-                        to={'environments'}
-                        search={location.search ? location.search : ''}
-                        icon={<Environments />}
-                    />
-                    <NavListItem to={'locks'} search={location.search ? location.search : ''} icon={<Locks />} />
+                    <NavListItem to={'home'} queryParams={location?.search || ''} icon={<Home />} />
+                    <NavListItem to={'environments'} queryParams={location?.search || ''} icon={<Environments />} />
+                    <NavListItem to={'locks'} queryParams={location?.search || ''} icon={<Locks />} />
                 </NavList>
             </div>
         </aside>

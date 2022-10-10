@@ -30,10 +30,10 @@ export const NavbarIndicator = (props: { pathname: string; to: string }) => {
     );
 };
 
-export const NavListItem = (props: { className?: string; to: string; search?: string; icon?: JSX.Element }) => {
+export const NavListItem = (props: { className?: string; to: string; queryParams?: string; icon?: JSX.Element }) => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLAnchorElement>(null);
-    const { className, to, search, icon } = props;
+    const { className, to, queryParams, icon } = props;
     const { pathname } = useLocation();
 
     useEffect(() => {
@@ -54,7 +54,7 @@ export const NavListItem = (props: { className?: string; to: string; search?: st
                     className
                 )}
                 ref={control}
-                to={to + (!!search ? search : '')}
+                to={`${to}${queryParams ? queryParams : ''}`}
                 tabIndex={pathname.startsWith(`/v2/${to}`) ? 0 : -1}>
                 <div className="mdc-list-item__ripple" />
                 {icon &&

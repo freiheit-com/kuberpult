@@ -29,14 +29,13 @@ export interface DisplayLock {
 
 const emptyOverview: GetOverviewResponse = { applications: {}, environments: {} };
 export const [useOverview, UpdateOverview] = createStore(emptyOverview);
-export const [useFilteredOverview, UpdateFilteredOverview] = createStore(emptyOverview);
 
 export const [_, PanicOverview] = createStore({ error: '' });
 
 // returns all application names
 export const useFilteredApplicationNames = (appNameParam: string | null) => {
     const apps = useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
-    return apps.filter((val) => filter(appNameParam, val));
+    return apps.filter((val) => searchCustomFilter(appNameParam, val));
 };
 
 export const useApplicationNames = () =>
@@ -85,11 +84,11 @@ export const useFilteredApplicationLocks = (appNameParam: string | null) =>
                         );
                     });
             });
-        const filteredLocks = finalLocks.filter((val) => filter(appNameParam, val.application));
+        const filteredLocks = finalLocks.filter((val) => searchCustomFilter(appNameParam, val.application));
         return sortLocks(filteredLocks, 'descending');
     });
 
-export const filter = (queryContent: string | null, val: string | undefined) => {
+export const searchCustomFilter = (queryContent: string | null, val: string | undefined) => {
     if (!!val && !!queryContent) {
         if (val.includes(queryContent)) {
             return val;
