@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -13,7 +14,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2021 freiheit.com*/
+Copyright 2021 freiheit.com
+*/
 package repository
 
 import (
@@ -124,8 +126,8 @@ func UpdateDatadogMetrics(state *State) error {
 	return nil
 }
 
-func SendRegularlyDatadogMetrics(repo Repository, interval int, callBack func(repository Repository)) {
-	metricEventTimer := time.NewTicker(time.Duration(interval) * time.Second)
+func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBack func(repository Repository)) {
+	metricEventTimer := time.NewTicker(interval * time.Second)
 	for {
 		select {
 		case <-metricEventTimer.C:
