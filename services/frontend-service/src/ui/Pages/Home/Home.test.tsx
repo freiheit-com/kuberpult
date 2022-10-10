@@ -16,7 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { render } from '@testing-library/react';
 import { Home } from './Home';
-import { filter, UpdateOverview } from '../../utils/store';
+import { searchCustomFilter, UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -84,7 +84,7 @@ describe('Application Filter', () => {
     describe.each(data)(`Renders an Application Card`, (testcase) => {
         it(testcase.name, () => {
             // when
-            const nrLocks = testcase.applications.filter((val) => filter(testcase.query, val)).length;
+            const nrLocks = testcase.applications.filter((val) => searchCustomFilter(testcase.query, val)).length;
             testcase.expect(nrLocks);
         });
     });

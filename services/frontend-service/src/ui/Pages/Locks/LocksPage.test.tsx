@@ -23,7 +23,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { searchCustomFilter } from '../../utils/store';
 
 const filterLocks = (locks: DisplayLock[], queryContent: string | null) =>
-    locks.filter((val) => searchCustomFilter(queryContent, val));
+    locks.filter((val) => searchCustomFilter(queryContent, val.application));
 
 describe('LocksPage', () => {
     const getNode = (): JSX.Element | any => (
