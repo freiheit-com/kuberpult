@@ -124,7 +124,7 @@ describe('Test Filter for Locks Table', () => {
             expect: (container) => expect(container.getElementsByClassName('lock-display')).toHaveLength(1),
         },
         {
-            name: 'only one application locks passes the filter',
+            name: 'no application lock passes the filter',
             locks: [
                 {
                     date: new Date(),
@@ -138,14 +138,14 @@ describe('Test Filter for Locks Table', () => {
                 {
                     date: new Date(),
                     environment: 'test-env',
-                    application: 'test-app-v2',
+                    application: 'another-test-app',
                     lockId: 'another test-id',
                     message: 'test-message',
                     authorName: 'defaultUser',
                     authorEmail: 'testEmail.com',
                 },
             ] as DisplayLock[],
-            query: 'v2',
+            query: 'foo',
             headerTitle: 'test-title',
             columnHeaders: ['Date', 'Environment', 'Lock Id', 'Message', 'Author Name', 'Author Email', ''],
             expect: (container) => expect(container.getElementsByClassName('lock-display')).toHaveLength(0),
