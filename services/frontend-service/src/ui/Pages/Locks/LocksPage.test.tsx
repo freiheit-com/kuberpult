@@ -19,7 +19,6 @@ import { LocksPage } from './LocksPage';
 import { DisplayLock } from '../../../api/api';
 import React from 'react';
 import { LocksTable } from '../../components/LocksTable/LocksTable';
-import { Memory } from '@material-ui/icons';
 import { MemoryRouter } from 'react-router-dom';
 
 const filterLocks = (locks: DisplayLock[], queryContent: string | null) =>
