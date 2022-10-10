@@ -17,7 +17,6 @@ Copyright 2021 freiheit.com*/
 import { useCallback, useEffect, useRef } from 'react';
 import classNames from 'classnames';
 import { MDCTextField } from '@material/textfield';
-import { getFilter, setFilter } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
 
 export type TextfieldProps = {
@@ -25,15 +24,6 @@ export type TextfieldProps = {
     floatingLabel?: string;
     value?: string | number;
     leadingIcon?: string;
-};
-
-export const updateUrlQuery = (filterKey: string, filterValue: string | null) => {
-    filterValue = getFilter();
-    if (filterValue) {
-        const url = new URL(window.location.toString());
-        url.searchParams.set(filterKey, filterValue);
-        window.history.pushState({}, '', url.toString());
-    }
 };
 
 export const Textfield = (props: TextfieldProps) => {
@@ -75,7 +65,6 @@ export const Textfield = (props: TextfieldProps) => {
             } else {
                 setSearchParams({});
             }
-            setFilter();
         },
         [setSearchParams]
     );

@@ -17,7 +17,6 @@ Copyright 2021 freiheit.com*/
 
 import { LocksTable } from '../../components/LocksTable/LocksTable';
 import { useEnvironmentLocks, useFilteredApplicationLocks } from '../../utils/store';
-import { updateUrlQuery } from '../../components/textfield/textfield';
 import { useSearchParams } from 'react-router-dom';
 
 const applicationFieldHeaders = [
@@ -34,20 +33,16 @@ const applicationFieldHeaders = [
 const environmentFieldHeaders = ['Date', 'Environment', 'Lock Id', 'Message', 'Author Name', 'Author Email', ''];
 
 export const LocksPage: React.FC = () => {
-    const search = useSearchParams();
-    updateUrlQuery('application', search[0].get('application'));
+    const [params] = useSearchParams();
+    const appNameParam = params.get('application');
+
+    const appLocks = useFilteredApplicationLocks(appNameParam);
+    const envLocks = useEnvironmentLocks();
+
     return (
         <main className="main-content">
-            <LocksTable
-                headerTitle="Environment Locks"
-                columnHeaders={environmentFieldHeaders}
-                locks={useEnvironmentLocks()}
-            />
-            <LocksTable
-                headerTitle="Application Locks"
-                columnHeaders={applicationFieldHeaders}
-                locks={useFilteredApplicationLocks()}
-            />
+            <LocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} locks={envLocks} />
+            <LocksTable headerTitle="Application Locks" columnHeaders={applicationFieldHeaders} locks={appLocks} />
         </main>
     );
 };

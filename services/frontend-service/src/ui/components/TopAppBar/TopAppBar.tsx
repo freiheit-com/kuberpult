@@ -21,7 +21,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SideBar } from '../SideBar/SideBar';
 import { Button } from '../button';
 import { ShowBarWhite } from '../../../images';
-import { setFilter } from '../../utils/store';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);
@@ -32,8 +31,6 @@ export const TopAppBar: React.FC = () => {
 
     const query = new URLSearchParams(new URL(window.location.href).search).get('application');
     const queryContent = query ? query : undefined;
-
-    setFilter();
 
     useEffect(() => {
         if (control.current) {

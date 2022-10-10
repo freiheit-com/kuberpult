@@ -16,13 +16,13 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { useFilteredApplicationNames } from '../../utils/store';
 import { ServiceLane } from '../../components/ServiceLane/ServiceLane';
-import { updateUrlQuery } from '../../components/textfield/textfield';
 import { useSearchParams } from 'react-router-dom';
 
 export const Home: React.FC = () => {
-    const apps = useFilteredApplicationNames();
-    const search = useSearchParams();
-    updateUrlQuery('application', search[0].get('application'));
+    const [params] = useSearchParams();
+    const appNameParam = params.get('application');
+
+    const apps = useFilteredApplicationNames(appNameParam);
     return (
         <main className="main-content">
             {apps.map((app) => (

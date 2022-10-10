@@ -33,19 +33,10 @@ export const [useFilteredOverview, UpdateFilteredOverview] = createStore(emptyOv
 
 export const [_, PanicOverview] = createStore({ error: '' });
 
-let appFilter: string | null = null;
-
-export const setFilter = () => {
-    const query = new URLSearchParams(window.location.search);
-    appFilter = query.get('application');
-};
-
-export const getFilter = () => appFilter;
-
 // returns all application names
-export const useFilteredApplicationNames = () => {
+export const useFilteredApplicationNames = (appNameParam: string | null) => {
     const apps = useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
-    return apps.filter((val) => filter(appFilter, val));
+    return apps.filter((val) => filter(appNameParam, val));
 };
 
 export const useApplicationNames = () =>
@@ -72,7 +63,7 @@ export const useEnvironmentLocks = () =>
     });
 
 // return all applications locks
-export const useFilteredApplicationLocks = () =>
+export const useFilteredApplicationLocks = (appNameParam: string | null) =>
     useOverview(({ environments }) => {
         const finalLocks: DisplayLock[] = [];
         Object.values(environments)
@@ -94,12 +85,12 @@ export const useFilteredApplicationLocks = () =>
                         );
                     });
             });
-        const filteredLocks = finalLocks.filter((val) => filter(appFilter, val.application));
+        const filteredLocks = finalLocks.filter((val) => filter(appNameParam, val.application));
         return sortLocks(filteredLocks, 'descending');
     });
 
 export const filter = (queryContent: string | null, val: string | undefined) => {
-    if (!!val && queryContent) {
+    if (!!val && !!queryContent) {
         if (val.includes(queryContent)) {
             return val;
         }
