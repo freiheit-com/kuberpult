@@ -99,6 +99,7 @@ export const Textfield = (props: TextfieldProps) => {
                 defaultValue={value}
                 ref={input}
                 aria-label={floatingLabel}
+                disabled={window.location.href.includes('environments')}
                 onChange={setQueryParam}
             />
         </div>

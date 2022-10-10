@@ -16,18 +16,26 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { Logo, Home, Locks, Environments } from '../../../images';
 import { NavList, NavListItem } from '../navigation';
+import { useLocation } from 'react-router-dom';
 
-export const NavigationBar: React.FC = () => (
-    <aside className="mdc-drawer">
-        <div className="kp-logo">
-            <Logo />
-        </div>
-        <div className="mdc-drawer__content">
-            <NavList>
-                <NavListItem to={'home'} icon={<Home />} />
-                <NavListItem to={'environments'} icon={<Environments />} />
-                <NavListItem to={'locks'} icon={<Locks />} />
-            </NavList>
-        </div>
-    </aside>
-);
+export const NavigationBar: React.FC = () => {
+    const location = useLocation();
+    return (
+        <aside className="mdc-drawer">
+            <div className="kp-logo">
+                <Logo />
+            </div>
+            <div className="mdc-drawer__content">
+                <NavList>
+                    <NavListItem to={'home'} search={location.search ? location.search : ''} icon={<Home />} />
+                    <NavListItem
+                        to={'environments'}
+                        search={location.search ? location.search : ''}
+                        icon={<Environments />}
+                    />
+                    <NavListItem to={'locks'} search={location.search ? location.search : ''} icon={<Locks />} />
+                </NavList>
+            </div>
+        </aside>
+    );
+};

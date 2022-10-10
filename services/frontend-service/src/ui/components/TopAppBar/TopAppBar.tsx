@@ -48,7 +48,7 @@ export const TopAppBar: React.FC = () => {
                 <div className="mdc-top-app-bar__section">
                     <Textfield
                         className={'top-app-bar-search-field'}
-                        floatingLabel={'Search'}
+                        floatingLabel={'Application Name'}
                         value={queryContent}
                         leadingIcon={'search'}
                     />
