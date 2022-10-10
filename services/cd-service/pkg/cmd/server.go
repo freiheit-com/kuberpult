@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -13,13 +14,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2021 freiheit.com*/
+Copyright 2021 freiheit.com
+*/
 package cmd
 
 import (
 	"context"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -69,6 +72,8 @@ func RunServer() {
 	logger.Wrap(context.Background(), func(ctx context.Context) error {
 
 		var c Config
+
+		var wg sync.WaitGroup
 
 		err := envconfig.Process("kuberpult", &c)
 		if err != nil {
@@ -143,6 +148,9 @@ func RunServer() {
 
 		span.Finish()
 
+		wg.Add(1)
+		go repository.SendRegularlyDatadogMetrics(repo, 300, repository.GetRepositoryStateAndUpdateMetrics)
+
 		// Shutdown channel is used to terminate server side streams.
 		shutdownCh := make(chan struct{})
 		setup.Run(ctx, setup.Config{
@@ -187,9 +195,11 @@ func RunServer() {
 			},
 			Shutdown: func(ctx context.Context) error {
 				close(shutdownCh)
+				wg.Done()
 				return nil
 			},
 		})
+
 		return nil
 	})
 }

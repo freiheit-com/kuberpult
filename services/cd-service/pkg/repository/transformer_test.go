@@ -2237,3 +2237,115 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 		t.Errorf("Untested operations %s %s", op.Operation, op.Filename)
 	}
 }
+
+func mockSendMetrics(repo Repository, interval int) <-chan bool {
+	ch := make(chan bool, 1)
+	go SendRegularlyDatadogMetrics(repo, interval, func(repo Repository) { ch <- true })
+	return ch
+}
+
+func TestSendRegularlyDatadogMetrics(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		shouldSucceed bool
+	}{
+		{
+			Name: "Testing ticker",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo := setupRepositoryTest(t)
+
+			select {
+			case <-mockSendMetrics(repo, 1):
+			case <-time.After(4 * time.Second):
+				t.Fatal("An error occurred during the go routine")
+			}
+
+		})
+	}
+}
+
+func TestUpdateDatadogMetrics(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		expectedError string
+		shouldSucceed bool
+	}{
+		{
+			Name: "Application Lock metric is sent",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "acceptance",
+					Application: "app1",
+					LockId:      "22133",
+					Message:     "test",
+				},
+			},
+			shouldSucceed: true,
+		},
+		{
+			Name: "Application Lock metric is sent",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateEnvironmentLock{
+					Environment: "acceptance",
+					LockId:      "22133",
+					Message:     "test",
+				},
+			},
+			shouldSucceed: true,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			_, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+
+			if err != nil {
+				t.Fatalf("Got an unexpected error: %v", err)
+			}
+
+			err = UpdateDatadogMetrics(repo.State())
+
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Fatalf("Expected an error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
+				}
+			}
+		})
+	}
+}
