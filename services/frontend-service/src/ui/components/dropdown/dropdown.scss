@@ -6,8 +6,15 @@
 .mdc-select {
   width: 100%;
   fieldset {
-    border-color: var(--mdc-theme-primary);
-    margin-left: 50px;
     border-radius: 10px;
+    border-color: var(--mdc-theme-primary);
+  }
+}
+
+.remove-space {
+  fieldset {
+    legend {
+      max-width: 0.01px;
+    }
   }
 }

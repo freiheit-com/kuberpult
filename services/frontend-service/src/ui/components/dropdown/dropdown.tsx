@@ -14,10 +14,11 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { InputLabel, MenuItem, OutlinedInput, Select } from '@material-ui/core';
+import { FormControl, InputLabel, MenuItem, Select } from '@material-ui/core';
 import classNames from 'classnames';
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { useTeamNames } from '../../utils/store';
+import { useSearchParams } from 'react-router-dom';
 
 export type DropdownProps = {
     className?: string;
@@ -29,8 +30,16 @@ export const Dropdown = (props: DropdownProps) => {
     const { className, floatingLabel, leadingIcon } = props;
     const control = useRef<HTMLDivElement>(null);
     const teams = useTeamNames();
-    var team = '';
-    console.log(teams);
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const handleChange = useCallback(
+        (event: any) => {
+            event.target.value === '' ? searchParams.delete('team') : searchParams.set('team', event.target.value);
+            setSearchParams(searchParams);
+        },
+        [searchParams, setSearchParams]
+    );
+
     const allClassName = classNames(
         'mdc-select',
         'mdc-select--outlined',
@@ -43,13 +52,27 @@ export const Dropdown = (props: DropdownProps) => {
 
     return (
         <div className={allClassName} ref={control}>
-            <InputLabel className="mdc-floating-label">{floatingLabel}</InputLabel>
-            <Select defaultValue={'All'} className="mdc-select">
-                <MenuItem value={''}>All</MenuItem>
-                {teams.map((el: string) => (
-                    <MenuItem value={el}>{el}</MenuItem>
-                ))}
-            </Select>
+            <FormControl variant="outlined" fullWidth>
+                <InputLabel htmlFor="teams" id="teams" shrink={searchParams.get('team') ? true : false}>
+                    {floatingLabel}
+                </InputLabel>
+                <Select
+                    labelId="teams"
+                    value={searchParams.get('team')}
+                    onChange={handleChange}
+                    className={'mdc-select ' + (searchParams.get('team') ? '' : 'remove-space')}
+                    label={searchParams.get('team') ? floatingLabel : ''}
+                    variant="outlined">
+                    <MenuItem key={''} value={''}>
+                        All Teams
+                    </MenuItem>
+                    {teams.map((team: string) => (
+                        <MenuItem key={team} value={team}>
+                            {team}
+                        </MenuItem>
+                    ))}
+                </Select>
+            </FormControl>
         </div>
     );
 };

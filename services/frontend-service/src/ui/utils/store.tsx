@@ -33,6 +33,8 @@ export const [useOverview, UpdateOverview] = createStore(emptyOverview);
 export const [_, PanicOverview] = createStore({ error: '' });
 
 // returns all application names
+// doesn't return empty team names (i.e.: '')
+// doesn't return repeated team names
 export const useTeamNames = () =>
     useOverview(({ applications }) => [
         ...new Set(
@@ -41,6 +43,9 @@ export const useTeamNames = () =>
                 .map((app: Application) => app.team)
         ),
     ]);
+
+// returns all applications
+export const useApplications = () => useOverview(({ applications }) => applications);
 
 // returns all application names
 export const useApplicationNames = () =>
