@@ -54,7 +54,7 @@ export const NavListItem = (props: { className?: string; to: string; search?: st
                     className
                 )}
                 ref={control}
-                to={to + search}
+                to={to + (!!search ? search : '')}
                 tabIndex={pathname.startsWith(`/v2/${to}`) ? 0 : -1}>
                 <div className="mdc-list-item__ripple" />
                 {icon &&
