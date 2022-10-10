@@ -57,19 +57,6 @@ describe('Application Filter', () => {
         expect: (nrLocks: number) => void;
     }
 
-    const getNode = (overrides?: {}): JSX.Element | any => {
-        // given
-        const defaultProps: any = {
-            children: null,
-        };
-        return (
-            <MemoryRouter initialEntries={['/one', '/two', { search: 'application' }]}>
-                <Home {...defaultProps} {...overrides} />
-            </MemoryRouter>
-        );
-    };
-    const getWrapper = (overrides: {}) => render(getNode(overrides));
-
     const data: dataT[] = [
         {
             name: 'filter applications - 1 result',
@@ -98,7 +85,6 @@ describe('Application Filter', () => {
         it(testcase.name, () => {
             // when
             const nrLocks = testcase.applications.filter((val) => filter(testcase.query, val)).length;
-            getWrapper({});
             testcase.expect(nrLocks);
         });
     });
