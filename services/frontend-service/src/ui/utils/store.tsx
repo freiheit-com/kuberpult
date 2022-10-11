@@ -33,6 +33,11 @@ export const [useOverview, UpdateOverview] = createStore(emptyOverview);
 export const [_, PanicOverview] = createStore({ error: '' });
 
 // returns all application names
+export const useFilteredApplicationNames = (appNameParam: string | null) => {
+    const apps = useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
+    return apps.filter((val) => searchCustomFilter(appNameParam, val));
+};
+
 export const useApplicationNames = () =>
     useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
 
@@ -55,6 +60,44 @@ export const useEnvironmentLocks = () =>
         const locksFiltered = locks.filter((displayLock) => displayLock.length !== 0);
         return sortLocks(locksFiltered.flat(), 'descending');
     });
+
+// return all applications locks
+export const useFilteredApplicationLocks = (appNameParam: string | null) =>
+    useOverview(({ environments }) => {
+        const finalLocks: DisplayLock[] = [];
+        Object.values(environments)
+            .map((environment) => ({ envName: environment.name, apps: environment.applications }))
+            .forEach((app) => {
+                Object.values(app.apps)
+                    .map((myApp) => ({ environment: app.envName, appName: myApp.name, locks: myApp.locks }))
+                    .forEach((lock) => {
+                        Object.values(lock.locks).forEach((cena) =>
+                            finalLocks.push({
+                                date: cena.createdAt,
+                                application: lock.appName,
+                                environment: lock.environment,
+                                lockId: cena.lockId,
+                                message: cena.message,
+                                authorName: cena.createdBy?.name,
+                                authorEmail: cena.createdBy?.email,
+                            } as DisplayLock)
+                        );
+                    });
+            });
+        const filteredLocks = finalLocks.filter((val) => searchCustomFilter(appNameParam, val.application));
+        return sortLocks(filteredLocks, 'descending');
+    });
+
+export const searchCustomFilter = (queryContent: string | null, val: string | undefined) => {
+    if (!!val && !!queryContent) {
+        if (val.includes(queryContent)) {
+            return val;
+        }
+        return null;
+    } else {
+        return val;
+    }
+};
 
 // return all applications locks
 export const useApplicationLocks = () =>

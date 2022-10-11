@@ -16,13 +16,19 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { render } from '@testing-library/react';
 import { Home } from './Home';
-import { UpdateOverview } from '../../utils/store';
+import { searchCustomFilter, UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
+import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 
 const mock_ServiceLane = Spy.mockReactComponents('../../components/ServiceLane/ServiceLane', 'ServiceLane');
 
 describe('App', () => {
-    const getNode = (): JSX.Element | any => <Home />;
+    const getNode = (): JSX.Element | any => (
+        <MemoryRouter>
+            <Home />
+        </MemoryRouter>
+    );
     const getWrapper = () => render(getNode());
     it('Renders full app', () => {
         // when
@@ -40,5 +46,46 @@ describe('App', () => {
         expect(mock_ServiceLane.ServiceLane.getCallArgument(0, 0)).toStrictEqual({ application: 'app1' });
         expect(mock_ServiceLane.ServiceLane.getCallArgument(1, 0)).toStrictEqual({ application: 'app2' });
         expect(mock_ServiceLane.ServiceLane.getCallArgument(2, 0)).toStrictEqual({ application: 'app3' });
+    });
+});
+
+describe('Application Filter', () => {
+    interface dataT {
+        name: string;
+        query: string;
+        applications: string[];
+        expect: (nrLocks: number) => void;
+    }
+
+    const data: dataT[] = [
+        {
+            name: 'filter applications - 1 result',
+            applications: ['dummy', 'test', 'test2', 'foo'],
+            query: 'dummy',
+            // eslint-disable-next-line no-console
+            expect: (nrLocks) => expect(nrLocks).toStrictEqual(1),
+        },
+        {
+            name: 'filter applications - 0 results',
+            applications: ['dummy', 'test', 'test2'],
+            query: 'foo',
+            // eslint-disable-next-line no-console
+            expect: (nrLocks) => expect(nrLocks).toStrictEqual(0),
+        },
+        {
+            name: 'filter applications - 2 results',
+            applications: ['dummy', 'test', 'test2'],
+            query: 'test',
+            // eslint-disable-next-line no-console
+            expect: (nrLocks) => expect(nrLocks).toStrictEqual(2),
+        },
+    ];
+
+    describe.each(data)(`Renders an Application Card`, (testcase) => {
+        it(testcase.name, () => {
+            // when
+            const nrLocks = testcase.applications.filter((val) => searchCustomFilter(testcase.query, val)).length;
+            testcase.expect(nrLocks);
+        });
     });
 });

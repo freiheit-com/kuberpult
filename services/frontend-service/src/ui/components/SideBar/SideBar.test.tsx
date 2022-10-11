@@ -17,6 +17,7 @@ Copyright 2021 freiheit.com*/
 import React from 'react';
 import { act, render } from '@testing-library/react';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
+import { MemoryRouter } from 'react-router-dom';
 
 describe('Show and Hide Sidebar', () => {
     interface dataT {
@@ -47,7 +48,11 @@ describe('Show and Hide Sidebar', () => {
         const defaultProps: any = {
             children: null,
         };
-        return <TopAppBar {...defaultProps} {...overrides} />;
+        return (
+            <MemoryRouter>
+                <TopAppBar {...defaultProps} {...overrides} />{' '}
+            </MemoryRouter>
+        );
     };
     const getWrapper = (overrides?: {}) => render(getNode(overrides));
 

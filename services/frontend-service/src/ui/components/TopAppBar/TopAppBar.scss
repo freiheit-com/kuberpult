@@ -14,6 +14,10 @@
     .mdc-top-app-bar__section--align-end{
       padding-right: 0;
     }
+    .top-app-bar-search-field{
+      width: $top-app-bar-search-field-width;
+      height: $top-app-bar-search-field-height;
+    }
   }
 
   .mdc-top-app-bar__title{

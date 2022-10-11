@@ -21,13 +21,17 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SideBar } from '../SideBar/SideBar';
 import { Button } from '../button';
 import { ShowBarWhite } from '../../../images';
+import { useSearchParams } from 'react-router-dom';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);
     const MDComponent = useRef<MDCTopAppBar>();
     const [sideBar, showSideBar] = useState(false);
+    const [params] = useSearchParams();
 
     const toggleSideBar = useCallback(() => showSideBar((old) => !old), [showSideBar]);
+
+    const query = params.get('application') || undefined;
 
     useEffect(() => {
         if (control.current) {
@@ -43,7 +47,12 @@ export const TopAppBar: React.FC = () => {
                     <span className="mdc-top-app-bar__title">Kuberpult</span>
                 </div>
                 <div className="mdc-top-app-bar__section">
-                    <Textfield className={'top-app-bar-search-field'} floatingLabel={'Search'} leadingIcon={'search'} />
+                    <Textfield
+                        className={'top-app-bar-search-field'}
+                        floatingLabel={'Application Name'}
+                        value={query}
+                        leadingIcon={'search'}
+                    />
                 </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong>{'Planned Actions'}</strong>
