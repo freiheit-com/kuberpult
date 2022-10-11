@@ -44,8 +44,13 @@ export const useTeamNames = () =>
         ),
     ]);
 
-// returns all applications
-export const useApplications = () => useOverview(({ applications }) => applications);
+// returns applications filtered by dropdown and sorted by team name and then by app name
+export const useFilteredDropdownApps = (teams: string[]) =>
+    useOverview(({ applications }) =>
+        Object.values(applications)
+            .filter((app) => teams.length === 0 || teams.includes(app.team))
+            .sort((a, b) => (a.team === b.team ? a.name.localeCompare(b.name) : a.team.localeCompare(b.team)))
+    );
 
 // returns all application names
 export const useApplicationNames = () =>

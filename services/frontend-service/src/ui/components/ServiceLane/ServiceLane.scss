@@ -14,6 +14,18 @@
     display: flex;
     align-items: center;
   }
+  .service-team {
+    border: 1px solid var(--mdc-theme-on-primary);
+    border-radius: 10px;
+    color: var(--mdc-theme-on-primary);
+    font-weight: 700;
+    font-size: 28px;
+    line-height: 48px;
+    display: flex;
+    align-items: center;
+	padding: .5em;
+  }
+
   .service-action {
     border: 1px solid var(--mdc-theme-on-primary);
     border-radius: 10px;

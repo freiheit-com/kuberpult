@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { FormControl, InputLabel, MenuItem, Select } from '@material-ui/core';
+import { Checkbox, FormControl, InputLabel, MenuItem, Select } from '@material-ui/core';
 import classNames from 'classnames';
 import { useCallback, useRef } from 'react';
 import { useTeamNames } from '../../utils/store';
@@ -32,13 +32,16 @@ export const Dropdown = (props: DropdownProps) => {
     const teams = useTeamNames();
     const [searchParams, setSearchParams] = useSearchParams();
 
+    const isEmpty = (arr: string[]) => arr.length === 0;
     const handleChange = useCallback(
         (event: any) => {
-            event.target.value === '' ? searchParams.delete('team') : searchParams.set('team', event.target.value);
-            setSearchParams(searchParams);
+            if (event.target.value.includes('')) setSearchParams({ teams: [] });
+            else setSearchParams({ teams: event.target.value });
         },
-        [searchParams, setSearchParams]
+        [setSearchParams]
     );
+
+    const renderValue = useCallback((selected: string[]) => selected.join(', '), []);
 
     const allClassName = classNames(
         'mdc-select',
@@ -53,21 +56,24 @@ export const Dropdown = (props: DropdownProps) => {
     return (
         <div className={allClassName} ref={control}>
             <FormControl variant="outlined" fullWidth>
-                <InputLabel htmlFor="teams" id="teams" shrink={searchParams.get('team') ? true : false}>
+                <InputLabel htmlFor="teams" id="teams" shrink={!isEmpty(searchParams.getAll('teams')) ? true : false}>
                     {floatingLabel}
                 </InputLabel>
                 <Select
                     labelId="teams"
-                    value={searchParams.get('team')}
+                    multiple={true}
+                    renderValue={renderValue}
+                    value={searchParams.getAll('teams')}
                     onChange={handleChange}
-                    className={'mdc-select ' + (searchParams.get('team') ? '' : 'remove-space')}
-                    label={searchParams.get('team') ? floatingLabel : ''}
+                    className={'mdc-select ' + (!isEmpty(searchParams.getAll('teams')) ? '' : 'remove-space')}
+                    label={!isEmpty(searchParams.getAll('teams')) ? floatingLabel : ''}
                     variant="outlined">
                     <MenuItem key={''} value={''}>
-                        All Teams
+                        Clear
                     </MenuItem>
                     {teams.map((team: string) => (
                         <MenuItem key={team} value={team}>
+                            <Checkbox checked={searchParams.getAll('teams').includes(team)}></Checkbox>
                             {team}
                         </MenuItem>
                     ))}

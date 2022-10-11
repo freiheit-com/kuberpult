@@ -18,14 +18,16 @@ import { useDeployedReleases } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { Button } from '../button';
 import { DeleteWhite, HistoryWhite } from '../../../images';
+import { Application } from '../../../api/api';
 
-export const ServiceLane: React.FC<{ application: string }> = (props) => {
+export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const { application } = props;
-    const releases = useDeployedReleases(application);
+    const releases = useDeployedReleases(application.name);
     return (
         <div className="service-lane">
             <div className="service-lane__header">
-                <div className="service__name">{application}</div>
+                {application.team && <div className="service__name service-team">{application.team}</div>}
+                <div className="service__name">{application.name}</div>
                 <div className="service__actions">
                     <Button
                         className="service-action service-action--prepare-undeploy"
@@ -41,7 +43,7 @@ export const ServiceLane: React.FC<{ application: string }> = (props) => {
             </div>
             <div className="service__releases">
                 {releases.map((rel) => (
-                    <ReleaseCard app={application} version={rel} key={application + '-' + rel} />
+                    <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />
                 ))}
             </div>
         </div>
