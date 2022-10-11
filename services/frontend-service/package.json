@@ -67,6 +67,9 @@
         "react-dom": "18",
         "@types/react": "18"
       }
+    },
+    "overrides": {
+      "react-error-overlay": "6.0.9"
     }
   },
   "browserslist": {
