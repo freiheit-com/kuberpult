@@ -77,7 +77,7 @@ const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Elem
 
     const backupState = useRef<api.GetOverviewResponse>();
     if (backupState.current === undefined || refreshStore.shouldRefresh()) {
-        backupState.current = {} as api.GetOverviewResponse;
+        backupState.current = { environments: {}, applications: {} } as api.GetOverviewResponse;
         updateOverview();
     }
 
