@@ -21,16 +21,17 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SideBar } from '../SideBar/SideBar';
 import { Button } from '../button';
 import { ShowBarWhite } from '../../../images';
+import { useSearchParams } from 'react-router-dom';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);
     const MDComponent = useRef<MDCTopAppBar>();
     const [sideBar, showSideBar] = useState(false);
+    const [params] = useSearchParams();
 
     const toggleSideBar = useCallback(() => showSideBar((old) => !old), [showSideBar]);
 
-    const query = new URLSearchParams(new URL(window.location.href).search).get('application');
-    const queryContent = query ? query : undefined;
+    const query = params.get('application') || undefined;
 
     useEffect(() => {
         if (control.current) {
@@ -49,7 +50,7 @@ export const TopAppBar: React.FC = () => {
                     <Textfield
                         className={'top-app-bar-search-field'}
                         floatingLabel={'Application Name'}
-                        value={queryContent}
+                        value={query}
                         leadingIcon={'search'}
                     />
                 </div>
