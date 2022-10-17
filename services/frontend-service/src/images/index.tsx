@@ -18,6 +18,7 @@ import { ReactComponent as Logo } from './kuberpult-logo.svg';
 import { ReactComponent as Home } from './Home.svg';
 import { ReactComponent as Environments } from './Environments.svg';
 import { ReactComponent as Locks } from './Locks.svg';
+import { ReactComponent as LocksWhite } from './Locks_White.svg';
 import { ReactComponent as Delete } from './Delete.svg';
 import { ReactComponent as DeleteWhite } from './Delete_White.svg';
 import { ReactComponent as HistoryWhite } from './History_White.svg';
@@ -33,6 +34,7 @@ export {
     Logo,
     Home,
     Locks,
+    LocksWhite,
     Environments,
     Delete,
     ShowBar,
