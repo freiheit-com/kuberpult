@@ -16,17 +16,10 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { render, renderHook } from '@testing-library/react';
 import { Home } from './Home';
-<<<<<<< HEAD
 import { searchCustomFilter, UpdateOverview, useFilteredApps, useTeamNames } from '../../utils/store';
 import { Spy } from 'spy4js';
 import { MemoryRouter } from 'react-router-dom';
 import { Application } from '../../../api/api';
-=======
-import { searchCustomFilter, UpdateOverview } from '../../utils/store';
-import { Spy } from 'spy4js';
-import React from 'react';
-import { MemoryRouter } from 'react-router-dom';
->>>>>>> origin/main
 
 const mock_ServiceLane = Spy.mockReactComponents('../../components/ServiceLane/ServiceLane', 'ServiceLane');
 
