@@ -156,7 +156,7 @@ describe('Get teams from application list (useTeamNames)', () => {
             expect: (teamNames) => expect(teamNames).toStrictEqual(['dummy', 'foo']),
         },
         {
-            name: "doesn't collect empty team names - 2 sorted results",
+            name: "doesn't collect empty team names and adds <No Team> option to dropdown - 2 sorted results",
             applications: {
                 foo: {
                     name: 'foo',
@@ -183,7 +183,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     team: 'foo',
                 },
             },
-            expect: (teamNames) => expect(teamNames).toStrictEqual(['foo', 'test']),
+            expect: (teamNames) => expect(teamNames).toStrictEqual(['<No Team>', 'foo', 'test']),
         },
     ];
 
