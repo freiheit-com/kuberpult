@@ -18,7 +18,6 @@ Copyright 2021 freiheit.com*/
 import { DropdownSelect } from './dropdown';
 import { getByTestId, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import '@testing-library/user-event';
 import { UpdateOverview } from '../../utils/store';
 
 describe('Dropdown', () => {
