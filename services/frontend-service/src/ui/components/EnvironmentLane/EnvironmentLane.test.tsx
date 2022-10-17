@@ -49,24 +49,24 @@ const sampleEnvs = {
 interface dataT {
     name: string;
     environment: string;
-    expect: (container: HTMLElement) => HTMLElement | void;
+    expected: number;
 }
 
 const cases: dataT[] = [
     {
         name: 'Environment row with two locks',
         environment: 'foo',
-        expect: (container) => expect(container.getElementsByClassName('environment-lock-display')).toHaveLength(2),
+        expected: 2,
     },
     {
         name: 'Environment row with no locks',
         environment: 'moreTest',
-        expect: (container) => expect(container.getElementsByClassName('environment-lock-display')).toHaveLength(0),
+        expected: 0,
     },
     {
         name: 'None existant environment',
-        environment: 'noneExistant',
-        expect: (container) => expect(container.getElementsByClassName('environment-lock-display')).toHaveLength(0),
+        environment: 'nonExistant',
+        expected: 0,
     },
 ];
 
@@ -83,7 +83,7 @@ describe('Environment Lane', () => {
             // when
             const { container } = getWrapper({ environment: testcase.environment });
             // then
-            testcase.expect(container);
+            expect(container.getElementsByClassName('environment-lock-display')).toHaveLength(testcase.expected);
         });
     });
 });
