@@ -21,7 +21,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SideBar } from '../SideBar/SideBar';
 import { Button } from '../button';
 import { ShowBarWhite } from '../../../images';
+<<<<<<< HEAD
 import { Dropdown } from '../dropdown';
+=======
+>>>>>>> origin/main
 import { useSearchParams } from 'react-router-dom';
 
 export const TopAppBar: React.FC = () => {
@@ -54,7 +57,10 @@ export const TopAppBar: React.FC = () => {
                         value={query}
                         leadingIcon={'search'}
                     />
+<<<<<<< HEAD
                     <Dropdown className={'top-app-bar-search-field'} floatingLabel={'Teams'} leadingIcon={'search'} />
+=======
+>>>>>>> origin/main
                 </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong>{'Planned Actions'}</strong>

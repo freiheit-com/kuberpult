@@ -46,7 +46,11 @@ export const Textfield = (props: TextfieldProps) => {
     });
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
+<<<<<<< HEAD
     const [searchParams, setSearchParams] = useSearchParams();
+=======
+    const [_, setSearchParams] = useSearchParams();
+>>>>>>> origin/main
 
     const allClassName = classNames(
         'mdc-text-field',
@@ -60,11 +64,21 @@ export const Textfield = (props: TextfieldProps) => {
 
     const setQueryParam = useCallback(
         (event: any) => {
+<<<<<<< HEAD
             if (event.target.value !== '') searchParams.set('application', event.target.value);
             else searchParams.delete('application');
             setSearchParams(searchParams);
         },
         [searchParams, setSearchParams]
+=======
+            if (event.target.value !== '') {
+                setSearchParams({ application: event.target.value });
+            } else {
+                setSearchParams({});
+            }
+        },
+        [setSearchParams]
+>>>>>>> origin/main
     );
 
     return (

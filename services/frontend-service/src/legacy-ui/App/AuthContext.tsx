@@ -26,6 +26,7 @@ import {
     UnauthenticatedTemplate,
     useMsal,
 } from '@azure/msal-react';
+import refreshStore from './RefreshStore';
 
 type AuthContextType = {
     useAzureAuth: boolean;
@@ -80,11 +81,13 @@ function AzureAuthTokenProvider({ children }: { children: React.ReactNode }): JS
             .then((response) => {
                 setToken(response.idToken);
                 setAuthHeader(new BrowserHeaders({ Authorization: response.idToken }));
+                refreshStore.setRefresh(true);
             })
             .catch(() => {
                 instance.acquireTokenPopup(request).then((response) => {
                     setToken(response.idToken);
                     setAuthHeader(new BrowserHeaders({ Authorization: response.idToken }));
+                    refreshStore.setRefresh(true);
                 });
             });
     }, [instance, accounts, loginRequest]);

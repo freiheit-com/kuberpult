@@ -1,5 +1,14 @@
 # Change Log
 
+<<<<<<< HEAD
+=======
+## 0.4.44
+
+**released 2022-10-11**
+* More frequent Datadog metrics [#375](https://github.com/freiheit-com/kuberpult/pull/375)
+* Implementation for application name filtering [#374](https://github.com/freiheit-com/kuberpult/pull/374)
+* Refresh overview after getting id token (logging in) [#377](https://github.com/freiheit-com/kuberpult/pull/377)
+>>>>>>> origin/main
 
 ## 0.4.43
 

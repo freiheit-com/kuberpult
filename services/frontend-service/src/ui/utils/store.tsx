@@ -33,6 +33,7 @@ export const [useOverview, UpdateOverview] = createStore(emptyOverview);
 export const [_, PanicOverview] = createStore({ error: '' });
 
 // returns all application names
+<<<<<<< HEAD
 // doesn't return empty team names (i.e.: '')
 // doesn't return repeated team names
 export const useTeamNames = () =>
@@ -58,6 +59,15 @@ export const useFilteredApps = (teams: string[]) =>
 // returns all application names
 export const useSearchedApplications = (applications: Application[], appNameParam: string) =>
     [...applications].filter((val) => appNameParam === '' || val.name.includes(appNameParam));
+=======
+export const useFilteredApplicationNames = (appNameParam: string | null) => {
+    const apps = useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
+    return apps.filter((val) => searchCustomFilter(appNameParam, val));
+};
+
+export const useApplicationNames = () =>
+    useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
+>>>>>>> origin/main
 
 // return all environment locks
 export const useEnvironmentLocks = () =>
