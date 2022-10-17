@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -69,6 +70,8 @@ func RunServer() {
 	logger.Wrap(context.Background(), func(ctx context.Context) error {
 
 		var c Config
+
+		var wg sync.WaitGroup
 
 		err := envconfig.Process("kuberpult", &c)
 		if err != nil {
@@ -143,6 +146,9 @@ func RunServer() {
 
 		span.Finish()
 
+		wg.Add(1)
+		go repository.RegularlySendDatadogMetrics(repo, 300, repository.GetRepositoryStateAndUpdateMetrics)
+
 		// Shutdown channel is used to terminate server side streams.
 		shutdownCh := make(chan struct{})
 		setup.Run(ctx, setup.Config{
@@ -187,9 +193,11 @@ func RunServer() {
 			},
 			Shutdown: func(ctx context.Context) error {
 				close(shutdownCh)
+				wg.Done()
 				return nil
 			},
 		})
+
 		return nil
 	})
 }

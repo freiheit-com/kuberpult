@@ -4,17 +4,23 @@
 @use '@material/select/icon';
 
 .mdc-select {
-  width: 100%;
-  fieldset {
-    border-radius: 10px;
-    border-color: var(--mdc-theme-primary);
-  }
+	width: 100%;
+	min-height: 100%;
+
+	label {
+		line-height: normal;
+	}
+
+	fieldset {
+		border-radius: 10px;
+		border-color: var(--mdc-theme-primary);
+	}
 }
 
 .remove-space {
-  fieldset {
-    legend {
-      max-width: 0.01px;
-    }
-  }
+	fieldset {
+		legend {
+			max-width: 0.01px;
+		}
+	}
 }

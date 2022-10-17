@@ -1,5 +1,11 @@
 # Change Log
 
+
+## 0.4.43
+
+**released 2022-10-07**
+* Fixed an issue where the legacy ui did not reload the data on connection errors [#371](https://github.com/freiheit-com/kuberpult/pull/371)
+
 ## 0.4.42
 
 **released 2022-09-27**

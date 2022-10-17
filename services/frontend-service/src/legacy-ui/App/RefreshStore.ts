@@ -14,20 +14,24 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { render } from '@testing-library/react';
-import { EnvironmentsPage } from './EnvironmentsPage';
-import { MemoryRouter } from 'react-router-dom';
+/**
+ * The RefreshStore is solution to refresh the state (GetOverview).
+ * This is currently needed as an addition to polling.
+ * This will be re-worked in v2.
+ * See story SRX-0ELJF9.
+ */
 
-describe('EnvironmentsPage', () => {
-    const getNode = (): JSX.Element | any => (
-        <MemoryRouter>
-            <EnvironmentsPage />
-        </MemoryRouter>
-    );
-    const getWrapper = () => render(getNode());
+class RefreshStore {
+    doRefresh: boolean = false;
 
-    it('Renders full app', () => {
-        const { container } = getWrapper();
-        expect(container.textContent).toBe('List All Environments Here');
-    });
-});
+    setRefresh(newState: boolean) {
+        this.doRefresh = newState;
+    }
+
+    shouldRefresh() {
+        return this.doRefresh;
+    }
+}
+
+const refreshStore = new RefreshStore();
+export default refreshStore;

@@ -124,6 +124,23 @@ func UpdateDatadogMetrics(state *State) error {
 	return nil
 }
 
+func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBack func(repository Repository)) {
+	metricEventTimer := time.NewTicker(interval * time.Second)
+	for {
+		select {
+		case <-metricEventTimer.C:
+			callBack(repo)
+		}
+	}
+}
+
+func GetRepositoryStateAndUpdateMetrics(repo Repository) {
+	repoState := repo.State()
+	if err := UpdateDatadogMetrics(repoState); err != nil {
+		panic(err.Error())
+	}
+}
+
 // A Transformer updates the files in the worktree
 type Transformer interface {
 	Transform(context.Context, *State) (commitMsg string, e error)

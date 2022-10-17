@@ -18,6 +18,7 @@ import { render } from '@testing-library/react';
 import { ServiceLane } from './ServiceLane';
 import { UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
+import { Application } from '../../../api/api';
 
 const mock_ReleaseCard = Spy.mockReactComponents('../../components/ReleaseCard/ReleaseCard', 'ReleaseCard');
 const sampleEnvs = {
@@ -69,19 +70,25 @@ const sampleEnvs = {
 } as any;
 
 describe('Service Lane', () => {
-    const getNode = (overrides: { application: string }) => <ServiceLane {...overrides} />;
-    const getWrapper = (overrides: { application: string }) => render(getNode(overrides));
+    const getNode = (overrides: { application: Application }) => <ServiceLane {...overrides} />;
+    const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
     it('Renders a row of releases', () => {
         // when
         UpdateOverview.set({
             environments: sampleEnvs,
         });
-        getWrapper({ application: 'test2' });
+        const appObj = {
+            name: 'test2',
+            releases: [],
+            sourceRepoUrl: 'http://test2.com',
+            team: 'example',
+        };
+        getWrapper({ application: appObj });
 
         // then releases are sorted and Release card is called with props:
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: 'test2', version: -1 });
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1, 0)).toStrictEqual({ app: 'test2', version: 3 });
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({ app: 'test2', version: 2 });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: appObj.name, version: -1 });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1, 0)).toStrictEqual({ app: appObj.name, version: 3 });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({ app: appObj.name, version: 2 });
         mock_ReleaseCard.ReleaseCard.wasCalled(3);
     });
 });

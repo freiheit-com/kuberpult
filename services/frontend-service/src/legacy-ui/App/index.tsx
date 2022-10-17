@@ -15,20 +15,21 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import Box from '@material-ui/core/Box';
 import { ThemeProvider } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import { AuthHeaderType, AuthProvider } from './AuthContext';
+import { AuthProvider, AuthTokenContext } from './AuthContext';
 
 import Releases from '../Releases';
 import * as api from '../../api/api';
 import Header from '../AppBar/Header';
-import { GrpcProvider, useObservable, useUnary } from '../Api';
+import { Context, GrpcProvider, UnaryState, useUnary } from '../Api';
 
 import { theme, useStyles } from './styles';
 import { CartAction } from '../ActionDetails';
+import refreshStore from './RefreshStore';
 
 type ConfigContextType = {
     configs: api.GetFrontendConfigResponse;
@@ -52,16 +53,42 @@ export const Spinner: React.FC<any> = (props: any) => {
 };
 
 const GetOverview = (props: { children: (r: api.GetOverviewResponse) => JSX.Element }): JSX.Element | null => {
-    const getOverview = React.useCallback(
-        (api: any, authHeader: AuthHeaderType) => api.overviewService().StreamOverview({}, authHeader),
-        []
-    );
-    const overview = useObservable<api.GetOverviewResponse>(getOverview);
+    const [overview, setOverview] = useState<UnaryState<api.GetOverviewResponse>>({ state: 'pending' });
+    const reloadDelayMillis = 30 * 1000;
+    const api = React.useContext(Context);
+    const { authHeader } = React.useContext(AuthTokenContext);
+
+    const updateOverview = React.useCallback(() => {
+        api.overviewService()
+            .GetOverview({}, authHeader)
+            .then(
+                (result) => {
+                    setOverview({ result, state: 'resolved' });
+                    refreshStore.setRefresh(false);
+                },
+                (error) => setOverview({ error, state: 'rejected' })
+            );
+    }, [api, authHeader]);
+
+    React.useEffect(() => {
+        const id = setInterval(updateOverview, reloadDelayMillis);
+        return () => clearInterval(id);
+    }, [reloadDelayMillis, updateOverview]);
+
+    const backupState = useRef<api.GetOverviewResponse>();
+    if (backupState.current === undefined || refreshStore.shouldRefresh()) {
+        backupState.current = {} as api.GetOverviewResponse;
+        updateOverview();
+    }
+
     switch (overview.state) {
         case 'resolved':
-            return props.children(overview.result);
+            backupState.current = overview.result;
+            return props.children(backupState.current);
         case 'rejected':
-            return <div>Error: {JSON.stringify(overview.error)}</div>;
+            // eslint-disable-next-line no-console
+            console.log('restarting streamoverview due to error: ', overview.error);
+            return props.children(backupState.current);
         case 'pending':
             return <Spinner />;
         default:
