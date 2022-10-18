@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { GetOverviewResponse } from '../../api/api';
+import { Application, GetOverviewResponse } from '../../api/api';
 
 export interface DisplayLock {
     date: Date;
@@ -33,14 +33,38 @@ export const [useOverview, UpdateOverview] = createStore(emptyOverview);
 export const [_, PanicOverview] = createStore({ error: '' });
 
 // returns all application names
-export const useFilteredApplicationNames = (appNameParam: string | null) => {
-    const apps = useOverview(({ applications }) => Object.keys(applications).sort((a, b) => a.localeCompare(b)));
-    return apps.filter((val) => searchCustomFilter(appNameParam, val));
-};
+// doesn't return empty team names (i.e.: '')
+// doesn't return repeated team names
+export const useTeamNames = () =>
+    useOverview(({ applications }) => [
+        ...new Set(
+            Object.values(applications)
+                .map((app: Application) => app.team || '<No Team>')
+                .sort((a, b) => a.localeCompare(b))
+        ),
+    ]);
 
+// returns applications filtered by dropdown and sorted by team name and then by app name
+export const useFilteredApps = (teams: string[]) =>
+    useOverview(({ applications }) =>
+        Object.values(applications).filter((app) => teams.length === 0 || teams.includes(app.team || '<No Team>'))
+    );
+
+// returns all environment names
 export const useEnvironmentNames = () =>
     useOverview(({ environments }) => Object.keys(environments).sort((a, b) => a.localeCompare(b)));
 
+// returns all application names
+export const useSearchedApplications = (
+    applications: Application[],
+    appNameParam: string,
+    sortByTeam: boolean = false
+) =>
+    applications
+        .filter((val) => appNameParam === '' || val.name.includes(appNameParam))
+        .sort((a, b) =>
+            sortByTeam || a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)
+        );
 // return all environment locks
 export const useEnvironmentLocks = () =>
     useOverview(({ environments }) => {

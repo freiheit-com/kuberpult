@@ -1,0 +1,26 @@
+@use '@material/floating-label/mdc-floating-label';
+@use '@material/notched-outline/mdc-notched-outline';
+@use '@material/select/mdc-select';
+@use '@material/select/icon';
+
+.mdc-select {
+  width: 100%;
+  min-height: 100%;
+
+  label {
+    line-height: normal;
+  }
+
+  fieldset {
+    border-radius: 10px;
+    border-color: var(--mdc-theme-primary);
+  }
+}
+
+.remove-space {
+  fieldset {
+    legend {
+      max-width: 0.01px;
+    }
+  }
+}
