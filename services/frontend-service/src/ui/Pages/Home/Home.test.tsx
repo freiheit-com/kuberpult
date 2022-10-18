@@ -171,7 +171,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
 
     const data: dataT[] = [
         {
-            name: 'gets every app - 2 results',
+            name: 'gets filtered apps by team - 2 results',
             selectedTeams: ['dummy', 'foo'],
             applications: {
                 foo: {
@@ -256,6 +256,25 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                 },
             },
             expectedNumOfTeams: 4,
+        },
+        {
+            name: 'selected team has no assigned applications - 0 results',
+            selectedTeams: ['thisTeamDoesntExist'],
+            applications: {
+                foo: {
+                    name: 'foo',
+                    releases: [],
+                    sourceRepoUrl: 'http://foo.com',
+                    team: 'dummy',
+                },
+                bar: {
+                    name: 'bar',
+                    releases: [],
+                    sourceRepoUrl: 'http://bar.com',
+                    team: 'test',
+                },
+            },
+            expectedNumOfTeams: 0,
         },
     ];
 
