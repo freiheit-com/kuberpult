@@ -40,6 +40,36 @@ $locks-subheader-font-size: 18px;
 $locks-subheader-line-height: 2em;
 $locks-list-margin: 0 0 2em 0;
 
+// Environment Page
+$environment-lock-display-margin: 10px 20px;
+$environment-locks-bottom: 20px;
+$environment-locks-margin: 8px;
+$environment-lock-scale: scale(2);
+$environment-lane-height: 180px;
+$environment-lane-border-radius: 15px;
+$environment-lane-margin: 40px 0;
+$environment-lane-header-top-displacement: -10px;
+$environment-lane-header-left-displacement: -10px;
+$environment-lane-header-color: var(--mdc-theme-surface);
+$environment-lane-header-background-color: var(--mdc-theme-secondary);
+$environment-lane-header-padding: 13px 20px;
+$environment-lane-header-border-radius: 10px;
+$environment-lane-header-height: 62px;
+$environment-lane-background-color: var(--mdc-theme-surface, #fff);
+$environment-name-font-weight: 700;
+$environment-name-font-size: 28px;
+$environment-name-line-height: 48px;
+$environment-actions-right-displacement: 30px;
+$environment-actions-bottom-displacement: 30px;
+$environment-add-lock-button-border: 1px solid var(--mdc-theme-primary);
+$environment-add-lock-button-border-radius: 10px;
+$environment-add-lock-button-color: var(--mdc-theme-primary);
+$environment-add-lock-button-padding-left: 1em;
+$environment-add-lock-button-font-weight: 700;
+$environment-add-lock-button-font-size: 14px;
+$environment-add-lock-button-line-height: 24px;
+
+
 
 // Logo
 // 6em = 96px - Logo_width(60px) = 36px / 2 = 18px

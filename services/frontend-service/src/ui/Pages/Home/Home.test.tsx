@@ -62,21 +62,18 @@ describe('Application Filter', () => {
             name: 'filter applications - 1 result',
             applications: ['dummy', 'test', 'test2', 'foo'],
             query: 'dummy',
-            // eslint-disable-next-line no-console
             expect: (nrLocks) => expect(nrLocks).toStrictEqual(1),
         },
         {
             name: 'filter applications - 0 results',
             applications: ['dummy', 'test', 'test2'],
             query: 'foo',
-            // eslint-disable-next-line no-console
             expect: (nrLocks) => expect(nrLocks).toStrictEqual(0),
         },
         {
             name: 'filter applications - 2 results',
             applications: ['dummy', 'test', 'test2'],
             query: 'test',
-            // eslint-disable-next-line no-console
             expect: (nrLocks) => expect(nrLocks).toStrictEqual(2),
         },
     ];
