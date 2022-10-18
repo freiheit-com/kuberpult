@@ -31,65 +31,28 @@ describe('App', () => {
     );
     const getWrapper = () => render(getNode());
     it('Renders full app', () => {
-        // when
-        const appBuilder = (suffix: string) => ({
-            name: 'test' + suffix,
+        const buildTestApp = (suffix: string) => ({
+            name: `test${suffix}`,
             releases: [],
-            sourceRepoUrl: 'http://test' + suffix + '.com',
-            team: 'example' + suffix,
+            sourceRepoUrl: `http://test${suffix}.com`,
+            team: `team${suffix}`,
         });
+        // when
+        const sampleApps = {
+            app1: buildTestApp('1'),
+            app2: buildTestApp('2'),
+            app3: buildTestApp('3'),
+        };
         UpdateOverview.set({
             environments: {},
-            applications: {
-                app1: appBuilder('1'),
-                app3: appBuilder('3'),
-                app2: appBuilder('2'),
-            },
-        } as any);
+            applications: sampleApps,
+        });
         getWrapper();
 
         // then apps are sorted and Service Lane is called
-        expect(mock_ServiceLane.ServiceLane.getCallArgument(0, 0)).toStrictEqual({ application: appBuilder('1') });
-        expect(mock_ServiceLane.ServiceLane.getCallArgument(1, 0)).toStrictEqual({ application: appBuilder('2') });
-        expect(mock_ServiceLane.ServiceLane.getCallArgument(2, 0)).toStrictEqual({ application: appBuilder('3') });
-    });
-});
-
-describe('Application Filter', () => {
-    interface dataT {
-        name: string;
-        query: string;
-        applications: string[];
-        expect: (nrLocks: number) => void;
-    }
-
-    const data: dataT[] = [
-        {
-            name: 'filter applications - 1 result',
-            applications: ['dummy', 'test', 'test2', 'foo'],
-            query: 'dummy',
-            expect: (nrLocks) => expect(nrLocks).toStrictEqual(1),
-        },
-        {
-            name: 'filter applications - 0 results',
-            applications: ['dummy', 'test', 'test2'],
-            query: 'foo',
-            expect: (nrLocks) => expect(nrLocks).toStrictEqual(0),
-        },
-        {
-            name: 'filter applications - 2 results',
-            applications: ['dummy', 'test', 'test2'],
-            query: 'test',
-            expect: (nrLocks) => expect(nrLocks).toStrictEqual(2),
-        },
-    ];
-
-    describe.each(data)(`Renders an Application Card`, (testcase) => {
-        it(testcase.name, () => {
-            // when
-            const nrLocks = testcase.applications.filter((val) => searchCustomFilter(testcase.query, val)).length;
-            testcase.expect(nrLocks);
-        });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(0, 0)).toStrictEqual({ application: sampleApps.app1 });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(1, 0)).toStrictEqual({ application: sampleApps.app2 });
+        expect(mock_ServiceLane.ServiceLane.getCallArgument(2, 0)).toStrictEqual({ application: sampleApps.app3 });
     });
 });
 
@@ -97,7 +60,7 @@ describe('Get teams from application list (useTeamNames)', () => {
     interface dataT {
         name: string;
         applications: { [key: string]: Application };
-        expect: (teamNames: string[]) => void;
+        expectedTeams: string[];
     }
 
     const data: dataT[] = [
@@ -129,7 +92,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     team: 'foo',
                 },
             },
-            expect: (teamNames) => expect(teamNames).toStrictEqual(['dummy', 'foo', 'test', 'test2']),
+            expectedTeams: ['dummy', 'foo', 'test', 'test2'],
         },
         {
             name: "doesn't collect duplicate team names - 2 sorted results",
@@ -153,7 +116,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     team: 'foo',
                 },
             },
-            expect: (teamNames) => expect(teamNames).toStrictEqual(['dummy', 'foo']),
+            expectedTeams: ['dummy', 'foo'],
         },
         {
             name: "doesn't collect empty team names and adds <No Team> option to dropdown - 2 sorted results",
@@ -183,7 +146,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     team: 'foo',
                 },
             },
-            expect: (teamNames) => expect(teamNames).toStrictEqual(['<No Team>', 'foo', 'test']),
+            expectedTeams: ['<No Team>', 'foo', 'test'],
         },
     ];
 
@@ -193,7 +156,7 @@ describe('Get teams from application list (useTeamNames)', () => {
             UpdateOverview.set({ applications: testcase.applications, environments: {} });
             // when
             const teamNames = renderHook(() => useTeamNames()).result.current;
-            testcase.expect(teamNames);
+            expect(teamNames).toStrictEqual(testcase.expectedTeams);
         });
     });
 });
@@ -203,7 +166,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
         name: string;
         selectedTeams: string[];
         applications: { [key: string]: Application };
-        expect: (teamNames: number) => void;
+        expectedNumOfTeams: number;
     }
 
     const data: dataT[] = [
@@ -236,7 +199,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     team: 'foo',
                 },
             },
-            expect: (teamNames) => expect(teamNames).toStrictEqual(2),
+            expectedNumOfTeams: 2,
         },
         {
             name: 'shows both applications of the selected team - 2 results',
@@ -261,7 +224,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     team: 'foo',
                 },
             },
-            expect: (teamNames) => expect(teamNames).toStrictEqual(2),
+            expectedNumOfTeams: 2,
         },
         {
             name: 'no teams selected (shows every application) - 4 results',
@@ -292,7 +255,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     team: 'foo',
                 },
             },
-            expect: (teamNames) => expect(teamNames).toStrictEqual(4),
+            expectedNumOfTeams: 4,
         },
     ];
 
@@ -301,8 +264,8 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
             // given
             UpdateOverview.set({ applications: testcase.applications, environments: {} });
             // when
-            const teamNames = renderHook(() => useFilteredApps(testcase.selectedTeams)).result.current.length;
-            testcase.expect(teamNames);
+            const numOfTeams = renderHook(() => useFilteredApps(testcase.selectedTeams)).result.current.length;
+            expect(numOfTeams).toStrictEqual(testcase.expectedNumOfTeams);
         });
     });
 });
@@ -312,7 +275,7 @@ describe('Application Filter', () => {
         name: string;
         query: string;
         applications: string[];
-        expect: (nrLocks: number) => void;
+        expectedLocks: number;
     }
 
     const data: dataT[] = [
@@ -320,22 +283,19 @@ describe('Application Filter', () => {
             name: 'filter applications - 1 result',
             applications: ['dummy', 'test', 'test2', 'foo'],
             query: 'dummy',
-            // eslint-disable-next-line no-console
-            expect: (nrLocks) => expect(nrLocks).toStrictEqual(1),
+            expectedLocks: 1,
         },
         {
             name: 'filter applications - 0 results',
             applications: ['dummy', 'test', 'test2'],
             query: 'foo',
-            // eslint-disable-next-line no-console
-            expect: (nrLocks) => expect(nrLocks).toStrictEqual(0),
+            expectedLocks: 0,
         },
         {
             name: 'filter applications - 2 results',
             applications: ['dummy', 'test', 'test2'],
             query: 'test',
-            // eslint-disable-next-line no-console
-            expect: (nrLocks) => expect(nrLocks).toStrictEqual(2),
+            expectedLocks: 2,
         },
     ];
 
@@ -343,7 +303,8 @@ describe('Application Filter', () => {
         it(testcase.name, () => {
             // when
             const nrLocks = testcase.applications.filter((val) => searchCustomFilter(testcase.query, val)).length;
-            testcase.expect(nrLocks);
+            // eslint-disable-next-line no-console
+            expect(nrLocks).toStrictEqual(testcase.expectedLocks);
         });
     });
 });

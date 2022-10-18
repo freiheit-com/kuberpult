@@ -21,8 +21,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SideBar } from '../SideBar/SideBar';
 import { Button } from '../button';
 import { ShowBarWhite } from '../../../images';
-import { Dropdown } from '../dropdown';
 import { useSearchParams } from 'react-router-dom';
+import { Dropdown } from '../dropdown/dropdown';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);

@@ -77,18 +77,18 @@ describe('Service Lane', () => {
         UpdateOverview.set({
             environments: sampleEnvs,
         });
-        const appObj = {
+        const sampleApp = {
             name: 'test2',
             releases: [],
             sourceRepoUrl: 'http://test2.com',
             team: 'example',
         };
-        getWrapper({ application: appObj });
+        getWrapper({ application: sampleApp });
 
         // then releases are sorted and Release card is called with props:
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: appObj.name, version: -1 });
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1, 0)).toStrictEqual({ app: appObj.name, version: 3 });
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({ app: appObj.name, version: 2 });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: sampleApp.name, version: -1 });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1, 0)).toStrictEqual({ app: sampleApp.name, version: 3 });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({ app: sampleApp.name, version: 2 });
         mock_ReleaseCard.ReleaseCard.wasCalled(3);
     });
 });

@@ -38,11 +38,7 @@ export const DropdownSelect: React.FC<{
 
     return (
         <FormControl variant="outlined" fullWidth data-testid="teams-dropdown-formcontrol">
-            <InputLabel
-                htmlFor="teams"
-                id="teams"
-                shrink={!isEmpty(selectedTeams) ? true : false}
-                data-testid="teams-dropdown-label">
+            <InputLabel htmlFor="teams" id="teams" shrink={!isEmpty(selectedTeams)} data-testid="teams-dropdown-label">
                 {floatingLabel}
             </InputLabel>
             <Select
@@ -107,11 +103,11 @@ export const Dropdown = (props: DropdownProps) => {
     return (
         <div className={allClassName} ref={control}>
             <DropdownSelect
-                selectedTeams={selectedTeams}
                 handleChange={handleChange}
                 isEmpty={isEmpty}
                 floatingLabel={floatingLabel}
                 teams={teams}
+                selectedTeams={selectedTeams}
             />
         </div>
     );
