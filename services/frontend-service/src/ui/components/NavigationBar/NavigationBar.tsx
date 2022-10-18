@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { Logo, Home, Locks, Environments } from '../../../images';
+import { Logo, Home, Environments, LocksWhite } from '../../../images';
 import { NavList, NavListItem } from '../navigation';
 import { useLocation } from 'react-router-dom';
 
@@ -29,7 +29,7 @@ export const NavigationBar: React.FC = () => {
                 <NavList>
                     <NavListItem to={'home'} queryParams={location?.search || ''} icon={<Home />} />
                     <NavListItem to={'environments'} queryParams={location?.search || ''} icon={<Environments />} />
-                    <NavListItem to={'locks'} queryParams={location?.search || ''} icon={<Locks />} />
+                    <NavListItem to={'locks'} queryParams={location?.search || ''} icon={<LocksWhite />} />
                 </NavList>
             </div>
         </aside>

@@ -50,6 +50,10 @@ export const useFilteredApps = (teams: string[]) =>
         Object.values(applications).filter((app) => teams.length === 0 || teams.includes(app.team || '<No Team>'))
     );
 
+// returns all environment names
+export const useEnvironmentNames = () =>
+    useOverview(({ environments }) => Object.keys(environments).sort((a, b) => a.localeCompare(b)));
+
 // returns all application names
 export const useSearchedApplications = (
     applications: Application[],
@@ -80,6 +84,37 @@ export const useEnvironmentLocks = () =>
         const locksFiltered = locks.filter((displayLock) => displayLock.length !== 0);
         return sortLocks(locksFiltered.flat(), 'descending');
     });
+
+export const useFilteredEnvironmentLocks = (envName: string) =>
+    useOverview(({ environments }) =>
+        Object.values(
+            Object.values(environments)
+                .filter((environment) => environment.name === envName)
+                .map((environment) => environment.locks)
+                .reduce((acc, val) => ({ ...acc, ...val }), {})
+        )
+            .sort((a, b) => {
+                if (!a.createdAt) {
+                    return b.createdAt ? 1 : 0;
+                }
+                return b.createdAt ? a.createdAt.valueOf() - b.createdAt.valueOf() : -1;
+            })
+            .map((v) => v.lockId)
+    );
+
+export const useEnvironmentLock = (id: string) => ({
+    ...useOverview(
+        ({ environments }) =>
+            Object.values(
+                Object.values(environments)
+                    .map((environment) => environment.locks)
+                    .reduce((acc, val) => ({ ...acc, ...val }))
+            ).find((lock) => lock.lockId === id)!
+    ),
+    environment: useOverview(({ environments }) =>
+        Object.values(environments).find((environment) => environment.locks[id])
+    )!.name,
+});
 
 // return all applications locks
 export const useFilteredApplicationLocks = (appNameParam: string | null) =>
