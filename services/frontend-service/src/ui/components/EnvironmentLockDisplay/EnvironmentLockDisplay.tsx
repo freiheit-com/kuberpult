@@ -16,16 +16,12 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import * as React from 'react';
 import { useEnvironmentLock } from '../../utils/store';
-import { useCallback } from 'react';
 import Tooltip from '@material-ui/core/Tooltip';
 import { Locks } from '../../../images';
 
 export const EnvironmentLockDisplay: React.FC<{ lockId: string }> = (props) => {
     const { lockId } = props;
     const lock = useEnvironmentLock(lockId);
-
-    // eslint-disable-next-line no-console
-    const test = useCallback(() => console.log('Deu'), []);
 
     return (
         <div className="environment-lock-display">
