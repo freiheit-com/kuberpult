@@ -123,7 +123,7 @@ describe('Dropdown shrink label', () => {
     });
 });
 
-describe('Dropdown shrink label', () => {
+describe('Dropdown dropdown text with selected teams', () => {
     interface dataT {
         name: string;
         selectedTeams: string[];
