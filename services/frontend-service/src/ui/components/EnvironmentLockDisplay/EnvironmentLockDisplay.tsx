@@ -28,7 +28,7 @@ export const EnvironmentLockDisplay: React.FC<{ lockId: string }> = (props) => {
             <Tooltip
                 arrow
                 title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}>
-                <div role="button" onClick={test}>
+                <div role="button">
                     <Locks className="environment-lock-icon" />
                 </div>
             </Tooltip>
