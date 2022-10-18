@@ -20,7 +20,7 @@ import { Delete } from '../../../images';
 import * as React from 'react';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 
-export const EnvironmentLane: React.FC<{ environment: string }> = (props) => {
+export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
     const { environment } = props;
     const locks = useFilteredEnvironmentLocks(environment);
     return (

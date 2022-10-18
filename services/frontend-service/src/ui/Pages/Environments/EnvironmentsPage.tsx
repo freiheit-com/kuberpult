@@ -16,7 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 
 import { useEnvironmentNames } from '../../utils/store';
-import { EnvironmentLane } from '../../components/EnvironmentLane/EnvironmentLane';
+import { EnvironmentCard } from '../../components/EnvironmentCard/EnvironmentCard';
 
 export const EnvironmentsPage: React.FC = () => {
     const envs = useEnvironmentNames();
@@ -24,7 +24,7 @@ export const EnvironmentsPage: React.FC = () => {
     return (
         <main className="main-content">
             {envs.map((env) => (
-                <EnvironmentLane environment={env} key={env} />
+                <EnvironmentCard environment={env} key={env} />
             ))}
         </main>
     );

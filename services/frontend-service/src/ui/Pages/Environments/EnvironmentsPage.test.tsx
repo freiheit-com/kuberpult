@@ -16,7 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
-import { EnvironmentLane } from '../../components/EnvironmentLane/EnvironmentLane';
+import { EnvironmentCard } from '../../components/EnvironmentCard/EnvironmentCard';
 
 const sampleEnvs = {
     foo: {
@@ -71,7 +71,7 @@ const cases: dataT[] = [
 ];
 
 describe('Environment Lane', () => {
-    const getNode = (overrides: { environment: string }) => <EnvironmentLane {...overrides} />;
+    const getNode = (overrides: { environment: string }) => <EnvironmentCard {...overrides} />;
     const getWrapper = (overrides: { environment: string }) => render(getNode(overrides));
 
     describe.each(cases)('Renders a row of environments', (testcase) => {
