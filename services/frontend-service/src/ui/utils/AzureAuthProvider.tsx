@@ -28,16 +28,20 @@ import { GetFrontendConfigResponse } from '../../api/api';
 import { createStore } from 'react-use-sub';
 import { grpc } from '@improbable-eng/grpc-web';
 
-export const [useFrontendConfig, UpdateFrontendConfig] = createStore({} as GetFrontendConfigResponse);
-export const [useReady, UpdateReady] = createStore({ config: 'waiting', auth: 'waiting' });
+export const [useFrontendConfig, UpdateFrontendConfig] = createStore({
+    configs: {} as GetFrontendConfigResponse,
+    configReady: false,
+});
 
 type AzureAuthSubType = {
     authHeader: grpc.Metadata & {
         Authorization?: String;
     };
+    authReady: boolean;
 };
 export const [useAzureAuthSub, AzureAuthSub] = createStore({
     authHeader: new BrowserHeaders({}),
+    authReady: false,
 } as AzureAuthSubType);
 
 const getMsalConfig = (configs: GetFrontendConfigResponse): Configuration => ({
@@ -63,7 +67,7 @@ const loginRequest = {
     scopes: ['User.Read', 'email'],
 };
 
-const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { instance, accounts } = useMsal();
 
     React.useEffect(() => {
@@ -76,15 +80,15 @@ const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             .then((response) => {
                 AzureAuthSub.set({
                     authHeader: new BrowserHeaders({ Authorization: response.idToken }),
+                    authReady: true,
                 });
-                UpdateReady.set({ auth: 'ready' });
             })
             .catch(() => {
                 instance.acquireTokenPopup(request).then((response) => {
                     AzureAuthSub.set({
                         authHeader: new BrowserHeaders({ Authorization: response.idToken }),
+                        authReady: true,
                     });
-                    UpdateReady.set({ auth: 'ready' });
                 });
             });
     }, [instance, accounts]);
@@ -92,7 +96,7 @@ const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     return <>{children}</>;
 };
 
-const AzureAutoSignIn = () => {
+export const AzureAutoSignIn = () => {
     const isAuthenticated = useIsAuthenticated();
     const { instance } = useMsal();
     React.useEffect(() => {
@@ -104,14 +108,13 @@ const AzureAutoSignIn = () => {
 };
 
 export const AzureAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const configs = useFrontendConfig((c) => c);
+    const { configs, configReady } = useFrontendConfig((c) => c);
     const msalInstance = React.useMemo(() => new PublicClientApplication(getMsalConfig(configs)), [configs]);
-    const ready = useReady(({ config }) => config);
-    if (ready !== 'ready') return null;
+    if (!configReady) return null;
 
     const useAzureAuth = configs.authConfig?.azureAuth?.enabled;
     if (!useAzureAuth) {
-        UpdateReady.set({ auth: 'ready' });
+        AzureAuthSub.set({ authReady: true });
         return <>{children}</>;
     }
 

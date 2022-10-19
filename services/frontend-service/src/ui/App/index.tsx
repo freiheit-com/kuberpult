@@ -21,26 +21,18 @@ import '../../assets/app-v2.scss';
 import * as React from 'react';
 import { PanicOverview, UpdateOverview } from '../utils/store';
 import { useApi } from '../utils/GrpcApi';
-import {
-    AzureAuthProvider,
-    UpdateFrontendConfig,
-    UpdateReady,
-    useAzureAuthSub,
-    useReady,
-} from '../utils/AzureAuthProvider';
+import { AzureAuthProvider, UpdateFrontendConfig, useAzureAuthSub } from '../utils/AzureAuthProvider';
 
 export const App: React.FC = () => {
     const api = useApi;
-    const authHeader = useAzureAuthSub(({ authHeader }) => authHeader);
-    const authReady = useReady(({ auth }) => auth);
+    const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
 
     React.useEffect(() => {
         api.configService()
             .GetConfig({})
             .then(
                 (result) => {
-                    UpdateFrontendConfig.set(result);
-                    UpdateReady.set({ config: 'ready' });
+                    UpdateFrontendConfig.set({ configs: result, configReady: true });
                 },
                 (error) => {
                     // eslint-disable-next-line no-console
@@ -50,7 +42,7 @@ export const App: React.FC = () => {
     }, [api]);
 
     React.useEffect(() => {
-        if (authReady === 'ready') {
+        if (authReady) {
             const subscription = api
                 .overviewService()
                 .StreamOverview({}, authHeader)
