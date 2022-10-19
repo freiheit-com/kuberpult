@@ -36,7 +36,7 @@ export const App: React.FC = () => {
                 },
                 (error) => {
                     // eslint-disable-next-line no-console
-                    alert('Error: Cannot connect to server!\n' + error);
+                    console.log('Error: Cannot connect to server!\n' + error);
                 }
             );
     }, [api]);
