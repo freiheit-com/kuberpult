@@ -1,3 +1,10 @@
+# Note on Semantic Versioning
+
+As of now, while we are still on version `0.*`,
+we do not use [Semantic Versioning](https://semver.org/).
+Specifically this means, that minor upgrades can contain **breaking changes**.
+
+
 # Change Log
 
 ## 0.4.44
