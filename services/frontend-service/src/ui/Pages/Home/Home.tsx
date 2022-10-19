@@ -23,7 +23,7 @@ export const Home: React.FC = () => {
     const appNameParam = params.get('application') || '';
 
     const filteredApps = useFilteredApps((params.get('teams') || '').split(',').filter((val) => val !== ''));
-    const searchedApp = useSearchedApplications(filteredApps, appNameParam, params.get('teams')?.length === 0);
+    const searchedApp = useSearchedApplications(filteredApps, appNameParam);
 
     const apps = Object.values(searchedApp);
     return (

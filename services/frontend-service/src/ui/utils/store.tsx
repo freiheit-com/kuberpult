@@ -39,7 +39,7 @@ export const useTeamNames = () =>
     useOverview(({ applications }) => [
         ...new Set(
             Object.values(applications)
-                .map((app: Application) => app.team || '<No Team>')
+                .map((app: Application) => app.team.trim() || '<No Team>')
                 .sort((a, b) => a.localeCompare(b))
         ),
     ]);
@@ -47,7 +47,9 @@ export const useTeamNames = () =>
 // returns applications filtered by dropdown and sorted by team name and then by app name
 export const useFilteredApps = (teams: string[]) =>
     useOverview(({ applications }) =>
-        Object.values(applications).filter((app) => teams.length === 0 || teams.includes(app.team || '<No Team>'))
+        Object.values(applications).filter(
+            (app) => teams.length === 0 || teams.includes(app.team.trim() || '<No Team>')
+        )
     );
 
 // returns all environment names
@@ -55,16 +57,11 @@ export const useEnvironmentNames = () =>
     useOverview(({ environments }) => Object.keys(environments).sort((a, b) => a.localeCompare(b)));
 
 // returns all application names
-export const useSearchedApplications = (
-    applications: Application[],
-    appNameParam: string,
-    sortByTeam: boolean = false
-) =>
+export const useSearchedApplications = (applications: Application[], appNameParam: string) =>
     applications
-        .filter((val) => appNameParam === '' || val.name.includes(appNameParam))
-        .sort((a, b) =>
-            sortByTeam || a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)
-        );
+        .filter((app) => appNameParam === '' || app.name.includes(appNameParam))
+        .sort((a, b) => (a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)));
+
 // return all environment locks
 export const useEnvironmentLocks = () =>
     useOverview(({ environments }) => {
