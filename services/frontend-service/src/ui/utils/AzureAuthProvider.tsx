@@ -58,13 +58,10 @@ const getMsalConfig = (configs: GetFrontendConfigResponse): Configuration => ({
     },
 });
 
-// - User.Read scope is required for the authentication. (checking that this user has access or not)
-//   if user has access to our application the Token can be acquired.
-//   More info: https://learn.microsoft.com/en-us/azure/active-directory/develop/scenario-spa-acquire-token?tabs=react
 // - Email scope was added later so kuberpult can extract the email from requests (the author)
 //   and send it along to the backend
 const loginRequest = {
-    scopes: ['User.Read', 'email'],
+    scopes: ['email'],
 };
 
 export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children }) => {
