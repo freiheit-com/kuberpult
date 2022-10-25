@@ -843,7 +843,10 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 	var upstreamEnvName = envConfig.Upstream.Environment
 
 	if !upstreamLatest && upstreamEnvName == "" {
-		return fmt.Sprintf("Environment %q does not have upstream configured - exiting.", targetEnvName), nil
+		return fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - exiting.", targetEnvName), nil
+	}
+	if upstreamLatest && upstreamEnvName != "" {
+		return fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - exiting.", targetEnvName), nil
 	}
 	source := upstreamEnvName
 	if upstreamLatest {

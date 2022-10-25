@@ -419,7 +419,6 @@ func TestReleaseTrainErrors(t *testing.T) {
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
 							Environment: envAcceptance,
-							Latest:      true,
 						},
 					},
 				},
