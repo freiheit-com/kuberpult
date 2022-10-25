@@ -79,7 +79,7 @@ func TestServeHttp(t *testing.T) {
 			ExpectedStatus: 201,
 			Tests: func(t *testing.T, repo repository.Repository, resp *http.Response, remoteDir string) {
 				head := repo.State()
-				if apps, err := head.Applications(); err != nil {
+				if apps, err := head.GetApplications(); err != nil {
 					t.Fatal(err)
 				} else if !reflect.DeepEqual(apps, []string{"demo"}) {
 					t.Fatalf("expected applications to be exactly 'demo', got %q", apps)
