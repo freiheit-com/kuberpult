@@ -19,10 +19,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"golang.org/x/crypto/openpgp"
 	"io"
 	"net/http"
 	"os"
+
+	"golang.org/x/crypto/openpgp"
 
 	"github.com/MicahParks/keyfunc"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
@@ -412,6 +413,6 @@ func (p *GrpcProxy) Deploy(
 
 func (p *GrpcProxy) ReleaseTrain(
 	ctx context.Context,
-	in *api.ReleaseTrainRequest) (*emptypb.Empty, error) {
+	in *api.ReleaseTrainRequest) (*api.ReleaseTrainResponse, error) {
 	return p.DeployClient.ReleaseTrain(ctx, in)
 }

@@ -18,13 +18,15 @@ package handler
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"golang.org/x/crypto/openpgp"
-	pgperrors "golang.org/x/crypto/openpgp/errors"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"golang.org/x/crypto/openpgp"
+	pgperrors "golang.org/x/crypto/openpgp/errors"
 )
 
 func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, environment, tail string) {
@@ -67,14 +69,16 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, env
 			return
 		}
 	}
-
-	_, err := s.DeployClient.ReleaseTrain(req.Context(), &api.ReleaseTrainRequest{
+	response, err := s.DeployClient.ReleaseTrain(req.Context(), &api.ReleaseTrainRequest{
 		Environment: environment,
 	})
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)
 		return
 	}
-
-	w.WriteHeader(http.StatusOK)
+	json, err := json.Marshal(response)
+	if err != nil {
+		return
+	}
+	w.Write(json)
 }

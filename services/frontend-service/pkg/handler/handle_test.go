@@ -20,13 +20,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"golang.org/x/crypto/openpgp"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/openpgp"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/google/go-cmp/cmp"
@@ -71,6 +73,7 @@ func TestServer_Handle(t *testing.T) {
 		expectedBody                                    string
 		expectedDeployRequest                           *api.DeployRequest
 		expectedReleaseTrainRequest                     *api.ReleaseTrainRequest
+		expectedCreateEnvironmentRequest                *api.CreateEnvironmentRequest
 		expectedCreateEnvironmentLockRequest            *api.CreateEnvironmentLockRequest
 		expectedDeleteEnvironmentLockRequest            *api.DeleteEnvironmentLockRequest
 		expectedCreateEnvironmentApplicationLockRequest *api.CreateEnvironmentApplicationLockRequest
@@ -103,6 +106,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "missing environment ID\n",
 		},
 		{
+			// TEST: test
 			name: "release train",
 			req: &http.Request{
 				Method: http.MethodPut,
@@ -113,7 +117,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
 			},
-			expectedBody:                "",
+			expectedBody:                "{\"upstream\":\"production\",\"targetEnv\":\"development\"}", // FIXME: Test uses hardcoded Upstream
 			expectedReleaseTrainRequest: &api.ReleaseTrainRequest{Environment: "development"},
 		},
 		{
@@ -143,6 +147,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "releasetrain does not accept additional path arguments, got: '/junk'\n",
 		},
 		{
+			// TEST: test
 			name:             "release train - Azure enabled",
 			AzureAuthEnabled: true,
 			KeyRing:          exampleKeyRing,
@@ -156,7 +161,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
 			},
-			expectedBody:                "",
+			expectedBody:                "{\"upstream\":\"production\",\"targetEnv\":\"development\"}", // FIXME: Test uses hardcoded Upstream
 			expectedReleaseTrainRequest: &api.ReleaseTrainRequest{Environment: "development"},
 		},
 		{
@@ -544,6 +549,8 @@ func TestServer_Handle(t *testing.T) {
 				KeyRing:      tt.KeyRing,
 				AzureAuth:    tt.AzureAuthEnabled,
 			}
+			// TODO: Insert an environment into the env config of the repo state here
+			// TODO: send targetEnv to repo state
 
 			w := httptest.NewRecorder()
 			s.Handle(w, tt.req)
@@ -552,6 +559,7 @@ func TestServer_Handle(t *testing.T) {
 			if d := cmp.Diff(tt.expectedResp, resp, cmpopts.IgnoreFields(http.Response{}, "Status", "Proto", "ProtoMajor", "ProtoMinor", "Header", "Body", "ContentLength")); d != "" {
 				t.Errorf("response mismatch: %s", d)
 			}
+			log.Printf("%#v\n", resp)
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -565,6 +573,9 @@ func TestServer_Handle(t *testing.T) {
 			}
 			if d := cmp.Diff(tt.expectedReleaseTrainRequest, deployClient.releaseTrainRequest, protocmp.Transform()); d != "" {
 				t.Errorf("release train request mismatch: %s", d)
+			}
+			if d := cmp.Diff(tt.expectedCreateEnvironmentRequest, lockClient.createEnvironmentRequest, protocmp.Transform()); d != "" {
+				t.Errorf("create environment lock request mismatch: %s", d)
 			}
 			if d := cmp.Diff(tt.expectedCreateEnvironmentLockRequest, lockClient.createEnvironmentLockRequest, protocmp.Transform()); d != "" {
 				t.Errorf("create environment lock request mismatch: %s", d)
@@ -592,16 +603,24 @@ func (m *mockDeployClient) Deploy(_ context.Context, in *api.DeployRequest, _ ..
 	return &emptypb.Empty{}, nil
 }
 
-func (m *mockDeployClient) ReleaseTrain(_ context.Context, in *api.ReleaseTrainRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+// TODO: Mock or get the env configs to test getting the targetEnv
+func (m *mockDeployClient) ReleaseTrain(_ context.Context, in *api.ReleaseTrainRequest, _ ...grpc.CallOption) (*api.ReleaseTrainResponse, error) {
 	m.releaseTrainRequest = in
-	return &emptypb.Empty{}, nil
+	// TODO: get targetEnv from repo state
+	return &api.ReleaseTrainResponse{TargetEnv: in.Environment, Upstream: "production"}, nil //, TargetEnv: "staging"}, nil // HACK: Please fix upstream variable PLEASE
 }
 
 type mockLockClient struct {
+	createEnvironmentRequest                *api.CreateEnvironmentRequest
 	createEnvironmentLockRequest            *api.CreateEnvironmentLockRequest
 	deleteEnvironmentLockRequest            *api.DeleteEnvironmentLockRequest
 	createEnvironmentApplicationLockRequest *api.CreateEnvironmentApplicationLockRequest
 	deleteEnvironmentApplicationLockRequest *api.DeleteEnvironmentApplicationLockRequest
+}
+
+func (m *mockLockClient) CreateEnvironmentRequest(_ context.Context, in *api.CreateEnvironmentRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.createEnvironmentRequest = in
+	return &emptypb.Empty{}, nil
 }
 
 func (m *mockLockClient) CreateEnvironmentLock(_ context.Context, in *api.CreateEnvironmentLockRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
