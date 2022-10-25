@@ -684,18 +684,6 @@ type State struct {
 	EnvironmentConfigsPath string
 }
 
-func (s *State) Applications() ([]string, error) {
-	if entries, err := s.Filesystem.ReadDir("applications"); err != nil {
-		return nil, err
-	} else {
-		result := make([]string, 0, len(entries))
-		for _, e := range entries {
-			result = append(result, e.Name())
-		}
-		return result, nil
-	}
-}
-
 func (s *State) Releases(application string) ([]uint64, error) {
 	if entries, err := s.Filesystem.ReadDir(s.Filesystem.Join("applications", application, "releases")); err != nil {
 		return nil, err
