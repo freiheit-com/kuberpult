@@ -639,6 +639,45 @@ func TestTransformer(t *testing.T) {
 			},
 		},
 		{
+			Name: "Release train from Latest",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envAcceptance: "acceptancenmanifest",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envAcceptance: "acceptancenmanifest",
+					},
+				},
+				&ReleaseTrain{
+					Environment: envAcceptance,
+				},
+			},
+			Test: func(t *testing.T, s *State) {
+				{
+					acceptanceVersion, err := s.GetEnvironmentApplicationVersion(envAcceptance, "test")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if *acceptanceVersion != 2 {
+						t.Errorf("unexpected version: expected 2, actual %d", acceptanceVersion)
+					}
+				}
+			},
+		},
+		{
 			Name: "Release train for a Team",
 			Transformers: []Transformer{
 				&CreateEnvironment{
