@@ -841,16 +841,20 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 	}
 	var upstreamLatest = envConfig.Upstream.Latest
 	var upstreamEnvName = envConfig.Upstream.Environment
-	if upstreamEnvName == "" && !upstreamLatest {
+
+	if !upstreamLatest && upstreamEnvName == "" {
 		return fmt.Sprintf("Environment %q does not have upstream configured - exiting.", targetEnvName), nil
 	}
 	source := upstreamEnvName
 	if upstreamLatest {
 		source = "latest"
 	}
-	_, ok = configs[upstreamEnvName]
-	if !ok && !upstreamLatest {
-		return fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, targetEnvName), err
+
+	if !upstreamLatest {
+		_, ok = configs[upstreamEnvName]
+		if !ok {
+			return fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, targetEnvName), err
+		}
 	}
 
 	envLocks, err := state.GetEnvironmentLocks(targetEnvName)
@@ -889,23 +893,24 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		if err != nil {
 			return "", fmt.Errorf("could not get version of application %q in env %q: %w", appName, targetEnvName, err)
 		}
-		var versionToDeploy *uint64
+		var versionToDeploy uint64
 		if upstreamLatest {
-			*versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
+			versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
 			if err != nil {
 				return "", fmt.Errorf("could not get latest version of application %q: %w", appName, err)
 			}
 		} else {
-			versionToDeploy, err = state.GetEnvironmentApplicationVersion(upstreamEnvName, appName)
+			upstreamVersion, err := state.GetEnvironmentApplicationVersion(upstreamEnvName, appName)
 			if err != nil {
 				return "", fmt.Errorf("could not get version of application %q in env %q: %w", appName, upstreamEnvName, err)
 			}
+			if upstreamVersion == nil {
+				completeMessage = fmt.Sprintf("skipping because there is no version for application %q in env %q", appName, upstreamEnvName)
+				continue
+			}
+			versionToDeploy = *upstreamVersion
 		}
-		if versionToDeploy == nil {
-			completeMessage = fmt.Sprintf("skipping because there is no version for application %q in env %q", appName, upstreamEnvName)
-			continue
-		}
-		if currentlyDeployedVersion != nil && *currentlyDeployedVersion == *versionToDeploy {
+		if currentlyDeployedVersion != nil && *currentlyDeployedVersion == versionToDeploy {
 			completeMessage = fmt.Sprintf("%sskipping %q because it is already in the version %d\n", completeMessage, appName, *currentlyDeployedVersion)
 			continue
 		}
@@ -913,7 +918,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		d := &DeployApplicationVersion{
 			Environment:   targetEnvName, // here we deploy to the next env
 			Application:   appName,
-			Version:       *versionToDeploy,
+			Version:       versionToDeploy,
 			LockBehaviour: api.LockBehavior_Queue,
 		}
 		transform, err := d.Transform(ctx, state)
