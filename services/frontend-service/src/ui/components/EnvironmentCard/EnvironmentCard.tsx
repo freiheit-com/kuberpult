@@ -16,7 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { useFilteredEnvironmentLocks } from '../../utils/store';
 import { Button } from '../button';
-import { Delete } from '../../../images';
+import { Locks } from '../../../images';
 import * as React from 'react';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 
@@ -39,7 +39,7 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
                 <Button
                     className="environment-action service-action--prepare-undeploy"
                     label={'Add Lock'}
-                    icon={<Delete />}
+                    icon={<Locks />}
                 />
             </div>
         </div>

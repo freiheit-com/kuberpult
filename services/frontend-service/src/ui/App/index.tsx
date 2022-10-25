@@ -21,38 +21,59 @@ import '../../assets/app-v2.scss';
 import * as React from 'react';
 import { PanicOverview, UpdateOverview } from '../utils/store';
 import { useApi } from '../utils/GrpcApi';
+import { AzureAuthProvider, UpdateFrontendConfig, useAzureAuthSub } from '../utils/AzureAuthProvider';
 
 export const App: React.FC = () => {
     const api = useApi;
+    const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
 
     React.useEffect(() => {
-        const subscription = api
-            .overviewService()
-            .StreamOverview({}) // TODO TE: add auth header
-            .subscribe(
+        api.configService()
+            .GetConfig({})
+            .then(
                 (result) => {
-                    UpdateOverview.set(result);
-                    PanicOverview.set({ error: '' });
+                    UpdateFrontendConfig.set({ configs: result, configReady: true });
                 },
-                (error) => PanicOverview.set({ error: JSON.stringify(error) })
+                (error) => {
+                    // eslint-disable-next-line no-console
+                    console.log('Error: Cannot connect to server!\n' + error);
+                }
             );
-        return () => subscription.unsubscribe();
     }, [api]);
+
+    React.useEffect(() => {
+        if (authReady) {
+            const subscription = api
+                .overviewService()
+                .StreamOverview({}, authHeader)
+                .subscribe(
+                    (result) => {
+                        UpdateOverview.set(result);
+                        PanicOverview.set({ error: '' });
+                    },
+                    (error) => PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) })
+                );
+            return () => subscription.unsubscribe();
+        }
+    }, [api, authHeader, authReady]);
 
     PanicOverview.listen(
         (err) => err.error,
         (err) => {
-            alert('Error: Cannot connect to server!\n' + err);
+            // eslint-disable-next-line no-console
+            console.log('Error: Cannot connect to server!\n' + err);
         }
     );
 
     return (
-        <div className={'app-container--v2'}>
-            <NavigationBar />
-            <div className="mdc-drawer-app-content">
-                <TopAppBar />
-                <PageRoutes />
+        <AzureAuthProvider>
+            <div className={'app-container--v2'}>
+                <NavigationBar />
+                <div className="mdc-drawer-app-content">
+                    <TopAppBar />
+                    <PageRoutes />
+                </div>
             </div>
-        </div>
+        </AzureAuthProvider>
     );
 };
