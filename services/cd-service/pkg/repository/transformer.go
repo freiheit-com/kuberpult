@@ -839,12 +839,17 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 	if envConfig.Upstream == nil {
 		return fmt.Sprintf("Environment %q does not have upstream configured - exiting.", targetEnvName), nil
 	}
+	var latest = envConfig.Upstream.Latest
 	var upstreamEnvName = envConfig.Upstream.Environment
-	if upstreamEnvName == "" {
-		return fmt.Sprintf("Environment %q does not have upstream environment configured - exiting.", targetEnvName), nil
+	if upstreamEnvName == "" && !latest {
+		return fmt.Sprintf("Environment %q does not have upstream configured - exiting.", targetEnvName), nil
+	}
+	source := upstreamEnvName
+	if latest {
+		source = "latest"
 	}
 	_, ok = configs[upstreamEnvName]
-	if !ok {
+	if !ok && !latest {
 		return fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, targetEnvName), err
 	}
 
@@ -856,9 +861,17 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		return fmt.Sprintf("Target Environment '%s' is locked - exiting.", targetEnvName), nil
 	}
 
-	apps, err := state.GetEnvironmentApplications(upstreamEnvName)
-	if err != nil {
-		return "", fmt.Errorf("environment applications for %q not found: %w", upstreamEnvName, err)
+	var apps []string
+	if latest {
+		apps, err = state.GetApplications()
+		if err != nil {
+			return "", fmt.Errorf("could not get all applications for %q: %w", source, err)
+		}
+	} else {
+		apps, err = state.GetEnvironmentApplications(upstreamEnvName)
+		if err != nil {
+			return "", fmt.Errorf("environment applications for %q not found: %w", upstreamEnvName, err)
+		}
 	}
 
 	// now iterate over all apps, deploying all that are not locked
@@ -876,9 +889,17 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		if err != nil {
 			return "", fmt.Errorf("could not get version of application %q in env %q: %w", appName, targetEnvName, err)
 		}
-		versionToDeploy, err := state.GetEnvironmentApplicationVersion(upstreamEnvName, appName)
-		if err != nil {
-			return "", fmt.Errorf("could not get version of application %q in env %q: %w", appName, upstreamEnvName, err)
+		var versionToDeploy *uint64
+		if latest {
+			*versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
+			if err != nil {
+				return "", fmt.Errorf("could not get latest version of application %q: %w", appName, err)
+			}
+		} else {
+			versionToDeploy, err = state.GetEnvironmentApplicationVersion(upstreamEnvName, appName)
+			if err != nil {
+				return "", fmt.Errorf("could not get version of application %q in env %q: %w", appName, upstreamEnvName, err)
+			}
 		}
 		if versionToDeploy == nil {
 			completeMessage = fmt.Sprintf("skipping because there is no version for application %q in env %q", appName, upstreamEnvName)
@@ -904,10 +925,10 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 			if errors.Is(err, os.ErrNotExist) {
 				continue // some apps do not exist on all envs, we ignore those
 			}
-			return "", fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, upstreamEnvName, err)
+			return "", fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, targetEnvName, err)
 		}
 		numServices += 1
 		completeMessage = completeMessage + transform + "\n"
 	}
-	return fmt.Sprintf("The release train deployed %d services from '%s' to '%s'\n%s\n", numServices, upstreamEnvName, targetEnvName, completeMessage), nil
+	return fmt.Sprintf("The release train deployed %d services from '%s' to '%s'\n%s\n", numServices, source, targetEnvName, completeMessage), nil
 }
