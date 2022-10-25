@@ -226,7 +226,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 				},
 				&repository.CreateEnvironment{
 					Environment: envProduction,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance}},
 				},
 				&repository.CreateApplicationVersion{
 					Application: "app1",
