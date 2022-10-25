@@ -7,6 +7,15 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.45
+
+**released 2022-10-25**
+* Implement Environments Page [#381](https://github.com/freiheit-com/kuberpult/pull/381)
+* Add Dropdown to select team in new UI [#380](https://github.com/freiheit-com/kuberpult/pull/380)
+* SRX-WQYHIS Always sort apps by team name [#383](https://github.com/freiheit-com/kuberpult/pull/383)
+* Add Azure Auth to V2 [#379](https://github.com/freiheit-com/kuberpult/pull/379)
+* Implement Release train from latest [#386](https://github.com/freiheit-com/kuberpult/pull/386)
+
 ## 0.4.44
 
 **released 2022-10-11**
