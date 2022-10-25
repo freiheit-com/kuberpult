@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -13,7 +14,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2021 freiheit.com*/
+Copyright 2021 freiheit.com
+*/
 package handler
 
 import (
@@ -72,6 +74,7 @@ func TestServer_Handle(t *testing.T) {
 		expectedBody                                    string
 		expectedDeployRequest                           *api.DeployRequest
 		expectedReleaseTrainRequest                     *api.ReleaseTrainRequest
+		expectedCreateEnvironmentRequest                *api.CreateEnvironmentRequest
 		expectedCreateEnvironmentLockRequest            *api.CreateEnvironmentLockRequest
 		expectedDeleteEnvironmentLockRequest            *api.DeleteEnvironmentLockRequest
 		expectedCreateEnvironmentApplicationLockRequest *api.CreateEnvironmentApplicationLockRequest
@@ -104,6 +107,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "missing environment ID\n",
 		},
 		{
+			// TEST: test
 			name: "release train",
 			req: &http.Request{
 				Method: http.MethodPut,
@@ -144,6 +148,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "releasetrain does not accept additional path arguments, got: '/junk'\n",
 		},
 		{
+			// TEST: test
 			name:             "release train - Azure enabled",
 			AzureAuthEnabled: true,
 			KeyRing:          exampleKeyRing,
@@ -545,6 +550,8 @@ func TestServer_Handle(t *testing.T) {
 				KeyRing:      tt.KeyRing,
 				AzureAuth:    tt.AzureAuthEnabled,
 			}
+			// TODO: Insert an environment into the env config of the repo state here
+			// TODO: send targetEnv to repo state
 
 			w := httptest.NewRecorder()
 			s.Handle(w, tt.req)
@@ -565,6 +572,9 @@ func TestServer_Handle(t *testing.T) {
 			}
 			if d := cmp.Diff(tt.expectedReleaseTrainRequest, deployClient.releaseTrainRequest, protocmp.Transform()); d != "" {
 				t.Errorf("release train request mismatch: %s", d)
+			}
+			if d := cmp.Diff(tt.expectedCreateEnvironmentRequest, lockClient.createEnvironmentRequest, protocmp.Transform()); d != "" {
+				t.Errorf("create environment lock request mismatch: %s", d)
 			}
 			if d := cmp.Diff(tt.expectedCreateEnvironmentLockRequest, lockClient.createEnvironmentLockRequest, protocmp.Transform()); d != "" {
 				t.Errorf("create environment lock request mismatch: %s", d)
@@ -598,10 +608,16 @@ func (m *mockDeployClient) ReleaseTrain(_ context.Context, in *api.ReleaseTrainR
 }
 
 type mockLockClient struct {
+	createEnvironmentRequest                *api.CreateEnvironmentRequest
 	createEnvironmentLockRequest            *api.CreateEnvironmentLockRequest
 	deleteEnvironmentLockRequest            *api.DeleteEnvironmentLockRequest
 	createEnvironmentApplicationLockRequest *api.CreateEnvironmentApplicationLockRequest
 	deleteEnvironmentApplicationLockRequest *api.DeleteEnvironmentApplicationLockRequest
+}
+
+func (m *mockLockClient) CreateEnvironmentRequest(_ context.Context, in *api.CreateEnvironmentRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.createEnvironmentRequest = in
+	return &emptypb.Empty{}, nil
 }
 
 func (m *mockLockClient) CreateEnvironmentLock(_ context.Context, in *api.CreateEnvironmentLockRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
