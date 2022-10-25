@@ -839,17 +839,17 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 	if envConfig.Upstream == nil {
 		return fmt.Sprintf("Environment %q does not have upstream configured - exiting.", targetEnvName), nil
 	}
-	var latest = envConfig.Upstream.Latest
+	var upstreamLatest = envConfig.Upstream.Latest
 	var upstreamEnvName = envConfig.Upstream.Environment
-	if upstreamEnvName == "" && !latest {
+	if upstreamEnvName == "" && !upstreamLatest {
 		return fmt.Sprintf("Environment %q does not have upstream configured - exiting.", targetEnvName), nil
 	}
 	source := upstreamEnvName
-	if latest {
+	if upstreamLatest {
 		source = "latest"
 	}
 	_, ok = configs[upstreamEnvName]
-	if !ok && !latest {
+	if !ok && !upstreamLatest {
 		return fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, targetEnvName), err
 	}
 
@@ -862,7 +862,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 	}
 
 	var apps []string
-	if latest {
+	if upstreamLatest {
 		apps, err = state.GetApplications()
 		if err != nil {
 			return "", fmt.Errorf("could not get all applications for %q: %w", source, err)
@@ -890,7 +890,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 			return "", fmt.Errorf("could not get version of application %q in env %q: %w", appName, targetEnvName, err)
 		}
 		var versionToDeploy *uint64
-		if latest {
+		if upstreamLatest {
 			*versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
 			if err != nil {
 				return "", fmt.Errorf("could not get latest version of application %q: %w", appName, err)
