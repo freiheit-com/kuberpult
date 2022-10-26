@@ -106,7 +106,6 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "missing environment ID\n",
 		},
 		{
-			// TEST: test
 			name: "release train",
 			req: &http.Request{
 				Method: http.MethodPut,
@@ -147,7 +146,6 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "releasetrain does not accept additional path arguments, got: '/junk'\n",
 		},
 		{
-			// TEST: test
 			name:             "release train - Azure enabled",
 			AzureAuthEnabled: true,
 			KeyRing:          exampleKeyRing,
@@ -549,8 +547,7 @@ func TestServer_Handle(t *testing.T) {
 				KeyRing:      tt.KeyRing,
 				AzureAuth:    tt.AzureAuthEnabled,
 			}
-			// TODO: Insert an environment into the env config of the repo state here
-			// TODO: send targetEnv to repo state
+			// TODO: Insert upstream env into the env config of the repo state here
 
 			w := httptest.NewRecorder()
 			s.Handle(w, tt.req)
@@ -603,10 +600,9 @@ func (m *mockDeployClient) Deploy(_ context.Context, in *api.DeployRequest, _ ..
 	return &emptypb.Empty{}, nil
 }
 
-// TODO: Mock or get the env configs to test getting the targetEnv
 func (m *mockDeployClient) ReleaseTrain(_ context.Context, in *api.ReleaseTrainRequest, _ ...grpc.CallOption) (*api.ReleaseTrainResponse, error) {
 	m.releaseTrainRequest = in
-	// TODO: get targetEnv from repo state
+	// TODO: get upstream from repo state
 	return &api.ReleaseTrainResponse{TargetEnv: in.Environment, Upstream: "production"}, nil //, TargetEnv: "staging"}, nil // HACK: Please fix upstream variable PLEASE
 }
 

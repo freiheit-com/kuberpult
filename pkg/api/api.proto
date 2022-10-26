@@ -170,14 +170,14 @@ message GetDeployedOverviewResponse {
 
 message Environment {
   message Config {
-  message Upstream {
-    oneof upstream {
-        string environment = 1;
-        bool   latest = 2;
+    message Upstream {
+      oneof upstream {
+          string environment = 1;
+          bool   latest = 2;
+      }
     }
+    Upstream upstream = 1;
   }
-  Upstream upstream = 1;
-}
 
   message Application {
     message ArgoCD {
