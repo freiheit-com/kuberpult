@@ -107,7 +107,6 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "missing environment ID\n",
 		},
 		{
-			// TEST: test
 			name: "release train",
 			req: &http.Request{
 				Method: http.MethodPut,
@@ -148,7 +147,6 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "releasetrain does not accept additional path arguments, got: '/junk'\n",
 		},
 		{
-			// TEST: test
 			name:             "release train - Azure enabled",
 			AzureAuthEnabled: true,
 			KeyRing:          exampleKeyRing,
@@ -550,8 +548,7 @@ func TestServer_Handle(t *testing.T) {
 				KeyRing:      tt.KeyRing,
 				AzureAuth:    tt.AzureAuthEnabled,
 			}
-			// TODO: Insert an environment into the env config of the repo state here
-			// TODO: send targetEnv to repo state
+			// TODO: Insert upstream env into the env config of the repo state here
 
 			w := httptest.NewRecorder()
 			s.Handle(w, tt.req)
