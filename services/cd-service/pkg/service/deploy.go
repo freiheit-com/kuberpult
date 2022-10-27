@@ -100,8 +100,6 @@ func (d *DeployServiceServer) ReleaseTrain(
 		return nil, internalError(ctx, err)
 	}
 
-	// TODO: refactor later (maybe)
-	// HACK: Getting targetEnv from env config. Already done in transformer.go
 	configs, err := d.Repository.State().GetEnvironmentConfigs()
 	if err != nil {
 		return &api.ReleaseTrainResponse{}, err
