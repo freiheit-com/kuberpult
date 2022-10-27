@@ -548,7 +548,6 @@ func TestServer_Handle(t *testing.T) {
 				KeyRing:      tt.KeyRing,
 				AzureAuth:    tt.AzureAuthEnabled,
 			}
-			// TODO: Insert upstream env into the env config of the repo state here
 
 			w := httptest.NewRecorder()
 			s.Handle(w, tt.req)
