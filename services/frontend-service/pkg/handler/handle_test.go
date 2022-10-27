@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -73,7 +72,6 @@ func TestServer_Handle(t *testing.T) {
 		expectedBody                                    string
 		expectedDeployRequest                           *api.DeployRequest
 		expectedReleaseTrainRequest                     *api.ReleaseTrainRequest
-		expectedCreateEnvironmentRequest                *api.CreateEnvironmentRequest
 		expectedCreateEnvironmentLockRequest            *api.CreateEnvironmentLockRequest
 		expectedDeleteEnvironmentLockRequest            *api.DeleteEnvironmentLockRequest
 		expectedCreateEnvironmentApplicationLockRequest *api.CreateEnvironmentApplicationLockRequest
@@ -568,9 +566,6 @@ func TestServer_Handle(t *testing.T) {
 			if d := cmp.Diff(tt.expectedReleaseTrainRequest, deployClient.releaseTrainRequest, protocmp.Transform()); d != "" {
 				t.Errorf("release train request mismatch: %s", d)
 			}
-			if d := cmp.Diff(tt.expectedCreateEnvironmentRequest, lockClient.createEnvironmentƒRequest, protocmp.Transform()); d != "" {
-				t.Errorf("create environment lock request mismatch: %s", d)
-			}
 			if d := cmp.Diff(tt.expectedCreateEnvironmentLockRequest, lockClient.createEnvironmentLockRequest, protocmp.Transform()); d != "" {
 				t.Errorf("create environment lock request mismatch: %s", d)
 			}
@@ -600,18 +595,13 @@ func (m *mockDeployClient) Deploy(_ context.Context, in *api.DeployRequest, _ ..
 func (m *mockDeployClient) ReleaseTrain(_ context.Context, in *api.ReleaseTrainRequest, _ ...grpc.CallOption) (*api.ReleaseTrainResponse, error) {
 	m.releaseTrainRequest = in
 	return &api.ReleaseTrainResponse{TargetEnv: in.Environment, Upstream: "production"}, nil
+}
 
 type mockLockClient struct {
-	createEnvironmentRequest                *api.CreateEnvironmentRequest
 	createEnvironmentLockRequest            *api.CreateEnvironmentLockRequest
 	deleteEnvironmentLockRequest            *api.DeleteEnvironmentLockRequest
 	createEnvironmentApplicationLockRequest *api.CreateEnvironmentApplicationLockRequest
 	deleteEnvironmentApplicationLockRequest *api.DeleteEnvironmentApplicationLockRequest
-}
-
-func (m *mockLockClient) CreateEnvironmentRequest(_ context.Context, in *api.CreateEnvironmentRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
-	m.createEnvironmentRequest = in
-	return &emptypb.Empty{}, nil
 }
 
 func (m *mockLockClient) CreateEnvironmentLock(_ context.Context, in *api.CreateEnvironmentLockRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
