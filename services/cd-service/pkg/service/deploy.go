@@ -102,7 +102,7 @@ func (d *DeployServiceServer) ReleaseTrain(
 	state := d.Repository.State()
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
-		return &api.ReleaseTrainResponse{}, fmt.Errorf("could not get state '%v': %w", state, err)
+		return &api.ReleaseTrainResponse{}, fmt.Errorf("could not get environment config with state '%v': %w", state, err)
 	}
 	envConfigs, ok := configs[in.Environment]
 
