@@ -322,7 +322,6 @@ describe('Application Filter', () => {
         it(testcase.name, () => {
             // when
             const nrLocks = testcase.applications.filter((val) => searchCustomFilter(testcase.query, val)).length;
-            // eslint-disable-next-line no-console
             expect(nrLocks).toStrictEqual(testcase.expectedLocks);
         });
     });

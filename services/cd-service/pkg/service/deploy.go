@@ -19,6 +19,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
@@ -83,7 +85,7 @@ func (d *DeployServiceServer) Deploy(
 func (d *DeployServiceServer) ReleaseTrain(
 	ctx context.Context,
 	in *api.ReleaseTrainRequest,
-) (*emptypb.Empty, error) {
+) (*api.ReleaseTrainResponse, error) {
 	if !valid.EnvironmentName(in.Environment) {
 		return nil, status.Error(codes.InvalidArgument, "invalid environment")
 	}
@@ -97,7 +99,21 @@ func (d *DeployServiceServer) ReleaseTrain(
 	if err != nil {
 		return nil, internalError(ctx, err)
 	}
-	return &emptypb.Empty{}, nil
+	state := d.Repository.State()
+	configs, err := state.GetEnvironmentConfigs()
+	if err != nil {
+		return &api.ReleaseTrainResponse{}, fmt.Errorf("could not get environment config with state '%v': %w", state, err)
+	}
+	envConfigs, ok := configs[in.Environment]
+
+	if !ok {
+		return &api.ReleaseTrainResponse{}, fmt.Errorf("could not find environment config for '%v'", in.Environment)
+	}
+	if envConfigs.Upstream == nil {
+		return &api.ReleaseTrainResponse{}, nil
+	}
+
+	return &api.ReleaseTrainResponse{Upstream: envConfigs.Upstream.Environment, TargetEnv: in.Environment}, nil
 }
 
 var _ api.DeployServiceServer = (*DeployServiceServer)(nil)

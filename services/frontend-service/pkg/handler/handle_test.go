@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"golang.org/x/crypto/openpgp"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/openpgp"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/google/go-cmp/cmp"
@@ -113,7 +114,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
 			},
-			expectedBody:                "",
+			expectedBody:                "{\"upstream\":\"production\",\"targetEnv\":\"development\"}",
 			expectedReleaseTrainRequest: &api.ReleaseTrainRequest{Environment: "development"},
 		},
 		{
@@ -156,7 +157,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
 			},
-			expectedBody:                "",
+			expectedBody:                "{\"upstream\":\"production\",\"targetEnv\":\"development\"}",
 			expectedReleaseTrainRequest: &api.ReleaseTrainRequest{Environment: "development"},
 		},
 		{
@@ -552,7 +553,6 @@ func TestServer_Handle(t *testing.T) {
 			if d := cmp.Diff(tt.expectedResp, resp, cmpopts.IgnoreFields(http.Response{}, "Status", "Proto", "ProtoMajor", "ProtoMinor", "Header", "Body", "ContentLength")); d != "" {
 				t.Errorf("response mismatch: %s", d)
 			}
-
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Errorf("error reading response body: %s", err)
@@ -592,9 +592,9 @@ func (m *mockDeployClient) Deploy(_ context.Context, in *api.DeployRequest, _ ..
 	return &emptypb.Empty{}, nil
 }
 
-func (m *mockDeployClient) ReleaseTrain(_ context.Context, in *api.ReleaseTrainRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+func (m *mockDeployClient) ReleaseTrain(_ context.Context, in *api.ReleaseTrainRequest, _ ...grpc.CallOption) (*api.ReleaseTrainResponse, error) {
 	m.releaseTrainRequest = in
-	return &emptypb.Empty{}, nil
+	return &api.ReleaseTrainResponse{TargetEnv: in.Environment, Upstream: "production"}, nil
 }
 
 type mockLockClient struct {

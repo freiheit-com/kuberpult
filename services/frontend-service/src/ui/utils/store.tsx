@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { Application, GetOverviewResponse } from '../../api/api';
+import { Application, BatchRequest, GetOverviewResponse, BatchAction } from '../../api/api';
 
 export interface DisplayLock {
     date: Date;
@@ -30,6 +30,9 @@ export interface DisplayLock {
 const emptyOverview: GetOverviewResponse = { applications: {}, environments: {} };
 export const [useOverview, UpdateOverview] = createStore(emptyOverview);
 
+const emptyBatch: BatchRequest = { actions: [] };
+export const [useAction, ActionStore] = createStore(emptyBatch);
+
 export const [_, PanicOverview] = createStore({ error: '' });
 
 // returns all application names
@@ -43,6 +46,12 @@ export const useTeamNames = () =>
                 .sort((a, b) => a.localeCompare(b))
         ),
     ]);
+
+export const useActions = () => useAction(({ actions }) => actions);
+
+export const updateActions = (actions: BatchAction[]) => ActionStore.set({ actions: actions });
+
+export const addAction = (action: BatchAction) => ActionStore.set({ actions: [...ActionStore.get().actions, action] });
 
 // returns applications filtered by dropdown and sorted by team name and then by app name
 export const useFilteredApps = (teams: string[]) =>

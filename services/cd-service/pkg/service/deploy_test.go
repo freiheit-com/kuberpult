@@ -295,3 +295,63 @@ func TestReleaseTrainErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestReleaseTrain(t *testing.T) {
+	tcs := []struct {
+		Name  string
+		Setup []repository.Transformer
+		Test  func(t *testing.T, svc *DeployServiceServer)
+	}{
+		{
+			Name: "Deploying a version",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "production"}},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"acceptance": "manifest",
+					},
+				},
+			},
+			Test: func(t *testing.T, svc *DeployServiceServer) {
+				resp, err := svc.ReleaseTrain(
+					context.Background(),
+					&api.ReleaseTrainRequest{
+						Environment: "acceptance",
+						Team:        "team",
+					},
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if resp.TargetEnv != "acceptance" {
+					t.Errorf("Expected targetEnv to be 'acceptance', got %q\n", resp.TargetEnv)
+				}
+				if resp.Upstream != "production" {
+					t.Errorf("Expected upstream to be 'production', got %q\n", resp.Upstream)
+				}
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(context.Background(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+			svc := &DeployServiceServer{
+				Repository: repo,
+			}
+			tc.Test(t, svc)
+		})
+	}
+}
