@@ -99,10 +99,10 @@ func (d *DeployServiceServer) ReleaseTrain(
 	if err != nil {
 		return nil, internalError(ctx, err)
 	}
-
-	configs, err := d.Repository.State().GetEnvironmentConfigs()
+	state := d.Repository.State()
+	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
-		return &api.ReleaseTrainResponse{}, err
+		return &api.ReleaseTrainResponse{}, fmt.Errorf("could not get environment config with state '%v': %w", state, err)
 	}
 	envConfigs, ok := configs[in.Environment]
 
