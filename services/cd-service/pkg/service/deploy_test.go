@@ -303,7 +303,7 @@ func TestReleaseTrain(t *testing.T) {
 		Test  func(t *testing.T, svc *DeployServiceServer)
 	}{
 		{
-			Name: "Deploying a version",
+			Name: "Get Upstream env and TargetEnv",
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "acceptance",
@@ -332,6 +332,39 @@ func TestReleaseTrain(t *testing.T) {
 				}
 				if resp.Upstream != "production" {
 					t.Errorf("Expected upstream to be 'production', got %q\n", resp.Upstream)
+				}
+			},
+		},
+		{
+			Name: "Get Upstream (latest) and TargetEnv",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"acceptance": "manifest",
+					},
+				},
+			},
+			Test: func(t *testing.T, svc *DeployServiceServer) {
+				resp, err := svc.ReleaseTrain(
+					context.Background(),
+					&api.ReleaseTrainRequest{
+						Environment: "acceptance",
+						Team:        "team",
+					},
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if resp.TargetEnv != "acceptance" {
+					t.Errorf("Expected targetEnv to be 'acceptance', got %q\n", resp.TargetEnv)
+				}
+				if resp.Upstream != "latest" {
+					t.Errorf("Expected upstream to be 'latest', got %q\n", resp.Upstream)
 				}
 			},
 		},
