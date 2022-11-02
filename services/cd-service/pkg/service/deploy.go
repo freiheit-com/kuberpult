@@ -104,16 +104,31 @@ func (d *DeployServiceServer) ReleaseTrain(
 	if err != nil {
 		return &api.ReleaseTrainResponse{}, fmt.Errorf("could not get environment config with state '%v': %w", state, err)
 	}
-	envConfigs, ok := configs[in.Environment]
-
+	targetEnvName := in.Environment
+	envConfigs, ok := configs[targetEnvName]
 	if !ok {
-		return &api.ReleaseTrainResponse{}, fmt.Errorf("could not find environment config for '%v'", in.Environment)
+		return &api.ReleaseTrainResponse{}, fmt.Errorf("could not find environment config for '%v'", targetEnvName)
 	}
 	if envConfigs.Upstream == nil {
 		return &api.ReleaseTrainResponse{}, nil
 	}
 
-	return &api.ReleaseTrainResponse{Upstream: envConfigs.Upstream.Environment, TargetEnv: in.Environment}, nil
+	upstreamLatest := envConfigs.Upstream.Latest
+	upstreamEnvName := envConfigs.Upstream.Environment
+
+	if !upstreamLatest && upstreamEnvName == "" {
+		return nil, fmt.Errorf("Environment %q does not have upstream.latest or upstream.environment configured - exiting.", targetEnvName)
+	}
+	if upstreamLatest && upstreamEnvName != "" {
+		return nil, fmt.Errorf("Environment %q has both upstream.latest and upstream.environment configured - exiting.", targetEnvName)
+	}
+
+	upstream := upstreamEnvName
+	if upstreamLatest {
+		upstream = "latest"
+	}
+
+	return &api.ReleaseTrainResponse{Upstream: upstream, TargetEnv: targetEnvName}, nil
 }
 
 var _ api.DeployServiceServer = (*DeployServiceServer)(nil)
