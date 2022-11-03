@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { Application, BatchRequest, GetOverviewResponse, BatchAction } from '../../api/api';
+import { Application, BatchRequest, GetOverviewResponse, BatchAction, LockBehavior } from '../../api/api';
 
 export interface DisplayLock {
     date: Date;
@@ -30,10 +30,98 @@ export interface DisplayLock {
 const emptyOverview: GetOverviewResponse = { applications: {}, environments: {} };
 export const [useOverview, UpdateOverview] = createStore(emptyOverview);
 
-const emptyBatch: BatchRequest = { actions: [] };
-export const [useAction, ActionStore] = createStore(emptyBatch);
+const emptyBatch: BatchRequest = {
+    actions: [
+        { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+        { action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } },
+        { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+        {
+            action: {
+                $case: 'createEnvironmentLock',
+                createEnvironmentLock: {
+                    environment: 'staging',
+                    lockId: '1337',
+                    message: 'a message',
+                },
+            },
+        },
+        {
+            action: {
+                $case: 'createEnvironmentApplicationLock',
+                createEnvironmentApplicationLock: {
+                    environment: 'staging',
+                    application: 'auth-service',
+                    lockId: '1337',
+                    message: 'a message',
+                },
+            },
+        },
+        {
+            action: {
+                $case: 'deploy',
+                deploy: {
+                    environment: 'staging',
+                    application: 'auth-service',
+                    version: 1337,
+                    ignoreAllLocks: true,
+                    lockBehavior: LockBehavior.Fail,
+                },
+            },
+        },
+        {
+            action: {
+                $case: 'deploy',
+                deploy: {
+                    environment: 'staging',
+                    application: 'auth-service',
+                    version: 1337,
+                    ignoreAllLocks: true,
+                    lockBehavior: LockBehavior.Fail,
+                },
+            },
+        },
+        {
+            action: {
+                $case: 'deploy',
+                deploy: {
+                    environment: 'staging',
+                    application: 'auth-service',
+                    version: 1337,
+                    ignoreAllLocks: true,
+                    lockBehavior: LockBehavior.Fail,
+                },
+            },
+        },
+        {
+            action: {
+                $case: 'deploy',
+                deploy: {
+                    environment: 'staging',
+                    application: 'auth-service',
+                    version: 1337,
+                    ignoreAllLocks: true,
+                    lockBehavior: LockBehavior.Fail,
+                },
+            },
+        },
+    ],
+};
+export const [useAction, UpdateAction] = createStore(emptyBatch);
 
 export const [_, PanicOverview] = createStore({ error: '' });
+
+export const useActions = () => useAction(({ actions }) => actions);
+
+export const updateActions = (actions: BatchAction[]) => UpdateAction.set({ actions: actions });
+
+export const addAction = (action: BatchAction) =>
+    UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
+
+export const deleteAction = (action: BatchAction) =>
+    UpdateAction.set(({ actions }) => ({
+        // create comparison function
+        actions: actions.filter((act) => JSON.stringify(act).localeCompare(JSON.stringify(action))),
+    }));
 
 // returns all application names
 // doesn't return empty team names (i.e.: '')
@@ -46,12 +134,6 @@ export const useTeamNames = () =>
                 .sort((a, b) => a.localeCompare(b))
         ),
     ]);
-
-export const useActions = () => useAction(({ actions }) => actions);
-
-export const updateActions = (actions: BatchAction[]) => ActionStore.set({ actions: actions });
-
-export const addAction = (action: BatchAction) => ActionStore.set({ actions: [...ActionStore.get().actions, action] });
 
 // returns applications filtered by dropdown and sorted by team name and then by app name
 export const useFilteredApps = (teams: string[]) =>
