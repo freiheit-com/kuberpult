@@ -31,9 +31,22 @@ const emptyOverview: GetOverviewResponse = { applications: {}, environments: {} 
 export const [useOverview, UpdateOverview] = createStore(emptyOverview);
 
 const emptyBatch: BatchRequest = { actions: [] };
-export const [useAction, ActionStore] = createStore(emptyBatch);
+export const [useAction, UpdateAction] = createStore(emptyBatch);
 
 export const [_, PanicOverview] = createStore({ error: '' });
+
+export const useActions = () => useAction(({ actions }) => actions);
+
+export const updateActions = (actions: BatchAction[]) => UpdateAction.set({ actions: actions });
+
+export const addAction = (action: BatchAction) =>
+    UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
+
+export const deleteAction = (action: BatchAction) =>
+    UpdateAction.set(({ actions }) => ({
+        // create comparison function
+        actions: actions.filter((act) => JSON.stringify(act).localeCompare(JSON.stringify(action))),
+    }));
 
 // returns all application names
 // doesn't return empty team names (i.e.: '')
@@ -46,12 +59,6 @@ export const useTeamNames = () =>
                 .sort((a, b) => a.localeCompare(b))
         ),
     ]);
-
-export const useActions = () => useAction(({ actions }) => actions);
-
-export const updateActions = (actions: BatchAction[]) => ActionStore.set({ actions: actions });
-
-export const addAction = (action: BatchAction) => ActionStore.set({ actions: [...ActionStore.get().actions, action] });
 
 // returns applications filtered by dropdown and sorted by team name and then by app name
 export const useFilteredApps = (teams: string[]) =>

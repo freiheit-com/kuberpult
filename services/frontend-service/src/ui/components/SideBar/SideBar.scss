@@ -12,7 +12,7 @@
     width: 100%;
   }
 
-  .mdc-drawer-sidebar-header__button {
+  .mdc-drawer-sidebar-header__button{
     position: relative;
     height: auto;
     color: white;
@@ -21,12 +21,61 @@
   }
 }
 
+.mdc-drawer-sidebar-list{
+  margin: 35px 40px 0px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.mdc-drawer-sidebar-list-item{
+  border: 2px solid #F2F5F7;
+  border-radius: 10px;
+  background-color: white;
+  padding: 20px; // 105px 20px 20px;
+  width: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+}
+
+
+.mdc-drawer-sidebar-list-item-text{
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--mdc-theme-on-surface);
+  font-size: 14px;
+  line-height: 24px;
+  align-items: flex-start;
+}
+
+.mdc-drawer-sidebar-list-item-text-name{
+  font-weight: bold;
+}
+
+.mdc-drawer-sidebar-list-item-delete-icon{
+  flex: 2;
+  position: absolute;
+  right: 11px;
+  top: 11px;
+  color: #4A4A4A
+}
+
+.mdc-drawer-sidebar-list-item-delete-icon:hover{
+  color: #000000;
+}
+
 .mdc-drawer-sidebar-content{
   position: relative;
-  text-align: center;
   width: 100%;
-  background-color: white;
+  background-color: #FAFBFC;
+  height: 80vh;
 }
+
+
 
 .mdc-drawer-sidebar .mdc-sidebar-sidebar-footer .mdc-drawer-sidebar-apply-button{
   position: relative;
@@ -40,6 +89,11 @@
   border-radius: $sidebar-apply-border-radius;
   font-size: $sidebar-apply-font-size;
   font-weight: bold;
+}
+
+.mdc-drawer__drawer{
+  display: flex;
+  flex-direction: column;
 }
 
 .mdc-drawer-sidebar-container{
