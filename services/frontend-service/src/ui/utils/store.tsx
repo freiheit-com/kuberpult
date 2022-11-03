@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { Application, BatchRequest, GetOverviewResponse, BatchAction, LockBehavior } from '../../api/api';
+import { Application, BatchRequest, GetOverviewResponse, BatchAction } from '../../api/api';
 
 export interface DisplayLock {
     date: Date;
@@ -30,82 +30,7 @@ export interface DisplayLock {
 const emptyOverview: GetOverviewResponse = { applications: {}, environments: {} };
 export const [useOverview, UpdateOverview] = createStore(emptyOverview);
 
-const emptyBatch: BatchRequest = {
-    actions: [
-        { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-        { action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } },
-        { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
-        {
-            action: {
-                $case: 'createEnvironmentLock',
-                createEnvironmentLock: {
-                    environment: 'staging',
-                    lockId: '1337',
-                    message: 'a message',
-                },
-            },
-        },
-        {
-            action: {
-                $case: 'createEnvironmentApplicationLock',
-                createEnvironmentApplicationLock: {
-                    environment: 'staging',
-                    application: 'auth-service',
-                    lockId: '1337',
-                    message: 'a message',
-                },
-            },
-        },
-        {
-            action: {
-                $case: 'deploy',
-                deploy: {
-                    environment: 'staging',
-                    application: 'auth-service',
-                    version: 1337,
-                    ignoreAllLocks: true,
-                    lockBehavior: LockBehavior.Fail,
-                },
-            },
-        },
-        {
-            action: {
-                $case: 'deploy',
-                deploy: {
-                    environment: 'staging',
-                    application: 'auth-service',
-                    version: 1337,
-                    ignoreAllLocks: true,
-                    lockBehavior: LockBehavior.Fail,
-                },
-            },
-        },
-        {
-            action: {
-                $case: 'deploy',
-                deploy: {
-                    environment: 'staging',
-                    application: 'auth-service',
-                    version: 1337,
-                    ignoreAllLocks: true,
-                    lockBehavior: LockBehavior.Fail,
-                },
-            },
-        },
-        {
-            action: {
-                $case: 'deploy',
-                deploy: {
-                    environment: 'staging',
-                    application: 'auth-service',
-                    version: 1337,
-                    ignoreAllLocks: true,
-                    lockBehavior: LockBehavior.Fail,
-                },
-            },
-        },
-    ],
-};
+const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 
 export const [_, PanicOverview] = createStore({ error: '' });
