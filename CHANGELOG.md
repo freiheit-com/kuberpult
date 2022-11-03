@@ -7,6 +7,11 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.46
+
+* Add a response body to releaseTrains endpoint [#389](https://github.com/freiheit-com/kuberpult/pull/389)
+* Add latest as upstream option in releaseTrains response body [#391](https://github.com/freiheit-com/kuberpult/pull/391)
+
 ## 0.4.45
 
 **released 2022-10-25**
