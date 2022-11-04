@@ -118,7 +118,7 @@ const getActionDetails = ({ action }: BatchAction): ActionDetails => {
                     'The new version will go through the same cycle as any other versions' +
                     ' (e.g. development->staging->production). ' +
                     'The behavior is similar to any other version that is created normally.',
-                summary: 'Prepare undeploy version for Application ' + action.prepareUndeploy.application,
+                summary: 'Prepare undeploy version for Application "' + action.prepareUndeploy.application + '"',
                 application: action.prepareUndeploy.application,
             };
         case 'undeploy':
