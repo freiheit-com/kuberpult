@@ -20,6 +20,7 @@ import { ReactComponent as Environments } from './Environments.svg';
 import { ReactComponent as Locks } from './Locks.svg';
 import { ReactComponent as LocksWhite } from './Locks_White.svg';
 import { ReactComponent as Delete } from './Delete.svg';
+import { ReactComponent as DeleteGray } from './Delete_Gray.svg';
 import { ReactComponent as DeleteWhite } from './Delete_White.svg';
 import { ReactComponent as HistoryWhite } from './History_White.svg';
 import { ReactComponent as ShowBar } from './ShowBar.svg';
@@ -37,6 +38,7 @@ export {
     LocksWhite,
     Environments,
     Delete,
+    DeleteGray,
     ShowBar,
     HideBar,
     History,

@@ -18,7 +18,7 @@ import { act, render, renderHook } from '@testing-library/react';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import { MemoryRouter } from 'react-router-dom';
 import { BatchAction } from '../../../api/api';
-import { addAction, updateActions, useActions } from '../../utils/store';
+import { addAction, deleteAction, useActions, updateActions } from '../../utils/store';
 
 describe('Show and Hide Sidebar', () => {
     interface dataT {
@@ -67,10 +67,142 @@ describe('Show and Hide Sidebar', () => {
     });
 });
 
+describe('Sidebar shows list of actions', () => {
+    interface dataT {
+        name: string;
+        actions: BatchAction[];
+        expectedNumOfActions: number;
+    }
+
+    const data: dataT[] = [
+        {
+            name: '2 results',
+            actions: [
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+            ],
+            expectedNumOfActions: 2,
+        },
+        {
+            name: '3 results',
+            actions: [
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                { action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } },
+            ],
+            expectedNumOfActions: 3,
+        },
+        {
+            name: '0 results',
+            actions: [],
+            expectedNumOfActions: 0,
+        },
+    ];
+
+    const getNode = (overrides?: {}): JSX.Element | any => {
+        // given
+        const defaultProps: any = {
+            children: null,
+        };
+        return (
+            <MemoryRouter>
+                <TopAppBar {...defaultProps} {...overrides} />{' '}
+            </MemoryRouter>
+        );
+    };
+    const getWrapper = (overrides?: {}) => render(getNode(overrides));
+
+    describe.each(data)('', (testcase) => {
+        it(testcase.name, () => {
+            // given
+            updateActions(testcase.actions);
+            // when
+            const { container } = getWrapper({});
+            const result = container.querySelector('.mdc-show-button')! as HTMLElement;
+            act(() => {
+                result.click();
+            });
+            // then
+            expect(container.getElementsByClassName('mdc-drawer-sidebar-list')[0].children).toHaveLength(
+                testcase.expectedNumOfActions
+            );
+        });
+    });
+});
+
+describe('Sidebar test deletebutton', () => {
+    interface dataT {
+        name: string;
+        actions: BatchAction[];
+        expectedNumOfActions: number;
+    }
+
+    const data: dataT[] = [
+        {
+            name: '2 results',
+            actions: [
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+            ],
+            expectedNumOfActions: 1,
+        },
+        {
+            name: '3 results',
+            actions: [
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                { action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } },
+            ],
+            expectedNumOfActions: 2,
+        },
+        {
+            name: '0 results',
+            actions: [],
+            expectedNumOfActions: 0,
+        },
+    ];
+
+    const getNode = (overrides?: {}): JSX.Element | any => {
+        // given
+        const defaultProps: any = {
+            children: null,
+        };
+        return (
+            <MemoryRouter>
+                <TopAppBar {...defaultProps} {...overrides} />{' '}
+            </MemoryRouter>
+        );
+    };
+    const getWrapper = (overrides?: {}) => render(getNode(overrides));
+
+    describe.each(data)('', (testcase) => {
+        it(testcase.name, () => {
+            // given
+            updateActions(testcase.actions);
+            // when
+            const { container } = getWrapper({});
+            const result = container.querySelector('.mdc-show-button')! as HTMLElement;
+            act(() => {
+                result.click();
+            });
+            const svg = container.getElementsByClassName('mdc-drawer-sidebar-list-item-delete-icon')[0];
+            if (svg) {
+                const button = svg.parentElement;
+                if (button) button.click();
+            }
+            // then
+            expect(container.getElementsByClassName('mdc-drawer-sidebar-list')[0].children).toHaveLength(
+                testcase.expectedNumOfActions
+            );
+        });
+    });
+});
+
 describe('Action Store functionality', () => {
     interface dataT {
         name: string;
         actions: BatchAction[];
+        deleteActions?: BatchAction[];
         expectedActions: BatchAction[];
     }
 
@@ -112,9 +244,10 @@ describe('Action Store functionality', () => {
     describe.each(dataGetSet)('Test getting actions from the store and setting the store from an array', (testcase) => {
         it(testcase.name, () => {
             // given
-            renderHook(() => updateActions(testcase.actions));
+            updateActions(testcase.actions);
             // when
             const actions = renderHook(() => useActions()).result.current;
+            // then
             expect(actions).toStrictEqual(testcase.expectedActions);
         });
     });
@@ -157,12 +290,71 @@ describe('Action Store functionality', () => {
     describe.each(dataAdding)('Test adding actions to the store', (testcase) => {
         it(testcase.name, () => {
             // given
-            renderHook(() => updateActions([]));
+            updateActions([]);
             testcase.actions.forEach((action) => {
-                renderHook(() => addAction(action));
+                addAction(action);
             });
             // when
             const actions = renderHook(() => useActions()).result.current;
+            // then
+            expect(actions).toStrictEqual(testcase.expectedActions);
+        });
+    });
+
+    const dataDeleting: dataT[] = [
+        {
+            name: 'delete 1 action - 0 remain',
+            actions: [{ action: { $case: 'undeploy', undeploy: { application: 'nmww' } } }],
+            deleteActions: [{ action: { $case: 'undeploy', undeploy: { application: 'nmww' } } }],
+            expectedActions: [],
+        },
+        {
+            name: 'delete 1 action (different action type, same app) - 1 remains',
+            actions: [
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+            ],
+            deleteActions: [{ action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } }],
+            expectedActions: [{ action: { $case: 'undeploy', undeploy: { application: 'nmww' } } }],
+        },
+        {
+            name: 'delete 1 action (same action type, different app) - 1 remains',
+            actions: [
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                { action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } },
+            ],
+            deleteActions: [{ action: { $case: 'undeploy', undeploy: { application: 'nmww' } } }],
+            expectedActions: [{ action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } }],
+        },
+        {
+            name: 'delete 1 action from empty array - 0 remain',
+            actions: [],
+            deleteActions: [{ action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } }],
+            expectedActions: [],
+        },
+        {
+            name: 'delete 2 actions - 1 remain',
+            actions: [
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                { action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } },
+                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+            ],
+            deleteActions: [
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+            ],
+            expectedActions: [{ action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } }],
+        },
+    ];
+
+    describe.each(dataDeleting)('Test deleting actions', (testcase) => {
+        it(testcase.name, () => {
+            // given
+            updateActions(testcase.actions);
+            // when
+            testcase.deleteActions?.map((action) => deleteAction(action));
+            const actions = renderHook(() => useActions()).result.current;
+            // then
             expect(actions).toStrictEqual(testcase.expectedActions);
         });
     });

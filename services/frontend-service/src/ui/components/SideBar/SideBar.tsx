@@ -15,11 +15,167 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { Button } from '../button';
-import { HideBarWhite } from '../../../images';
+import { DeleteGray, HideBarWhite } from '../../../images';
+import { BatchAction } from '../../../api/api';
+import { deleteAction, useActions } from '../../utils/store';
+import { useCallback } from 'react';
+
+export enum ActionTypes {
+    Deploy,
+    PrepareUndeploy,
+    Undeploy,
+    DeleteQueue,
+    CreateEnvironmentLock,
+    DeleteEnvironmentLock,
+    CreateApplicationLock,
+    DeleteApplicationLock,
+    UNKNOWN,
+}
+
+type ActionDetails = {
+    type: ActionTypes;
+    name: string;
+    summary: string;
+    dialogTitle: string;
+    description?: string;
+
+    // action details optional
+    environment?: string;
+    application?: string;
+    lockId?: string;
+    lockMessage?: string;
+    version?: number;
+};
+
+const getActionDetails = ({ action }: BatchAction): ActionDetails => {
+    switch (action?.$case) {
+        case 'createEnvironmentLock':
+            return {
+                type: ActionTypes.CreateEnvironmentLock,
+                name: 'Create Env Lock',
+                dialogTitle: 'Are you sure you want to add this environment lock?',
+                summary: 'Create new environment lock on ' + action.createEnvironmentLock.environment,
+                environment: action.createEnvironmentLock.environment,
+            };
+        case 'deleteEnvironmentLock':
+            return {
+                type: ActionTypes.DeleteEnvironmentLock,
+                name: 'Delete Env Lock',
+                dialogTitle: 'Are you sure you want to delete this environment lock?',
+                summary: 'Delete environment lock + on ' + action.deleteEnvironmentLock.environment,
+                environment: action.deleteEnvironmentLock.environment,
+                lockId: action.deleteEnvironmentLock.lockId,
+            };
+        case 'createEnvironmentApplicationLock':
+            return {
+                type: ActionTypes.CreateApplicationLock,
+                name: 'Create App Lock',
+                dialogTitle: 'Are you sure you want to add this application lock?',
+                summary:
+                    'Lock "' +
+                    action.createEnvironmentApplicationLock.application +
+                    '" on ' +
+                    action.createEnvironmentApplicationLock.environment,
+                environment: action.createEnvironmentApplicationLock.environment,
+                application: action.createEnvironmentApplicationLock.application,
+            };
+        case 'deleteEnvironmentApplicationLock':
+            return {
+                type: ActionTypes.DeleteApplicationLock,
+                name: 'Delete App Lock',
+                dialogTitle: 'Are you sure you want to delete this application lock?',
+                summary:
+                    'Unlock "' +
+                    action.deleteEnvironmentApplicationLock.application +
+                    '" on ' +
+                    action.deleteEnvironmentApplicationLock.environment,
+                environment: action.deleteEnvironmentApplicationLock.environment,
+                application: action.deleteEnvironmentApplicationLock.application,
+                lockId: action.deleteEnvironmentApplicationLock.lockId,
+            };
+        case 'deploy':
+            return {
+                type: ActionTypes.Deploy,
+                name: 'Deploy',
+                dialogTitle: 'Please be aware:',
+                summary:
+                    'Deploy version ' +
+                    action.deploy.version +
+                    ' of "' +
+                    action.deploy.application +
+                    '" to ' +
+                    action.deploy.environment,
+                environment: action.deploy.environment,
+                application: action.deploy.application,
+                version: action.deploy.version,
+            };
+        case 'prepareUndeploy':
+            return {
+                type: ActionTypes.PrepareUndeploy,
+                name: 'Prepare Undeploy',
+                dialogTitle: 'Are you sure you want to start undeploy?',
+                description:
+                    'The new version will go through the same cycle as any other versions' +
+                    ' (e.g. development->staging->production). ' +
+                    'The behavior is similar to any other version that is created normally.',
+                summary: 'Prepare undeploy version for Application ' + action.prepareUndeploy.application,
+                application: action.prepareUndeploy.application,
+            };
+        case 'undeploy':
+            return {
+                type: ActionTypes.Undeploy,
+                name: 'Undeploy',
+                dialogTitle: 'Are you sure you want to undeploy this application?',
+                description: 'This application will be deleted permanently',
+                summary: 'Undeploy and delete Application "' + action.undeploy.application + '"',
+                application: action.undeploy.application,
+            };
+        default:
+            return {
+                type: ActionTypes.UNKNOWN,
+                name: 'invalid',
+                dialogTitle: 'invalid',
+                summary: 'invalid',
+            };
+    }
+};
+
+type SideBarListItemProps = {
+    children: BatchAction;
+};
+
+export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
+    const actionDetails = getActionDetails(action);
+    const handleDelete = useCallback(() => deleteAction(action), [action]);
+    return (
+        <>
+            <div className="mdc-drawer-sidebar-list-item-text">
+                <div className="mdc-drawer-sidebar-list-item-text-name">{actionDetails.name}</div>
+                <div className="mdc-drawer-sidebar-list-item-text-summary">{actionDetails.summary}</div>
+            </div>
+            <div onClick={handleDelete}>
+                <DeleteGray className="mdc-drawer-sidebar-list-item-delete-icon" />
+            </div>
+        </>
+    );
+};
+
+export const SideBarList = () => {
+    const actions = useActions();
+
+    return (
+        <>
+            {actions.map((action, key) => (
+                <div key={key} className="mdc-drawer-sidebar-list-item">
+                    <SideBarListItem>{action}</SideBarListItem>
+                </div>
+            ))}
+        </>
+    );
+};
 
 export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }> = (props) => {
     const { className, toggleSidebar } = props;
-
     return (
         <aside className={className}>
             <nav className="mdc-drawer-sidebar mdc-drawer__drawer sidebar-content">
@@ -33,13 +189,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                 </div>
                 <nav className="mdc-drawer-sidebar mdc-drawer-sidebar-content">
                     <div className="mdc-drawer-sidebar mdc-drawer-sidebar-list">
-                        <div>{'Action 1'}</div>
-
-                        <div>{'Action 2'}</div>
-
-                        <div>{'Action 3'}</div>
-
-                        <div>{'Action 4'}</div>
+                        <SideBarList />
                     </div>
                 </nav>
                 <div className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer">
