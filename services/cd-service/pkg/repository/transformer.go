@@ -21,13 +21,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"io"
 	"io/fs"
 	"os"
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -261,7 +262,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 					Environment:   env,
 					Application:   c.Application,
 					Version:       version, // the train should queue deployments, instead of giving up:
-					LockBehaviour: api.LockBehavior_Queue,
+					LockBehaviour: api.LockBehavior_Record,
 				}
 				deployResult, err := d.Transform(ctx, state)
 				if err != nil {
@@ -381,7 +382,7 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 				Application: c.Application,
 				Version:     lastRelease + 1,
 				// the train should queue deployments, instead of giving up:
-				LockBehaviour: api.LockBehavior_Queue,
+				LockBehaviour: api.LockBehavior_Record,
 			}
 			deployResult, err := d.Transform(ctx, state)
 			if err != nil {
@@ -764,7 +765,7 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		}
 		if len(envLocks) > 0 || len(appLocks) > 0 {
 			switch c.LockBehaviour {
-			case api.LockBehavior_Queue:
+			case api.LockBehavior_Record:
 				q := QueueApplicationVersion{
 					Environment: c.Environment,
 					Application: c.Application,
@@ -922,7 +923,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 			Environment:   targetEnvName, // here we deploy to the next env
 			Application:   appName,
 			Version:       versionToDeploy,
-			LockBehaviour: api.LockBehavior_Queue,
+			LockBehaviour: api.LockBehavior_Record,
 		}
 		transform, err := d.Transform(ctx, state)
 		if err != nil {
