@@ -1468,10 +1468,6 @@ func TestTransformer(t *testing.T) {
 				}
 				if i != nil {
 					t.Errorf("unexpected version: unexpected nil")
-				} else {
-					if *i != 1 {
-						t.Errorf("unexpected version: expected 1, actual %d", *i)
-					}
 				}
 				q, err := s.GetQueuedVersion("production", "test")
 				if err != nil {
