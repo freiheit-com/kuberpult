@@ -594,23 +594,13 @@ func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (st
 		s := State{
 			Filesystem: fs,
 		}
-		apps, err := s.GetEnvironmentApplications(c.Environment)
+		_, err := s.GetEnvironmentApplications(c.Environment)
 		if err != nil {
 			return "", fmt.Errorf("environment applications for %q not found: %v", c.Environment, err.Error())
 		}
 
-		additionalMessageFromDeployment := ""
-		for _, appName := range apps {
-			queueMessage, err := s.ProcessQueue(ctx, fs, c.Environment, appName)
-			if err != nil {
-				return "", err
-			}
-			if queueMessage != "" {
-				additionalMessageFromDeployment = additionalMessageFromDeployment + "\n" + queueMessage
-			}
-		}
 		GaugeEnvLockMetric(fs, c.Environment)
-		return fmt.Sprintf("unlocked environment %q%s", c.Environment, additionalMessageFromDeployment), nil
+		return fmt.Sprintf("unlocked environment %q", c.Environment), nil
 	}
 }
 
@@ -657,15 +647,8 @@ func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state 
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
-		s := State{
-			Filesystem: fs,
-		}
-		queueMessage, err := s.ProcessQueue(ctx, fs, c.Environment, c.Application)
-		if err != nil {
-			return "", err
-		}
 		GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
-		return fmt.Sprintf("unlocked application %q in environment %q%q", c.Application, c.Environment, queueMessage), nil
+		return fmt.Sprintf("unlocked application %q in environment %q", c.Application, c.Environment), nil
 	}
 }
 

@@ -1071,33 +1071,3 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 		return io.ReadAll(file)
 	}
 }
-
-// ProcessQueue checks if there is something in the queue
-// deploys if necessary
-// deletes the queue
-func (s *State) ProcessQueue(ctx context.Context, fs billy.Filesystem, environment string, application string) (string, error) {
-	queuedVersion, err := s.GetQueuedVersion(environment, application)
-	queueDeploymentMessage := ""
-	if err != nil {
-		// could not read queued version.
-		return "", err
-	} else {
-		if queuedVersion == nil {
-			// if there is no version queued, that's not an issue, just do nothing:
-			return "", nil
-		}
-
-		currentlyDeployedVersion, err := s.GetEnvironmentApplicationVersion(environment, application)
-		if err != nil {
-			return "", err
-		}
-
-		if currentlyDeployedVersion != nil && *queuedVersion == *currentlyDeployedVersion {
-			// delete queue, it's outdated! But if we can't, that's not really a problem, as it would be overwritten
-			// whenever the next deployment happens:
-			err = s.DeleteQueuedVersion(environment, application)
-			return fmt.Sprintf("deleted queued version %d because it was already deployed. app=%q env=%q", *queuedVersion, application, environment), err
-		}
-	}
-	return queueDeploymentMessage, nil
-}
