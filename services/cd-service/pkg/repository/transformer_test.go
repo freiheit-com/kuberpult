@@ -20,12 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
-	"github.com/freiheit-com/kuberpult/pkg/testfs"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/go-git/go-billy/v5/util"
-	godebug "github.com/kylelemons/godebug/diff"
 	"io"
 	"os/exec"
 	"path"
@@ -33,6 +27,13 @@ import (
 	"regexp"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
+	"github.com/freiheit-com/kuberpult/pkg/testfs"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/go-git/go-billy/v5/util"
+	godebug "github.com/kylelemons/godebug/diff"
 )
 
 const (
@@ -1285,7 +1286,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy version ignoring locks when environment is locked LockBehavior=Queue",
-			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_Queue),
+			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_Record),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -1313,7 +1314,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy version when application in environment is locked and config=LockBehaviourQueue",
-			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_Queue),
+			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_Record),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -1354,7 +1355,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy twice LockBehavior=Queue and LockBehavior=Queue",
-			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_Queue, api.LockBehavior_Queue),
+			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_Record, api.LockBehavior_Record),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -1379,7 +1380,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy twice LockBehavior=Queue and LockBehavior=Ignore",
-			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_Queue, api.LockBehavior_Ignore),
+			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_Record, api.LockBehavior_Ignore),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -1404,7 +1405,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy twice LockBehavior=Ignore and LockBehavior=Queue",
-			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_Ignore, api.LockBehavior_Queue),
+			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_Ignore, api.LockBehavior_Record),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -1433,7 +1434,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Lock env AND app and then Deploy and unlock one lock ",
-			Transformers: makeTransformersDoubleLock(api.LockBehavior_Queue, false),
+			Transformers: makeTransformersDoubleLock(api.LockBehavior_Record, false),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -1458,7 +1459,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Lock env AND app and then Deploy and unlock both locks",
-			Transformers: makeTransformersDoubleLock(api.LockBehavior_Queue, true),
+			Transformers: makeTransformersDoubleLock(api.LockBehavior_Record, true),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
