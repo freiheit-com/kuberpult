@@ -1466,7 +1466,7 @@ func TestTransformer(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if i == nil {
+				if *i == 1 {
 					t.Errorf("unexpected version: expected 1, actual nil")
 				} else {
 					if *i != 1 {
@@ -1477,8 +1477,8 @@ func TestTransformer(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if q != nil {
-					t.Errorf("unexpected version: expected nil, actual %d", *q)
+				if q == nil {
+					t.Errorf("unexpected version: expected %d, actual nil", *q)
 				}
 			},
 		},
