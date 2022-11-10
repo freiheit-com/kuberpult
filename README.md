@@ -14,7 +14,7 @@ kuberpult works best with [ArgoCD](https://argo-cd.readthedocs.io/en/stable/) wh
 manifests to your clusters and kuberpult helps you to manage those manifests in the repository.
 
 kuberpult allows you to lock some services or an entire environment, so automatic deployments (via a typical api call) to
-those services/environments will be queued until the last lock is removed.
+those services/environments will be queued until lock is deleted and then a new version is deployed.
 Manual deployments (via the UI or a flag in the api) are always possible.
 
 `kuberpult` does not actually `deploy`. That part is usually handled by argoCD.
@@ -27,7 +27,7 @@ Both *environments* and *microservices* can be `locked`.
 Every app has a current version on every env (including `nil` for no version).
 If a deployment starts while the app/env is locked,
 instead of changing the current version, the `queued_version` will be set.
-When the lock is deleted, the queued version will be deployed.
+When the lock is deleted and a new version is deployed after deleting the lock, the queued version will be deployed.
 
 There is currently no visualization for the queue in the ui,
 so it can only be seen in the manifest repo as "queued_version" symlink next to "version".

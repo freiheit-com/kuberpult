@@ -24,7 +24,6 @@ export enum ActionTypes {
     Deploy,
     PrepareUndeploy,
     Undeploy,
-    DeleteQueue,
     CreateEnvironmentLock,
     DeleteEnvironmentLock,
     CreateApplicationLock,

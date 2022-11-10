@@ -7,6 +7,12 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## unreleased
+
+### Breaking change
+
+* Stop deploying from the queue after deleting the lock directly and remove the `Delete Queue` button from the UI [#396](https://github.com/freiheit-com/kuberpult/pull/396)
+
 ## 0.4.46
 
 * Add a response body to releaseTrains endpoint [#389](https://github.com/freiheit-com/kuberpult/pull/389)
@@ -70,7 +76,7 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 * Add navigation indicator [#311](https://github.com/freiheit-com/kuberpult/pull/311)
 * Return deployed releases [#315](https://github.com/freiheit-com/kuberpult/pull/315)
 #### Breaking Changes:
-* run the migration script during downtime in deployment to avoid errors [Readme](https://github.com/freiheit-com/kuberpult/blob/main/infrastructure/scripts/metadata-migration/Migration.md) 
+* run the migration script during downtime in deployment to avoid errors [Readme](https://github.com/freiheit-com/kuberpult/blob/main/infrastructure/scripts/metadata-migration/Migration.md)
 * Remove History package and persistent cache. [#282](https://github.com/freiheit-com/kuberpult/pull/282)
 * Add scripts for metadata migration. [#307](https://github.com/freiheit-com/kuberpult/pull/307)
 

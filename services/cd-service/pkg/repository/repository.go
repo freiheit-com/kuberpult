@@ -39,7 +39,6 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"gopkg.in/yaml.v2"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
@@ -1098,30 +1097,6 @@ func (s *State) ProcessQueue(ctx context.Context, fs billy.Filesystem, environme
 			// whenever the next deployment happens:
 			err = s.DeleteQueuedVersion(environment, application)
 			return fmt.Sprintf("deleted queued version %d because it was already deployed. app=%q env=%q", *queuedVersion, application, environment), err
-		} else {
-			// versions are different, deploy!
-			d := DeployApplicationVersion{
-				Environment:   environment,
-				Application:   application,
-				Version:       *queuedVersion,
-				LockBehaviour: api.LockBehavior_Fail,
-			}
-			transform, err := d.Transform(ctx, s)
-			if err != nil {
-				_, ok := err.(*LockedError)
-				if ok {
-					/**
-					  Usually ProcessQueue is only called when an unlock happened -
-					  however, we have 2 kinds of locks, so it might be an unlock of the env,
-					  and the app is still locked! (or other way around)
-					  In this case, we should skip it.
-					*/
-					return "", nil
-				}
-				return "", err
-			} else {
-				queueDeploymentMessage = fmt.Sprintf("\n%s (was queued)", transform)
-			}
 		}
 	}
 	return queueDeploymentMessage, nil

@@ -63,7 +63,7 @@ service DeployService {
 }
 
 enum LockBehavior {
-  Queue = 0;
+  Record = 0;
   Fail = 1;
   Ignore = 2;
 }
@@ -132,7 +132,7 @@ message GetFrontendConfigResponse {
       string tenantId = 3;
       string cloudInstance = 4;
       string redirectURL = 5;
-    } 
+    }
     AzureAuthConfig azureAuth= 1;
   }
   ArgoCD argoCd = 1;

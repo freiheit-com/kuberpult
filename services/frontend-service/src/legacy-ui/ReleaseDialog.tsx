@@ -220,20 +220,6 @@ const DeployButtonInner = (props: {
     }
 };
 
-const DeleteQueueButtonInner: VFC<{ addToCart?: () => void; inCart?: boolean }> = ({ addToCart, inCart }) => {
-    const queueMessage =
-        'Deletes the queue. ' +
-        'Technically, it deploys the version that is already deployed here, which as a side effect deletes the queue.';
-
-    return (
-        <Tooltip title={queueMessage}>
-            <Button variant="contained" onClick={addToCart} className={''} disabled={inCart}>
-                {'Delete Queue'}
-            </Button>
-        </Tooltip>
-    );
-};
-
 export const CreateLockButton = (props: { applicationName?: string; environmentName: string }) => {
     const { applicationName, environmentName } = props;
 
@@ -366,17 +352,6 @@ const ReleaseEnvironment: VFC<{
     );
     const currentlyDeployedVersion = overview.environments[environmentName].applications[applicationName]?.version;
 
-    const deleteQueue: CartAction = useMemo(
-        () => ({
-            deleteQueue: {
-                application: applicationName,
-                environment: environmentName,
-                currentlyDeployedVersion: currentlyDeployedVersion,
-            },
-        }),
-        [applicationName, environmentName, currentlyDeployedVersion]
-    );
-
     const queuedVersion = overview.environments[environmentName].applications[applicationName]?.queuedVersion || 0;
     const hasQueue = queuedVersion !== 0;
     const envLocks = Object.entries(overview.environments[environmentName].locks ?? {});
@@ -451,11 +426,6 @@ const ReleaseEnvironment: VFC<{
                     target={version}
                     releases={overview.applications[applicationName].releases}
                 />
-                {hasQueue ? (
-                    <ConfirmationDialogProvider action={deleteQueue}>
-                        <DeleteQueueButtonInner />
-                    </ConfirmationDialogProvider>
-                ) : null}
             </Typography>
             <Typography variant="subtitle1" component="div" className="current">
                 {currentInfo}
