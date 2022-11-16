@@ -61,7 +61,7 @@ const getActionDetails = ({ action }: BatchAction): ActionDetails => {
                 type: ActionTypes.DeleteEnvironmentLock,
                 name: 'Delete Env Lock',
                 dialogTitle: 'Are you sure you want to delete this environment lock?',
-                summary: 'Delete environment lock + on ' + action.deleteEnvironmentLock.environment,
+                summary: 'Delete environment lock on ' + action.deleteEnvironmentLock.environment,
                 environment: action.deleteEnvironmentLock.environment,
                 lockId: action.deleteEnvironmentLock.lockId,
             };
