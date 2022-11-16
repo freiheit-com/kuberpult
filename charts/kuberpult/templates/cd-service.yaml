@@ -126,11 +126,7 @@ spec:
 {{- end }}
         volumeMounts:
         - name: repository
-          # We use emptyDir, because none of our data needs to survive for long (it's all in the github repo).
-          # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
-          # Because of an issue in gitlib2, this actually happens.
-          emptyDir:
-            sizeLimit: 10Gi
+          mountPath: /repository
         - name: ssh
           mountPath: /etc/ssh
 {{- if .Values.pgp.keyRing }}
@@ -148,6 +144,12 @@ spec:
           subPath: environment_configs.json
 {{- end }}
       volumes:
+      - name: repository
+        # We use emptyDir, because none of our data needs to survive for long (it's all in the github repo).
+        # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
+        # Because of an issue in gitlib2, this actually happens.
+        emptyDir:
+          sizeLimit: 10Gi
       - name: ssh
         secret:
           secretName: kuberpult-ssh
