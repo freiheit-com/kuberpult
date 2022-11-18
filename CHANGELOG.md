@@ -7,11 +7,11 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
-## unreleased
+## 0.4.47
 
-### changes
-
+**released 2022-11-18**
 * cd-service changed from StatefulSet to Deployment [#397](https://github.com/freiheit-com/kuberpult/pull/397)
+* Add action item and list, component design, logic, and tests [#394](https://github.com/freiheit-com/kuberpult/pull/394)
 
 ### Breaking change
 
@@ -19,6 +19,7 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 ## 0.4.46
 
+**released 2022-11-03**
 * Add a response body to releaseTrains endpoint [#389](https://github.com/freiheit-com/kuberpult/pull/389)
 * Add latest as upstream option in releaseTrains response body [#391](https://github.com/freiheit-com/kuberpult/pull/391)
 
