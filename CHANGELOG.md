@@ -9,6 +9,10 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 ## unreleased
 
+### changes
+
+* cd-service changed from StatefulSet to Deployment
+
 ### Breaking change
 
 * Stop deploying from the queue after deleting the lock directly and remove the `Delete Queue` button from the UI [#396](https://github.com/freiheit-com/kuberpult/pull/396)
