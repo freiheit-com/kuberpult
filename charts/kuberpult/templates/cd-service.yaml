@@ -16,7 +16,7 @@
 #Copyright 2021 freiheit.com
 ---
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: kuberpult-cd-service
   labels:
@@ -27,8 +27,7 @@ metadata:
     tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
 {{- end }}
 spec:
-  serviceName: kuberpult-cd-service
-  replicas: 1
+  replicas: 1 # to avoid merge issues with the manifests repository
   selector:
     matchLabels:
       app: kuberpult-cd-service
@@ -145,6 +144,12 @@ spec:
           subPath: environment_configs.json
 {{- end }}
       volumes:
+      - name: repository
+        # We use emptyDir, because none of our data needs to survive for long (it's all in the github repo).
+        # EmptyDir has the nice advantage, that it triggers a restart of the pod and creates a new volume when the current one is full
+        # Because of an issue in gitlib2, this actually happens.
+        emptyDir:
+          sizeLimit: 10Gi
       - name: ssh
         secret:
           secretName: kuberpult-ssh
@@ -156,7 +161,7 @@ spec:
 {{- if .Values.environment_configs.bootstrap_mode }}
       - name: environment-configs
         configMap:
-          items: 
+          items:
           - key: environment_configs.json
             path: environment_configs.json
           name: environment-configs
@@ -166,14 +171,6 @@ spec:
         hostPath:
           path: {{ .Values.dogstatsdMetrics.hostSocketPath }}
 {{- end }}
-  volumeClaimTemplates:
-  - metadata:
-      name: repository
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: "15Gi"
 ---
 apiVersion: v1
 kind: Service
@@ -242,8 +239,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: environment-configs 
+  name: environment-configs
 data:
   environment_configs.json: {{ required ".Values.environment_configs.environment_configs_json is required when .Values.environment_configs.bootstrap is true" .Values.environment_configs.environment_configs_json | quote }}
 {{- end }}
-
