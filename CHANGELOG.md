@@ -11,7 +11,7 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 ### changes
 
-* cd-service changed from StatefulSet to Deployment
+* cd-service changed from StatefulSet to Deployment [#397](https://github.com/freiheit-com/kuberpult/pull/397)
 
 ### Breaking change
 
