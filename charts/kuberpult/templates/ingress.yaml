@@ -14,6 +14,8 @@
 #along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 #Copyright 2021 freiheit.com
+
+{{- if .Values.ingress.create }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -59,4 +61,5 @@ spec:
     enabled: true
     oauthclientCredentials:
       secretName: {{ required ".ingress.iap.secretName is required" .Values.ingress.iap.secretName }}
+{{- end }}
 {{- end }}
