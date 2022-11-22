@@ -11,6 +11,8 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 **released 2022-11-18**
 * cd-service changed from StatefulSet to Deployment [#397](https://github.com/freiheit-com/kuberpult/pull/397)
+This means that the bug regarding "no space left on device" is fixed: The kuberpult cd-service will now automatically restart with a new disk when this happens.
+In order to really benefit from this, you need to have some form of retry for the failed curl/grpc request though.
 * Add action item and list, component design, logic, and tests [#394](https://github.com/freiheit-com/kuberpult/pull/394)
 
 ### Breaking change
