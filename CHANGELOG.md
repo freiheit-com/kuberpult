@@ -16,7 +16,7 @@ In order to really benefit from this, you need to have some form of retry for th
 * Add action item and list, component design, logic, and tests [#394](https://github.com/freiheit-com/kuberpult/pull/394)
 
 ### Breaking change
-* For an upgrade, the StatefulSet needs to be removed manually, before applying the helm chart.
+* After the upgrade, the PersistantVolumeClaim with name:`repository` should be removed manually, because it's not needed anymore.
 * Stop deploying from the queue after deleting the lock directly and remove the `Delete Queue` button from the UI [#396](https://github.com/freiheit-com/kuberpult/pull/396)
 
 ## 0.4.46
