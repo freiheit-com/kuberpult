@@ -26,7 +26,7 @@ In the past (version <= 0.4.46) kuberpult queued deployments.
 This means that it saved the version that was requested to deployed, but didn't actually deploy it yet.
 Once the last lock on that microservice (incl environment locks) was removed, the queued version was deployed and the queue was removed.
 This was reasonable, but never easy to explain.
-Especially because deployment request that encounter an *environment lock* behaved different: These did not create a queue at all.
+Especially because deployment requests that encounter an *environment lock* behaved different: These did not create a queue at all.
 
 If this is still not clear, that's exactly my point ;) It's difficult to understand this behavior. That's why we changed it!
 
