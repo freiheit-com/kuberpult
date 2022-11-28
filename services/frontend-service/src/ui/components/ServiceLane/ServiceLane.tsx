@@ -19,6 +19,7 @@ import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { Button } from '../button';
 import { DeleteWhite, HistoryWhite } from '../../../images';
 import { Application } from '../../../api/api';
+import { ReleaseDialog } from '../ReleaseDialog/ReleaseDialog';
 
 export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const { application } = props;
@@ -42,6 +43,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                     />
                 </div>
             </div>
+            <ReleaseDialog></ReleaseDialog>
             <div className="service__releases">
                 {releases.map((rel) => (
                     <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />
