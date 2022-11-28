@@ -34,7 +34,7 @@ From now on (version >= 0.4.47) there is never a *magical* deployment that happe
 Queues still exist in the database (git repository) and the UI, however they don't deploy anything anywhere ever.
 They only document the fact that "hey, someone tried to deploy this, but kuberpult couldn't do that because there was a lock".
 
-Release trains that run into an *environment lock* will still cancel completely, as there is nothing to deploy. This is unchanged.
+Release trains that run into an *environment lock* will still cancel completely, as there is nothing to deploy. This behavior is unchanged.
 
 Note that for both versions, manual deployments (via the UI) were and are always allowed, no matter the lock situation. All power to the engineers!
 
