@@ -28,7 +28,7 @@ Once the last lock on that microservice (incl environment locks) was removed, th
 This was reasonable, but never easy to explain.
 Especially because deployment requests that encounter an *environment lock* behaved different: These did not create a queue at all.
 
-If this is still not clear, that's exactly my point ;) It's difficult to understand this behavior. That's why we changed it!
+If this is still not clear, that's exactly the point ;) It's difficult to understand this behavior. That's why we changed it!
 
 From now on (version >= 0.4.47) there is never a *magical* deployment that happens just because someone deletes a lock.
 Queues still exist in the database (git repository) and the UI, however they don't deploy anything anywhere ever.
