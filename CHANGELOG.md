@@ -19,6 +19,25 @@ In order to really benefit from this, you need to have some form of retry for th
 * After the upgrade, the PersistantVolumeClaim with name:`repository` should be removed manually, because it's not needed anymore.
 * Stop deploying from the queue after deleting the lock directly and remove the `Delete Queue` button from the UI [#396](https://github.com/freiheit-com/kuberpult/pull/396)
 
+### About the Queue behavior change
+When kuberpult gets a request to deploy a microservice, and at the same time there is a lock, that puts us in a tricky situation. On one hand the user wants to deploy this, on the other the service is locked, indicating they don't want to deploy.
+
+In the past (version <= 0.4.46) kuberpult queued deployments.
+This means that it saved the version that was requested to deployed, but didn't actually deploy it yet.
+Once the last lock on that microservice (incl environment locks) was removed, the queued version was deployed and the queue was removed.
+This was reasonable, but never easy to explain.
+Especially because deployment request that encounter an *environment lock* behaved different: These did not create a queue at all.
+
+If this is still not clear, that's exactly my point ;) It's difficult to understand this behavior. That's why we changed it!
+
+From now on (version >= 0.4.47) there is never a *magical* deployment that happens just because someone deletes a lock.
+Queues still exist in the database (git repository) and the UI, however they don't deploy anything anywhere ever.
+They only document the fact that "hey, someone tried to deploy this, but kuberpult couldn't do that because there was a lock".
+
+Release trains that run into an *environment lock* will still cancel completely, as there is nothing to deploy. This is unchanged.
+
+Note that for both versions, manual deployments (via the UI) were and are always allowed, no matter the lock situation. All power to the engineers!
+
 ## 0.4.46
 
 **released 2022-11-03**
