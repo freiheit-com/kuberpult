@@ -14,9 +14,9 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { AppBar, Button, Dialog, Divider, IconButton, List, ListItem, ListItemText, Toolbar } from '@material-ui/core';
+import { AppBar, Button, Dialog, IconButton, List, ListItem, ListItemText, Toolbar } from '@material-ui/core';
 import React from 'react';
-import { useCurrentReleaseDialog, updateReleaseDialog } from '../../utils/store';
+import { useCurrentReleaseDialog, updateReleaseDialog, useCurrentlyDeployedAt } from '../../utils/store';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -30,6 +30,8 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const release = useCurrentReleaseDialog();
     const app = release[0];
     const version = release[1];
+
+    const envs = useCurrentlyDeployedAt(app, version);
 
     const dialog =
         app !== '' ? (
@@ -49,13 +51,11 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         </Toolbar>
                     </AppBar>
                     <List>
-                        <ListItem button>
-                            <ListItemText primary="env1" />
-                        </ListItem>
-                        <Divider />
-                        <ListItem button>
-                            <ListItemText primary="env2" />
-                        </ListItem>
+                        {envs.map((env) => (
+                            <ListItem button>
+                                <ListItemText primary={env} />
+                            </ListItem>
+                        ))}
                     </List>
                 </Dialog>
             </div>
