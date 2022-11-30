@@ -14,26 +14,53 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
+import { AppBar, Button, Dialog, Divider, IconButton, List, ListItem, ListItemText, Toolbar } from '@material-ui/core';
 import React from 'react';
-import { useCurrentReleaseDialog } from '../../utils/store';
+import { useCurrentReleaseDialog, updateReleaseDialog } from '../../utils/store';
 
 export type ReleaseDialogProps = {
     className?: string;
 };
 
+const setClosed = () => {
+    updateReleaseDialog(false, '', 0);
+};
+
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const release = useCurrentReleaseDialog();
-    const _open = release[0];
-    const app = release[1];
-    const version = release[2];
+    const app = release[0];
+    const version = release[1];
 
     const dialog =
-        _open !== false ? (
+        app !== '' ? (
             <div>
-                Release: app {app}, version {version}
+                <Dialog fullScreen={false} open={app !== ''} onClose={setClosed}>
+                    {app} {version}
+                    <AppBar sx={{ position: 'relative' }}>
+                        <Toolbar>
+                            <IconButton
+                                edge="start"
+                                color="inherit"
+                                onClick={setClosed}
+                                aria-label="close"></IconButton>
+                            <Button autoFocus color="inherit" onClick={setClosed}>
+                                close
+                            </Button>
+                        </Toolbar>
+                    </AppBar>
+                    <List>
+                        <ListItem button>
+                            <ListItemText primary="env1" />
+                        </ListItem>
+                        <Divider />
+                        <ListItem button>
+                            <ListItemText primary="env2" />
+                        </ListItem>
+                    </List>
+                </Dialog>
             </div>
         ) : (
-            <div>No release</div>
+            <div></div>
         );
 
     return <div>{dialog}</div>;

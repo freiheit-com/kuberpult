@@ -17,6 +17,7 @@ Copyright 2021 freiheit.com*/
 import { ServiceLane } from '../../components/ServiceLane/ServiceLane';
 import { useSearchParams } from 'react-router-dom';
 import { useFilteredApps, useSearchedApplications } from '../../utils/store';
+import { ReleaseDialog } from '../../components/ReleaseDialog/ReleaseDialog';
 
 export const Home: React.FC = () => {
     const [params] = useSearchParams();
@@ -28,6 +29,7 @@ export const Home: React.FC = () => {
     const apps = Object.values(searchedApp);
     return (
         <main className="main-content">
+            <ReleaseDialog></ReleaseDialog>
             {apps.map((app) => (
                 <ServiceLane application={app} key={app.name} />
             ))}
