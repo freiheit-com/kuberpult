@@ -16,12 +16,10 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { AppBar, Button, Dialog, IconButton, List, ListItem, ListItemText, Toolbar } from '@material-ui/core';
 import React from 'react';
-import { updateReleaseDialog, useCurrentlyDeployedAt } from '../../utils/store';
+import { useCurrentReleaseDialog, updateReleaseDialog, useCurrentlyDeployedAt } from '../../utils/store';
 
 export type ReleaseDialogProps = {
     className?: string;
-    app: string;
-    version: number;
 };
 
 const setClosed = () => {
@@ -29,13 +27,17 @@ const setClosed = () => {
 };
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
-    const envs = useCurrentlyDeployedAt(props.app, props.version);
+    const release = useCurrentReleaseDialog();
+    const app = release[0];
+    const version = release[1];
+
+    const envs = useCurrentlyDeployedAt(app, version);
 
     const dialog =
-        props.app !== '' ? (
+        app !== '' ? (
             <div>
-                <Dialog fullScreen={false} open={props.app !== ''} onClose={setClosed}>
-                    {props.app} {props.version}
+                <Dialog fullScreen={false} open={app !== ''} onClose={setClosed}>
+                    {app} {version}
                     <AppBar sx={{ position: 'relative' }}>
                         <Toolbar>
                             <IconButton

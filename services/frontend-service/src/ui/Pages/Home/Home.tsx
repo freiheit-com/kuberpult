@@ -29,7 +29,7 @@ export const Home: React.FC = () => {
     const apps = Object.values(searchedApp);
     return (
         <main className="main-content">
-            <ReleaseDialog app="" version={0}></ReleaseDialog>
+            <ReleaseDialog></ReleaseDialog>
             {apps.map((app) => (
                 <ServiceLane application={app} key={app.name} />
             ))}
