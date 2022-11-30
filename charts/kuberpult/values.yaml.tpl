@@ -37,6 +37,7 @@ frontend:
       cpu: 500m
       memory: 250Mi
 ingress:
+  create: true
   annotations: {}
   domainName: null
   exposeReleaseEndpoint: false

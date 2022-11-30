@@ -4,6 +4,8 @@ As of now, while we are still on version `0.*`,
 we do not use [Semantic Versioning](https://semver.org/).
 Specifically this means, that minor upgrades can contain **breaking changes**.
 
+# Unreleased yet
+* Make Ingress optional [#400](https://github.com/freiheit-com/kuberpult/pull/400)
 
 # Change Log
 
