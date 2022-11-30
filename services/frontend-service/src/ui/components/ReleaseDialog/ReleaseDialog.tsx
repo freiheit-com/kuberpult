@@ -60,7 +60,8 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                 </Dialog>
             </div>
         ) : (
-            <div></div>
+            <div/>
+```use single tag close if you not passing any children
         );
 
     return <div>{dialog}</div>;
