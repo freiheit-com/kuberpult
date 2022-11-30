@@ -5,9 +5,13 @@ we do not use [Semantic Versioning](https://semver.org/).
 Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Unreleased yet
-* Make Ingress optional [#400](https://github.com/freiheit-com/kuberpult/pull/400)
+
 
 # Change Log
+
+## 0.4.47
+* Make Ingress optional [#400](https://github.com/freiheit-com/kuberpult/pull/400)
+  This allows you to use the kuberpult helm chart without the ingress.
 
 ## 0.4.47
 
