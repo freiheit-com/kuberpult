@@ -15,6 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { AppBar, Button, Dialog, IconButton, List, ListItem, ListItemText, Toolbar } from '@material-ui/core';
+import classNames from 'classnames';
 import React from 'react';
 import { updateReleaseDialog } from '../../utils/store';
 
@@ -23,7 +24,7 @@ export type ReleaseDialogProps = {
     app: string;
     version: number;
     release: object;
-    envs: Array<object>;
+    envs: Array<string>;
 };
 
 const setClosed = () => {
@@ -32,12 +33,21 @@ const setClosed = () => {
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const dialog =
-        props.app !== '' ? (
+        props.version !== -1 ? (
             <div>
-                <Dialog fullScreen={false} open={props.app !== ''} onClose={setClosed}>
-                    {props.app} {props.version} - {props.release.sourceCommitId} - {props.release.sourceAuthor} -{' '}
-                    {props.release.sourceMessage} - {props.release.createdAt.toTimeString()}
+                <Dialog fullWidth={true} maxWidth="md" open={props.app !== ''} onClose={setClosed}>
+                    {props.app} {props.version}
                     <AppBar sx={{ position: 'relative' }}>
+                        <div className={classNames('release-dialog-message', props.className)}>
+                            {props.release.sourceMessage}
+                            <span className={classNames('release-dialog-commitId', props.className)}>
+                                {props.release.sourceCommitId}
+                            </span>
+                        </div>
+                        <div className={classNames('release-dialog-author', props.className)}>
+                            Author: {props.release.sourceAuthor}
+                        </div>
+
                         <Toolbar>
                             <IconButton
                                 edge="start"
