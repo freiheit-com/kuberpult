@@ -1,6 +1,11 @@
 @use '@material/typography/mdc-typography';
 @use '@material/card/mdc-card';
 
+.release-dialog-header {
+    margin: 10px;
+}
+
+
 .release-dialog-message {
     margin: 10px;
 }

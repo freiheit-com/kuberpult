@@ -36,8 +36,10 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
         props.version !== -1 ? (
             <div>
                 <Dialog fullWidth={true} maxWidth="md" open={props.app !== ''} onClose={setClosed}>
-                    {props.app} {props.version}
                     <AppBar sx={{ position: 'relative' }}>
+                        <div className={classNames('release-dialog-header', props.className)}>
+                            Application: {props.app} version: {props.version}
+                        </div>
                         <div className={classNames('release-dialog-message', props.className)}>
                             {props.release.sourceMessage}
                             <span className={classNames('release-dialog-commitId', props.className)}>
@@ -57,13 +59,8 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         <div className={classNames('release-dialog-author', props.className)}>
                             Author: {props.release.sourceAuthor}
                         </div>
-
                         <Toolbar>
-                            <IconButton
-                                edge="start"
-                                color="inherit"
-                                onClick={setClosed}
-                                aria-label="close"></IconButton>
+                            <IconButton edge="end" color="inherit" onClick={setClosed} aria-label="close"></IconButton>
                             <Button autoFocus color="inherit" onClick={setClosed}>
                                 close
                             </Button>
