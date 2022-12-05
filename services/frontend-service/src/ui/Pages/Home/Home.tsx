@@ -16,7 +16,13 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { ServiceLane } from '../../components/ServiceLane/ServiceLane';
 import { useSearchParams } from 'react-router-dom';
-import { useFilteredApps, useSearchedApplications } from '../../utils/store';
+import {
+    useCurrentlyDeployedAt,
+    useFilteredApps,
+    useSearchedApplications,
+    useReleaseInfo,
+    useReleaseDialog,
+} from '../../utils/store';
 import { ReleaseDialog } from '../../components/ReleaseDialog/ReleaseDialog';
 
 export const Home: React.FC = () => {
@@ -27,9 +33,17 @@ export const Home: React.FC = () => {
     const searchedApp = useSearchedApplications(filteredApps, appNameParam);
 
     const apps = Object.values(searchedApp);
+
+    const { app, version } = useReleaseDialog(({ app, version }) => ({ app, version }));
+
+    const envs = useCurrentlyDeployedAt(app, version);
+    let releaseInfo = useReleaseInfo(app, version);
+    if (releaseInfo === undefined) {
+        releaseInfo = {};
+    }
     return (
         <main className="main-content">
-            <ReleaseDialog></ReleaseDialog>
+            <ReleaseDialog app={app} version={version} release={releaseInfo} envs={envs}></ReleaseDialog>
             {apps.map((app) => (
                 <ServiceLane application={app} key={app.name} />
             ))}

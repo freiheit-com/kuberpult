@@ -16,10 +16,14 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { AppBar, Button, Dialog, IconButton, List, ListItem, ListItemText, Toolbar } from '@material-ui/core';
 import React from 'react';
-import { useCurrentReleaseDialog, updateReleaseDialog, useCurrentlyDeployedAt } from '../../utils/store';
+import { updateReleaseDialog } from '../../utils/store';
 
 export type ReleaseDialogProps = {
     className?: string;
+    app: string;
+    version: number;
+    release: object;
+    envs: Array<object>;
 };
 
 const setClosed = () => {
@@ -27,17 +31,12 @@ const setClosed = () => {
 };
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
-    const release = useCurrentReleaseDialog();
-    const app = release[0];
-    const version = release[1];
-
-    const envs = useCurrentlyDeployedAt(app, version);
-
     const dialog =
-        app !== '' ? (
+        props.app !== '' ? (
             <div>
-                <Dialog fullScreen={false} open={app !== ''} onClose={setClosed}>
-                    {app} {version}
+                <Dialog fullScreen={false} open={props.app !== ''} onClose={setClosed}>
+                    {props.app} {props.version} - {props.release.sourceCommitId} - {props.release.sourceAuthor} -{' '}
+                    {props.release.sourceMessage} - {props.release.createdAt.toTimeString()}
                     <AppBar sx={{ position: 'relative' }}>
                         <Toolbar>
                             <IconButton
@@ -51,8 +50,8 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         </Toolbar>
                     </AppBar>
                     <List>
-                        {envs.map((env) => (
-                            <ListItem button>
+                        {props.envs.map((env) => (
+                            <ListItem button key={env}>
                                 <ListItemText primary={env} />
                             </ListItem>
                         ))}

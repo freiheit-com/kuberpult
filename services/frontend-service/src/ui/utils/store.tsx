@@ -259,5 +259,11 @@ export const useCurrentlyDeployedAt = (application: string, version: number) =>
             .map((e) => e.name)
     );
 
-// Get current release dialog
-export const useCurrentReleaseDialog = () => useReleaseDialog(({ app, version }) => [app, version]);
+// Get release information for a version
+export const useReleaseInfo = (app: string, version: number) =>
+    useOverview(({ applications }) => {
+        if (app !== '') {
+            return applications[app].releases.filter((release) => release.version === version)[0];
+        }
+        return {};
+    });
