@@ -38,6 +38,7 @@ export const Home: React.FC = () => {
 
     const envs = useCurrentlyDeployedAt(app, version);
     let releaseInfo = useReleaseInfo(app, version);
+
     if (releaseInfo === undefined) {
         releaseInfo = {};
     }
