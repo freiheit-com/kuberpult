@@ -20,7 +20,7 @@ import { BatchAction } from '../../../api/api';
 import { deleteAction, useActions, deleteAllActions } from '../../utils/store';
 import { ChangeEvent, useCallback, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
-import { TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@material-ui/core';
+import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core';
 
 export enum ActionTypes {
     Deploy,
@@ -147,6 +147,7 @@ type SideBarListItemProps = {
 
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
     const actionDetails = getActionDetails(action);
+
     const handleDelete = useCallback(() => deleteAction(action), [action]);
     return (
         <>
@@ -202,13 +203,13 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                 }
             });
             setLockMessage('');
-            handleClose();
         }
         api.batchService()
             .ProcessBatch({ actions })
             .then((result) => {
                 deleteAllActions();
             });
+        handleClose();
     }, [actions, api, handleClose, lockCreationList, lockMessage]);
 
     const newLocksExist = lockCreationList.length !== 0;
@@ -242,6 +243,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                         placeholder="default-lock"
                         onChange={updateMessage}
                         className="actions-cart__lock-message"
+                        value={lockMessage}
                     />
                 )}
                 <div className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer">
@@ -254,13 +256,9 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                         onClick={canApply ? handleOpen : undefined}
                     />
                     <Dialog open={open} onClose={handleClose}>
-                        <DialogTitle id="alert-dialog-title">{"Use Google's location service?"}</DialogTitle>
-                        <DialogContent>
-                            <DialogContentText id="alert-dialog-description">
-                                Let Google help apps determine location. This means sending anonymous location data to
-                                Google, even when no apps are running.
-                            </DialogContentText>
-                        </DialogContent>
+                        <DialogTitle id="alert-dialog-title">
+                            {'Are you sure you want to apply all planned actions?'}
+                        </DialogTitle>
                         <DialogActions>
                             <Button label="Cancel" onClick={handleClose} />
                             <Button label="Confirm" onClick={applyActions} />

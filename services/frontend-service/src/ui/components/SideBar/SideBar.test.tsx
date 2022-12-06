@@ -84,6 +84,14 @@ describe('Sidebar shows list of actions', () => {
             expectedNumOfActions: 2,
         },
         {
+            name: '1 results, repeated',
+            actions: [
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+            ],
+            expectedNumOfActions: 2,
+        },
+        {
             name: '3 results',
             actions: [
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
@@ -91,6 +99,15 @@ describe('Sidebar shows list of actions', () => {
                 { action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } },
             ],
             expectedNumOfActions: 3,
+        },
+        {
+            name: '2 results, repeated',
+            actions: [
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+            ],
+            expectedNumOfActions: 2,
         },
         {
             name: '0 results',
