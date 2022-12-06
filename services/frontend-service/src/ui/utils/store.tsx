@@ -39,13 +39,83 @@ export const [useReleaseDialog, UpdateReleaseDialog] = createStore({ app: '', ve
 
 export const useActions = () => useAction(({ actions }) => actions);
 
-export const updateActions = (actions: BatchAction[]) => UpdateAction.set({ actions: actions });
+export const updateActions = (actions: BatchAction[]) => actions.forEach((action) => addAction(action));
+
+export const addAction = (action: BatchAction) => {
+    const actions = UpdateAction.get().actions;
+    // checking for duplicates
+    switch (action.action?.$case) {
+        case 'deleteEnvironmentLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'deleteEnvironmentLock' &&
+                        action.action?.$case === 'deleteEnvironmentLock' &&
+                        act.action.deleteEnvironmentLock.environment ===
+                            action.action.deleteEnvironmentLock.environment &&
+                        act.action.deleteEnvironmentLock.lockId === action.action.deleteEnvironmentLock.lockId
+                )
+            )
+                return;
+            break;
+
+        case 'deleteEnvironmentApplicationLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'deleteEnvironmentApplicationLock' &&
+                        action.action?.$case === 'deleteEnvironmentApplicationLock' &&
+                        act.action.deleteEnvironmentApplicationLock.environment ===
+                            action.action.deleteEnvironmentApplicationLock.environment &&
+                        act.action.deleteEnvironmentApplicationLock.lockId ===
+                            action.action.deleteEnvironmentApplicationLock.lockId
+                )
+            )
+                return;
+            break;
+        case 'deploy':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'deploy' &&
+                        action.action?.$case === 'deploy' &&
+                        act.action.deploy.application === action.action.deploy.application &&
+                        act.action.deploy.environment === action.action.deploy.environment
+                )
+            )
+                return;
+            break;
+        case 'undeploy':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'undeploy' &&
+                        action.action?.$case === 'undeploy' &&
+                        act.action.undeploy.application === action.action.undeploy.application
+                )
+            )
+                return;
+            break;
+        case 'prepareUndeploy':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'prepareUndeploy' &&
+                        action.action?.$case === 'prepareUndeploy' &&
+                        act.action.prepareUndeploy.application === action.action.prepareUndeploy.application
+                )
+            )
+                return;
+            break;
+    }
+
+    UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
+};
 
 export const updateReleaseDialog = (app: string, version: number) => {
     UpdateReleaseDialog.set({ app: app, version: version });
 };
-export const addAction = (action: BatchAction) =>
-    UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
+export const deleteAllActions = () => UpdateAction.set({ actions: [] });
 
 export const deleteAction = (action: BatchAction) =>
     UpdateAction.set(({ actions }) => ({
