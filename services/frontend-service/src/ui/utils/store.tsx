@@ -16,6 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
 import { Application, BatchRequest, GetOverviewResponse, BatchAction } from '../../api/api';
+import { useApi } from './GrpcApi';
 
 export interface DisplayLock {
     date: Date;
@@ -36,6 +37,8 @@ export const [useAction, UpdateAction] = createStore(emptyBatch);
 export const [_, PanicOverview] = createStore({ error: '' });
 
 export const [useReleaseDialog, UpdateReleaseDialog] = createStore({ app: '', version: 0 });
+
+export const useApplyActions = () => useApi.batchService().ProcessBatch({ actions: useActions() });
 
 export const useActions = () => useAction(({ actions }) => actions);
 
