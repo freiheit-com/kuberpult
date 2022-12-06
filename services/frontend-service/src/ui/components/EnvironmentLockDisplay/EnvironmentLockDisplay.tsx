@@ -18,7 +18,7 @@ import * as React from 'react';
 import { addAction, useEnvironmentLock } from '../../utils/store';
 import Tooltip from '@material-ui/core/Tooltip';
 import { Locks } from '../../../images';
-import { Button } from '@material-ui/core';
+import { Button } from '../button';
 
 export const EnvironmentLockDisplay: React.FC<{ env: string; lockId: string }> = (props) => {
     const { env, lockId } = props;
@@ -33,9 +33,10 @@ export const EnvironmentLockDisplay: React.FC<{ env: string; lockId: string }> =
             <Tooltip
                 arrow
                 title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}>
-                <Button onClick={deleteLock}>
-                    <Locks className="environment-lock-icon" />
-                </Button>
+                <Button
+                    icon={<Locks className="environment-lock-icon" />}
+                    onClick={deleteLock}
+                    className={'button-lock'}></Button>
             </Tooltip>
         </div>
     );
