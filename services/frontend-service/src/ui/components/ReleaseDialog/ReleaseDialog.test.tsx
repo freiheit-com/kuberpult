@@ -14,24 +14,40 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
+import { ReleaseDialog } from './ReleaseDialog';
 import { render } from '@testing-library/react';
 import { UpdateOverview, updateReleaseDialog } from '../../utils/store';
 
-describe('Release Card', () => {
-    const getNode = (overrides: ReleaseDialogProps) => <ReleaseDialog {...overrides} />;
-    const getWrapper = (overrides: ReleaseDialogProps) => render(getNode(overrides));
-
+describe('Release Dialog', () => {
     const data = [
         {
-            name: 'undeploy release',
-            props: { app: 'test1', version: -1, release: { version: 2, sourceMessage: 'test-rel' }, envs: ['dev'] },
-            rels: [{ version: 2, sourceMessage: 'test-rel' }],
+            name: 'normal release',
+            props: {
+                app: 'test1',
+                version: 2,
+                release: {
+                    version: 2,
+                    sourceMessage: 'test',
+                    sourceAuhor: 'test',
+                    sourceCommitId: 'commit',
+                    createdAt: new Date(2002),
+                },
+                envs: [],
+            },
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test',
+                    sourceAuhor: 'test',
+                    sourceCommitId: 'commit',
+                    createdAt: new Date(2002),
+                },
+            ],
             environments: {},
         },
     ];
 
-    describe.each(data)(`Renders a Release Card`, (testcase) => {
+    describe.each(data)(`Renders a Release Dialog`, (testcase) => {
         it(testcase.name, () => {
             // when
             UpdateOverview.set({
@@ -39,9 +55,9 @@ describe('Release Card', () => {
                 environments: testcase.environments ?? {},
             } as any);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
-            const { container } = getWrapper(testcase.props);
+            render(<ReleaseDialog {...testcase.props} />);
 
-            expect(container.querySelector('.release-dialog-message')?.textContent).toContain(
+            expect(document.querySelector('.release-dialog-message')?.textContent).toContain(
                 testcase.props.release.sourceMessage
             );
         });

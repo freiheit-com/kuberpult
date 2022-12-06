@@ -61,7 +61,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         </div>
                         <Toolbar>
                             <IconButton edge="end" color="inherit" onClick={setClosed} aria-label="close"></IconButton>
-                            <Button autoFocus color="inherit" onClick={setClosed}>
+                            <Button color="inherit" onClick={setClosed}>
                                 close
                             </Button>
                         </Toolbar>
@@ -76,7 +76,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                 </Dialog>
             </div>
         ) : (
-            <div />
+            ''
         );
 
     return <div>{dialog}</div>;
