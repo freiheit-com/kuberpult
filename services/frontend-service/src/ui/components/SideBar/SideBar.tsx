@@ -17,8 +17,10 @@ Copyright 2021 freiheit.com*/
 import { Button } from '../button';
 import { DeleteGray, HideBarWhite } from '../../../images';
 import { BatchAction } from '../../../api/api';
-import { deleteAction, useActions } from '../../utils/store';
-import { useCallback } from 'react';
+import { deleteAction, useActions, deleteAllActions } from '../../utils/store';
+import { ChangeEvent, useCallback, useState } from 'react';
+import { useApi } from '../../utils/GrpcApi';
+import { TextField } from '@material-ui/core';
 
 export enum ActionTypes {
     Deploy,
@@ -175,6 +177,43 @@ export const SideBarList = () => {
 
 export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }> = (props) => {
     const { className, toggleSidebar } = props;
+    const actions = useActions();
+    const [lockMessage, setLockMessage] = useState('');
+    const api = useApi;
+
+    const lockCreationList = actions.filter(
+        (action) =>
+            action.action?.$case === 'createEnvironmentLock' ||
+            action.action?.$case === 'createEnvironmentApplicationLock'
+    );
+
+    const applyActions = useCallback(() => {
+        if (lockMessage) {
+            lockCreationList.forEach((action) => {
+                if (action.action?.$case === 'createEnvironmentLock') {
+                    action.action.createEnvironmentLock.message = lockMessage;
+                }
+                if (action.action?.$case === 'createEnvironmentApplicationLock') {
+                    action.action.createEnvironmentApplicationLock.message = lockMessage;
+                }
+            });
+            setLockMessage('');
+        }
+        api.batchService()
+            .ProcessBatch({ actions })
+            .then((result) => {
+                deleteAllActions();
+            });
+    }, [actions, api, lockCreationList, lockMessage]);
+
+    const newLocksExist = lockCreationList.length !== 0;
+
+    const updateMessage = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+        setLockMessage(e.target.value);
+    }, []);
+
+    const canApply = !newLocksExist || lockMessage;
+
     return (
         <aside className={className}>
             <nav className="mdc-drawer-sidebar mdc-drawer__drawer sidebar-content">
@@ -191,10 +230,23 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                         <SideBarList />
                     </div>
                 </nav>
+                {newLocksExist && (
+                    <TextField
+                        label="Lock Message"
+                        variant="outlined"
+                        placeholder="default-lock"
+                        onChange={updateMessage}
+                        className="actions-cart__lock-message"
+                    />
+                )}
                 <div className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer">
                     <Button
-                        className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer mdc-drawer-sidebar-apply-button"
+                        className={
+                            'mdc-drawer-sidebar mdc-sidebar-sidebar-footer mdc-drawer-sidebar-apply-button' +
+                            (!canApply ? '-disabled' : '')
+                        }
                         label={'Apply'}
+                        onClick={canApply ? applyActions : undefined}
                     />
                 </div>
             </nav>
