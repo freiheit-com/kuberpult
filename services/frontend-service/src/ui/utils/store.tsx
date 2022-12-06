@@ -35,10 +35,15 @@ export const [useAction, UpdateAction] = createStore(emptyBatch);
 
 export const [_, PanicOverview] = createStore({ error: '' });
 
+export const [useReleaseDialog, UpdateReleaseDialog] = createStore({ app: '', version: 0 });
+
 export const useActions = () => useAction(({ actions }) => actions);
 
 export const updateActions = (actions: BatchAction[]) => UpdateAction.set({ actions: actions });
 
+export const updateReleaseDialog = (app: string, version: number) => {
+    UpdateReleaseDialog.set({ app: app, version: version });
+};
 export const addAction = (action: BatchAction) =>
     UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
 
@@ -253,3 +258,13 @@ export const useCurrentlyDeployedAt = (application: string, version: number) =>
             )
             .map((e) => e.name)
     );
+
+// Get release information for a version
+export const useReleaseInfo = (app: string, version: number) =>
+    useOverview(({ applications }) => {
+        const releaseInfo = applications[app]?.releases.filter((release) => release.version === version)[0];
+        if (!releaseInfo) {
+            return {};
+        }
+        return releaseInfo;
+    });

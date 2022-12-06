@@ -16,9 +16,9 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import classNames from 'classnames';
 import { Button } from '../button';
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
-import { useCurrentlyDeployedAt, useRelease } from '../../utils/store';
+import { updateReleaseDialog, useCurrentlyDeployedAt, useRelease } from '../../utils/store';
 import { Chip } from '../chip';
 
 export type ReleaseCardProps = {
@@ -33,6 +33,9 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const { className, app, version } = props;
     const { createdAt, sourceMessage, sourceCommitId, sourceAuthor } = useRelease(app, version);
     const environments = useCurrentlyDeployedAt(app, version);
+    const clickHanlder = React.useCallback(() => {
+        updateReleaseDialog(app, version);
+    }, [app, version]);
 
     useEffect(() => {
         if (control.current) {
@@ -42,7 +45,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     }, []);
 
     return (
-        <div className={classNames('mdc-card release-card', className)}>
+        <div className={classNames('mdc-card release-card', className)} onClick={clickHanlder}>
             <div className="release-card__header">
                 <div className="release__title mdc-typography--headline6">{sourceMessage}</div>
                 {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}

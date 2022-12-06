@@ -1,0 +1,29 @@
+@use '@material/typography/mdc-typography';
+@use '@material/card/mdc-card';
+
+.release-dialog-header {
+    margin: 10px;
+}
+
+
+.release-dialog-message {
+    margin: 10px;
+}
+
+.release-dialog-commitId {
+    margin-left: 20px;
+    border: 1px;
+    border-radius: 1.5px;
+}
+
+.release-dialog-hour {
+    margin-left: 20px;
+}
+
+.release-dialog-author {
+    margin: 10px;
+}
+
+.release-dialog-createdAt {
+    margin: 10px;
+}
