@@ -44,7 +44,7 @@ export const Home: React.FC = () => {
     }
     return (
         <main className="main-content">
-            <ReleaseDialog app={app} version={version} release={releaseInfo} envs={envs}></ReleaseDialog>
+            <ReleaseDialog app={app} version={version} release={releaseInfo} envs={envs}/>
             {apps.map((app) => (
                 <ServiceLane application={app} key={app.name} />
             ))}
