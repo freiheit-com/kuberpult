@@ -34,7 +34,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const { createdAt, sourceMessage, sourceCommitId, sourceAuthor } = useRelease(app, version);
     const environments = useCurrentlyDeployedAt(app, version);
     const clickHanlder = React.useCallback(() => {
-        updateReleaseDialog(true, app, version);
+        updateReleaseDialog(app, version);
     }, [app, version]);
 
     useEffect(() => {

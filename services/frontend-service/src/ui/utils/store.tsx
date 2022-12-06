@@ -41,7 +41,7 @@ export const useActions = () => useAction(({ actions }) => actions);
 
 export const updateActions = (actions: BatchAction[]) => UpdateAction.set({ actions: actions });
 
-export const updateReleaseDialog = (_open: boolean, app: string, version: number) => {
+export const updateReleaseDialog = (app: string, version: number) => {
     UpdateReleaseDialog.set({ app: app, version: version });
 };
 export const addAction = (action: BatchAction) =>
