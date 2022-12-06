@@ -20,7 +20,7 @@ import { BatchAction } from '../../../api/api';
 import { deleteAction, useActions, deleteAllActions } from '../../utils/store';
 import { ChangeEvent, useCallback, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
-import { TextField } from '@material-ui/core';
+import { TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@material-ui/core';
 
 export enum ActionTypes {
     Deploy,
@@ -180,6 +180,10 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
     const actions = useActions();
     const [lockMessage, setLockMessage] = useState('');
     const api = useApi;
+    const [open, setOpen] = useState(false);
+
+    const handleClose = useCallback(() => setOpen(false), []);
+    const handleOpen = () => setOpen(true);
 
     const lockCreationList = actions.filter(
         (action) =>
@@ -198,13 +202,14 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                 }
             });
             setLockMessage('');
+            handleClose();
         }
         api.batchService()
             .ProcessBatch({ actions })
             .then((result) => {
                 deleteAllActions();
             });
-    }, [actions, api, lockCreationList, lockMessage]);
+    }, [actions, api, handleClose, lockCreationList, lockMessage]);
 
     const newLocksExist = lockCreationList.length !== 0;
 
@@ -212,7 +217,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
         setLockMessage(e.target.value);
     }, []);
 
-    const canApply = !newLocksExist || lockMessage;
+    const canApply = actions.length > 0 && (!newLocksExist || lockMessage);
 
     return (
         <aside className={className}>
@@ -246,8 +251,21 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                             (!canApply ? '-disabled' : '')
                         }
                         label={'Apply'}
-                        onClick={canApply ? applyActions : undefined}
+                        onClick={canApply ? handleOpen : undefined}
                     />
+                    <Dialog open={open} onClose={handleClose}>
+                        <DialogTitle id="alert-dialog-title">{"Use Google's location service?"}</DialogTitle>
+                        <DialogContent>
+                            <DialogContentText id="alert-dialog-description">
+                                Let Google help apps determine location. This means sending anonymous location data to
+                                Google, even when no apps are running.
+                            </DialogContentText>
+                        </DialogContent>
+                        <DialogActions>
+                            <Button label="Cancel" onClick={handleClose} />
+                            <Button label="Confirm" onClick={applyActions} />
+                        </DialogActions>
+                    </Dialog>
                 </div>
             </nav>
         </aside>
