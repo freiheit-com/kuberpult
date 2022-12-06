@@ -262,12 +262,9 @@ export const useCurrentlyDeployedAt = (application: string, version: number) =>
 // Get release information for a version
 export const useReleaseInfo = (app: string, version: number) =>
     useOverview(({ applications }) => {
-        if (app !== '') {
-            const releaseInfo = applications[app].releases.filter((release) => release.version === version)[0];
-            if (releaseInfo === undefined) {
-                return {};
-            }
-            return releaseInfo;
+        const releaseInfo = applications[app]?.releases.filter((release) => release.version === version)[0];
+        if (releaseInfo === undefined) {
+            return {};
         }
         return {};
     });
