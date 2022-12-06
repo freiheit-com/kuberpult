@@ -37,14 +37,11 @@ export const Home: React.FC = () => {
     const { app, version } = useReleaseDialog(({ app, version }) => ({ app, version }));
 
     const envs = useCurrentlyDeployedAt(app, version);
-    let releaseInfo = useReleaseInfo(app, version);
+    const releaseInfo = useReleaseInfo(app, version);
 
-    if (releaseInfo === undefined) {
-        releaseInfo = {};
-    }
     return (
         <main className="main-content">
-            <ReleaseDialog app={app} version={version} release={releaseInfo} envs={envs}/>
+            <ReleaseDialog app={app} version={version} release={releaseInfo} envs={envs} />
             {apps.map((app) => (
                 <ServiceLane application={app} key={app.name} />
             ))}

@@ -263,7 +263,11 @@ export const useCurrentlyDeployedAt = (application: string, version: number) =>
 export const useReleaseInfo = (app: string, version: number) =>
     useOverview(({ applications }) => {
         if (app !== '') {
-            return applications[app].releases.filter((release) => release.version === version)[0];
+            const releaseInfo = applications[app].releases.filter((release) => release.version === version)[0];
+            if (releaseInfo === undefined) {
+                return {};
+            }
+            return releaseInfo;
         }
         return {};
     });

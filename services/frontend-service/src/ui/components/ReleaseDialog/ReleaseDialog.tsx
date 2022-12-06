@@ -28,7 +28,7 @@ export type ReleaseDialogProps = {
 };
 
 const setClosed = () => {
-    updateReleaseDialog(false, '', 0);
+    updateReleaseDialog('', 0);
 };
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
