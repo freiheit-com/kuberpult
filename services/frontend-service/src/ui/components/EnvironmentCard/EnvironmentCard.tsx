@@ -23,19 +23,16 @@ import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLoc
 export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
     const { environment } = props;
     const locks = useFilteredEnvironmentLocks(environment);
-    const addLock = React.useCallback(
-        () => {
-            const randBase36 = () => Math.random().toString(36).substring(7);
-            const randomLockId = () => 'ui-v2-' + randBase36();
-            addAction({
-                action: {
-                    $case: 'createEnvironmentLock',
-                    createEnvironmentLock: { environment: environment, lockId: randomLockId(), message: '' },
-                },
-            });
-        },
-        [environment] // TEST
-    );
+    const addLock = React.useCallback(() => {
+        const randBase36 = () => Math.random().toString(36).substring(7);
+        const randomLockId = () => 'ui-v2-' + randBase36();
+        addAction({
+            action: {
+                $case: 'createEnvironmentLock',
+                createEnvironmentLock: { environment: environment, lockId: randomLockId(), message: '' },
+            },
+        });
+    }, [environment]);
     return (
         <div className="environment-lane">
             <div className="environment-lane__header">

@@ -42,7 +42,10 @@ export const useApplyActions = () => useApi.batchService().ProcessBatch({ action
 
 export const useActions = () => useAction(({ actions }) => actions);
 
-export const updateActions = (actions: BatchAction[]) => actions.forEach((action) => addAction(action));
+export const updateActions = (actions: BatchAction[]) => {
+    deleteAllActions();
+    actions.forEach((action) => addAction(action));
+};
 
 export const addAction = (action: BatchAction) => {
     const actions = UpdateAction.get().actions;
