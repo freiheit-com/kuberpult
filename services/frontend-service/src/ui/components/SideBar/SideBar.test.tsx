@@ -89,7 +89,7 @@ describe('Sidebar shows list of actions', () => {
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
             ],
-            expectedNumOfActions: 2,
+            expectedNumOfActions: 1,
         },
         {
             name: '3 results',
