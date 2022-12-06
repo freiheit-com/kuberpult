@@ -27,23 +27,28 @@ describe('Release Dialog', () => {
                 version: 2,
                 release: {
                     version: 2,
-                    sourceMessage: 'test',
+                    sourceMessage: 'test1',
                     sourceAuhor: 'test',
                     sourceCommitId: 'commit',
                     createdAt: new Date(2002),
                 },
                 envs: [],
             },
-            rels: [
-                {
-                    version: 2,
-                    sourceMessage: 'test',
-                    sourceAuhor: 'test',
-                    sourceCommitId: 'commit',
-                    createdAt: new Date(2002),
-                },
-            ],
+            rels: [],
             environments: {},
+            expect_message: true,
+        },
+        {
+            name: 'no release',
+            props: {
+                app: 'test1',
+                version: -1,
+                release: {},
+                envs: [],
+            },
+            rels: [],
+            environments: {},
+            expect_message: false,
         },
     ];
 
@@ -56,10 +61,13 @@ describe('Release Dialog', () => {
             } as any);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
-
-            expect(document.querySelector('.release-dialog-message')?.textContent).toContain(
-                testcase.props.release.sourceMessage
-            );
+            if (testcase.expect_message) {
+                expect(document.querySelector('.release-dialog-message')?.textContent).toContain(
+                    testcase.props.release.sourceMessage
+                );
+            } else {
+                expect(document.querySelector('.release-dialog-message') === undefined);
+            }
         });
     });
 });
