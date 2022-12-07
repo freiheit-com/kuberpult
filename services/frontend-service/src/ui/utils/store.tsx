@@ -51,6 +51,17 @@ export const addAction = (action: BatchAction) => {
     const actions = UpdateAction.get().actions;
     // checking for duplicates
     switch (action.action?.$case) {
+        case 'createEnvironmentLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'createEnvironmentLock' &&
+                        action.action?.$case === 'createEnvironmentLock' &&
+                        act.action.createEnvironmentLock.environment === action.action.createEnvironmentLock.environment
+                )
+            )
+                return;
+            break;
         case 'deleteEnvironmentLock':
             if (
                 actions.some(
@@ -64,7 +75,20 @@ export const addAction = (action: BatchAction) => {
             )
                 return;
             break;
-
+        case 'createEnvironmentApplicationLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'createEnvironmentApplicationLock' &&
+                        action.action?.$case === 'createEnvironmentApplicationLock' &&
+                        act.action.createEnvironmentApplicationLock.application ===
+                            action.action.createEnvironmentApplicationLock.application &&
+                        act.action.createEnvironmentApplicationLock.environment ===
+                            action.action.createEnvironmentApplicationLock.environment
+                )
+            )
+                return;
+            break;
         case 'deleteEnvironmentApplicationLock':
             if (
                 actions.some(
