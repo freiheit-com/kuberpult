@@ -18,7 +18,7 @@ import { act, render, renderHook } from '@testing-library/react';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import { MemoryRouter } from 'react-router-dom';
 import { BatchAction } from '../../../api/api';
-import { addAction, deleteAction, useActions, updateActions } from '../../utils/store';
+import { addAction, deleteAction, useActions, updateActions, deleteAllActions } from '../../utils/store';
 
 describe('Show and Hide Sidebar', () => {
     interface dataT {
@@ -84,6 +84,14 @@ describe('Sidebar shows list of actions', () => {
             expectedNumOfActions: 2,
         },
         {
+            name: '1 results, repeated',
+            actions: [
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+            ],
+            expectedNumOfActions: 1,
+        },
+        {
             name: '3 results',
             actions: [
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
@@ -91,6 +99,15 @@ describe('Sidebar shows list of actions', () => {
                 { action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } },
             ],
             expectedNumOfActions: 3,
+        },
+        {
+            name: '2 results, repeated',
+            actions: [
+                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+            ],
+            expectedNumOfActions: 2,
         },
         {
             name: '0 results',
@@ -290,7 +307,7 @@ describe('Action Store functionality', () => {
     describe.each(dataAdding)('Test adding actions to the store', (testcase) => {
         it(testcase.name, () => {
             // given
-            updateActions([]);
+            deleteAllActions();
             testcase.actions.forEach((action) => {
                 addAction(action);
             });

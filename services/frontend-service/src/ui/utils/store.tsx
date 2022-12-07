@@ -16,6 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
 import { Application, BatchRequest, GetOverviewResponse, BatchAction } from '../../api/api';
+import { useApi } from './GrpcApi';
 
 export interface DisplayLock {
     date: Date;
@@ -37,15 +38,114 @@ export const [_, PanicOverview] = createStore({ error: '' });
 
 export const [useReleaseDialog, UpdateReleaseDialog] = createStore({ app: '', version: 0 });
 
+export const useApplyActions = () => useApi.batchService().ProcessBatch({ actions: useActions() });
+
 export const useActions = () => useAction(({ actions }) => actions);
 
-export const updateActions = (actions: BatchAction[]) => UpdateAction.set({ actions: actions });
+export const updateActions = (actions: BatchAction[]) => {
+    deleteAllActions();
+    actions.forEach((action) => addAction(action));
+};
+
+export const addAction = (action: BatchAction) => {
+    const actions = UpdateAction.get().actions;
+    // checking for duplicates
+    switch (action.action?.$case) {
+        case 'createEnvironmentLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'createEnvironmentLock' &&
+                        action.action?.$case === 'createEnvironmentLock' &&
+                        act.action.createEnvironmentLock.environment === action.action.createEnvironmentLock.environment
+                )
+            )
+                return;
+            break;
+        case 'deleteEnvironmentLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'deleteEnvironmentLock' &&
+                        action.action?.$case === 'deleteEnvironmentLock' &&
+                        act.action.deleteEnvironmentLock.environment ===
+                            action.action.deleteEnvironmentLock.environment &&
+                        act.action.deleteEnvironmentLock.lockId === action.action.deleteEnvironmentLock.lockId
+                )
+            )
+                return;
+            break;
+        case 'createEnvironmentApplicationLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'createEnvironmentApplicationLock' &&
+                        action.action?.$case === 'createEnvironmentApplicationLock' &&
+                        act.action.createEnvironmentApplicationLock.application ===
+                            action.action.createEnvironmentApplicationLock.application &&
+                        act.action.createEnvironmentApplicationLock.environment ===
+                            action.action.createEnvironmentApplicationLock.environment
+                )
+            )
+                return;
+            break;
+        case 'deleteEnvironmentApplicationLock':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'deleteEnvironmentApplicationLock' &&
+                        action.action?.$case === 'deleteEnvironmentApplicationLock' &&
+                        act.action.deleteEnvironmentApplicationLock.environment ===
+                            action.action.deleteEnvironmentApplicationLock.environment &&
+                        act.action.deleteEnvironmentApplicationLock.lockId ===
+                            action.action.deleteEnvironmentApplicationLock.lockId
+                )
+            )
+                return;
+            break;
+        case 'deploy':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'deploy' &&
+                        action.action?.$case === 'deploy' &&
+                        act.action.deploy.application === action.action.deploy.application &&
+                        act.action.deploy.environment === action.action.deploy.environment
+                )
+            )
+                return;
+            break;
+        case 'undeploy':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'undeploy' &&
+                        action.action?.$case === 'undeploy' &&
+                        act.action.undeploy.application === action.action.undeploy.application
+                )
+            )
+                return;
+            break;
+        case 'prepareUndeploy':
+            if (
+                actions.some(
+                    (act) =>
+                        act.action?.$case === 'prepareUndeploy' &&
+                        action.action?.$case === 'prepareUndeploy' &&
+                        act.action.prepareUndeploy.application === action.action.prepareUndeploy.application
+                )
+            )
+                return;
+            break;
+    }
+
+    UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
+};
 
 export const updateReleaseDialog = (app: string, version: number) => {
     UpdateReleaseDialog.set({ app: app, version: version });
 };
-export const addAction = (action: BatchAction) =>
-    UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
+export const deleteAllActions = () => UpdateAction.set({ actions: [] });
 
 export const deleteAction = (action: BatchAction) =>
     UpdateAction.set(({ actions }) => ({

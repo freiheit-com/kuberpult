@@ -17,8 +17,10 @@ Copyright 2021 freiheit.com*/
 import { Button } from '../button';
 import { DeleteGray, HideBarWhite } from '../../../images';
 import { BatchAction } from '../../../api/api';
-import { deleteAction, useActions } from '../../utils/store';
-import { useCallback } from 'react';
+import { deleteAction, useActions, deleteAllActions } from '../../utils/store';
+import { ChangeEvent, useCallback, useMemo, useState } from 'react';
+import { useApi } from '../../utils/GrpcApi';
+import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core';
 
 export enum ActionTypes {
     Deploy,
@@ -145,6 +147,7 @@ type SideBarListItemProps = {
 
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
     const actionDetails = getActionDetails(action);
+
     const handleDelete = useCallback(() => deleteAction(action), [action]);
     return (
         <>
@@ -175,6 +178,51 @@ export const SideBarList = () => {
 
 export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }> = (props) => {
     const { className, toggleSidebar } = props;
+    const actions = useActions();
+    const [lockMessage, setLockMessage] = useState('');
+    const api = useApi;
+    const [open, setOpen] = useState(false);
+
+    const handleClose = useCallback(() => setOpen(false), []);
+    const handleOpen = () => setOpen(true);
+
+    const lockCreationList = actions.filter(
+        (action) =>
+            action.action?.$case === 'createEnvironmentLock' ||
+            action.action?.$case === 'createEnvironmentApplicationLock'
+    );
+
+    const applyActions = useCallback(() => {
+        if (lockMessage) {
+            lockCreationList.forEach((action) => {
+                if (action.action?.$case === 'createEnvironmentLock') {
+                    action.action.createEnvironmentLock.message = lockMessage;
+                }
+                if (action.action?.$case === 'createEnvironmentApplicationLock') {
+                    action.action.createEnvironmentApplicationLock.message = lockMessage;
+                }
+            });
+            setLockMessage('');
+        }
+        api.batchService()
+            .ProcessBatch({ actions })
+            .then((result) => {
+                deleteAllActions();
+            });
+        handleClose();
+    }, [actions, api, handleClose, lockCreationList, lockMessage]);
+
+    const newLockExists = useMemo(() => lockCreationList.length !== 0, [lockCreationList.length]);
+
+    const updateMessage = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+        setLockMessage(e.target.value);
+    }, []);
+
+    const canApply = useMemo(
+        () => actions.length > 0 && (!newLockExists || lockMessage),
+        [actions.length, lockMessage, newLockExists]
+    );
+
     return (
         <aside className={className}>
             <nav className="mdc-drawer-sidebar mdc-drawer__drawer sidebar-content">
@@ -191,11 +239,34 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                         <SideBarList />
                     </div>
                 </nav>
+                {newLockExists && (
+                    <TextField
+                        label="Lock Message"
+                        variant="outlined"
+                        placeholder="default-lock"
+                        onChange={updateMessage}
+                        className="actions-cart__lock-message"
+                        value={lockMessage}
+                    />
+                )}
                 <div className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer">
                     <Button
-                        className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer mdc-drawer-sidebar-apply-button"
+                        className={
+                            'mdc-drawer-sidebar mdc-sidebar-sidebar-footer mdc-drawer-sidebar-apply-button' +
+                            (!canApply ? '-disabled' : '')
+                        }
                         label={'Apply'}
+                        onClick={canApply ? handleOpen : undefined}
                     />
+                    <Dialog open={open} onClose={handleClose}>
+                        <DialogTitle id="alert-dialog-title">
+                            {'Are you sure you want to apply all planned actions?'}
+                        </DialogTitle>
+                        <DialogActions>
+                            <Button label="Cancel" onClick={handleClose} />
+                            <Button label="Confirm" onClick={applyActions} />
+                        </DialogActions>
+                    </Dialog>
                 </div>
             </nav>
         </aside>
