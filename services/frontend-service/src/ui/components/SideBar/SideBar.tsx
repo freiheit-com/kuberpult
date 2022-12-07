@@ -18,7 +18,7 @@ import { Button } from '../button';
 import { DeleteGray, HideBarWhite } from '../../../images';
 import { BatchAction } from '../../../api/api';
 import { deleteAction, useActions, deleteAllActions } from '../../utils/store';
-import { ChangeEvent, useCallback, useState } from 'react';
+import { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
 import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core';
 
@@ -212,13 +212,16 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
         handleClose();
     }, [actions, api, handleClose, lockCreationList, lockMessage]);
 
-    const newLocksExist = lockCreationList.length !== 0;
+    const newLockExists = useMemo(() => lockCreationList.length !== 0, [lockCreationList.length]);
 
     const updateMessage = useCallback((e: ChangeEvent<HTMLInputElement>) => {
         setLockMessage(e.target.value);
     }, []);
 
-    const canApply = actions.length > 0 && (!newLocksExist || lockMessage);
+    const canApply = useMemo(
+        () => actions.length > 0 && (!newLockExists || lockMessage),
+        [actions.length, lockMessage, newLockExists]
+    );
 
     return (
         <aside className={className}>
@@ -236,7 +239,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                         <SideBarList />
                     </div>
                 </nav>
-                {newLocksExist && (
+                {newLockExists && (
                     <TextField
                         label="Lock Message"
                         variant="outlined"
