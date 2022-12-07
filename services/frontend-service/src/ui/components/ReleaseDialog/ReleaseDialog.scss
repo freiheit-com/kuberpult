@@ -20,10 +20,8 @@
 }
 
 .release-dialog-close {
-    display: flex;
-    justify-content: right;
     margin-top: 15px;
-    margin-right: 30px;
+    margin-left: 370px;
 }
 
 .release-dialog-commitId {
@@ -32,9 +30,6 @@
     border-radius: 8px;
 }
 
-.release-dialog-hour {
-    margin-left: 20px;
-}
 
 .release-dialog-createdAt {
     margin-top: 25px;

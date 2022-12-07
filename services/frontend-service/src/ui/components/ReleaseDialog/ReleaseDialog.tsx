@@ -42,27 +42,27 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                     open={props.app !== ''}
                     onClose={setClosed}>
                     <AppBar className={classNames('release-dialog', props.className)} sx={{ position: 'relative' }}>
-                        <span className={classNames('release-dialog-close', props.className)}>
-                            <Button onClick={setClosed}>
-                                <svg
-                                    width="20"
-                                    height="20"
-                                    viewBox="0 0 20 20"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M1 1L19 19M19 1L1 19"
-                                        stroke="white"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                    />
-                                </svg>
-                            </Button>
-                        </span>
                         <div className={classNames('release-dialog-message', props.className)}>
                             {props.release.sourceMessage}
                             <span className={classNames('release-dialog-commitId', props.className)}>
                                 {props.release.sourceCommitId}
+                            </span>
+                            <span className={classNames('release-dialog-close', props.className)}>
+                                <Button onClick={setClosed}>
+                                    <svg
+                                        width="20"
+                                        height="20"
+                                        viewBox="0 0 20 20"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M1 1L19 19M19 1L1 19"
+                                            stroke="white"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                        />
+                                    </svg>
+                                </Button>
                             </span>
                         </div>
                         <div className={classNames('release-dialog-createdAt', props.className)}>
