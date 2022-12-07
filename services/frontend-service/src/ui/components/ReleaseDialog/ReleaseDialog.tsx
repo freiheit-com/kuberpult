@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { AppBar, Button, Dialog, IconButton, List, ListItem, ListItemText, Toolbar } from '@material-ui/core';
+import { AppBar, Button, Dialog, List, ListItem, ListItemText } from '@material-ui/core';
 import classNames from 'classnames';
 import React from 'react';
 import { updateReleaseDialog } from '../../utils/store';
@@ -35,11 +35,30 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const dialog =
         props.version !== -1 ? (
             <div>
-                <Dialog fullWidth={true} maxWidth="md" open={props.app !== ''} onClose={setClosed}>
-                    <AppBar sx={{ position: 'relative' }}>
-                        <div className={classNames('release-dialog-header', props.className)}>
-                            Application: {props.app} version: {props.version}
-                        </div>
+                <Dialog
+                    className={classNames('release-dialog', props.className)}
+                    fullWidth={true}
+                    maxWidth="md"
+                    open={props.app !== ''}
+                    onClose={setClosed}>
+                    <AppBar className={classNames('release-dialog', props.className)} sx={{ position: 'relative' }}>
+                        <span className={classNames('release-dialog-close', props.className)}>
+                            <Button onClick={setClosed}>
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 20 20"
+                                    fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path
+                                        d="M1 1L19 19M19 1L1 19"
+                                        stroke="white"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                </svg>
+                            </Button>
+                        </span>
                         <div className={classNames('release-dialog-message', props.className)}>
                             {props.release.sourceMessage}
                             <span className={classNames('release-dialog-commitId', props.className)}>
@@ -59,12 +78,6 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         <div className={classNames('release-dialog-author', props.className)}>
                             Author: {props.release.sourceAuthor}
                         </div>
-                        <Toolbar>
-                            <IconButton edge="end" color="inherit" onClick={setClosed} aria-label="close"></IconButton>
-                            <Button color="inherit" onClick={setClosed}>
-                                close
-                            </Button>
-                        </Toolbar>
                     </AppBar>
                     <List>
                         {props.envs.map((env) => (

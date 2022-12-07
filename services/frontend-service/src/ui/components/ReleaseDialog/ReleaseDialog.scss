@@ -1,29 +1,48 @@
 @use '@material/typography/mdc-typography';
 @use '@material/card/mdc-card';
 
-.release-dialog-header {
-    margin: 10px;
+.release-dialog-commitId {
+    border: 1px solid white;
+    border-radius: 15px;
 }
 
+.release-dialog {
+    border-radius: 25px 25px 0px 0px;
+}
+
+.release-dialog div div {
+    border-radius: 25px 25px 0px 0px;
+}
 
 .release-dialog-message {
-    margin: 10px;
+    margin-top: 15px;
+    margin-left: 30px;
+}
+
+.release-dialog-close {
+    display: flex;
+    justify-content: right;
+    margin-top: 15px;
+    margin-right: 30px;
 }
 
 .release-dialog-commitId {
     margin-left: 20px;
-    border: 1px;
-    border-radius: 1.5px;
+    border: 1px solid white;
+    border-radius: 8px;
 }
 
 .release-dialog-hour {
     margin-left: 20px;
 }
 
-.release-dialog-author {
-    margin: 10px;
+.release-dialog-createdAt {
+    margin-top: 25px;
+    margin-left: 30px;
 }
 
-.release-dialog-createdAt {
-    margin: 10px;
+.release-dialog-author {
+    margin-top: 25px;
+    margin-left: 30px;
+    margin-bottom: 20px;
 }
