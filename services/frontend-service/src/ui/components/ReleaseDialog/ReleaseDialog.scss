@@ -10,6 +10,12 @@
     border-radius: 25px 25px 0px 0px;
 }
 
+.release-dialog-app-bar {
+    border-radius: 25px 25px 0px 0px;
+    background: var(--mdc-theme-primary);
+    color: var(--mdc-theme-on-primary);
+}
+
 .release-dialog div div {
     border-radius: 25px 25px 0px 0px;
 }
@@ -24,7 +30,7 @@
 
 .release-dialog-close {
     margin-top: 15px;
-    margin-left: 370px;
+    margin-left: 360px;
 }
 
 .release-dialog-commitId {
@@ -32,6 +38,7 @@
     border: 1px solid white;
     border-radius: 8px;
     font-weight: normal;
+    padding: 5px;
 }
 
 

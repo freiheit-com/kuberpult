@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { AppBar, Button, Dialog, List, ListItem, ListItemText } from '@material-ui/core';
+import { Button, Dialog, List, ListItem, ListItemText } from '@material-ui/core';
 import classNames from 'classnames';
 import React from 'react';
 import { updateReleaseDialog } from '../../utils/store';
@@ -41,7 +41,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                     maxWidth="md"
                     open={props.app !== ''}
                     onClose={setClosed}>
-                    <AppBar className={classNames('release-dialog', props.className)} sx={{ position: 'relative' }}>
+                    <div className={classNames('release-dialog-app-bar', props.className)}>
                         <div className={classNames('release-dialog-message', props.className)}>
                             {props.release.sourceMessage}
                             <span className={classNames('release-dialog-commitId', props.className)}>
@@ -67,13 +67,20 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         </div>
                         <div className={classNames('release-dialog-createdAt', props.className)}>
                             {!!props.release.createdAt && (
-                                <div>{'Release date ' + props.release.createdAt.toISOString()}</div>
+                                <div>
+                                    {'Release date ' +
+                                        props.release.createdAt.toISOString().split('T')[0] +
+                                        ' ' +
+                                        props.release.createdAt.toISOString().split('T')[1].split(':')[0] +
+                                        ':' +
+                                        props.release.createdAt.toISOString().split('T')[1].split(':')[1]}
+                                </div>
                             )}
                         </div>
                         <div className={classNames('release-dialog-author', props.className)}>
                             Author: {props.release.sourceAuthor}
                         </div>
-                    </AppBar>
+                    </div>
                     <List>
                         {props.envs.map((env) => (
                             <ListItem button key={env}>
