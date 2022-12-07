@@ -23,6 +23,24 @@ import { Application } from '../../../api/api';
 export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const { application } = props;
     const releases = useDeployedReleases(application.name);
+    const releases_lane = releases.map((rel, index) => {
+        if (index > 0) {
+            const diff = releases[index - 1] - rel - 1;
+            if (diff !== 0) {
+                return (
+                    <div>
+                        {diff}
+                        <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />
+                    </div>
+                );
+            } else {
+                return <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />;
+            }
+        } else {
+            return <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />;
+        }
+    });
+
     return (
         <div className="service-lane">
             <div className="service-lane__header">
@@ -42,11 +60,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                     />
                 </div>
             </div>
-            <div className="service__releases">
-                {releases.map((rel) => (
-                    <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />
-                ))}
-            </div>
+            <div className="service__releases">{releases_lane}</div>
         </div>
     );
 };
