@@ -67,12 +67,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         </div>
                         <div className={classNames('release-dialog-createdAt', props.className)}>
                             {!!props.release.createdAt && (
-                                <div>
-                                    <span>{'Release date ' + props.release.createdAt.toLocaleDateString()}</span>
-                                    <span className={classNames('release-dialog-hour', props.className)}>
-                                        {'Hour ' + props.release.createdAt.toLocaleTimeString()}
-                                    </span>
-                                </div>
+                                <div>{'Release date ' + props.release.createdAt.toISOString()}</div>
                             )}
                         </div>
                         <div className={classNames('release-dialog-author', props.className)}>
