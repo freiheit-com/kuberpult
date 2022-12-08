@@ -23,7 +23,7 @@ import { Application } from '../../../api/api';
 export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const { application } = props;
     const releases = useDeployedReleases(application.name);
-    const releases_lane = releases.map((rel, index) => {
+    const releases_lane = !!releases && releases.map((rel, index) => {
         if (index > 0) {
             const diff = releases[index - 1] - rel - 1;
             if (diff !== 0) {
