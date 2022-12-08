@@ -372,7 +372,10 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 			return "", err
 		}
 		// note that the manifest is empty here!
-		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(""), 0666); err != nil {
+		// but actually it's not quite empty!
+		// The function we are using in DeployApplication version is `util.WriteFile`. And that does not allow overwriting files with empty content.
+		// We work around this unusual behavior by writing a space into the file
+		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
 			return "", err
 		}
 
