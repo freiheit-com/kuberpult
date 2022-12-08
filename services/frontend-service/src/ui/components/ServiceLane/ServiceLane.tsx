@@ -28,9 +28,9 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
             const diff = releases[index - 1] - rel - 1;
             if (diff !== 0) {
                 return (
-                    <div>
-                        {diff}
-                        <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />
+                    <div key={application + '-' + rel} className="service-lane__diff">
+                        <div className="service-lane__diff_number">{diff}</div>
+                        <ReleaseCard app={application.name} version={rel} />
                     </div>
                 );
             } else {
