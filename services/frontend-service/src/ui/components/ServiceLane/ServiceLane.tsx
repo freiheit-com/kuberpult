@@ -33,12 +33,9 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                         <ReleaseCard app={application.name} version={rel} />
                     </div>
                 );
-            } else {
-                return <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />;
             }
-        } else {
-            return <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />;
         }
+        return <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />;
     });
 
     return (
