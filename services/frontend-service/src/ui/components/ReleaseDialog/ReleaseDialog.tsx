@@ -32,22 +32,23 @@ const setClosed = () => {
 };
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
+    const { version, app, className, release, envs } = props;
     const dialog =
-        props.version !== -1 ? (
+        version !== -1 ? (
             <div>
                 <Dialog
-                    className={classNames('release-dialog', props.className)}
+                    className={classNames('release-dialog', className)}
                     fullWidth={true}
                     maxWidth="md"
-                    open={props.app !== ''}
+                    open={app !== ''}
                     onClose={setClosed}>
-                    <div className={classNames('release-dialog-app-bar', props.className)}>
-                        <div className={classNames('release-dialog-message', props.className)}>
-                            {props.release.sourceMessage}
-                            <span className={classNames('release-dialog-commitId', props.className)}>
-                                {props.release.sourceCommitId}
+                    <div className={classNames('release-dialog-app-bar', className)}>
+                        <div className={classNames('release-dialog-message', className)}>
+                            {release?.sourceMessage}
+                            <span className={classNames('release-dialog-commitId', className)}>
+                                {release?.sourceCommitId}
                             </span>
-                            <span className={classNames('release-dialog-close', props.className)}>
+                            <span className={classNames('release-dialog-close', className)}>
                                 <Button onClick={setClosed}>
                                     <svg
                                         width="20"
@@ -65,24 +66,24 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                 </Button>
                             </span>
                         </div>
-                        <div className={classNames('release-dialog-createdAt', props.className)}>
-                            {!!props.release.createdAt && (
+                        <div className={classNames('release-dialog-createdAt', className)}>
+                            {!!release?.createdAt && (
                                 <div>
                                     {'Release date ' +
-                                        props.release.createdAt.toISOString().split('T')[0] +
+                                        release?.createdAt.toISOString().split('T')[0] +
                                         ' ' +
-                                        props.release.createdAt.toISOString().split('T')[1].split(':')[0] +
+                                        release?.createdAt.toISOString().split('T')[1].split(':')[0] +
                                         ':' +
-                                        props.release.createdAt.toISOString().split('T')[1].split(':')[1]}
+                                        release?.createdAt.toISOString().split('T')[1].split(':')[1]}
                                 </div>
                             )}
                         </div>
-                        <div className={classNames('release-dialog-author', props.className)}>
-                            Author: {props.release.sourceAuthor}
+                        <div className={classNames('release-dialog-author', className)}>
+                            Author: {release?.sourceAuthor}
                         </div>
                     </div>
                     <List>
-                        {props.envs.map((env) => (
+                        {envs.map((env) => (
                             <ListItem button key={env}>
                                 <ListItemText primary={env} />
                             </ListItem>
