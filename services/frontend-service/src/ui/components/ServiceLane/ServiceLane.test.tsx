@@ -92,3 +92,98 @@ describe('Service Lane', () => {
         mock_ReleaseCard.ReleaseCard.wasCalled(3);
     });
 });
+
+const data = [
+    {
+        name: 'test no diff',
+        diff: '0',
+        envs: {
+            foo: {
+                name: 'foo',
+                applications: {
+                    test2: {
+                        version: 1,
+                    },
+                },
+            },
+            foo2: {
+                name: 'foo2',
+                applications: {
+                    test2: {
+                        version: 2,
+                    },
+                },
+            },
+        } as any,
+    },
+    {
+        name: 'test diff by one',
+        diff: '1',
+        envs: {
+            foo: {
+                name: 'foo',
+                applications: {
+                    test2: {
+                        version: 1,
+                    },
+                },
+            },
+            foo2: {
+                name: 'foo2',
+                applications: {
+                    test2: {
+                        version: 3,
+                    },
+                },
+            } as any,
+        },
+    },
+    {
+        name: 'test diff by two',
+        diff: '2',
+        envs: {
+            foo: {
+                name: 'foo',
+                applications: {
+                    test2: {
+                        version: 2,
+                    },
+                },
+            },
+            foo2: {
+                name: 'foo2',
+                applications: {
+                    test2: {
+                        version: 5,
+                    },
+                },
+            } as any,
+        },
+    },
+];
+
+describe('Service Lane Diff', () => {
+    const getNode = (overrides: { application: Application }) => <ServiceLane {...overrides} />;
+    const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
+    describe.each(data)('Service Lane diff', (testcase) => {
+        it(testcase.name, () => {
+            UpdateOverview.set({
+                environments: testcase.envs,
+            });
+            const sampleApp = {
+                name: 'test2',
+                releases: [],
+                sourceRepoUrl: 'http://test2.com',
+                team: 'example',
+            };
+            const { container } = getWrapper({ application: sampleApp });
+
+            // check for the diff between versions
+            if (testcase.diff === '0') {
+                expect(document.querySelector('.service-lane__diff_number') === undefined);
+            } else {
+                expect(container.querySelector('.service-lane__diff_number')?.textContent).toContain(testcase.diff);
+            }
+        });
+    });
+});
