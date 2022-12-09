@@ -20,7 +20,7 @@ import { Button } from '../button';
 import { DeleteWhite, HistoryWhite } from '../../../images';
 import { Application, Release } from '../../../api/api';
 
-function getReleaseDiff(releases: Array<Release>, version1: number, version2: number) {
+function getNumberOfReleasesBetween(releases: Array<Release>, lowerVersion: number, higherVersion: number) {
     let diff = 0;
     let count = false;
     if (!releases) {
@@ -28,13 +28,13 @@ function getReleaseDiff(releases: Array<Release>, version1: number, version2: nu
     }
 
     for (const release of releases) {
-        if (release.version === version2) {
+        if (release.version === higherVersion) {
             break;
         }
         if (count) {
             diff += 1;
         }
-        if (release.version === version1) {
+        if (release.version === lowerVersion) {
             count = true;
         }
     }
@@ -49,7 +49,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
         !!releases &&
         releases.map((rel, index) => {
             if (index > 0) {
-                const diff = getReleaseDiff(all_releases, releases[index - 1], rel);
+                const diff = getNumberOfReleasesBetween(all_releases, releases[index - 1], rel);
                 if (diff !== 0) {
                     return (
                         <div key={application + '-' + rel} className="service-lane__diff">
