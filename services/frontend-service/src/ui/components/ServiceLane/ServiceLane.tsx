@@ -14,20 +14,38 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { useDeployedReleases } from '../../utils/store';
+import { useDeployedReleases, useReleases } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { Button } from '../button';
 import { DeleteWhite, HistoryWhite } from '../../../images';
-import { Application } from '../../../api/api';
+import { Application, Release } from '../../../api/api';
+
+function getReleaseDiff(releases: Array<Release>, version1: number, version2: number) {
+    let diff = 0;
+    let count = false;
+    releases.forEach((release) => {
+        if (release.version === version1) {
+            count = true;
+        }
+        if (release.version === version2) {
+            return diff;
+        }
+        if (count) {
+            diff += 1;
+        }
+    });
+    return diff;
+}
 
 export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const { application } = props;
     const releases = useDeployedReleases(application.name);
+    const all_releases = useReleases(application.name);
     const releases_lane =
         !!releases &&
         releases.map((rel, index) => {
             if (index > 0) {
-                const diff = releases[index - 1] - rel - 1;
+                const diff = getReleaseDiff(all_releases, releases[index - 1], rel);
                 if (diff !== 0) {
                     return (
                         <div key={application + '-' + rel} className="service-lane__diff">

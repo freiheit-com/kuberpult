@@ -368,3 +368,6 @@ export const useReleaseInfo = (app: string, version: number) =>
         }
         return releaseInfo;
     });
+
+// Get all releases for an app
+export const useReleases = (app: string) => useOverview(({ applications }) => applications[app]?.releases);
