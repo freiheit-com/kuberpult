@@ -370,7 +370,7 @@ export const useReleaseInfo = (app: string, version: number) =>
     });
 
 // Get all releases for an app
-export const useReleases = (app: string) =>
+export const useReleasesForApp = (app: string) =>
     useOverview(({ applications }) =>
         applications[app]?.releases.sort((a, b) =>
             a.version === -1 ? -1 : b.version === -1 ? 1 : b.version - a.version

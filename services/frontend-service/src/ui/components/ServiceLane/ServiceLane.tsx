@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { useDeployedReleases, useReleases } from '../../utils/store';
+import { useDeployedReleases, useReleasesForApp } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { Button } from '../button';
 import { DeleteWhite, HistoryWhite } from '../../../images';
@@ -44,7 +44,7 @@ function getNumberOfReleasesBetween(releases: Array<Release>, lowerVersion: numb
 export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const { application } = props;
     const releases = useDeployedReleases(application.name);
-    const all_releases = useReleases(application.name);
+    const all_releases = useReleasesForApp(application.name);
     const releases_lane =
         !!releases &&
         releases.map((rel, index) => {

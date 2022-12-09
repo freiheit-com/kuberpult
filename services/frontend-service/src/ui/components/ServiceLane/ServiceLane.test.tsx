@@ -18,7 +18,7 @@ import { render } from '@testing-library/react';
 import { ServiceLane } from './ServiceLane';
 import { UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
-import { Application } from '../../../api/api';
+import { Application, Release } from '../../../api/api';
 
 const mock_ReleaseCard = Spy.mockReactComponents('../../components/ReleaseCard/ReleaseCard', 'ReleaseCard');
 const sampleEnvs = {
@@ -101,11 +101,11 @@ const data = [
             {
                 version: 1,
                 sourceMessage: 'test1',
-                sourceAuhor: 'test',
+                sourceAuthor: 'test',
                 sourceCommitId: 'commit1',
                 createdAt: new Date(2002),
             },
-        ] as any,
+        ] as Array<Release>,
         envs: {
             foo: {
                 name: 'foo',
@@ -132,18 +132,18 @@ const data = [
             {
                 version: 1,
                 sourceMessage: 'test1',
-                sourceAuhor: 'test',
+                sourceAuthor: 'test',
                 sourceCommitId: 'commit1',
                 createdAt: new Date(2002),
             },
             {
                 version: 2,
                 sourceMessage: 'test2',
-                sourceAuhor: 'test',
+                sourceAuthor: 'test',
                 sourceCommitId: 'commit2',
                 createdAt: new Date(2002),
             },
-        ] as any,
+        ] as Array<Release>,
         envs: {
             foo: {
                 name: 'foo',
@@ -170,25 +170,25 @@ const data = [
             {
                 version: 1,
                 sourceMessage: 'test1',
-                sourceAuhor: 'test',
+                sourceAuthor: 'test',
                 sourceCommitId: 'commit1',
                 createdAt: new Date(2002),
             },
             {
                 version: 4,
                 sourceMessage: 'test5',
-                sourceAuhor: 'test',
+                sourceAuthor: 'test',
                 sourceCommitId: 'commit5',
                 createdAt: new Date(2002),
             },
             {
                 version: 2,
                 sourceMessage: 'test3',
-                sourceAuhor: 'test',
+                sourceAuthor: 'test',
                 sourceCommitId: 'commit3',
                 createdAt: new Date(2002),
             },
-        ] as any,
+        ] as Array<Release>,
         envs: {
             foo: {
                 name: 'foo',
@@ -215,21 +215,21 @@ const data = [
             {
                 version: 2,
                 sourceMessage: 'test1',
-                sourceAuhor: 'test',
+                sourceAuthor: 'test',
                 sourceCommitId: 'commit1',
                 createdAt: new Date(2002),
             },
             {
                 version: 4,
                 sourceMessage: 'test2',
-                sourceAuhor: 'test',
+                sourceAuthor: 'test',
                 sourceCommitId: 'commit2',
                 createdAt: new Date(2002),
             },
             {
                 version: 3,
                 sourceMessage: 'test2',
-                sourceAuhor: 'test',
+                sourceAuthor: 'test',
                 sourceCommitId: 'commit2',
                 createdAt: new Date(2002),
             },
@@ -240,7 +240,7 @@ const data = [
                 sourceCommitId: 'commit2',
                 createdAt: new Date(2002),
             },
-        ] as any,
+        ] as Array<Release>,
         envs: {
             foo: {
                 name: 'foo',
