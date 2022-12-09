@@ -95,8 +95,55 @@ describe('Service Lane', () => {
 
 const data = [
     {
+        name: 'test same version',
+        diff: '0',
+        releases: [
+            {
+                version: 1,
+                sourceMessage: 'test1',
+                sourceAuhor: 'test',
+                sourceCommitId: 'commit1',
+                createdAt: new Date(2002),
+            },
+        ] as any,
+        envs: {
+            foo: {
+                name: 'foo',
+                applications: {
+                    test2: {
+                        version: 1,
+                    },
+                },
+            },
+            foo2: {
+                name: 'foo2',
+                applications: {
+                    test2: {
+                        version: 1,
+                    },
+                },
+            },
+        } as any,
+    },
+    {
         name: 'test no diff',
         diff: '0',
+        releases: [
+            {
+                version: 1,
+                sourceMessage: 'test1',
+                sourceAuhor: 'test',
+                sourceCommitId: 'commit1',
+                createdAt: new Date(2002),
+            },
+            {
+                version: 2,
+                sourceMessage: 'test2',
+                sourceAuhor: 'test',
+                sourceCommitId: 'commit2',
+                createdAt: new Date(2002),
+            },
+        ] as any,
         envs: {
             foo: {
                 name: 'foo',
@@ -119,6 +166,29 @@ const data = [
     {
         name: 'test diff by one',
         diff: '1',
+        releases: [
+            {
+                version: 1,
+                sourceMessage: 'test1',
+                sourceAuhor: 'test',
+                sourceCommitId: 'commit1',
+                createdAt: new Date(2002),
+            },
+            {
+                version: 4,
+                sourceMessage: 'test5',
+                sourceAuhor: 'test',
+                sourceCommitId: 'commit5',
+                createdAt: new Date(2002),
+            },
+            {
+                version: 2,
+                sourceMessage: 'test3',
+                sourceAuhor: 'test',
+                sourceCommitId: 'commit3',
+                createdAt: new Date(2002),
+            },
+        ] as any,
         envs: {
             foo: {
                 name: 'foo',
@@ -132,7 +202,7 @@ const data = [
                 name: 'foo2',
                 applications: {
                     test2: {
-                        version: 3,
+                        version: 4,
                     },
                 },
             } as any,
@@ -141,6 +211,36 @@ const data = [
     {
         name: 'test diff by two',
         diff: '2',
+        releases: [
+            {
+                version: 2,
+                sourceMessage: 'test1',
+                sourceAuhor: 'test',
+                sourceCommitId: 'commit1',
+                createdAt: new Date(2002),
+            },
+            {
+                version: 4,
+                sourceMessage: 'test2',
+                sourceAuhor: 'test',
+                sourceCommitId: 'commit2',
+                createdAt: new Date(2002),
+            },
+            {
+                version: 3,
+                sourceMessage: 'test2',
+                sourceAuhor: 'test',
+                sourceCommitId: 'commit2',
+                createdAt: new Date(2002),
+            },
+            {
+                version: 5,
+                sourceMessage: 'test2',
+                sourceAuhor: 'test',
+                sourceCommitId: 'commit2',
+                createdAt: new Date(2002),
+            },
+        ] as any,
         envs: {
             foo: {
                 name: 'foo',
@@ -169,6 +269,7 @@ describe('Service Lane Diff', () => {
         it(testcase.name, () => {
             UpdateOverview.set({
                 environments: testcase.envs,
+                applications: { test2: { releases: testcase.releases } },
             });
             const sampleApp = {
                 name: 'test2',

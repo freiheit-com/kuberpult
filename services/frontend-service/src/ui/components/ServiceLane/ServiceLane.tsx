@@ -23,17 +23,21 @@ import { Application, Release } from '../../../api/api';
 function getReleaseDiff(releases: Array<Release>, version1: number, version2: number) {
     let diff = 0;
     let count = false;
-    releases.forEach((release) => {
-        if (release.version === version1) {
-            count = true;
-        }
+    if (!releases) {
+        return diff;
+    }
+
+    for (const release of releases) {
         if (release.version === version2) {
-            return diff;
+            break;
         }
         if (count) {
             diff += 1;
         }
-    });
+        if (release.version === version1) {
+            count = true;
+        }
+    }
     return diff;
 }
 
