@@ -47,7 +47,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         <div className={classNames('release-dialog-message', className)}>
                             {release?.sourceMessage}
                             <span className={classNames('release-dialog-commitId', className)}>
-                                {release.undeployVersion === true ? 'undeploy version' : release?.sourceCommitId}
+                                {release.undeployVersion === undefined ? 'undeploy version' : release?.sourceCommitId}
                             </span>
                             <span className={classNames('release-dialog-close', className)}>
                                 <Button onClick={setClosed}>
@@ -80,7 +80,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             )}
                         </div>
                         <div className={classNames('release-dialog-author', className)}>
-                            Author: {release?.sourceAuthor}
+                            {release?.sourceAuthor ? 'Author:' + release?.sourceAuthor : ''}
                         </div>
                     </div>
                     <List>
