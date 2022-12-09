@@ -17,13 +17,14 @@ Copyright 2021 freiheit.com*/
 import { Button, Dialog, List, ListItem, ListItemText } from '@material-ui/core';
 import classNames from 'classnames';
 import React from 'react';
+import { Release } from '../../../api/api';
 import { updateReleaseDialog } from '../../utils/store';
 
 export type ReleaseDialogProps = {
     className?: string;
     app: string;
     version: number;
-    release: object;
+    release: Release;
     envs: Array<string>;
 };
 
@@ -32,9 +33,9 @@ const setClosed = () => {
 };
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
-    const { version, app, className, release, envs } = props;
+    const { app, className, release, envs } = props;
     const dialog =
-        version !== -1 ? (
+        app !== '' ? (
             <div>
                 <Dialog
                     className={classNames('release-dialog', className)}
@@ -46,7 +47,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         <div className={classNames('release-dialog-message', className)}>
                             {release?.sourceMessage}
                             <span className={classNames('release-dialog-commitId', className)}>
-                                {release?.sourceCommitId}
+                                {release.undeployVersion === true ? 'undeploy version' : release?.sourceCommitId}
                             </span>
                             <span className={classNames('release-dialog-close', className)}>
                                 <Button onClick={setClosed}>

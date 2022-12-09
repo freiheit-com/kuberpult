@@ -25,12 +25,14 @@
     margin-left: 30px;
     font-weight: bold;
     font-size: medium;
+    display: flex;
+    justify-content: space-between;
 }
 
 
 .release-dialog-close {
-    margin-top: 15px;
-    margin-left: 360px;
+    align-items: right;
+    display: flex;
 }
 
 .release-dialog-commitId {
@@ -39,6 +41,7 @@
     border-radius: 8px;
     font-weight: normal;
     padding: 5px;
+    display: flex;
 }
 
 
