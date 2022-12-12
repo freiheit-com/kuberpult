@@ -20,8 +20,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"strings"
@@ -42,7 +40,6 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, env
 	}
 	queryParams := req.URL.Query()
 	teamParam := queryParams.Get("team")
-	logger.FromContext(req.Context()).Warn("AHA", zap.String("teamname:", teamParam))
 
 	if s.AzureAuth {
 		if req.Body == nil {
