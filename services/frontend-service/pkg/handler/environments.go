@@ -18,6 +18,8 @@ package handler
 
 import (
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"go.uber.org/zap"
 	"net/http"
 
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
@@ -30,7 +32,9 @@ func (s Server) HandleEnvironments(w http.ResponseWriter, req *http.Request, tai
 		return
 	}
 
+
 	function, tail := xpath.Shift(tail)
+	logger.FromContext(req.Context()).Warn("AHA 1", zap.String("function:", function))
 	switch function {
 	case "applications":
 		s.handleApplications(w, req, environment, tail)
