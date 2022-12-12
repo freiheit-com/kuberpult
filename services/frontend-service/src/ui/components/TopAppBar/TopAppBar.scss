@@ -24,9 +24,7 @@
     gap: 100px
   }
   .mdc-top-app-bar__title{
-    font-weight: $kp-logo-font-font-weight;
-    font-size: $kp-logo-font-font-size;
-    line-height: $kp-logo-font-line-height;
+    @extend .headline1;
   }
 
   .mdc-text-field {
