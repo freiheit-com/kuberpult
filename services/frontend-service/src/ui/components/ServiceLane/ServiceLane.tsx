@@ -20,6 +20,8 @@ import { Button } from '../button';
 import { DeleteWhite, HistoryWhite } from '../../../images';
 import { Application, Release } from '../../../api/api';
 import { Tooltip } from '@material-ui/core';
+import { useNavigate } from 'react-router-dom';
+import * as React from 'react';
 
 function getNumberOfReleasesBetween(releases: Array<Release>, lowerVersion: number, higherVersion: number) {
     let diff = 0;
@@ -46,6 +48,10 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const { application } = props;
     const releases = useDeployedReleases(application.name);
     const all_releases = useReleasesForApp(application.name);
+    const navigate = useNavigate();
+    const navigateToReleases = React.useCallback(() => {
+        navigate('releases/' + application.name);
+    }, [application.name, navigate]);
     const releases_lane =
         !!releases &&
         releases.map((rel, index) => {
@@ -89,6 +95,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                         className="service-action service-action--history"
                         label={'View history'}
                         icon={<HistoryWhite />}
+                        onClick={navigateToReleases}
                     />
                 </div>
             </div>
