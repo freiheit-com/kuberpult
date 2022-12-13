@@ -23,6 +23,7 @@ import { Button } from '../button';
 import { ShowBarWhite } from '../../../images';
 import { useSearchParams } from 'react-router-dom';
 import { Dropdown } from '../dropdown/dropdown';
+import classNames from 'classnames';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);
@@ -57,13 +58,13 @@ export const TopAppBar: React.FC = () => {
                     <Dropdown className={'top-app-bar-search-field'} floatingLabel={'Teams'} leadingIcon={'search'} />
                 </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
-                    <strong>{'Planned Actions'}</strong>
+                    <strong className="sub-headline1">Planned Actions</strong>
                     <Button className="mdc-show-button" icon={<ShowBarWhite />} onClick={toggleSideBar} />
                     <SideBar
-                        className={
-                            `mdc-drawer-sidebar mdc-drawer-sidebar-container mdc-drawer-sidebar` +
-                            (sideBar ? '--displayed' : '--hidden')
-                        }
+                        className={classNames(`mdc-drawer-sidebar mdc-drawer-sidebar-container`, {
+                            'mdc-drawer-sidebar--displayed': sideBar,
+                            'mdc-drawer-sidebar--hidden': !sideBar,
+                        })}
                         toggleSidebar={toggleSideBar}
                     />
                 </div>

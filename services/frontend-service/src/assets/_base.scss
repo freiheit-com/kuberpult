@@ -22,3 +22,42 @@ html, body, #root {
   padding: $main-content-padding;
   height: 100%;
 }
+
+.font {
+  font-family: 'Inter', sans-serif ;
+}
+
+.headline1 {
+  @extend .font;
+  font-weight: 700 ;
+  font-size: 28px ;
+  line-height: 48px ;
+}
+
+.sub-headline1 {
+  @extend .font;
+  font-weight: 700 ;
+  font-size: 18px ;
+  line-height: 32px ;
+}
+
+.text-regular {
+  @extend .font;
+  font-weight: 500 ;
+  font-size: 14px ;
+  line-height: 24px ;
+}
+
+.text-bold {
+  @extend .font;
+  font-weight: 700 ;
+  font-size: 14px ;
+  line-height: 24px ;
+}
+
+.text-medium {
+  @extend .font;
+  font-weight: 500 ;
+  font-size: 14px ;
+  line-height: 18px ;
+}
