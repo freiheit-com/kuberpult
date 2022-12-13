@@ -30,7 +30,6 @@ func (s Server) HandleEnvironments(w http.ResponseWriter, req *http.Request, tai
 		return
 	}
 
-
 	function, tail := xpath.Shift(tail)
 	switch function {
 	case "applications":
