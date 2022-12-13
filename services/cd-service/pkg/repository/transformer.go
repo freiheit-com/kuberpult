@@ -941,7 +941,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 	}
 	teamInfo := ""
 	if c.Team != "" {
-		teamInfo = "for team '" + c.Team + "'"
+		teamInfo = " for team '" + c.Team + "'"
 	}
-	return fmt.Sprintf("The release train deployed %s %d services from '%s' to '%s'\n%s\n", teamInfo, numServices, source, targetEnvName, completeMessage), nil
+	return fmt.Sprintf("The release train deployed %d services from '%s' to '%s'%s\n%s\n", numServices, source, targetEnvName, teamInfo, completeMessage), nil
 }
