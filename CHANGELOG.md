@@ -5,7 +5,7 @@ we do not use [Semantic Versioning](https://semver.org/).
 Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Unreleased yet
-
+* Add teams filter to releasetrain endpoint over rest [#417](https://github.com/freiheit-com/kuberpult/pull/417)
 
 # Change Log
 

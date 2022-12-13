@@ -38,6 +38,8 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, env
 		http.Error(w, fmt.Sprintf("releasetrain does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
 		return
 	}
+	queryParams := req.URL.Query()
+	teamParam := queryParams.Get("team")
 
 	if s.AzureAuth {
 		if req.Body == nil {
@@ -71,6 +73,7 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, env
 	}
 	response, err := s.DeployClient.ReleaseTrain(req.Context(), &api.ReleaseTrainRequest{
 		Environment: environment,
+		Team: teamParam,
 	})
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)

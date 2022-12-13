@@ -181,7 +181,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 				},
 			},
 			expectedError:     "",
-			expectedCommitMsg: "The release train deployed 1 services from 'acceptance' to 'production'",
+			expectedCommitMsg: "The release train deployed 1 services from 'acceptance' to 'production' for team 'team1'",
 			shouldSucceed:     true,
 		},
 		{
@@ -193,7 +193,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 				},
 			},
 			expectedError:     "",
-			expectedCommitMsg: "The release train deployed 1 services from 'acceptance' to 'production'",
+			expectedCommitMsg: "The release train deployed 1 services from 'acceptance' to 'production' for team 'team2'",
 			shouldSucceed:     true,
 		},
 		{
@@ -205,7 +205,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 				},
 			},
 			expectedError:     "",
-			expectedCommitMsg: "The release train deployed 0 services from 'acceptance' to 'production'",
+			expectedCommitMsg: "The release train deployed 0 services from 'acceptance' to 'production' for team 'team3'",
 			shouldSucceed:     true,
 		},
 	}
