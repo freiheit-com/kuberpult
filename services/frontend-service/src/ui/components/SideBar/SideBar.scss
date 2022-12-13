@@ -6,6 +6,7 @@
   border-radius: $sidebar-planned-actions-border-radius;
 
   .mdc-drawer-sidebar-header-title{
+    @extend .sub-headline1;
     position: relative;
     text-align: right;
     padding-right: $sidebar-planned-actions-title-right-centering;
@@ -17,7 +18,6 @@
     height: auto;
     color: white;
     margin: $sidebar-planned-actions-button-margin;
-    font-weight: bold;
   }
 }
 
@@ -40,20 +40,21 @@
   flex-direction: row;
 }
 
-
 .mdc-drawer-sidebar-list-item-text{
   flex: 3;
   display: flex;
   flex-direction: column;
   gap: 6px;
   color: var(--mdc-theme-on-surface);
-  font-size: 14px;
-  line-height: 24px;
   align-items: flex-start;
 }
 
 .mdc-drawer-sidebar-list-item-text-name{
-  font-weight: bold;
+  @extend .text-bold;
+}
+
+.mdc-drawer-sidebar-list-item-text-summary{
+  @extend .text-regular;
 }
 
 .mdc-drawer-sidebar-list-item-delete-icon{
@@ -69,7 +70,7 @@
 }
 
 .mdc-drawer-sidebar-content{
-  overflow-y: scroll;
+  overflow: overlay;
   position: relative;
   width: 100%;
   background-color: #FAFBFC;
@@ -88,10 +89,8 @@
   letter-spacing: 0;
   width: 100%;
   height: $sidebar-apply-button-height;
-  line-height: 100%;
   border-radius: $sidebar-apply-border-radius;
-  font-size: $sidebar-apply-font-size;
-  font-weight: bold;
+  @extend .sub-headline1;
   .mdc-drawer-sidebar-apply-button{
     background-color: var(--mdc-theme-primary);
   }

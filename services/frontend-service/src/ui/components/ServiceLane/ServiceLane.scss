@@ -7,10 +7,10 @@
   border-radius: 10px;
   height: 62px;
 
+  white-space: nowrap;
   .service__name {
-    font-weight: 700;
-    font-size: 28px;
-    line-height: 48px;
+    overflow: hidden;
+    @extend .headline1;
     display: flex;
     align-items: center;
   }
@@ -21,14 +21,13 @@
     color: var(--mdc-theme-on-primary);
     .mdc-button__label{
       padding-left: 1em;
-      font-weight: 700;
-      font-size: 14px;
-      line-height: 24px;
+      @extend .text-bold
     }
   }
 }
 
 .service__releases {
+  overflow: overlay;
   display: flex;
   margin: 0 -12px 34px -12px;
 }

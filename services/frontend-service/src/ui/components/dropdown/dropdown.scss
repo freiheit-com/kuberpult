@@ -3,16 +3,20 @@
 @use '@material/select/mdc-select';
 @use '@material/select/icon';
 
-.mdc-select {
+label.mdc-select-label.new-line-height {
+  line-height: 17px;
+}
+
+label.mdc-select-label {
+  @extend .text-bold;
+}
+
+div.mdc-select{
+  @extend .text-bold;
   width: 100%;
   min-height: 100%;
-
-  label {
-    line-height: normal;
-  }
-
-  fieldset {
-    border-radius: 10px;
+  border-radius: 10px;
+  fieldset{
     border-color: var(--mdc-theme-primary);
   }
 }

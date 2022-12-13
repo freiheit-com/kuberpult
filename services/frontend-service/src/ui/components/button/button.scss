@@ -1,2 +1,5 @@
 @use '@material/button/mdc-button';
 
+.mdc-button {
+    @extend .font;
+}

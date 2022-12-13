@@ -23,10 +23,9 @@ export const NavbarIndicator = (props: { pathname: string; to: string }) => {
     const { pathname, to } = props;
     return (
         <div
-            className={classNames(
-                'mdc-list-item-indicator',
-                pathname.startsWith(`/v2/${to}`) ? 'mdc-list-item-indicator--activated' : ''
-            )}></div>
+            className={classNames('mdc-list-item-indicator', {
+                'mdc-list-item-indicator--activated': pathname.startsWith(`/v2/${to}`),
+            })}></div>
     );
 };
 
@@ -43,16 +42,18 @@ export const NavListItem = (props: { className?: string; to: string; queryParams
         return () => MDComponent.current?.destroy();
     }, []);
 
+    const allClassNames = classNames(
+        'mdc-list-item',
+        { 'mdc-list-item--activated': pathname.startsWith(`/v2/${to}`) },
+        className
+    );
+
     return (
         <div className="mdc-list-item-container">
             <NavbarIndicator pathname={pathname} to={to} />
             <Link
                 aria-label={to}
-                className={classNames(
-                    'mdc-list-item',
-                    pathname.startsWith(`/v2/${to}`) ? 'mdc-list-item--activated' : '',
-                    className
-                )}
+                className={allClassNames}
                 ref={control}
                 to={`${to}${queryParams ? queryParams : ''}`}
                 tabIndex={pathname.startsWith(`/v2/${to}`) ? 0 : -1}>

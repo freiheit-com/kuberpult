@@ -21,11 +21,8 @@
   display: flex;
   justify-content: space-between;
 
-  .release__title {
-    font-weight: 700;
-    font-size: 20px;
-    line-height: 32px;
-
+  .release__title{ 
+    @extend .sub-headline1;
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -33,9 +30,7 @@
   }
 
   .release__hash {
-    font-weight: 700;
-    font-size: 12px;
-    line-height: 12px;
+    @extend .text-regular;
     min-width: auto;
     border: 1px solid var(--mdc-theme-secondary);
     border-radius: 15px;
@@ -50,28 +45,20 @@
 
 .release__details {
   height: 100%;
-
+  div {
+    @extend .text-regular;
+  }
   .release__metadata {
     display: flex;
-    font-weight: 400;
-    font-size: 14px;
-    line-height: 32px;
     div:first-child {
       margin-right: 2em;
     }
   }
 
-  .release__author {
-    font-weight: 600;
-    font-size: 14px;
-    line-height: 32px;
-  }
 }
 
 .release__environments {
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 32px;
+  @extend .text-bold;
 
   > *:not(:last-child) {
     margin-right: 8px;
