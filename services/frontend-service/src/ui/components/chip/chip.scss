@@ -1,1 +1,5 @@
 @use "@material/chips/styles";
+
+span.mdc-evolution-chip button.mdc-evolution-chip__action span.mdc-evolution-chip__text-label {
+    @extend .text-bold;
+}

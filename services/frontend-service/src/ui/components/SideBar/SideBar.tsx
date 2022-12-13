@@ -21,6 +21,7 @@ import { deleteAction, useActions, deleteAllActions } from '../../utils/store';
 import { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
 import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core';
+import classNames from 'classnames';
 
 export enum ActionTypes {
     Deploy,
@@ -251,10 +252,10 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                 )}
                 <div className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer">
                     <Button
-                        className={
-                            'mdc-drawer-sidebar mdc-sidebar-sidebar-footer mdc-drawer-sidebar-apply-button' +
-                            (!canApply ? '-disabled' : '')
-                        }
+                        className={classNames('mdc-drawer-sidebar mdc-sidebar-sidebar-footer', {
+                            'mdc-drawer-sidebar-apply-button': canApply,
+                            'mdc-drawer-sidebar-apply-button-disabled': !canApply,
+                        })}
                         label={'Apply'}
                         onClick={canApply ? handleOpen : undefined}
                     />

@@ -38,7 +38,12 @@ export const DropdownSelect: React.FC<{
 
     return (
         <FormControl variant="outlined" fullWidth data-testid="teams-dropdown-formcontrol">
-            <InputLabel htmlFor="teams" id="teams" shrink={!isEmpty(selectedTeams)} data-testid="teams-dropdown-label">
+            <InputLabel
+                className="mdc-select-label new-line-height"
+                htmlFor="teams"
+                id="teams"
+                shrink={!isEmpty(selectedTeams)}
+                data-testid="teams-dropdown-label">
                 {floatingLabel}
             </InputLabel>
             <Select
@@ -48,7 +53,7 @@ export const DropdownSelect: React.FC<{
                 renderValue={renderValue}
                 value={selectedTeams}
                 onChange={handleChange}
-                className={'mdc-select ' + (!isEmpty(selectedTeams) ? '' : 'remove-space')}
+                className={classNames('mdc-select', { 'remove-space': isEmpty(selectedTeams) })}
                 label={!isEmpty(selectedTeams) ? floatingLabel : ''}
                 variant="outlined">
                 <MenuItem data-testid="clear-option" key={''} value={''}>

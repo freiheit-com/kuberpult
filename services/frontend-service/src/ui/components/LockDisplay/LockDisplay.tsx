@@ -17,6 +17,7 @@ Copyright 2021 freiheit.com*/
 import { Button } from '../button';
 import { Delete } from '../../../images';
 import { DisplayLock } from '../../utils/store';
+import classNames from 'classnames';
 
 export const daysToString = (days: number) => {
     if (days === -1) return '';
@@ -39,16 +40,17 @@ export const isOutdated = (dateAdded: Date | string | undefined): boolean => cal
 
 export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
     const { lock } = props;
+
+    const allClassNames = classNames('lock-display-info', {
+        'date-display--outdated': isOutdated(lock.date),
+        'date-display--normal': !isOutdated(lock.date),
+    });
+
     return (
         <div className="lock-display">
             <div className="-lock-display__table">
                 <div className="lock-display-table">
-                    <div
-                        className={
-                            'lock-display-info date-display--' + (isOutdated(lock.date) ? 'outdated' : 'normal')
-                        }>
-                        {daysToString(calcLockAge(lock.date))}
-                    </div>
+                    <div className={allClassNames}>{daysToString(calcLockAge(lock.date))}</div>
                     <div className="lock-display-info">{lock.environment}</div>
                     {!!lock.application && <div className="lock-display-info">{lock.application}</div>}
                     <div className="lock-display-info">{lock.lockId}</div>
