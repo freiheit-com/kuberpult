@@ -20,9 +20,7 @@
     height: $environment-lane-header-height;
 
     .environment__name {
-      font-weight: $environment-name-font-weight;
-      font-size: $environment-name-font-size;
-      line-height: $environment-name-line-height;
+      @extend .headline1;
       display: flex;
       align-items: center;
     }
@@ -46,9 +44,7 @@
       color: $environment-add-lock-button-color;
       .mdc-button__label{
         padding-left: $environment-add-lock-button-padding-left;
-        font-weight: $environment-add-lock-button-font-weight;
-        font-size: $environment-add-lock-button-font-size;
-        line-height: $environment-add-lock-button-line-height;
+        @extend .text-bold;
       }
     }
   }

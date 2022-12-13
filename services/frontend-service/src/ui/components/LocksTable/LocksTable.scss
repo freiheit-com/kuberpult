@@ -12,9 +12,8 @@
   background-color: var(--mdc-theme-primary);
   color: var(--mdc-theme-on-primary);
   height: $locks-list-header-height;
-  font-weight: bold;
-  line-height: $locks-subheader-line-height;
   border-radius: $locks-list-header-border-radius;
+  @extend .text-regular;
 
   .mdc-data-indicator-header{
     display: flex;
@@ -22,13 +21,12 @@
   }
 
   .mdc-data-header-title{
-    font-size: $locks-header-font-size;
+    @extend .headline1;
   }
 
   .mdc-data-indicator-field{
     flex: 1;
-    line-height: $locks-list-header-line-height;
-    font-size: $locks-subheader-font-size;
+    @extend .sub-headline1;
   }
 
   .mdc-data-indicator-sort-button{
