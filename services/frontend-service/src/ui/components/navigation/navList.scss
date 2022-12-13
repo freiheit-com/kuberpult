@@ -4,12 +4,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  height: $nav-list-height;
+  justify-content: center;
   overflow: hidden;
+  gap: 150px;
+  height: 100%;
 
   .mdc-list-item {
-    height: 100%;
-    padding-top: $nav-list-item-padding;
+    height: 130px;
+    align-items: center;
   }
 }
