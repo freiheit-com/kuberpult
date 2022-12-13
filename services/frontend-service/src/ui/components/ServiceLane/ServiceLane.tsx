@@ -19,6 +19,7 @@ import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { Button } from '../button';
 import { DeleteWhite, HistoryWhite } from '../../../images';
 import { Application, Release } from '../../../api/api';
+import { Tooltip } from '@material-ui/core';
 
 function getNumberOfReleasesBetween(releases: Array<Release>, lowerVersion: number, higherVersion: number) {
     let diff = 0;
@@ -53,7 +54,17 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                 if (diff !== 0) {
                     return (
                         <div key={application + '-' + rel} className="service-lane__diff">
-                            <div className="service-lane__diff_number">{diff}</div>
+                            <Tooltip
+                                title={
+                                    'There are ' +
+                                    diff +
+                                    ' releases between version ' +
+                                    releases[index - 1] +
+                                    ' and version ' +
+                                    rel
+                                }>
+                                <div className="service-lane__diff_number">{diff}</div>
+                            </Tooltip>
                             <ReleaseCard app={application.name} version={rel} />
                         </div>
                     );
