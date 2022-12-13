@@ -1,57 +1,60 @@
 @use '@material/typography/mdc-typography';
 @use '@material/card/mdc-card';
 
-.release-dialog-commitId {
-    border: 1px solid white;
+.release-dialog {
+    border-radius: 15px 15px 0px 0px;
+    background-color: transparent;
+    border-radius: 10px;
+}
+
+.release-dialog div.MuiPaper-root {
+    background-color: transparent;
     border-radius: 15px;
 }
 
-.release-dialog {
-    border-radius: 25px 25px 0px 0px;
+.release-env-list {
+    background-color: var(--mdc-theme-background);
 }
 
 .release-dialog-app-bar {
-    border-radius: 25px 25px 0px 0px;
+    border-radius: 10px 10px 0px 0px;
     background: var(--mdc-theme-primary);
     color: var(--mdc-theme-on-primary);
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
 }
 
-.release-dialog div div {
-    border-radius: 25px 25px 0px 0px;
+.release-dialog-app-bar-data {
+    margin: 24px 20px 24px 47px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .release-dialog-message {
-    margin-top: 15px;
-    margin-left: 30px;
-    font-weight: bold;
-    font-size: medium;
+    @extend .sub-headline1;
     display: flex;
     justify-content: space-between;
 }
 
-
-.release-dialog-close {
-    align-items: right;
-    display: flex;
-}
-
 .release-dialog-commitId {
-    margin-left: 20px;
-    border: 1px solid white;
-    border-radius: 8px;
-    font-weight: normal;
-    padding: 5px;
+    height: 28px;
+    width: 90px;
+    border-radius: 0px;
+    border: 1px solid var(--mdc-theme-on-primary);
+    border-radius: 10px;
+    margin-top: 26px;
+    margin-bottom: auto;
+    text-align: center;
+    @extend .text-regular;
+}
+
+.release-dialog-commitMessage {
+    text-overflow: wrap;
+}
+
+button.release-dialog-close {
     display: flex;
-}
-
-
-.release-dialog-createdAt {
-    margin-top: 25px;
-    margin-left: 30px;
-}
-
-.release-dialog-author {
-    margin-top: 25px;
-    margin-left: 30px;
-    margin-bottom: 20px;
+    margin: 20px 10px 100px;
 }

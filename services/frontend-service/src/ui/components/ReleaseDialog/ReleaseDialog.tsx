@@ -44,46 +44,43 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                     open={app !== ''}
                     onClose={setClosed}>
                     <div className={classNames('release-dialog-app-bar', className)}>
-                        <div className={classNames('release-dialog-message', className)}>
-                            {release?.sourceMessage}
-                            <span className={classNames('release-dialog-commitId', className)}>
-                                {release.undeployVersion === undefined ? 'undeploy version' : release?.sourceCommitId}
-                            </span>
-                            <span className={classNames('release-dialog-close', className)}>
-                                <Button onClick={setClosed}>
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <path
-                                            d="M1 1L19 19M19 1L1 19"
-                                            stroke="white"
-                                            strokeWidth="2"
-                                            strokeLinecap="round"
-                                        />
-                                    </svg>
-                                </Button>
-                            </span>
+                        <div className={classNames('release-dialog-app-bar-data')}>
+                            <div className={classNames('release-dialog-message', className)}>
+                                <span className={classNames('release-dialog-commitMessage', className)}>
+                                    {release?.sourceMessage}
+                                </span>
+                            </div>
+                            <div className={classNames('release-dialog-createdAt', className)}>
+                                {!!release?.createdAt && (
+                                    <div>
+                                        {'Release date ' +
+                                            release?.createdAt.toISOString().split('T')[0] +
+                                            ' ' +
+                                            release?.createdAt.toISOString().split('T')[1].split(':')[0] +
+                                            ':' +
+                                            release?.createdAt.toISOString().split('T')[1].split(':')[1]}
+                                    </div>
+                                )}
+                            </div>
+                            <div className={classNames('release-dialog-author', className)}>
+                                {release?.sourceAuthor ? 'Author:' + release?.sourceAuthor : ''}
+                            </div>
                         </div>
-                        <div className={classNames('release-dialog-createdAt', className)}>
-                            {!!release?.createdAt && (
-                                <div>
-                                    {'Release date ' +
-                                        release?.createdAt.toISOString().split('T')[0] +
-                                        ' ' +
-                                        release?.createdAt.toISOString().split('T')[1].split(':')[0] +
-                                        ':' +
-                                        release?.createdAt.toISOString().split('T')[1].split(':')[1]}
-                                </div>
-                            )}
-                        </div>
-                        <div className={classNames('release-dialog-author', className)}>
-                            {release?.sourceAuthor ? 'Author:' + release?.sourceAuthor : ''}
-                        </div>
+                        <span className={classNames('release-dialog-commitId', className)}>
+                            {release.undeployVersion === undefined ? 'undeploy version' : release?.sourceCommitId}
+                        </span>
+                        <Button onClick={setClosed} className={classNames('release-dialog-close', className)}>
+                            <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path d="M1 1L19 19M19 1L1 19" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                            </svg>
+                        </Button>
                     </div>
-                    <List>
+                    <List className={classNames('release-env-list', className)}>
                         {envs.map((env) => (
                             <ListItem button key={env}>
                                 <ListItemText primary={env} />
