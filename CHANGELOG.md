@@ -5,11 +5,13 @@ we do not use [Semantic Versioning](https://semver.org/).
 Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Unreleased yet
-* Add teams filter to releasetrain endpoint over rest [#417](https://github.com/freiheit-com/kuberpult/pull/417)
 
 # Change Log
 
-## 0.4.47
+## 0.4.49
+* Add teams filter to releasetrain endpoint over rest [#417](https://github.com/freiheit-com/kuberpult/pull/417)
+
+## 0.4.48
 * Make Ingress optional [#400](https://github.com/freiheit-com/kuberpult/pull/400)
   This allows you to use the kuberpult helm chart without the ingress.
 
