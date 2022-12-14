@@ -380,25 +380,20 @@ export const useReleasesForApp = (app: string) =>
 // Get all releases for an app and group them by date
 export const useReleasesForAppGroupByDate = (app: string) =>
     useOverview(({ applications }) => {
-        const releases = groupBy(
-            applications[app]?.releases.sort((a, b) =>
-                a.version === -1 ? -1 : b.version === -1 ? 1 : b.version - a.version
-            ),
-            'createdAt'
+        const releases = applications[app]?.releases.sort((a, b) =>
+            a.version === -1 ? -1 : b.version === -1 ? 1 : b.version - a.version
         );
+        if (releases === undefined) {
+            return [];
+        }
+        const releaseGroupedByCreatedAt = releases.reduce((previousRelease: Release, curRelease: Release) => {
+            (previousRelease[curRelease.createdAt?.toDateString()] =
+                previousRelease[curRelease.createdAt?.toDateString()] || []).push(curRelease);
+            return previousRelease;
+        }, {});
         const rel: Array<Array<Release>> = [];
-        for (const [, value] of Object.entries(releases)) {
+        for (const [, value] of Object.entries(releaseGroupedByCreatedAt)) {
             rel.push(value);
         }
         return rel;
     });
-
-const groupBy = (xs: Array, key: string) => {
-    if (xs === undefined) {
-        return {};
-    }
-    return xs.reduce((rv, x) => {
-        (rv[x[key]] = rv[x[key]] || []).push(x);
-        return rv;
-    }, {});
-};

@@ -16,10 +16,17 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { NavigationBar } from '../components/NavigationBar/NavigationBar';
 import { TopAppBar } from '../components/TopAppBar/TopAppBar';
+import { ReleaseDialog } from '../components/ReleaseDialog/ReleaseDialog';
 import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
-import { PanicOverview, UpdateOverview } from '../utils/store';
+import {
+    PanicOverview,
+    UpdateOverview,
+    useReleaseDialog,
+    useCurrentlyDeployedAt,
+    useReleaseInfo,
+} from '../utils/store';
 import { useApi } from '../utils/GrpcApi';
 import { AzureAuthProvider, UpdateFrontendConfig, useAzureAuthSub } from '../utils/AzureAuthProvider';
 
@@ -65,9 +72,14 @@ export const App: React.FC = () => {
         }
     );
 
+    const { app, version } = useReleaseDialog(({ app, version }) => ({ app, version }));
+    const envs = useCurrentlyDeployedAt(app, version);
+    const releaseInfo = useReleaseInfo(app, version);
+
     return (
         <AzureAuthProvider>
             <div className={'app-container--v2'}>
+                <ReleaseDialog app={app} version={version} release={releaseInfo} envs={envs} />
                 <NavigationBar />
                 <div className="mdc-drawer-app-content">
                     <TopAppBar />

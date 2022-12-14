@@ -25,6 +25,11 @@ export type ReleasesProps = {
     app: string;
 };
 
+const dateFormat = (date: Date) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+};
+
 export const Releases: React.FC<ReleasesProps> = (props) => {
     const { app, className } = props;
     const rel = useReleasesForAppGroupByDate(app);
@@ -33,7 +38,8 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
         <div className={classNames('timeline', className)}>
             <h1 className={classNames('app_name', className)}>{app}</h1>
             {rel.map((release) => (
-                <div className={classNames('container', className)}>
+                <div key={release[0].version} className={classNames('container right', className)}>
+                    <div className={classNames('release_date', className)}>{dateFormat(release[0].createdAt)}</div>
                     {release.map((rele) => (
                         <div key={rele.version} className={classNames('content', className)}>
                             <ReleaseCard app={app} version={rele.version} />

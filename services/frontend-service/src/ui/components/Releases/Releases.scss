@@ -27,20 +27,24 @@
     background-color: inherit;
     width: 50%;
 }
-
-/* The circles on the timeline */
-.container::after {
-    content: '';
+/* Add arrows to the right container (pointing left) */
+.right::before {
+    content: " ";
+    height: 0;
     position: absolute;
-    width: 25px;
-    height: 25px;
-    right: -17px;
-    background-color: white;
-    border: 4px solid #FF9F55;
-    top: 15px;
-    border-radius: 50%;
+    top: 22px;
+    width: 0;
     z-index: 1;
-}
+    left: 30px;
+    border: medium solid white;
+    border-width: 10px 10px 10px 0;
+    border-color: transparent white transparent transparent;
+  }
+
+  /* Fix the circle for containers on the right side */
+  .right::after {
+    left: -16px;
+  }
 
 /* The actual content */
 .content {
@@ -54,7 +58,12 @@
     font-weight: 700;
     font-size: 28px;
     line-height: 48px;
+    padding-left: 35px;
     display: flex;
     align-items: center;
+    color: var(--mdc-theme-primary);
+}
+
+.release_date {
     color: var(--mdc-theme-primary);
 }
