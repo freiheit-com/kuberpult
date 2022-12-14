@@ -19,6 +19,7 @@ import { ServiceLane } from './ServiceLane';
 import { UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
 import { Application, Release } from '../../../api/api';
+import { MemoryRouter } from 'react-router-dom';
 
 const mock_ReleaseCard = Spy.mockReactComponents('../../components/ReleaseCard/ReleaseCard', 'ReleaseCard');
 const sampleEnvs = {
@@ -70,7 +71,11 @@ const sampleEnvs = {
 } as any;
 
 describe('Service Lane', () => {
-    const getNode = (overrides: { application: Application }) => <ServiceLane {...overrides} />;
+    const getNode = (overrides: { application: Application }) => (
+        <MemoryRouter>
+            <ServiceLane {...overrides} />
+        </MemoryRouter>
+    );
     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
     it('Renders a row of releases', () => {
         // when
@@ -263,7 +268,11 @@ const data = [
 ];
 
 describe('Service Lane Diff', () => {
-    const getNode = (overrides: { application: Application }) => <ServiceLane {...overrides} />;
+    const getNode = (overrides: { application: Application }) => (
+        <MemoryRouter>
+            <ServiceLane {...overrides} />
+        </MemoryRouter>
+    );
     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
     describe.each(data)('Service Lane diff', (testcase) => {
         it(testcase.name, () => {
