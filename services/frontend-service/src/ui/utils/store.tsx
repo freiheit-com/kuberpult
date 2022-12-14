@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { Application, BatchRequest, GetOverviewResponse, BatchAction } from '../../api/api';
+import { Application, BatchRequest, GetOverviewResponse, BatchAction, Release } from '../../api/api';
 import { useApi } from './GrpcApi';
 
 export interface DisplayLock {
@@ -376,3 +376,29 @@ export const useReleasesForApp = (app: string) =>
             a.version === -1 ? -1 : b.version === -1 ? 1 : b.version - a.version
         )
     );
+
+// Get all releases for an app and group them by date
+export const useReleasesForAppGroupByDate = (app: string) =>
+    useOverview(({ applications }) => {
+        const releases = groupBy(
+            applications[app]?.releases.sort((a, b) =>
+                a.version === -1 ? -1 : b.version === -1 ? 1 : b.version - a.version
+            ),
+            'createdAt'
+        );
+        const rel: Array<Array<Release>> = [];
+        for (const [, value] of Object.entries(releases)) {
+            rel.push(value);
+        }
+        return rel;
+    });
+
+const groupBy = (xs: Array, key: string) => {
+    if (xs === undefined) {
+        return {};
+    }
+    return xs.reduce((rv, x) => {
+        (rv[x[key]] = rv[x[key]] || []).push(x);
+        return rv;
+    }, {});
+};

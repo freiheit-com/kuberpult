@@ -16,7 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 
 import classNames from 'classnames';
-import { useReleasesForApp } from '../../utils/store';
+import { useReleasesForAppGroupByDate } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import './Releases.scss';
 
@@ -27,20 +27,18 @@ export type ReleasesProps = {
 
 export const Releases: React.FC<ReleasesProps> = (props) => {
     const { app, className } = props;
+    const rel = useReleasesForAppGroupByDate(app);
 
-    const releases = useReleasesForApp(app);
-
-    if (releases === undefined) {
-        return <div>No releases for app {app}</div>;
-    }
     return (
         <div className={classNames('timeline', className)}>
             <h1 className={classNames('app_name', className)}>{app}</h1>
-            {releases.map((release) => (
+            {rel.map((release) => (
                 <div className={classNames('container', className)}>
-                    <div className={classNames('content', className)}>
-                        <ReleaseCard app={app} version={release.version} />
-                    </div>
+                    {release.map((rele) => (
+                        <div key={rele.version} className={classNames('content', className)}>
+                            <ReleaseCard app={app} version={rele.version} />
+                        </div>
+                    ))}
                 </div>
             ))}
         </div>
