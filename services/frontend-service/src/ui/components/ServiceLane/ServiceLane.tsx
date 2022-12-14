@@ -51,24 +51,22 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
         releases.map((rel, index) => {
             if (index > 0) {
                 const diff = getNumberOfReleasesBetween(all_releases, releases[index - 1], rel);
-                if (diff !== 0) {
-                    return (
-                        <div key={application + '-' + rel} className="service-lane__diff">
-                            <Tooltip
-                                title={
-                                    'There are ' +
-                                    diff +
-                                    ' releases between version ' +
-                                    releases[index - 1] +
-                                    ' and version ' +
-                                    rel
-                                }>
-                                <div className="service-lane__diff_number">{diff}</div>
-                            </Tooltip>
-                            <ReleaseCard app={application.name} version={rel} />
-                        </div>
-                    );
-                }
+                return (
+                    <div key={application + '-' + rel} className="service-lane__diff">
+                        <Tooltip
+                            title={
+                                'There are ' +
+                                diff +
+                                ' releases between version ' +
+                                releases[index - 1] +
+                                ' and version ' +
+                                rel
+                            }>
+                            <div className="service-lane__diff_number">{diff}</div>
+                        </Tooltip>
+                        <ReleaseCard app={application.name} version={rel} />
+                    </div>
+                );
             }
             return <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />;
         });
