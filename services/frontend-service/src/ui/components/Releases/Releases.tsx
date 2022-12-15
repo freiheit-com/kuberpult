@@ -16,7 +16,8 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 
 import classNames from 'classnames';
-import { useReleasesForAppGroupByDate } from '../../utils/store';
+import { Release } from '../../../api/api';
+import { useReleasesForApp } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import './Releases.scss';
 
@@ -30,9 +31,26 @@ const dateFormat = (date: Date) => {
     return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 };
 
+const getReleasesForAppGroupByDate = (releases: Array<Release>) => {
+    if (releases === undefined) {
+        return [];
+    }
+    const releaseGroupedByCreatedAt = releases.reduce((previousRelease: Release, curRelease: Release) => {
+        (previousRelease[curRelease.createdAt?.toDateString()] =
+            previousRelease[curRelease.createdAt?.toDateString()] || []).push(curRelease);
+        return previousRelease;
+    }, {});
+    const rel: Array<Array<Release>> = [];
+    for (const [, value] of Object.entries(releaseGroupedByCreatedAt)) {
+        rel.push(value);
+    }
+    return rel;
+};
+
 export const Releases: React.FC<ReleasesProps> = (props) => {
     const { app, className } = props;
-    const rel = useReleasesForAppGroupByDate(app);
+    const releases = useReleasesForApp(app);
+    const rel = getReleasesForAppGroupByDate(releases);
 
     return (
         <div className={classNames('timeline', className)}>
