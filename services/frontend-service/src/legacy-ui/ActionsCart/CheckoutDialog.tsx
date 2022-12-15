@@ -87,7 +87,7 @@ const LockMessageInput: VFC<{ updateMessage: (e: any) => void }> = ({ updateMess
         sx={{ m: 1 }}
         placeholder="default-lock"
         onChange={updateMessage}
-        className="actions-cart__lock-message"
+        className="legacy-ui-lock actions-cart__lock-message"
     />
 );
 
