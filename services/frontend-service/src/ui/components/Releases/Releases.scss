@@ -26,6 +26,8 @@
     position: relative;
     background-color: inherit;
     width: 50%;
+    background: linear-gradient(var(--mdc-theme-primary),var(--mdc-theme-primary)) left 9px top 19px/2px 100% no-repeat;
+    margin-bottom:-2px;
 }
 /* Add arrows to the right container (pointing left) */
 .right::before {
