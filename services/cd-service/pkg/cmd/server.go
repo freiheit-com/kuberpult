@@ -132,7 +132,7 @@ func RunServer() {
 			},
 			Branch:                 c.GitBranch,
 			GcFrequency:            20,
-			BootstrapMode:          c.BootstrapMode,
+			BootstrapMode:          true,
 			EnvironmentConfigsPath: "./environment_configs.json",
 		})
 		if err != nil {

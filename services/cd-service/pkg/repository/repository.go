@@ -36,14 +36,12 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/yaml.v2"
-
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"go.uber.org/zap"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/go-git/go-billy/v5"
@@ -857,8 +855,12 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 var invalidJson = errors.New("JSON file is not valid")
 
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
+	println("getEnvConfigs A %s", "hello")
+	println("HELLO PRINT")
 	if s.BootstrapMode {
+		println(fmt.Sprintf("getEnvConfigs B1 path=%s", s.EnvironmentConfigsPath))
 		result := map[string]config.EnvironmentConfig{}
+
 		buf, err := ioutil.ReadFile(s.EnvironmentConfigsPath)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
@@ -866,12 +868,21 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 			}
 			return nil, err
 		}
-		err = yaml.Unmarshal(buf, &result)
+		println(fmt.Sprintf("getEnvConfigs D FILE=%s", buf))
+		err = json.Unmarshal(buf, &result)
 		if err != nil {
 			return nil, err
 		}
+		{
+			mJson, err := json.Marshal(result)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			println(fmt.Sprintf("getEnvConfigs C\n%s", mJson))
+		}
 		return result, nil
 	} else {
+		println("getEnvConfigs B2")
 		envs, err := s.Filesystem.ReadDir("environments")
 		if err != nil {
 			return nil, err
