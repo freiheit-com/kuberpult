@@ -8,6 +8,9 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.50
+* Bugfix: Show lock message text & label properly [#427](https://github.com/freiheit-com/kuberpult/pull/427)
+
 ## 0.4.49
 * Add teams filter to releasetrain endpoint over rest [#417](https://github.com/freiheit-com/kuberpult/pull/417)
 
