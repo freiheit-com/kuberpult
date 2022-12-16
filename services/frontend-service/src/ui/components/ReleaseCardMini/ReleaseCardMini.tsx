@@ -26,12 +26,8 @@ export type ReleaseCardMiniProps = {
 };
 
 const getDays = (date: Date) => {
-    const current = new Date();
+    const current = new Date(Date.now());
     const diff = current.getTime() - date.getTime();
-    // eslint-disable-next-line no-console
-    console.log(current);
-    // eslint-disable-next-line no-console
-    console.log(date);
 
     return Math.round(diff / (1000 * 3600 * 24));
 };
