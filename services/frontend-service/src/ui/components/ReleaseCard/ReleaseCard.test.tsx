@@ -25,17 +25,17 @@ describe('Release Card', () => {
     const data = [
         {
             name: 'using a sample release - useRelease hook',
-            props: { app: 'test1', version: 2 },
+            props: { app: { name: 'test1', releases: [], sourceRepoUrl: 'tst.com', team: 'test' }, version: 2 },
             rels: [{ version: 2, sourceMessage: 'test-rel' }],
         },
         {
             name: 'using a sample undeploy release - useRelease hook',
-            props: { app: 'test2', version: -1 },
+            props: { app: { name: 'test2', releases: [], sourceRepoUrl: 'tst.com', team: 'test' }, version: -1 },
             rels: [{ undeployVersion: true, sourceMessage: 'test-rel' }],
         },
         {
             name: 'using a full release - component test',
-            props: { app: 'test2', version: 2 },
+            props: { app: { name: 'test2', releases: [], sourceRepoUrl: 'tst.com', team: 'test' }, version: 2 },
             rels: [
                 {
                     undeployVersion: false,
@@ -49,7 +49,7 @@ describe('Release Card', () => {
         },
         {
             name: 'using a deployed release - useDeployedAt test',
-            props: { app: 'test2', version: 2 },
+            props: { app: { name: 'test2', releases: [], sourceRepoUrl: 'tst.com', team: 'test' }, version: 2 },
             rels: [
                 {
                     version: 2,
@@ -69,7 +69,7 @@ describe('Release Card', () => {
         },
         {
             name: 'using an undeployed release - useDeployedAt test',
-            props: { app: 'test2', version: 2 },
+            props: { app: { name: 'test2', releases: [], sourceRepoUrl: 'tst.com', team: 'test' }, version: 2 },
             rels: [
                 {
                     version: 2,
@@ -89,7 +89,7 @@ describe('Release Card', () => {
         },
         {
             name: 'using another environment - useDeployedAt test',
-            props: { app: 'test2', version: 2 },
+            props: { app: { name: 'test2', releases: [], sourceRepoUrl: 'tst.com', team: 'test' }, version: 2 },
             rels: [
                 {
                     version: 2,
@@ -113,7 +113,7 @@ describe('Release Card', () => {
         it(testcase.name, () => {
             // when
             UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
+                applications: { [testcase.props.app.name]: { releases: testcase.rels } },
                 environments: testcase.environments ?? {},
             } as any);
             const { container } = getWrapper(testcase.props);

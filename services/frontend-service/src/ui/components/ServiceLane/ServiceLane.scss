@@ -21,13 +21,13 @@
     color: var(--mdc-theme-on-primary);
     .mdc-button__label{
       padding-left: 1em;
-      @extend .text-bold
+      @extend .text-bold;
     }
   }
 }
 
 .service__releases {
-  overflow: overlay;
+  overflow-x: scroll;
   display: flex;
   margin: 0 -12px 34px -12px;
 }

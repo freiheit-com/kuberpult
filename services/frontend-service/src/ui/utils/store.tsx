@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { Application, BatchRequest, GetOverviewResponse, BatchAction } from '../../api/api';
+import { Application, BatchRequest, GetOverviewResponse, BatchAction, Release } from '../../api/api';
 import { useApi } from './GrpcApi';
 
 export interface DisplayLock {
@@ -36,7 +36,7 @@ export const [useAction, UpdateAction] = createStore(emptyBatch);
 
 export const [_, PanicOverview] = createStore({ error: '' });
 
-export const [useReleaseDialog, UpdateReleaseDialog] = createStore({ app: '', version: 0 });
+export const [useReleaseDialog, UpdateReleaseDialog] = createStore({ app: {} as Application, version: 0 });
 
 export const useApplyActions = () => useApi.batchService().ProcessBatch({ actions: useActions() });
 
@@ -142,7 +142,7 @@ export const addAction = (action: BatchAction) => {
     UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
 };
 
-export const updateReleaseDialog = (app: string, version: number) => {
+export const updateReleaseDialog = (app: Application, version: number) => {
     UpdateReleaseDialog.set({ app: app, version: version });
 };
 export const deleteAllActions = () => UpdateAction.set({ actions: [] });
@@ -323,10 +323,10 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: string) => {
 };
 
 // returns the release number {$version} of {$application}
-export const useRelease = (application: string, version: number) =>
+export const useRelease = (application: Application, version: number) =>
     useOverview(
         ({ applications }) =>
-            applications[application].releases.find((r) =>
+            applications[application.name].releases.find((r) =>
                 version === -1 ? r.undeployVersion : r.version === version
             )!
     );
@@ -346,25 +346,23 @@ export const useDeployedReleases = (application: string) =>
     );
 
 // returns the environments where a release is currently deployed
-export const useCurrentlyDeployedAt = (application: string, version: number) =>
+export const useCurrentlyDeployedAt = (application: Application, version: number) =>
     useOverview(({ environments }) =>
-        Object.values(environments)
-            .filter(
-                (env) =>
-                    env.applications[application] &&
-                    (version === -1
-                        ? env.applications[application].undeployVersion
-                        : env.applications[application].version === version)
-            )
-            .map((e) => e.name)
+        Object.values(environments).filter(
+            (env) =>
+                env.applications[application.name] &&
+                (version === -1
+                    ? env.applications[application.name].undeployVersion
+                    : env.applications[application.name].version === version)
+        )
     );
 
 // Get release information for a version
-export const useReleaseInfo = (app: string, version: number) =>
+export const useReleaseInfo = (app: Application, version: number) =>
     useOverview(({ applications }) => {
-        const releaseInfo = applications[app]?.releases.filter((release) => release.version === version)[0];
+        const releaseInfo = applications[app.name]?.releases.filter((release) => release.version === version)[0];
         if (!releaseInfo) {
-            return {};
+            return {} as Release;
         }
         return releaseInfo;
     });

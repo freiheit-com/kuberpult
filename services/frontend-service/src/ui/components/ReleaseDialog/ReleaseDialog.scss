@@ -2,60 +2,158 @@
 @use '@material/card/mdc-card';
 
 .release-dialog {
-    border-radius: 15px 15px 0px 0px;
-    background-color: transparent;
-    border-radius: 10px;
+  border-radius: 15px 15px 0px 0px;
+  background-color: transparent;
+  border-radius: 10px;
 }
 
 .release-dialog div.MuiPaper-root {
-    background-color: transparent;
-    border-radius: 15px;
-}
-
-.release-env-list {
-    background-color: var(--mdc-theme-background);
+  background-color: transparent;
+  border-radius: 15px;
+  overflow-y: inherit;
 }
 
 .release-dialog-app-bar {
-    border-radius: 10px 10px 0px 0px;
-    background: var(--mdc-theme-primary);
-    color: var(--mdc-theme-on-primary);
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
+  border-radius: 10px 10px 0px 0px;
+  background: var(--mdc-theme-primary);
+  color: var(--mdc-theme-on-primary);
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
 }
 
 .release-dialog-app-bar-data {
-    margin: 24px 10px 24px 47px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+  margin: 24px 10px 24px 47px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .release-dialog-message {
-    @extend .sub-headline1;
-    display: flex;
-    justify-content: space-between;
+  @extend .sub-headline1;
+  display: flex;
+  justify-content: space-between;
 }
 
 .release-dialog-commitId {
-    height: 28px;
-    white-space: nowrap;
-    width: auto;
-    padding: 2px 6px;
-    border: 1px solid var(--mdc-theme-on-primary);
-    border-radius: 10px;
-    margin-top: 26px;
-    margin-bottom: auto;
-    text-align: center;
-    @extend .text-regular;
+  height: 28px;
+  white-space: nowrap;
+  width: auto;
+  padding: 2px 6px;
+  border: 1px solid var(--mdc-theme-on-primary);
+  border-radius: 10px;
+  margin-top: 26px;
+  margin-bottom: auto;
+  text-align: center;
+  @extend .text-regular;
 }
 
 .release-dialog-commitMessage {
-    text-overflow: wrap;
+  text-overflow: wrap;
 }
 
 button.release-dialog-close {
-    display: flex;
-    margin: 20px 10px 100px;
+  display: flex;
+  margin: 20px 10px 100px;
+}
+
+.release-env-list {
+  background-color: var(--mdc-theme-surface);
+  display: flex;
+  flex-direction: column;
+  overflow: overlay;
+  gap: 22px;
+  margin: 0px;
+  padding: 35px 0px;
+  align-items: center;
+  border-radius: 0px 0px 15px 15px;
+}
+
+.env-card {
+  background-color: var(--mdc-theme-background);
+  display: flex;
+  flex-direction: column;
+  width: 900px;
+  height: 160px;
+  padding: 0px;
+  margin: 0px 20px;
+  border-radius: 10px;
+  gap: 16px;
+}
+
+.env-card-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.env-card-label {
+  border-radius: 10px;
+  width: auto;
+  height: 42px;
+  padding: 10px;
+  background-color: #FF8A00;
+  color: var(--mdc-theme-on-primary);
+  @extend .text-bold;
+  position: relative;
+  top: -10px;
+  left: -10px;
+  display: flex;
+  flex-direction: row;
+  gap: 55px;
+}
+
+svg.env-card-env-lock {
+  width: 24px;
+  height: 24px;
+}
+
+button.button-lock {
+  min-width: unset;
+  padding: unset;
+  height: auto;
+}
+
+.env-card-data {
+  display: flex;
+  flex-direction: row;
+  padding-left: 27px;
+  @extend .text-medium;
+}
+
+.env-card-app-locks {
+  display: flex;
+  position: relative;
+  top: 20px;
+  right: 36px;
+  flex-direction: row;
+  gap: 13px;
+}
+
+.env-card-buttons {
+  margin-left: auto;
+  margin-right: 36px;
+  margin-bottom: 17px;
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  button {
+    padding: 8px 19px;
+  }
+}
+
+.env-card-add-lock-btn {
+  border: 1px solid var(--mdc-theme-primary);
+  border-radius: 10px;
+  @extend .text-bold;
+  .icon {
+    margin-right: 9px;
+  }
+}
+
+button.mdc-button.env-card-deploy-btn.env-card-deploy-btn.env-card-deploy-btn {
+  background-color: var(--mdc-theme-primary);
+  color: var(--mdc-theme-on-primary);
+  border-radius: 10px;
+  @extend .text-bold;
 }

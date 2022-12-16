@@ -65,12 +65,12 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                                 }>
                                 <div className="service-lane__diff_number">{diff}</div>
                             </Tooltip>
-                            <ReleaseCard app={application.name} version={rel} />
+                            <ReleaseCard app={application} version={rel} />
                         </div>
                     );
                 }
             }
-            return <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />;
+            return <ReleaseCard app={application} version={rel} key={application + '-' + rel} />;
         });
 
     return (

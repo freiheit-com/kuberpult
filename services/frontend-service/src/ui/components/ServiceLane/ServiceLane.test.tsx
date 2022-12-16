@@ -86,9 +86,9 @@ describe('Service Lane', () => {
         getWrapper({ application: sampleApp });
 
         // then releases are sorted and Release card is called with props:
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: sampleApp.name, version: -1 });
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1, 0)).toStrictEqual({ app: sampleApp.name, version: 3 });
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({ app: sampleApp.name, version: 2 });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: sampleApp, version: -1 });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1, 0)).toStrictEqual({ app: sampleApp, version: 3 });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({ app: sampleApp, version: 2 });
         mock_ReleaseCard.ReleaseCard.wasCalled(3);
     });
 });
@@ -269,7 +269,9 @@ describe('Service Lane Diff', () => {
         it(testcase.name, () => {
             UpdateOverview.set({
                 environments: testcase.envs,
-                applications: { test2: { releases: testcase.releases } },
+                applications: {
+                    test2: { name: 'test', releases: testcase.releases, sourceRepoUrl: 'test.com', team: 'test' },
+                },
             });
             const sampleApp = {
                 name: 'test2',
