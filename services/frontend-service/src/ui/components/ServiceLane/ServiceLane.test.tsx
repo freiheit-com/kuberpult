@@ -96,7 +96,7 @@ describe('Service Lane', () => {
 const data = [
     {
         name: 'test same version',
-        diff: '0',
+        diff: '-1',
         releases: [
             {
                 version: 1,
@@ -280,7 +280,7 @@ describe('Service Lane Diff', () => {
             const { container } = getWrapper({ application: sampleApp });
 
             // check for the diff between versions
-            if (testcase.diff === '0') {
+            if (testcase.diff === '-1') {
                 expect(document.querySelector('.service-lane__diff_number') === undefined);
             } else {
                 expect(container.querySelector('.service-lane__diff_number')?.textContent).toContain(testcase.diff);
