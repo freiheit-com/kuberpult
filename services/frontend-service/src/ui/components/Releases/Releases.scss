@@ -8,18 +8,6 @@
     margin: 0 auto;
 }
 
-/* The actual timeline (the vertical ruler) */
-.timeline::after {
-    content: '';
-    position: absolute;
-    width: 6px;
-    background-color: white;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    margin-left: -3px;
-}
-
 /* Container around content */
 .container {
     padding: 10px 40px;
@@ -54,6 +42,7 @@
     background-color: white;
     position: relative;
     border-radius: 6px;
+    width: 920px;
 }
 
 .app_name {
@@ -61,7 +50,6 @@
     font-size: 28px;
     line-height: 48px;
     padding-left: 35px;
-    display: flex;
     align-items: center;
     color: var(--mdc-theme-primary);
 }

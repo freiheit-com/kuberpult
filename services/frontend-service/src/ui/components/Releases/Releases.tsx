@@ -18,7 +18,7 @@ Copyright 2021 freiheit.com*/
 import classNames from 'classnames';
 import { Release } from '../../../api/api';
 import { useReleasesForApp } from '../../utils/store';
-import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
+import { ReleaseCardMini } from '../ReleaseCardMini/ReleaseCardMini';
 import './Releases.scss';
 
 export type ReleasesProps = {
@@ -54,13 +54,13 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
 
     return (
         <div className={classNames('timeline', className)}>
-            <h1 className={classNames('app_name', className)}>{app}</h1>
+            <h1 className={classNames('app_name', className)}>{'Releases | ' + app}</h1>
             {rel.map((release) => (
                 <div key={release[0].version} className={classNames('container right', className)}>
                     <div className={classNames('release_date', className)}>{dateFormat(release[0].createdAt)}</div>
                     {release.map((rele) => (
                         <div key={rele.version} className={classNames('content', className)}>
-                            <ReleaseCard app={app} version={rele.version} />
+                            <ReleaseCardMini app={app} version={rele.version} />
                         </div>
                     ))}
                 </div>
