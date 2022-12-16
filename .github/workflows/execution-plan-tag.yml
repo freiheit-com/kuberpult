@@ -28,7 +28,7 @@ jobs:
         id: version
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
-          echo "::set-output name=version::${GITHUB_REF#refs/tags/}"
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
       - name: Create helm chart for release
         run: |
           make -C charts/kuberpult release-tag
