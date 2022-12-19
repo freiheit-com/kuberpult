@@ -26,7 +26,7 @@ describe('Release Card', () => {
         {
             name: 'A release from 2 days ago',
             props: { app: 'test1', version: 2 },
-            msg: 'test-author commited 2 days ago at 14:20:00',
+            msg: 'test-author commited 2 days ago at 14:20:0',
             rels: [
                 {
                     version: 2,
@@ -39,7 +39,7 @@ describe('Release Card', () => {
         {
             name: 'A release from 4 days ago',
             props: { app: 'test1', version: 2 },
-            msg: 'test-author commited 4 days ago at 08:20:00',
+            msg: 'test-author commited 4 days ago at 8:20:0',
             rels: [
                 {
                     version: 2,
@@ -52,7 +52,7 @@ describe('Release Card', () => {
         {
             name: 'using A release today',
             props: { app: 'test2', version: 2 },
-            msg: 'test-author commited at 14:20:00',
+            msg: 'test-author commited at 14:20:0',
             rels: [
                 {
                     version: 2,
@@ -65,7 +65,7 @@ describe('Release Card', () => {
         {
             name: 'A release three days ago with an env',
             props: { app: 'test2', version: 2 },
-            msg: 'test-author commited 3 days ago at 14:20:00',
+            msg: 'test-author commited 3 days ago at 14:20:0',
             rels: [
                 {
                     version: 2,

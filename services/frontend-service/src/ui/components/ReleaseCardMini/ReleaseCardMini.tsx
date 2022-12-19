@@ -45,10 +45,11 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
         msg += ' commited ';
 
         if (days === 0) {
-            msg += 'at ' + createdAt.toTimeString();
+            msg += 'at ';
         } else {
-            msg += days + ' days ago at ' + createdAt.toTimeString();
+            msg += days + ' days ago at ';
         }
+        msg += `${createdAt.getHours()}:${createdAt.getMinutes()}:${createdAt.getSeconds()}`;
     }
 
     return (
