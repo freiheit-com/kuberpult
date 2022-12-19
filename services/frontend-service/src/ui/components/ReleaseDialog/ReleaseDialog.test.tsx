@@ -17,14 +17,13 @@ Copyright 2021 freiheit.com*/
 import { ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { render } from '@testing-library/react';
 import { UpdateOverview, updateReleaseDialog } from '../../utils/store';
-import { Environment, Release } from '../../../api/api';
+import { Release } from '../../../api/api';
 
 describe('Release Dialog', () => {
     interface dataT {
         name: string;
         props: ReleaseDialogProps;
         rels: Release[];
-        environments: Environment[];
         expect_message: boolean;
     }
     const data: dataT[] = [
@@ -42,10 +41,24 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '#1337',
                 },
-                envs: [],
+                envs: [
+                    {
+                        name: 'prod',
+                        locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
+                        applications: {
+                            test1: {
+                                name: 'test1',
+                                version: 2,
+                                locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
+                    },
+                ],
             },
             rels: [],
-            environments: [],
+
             expect_message: true,
         },
         {
@@ -57,7 +70,6 @@ describe('Release Dialog', () => {
                 envs: [],
             },
             rels: [],
-            environments: [],
             expect_message: false,
         },
     ];
@@ -67,7 +79,7 @@ describe('Release Dialog', () => {
             // when
             UpdateOverview.set({
                 applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.environments,
+                environments: testcase.props.envs,
             } as any);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
@@ -86,17 +98,28 @@ describe('Release Dialog', () => {
             // when
             UpdateOverview.set({
                 applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.environments,
+                environments: testcase.props.envs,
             } as any);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
-            if (testcase.expect_message) {
-                expect(document.querySelector('.release-dialog-message')?.textContent).toContain(
-                    testcase.props.release.sourceMessage
+            expect(document.querySelector('.release-env-list')?.children).toHaveLength(testcase.props.envs.length);
+        });
+    });
+
+    describe.each(data)(`Renders the environment locks`, (testcase) => {
+        it(testcase.name, () => {
+            // when
+            UpdateOverview.set({
+                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
+                environments: testcase.props.envs,
+            } as any);
+            updateReleaseDialog(testcase.props.app, testcase.props.version);
+            render(<ReleaseDialog {...testcase.props} />);
+            testcase.props.envs.forEach((env) => {
+                expect(document.querySelector('.env-card-env-locks')?.children).toHaveLength(
+                    Object.values(env.locks).length
                 );
-            } else {
-                expect(document.querySelector('.release-dialog-message') === undefined);
-            }
+            });
         });
     });
 });

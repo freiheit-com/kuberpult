@@ -100,12 +100,17 @@ button.release-dialog-close {
   left: -10px;
   display: flex;
   flex-direction: row;
-  gap: 55px;
+  .env-card-env-locks:nth-child(2) {
+    margin-left: 55px;
+    display: flex;
+    flex-direction: row;
+  }
 }
 
-svg.env-card-env-lock {
+svg.env-card-env-lock-icon {
   width: 24px;
   height: 24px;
+  margin: unset;
 }
 
 button.button-lock {
