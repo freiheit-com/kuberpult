@@ -14,24 +14,15 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { ServiceLane } from '../../components/ServiceLane/ServiceLane';
-import { useSearchParams } from 'react-router-dom';
-import { useFilteredApps, useSearchedApplications } from '../../utils/store';
 
-export const Home: React.FC = () => {
-    const [params] = useSearchParams();
-    const appNameParam = params.get('application') || '';
+import { Releases } from '../../components/Releases/Releases';
 
-    const filteredApps = useFilteredApps((params.get('teams') || '').split(',').filter((val) => val !== ''));
-    const searchedApp = useSearchedApplications(filteredApps, appNameParam);
-
-    const apps = Object.values(searchedApp);
-
+export const ReleasesPage: React.FC = () => {
+    const url = window.location.href.split('/');
+    const app_name = url[url.length - 1];
     return (
         <main className="main-content">
-            {apps.map((app) => (
-                <ServiceLane application={app} key={app.name} />
-            ))}
+            <Releases app={app_name} />
         </main>
     );
 };

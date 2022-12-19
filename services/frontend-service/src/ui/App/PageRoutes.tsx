@@ -16,6 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { Home } from '../Pages/Home/Home';
 import { EnvironmentsPage } from '../Pages/Environments/EnvironmentsPage';
+import { ReleasesPage } from '../Pages/Releases/ReleasesPage';
 import { LocksPage } from '../Pages/Locks/LocksPage';
 import { Routes as ReactRoutes, Route, Navigate } from 'react-router-dom';
 
@@ -31,6 +32,10 @@ const routes = [
     {
         path: `/home/*`,
         element: <Home />,
+    },
+    {
+        path: `/home/releases/:appName`,
+        element: <ReleasesPage />,
     },
     {
         path: `/*`,

@@ -1,0 +1,29 @@
+@use '@material/typography/mdc-typography';
+@use '@material/card/mdc-card';
+
+.release-card-mini {
+  border-radius: 10px;
+  color: var(--mdc-theme-on-surface);
+  box-shadow: none;
+  width: inherit;
+  display: flex;
+}
+
+.release__details-mini {
+  height: 100%;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 32px;
+  width: inherit;
+}
+
+.release__environments-mini {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 32px;
+  margin-left: 20px;
+
+  > *:not(:last-child) {
+    margin-right: 8px;
+  }
+}

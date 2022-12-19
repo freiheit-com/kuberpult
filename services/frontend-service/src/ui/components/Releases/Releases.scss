@@ -1,0 +1,59 @@
+@use '@material/typography/mdc-typography';
+@use '@material/card/mdc-card';
+
+/* The actual timeline (the vertical ruler) */
+.timeline {
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Container around content */
+.container {
+    padding: 10px 40px;
+    position: relative;
+    background-color: inherit;
+    width: 50%;
+    background: linear-gradient(var(--mdc-theme-primary),var(--mdc-theme-primary)) left 9px top 19px/2px 100% no-repeat;
+    margin-bottom:-2px;
+}
+/* Add arrows to the right container (pointing left) */
+.right::before {
+    content: " ";
+    height: 0;
+    position: absolute;
+    top: 22px;
+    width: 0;
+    z-index: 1;
+    left: 30px;
+    border: medium solid white;
+    border-width: 10px 10px 10px 0;
+    border-color: transparent white transparent transparent;
+  }
+
+  /* Fix the circle for containers on the right side */
+  .right::after {
+    left: -16px;
+  }
+
+/* The actual content */
+.content {
+    padding: 20px 30px;
+    background-color: white;
+    position: relative;
+    border-radius: 6px;
+    width: 920px;
+}
+
+.app_name {
+    font-weight: 700;
+    font-size: 28px;
+    line-height: 48px;
+    padding-left: 35px;
+    align-items: center;
+    color: var(--mdc-theme-primary);
+}
+
+.release_date {
+    color: var(--mdc-theme-primary);
+}
