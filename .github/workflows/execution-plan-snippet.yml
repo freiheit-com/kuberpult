@@ -12,13 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3.1.0
         with:
           fetch-depth: 0
-      - uses: google-github-actions/auth@v0 
+      - uses: google-github-actions/auth@v0
         name: 'Authenticate to Google Cloud'
         with:
-          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }} 
+          credentials_json: ${{ secrets.FDC_CORE_CI_IMAGE_READER }}
       - name: gcloud authorize
         run: |
           gcloud auth configure-docker
@@ -26,12 +26,12 @@ jobs:
       - name: Plan execution pull request
         if: inputs.trigger == 'pull-request'
         run: |
-          ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json 
+          ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json
       - name: Plan execution main
         if: inputs.trigger == 'main' || inputs.trigger == 'tag'
         run: |
-          ./infrastructure/scripts/execution-plan/plan-main.sh > artifacts/execution-plan.json 
-      - name: Print execution plan 
+          ./infrastructure/scripts/execution-plan/plan-main.sh > artifacts/execution-plan.json
+      - name: Print execution plan
         run: |
           cat artifacts/execution-plan.json
       - name: Convert plan to github specific format
@@ -44,9 +44,9 @@ jobs:
       - name: Split up plan into individual parts
         id: splitplan
         run: |
-          echo "::set-output name=buildable::$(cat artifacts/github-convertor.json | jq '.buildable' -c)"
-          echo "::set-output name=integration_test::$(cat artifacts/github-convertor.json | jq '.integration_test' -c)"
-          echo "::set-output name=cleanup::$(cat artifacts/github-convertor.json | jq '.cleanup' -c)"
+          echo "buildable=$(cat artifacts/github-convertor.json | jq '.buildable' -c)" >> $GITHUB_OUTPUT
+          echo "integration_test=$(cat artifacts/github-convertor.json | jq '.integration_test' -c)" >> $GITHUB_OUTPUT
+          echo "cleanup=$(cat artifacts/github-convertor.json | jq '.cleanup' -c)" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v3
         name: Upload execution plan
         with:
@@ -63,15 +63,15 @@ jobs:
     needs: [execution_plan]
     if: needs.execution_plan.outputs.buildable != '[]'
     strategy:
-      matrix: 
+      matrix:
         data: ${{fromJSON(needs.execution_plan.outputs.buildable)}}
     name: ${{ matrix.data.directory }} - Build and Publish
     runs-on: ubuntu-latest
-    container: 
+    container:
       image: ${{ matrix.data.image }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3.1.0
         with:
           fetch-depth: 0
       - name: Set version pr/main
@@ -95,7 +95,7 @@ jobs:
           path: ${{ matrix.data.cachefiles }}
           key: cache-${{ matrix.data.cacheKey }}
           restore-keys: |
-            cache-${{ matrix.data.cacheKey }} 
+            cache-${{ matrix.data.cacheKey }}
       - name: Pre build actions
         uses: ./.github/actions/pre-build-action
         with:
@@ -116,13 +116,13 @@ jobs:
     needs: [build_and_publish, execution_plan]
     if: needs.execution_plan.outputs.cleanup != '[]'
     strategy:
-      matrix: 
+      matrix:
         data: ${{fromJSON(needs.execution_plan.outputs.cleanup)}}
     name: ${{ matrix.data.directory }} - Cleanup
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3.1.0
         with:
           fetch-depth: 0
       - name: Set version pr/main
