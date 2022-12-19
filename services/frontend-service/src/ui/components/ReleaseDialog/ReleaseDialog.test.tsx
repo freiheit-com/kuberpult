@@ -14,12 +14,20 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { ReleaseDialog } from './ReleaseDialog';
+import { ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { render } from '@testing-library/react';
 import { UpdateOverview, updateReleaseDialog } from '../../utils/store';
+import { Environment, Release } from '../../../api/api';
 
 describe('Release Dialog', () => {
-    const data = [
+    interface dataT {
+        name: string;
+        props: ReleaseDialogProps;
+        rels: Release[];
+        environments: Environment[];
+        expect_message: boolean;
+    }
+    const data: dataT[] = [
         {
             name: 'normal release',
             props: {
@@ -28,14 +36,16 @@ describe('Release Dialog', () => {
                 release: {
                     version: 2,
                     sourceMessage: 'test1',
-                    sourceAuhor: 'test',
+                    sourceAuthor: 'test',
                     sourceCommitId: 'commit',
                     createdAt: new Date(2002),
+                    undeployVersion: false,
+                    prNumber: '#1337',
                 },
                 envs: [],
             },
             rels: [],
-            environments: {},
+            environments: [],
             expect_message: true,
         },
         {
@@ -43,11 +53,11 @@ describe('Release Dialog', () => {
             props: {
                 app: 'test1',
                 version: -1,
-                release: {},
+                release: {} as Release,
                 envs: [],
             },
             rels: [],
-            environments: {},
+            environments: [],
             expect_message: false,
         },
     ];
@@ -57,7 +67,26 @@ describe('Release Dialog', () => {
             // when
             UpdateOverview.set({
                 applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.environments ?? {},
+                environments: testcase.environments,
+            } as any);
+            updateReleaseDialog(testcase.props.app, testcase.props.version);
+            render(<ReleaseDialog {...testcase.props} />);
+            if (testcase.expect_message) {
+                expect(document.querySelector('.release-dialog-message')?.textContent).toContain(
+                    testcase.props.release.sourceMessage
+                );
+            } else {
+                expect(document.querySelector('.release-dialog-message') === undefined);
+            }
+        });
+    });
+
+    describe.each(data)(`Renders the environment cards`, (testcase) => {
+        it(testcase.name, () => {
+            // when
+            UpdateOverview.set({
+                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
+                environments: testcase.environments,
             } as any);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
