@@ -3,15 +3,9 @@ set -eu
 set -o pipefail
 #set -x
 
-#evans  --host localhost --port 8443  -r
-
-function ev() {
-  evans --host localhost --port 8443
-}
-
-#evans -r cli call --host localhost --port 8443 --file request.json api.v1.DeployService.Deploy
-
-#evans  --host localhost --port 8443 call
+# usage
+# ./create-release.sh my-service-name [my-team-name]
+# Note that this just creates files, it doesn't push in git
 
 name=${1}
 applicationOwnerTeam=${2:-sreteam}
