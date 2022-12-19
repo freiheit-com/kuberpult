@@ -64,11 +64,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                 </div>
                 <div className="release__environments">
                     {environments.map((env) => (
-                        <Chip
-                            className={'release-environment release-environment--' + env}
-                            label={env.name}
-                            key={env.name}
-                        />
+                        <Chip className={'release-environment'} label={env.name} key={env.name} />
                     ))}
                 </div>
             </div>
