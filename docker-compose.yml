@@ -12,6 +12,7 @@ services:
     container_name: kuberpult-frontend-service
     environment:
       - KUBERPULT_CDSERVER=kuberpult-cd-service:8443
+      - KUBERPULT_HTTP_CD_SERVER=http://kuberpult-cd-service:8080
     ports:
       - "8081:8081"
     depends_on:
