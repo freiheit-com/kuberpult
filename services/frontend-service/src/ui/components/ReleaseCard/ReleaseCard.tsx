@@ -18,8 +18,10 @@ import classNames from 'classnames';
 import { Button } from '../button';
 import React, { useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
-import { updateReleaseDialog, useCurrentlyDeployedAt, useRelease } from '../../utils/store';
+import { updateReleaseDialog, useCurrentlyDeployedAt, useOverview, useRelease } from '../../utils/store';
 import { Chip } from '../chip';
+import { Environment } from '../../../api/api';
+import { calculateEnvironmentPriorities, EnvPrioMap } from '../ReleaseDialog/ReleaseDialog';
 
 export type ReleaseCardProps = {
     className?: string;
@@ -37,6 +39,10 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
         updateReleaseDialog(app, version);
     }, [app, version]);
 
+    const envs: Environment[] = useOverview((x) => Object.values(x));
+    // const sortedEnvs: Environment[] = sortEnvironmentsByUpstream(envs);
+    const envPrioMap: EnvPrioMap = calculateEnvironmentPriorities(envs);
+
     useEffect(() => {
         if (control.current) {
             MDComponent.current = new MDCRipple(control.current);
@@ -51,7 +57,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                 {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
             </div>
             <div className="mdc-card__primary-action release-card__description" ref={control} tabIndex={0}>
-                <div className="mdc-card__ripple"></div>
+                <div className="mdc-card__ripple" />
                 <div className="release__details">
                     {!!createdAt && (
                         <div className="release__metadata mdc-typography--subtitle2">
@@ -64,7 +70,12 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                 </div>
                 <div className="release__environments">
                     {environments.map((env) => (
-                        <Chip className={'release-environment'} label={env.name} key={env.name} />
+                        <Chip
+                            className={'release-environment order-second'}
+                            label={env.name}
+                            key={env.name}
+                            priority={envPrioMap[env.name]}
+                        />
                     ))}
                 </div>
             </div>

@@ -31,19 +31,14 @@ describe('Chip', () => {
                 class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary"
                 role="gridcell"
               >
-                <button
-                  class="mdc-evolution-chip__action mdc-evolution-chip__action--primary"
-                  type="button"
+                <span
+                  class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"
+                />
+                <span
+                  class="mdc-evolution-chip__text-label"
                 >
-                  <span
-                    class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"
-                  />
-                  <span
-                    class="mdc-evolution-chip__text-label"
-                  >
-                    Test Me
-                  </span>
-                </button>
+                  Test Me
+                </span>
               </span>
             </span>
         `);

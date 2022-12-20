@@ -36,6 +36,46 @@ const setClosed = () => {
 
 export type EnvSortOrder = { [index: string]: number };
 
+export enum EnvPrio {
+    PROD = 0,
+    PRE_PROD = 1,
+    UPSTREAM = 2,
+    OTHER = -1,
+}
+
+export type EnvPrioMap = { [key: string]: EnvPrio };
+
+/**
+ * We have an arbitrary number of environments.
+ * This function groups them. There are 4 groups:
+ * prod: anything at the root of the tree
+ * pre-prod: anything directly before prod.
+ * upstream: anything with upstream.latest=true
+ * other: anything else
+ */
+export const calculateEnvironmentPriorities = (envs: Environment[]): EnvPrioMap => {
+    const distances: EnvSortOrder = calculateDistanceToUpstream(envs);
+    const result: EnvPrioMap = {};
+    let maxDistance = 0;
+    // first, find the maximum...
+    envs.forEach((env: Environment) => {
+        maxDistance = Math.max(maxDistance, distances[env.name]);
+    });
+    // now that we have the maximum, we can assign prod and pre-prod:
+    envs.forEach((env: Environment) => {
+        if (distances[env.name] === maxDistance) {
+            result[env.name] = EnvPrio.PROD;
+        } else if (distances[env.name] === maxDistance - 1) {
+            result[env.name] = EnvPrio.PRE_PROD;
+        } else if (distances[env.name] === 0) {
+            result[env.name] = EnvPrio.UPSTREAM;
+        } else {
+            result[env.name] = EnvPrio.OTHER;
+        }
+    });
+    return result;
+};
+
 export const sortEnvironmentsByUpstream = (envs: Environment[]): Environment[] => {
     const sortedEnvs = [...envs];
     const distance = calculateDistanceToUpstream(envs);

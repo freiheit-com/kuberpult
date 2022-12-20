@@ -15,17 +15,17 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import classNames from 'classnames';
+import { EnvPrio } from '../ReleaseDialog/ReleaseDialog';
 
-export const Chip = (props: { className?: string; label?: string }) => {
+export const Chip = (props: { className?: string; label: string; priority: EnvPrio }) => {
     const { className, label } = props;
 
     return (
         <span className={classNames('mdc-evolution-chip', className)} role="row">
-            <span className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary" role="gridcell">
-                <button className={'mdc-evolution-chip__action mdc-evolution-chip__action--primary'} type="button">
-                    <span className="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary" />
-                    <span className="mdc-evolution-chip__text-label">{label}</span>
-                </button>
+            <span
+                className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
+                role="gridcell">
+                <span className="mdc-evolution-chip__text-label">{label}</span>
             </span>
         </span>
     );
