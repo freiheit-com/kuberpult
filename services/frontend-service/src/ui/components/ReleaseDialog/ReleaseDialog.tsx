@@ -18,9 +18,10 @@ import { Dialog, Tooltip } from '@material-ui/core';
 import classNames from 'classnames';
 import React from 'react';
 import { Environment, Release } from '../../../api/api';
-import { updateReleaseDialog } from '../../utils/store';
+import { updateReleaseDialog, useOverview } from '../../utils/store';
 import { Button } from '../button';
 import { Locks, LocksWhite } from '../../../images';
+import { Chip } from "../chip";
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -131,11 +132,20 @@ export const EnvironmentList: React.FC<{ envs: Environment[]; release: Release; 
     release,
     app,
     className,
-}) => (
-    <ul className={classNames('release-env-list', className)}>
+}) => {
+    const allEnvs: Environment[] = useOverview((x) => Object.values(x.environments));
+    const envPrioMap: EnvPrioMap = calculateEnvironmentPriorities(allEnvs);
+    return (<ul className={classNames('release-env-list', className)}>
         {sortEnvironmentsByUpstream(envs).map((env) => (
             <li key={env.name} className={classNames('env-card', className)}>
                 <div className="env-card-header">
+                    <Chip
+                        className={'release-environment'}
+                        label={env.name}
+                        key={env.name}
+                        priority={envPrioMap[env.name]}
+                    />
+
                     <div className={classNames('env-card-label', className)}>
                         <div className={classNames('env-card-label-name', className)}>{env.name}</div>
                         {Object.values(env.locks).length !== 0 ? (
@@ -154,7 +164,7 @@ export const EnvironmentList: React.FC<{ envs: Environment[]; release: Release; 
                                         }>
                                         <div>
                                             <Button
-                                                icon={<LocksWhite className="env-card-env-lock-icon" />}
+                                                icon={<LocksWhite className="env-card-env-lock-icon"/>}
                                                 className={'button-lock'}
                                             />
                                         </div>
@@ -183,7 +193,7 @@ export const EnvironmentList: React.FC<{ envs: Environment[]; release: Release; 
                                         }>
                                         <div>
                                             <Button
-                                                icon={<Locks className="env-card-app-lock" />}
+                                                icon={<Locks className="env-card-app-lock"/>}
                                                 className={'button-lock'}
                                             />
                                         </div>
@@ -198,13 +208,13 @@ export const EnvironmentList: React.FC<{ envs: Environment[]; release: Release; 
                         : env.name + ' is deployed to version ' + env.applications[app].version}
                 </div>
                 <div className="env-card-buttons">
-                    <Button className="env-card-add-lock-btn" label="Add lock" icon={<Locks className="icon" />} />
-                    <Button className="env-card-deploy-btn" label="Deploy" />
+                    <Button className="env-card-add-lock-btn" label="Add lock" icon={<Locks className="icon"/>}/>
+                    <Button className="env-card-deploy-btn" label="Deploy"/>
                 </div>
             </li>
         ))}
-    </ul>
-);
+    </ul>);
+};
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, release, envs } = props;

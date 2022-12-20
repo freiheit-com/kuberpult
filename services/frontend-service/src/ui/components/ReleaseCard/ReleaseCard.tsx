@@ -39,9 +39,9 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
         updateReleaseDialog(app, version);
     }, [app, version]);
 
-    const envs: Environment[] = useOverview((x) => Object.values(x.environments));
-    const sortedEnvs: Environment[] = sortEnvironmentsByUpstream(envs);
-    const envPrioMap: EnvPrioMap = calculateEnvironmentPriorities(envs);
+    const allEnvs: Environment[] = useOverview((x) => Object.values(x.environments));
+    const sortedEnvs: Environment[] = sortEnvironmentsByUpstream(allEnvs);
+    const envPrioMap: EnvPrioMap = calculateEnvironmentPriorities(allEnvs);
     const envsForAppSorted = sortedEnvs.filter((env: Environment) => environmentsForApp.includes(env));
 
     useEffect(() => {
