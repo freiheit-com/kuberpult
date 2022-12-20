@@ -357,6 +357,10 @@ export const useCurrentlyDeployedAt = (application: string, version: number) =>
         )
     );
 
+// returns the environments where an app is currently deployed
+export const useAllDeployedAt = (application: string) =>
+    useOverview(({ environments }) => Object.values(environments).filter((env) => env.applications[application]));
+
 // Get release information for a version
 export const useReleaseInfo = (app: string, version: number) =>
     useOverview(({ applications }) => {

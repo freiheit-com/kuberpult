@@ -48,7 +48,7 @@ export const sortEnvironmentsByUpstream = (envs: Environment[]): Environment[] =
         if (distance[a.name] < distance[b.name]) return -1;
         return 1;
     });
-    return sortedEnvs.reverse();
+    return sortedEnvs;
 };
 
 export const calculateDistanceToUpstream = (envs: Environment[]): EnvSortOrder => {
@@ -151,7 +151,9 @@ export const EnvironmentList: React.FC<{ envs: Environment[]; release: Release; 
                     </div>
                 </div>
                 <div className={classNames('env-card-data', className)}>
-                    {release.sourceCommitId}:{release.sourceMessage}
+                    {release.version === env.applications[app].version
+                        ? release.sourceCommitId + ':' + release.sourceMessage
+                        : env.name + ' is deployed to version ' + env.applications[app].version}
                 </div>
                 <div className="env-card-buttons">
                     <Button className="env-card-add-lock-btn" label="Add lock" icon={<Locks className="icon" />} />
