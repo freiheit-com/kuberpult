@@ -28,6 +28,7 @@
     "test": "react-scripts test --color",
     "start": "react-scripts start",
     "eslint": "eslint --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
+    "eslint-fix": "eslint --fix --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
     "circular-check": "madge -c --extensions ts,tsx --ts-config tsconfig.json --no-spinner src/"
   },
   "devDependencies": {
