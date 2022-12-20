@@ -1,12 +1,11 @@
-@use '@material/typography/mdc-typography';
-@use '@material/card/mdc-card';
-
 .release-card-mini {
-  border-radius: 10px;
   color: var(--mdc-theme-on-surface);
   box-shadow: none;
   width: inherit;
   display: flex;
+  background: #F7F9FA;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .release__details-mini {
@@ -15,15 +14,52 @@
   font-size: 14px;
   line-height: 32px;
   width: inherit;
+  margin: 10px;
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 32px;
+  color: #4A4A4A;
+}
+
+.release__details-header {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 32px;
+  color: #4A4A4A;
+}
+
+.release__details-msg {
+  height: 100%;
+  font-weight: 600;
+  margin: 5px;
+  font-size: 14px;
+  line-height: 32px;
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 24px;
+  color: #4A4A4A;
 }
 
 .release__environments-mini {
   font-weight: 600;
   font-size: 14px;
   line-height: 32px;
-  margin-left: 20px;
+  margin: 5px;
+}
 
-  > *:not(:last-child) {
-    margin-right: 8px;
-  }
+.release-environment {
+  float: right;
+  margin-right: 20px;
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 24px;
+  margin: 5px;
 }
