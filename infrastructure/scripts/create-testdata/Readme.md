@@ -1,3 +1,5 @@
+# How to set up test data
+
 To set up kuberpult, you need a manifest repo.
 For local testing, you can create one with
 `git init --bare`
