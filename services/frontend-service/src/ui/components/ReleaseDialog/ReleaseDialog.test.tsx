@@ -30,6 +30,7 @@ describe('Release Dialog', () => {
         props: ReleaseDialogProps;
         rels: Release[];
         expect_message: boolean;
+        data_length: number;
     }
     const data: dataT[] = [
         {
@@ -65,6 +66,55 @@ describe('Release Dialog', () => {
             rels: [],
 
             expect_message: true,
+            data_length: 1,
+        },
+        {
+            name: 'two envs release',
+            props: {
+                app: 'test1',
+                version: 2,
+                release: {
+                    version: 2,
+                    sourceMessage: 'test1',
+                    sourceAuthor: 'test',
+                    sourceCommitId: 'commit',
+                    createdAt: new Date(2002),
+                    undeployVersion: false,
+                    prNumber: '#1337',
+                },
+                envs: [
+                    {
+                        name: 'prod',
+                        locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
+                        applications: {
+                            test1: {
+                                name: 'test1',
+                                version: 2,
+                                locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
+                    },
+                    {
+                        name: 'dev',
+                        locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
+                        applications: {
+                            test1: {
+                                name: 'test1',
+                                version: 3,
+                                locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                            },
+                        },
+                    },
+                ],
+            },
+            rels: [],
+
+            expect_message: true,
+            data_length: 2,
         },
         {
             name: 'no release',
@@ -76,6 +126,7 @@ describe('Release Dialog', () => {
             },
             rels: [],
             expect_message: false,
+            data_length: 0,
         },
     ];
 
@@ -95,6 +146,7 @@ describe('Release Dialog', () => {
             } else {
                 expect(document.querySelector('.release-dialog-message') === undefined);
             }
+            expect(document.querySelectorAll('.env-card-data')).toHaveLength(testcase.data_length);
         });
     });
 
@@ -200,22 +252,22 @@ const data = [
     {
         type: 'simple chain',
         envs: getEnvs('chain'),
-        expect: ['env4', 'env3', 'env2', 'env1', 'env0'],
+        expect: ['env0', 'env1', 'env2', 'env3', 'env4'],
     },
     {
         type: 'simple tree',
         envs: getEnvs('tree'),
-        expect: ['env1', 'env0', 'env2', 'env4', 'env3'],
+        expect: ['env3', 'env4', 'env2', 'env0', 'env1'],
     },
     {
         type: 'simple cycle',
         envs: getEnvs('cycle'),
-        expect: ['env3', 'env1', 'env0', 'env2', 'env4'],
+        expect: ['env4', 'env2', 'env0', 'env1', 'env3'],
     },
     {
         type: 'no-config',
         envs: getEnvs('no-config'),
-        expect: ['env4', 'env3', 'env2', 'env1', 'env0'],
+        expect: ['env0', 'env1', 'env2', 'env3', 'env4'],
     },
 ];
 

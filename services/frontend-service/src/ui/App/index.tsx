@@ -20,13 +20,7 @@ import { ReleaseDialog } from '../components/ReleaseDialog/ReleaseDialog';
 import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
-import {
-    PanicOverview,
-    UpdateOverview,
-    useReleaseDialog,
-    useCurrentlyDeployedAt,
-    useReleaseInfo,
-} from '../utils/store';
+import { PanicOverview, UpdateOverview, useReleaseDialog, useAllDeployedAt, useReleaseInfo } from '../utils/store';
 import { useApi } from '../utils/GrpcApi';
 import { AzureAuthProvider, UpdateFrontendConfig, useAzureAuthSub } from '../utils/AzureAuthProvider';
 
@@ -73,7 +67,7 @@ export const App: React.FC = () => {
     );
 
     const { app, version } = useReleaseDialog(({ app, version }) => ({ app, version }));
-    const envs = useCurrentlyDeployedAt(app, version);
+    const envs = useAllDeployedAt(app);
     const releaseInfo = useReleaseInfo(app, version);
 
     return (
