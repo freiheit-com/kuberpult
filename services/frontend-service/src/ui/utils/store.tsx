@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { Application, BatchRequest, GetOverviewResponse, BatchAction } from '../../api/api';
+import { Application, BatchRequest, GetOverviewResponse, BatchAction, Release } from '../../api/api';
 import { useApi } from './GrpcApi';
 
 export interface DisplayLock {
@@ -348,15 +348,13 @@ export const useDeployedReleases = (application: string) =>
 // returns the environments where a release is currently deployed
 export const useCurrentlyDeployedAt = (application: string, version: number) =>
     useOverview(({ environments }) =>
-        Object.values(environments)
-            .filter(
-                (env) =>
-                    env.applications[application] &&
-                    (version === -1
-                        ? env.applications[application].undeployVersion
-                        : env.applications[application].version === version)
-            )
-            .map((e) => e.name)
+        Object.values(environments).filter(
+            (env) =>
+                env.applications[application] &&
+                (version === -1
+                    ? env.applications[application].undeployVersion
+                    : env.applications[application].version === version)
+        )
     );
 
 // Get release information for a version
@@ -364,7 +362,7 @@ export const useReleaseInfo = (app: string, version: number) =>
     useOverview(({ applications }) => {
         const releaseInfo = applications[app]?.releases.filter((release) => release.version === version)[0];
         if (!releaseInfo) {
-            return {};
+            return {} as Release;
         }
         return releaseInfo;
     });
