@@ -46,19 +46,19 @@ describe('Chip', () => {
 const data = [
     {
         envPrio: EnvPrio.PROD,
-        expectedClass: "prod"
+        expectedClass: 'prod',
     },
     {
         envPrio: EnvPrio.PRE_PROD,
-        expectedClass: "pre_prod"
+        expectedClass: 'pre_prod',
     },
     {
         envPrio: EnvPrio.UPSTREAM,
-        expectedClass: "upstream"
+        expectedClass: 'upstream',
     },
     {
         envPrio: EnvPrio.OTHER,
-        expectedClass: "other"
+        expectedClass: 'other',
     },
 ];
 
@@ -67,7 +67,8 @@ describe.each(data)(`Chip with envPrio Classname`, (testcase) => {
         const getNode = () => <Chip className={'chip--hello'} label={'Test Me'} priority={testcase.envPrio} />;
         const getWrapper = () => render(getNode());
         const { container } = getWrapper();
-        expect(container.firstChild).toHaveClass("mdc-evolution-chip chip--hello chip--hello-" + testcase.expectedClass);
-
+        expect(container.firstChild).toHaveClass(
+            'mdc-evolution-chip chip--hello chip--hello-' + testcase.expectedClass
+        );
     });
 });

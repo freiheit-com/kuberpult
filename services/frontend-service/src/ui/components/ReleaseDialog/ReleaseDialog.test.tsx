@@ -15,7 +15,9 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import {
-    calculateDistanceToUpstream, calculateEnvironmentPriorities, EnvPrio,
+    calculateDistanceToUpstream,
+    calculateEnvironmentPriorities,
+    EnvPrio,
     ReleaseDialog,
     ReleaseDialogProps,
     sortEnvironmentsByUpstream,
@@ -244,7 +246,7 @@ const getEnvs = (testcase: string): Environment[] => {
                 getEnvironment('env3'),
             ];
         default:
-            throw new Error("bad test: " + testcase);
+            throw new Error('bad test: ' + testcase);
     }
 };
 
@@ -280,26 +282,43 @@ describe.each(sortByUpstreamData)(`Environment set`, (testcase) => {
     });
 });
 
-
 const calcEnvPrioData = [
     {
         type: 'chain',
-        expect: {'env0': EnvPrio.UPSTREAM, 'env4': EnvPrio.PROD, 'env3': EnvPrio.PRE_PROD, 'env2': EnvPrio.OTHER, 'env1': EnvPrio.OTHER },
+        expect: {
+            env0: EnvPrio.UPSTREAM,
+            env4: EnvPrio.PROD,
+            env3: EnvPrio.PRE_PROD,
+            env2: EnvPrio.OTHER,
+            env1: EnvPrio.OTHER,
+        },
     },
     {
         type: 'tree',
-        expect: {'env0': EnvPrio.PROD, 'env4': EnvPrio.UPSTREAM, 'env3': EnvPrio.UPSTREAM, 'env2': EnvPrio.PRE_PROD, 'env1': EnvPrio.PROD },
+        expect: {
+            env0: EnvPrio.PROD,
+            env4: EnvPrio.UPSTREAM,
+            env3: EnvPrio.UPSTREAM,
+            env2: EnvPrio.PRE_PROD,
+            env1: EnvPrio.PROD,
+        },
     },
     {
         // the main point here is that it doesn't crash
         // we do not fully support disconnected trees
         type: 'cycle',
-        expect: {'env0': EnvPrio.PROD, 'env4': EnvPrio.UPSTREAM, 'env3': EnvPrio.PROD, 'env2': EnvPrio.OTHER, 'env1': EnvPrio.PROD },
+        expect: {
+            env0: EnvPrio.PROD,
+            env4: EnvPrio.UPSTREAM,
+            env3: EnvPrio.PROD,
+            env2: EnvPrio.OTHER,
+            env1: EnvPrio.PROD,
+        },
     },
     {
         // the main point here is that it doesn't crash
         type: 'no-config',
-        expect: {'env0': EnvPrio.PROD, 'env4': EnvPrio.PROD, 'env3': EnvPrio.PROD, 'env2': EnvPrio.PROD, 'env1': EnvPrio.PROD },
+        expect: { env0: EnvPrio.PROD, env4: EnvPrio.PROD, env3: EnvPrio.PROD, env2: EnvPrio.PROD, env1: EnvPrio.PROD },
     },
 ];
 

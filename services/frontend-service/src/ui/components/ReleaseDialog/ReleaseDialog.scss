@@ -82,21 +82,12 @@
         display: flex;
         flex-direction: row;
         justify-content: space-between;
-
-        .env-card-label {
-          border-radius: 10px;
-          width: auto;
-          height: 42px;
-          padding: 10px;
-          background-color: #FF8A00;
-          color: var(--mdc-theme-on-primary);
-          @extend .text-bold;
-          position: relative;
+        .release-environment {
           top: -10px;
           left: -10px;
-          display: flex;
-          flex-direction: row;
-
+          height: 42px;
+        }
+        .env-card-label {
           svg.env-card-env-lock-icon {
             width: 24px;
             height: 24px;
