@@ -28,7 +28,8 @@ cd ../..
 - the value of environment variables are defaulted to `KUBERPULT_GIT_URL=./repository_remote` and `KUBERPULT_GIT_BRANCH=master`
 - run the following command to start all the services required. The `--build` parameter ensures re-building any changes you may have added to the code
 
-For details on how to fill the repo, see `Readme_testdata.md`.
+For details on how to fill the repo, see the
+[Readme for testdata](infrastructure/scripts/create-testdata/Readme.md)
 
 ```bash
 docker-compose up --build

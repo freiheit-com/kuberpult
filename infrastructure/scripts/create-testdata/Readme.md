@@ -1,7 +1,7 @@
 To set up kuberpult, you need a manifest repo.
 For local testing, you can create one with
 `git init --bare`
-It's important that this directory is called `repository`
+It's important that this directory is called `repository_remote`
 and is directly under `services/cd-service`.
 
 Bare repositories are good for kuberpult, but not daily work.
@@ -15,7 +15,8 @@ For environments, just copy`testdata_template` to the root of your manifest repo
 Commit and push (you may need `--force` to push).
 
 For releases, ensure kuberpult is running (use the docker-compose file),
-and then run `./create-release.sh` and `./run-releasetrain.sh` several times.
+and then run `./create-release.sh my-service my-team`
+and `./run-releasetrain.sh fakeprod` `./run-releasetrain.sh staging` several times.
 
 All remaining operations should be easily doable via the UI.
 
