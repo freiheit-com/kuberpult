@@ -29,6 +29,6 @@
     ]
   },
   "upstream": {
-    "environment": "development2"
+    "environment": "development"
   }
 }
