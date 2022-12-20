@@ -64,7 +64,7 @@ export const calculateEnvironmentPriorities = (envs: Environment[]): EnvPrioMap 
     envs.forEach((env: Environment) => {
         maxDistance = Math.max(maxDistance, distances[env.name]);
     });
-    // now that we have the maximum, we can assign prod and pre-prod:
+    // now assign each environment a prio:
     envs.forEach((env: Environment) => {
         if (distances[env.name] === maxDistance) {
             result[env.name] = EnvPrio.PROD;
