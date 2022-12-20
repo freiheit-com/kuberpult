@@ -36,11 +36,13 @@ const setClosed = () => {
 
 export type EnvSortOrder = { [index: string]: number };
 
+// do not rename!
+// these are mapped directly to css classes in chip.tsx
 export enum EnvPrio {
-    PROD = 0,
-    PRE_PROD = 1,
-    UPSTREAM = 2,
-    OTHER = -1,
+    PROD,
+    PRE_PROD,
+    UPSTREAM,
+    OTHER,
 }
 
 export type EnvPrioMap = { [key: string]: EnvPrio };

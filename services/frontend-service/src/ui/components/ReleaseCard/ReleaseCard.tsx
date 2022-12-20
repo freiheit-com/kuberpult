@@ -21,7 +21,7 @@ import { MDCRipple } from '@material/ripple';
 import { updateReleaseDialog, useCurrentlyDeployedAt, useOverview, useRelease } from '../../utils/store';
 import { Chip } from '../chip';
 import { Environment } from '../../../api/api';
-import { calculateEnvironmentPriorities, EnvPrioMap } from '../ReleaseDialog/ReleaseDialog';
+import { calculateEnvironmentPriorities, EnvPrioMap, sortEnvironmentsByUpstream } from '../ReleaseDialog/ReleaseDialog';
 
 export type ReleaseCardProps = {
     className?: string;
@@ -34,14 +34,15 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const control = useRef<HTMLDivElement>(null);
     const { className, app, version } = props;
     const { createdAt, sourceMessage, sourceCommitId, sourceAuthor } = useRelease(app, version);
-    const environments = useCurrentlyDeployedAt(app, version);
+    const environmentsForApp = useCurrentlyDeployedAt(app, version);
     const clickHanlder = React.useCallback(() => {
         updateReleaseDialog(app, version);
     }, [app, version]);
 
-    const envs: Environment[] = useOverview((x) => Object.values(x));
-    // const sortedEnvs: Environment[] = sortEnvironmentsByUpstream(envs);
+    const envs: Environment[] = useOverview((x) => Object.values(x.environments));
+    const sortedEnvs: Environment[] = sortEnvironmentsByUpstream(envs);
     const envPrioMap: EnvPrioMap = calculateEnvironmentPriorities(envs);
+    const envsForAppSorted = sortedEnvs.filter((env: Environment) => environmentsForApp.includes(env));
 
     useEffect(() => {
         if (control.current) {
@@ -69,9 +70,9 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                     <div className="release__author mdc-typography--body1">{'Author: ' + sourceAuthor}</div>
                 </div>
                 <div className="release__environments">
-                    {environments.map((env) => (
+                    {envsForAppSorted.map((env) => (
                         <Chip
-                            className={'release-environment order-second'}
+                            className={'release-environment'}
                             label={env.name}
                             key={env.name}
                             priority={envPrioMap[env.name]}
