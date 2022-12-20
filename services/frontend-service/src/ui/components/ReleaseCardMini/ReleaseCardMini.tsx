@@ -54,14 +54,13 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
 
     return (
         <div className={classNames('release-card-mini', className)} onClick={clickHanlder}>
-            <div className="mdc-card__primary-action">
-                <div className="mdc-card__ripple"></div>
-                <div className="mdc-typography--headline6">{sourceMessage}</div>
-                <div className="release__details-mini mdc-typography--body1">{msg}</div>
+            <div className={classNames('release__details-mini', className)}>
+                <div className="release__details-header">{sourceMessage}</div>
+                <div className="release__details-msg">{msg}</div>
             </div>
             <div className="release__environments-mini">
                 {environments.map((env) => (
-                    <Chip className={'release-environment'} label={env.name} key={env.name} />
+                    <Chip className={classNames('release-environment', className)} label={env.name} key={env.name} />
                 ))}
             </div>
         </div>
