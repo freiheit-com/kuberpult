@@ -34,9 +34,9 @@ const setClosed = () => {
     updateReleaseDialog('', 0);
 };
 
-type EnvSortOrder = { [index: string]: number };
+export type EnvSortOrder = { [index: string]: number };
 
-const sortEnvironmentsByUpstream = (envs: Environment[]): Environment[] => {
+export const sortEnvironmentsByUpstream = (envs: Environment[]): Environment[] => {
     const sortedEnvs = [...envs];
     const distance = calculateDistanceToUpstream(envs);
     sortedEnvs.sort((a: Environment, b: Environment) => {

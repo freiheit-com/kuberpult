@@ -14,10 +14,15 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
+import {
+    calculateDistanceToUpstream,
+    ReleaseDialog,
+    ReleaseDialogProps,
+    sortEnvironmentsByUpstream,
+} from './ReleaseDialog';
 import { render } from '@testing-library/react';
 import { UpdateOverview, updateReleaseDialog } from '../../utils/store';
-import { Release } from '../../../api/api';
+import { Environment, Environment_Config_Upstream, Release } from '../../../api/api';
 
 describe('Release Dialog', () => {
     interface dataT {
@@ -121,5 +126,104 @@ describe('Release Dialog', () => {
                 );
             });
         });
+    });
+});
+
+// testing the sort function for environments
+const getUpstream = (env: string): Environment_Config_Upstream =>
+    env === 'latest'
+        ? {
+              upstream: {
+                  $case: 'latest',
+                  latest: true,
+              },
+          }
+        : {
+              upstream: {
+                  $case: 'environment',
+                  environment: env,
+              },
+          };
+
+const getEnvironment = (name: string, upstreamEnv?: string): Environment => ({
+    name: name,
+    locks: {},
+    applications: {},
+    ...(upstreamEnv && {
+        config: {
+            upstream: getUpstream(upstreamEnv),
+        },
+    }),
+});
+
+// original order [ 4, 2, 0, 1, 3 ]
+const getEnvs = (testcase: string): Environment[] => {
+    switch (testcase) {
+        case 'chain':
+            return [
+                getEnvironment('env4', 'env3'),
+                getEnvironment('env2', 'env1'),
+                getEnvironment('env0', 'latest'),
+                getEnvironment('env1', 'env0'),
+                getEnvironment('env3', 'env2'),
+            ];
+        case 'tree':
+            return [
+                getEnvironment('env4', 'latest'),
+                getEnvironment('env2', 'env3'),
+                getEnvironment('env0', 'env2'),
+                getEnvironment('env1', 'env2'),
+                getEnvironment('env3', 'latest'),
+            ];
+        case 'cycle':
+            return [
+                getEnvironment('env4', 'latest'),
+                getEnvironment('env2', 'env4'),
+                getEnvironment('env0', 'env3'),
+                getEnvironment('env1', 'env0'),
+                getEnvironment('env3', 'env1'),
+            ];
+        case 'no-config':
+            return [
+                getEnvironment('env4'),
+                getEnvironment('env2'),
+                getEnvironment('env0'),
+                getEnvironment('env1'),
+                getEnvironment('env3'),
+            ];
+        default:
+            return [];
+    }
+};
+
+const data = [
+    {
+        type: 'simple chain',
+        envs: getEnvs('chain'),
+        expect: ['env4', 'env3', 'env2', 'env1', 'env0'],
+    },
+    {
+        type: 'simple tree',
+        envs: getEnvs('tree'),
+        expect: ['env1', 'env0', 'env2', 'env4', 'env3'],
+    },
+    {
+        type: 'simple cycle',
+        envs: getEnvs('cycle'),
+        expect: ['env3', 'env1', 'env0', 'env2', 'env4'],
+    },
+    {
+        type: 'no-config',
+        envs: getEnvs('no-config'),
+        expect: ['env4', 'env3', 'env2', 'env1', 'env0'],
+    },
+];
+
+describe.each(data)(`Environment set`, (testcase) => {
+    it(`with expected ${testcase.type} order`, () => {
+        const sortedEnvs = sortEnvironmentsByUpstream(testcase.envs);
+        calculateDistanceToUpstream(testcase.envs);
+        const sortedList = sortedEnvs.map((a) => a.name);
+        expect(sortedList).toStrictEqual(testcase.expect);
     });
 });
