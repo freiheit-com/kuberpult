@@ -36,14 +36,12 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/yaml.v2"
-
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"go.uber.org/zap"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/go-git/go-billy/v5"
@@ -866,7 +864,7 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 			}
 			return nil, err
 		}
-		err = yaml.Unmarshal(buf, &result)
+		err = json.Unmarshal(buf, &result)
 		if err != nil {
 			return nil, err
 		}

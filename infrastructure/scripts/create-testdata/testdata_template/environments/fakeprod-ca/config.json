@@ -28,6 +28,7 @@
       }
     ]
   },
+  "environmentGroup": "prod",
   "upstream": {
     "environment": "staging"
   }

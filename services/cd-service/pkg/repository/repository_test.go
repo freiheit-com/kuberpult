@@ -366,7 +366,7 @@ func TestBootstrapModeReadConfig(t *testing.T) {
 			cmd.Wait()
 
 			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
-			if err := os.WriteFile(environmentConfigsPath, []byte(`{"uniqueEnv": {"upstream": {"latest": true}}}`), fs.FileMode(0644)); err != nil {
+			if err := os.WriteFile(environmentConfigsPath, []byte(`{"uniqueEnv": {"environmentGroup": "testgroup321", "upstream": {"latest": true}}}`), fs.FileMode(0644)); err != nil {
 				t.Fatal(err)
 			}
 
@@ -396,6 +396,12 @@ func TestBootstrapModeReadConfig(t *testing.T) {
 			}
 			if configs["uniqueEnv"].Upstream.Latest != true {
 				t.Fatal("Configuration not read properly")
+			}
+			if configs["uniqueEnv"].EnvironmentGroup == nil {
+				t.Fatalf("EnvironmentGroup not read, found nil")
+			}
+			if *configs["uniqueEnv"].EnvironmentGroup != "testgroup321" {
+				t.Fatalf("EnvironmentGroup not read, found '%s' instead", *configs["uniqueEnv"].EnvironmentGroup)
 			}
 		})
 	}
