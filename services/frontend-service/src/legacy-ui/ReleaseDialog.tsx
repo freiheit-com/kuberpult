@@ -172,7 +172,7 @@ const ReleaseLockButtonInner = (props: {
     queueHint?: boolean;
 }) => {
     const { lock, queueHint, inCart, addToCart } = props;
-    const msg = queueHint ? 'When you unlock the last lock the queue will be deployed!' : '';
+    const msg = queueHint ? ' ' : '';
     return (
         <Tooltip
             arrow
