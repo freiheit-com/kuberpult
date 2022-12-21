@@ -25,7 +25,7 @@ package setup
 Example:
 
 func main() {
-	Run(Config{
+	Run(ServerConfig{
 		GRPCProxy: &GRPCProxyConfig{
 			Port: "8000",
 			Register: func(mux *runtime.ServeMux) {

@@ -93,7 +93,7 @@ type BackgroundTaskConfig struct {
 
 // Config contains configurations for all servers & tasks will be started.
 // A startup order is not guaranteed.
-type Config struct {
+type ServerConfig struct {
 	GRPC *GRPCConfig
 	HTTP []HTTPConfig
 	// BackgroundTasks are tasks that are running forever, like Pub/sub receiver. If they
@@ -102,7 +102,7 @@ type Config struct {
 	Shutdown   func(context.Context) error
 }
 
-func Run(ctx context.Context, config Config) {
+func Run(ctx context.Context, config ServerConfig) {
 	s := &setup{}
 
 	ctx, cancel := context.WithCancel(ctx)

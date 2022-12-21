@@ -142,7 +142,7 @@ func TestGracefulShutdown(t *testing.T) {
 
 			cleanShutdownCh := make(chan bool, 1)
 
-			cfg := Config{
+			cfg := ServerConfig{
 				HTTP: []HTTPConfig{
 					{
 						Port:      tc.port,
