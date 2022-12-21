@@ -241,7 +241,7 @@ func RunServer() {
 			NextHandler: authHandler,
 		}
 
-		setup.Run(ctx, setup.Config{
+		setup.Run(ctx, setup.ServerConfig{
 			HTTP: []setup.HTTPConfig{
 				{
 					Port: "8081",

@@ -151,7 +151,7 @@ func RunServer() {
 
 		// Shutdown channel is used to terminate server side streams.
 		shutdownCh := make(chan struct{})
-		setup.Run(ctx, setup.Config{
+		setup.Run(ctx, setup.ServerConfig{
 			HTTP: []setup.HTTPConfig{
 				{
 					Port: "8080",
