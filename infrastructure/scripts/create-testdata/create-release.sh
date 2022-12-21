@@ -21,7 +21,7 @@ configuration=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
 
 manifests=()
-for env in development development2 staging fakeprod
+for env in development development2 staging fakeprod-de fakeprod-ca
 do
   file=$(mktemp "${TMPDIR:-/tmp}/$env.XXXXXX")
   echo "---" > ${file}

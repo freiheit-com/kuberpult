@@ -19,6 +19,7 @@ package config
 type EnvironmentConfig struct {
 	Upstream *EnvironmentConfigUpstream `json:"upstream,omitempty"`
 	ArgoCd   *EnvironmentConfigArgoCd   `json:"argocd,omitempty"`
+	EnvironmentGroup *string            `json:"environmentGroup,omitempty"`
 }
 
 type EnvironmentConfigUpstream struct {

@@ -177,6 +177,7 @@ message Environment {
       }
     }
     Upstream upstream = 1;
+    optional string environmentGroup = 2;
   }
 
   message Application {
