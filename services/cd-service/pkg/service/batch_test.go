@@ -313,7 +313,7 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 	cmd.Wait()
 	repo, err := repository.New(
 		context.Background(),
-		repository.Config{
+		repository.RepositoryConfig{
 			URL:            remoteDir,
 			Path:           localDir,
 			CommitterEmail: "kuberpult@freiheit.com",

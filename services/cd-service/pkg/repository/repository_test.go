@@ -49,7 +49,7 @@ func TestNew(t *testing.T) {
 				// run the initialization code once
 				_, err := New(
 					context.Background(),
-					Config{
+					RepositoryConfig{
 						URL:  "file://" + remoteDir,
 						Path: localDir,
 					},
@@ -75,7 +75,7 @@ func TestNew(t *testing.T) {
 				// run the initialization code once
 				repo, err := New(
 					context.Background(),
-					Config{
+					RepositoryConfig{
 						URL:  remoteDir,
 						Path: localDir,
 					},
@@ -110,7 +110,7 @@ func TestNew(t *testing.T) {
 				// run the initialization code once
 				repo, err := New(
 					context.Background(),
-					Config{
+					RepositoryConfig{
 						URL:  remoteDir,
 						Path: t.TempDir(),
 					},
@@ -265,7 +265,7 @@ func TestNew(t *testing.T) {
 			tc.Setup(t, remoteDir, localDir)
 			repo, err := New(
 				context.Background(),
-				Config{
+				RepositoryConfig{
 					URL:    "file://" + remoteDir,
 					Path:   localDir,
 					Branch: tc.Branch,
@@ -311,7 +311,7 @@ func TestBootstrapModeNew(t *testing.T) {
 			if tc.PreInitialize {
 				_, err := New(
 					context.Background(),
-					Config{
+					RepositoryConfig{
 						URL:  "file://" + remoteDir,
 						Path: localDir,
 					},
@@ -325,7 +325,7 @@ func TestBootstrapModeNew(t *testing.T) {
 
 			repo, err := New(
 				context.Background(),
-				Config{
+				RepositoryConfig{
 					URL:                    "file://" + remoteDir,
 					Path:                   localDir,
 					BootstrapMode:          true,
@@ -372,7 +372,7 @@ func TestBootstrapModeReadConfig(t *testing.T) {
 
 			repo, err := New(
 				context.Background(),
-				Config{
+				RepositoryConfig{
 					URL:                    "file://" + remoteDir,
 					Path:                   localDir,
 					BootstrapMode:          true,
@@ -431,7 +431,7 @@ func TestBootstrapError(t *testing.T) {
 
 			_, err := New(
 				context.Background(),
-				Config{
+				RepositoryConfig{
 					URL:                    "file://" + remoteDir,
 					Path:                   localDir,
 					BootstrapMode:          true,
@@ -539,7 +539,7 @@ func TestConfigReload(t *testing.T) {
 
 		repo, err := New(
 			context.Background(),
-			Config{
+			RepositoryConfig{
 				URL:  remoteDir,
 				Path: t.TempDir(),
 			},
@@ -663,7 +663,7 @@ func TestConfigValidity(t *testing.T) {
 
 			_, err = New(
 				context.Background(),
-				Config{
+				RepositoryConfig{
 					URL:  remoteDir,
 					Path: t.TempDir(),
 				},
@@ -752,7 +752,7 @@ func TestGc(t *testing.T) {
 				cmd.Wait()
 				repo, err := New(
 					context.Background(),
-					Config{
+					RepositoryConfig{
 						URL:         "file://" + remoteDir,
 						Path:        localDir,
 						GcFrequency: gcFrequency,
@@ -948,7 +948,7 @@ func TestApplyQueuePanic(t *testing.T) {
 			cmd.Wait()
 			repo, err := New(
 				context.Background(),
-				Config{
+				RepositoryConfig{
 					URL:  "file://" + remoteDir,
 					Path: localDir,
 				},
@@ -1173,7 +1173,7 @@ func TestApplyQueue(t *testing.T) {
 			cmd.Wait()
 			repo, err := New(
 				context.Background(),
-				Config{
+				RepositoryConfig{
 					URL:  "file://" + remoteDir,
 					Path: localDir,
 				},
@@ -1305,7 +1305,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 
 	repo, err := New(
 		context.Background(),
-		Config{
+		RepositoryConfig{
 			URL:  "file://" + remoteDir,
 			Path: localDir,
 		},
