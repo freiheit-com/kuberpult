@@ -16,36 +16,59 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { Chip } from './chip';
 import { render } from '@testing-library/react';
+import { EnvPrio } from '../ReleaseDialog/ReleaseDialog';
 
 describe('Chip', () => {
-    const getNode = () => <Chip className={'chip--test'} label={'Test Me'} />;
+    const getNode = () => <Chip className={'chip--test'} label={'Test Me'} priority={EnvPrio.PROD} />;
     const getWrapper = () => render(getNode());
     it('renders a chip', () => {
         const { container } = getWrapper();
         expect(container.firstChild).toMatchInlineSnapshot(`
             <span
-              class="mdc-evolution-chip chip--test"
+              class="mdc-evolution-chip chip--test chip--test-prod"
               role="row"
             >
               <span
-                class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary"
+                class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
                 role="gridcell"
               >
-                <button
-                  class="mdc-evolution-chip__action mdc-evolution-chip__action--primary"
-                  type="button"
+                <span
+                  class="mdc-evolution-chip__text-label"
                 >
-                  <span
-                    class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"
-                  />
-                  <span
-                    class="mdc-evolution-chip__text-label"
-                  >
-                    Test Me
-                  </span>
-                </button>
+                  Test Me
+                </span>
               </span>
             </span>
         `);
+    });
+});
+
+const data = [
+    {
+        envPrio: EnvPrio.PROD,
+        expectedClass: 'prod',
+    },
+    {
+        envPrio: EnvPrio.PRE_PROD,
+        expectedClass: 'pre_prod',
+    },
+    {
+        envPrio: EnvPrio.UPSTREAM,
+        expectedClass: 'upstream',
+    },
+    {
+        envPrio: EnvPrio.OTHER,
+        expectedClass: 'other',
+    },
+];
+
+describe.each(data)(`Chip with envPrio Classname`, (testcase) => {
+    it(`with envPrio=${testcase.envPrio}`, () => {
+        const getNode = () => <Chip className={'chip--hello'} label={'Test Me'} priority={testcase.envPrio} />;
+        const getWrapper = () => render(getNode());
+        const { container } = getWrapper();
+        expect(container.firstChild).toHaveClass(
+            'mdc-evolution-chip chip--hello chip--hello-' + testcase.expectedClass
+        );
     });
 });

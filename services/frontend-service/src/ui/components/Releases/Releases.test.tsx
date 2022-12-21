@@ -81,7 +81,7 @@ describe('Release Dialog', () => {
         it(testcase.name, () => {
             // when
             UpdateOverview.set({
-                applications: { ['test']: { releases: testcase.releases } },
+                applications: { test: { releases: testcase.releases } },
                 environments: {},
             } as any);
             render(<Releases app="test" />);
