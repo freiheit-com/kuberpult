@@ -70,7 +70,7 @@ type repository struct {
 	writesDone   uint
 	queue        queue
 	remote       *git.Remote
-	config       *Config
+	config       *RepositoryConfig
 	credentials  *credentialsStore
 	certificates *certificateStore
 
@@ -82,7 +82,7 @@ type repository struct {
 	notify notify.Notify
 }
 
-type Config struct {
+type RepositoryConfig struct {
 	// Mandatory Config
 	URL  string
 	Path string
@@ -124,7 +124,7 @@ func openOrCreate(path string) (*git.Repository, error) {
 }
 
 // Opens a repository. The repository is initialized and updated in the background.
-func New(ctx context.Context, cfg Config) (Repository, error) {
+func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	logger := logger.FromContext(ctx)
 
 	ddMetricsFromCtx := ctx.Value("ddMetrics")

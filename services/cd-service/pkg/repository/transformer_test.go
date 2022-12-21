@@ -1928,7 +1928,7 @@ spec:
 			cmd.Wait()
 			repo, err := New(
 				context.Background(),
-				Config{
+				RepositoryConfig{
 					URL:            remoteDir,
 					Path:           localDir,
 					CommitterEmail: "kuberpult@freiheit.com",
@@ -2115,7 +2115,7 @@ func setupRepositoryTest(t *testing.T) Repository {
 	cmd.Wait()
 	repo, err := New(
 		context.Background(),
-		Config{
+		RepositoryConfig{
 			URL:            remoteDir,
 			Path:           localDir,
 			CommitterEmail: "kuberpult@freiheit.com",

@@ -291,7 +291,7 @@ func TestServeHttp(t *testing.T) {
 			cmd.Wait()
 			repo, err := repository.New(
 				context.Background(),
-				repository.Config{
+				repository.RepositoryConfig{
 					URL:            remoteDir,
 					Path:           localDir,
 					CommitterEmail: "kuberpult@freiheit.com",
@@ -437,7 +437,7 @@ func TestServeHttpEmptyBody(t *testing.T) {
 			cmd.Wait()
 			repo, err := repository.New(
 				context.Background(),
-				repository.Config{
+				repository.RepositoryConfig{
 					URL:            remoteDir,
 					Path:           localDir,
 					CommitterEmail: "kuberpult@freiheit.com",

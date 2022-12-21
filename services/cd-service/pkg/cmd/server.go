@@ -119,7 +119,7 @@ func RunServer() {
 		// If the tracer is not started, calling this function is a no-op.
 		span, ctx := tracer.StartSpanFromContext(ctx, "Start server")
 
-		repo, err := repository.New(ctx, repository.Config{
+		repo, err := repository.New(ctx, repository.RepositoryConfig{
 			URL:            c.GitUrl,
 			Path:           "./repository",
 			CommitterEmail: c.GitCommitterEmail,
