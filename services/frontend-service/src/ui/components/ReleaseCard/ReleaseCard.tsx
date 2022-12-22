@@ -29,20 +29,30 @@ export type ReleaseCardProps = {
     app: string;
 };
 
+export type EnvChipListProps = {
+    version: number;
+    app: string;
+};
+
+export const EnvironmentChipList: React.FC<EnvChipListProps> = (props) => {
+    const allEnvs: Environment[] = useOverview((x) => Object.values(x.environments));
+    const sortedEnvs: Environment[] = sortEnvironmentsByUpstream(allEnvs);
+    const envPrioMap: EnvPrioMap = calculateEnvironmentPriorities(allEnvs);
+    const environmentsForApp = useCurrentlyDeployedAt(props.app, props.version);
+    const envsForAppSorted = sortedEnvs.filter((env: Environment) => environmentsForApp.includes(env));
+    return envsForAppSorted.map((env) => (
+        <Chip className={'release-environment'} label={env.name} key={env.name} priority={envPrioMap[env.name]} />
+    ));
+};
+
 export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLDivElement>(null);
     const { className, app, version } = props;
     const { createdAt, sourceMessage, sourceCommitId, sourceAuthor } = useRelease(app, version);
-    const environmentsForApp = useCurrentlyDeployedAt(app, version);
     const clickHanlder = React.useCallback(() => {
         updateReleaseDialog(app, version);
     }, [app, version]);
-
-    const allEnvs: Environment[] = useOverview((x) => Object.values(x.environments));
-    const sortedEnvs: Environment[] = sortEnvironmentsByUpstream(allEnvs);
-    const envPrioMap: EnvPrioMap = calculateEnvironmentPriorities(allEnvs);
-    const envsForAppSorted = sortedEnvs.filter((env: Environment) => environmentsForApp.includes(env));
 
     useEffect(() => {
         if (control.current) {
@@ -70,14 +80,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                     <div className="release__author mdc-typography--body1">{'Author: ' + sourceAuthor}</div>
                 </div>
                 <div className="release__environments">
-                    {envsForAppSorted.map((env) => (
-                        <Chip
-                            className={'release-environment'}
-                            label={env.name}
-                            key={env.name}
-                            priority={envPrioMap[env.name]}
-                        />
-                    ))}
+                    <EnvironmentChipList app={props.app} version={props.version} />
                 </div>
             </div>
         </div>
