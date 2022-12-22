@@ -219,6 +219,7 @@ func (o *OverviewServiceServer) getOverview(
 				Name: envName,
 				Config: &api.Environment_Config{
 					Upstream: transformUpstream(config.Upstream),
+					EnvironmentGroup: config.EnvironmentGroup,
 				},
 				Locks:        map[string]*api.Lock{},
 				Applications: map[string]*api.Environment_Application{},
