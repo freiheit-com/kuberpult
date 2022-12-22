@@ -154,12 +154,12 @@ message GetOverviewRequest {
 }
 
 message GetOverviewResponse {
-  map<string, Environment> environments = 1;
+  map<string, Environment> environments = 1 [deprecated=true]; // use environmentGroups instead!
   map<string, Application> applications = 2;
+  repeated EnvironmentGroup environmentGroups = 3;
 }
 
 message GetDeployedOverviewRequest {
-
 }
 
 message GetDeployedOverviewResponse {
@@ -167,6 +167,10 @@ message GetDeployedOverviewResponse {
   map<string, Application> applications = 2;
 }
 
+message EnvironmentGroup {
+  string environmentGroupName = 1;
+  repeated Environment environments = 2;
+}
 
 message Environment {
   message Config {
@@ -203,6 +207,7 @@ message Environment {
   Config config = 2;
   map<string, Lock> locks = 3;
   map<string, Application> applications = 4;
+  int32 distanceToUpstream = 5;
 }
 
 message Release {

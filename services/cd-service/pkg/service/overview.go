@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"sync"
 	"sync/atomic"
 
@@ -210,10 +211,12 @@ func (o *OverviewServiceServer) getOverview(
 	result := api.GetOverviewResponse{
 		Environments: map[string]*api.Environment{},
 		Applications: map[string]*api.Application{},
+		EnvironmentGroups: []*api.EnvironmentGroup{},
 	}
 	if envs, err := s.GetEnvironmentConfigs(); err != nil {
 		return nil, internalError(ctx, err)
 	} else {
+		result.EnvironmentGroups = mapEnvironmentsToGroups(envs)
 		for envName, config := range envs {
 			env := api.Environment{
 				Name: envName,
@@ -351,6 +354,102 @@ func (o *OverviewServiceServer) getOverview(
 		}
 	}
 	return &result, nil
+}
+
+type EnvSortOrder = map[string]int;
+
+func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.EnvironmentGroup {
+	var result = []*api.EnvironmentGroup{}
+	var buckets = map[string]*api.EnvironmentGroup{}
+	// first, group all envs into buckets by groupName
+	for envName, env := range envs {
+		var groupName = env.EnvironmentGroup
+		if groupName == nil {
+			groupName = &envName
+		}
+		var bucket, ok = buckets[*groupName]
+		if !ok {
+			bucket = &api.EnvironmentGroup{
+				EnvironmentGroupName: *groupName,
+				Environments: []*api.Environment{},
+			}
+			buckets[*groupName] = bucket
+		}
+		 var newEnv = &api.Environment{
+			Name: envName,
+			Config: &api.Environment_Config{
+				Upstream: transformUpstream(env.Upstream),
+				EnvironmentGroup: groupName,
+			},
+			Locks:        map[string]*api.Lock{},
+			Applications: map[string]*api.Environment_Application{},
+		}
+		bucket.Environments= append(bucket.Environments, newEnv)
+	}
+	// now we have all environments grouped correctly.
+	// next step, sort envs by distance to prod.
+	// to do that, we first need to calculate the distance to upstream:
+	for groupName, bucket := range buckets {
+		tmpDistancesToUpstreamByEnv := map[string]int{}
+		// first, find all envs with distance 0
+		rest := []*api.Environment{}
+		for i := 0; i < len(bucket.Environments); i++ {
+			var environment = bucket.Environments[i]
+			if environment.Config.Upstream.GetLatest() {
+				environment.DistanceToUpstream = 0
+				tmpDistancesToUpstreamByEnv[environment.Name] = 0
+			} else {
+				// and remember the rest:
+				rest = append(rest, environment)
+			}
+		}
+		// now we have all envs remaining that have upstream.latest == false
+		for ; len(rest) > 0; {
+			nextRest := []*api.Environment{}
+			for i := 0; i < len(rest); i++ {
+				env := rest[i]
+				upstreamEnv := env.Config.Upstream.GetEnvironment()
+				_, ok := tmpDistancesToUpstreamByEnv[env.Name]
+				if ok {
+					tmpDistancesToUpstreamByEnv[env.Name] = tmpDistancesToUpstreamByEnv[upstreamEnv] + 1
+				} else {
+					nextRest = append(nextRest, env)
+				}
+			}
+			if len(rest) == len(nextRest) {
+				// if nothing changed in the previous for-loop, we have an undefined distance
+				// to avoid an infinite loop, we fill it with an arbitrary number
+				for i := 0; i < len(rest); i++{
+					env := rest[i]
+					tmpDistancesToUpstreamByEnv[env.Name] = len(envs) + 1
+				}
+			}
+		}
+	}
+
+	// now we can actually sort the environments:
+	for groupName, bucket := range buckets {
+		sort.Sort(EnvironmentByDistance(bucket.Environments))
+		for i := 0; i < len(bucket.Environments); i++ {
+todo();
+		}
+	}
+	return result
+}
+
+type EnvironmentByDistance []*api.Environment
+
+func (s EnvironmentByDistance) Len() int {
+	return len(s)
+}
+func (s EnvironmentByDistance) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s EnvironmentByDistance) Less(i, j int) bool {
+	//var foo = s[i]
+	//return len(s) == 1
+	return len(s) == 1
+	//return len(s[i]) < len(s[j])
 }
 
 func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
