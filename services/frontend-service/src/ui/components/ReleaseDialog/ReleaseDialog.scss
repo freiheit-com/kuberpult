@@ -86,18 +86,21 @@
           top: -10px;
           left: -10px;
           height: 42px;
-        }
-        .env-card-label {
-          svg.env-card-env-lock-icon {
-            width: 24px;
-            height: 24px;
-            margin: unset;
-          }
-
-          .env-card-env-locks:nth-child(2) {
-            margin-left: 55px;
+          .env-card-label {
             display: flex;
-            flex-direction: row;
+
+            svg.env-card-env-lock-icon {
+              width: 24px;
+              height: 24px;
+              margin: unset;
+            }
+
+            .env-card-env-locks:first-child {
+              margin-left: 55px;
+              display: flex;
+              flex-direction: row;
+            }
+
           }
         }
 
