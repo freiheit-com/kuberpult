@@ -17,7 +17,7 @@ Copyright 2021 freiheit.com*/
 import { Dialog, Tooltip } from '@material-ui/core';
 import classNames from 'classnames';
 import React, { useCallback } from 'react';
-import { Environment, LockBehavior, Release } from '../../../api/api';
+import { Environment, Lock, LockBehavior, Release } from '../../../api/api';
 import { addAction, updateReleaseDialog, useOverview } from '../../utils/store';
 import { Button } from '../button';
 import { Locks, LocksWhite } from '../../../images';
@@ -126,6 +126,34 @@ export const calculateDistanceToUpstream = (envs: Environment[]): EnvSortOrder =
     }
     return distanceToUpstream;
 };
+
+export const AppLock: React.FC<{
+    env: Environment;
+    app: string;
+    lock: Lock;
+    className?: string;
+}> = ({ env, app, lock, className }) => {
+    const deleteAppLock = useCallback(() => {
+        addAction({
+            action: {
+                $case: 'deleteEnvironmentApplicationLock',
+                deleteEnvironmentApplicationLock: { environment: env.name, application: app, lockId: lock.lockId },
+            },
+        });
+    }, [app, env.name, lock.lockId]);
+    return (
+        <Tooltip
+            key={lock.lockId}
+            arrow
+            title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}
+            onClick={deleteAppLock}>
+            <div>
+                <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} />
+            </div>
+        </Tooltip>
+    );
+};
+
 export const EnvironmentListItem: React.FC<{
     env: Environment;
     envPrioMap: EnvPrioMap;
@@ -149,7 +177,7 @@ export const EnvironmentListItem: React.FC<{
             }),
         [app, env.name, release.version]
     );
-    const createLock = useCallback(() => {
+    const createAppLock = useCallback(() => {
         const randBase36 = () => Math.random().toString(36).substring(7);
         const randomLockId = () => 'ui-v2-' + randBase36();
         addAction({
@@ -164,7 +192,6 @@ export const EnvironmentListItem: React.FC<{
             },
         });
     }, [app, env.name]);
-
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -204,30 +231,13 @@ export const EnvironmentListItem: React.FC<{
                     key={env.name}
                     priority={envPrioMap[env.name]}
                 />
-
                 <div className={classNames('env-card-app-locks')}>
                     {Object.values(env.applications)
                         .filter((application) => application.name === app)
                         .map((app) => app.locks)
                         .map((locks) =>
                             Object.values(locks).map((lock) => (
-                                <Tooltip
-                                    key={lock.lockId}
-                                    arrow
-                                    title={
-                                        'Lock Message: "' +
-                                        lock.message +
-                                        '" | ID: "' +
-                                        lock.lockId +
-                                        '"  | Click to unlock. '
-                                    }>
-                                    <div>
-                                        <Button
-                                            icon={<Locks className="env-card-app-lock" />}
-                                            className={'button-lock'}
-                                        />
-                                    </div>
-                                </Tooltip>
+                                <AppLock key={lock.lockId} env={env} app={app} lock={lock} className={className} />
                             ))
                         )}
                 </div>
@@ -241,7 +251,7 @@ export const EnvironmentListItem: React.FC<{
                 <Button
                     className="env-card-add-lock-btn"
                     label="Add lock"
-                    onClick={createLock}
+                    onClick={createAppLock}
                     icon={<Locks className="icon" />}
                 />
                 <Button className="env-card-deploy-btn" onClick={deploy} label="Deploy" />
