@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"golang.org/x/crypto/openpgp"
 
@@ -223,7 +224,12 @@ func RunServer() {
 						return
 					}
 				}
-				mux.ServeHTTP(resp, req)
+				if strings.HasPrefix(req.URL.Path, "/v2/home") {
+					http.ServeFile(resp, req, "build/index.html")
+				} else {
+					mux.ServeHTTP(resp, req)
+				}
+
 			}
 		})
 		authHandler := &Auth{
