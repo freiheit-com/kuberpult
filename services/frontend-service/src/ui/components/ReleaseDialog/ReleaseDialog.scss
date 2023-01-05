@@ -1,10 +1,13 @@
 @use '@material/typography/mdc-typography';
 @use '@material/card/mdc-card';
 
-div.MuiPaper-root {
-  background-color: transparent;
-  border-radius: 15px;
-  overflow-y: inherit;
+.release-dialog {
+
+  div.MuiPaper-root {
+    background-color: transparent;
+    border-radius: 15px;
+    overflow-y: inherit;
+  }
 
   .release-dialog-app-bar {
     border-radius: 10px 10px 0px 0px;

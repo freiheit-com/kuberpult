@@ -131,8 +131,7 @@ export const AppLock: React.FC<{
     env: Environment;
     app: string;
     lock: Lock;
-    className?: string;
-}> = ({ env, app, lock, className }) => {
+}> = ({ env, app, lock }) => {
     const deleteAppLock = useCallback(() => {
         addAction({
             action: {
