@@ -236,7 +236,7 @@ export const EnvironmentListItem: React.FC<{
                         .map((app) => app.locks)
                         .map((locks) =>
                             Object.values(locks).map((lock) => (
-                                <AppLock key={lock.lockId} env={env} app={app} lock={lock} className={className} />
+                                <AppLock key={lock.lockId} env={env} app={app} lock={lock} />
                             ))
                         )}
                 </div>
