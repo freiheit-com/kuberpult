@@ -199,7 +199,7 @@ export const EnvironmentListItem: React.FC<{
                     className={'release-environment'}
                     label={
                         <div className={classNames('env-card-label', className)}>
-                            env.name{' '}
+                            {env.name}
                             {Object.values(env.locks).length !== 0 ? (
                                 <div className={classNames('env-card-env-locks', className)}>
                                     {Object.values(env.locks).map((lock) => (
@@ -260,11 +260,6 @@ export const EnvironmentListItem: React.FC<{
     );
 };
 
-// const deploy = useCallback(() => {
-//     addAction({
-//         action: { $case: 'deploy', deploy: { environment: }}
-//     })
-// })
 export const EnvironmentList: React.FC<{ envs: Environment[]; release: Release; app: string; className?: string }> = ({
     envs,
     release,
