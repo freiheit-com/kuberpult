@@ -160,8 +160,8 @@ export const EnvironmentListItem: React.FC<{
     release: Release;
     className?: string;
 }> = ({ env, envPrioMap, app, release, className }) => {
-    const deploy = useCallback(
-        () =>
+    const deploy = useCallback(() => {
+        if (release.version)
             addAction({
                 action: {
                     $case: 'deploy',
@@ -173,9 +173,8 @@ export const EnvironmentListItem: React.FC<{
                         lockBehavior: LockBehavior.Ignore,
                     },
                 },
-            }),
-        [app, env.name, release.version]
-    );
+            });
+    }, [app, env.name, release.version]);
     const createAppLock = useCallback(() => {
         const randBase36 = () => Math.random().toString(36).substring(7);
         const randomLockId = () => 'ui-v2-' + randBase36();
@@ -253,7 +252,12 @@ export const EnvironmentListItem: React.FC<{
                     onClick={createAppLock}
                     icon={<Locks className="icon" />}
                 />
-                <Button className="env-card-deploy-btn" onClick={deploy} label="Deploy" />
+                <Button
+                    disabled={!release.version}
+                    className={classNames('env-card-deploy-btn', { 'btn-disabled': !release.version })}
+                    onClick={deploy}
+                    label="Deploy"
+                />
             </div>
         </li>
     );
