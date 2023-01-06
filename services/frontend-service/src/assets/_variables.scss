@@ -69,7 +69,13 @@ $environment-add-lock-button-font-weight: 700;
 $environment-add-lock-button-font-size: 14px;
 $environment-add-lock-button-line-height: 24px;
 
-
+// Release Dialog
+$release-dialog-outer-border-radius: 15px;
+$release-dialog-top-border-radius: $release-dialog-outer-border-radius $release-dialog-outer-border-radius 0px 0px;
+$release-dialog-bottom-border-radius: 0px 0px $release-dialog-outer-border-radius $release-dialog-outer-border-radius;
+$release-dialog-inner-border-radius: 10px;
+$release-dialog-label-displacement: -10px;
+$release-dialog-lock-icon-size: 24px;
 
 // Logo
 // 6em = 96px - Logo_width(60px) = 36px / 2 = 18px

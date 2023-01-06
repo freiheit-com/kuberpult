@@ -18,10 +18,16 @@ import { useRef, useEffect, cloneElement } from 'react';
 import classNames from 'classnames';
 import { MDCRipple } from '@material/ripple';
 
-export const Button = (props: { className?: string; label?: string; icon?: JSX.Element; onClick?: () => void }) => {
+export const Button = (props: {
+    disabled?: boolean;
+    className?: string;
+    label?: string;
+    icon?: JSX.Element;
+    onClick?: () => void;
+}) => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLButtonElement>(null);
-    const { className, label, icon, onClick } = props;
+    const { disabled, className, label, icon, onClick } = props;
 
     useEffect(() => {
         if (control.current) {
@@ -32,6 +38,7 @@ export const Button = (props: { className?: string; label?: string; icon?: JSX.E
 
     return (
         <button
+            disabled={disabled}
             className={classNames('mdc-button', className)}
             onClick={onClick}
             ref={control}

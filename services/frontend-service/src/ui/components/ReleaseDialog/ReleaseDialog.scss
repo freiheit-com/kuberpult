@@ -2,18 +2,15 @@
 @use '@material/card/mdc-card';
 
 .release-dialog {
-  border-radius: 15px 15px 0px 0px;
-  background-color: transparent;
-  border-radius: 10px;
 
   div.MuiPaper-root {
     background-color: transparent;
-    border-radius: 15px;
+    border-radius: $release-dialog-outer-border-radius;
     overflow-y: inherit;
   }
 
   .release-dialog-app-bar {
-    border-radius: 10px 10px 0px 0px;
+    border-radius: $release-dialog-top-border-radius;
     background: var(--mdc-theme-primary);
     color: var(--mdc-theme-on-primary);
     display: flex;
@@ -43,7 +40,7 @@
       width: auto;
       padding: 2px 6px;
       border: 1px solid var(--mdc-theme-on-primary);
-      border-radius: 10px;
+      border-radius: $release-dialog-inner-border-radius;
       margin-top: 26px;
       margin-bottom: auto;
       text-align: center;
@@ -65,7 +62,7 @@
     margin: 0px;
     padding: 35px 0px;
     align-items: center;
-    border-radius: 0px 0px 15px 15px;
+    border-radius: $release-dialog-bottom-border-radius;
 
     .env-card {
       background-color: var(--mdc-theme-background);
@@ -75,7 +72,7 @@
       height: 160px;
       padding: 0px;
       margin: 0px 20px;
-      border-radius: 10px;
+      border-radius: $release-dialog-inner-border-radius;
       gap: 16px;
 
       .env-card-header {
@@ -83,21 +80,24 @@
         flex-direction: row;
         justify-content: space-between;
         .release-environment {
-          top: -10px;
-          left: -10px;
+          top: $release-dialog-label-displacement;
+          left: $release-dialog-label-displacement;
           height: 42px;
-        }
-        .env-card-label {
-          svg.env-card-env-lock-icon {
-            width: 24px;
-            height: 24px;
-            margin: unset;
-          }
-
-          .env-card-env-locks:nth-child(2) {
-            margin-left: 55px;
+          .env-card-label {
             display: flex;
-            flex-direction: row;
+
+            svg.env-card-env-lock-icon {
+              width: $release-dialog-lock-icon-size;
+              height: $release-dialog-lock-icon-size;
+              margin: unset;
+            }
+
+            .env-card-env-locks:first-child {
+              margin-left: 55px;
+              display: flex;
+              flex-direction: row;
+            }
+
           }
         }
 
@@ -131,7 +131,7 @@
 
         .env-card-add-lock-btn {
           border: 1px solid var(--mdc-theme-primary);
-          border-radius: 10px;
+          border-radius: $release-dialog-inner-border-radius;
           @extend .text-bold;
           .icon {
             margin-right: 9px;
@@ -148,9 +148,13 @@ button.button-lock {
   height: auto;
 }
 
-button.mdc-button.env-card-deploy-btn.env-card-deploy-btn.env-card-deploy-btn {
+button.mdc-button.env-card-deploy-btn {
   background-color: var(--mdc-theme-primary);
   color: var(--mdc-theme-on-primary);
-  border-radius: 10px;
+  border-radius: $release-dialog-inner-border-radius;
   @extend .text-bold;
+}
+
+button.mdc-button.env-card-deploy-btn.btn-disabled {
+  background-color: var(--mdc-theme-on-surface);
 }
