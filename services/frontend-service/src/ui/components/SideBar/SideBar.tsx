@@ -41,7 +41,7 @@ export enum ActionTypes {
     UNKNOWN,
 }
 
-type ActionDetails = {
+export type ActionDetails = {
     type: ActionTypes;
     name: string;
     summary: string;
@@ -56,7 +56,11 @@ type ActionDetails = {
     version?: number;
 };
 
-const getActionDetails = ({ action }: BatchAction, appLocks: DisplayLock[], envLocks: DisplayLock[]): ActionDetails => {
+export const getActionDetails = (
+    { action }: BatchAction,
+    appLocks: DisplayLock[],
+    envLocks: DisplayLock[]
+): ActionDetails => {
     switch (action?.$case) {
         case 'createEnvironmentLock':
             return {
@@ -75,12 +79,11 @@ const getActionDetails = ({ action }: BatchAction, appLocks: DisplayLock[], envL
                     'Delete environment lock on ' +
                     action.deleteEnvironmentLock.environment +
                     ' with the message: "' +
-                    envLocks.filter((lock) => lock.lockId === action.deleteEnvironmentLock.lockId).at(0)?.message +
+                    envLocks.find((lock) => lock.lockId === action.deleteEnvironmentLock.lockId)?.message +
                     '"',
                 environment: action.deleteEnvironmentLock.environment,
                 lockId: action.deleteEnvironmentLock.lockId,
-                lockMessage: envLocks.filter((lock) => lock.lockId === action.deleteEnvironmentLock.lockId).at(0)
-                    ?.message,
+                lockMessage: envLocks.find((lock) => lock.lockId === action.deleteEnvironmentLock.lockId)?.message,
             };
         case 'createEnvironmentApplicationLock':
             return {
@@ -106,15 +109,13 @@ const getActionDetails = ({ action }: BatchAction, appLocks: DisplayLock[], envL
                     '" on ' +
                     action.deleteEnvironmentApplicationLock.environment +
                     ' with the message: "' +
-                    appLocks.filter((lock) => lock.lockId === action.deleteEnvironmentApplicationLock.lockId).at(0)
-                        ?.message +
+                    appLocks.find((lock) => lock.lockId === action.deleteEnvironmentApplicationLock.lockId)?.message +
                     '"',
                 environment: action.deleteEnvironmentApplicationLock.environment,
                 application: action.deleteEnvironmentApplicationLock.application,
                 lockId: action.deleteEnvironmentApplicationLock.lockId,
-                lockMessage: appLocks
-                    .filter((lock) => lock.lockId === action.deleteEnvironmentApplicationLock.lockId)
-                    .at(0)?.message,
+                lockMessage: appLocks.find((lock) => lock.lockId === action.deleteEnvironmentApplicationLock.lockId)
+                    ?.message,
             };
         case 'deploy':
             return {
