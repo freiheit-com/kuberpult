@@ -17,8 +17,9 @@ Copyright 2021 freiheit.com*/
 import { act, render, renderHook } from '@testing-library/react';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import { MemoryRouter } from 'react-router-dom';
-import { BatchAction } from '../../../api/api';
-import { addAction, deleteAction, useActions, updateActions, deleteAllActions } from '../../utils/store';
+import { BatchAction, LockBehavior } from '../../../api/api';
+import { addAction, deleteAction, useActions, updateActions, deleteAllActions, DisplayLock } from '../../utils/store';
+import { ActionDetails, ActionTypes, getActionDetails } from './SideBar';
 
 describe('Show and Hide Sidebar', () => {
     interface dataT {
@@ -373,6 +374,188 @@ describe('Action Store functionality', () => {
             const actions = renderHook(() => useActions()).result.current;
             // then
             expect(actions).toStrictEqual(testcase.expectedActions);
+        });
+    });
+});
+
+describe('Action details', () => {
+    interface dataT {
+        name: string;
+        action: BatchAction;
+        envLocks?: DisplayLock[];
+        appLocks?: DisplayLock[];
+        expectedDetails: ActionDetails;
+    }
+    const data: dataT[] = [
+        {
+            name: 'test createEnvironmentLock action',
+            action: {
+                action: {
+                    $case: 'createEnvironmentLock',
+                    createEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337', message: 'bar' },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.CreateEnvironmentLock,
+                name: 'Create Env Lock',
+                dialogTitle: 'Are you sure you want to add this environment lock?',
+                summary: 'Create new environment lock on foo',
+                environment: 'foo',
+            },
+        },
+        {
+            name: 'test deleteEnvironmentLock action',
+            action: {
+                action: {
+                    $case: 'deleteEnvironmentLock',
+                    deleteEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337' },
+                },
+            },
+            envLocks: [
+                {
+                    date: new Date('07.01.2023'),
+                    environment: 'foo',
+                    message: 'bar',
+                    lockId: 'ui-v2-1337',
+                    authorName: 'testman',
+                    authorEmail: 'foo@bar',
+                },
+            ],
+            expectedDetails: {
+                type: ActionTypes.DeleteEnvironmentLock,
+                name: 'Delete Env Lock',
+                dialogTitle: 'Are you sure you want to delete this environment lock?',
+                summary: 'Delete environment lock on foo with the message: "bar"',
+                environment: 'foo',
+                lockId: 'ui-v2-1337',
+                lockMessage: 'bar',
+            },
+        },
+        {
+            name: 'test createEnvironmentApplicationLock action',
+            action: {
+                action: {
+                    $case: 'createEnvironmentApplicationLock',
+                    createEnvironmentApplicationLock: {
+                        environment: 'foo',
+                        application: 'bread',
+                        lockId: 'ui-v2-1337',
+                        message: 'bar',
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.CreateApplicationLock,
+                name: 'Create App Lock',
+                dialogTitle: 'Are you sure you want to add this application lock?',
+                summary: 'Lock "bread" on foo',
+                environment: 'foo',
+                application: 'bread',
+            },
+        },
+        {
+            name: 'test deleteEnvironmentApplicationLock action',
+            action: {
+                action: {
+                    $case: 'deleteEnvironmentApplicationLock',
+                    deleteEnvironmentApplicationLock: { environment: 'foo', application: 'bar', lockId: 'ui-v2-1337' },
+                },
+            },
+            appLocks: [
+                {
+                    date: new Date('07.01.2023'),
+                    environment: 'foo',
+                    application: 'bar',
+                    message: 'bar',
+                    lockId: 'ui-v2-1337',
+                    authorName: 'testman',
+                    authorEmail: 'foo@bar',
+                },
+            ],
+            expectedDetails: {
+                type: ActionTypes.DeleteApplicationLock,
+                name: 'Delete App Lock',
+                dialogTitle: 'Are you sure you want to delete this application lock?',
+                summary: 'Unlock "bar" on foo with the message: "bar"',
+                environment: 'foo',
+                application: 'bar',
+                lockId: 'ui-v2-1337',
+                lockMessage: 'bar',
+            },
+        },
+        {
+            name: 'test deploy action',
+            action: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'foo',
+                        application: 'bread',
+                        version: 1337,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.Ignore,
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.Deploy,
+                name: 'Deploy',
+                dialogTitle: 'Please be aware:',
+                summary: 'Deploy version 1337 of "bread" to foo',
+                environment: 'foo',
+                application: 'bread',
+                version: 1337,
+            },
+        },
+        {
+            name: 'test prepareUndeploy action',
+            action: {
+                action: {
+                    $case: 'prepareUndeploy',
+                    prepareUndeploy: {
+                        application: 'foo',
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.PrepareUndeploy,
+                name: 'Prepare Undeploy',
+                dialogTitle: 'Are you sure you want to start undeploy?',
+                description:
+                    'The new version will go through the same cycle as any other versions' +
+                    ' (e.g. development->staging->production). ' +
+                    'The behavior is similar to any other version that is created normally.',
+                summary: 'Prepare undeploy version for Application "foo"',
+                application: 'foo',
+            },
+        },
+        {
+            name: 'test undeploy action',
+            action: {
+                action: {
+                    $case: 'undeploy',
+                    undeploy: {
+                        application: 'foo',
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.Undeploy,
+                name: 'Undeploy',
+                dialogTitle: 'Are you sure you want to undeploy this application?',
+                description: 'This application will be deleted permanently',
+                summary: 'Undeploy and delete Application "foo"',
+                application: 'foo',
+            },
+        },
+    ];
+
+    describe.each(data)('Test getActionDetails function', (testcase) => {
+        it(testcase.name, () => {
+            const envLocks = testcase.envLocks || [];
+            const appLocks = testcase.appLocks || [];
+            const obtainedDetails = getActionDetails(testcase.action, appLocks, envLocks);
+            expect(obtainedDetails).toStrictEqual(testcase.expectedDetails);
         });
     });
 });

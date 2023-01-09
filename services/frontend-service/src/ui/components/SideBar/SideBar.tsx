@@ -17,7 +17,14 @@ Copyright 2021 freiheit.com*/
 import { Button } from '../button';
 import { DeleteGray, HideBarWhite } from '../../../images';
 import { BatchAction } from '../../../api/api';
-import { deleteAction, useActions, deleteAllActions } from '../../utils/store';
+import {
+    deleteAction,
+    useActions,
+    deleteAllActions,
+    useApplicationLocks,
+    DisplayLock,
+    useEnvironmentLocks,
+} from '../../utils/store';
 import { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
 import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core';
@@ -34,7 +41,7 @@ export enum ActionTypes {
     UNKNOWN,
 }
 
-type ActionDetails = {
+export type ActionDetails = {
     type: ActionTypes;
     name: string;
     summary: string;
@@ -49,7 +56,11 @@ type ActionDetails = {
     version?: number;
 };
 
-const getActionDetails = ({ action }: BatchAction): ActionDetails => {
+export const getActionDetails = (
+    { action }: BatchAction,
+    appLocks: DisplayLock[],
+    envLocks: DisplayLock[]
+): ActionDetails => {
     switch (action?.$case) {
         case 'createEnvironmentLock':
             return {
@@ -64,9 +75,15 @@ const getActionDetails = ({ action }: BatchAction): ActionDetails => {
                 type: ActionTypes.DeleteEnvironmentLock,
                 name: 'Delete Env Lock',
                 dialogTitle: 'Are you sure you want to delete this environment lock?',
-                summary: 'Delete environment lock on ' + action.deleteEnvironmentLock.environment,
+                summary:
+                    'Delete environment lock on ' +
+                    action.deleteEnvironmentLock.environment +
+                    ' with the message: "' +
+                    envLocks.find((lock) => lock.lockId === action.deleteEnvironmentLock.lockId)?.message +
+                    '"',
                 environment: action.deleteEnvironmentLock.environment,
                 lockId: action.deleteEnvironmentLock.lockId,
+                lockMessage: envLocks.find((lock) => lock.lockId === action.deleteEnvironmentLock.lockId)?.message,
             };
         case 'createEnvironmentApplicationLock':
             return {
@@ -90,10 +107,15 @@ const getActionDetails = ({ action }: BatchAction): ActionDetails => {
                     'Unlock "' +
                     action.deleteEnvironmentApplicationLock.application +
                     '" on ' +
-                    action.deleteEnvironmentApplicationLock.environment,
+                    action.deleteEnvironmentApplicationLock.environment +
+                    ' with the message: "' +
+                    appLocks.find((lock) => lock.lockId === action.deleteEnvironmentApplicationLock.lockId)?.message +
+                    '"',
                 environment: action.deleteEnvironmentApplicationLock.environment,
                 application: action.deleteEnvironmentApplicationLock.application,
                 lockId: action.deleteEnvironmentApplicationLock.lockId,
+                lockMessage: appLocks.find((lock) => lock.lockId === action.deleteEnvironmentApplicationLock.lockId)
+                    ?.message,
             };
         case 'deploy':
             return {
@@ -147,7 +169,9 @@ type SideBarListItemProps = {
 };
 
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
-    const actionDetails = getActionDetails(action);
+    const appLocks = useApplicationLocks();
+    const envLocks = useEnvironmentLocks();
+    const actionDetails = getActionDetails(action, appLocks, envLocks);
 
     const handleDelete = useCallback(() => deleteAction(action), [action]);
     return (
