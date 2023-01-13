@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -217,6 +218,7 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, internalError(ctx, err)
 	} else {
 		result.EnvironmentGroups = mapEnvironmentsToGroups(envs)
+		todo("iterate over groups")
 		for envName, config := range envs {
 			env := api.Environment{
 				Name: envName,
@@ -390,7 +392,7 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 	// next step, sort envs by distance to prod.
 	// to do that, we first need to calculate the distance to upstream:
 	for groupName, bucket := range buckets {
-		tmpDistancesToUpstreamByEnv := map[string]int{}
+		tmpDistancesToUpstreamByEnv := map[string]int32{}
 		// first, find all envs with distance 0
 		rest := []*api.Environment{}
 		for i := 0; i < len(bucket.Environments); i++ {
@@ -412,30 +414,64 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 				_, ok := tmpDistancesToUpstreamByEnv[env.Name]
 				if ok {
 					tmpDistancesToUpstreamByEnv[env.Name] = tmpDistancesToUpstreamByEnv[upstreamEnv] + 1
+					env.DistanceToUpstream = tmpDistancesToUpstreamByEnv[env.Name]
 				} else {
 					nextRest = append(nextRest, env)
 				}
 			}
 			if len(rest) == len(nextRest) {
-				// if nothing changed in the previous for-loop, we have an undefined distance
-				// to avoid an infinite loop, we fill it with an arbitrary number
+				// if nothing changed in the previous for-loop, we have an undefined distance.
+				// to avoid an infinite loop, we fill it with an arbitrary number:
 				for i := 0; i < len(rest); i++{
 					env := rest[i]
-					tmpDistancesToUpstreamByEnv[env.Name] = len(envs) + 1
+					tmpDistancesToUpstreamByEnv[env.Name] = int32(len(envs) + 1)
 				}
 			}
 		}
 	}
 
 	// now we can actually sort the environments:
-	for groupName, bucket := range buckets {
+	for _, bucket := range buckets {
 		sort.Sort(EnvironmentByDistance(bucket.Environments))
-		for i := 0; i < len(bucket.Environments); i++ {
-todo();
-		}
+	}
+	// environments are sorted, now sort the groups:
+	// to do that we first need to convert the map into an array:
+	for _, bucket := range buckets {
+		result = append(result, bucket)
+	}
+	sort.Sort(EnvironmentGroupsByDistance(result))
+	// now, everything is sorted, so we can add more data on top that depends on the sorting:
+	for i := 0; i < len(result); i++ {
+		var group = result[i]
+		calculateEnvironmentPriorities(group.Environments)
+		//for j := 0; j < len(group.Environments); j++ {
+		//}
 	}
 	return result
 }
+
+func calculateEnvironmentPriorities(environments []*api.Environment) {
+	// first find the maximum:
+	var maxDistance int32 = 0
+	for i := 0; i < len(environments); i++ {
+		maxDistance = max(maxDistance, environments[i].DistanceToUpstream)
+	}
+	// now we can assign each environment a priority
+	for i := 0; i < len(environments); i++ {
+		var env = environments[i]
+		if env.DistanceToUpstream == maxDistance {
+			env.priority =
+		}
+	}
+}
+
+func max(a int32, b int32) int32 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 
 type EnvironmentByDistance []*api.Environment
 
@@ -446,10 +482,19 @@ func (s EnvironmentByDistance) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 func (s EnvironmentByDistance) Less(i, j int) bool {
-	//var foo = s[i]
-	//return len(s) == 1
-	return len(s) == 1
-	//return len(s[i]) < len(s[j])
+	return s[i].DistanceToUpstream < s[j].DistanceToUpstream
+}
+
+type EnvironmentGroupsByDistance []*api.EnvironmentGroup
+
+func (s EnvironmentGroupsByDistance) Len() int {
+	return len(s)
+}
+func (s EnvironmentGroupsByDistance) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s EnvironmentGroupsByDistance) Less(i, j int) bool {
+	return s[i].Environments[0].DistanceToUpstream < s[j].Environments[0].DistanceToUpstream
 }
 
 func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
