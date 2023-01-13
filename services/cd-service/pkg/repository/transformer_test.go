@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os/exec"
 	"path"
 	"reflect"
@@ -34,6 +33,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/go-git/go-billy/v5/util"
+	"github.com/google/go-cmp/cmp"
 	godebug "github.com/kylelemons/godebug/diff"
 )
 
@@ -52,9 +52,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		expectedError     string
 		expectedCommitMsg string
 		shouldSucceed     bool
-		application       string
-		environment       string
-		release           int
 	}{
 		{
 			Name: "Delete non-existent application",
@@ -66,9 +63,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			expectedError:     "UndeployApplication: error cannot undeploy non-existing application 'app1'",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
-			application:       "app1",
-			environment:       "acceptance",
-			release:           2,
 		},
 		{
 			Name: "Success",
@@ -89,9 +83,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			expectedError:     "",
 			expectedCommitMsg: "application 'app1' was deleted successfully",
 			shouldSucceed:     true,
-			application:       "app1",
-			environment:       "acceptance",
-			release:           2,
 		},
 		{
 			Name: "Create un-deploy Version for un-deployed application should not work",
@@ -115,9 +106,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			expectedError:     "cannot undeploy non-existing application 'app1'",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
-			application:       "app1",
-			environment:       "acceptance",
-			release:           2,
 		},
 		{
 			Name: "Undeploy application where there is an application lock should not work",
@@ -148,9 +136,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' unlock the application lock in the 'acceptance' environment first",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
-			application:       "app1",
-			environment:       "acceptance",
-			release:           2,
 		},
 		{
 			Name: "Undeploy application where there is an application lock created after the un-deploy version creation shouldn't work",
@@ -181,9 +166,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' unlock the application lock in the 'acceptance' environment first",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
-			application:       "app1",
-			environment:       "acceptance",
-			release:           2,
 		},
 		{
 			Name: "Undeploy application where there current releases are not undeploy shouldn't work",
@@ -213,9 +195,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
-			application:       "app1",
-			environment:       "acceptance",
-			release:           2,
 		},
 		{
 			Name: "Undeploy application where there is an environment lock should work",
@@ -245,9 +224,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			expectedError:     "",
 			expectedCommitMsg: "application 'app1' was deleted successfully",
 			shouldSucceed:     true,
-			application:       "app1",
-			environment:       "acceptance",
-			release:           2,
 		},
 		{
 			Name: "Undeploy application where the last release is not Undeploy shouldn't work",
@@ -275,17 +251,14 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			expectedError:     "UndeployApplication: error last release is not un-deployed application version of 'app1'",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
-			application:       "app1",
-			environment:       "acceptance",
-			release:           2,
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			// t.Parallel()
+			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, updatedRepo, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -294,21 +267,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 				actualMsg := commitMsg[len(commitMsg)-1]
 				if actualMsg != tc.expectedCommitMsg {
 					t.Fatalf("expected a different message.\nExpected: %q\nGot %q", tc.expectedCommitMsg, actualMsg)
-				}
-				file, err := updatedRepo.Filesystem.Open(updatedRepo.Filesystem.Join("applications/", tc.application, "/releases/", fmt.Sprint(tc.release), "/environments/", tc.environment, "/manifests.yaml"))
-				if err != nil {
-					t.Fatalf("err %v", err)
-				}
-				log.Println("test" + file.Name())
-				dirinfo, _ := updatedRepo.Filesystem.ReadDir(updatedRepo.Filesystem.Join(repo.State().Commit.Owner().Path(), "applications"))
-				for _, dir := range dirinfo {
-					log.Println(dir.Name())
-				}
-				if len(dirinfo) == 0 {
-					log.Println("empty dir")
-				}
-				if _, err := updatedRepo.Filesystem.Stat(updatedRepo.Filesystem.Join(repo.State().Commit.Owner().Path(), "applications/", tc.application, "/releases/", fmt.Sprint(tc.release), "/environments/", tc.environment, "/manifests.yaml")); err != nil {
-					t.Fatalf("error creating manifests file: %v", err)
 				}
 			} else {
 				if err == nil {
@@ -324,7 +282,85 @@ func TestUndeployApplicationErrors(t *testing.T) {
 	}
 }
 
-// Tests various error cases in the prepare-Undeploy endpoint, specifically the ;cerror messages returned.
+func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		Transformers     []Transformer
+		expectedError    string
+		expectedPath     string
+		shouldSucceed    bool
+		expectedFileData []byte
+	}{
+		{ //TODO: find better names
+			Name: "Work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			expectedError:    "",
+			expectedPath:     "applications/app1/releases/2/environments/acceptance/manifests.yaml",
+			shouldSucceed:    true,
+			expectedFileData: []byte(" "),
+		},
+		{ //TODO: find better names
+			Name: "Not work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError:    "",
+			expectedPath:     "applications/app1/releases/2/environments/acceptance/manifests.yaml",
+			shouldSucceed:    false,
+			expectedFileData: []byte(" "),
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			_, updatedState, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			if err != nil {
+				t.Fatalf("Failed repo state: %v", err)
+			}
+			fileData, err := util.ReadFile(updatedState.Filesystem, updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath))
+
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				if !cmp.Equal(fileData, tc.expectedFileData) {
+					t.Fatalf("Expected %v, got %v", tc.expectedFileData, fileData)
+				}
+			} else {
+				if err == nil {
+					t.Fatal("Expected error but got none")
+				}
+			}
+		})
+	}
+}
+
+// Tests various error cases in the prepare-Undeploy endpoint, specifically the error messages returned.
 func TestUndeployErrors(t *testing.T) {
 	tcs := []struct {
 		Name              string
