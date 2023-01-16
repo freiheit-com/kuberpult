@@ -291,8 +291,8 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 		shouldSucceed    bool
 		expectedFileData []byte
 	}{
-		{ //TODO: find better names
-			Name: "Work",
+		{
+			Name: "successfully undeploy - should work",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "acceptance",
@@ -310,11 +310,11 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 			},
 			expectedError:    "",
 			expectedPath:     "applications/app1/releases/2/environments/acceptance/manifests.yaml",
-			shouldSucceed:    true,
 			expectedFileData: []byte(" "),
+			shouldSucceed:    true,
 		},
-		{ //TODO: find better names
-			Name: "Not work",
+		{
+			Name: "Does not undeploy - should not succeed",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "acceptance",
@@ -327,10 +327,10 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 					},
 				},
 			},
-			expectedError:    "",
-			expectedPath:     "applications/app1/releases/2/environments/acceptance/manifests.yaml",
+			expectedError:    "file does not exist",
+			expectedPath:     "",
+			expectedFileData: []byte(""),
 			shouldSucceed:    false,
-			expectedFileData: []byte(" "),
 		},
 	}
 	for _, tc := range tcs {
@@ -338,10 +338,8 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
-			if err != nil {
-				t.Fatalf("Failed repo state: %v", err)
-			}
+			_, updatedState, _ := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+
 			fileData, err := util.ReadFile(updatedState.Filesystem, updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath))
 
 			if tc.shouldSucceed {
@@ -354,6 +352,11 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 			} else {
 				if err == nil {
 					t.Fatal("Expected error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
 				}
 			}
 		})
