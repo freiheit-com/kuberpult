@@ -4,10 +4,16 @@ As of now, while we are still on version `0.*`,
 we do not use [Semantic Versioning](https://semver.org/).
 Specifically this means, that minor upgrades can contain **breaking changes**.
 
-# Unreleased yet
-* Bugfix: Write undeploy versions correctly into manifest repo
-
 # Change Log
+
+## 0.4.51
+
+**released 2023-01-17**
+* Bugfix: Write undeploy versions correctly into manifest repo [#412](https://github.com/freiheit-com/kuberpult/pull/412)
+* route /v2/home to index.html in build directory [#454](https://github.com/freiheit-com/kuberpult/pull/454)
+* Add EnvironmentGroup to getOverview endpoint [#449](https://github.com/freiheit-com/kuberpult/pull/449)
+* Backend: Add environmentGroup to envConfig [#447](https://github.com/freiheit-com/kuberpult/pull/447)
+* Removed misleading tooltip about queues in old UI [#443](https://github.com/freiheit-com/kuberpult/pull/443)
 
 ## 0.4.50
 * Bugfix: Show lock message text & label properly [#427](https://github.com/freiheit-com/kuberpult/pull/427)
