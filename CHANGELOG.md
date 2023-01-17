@@ -4,10 +4,23 @@ As of now, while we are still on version `0.*`,
 we do not use [Semantic Versioning](https://semver.org/).
 Specifically this means, that minor upgrades can contain **breaking changes**.
 
-# Unreleased yet
-* Bugfix: Write undeploy versions correctly into manifest repo
-
 # Change Log
+
+## 0.4.51
+* Bugfix: Write undeploy versions correctly into manifest repo [#412](https://github.com/freiheit-com/kuberpult/pull/412)
+* route /v2/home to index.html in build directory [#454](https://github.com/freiheit-com/kuberpult/pull/454)
+* Fix exec planner [#453](https://github.com/freiheit-com/kuberpult/pull/454)
+* Add EnvironmentGroup to getOverview endpoint [#449](https://github.com/freiheit-com/kuberpult/pull/449)
+* Backend: Add environmentGroup to envConfig [#447](https://github.com/freiheit-com/kuberpult/pull/447)
+* refactoring: Rename config to ServerConfig [#446](https://github.com/freiheit-com/kuberpult/pull/446)
+* refactoring: rename config to RepositoryConfig [#445](https://github.com/freiheit-com/kuberpult/pull/445)
+* Removed misleading tooltip about queues in old UI [#443](https://github.com/freiheit-com/kuberpult/pull/443)
+* Add "development2" to test data [#440](https://github.com/freiheit-com/kuberpult/pull/440)
+* Add command to run lint fix [#439](https://github.com/freiheit-com/kuberpult/pull/439)
+* Improved readme for testdata [#437](https://github.com/freiheit-com/kuberpult/pull/437)
+* Added scripts to create test data [#433](https://github.com/freiheit-com/kuberpult/pull/433)
+* Add missing url to docker-compose.yml [#434](https://github.com/freiheit-com/kuberpult/pull/434)
+* Fix github actions deprecation errors [#430](https://github.com/freiheit-com/kuberpult/pull/430)
 
 ## 0.4.50
 * Bugfix: Show lock message text & label properly [#427](https://github.com/freiheit-com/kuberpult/pull/427)
