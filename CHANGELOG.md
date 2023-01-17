@@ -7,6 +7,8 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 # Change Log
 
 ## 0.4.51
+
+**released 2023-01-17**
 * Bugfix: Write undeploy versions correctly into manifest repo [#412](https://github.com/freiheit-com/kuberpult/pull/412)
 * route /v2/home to index.html in build directory [#454](https://github.com/freiheit-com/kuberpult/pull/454)
 * Add EnvironmentGroup to getOverview endpoint [#449](https://github.com/freiheit-com/kuberpult/pull/449)
