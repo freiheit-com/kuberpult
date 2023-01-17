@@ -33,6 +33,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/go-git/go-billy/v5/util"
+	"github.com/google/go-cmp/cmp"
 	godebug "github.com/kylelemons/godebug/diff"
 )
 
@@ -270,6 +271,87 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			} else {
 				if err == nil {
 					t.Fatalf("Expected an error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		Transformers     []Transformer
+		expectedError    string
+		expectedPath     string
+		shouldSucceed    bool
+		expectedFileData []byte
+	}{
+		{
+			Name: "successfully undeploy - should work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+			},
+			expectedError:    "",
+			expectedPath:     "applications/app1/releases/2/environments/acceptance/manifests.yaml",
+			expectedFileData: []byte(" "),
+			shouldSucceed:    true,
+		},
+		{
+			Name: "Does not undeploy - should not succeed",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+			},
+			expectedError:    "file does not exist",
+			expectedPath:     "",
+			expectedFileData: []byte(""),
+			shouldSucceed:    false,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			_, updatedState, _ := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+
+			fileData, err := util.ReadFile(updatedState.Filesystem, updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath))
+
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				if !cmp.Equal(fileData, tc.expectedFileData) {
+					t.Fatalf("Expected %v, got %v", tc.expectedFileData, fileData)
+				}
+			} else {
+				if err == nil {
+					t.Fatal("Expected error but got none")
 				} else {
 					actualMsg := err.Error()
 					if actualMsg != tc.expectedError {

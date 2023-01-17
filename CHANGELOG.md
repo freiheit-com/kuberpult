@@ -5,6 +5,7 @@ we do not use [Semantic Versioning](https://semver.org/).
 Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Unreleased yet
+* Bugfix: Write undeploy versions correctly into manifest repo
 
 # Change Log
 
