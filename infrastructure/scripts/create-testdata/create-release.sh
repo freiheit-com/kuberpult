@@ -9,7 +9,7 @@ set -o pipefail
 
 name=${1}
 applicationOwnerTeam=${2:-sreteam}
-commit_id=$(tr -dc a-f0-9 </dev/urandom | head -c 12 ; echo '')
+commit_id=$(LC_CTYPE=C tr -dc a-f0-9 </dev/urandom | head -c 12 ; echo '')
 author="The Author"
 commit_message_file="$(mktemp "${TMPDIR:-/tmp}/publish.XXXXXX")"
 trap "rm -f ""$commit_message_file" INT TERM HUP EXIT
