@@ -28,6 +28,11 @@ build-main: check-license
 build-pr: check-license
 	echo "on pull request"
 
+.PHONY: cleanup-pr
+cleanup-pr:
+	echo "Nothing to clean"
+
+
 .PHONY: get-builder-image
 get-builder-image:
 	@echo "$(KUBERPULT_BUILDER)"
