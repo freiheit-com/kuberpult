@@ -54,6 +54,14 @@ build-pr: test docker publish
 build-main: test docker publish
 	echo "build on main"
 
+.PHONY: cleanup-pr
+cleanup-pr:
+	echo "Nothing to clean"
+
+.PHONY: cleanup-main
+cleanup-main:
+	echo "Nothing to clean"
+
 ifeq ($(COMPILE_WITH_DOCKER),true)
 
 # note repository must be named repository otherwise kuberpult cannot see the repository
@@ -89,7 +97,7 @@ test-dependancies:
 test: $(GO_FILES) test-dependancies | proto
 	$(GO) test  ./...
 
-docker: bin/main 
+docker: bin/main
 	docker build -t $(IMAGENAME) .
 
 

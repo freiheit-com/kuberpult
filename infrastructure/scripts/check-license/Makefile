@@ -32,6 +32,10 @@ build-pr: check-license
 cleanup-pr:
 	echo "Nothing to clean"
 
+.PHONY: cleanup-main
+cleanup-main:
+	echo "Nothing to clean"
+
 
 .PHONY: get-builder-image
 get-builder-image:
