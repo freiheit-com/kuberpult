@@ -18,7 +18,7 @@ include ../../../Makefile.variables
 
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-builder:${VERSION}
 
-build: 
+build:
 	docker build -t $(IMAGENAME) .
 
 build-pr: build publish
@@ -26,6 +26,14 @@ build-pr: build publish
 
 build-main: build publish
 	echo "Building on main"
+
+.PHONY: cleanup-pr
+cleanup-pr:
+	echo "Nothing to clean"
+
+.PHONY: cleanup-main
+cleanup-main:
+	echo "Nothing to clean"
 
 login:
 	cat ../../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)

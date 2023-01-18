@@ -51,6 +51,14 @@ build-pr: test docker publish
 build-main: test docker publish
 	echo "build on main"
 
+.PHONY: cleanup-pr
+cleanup-pr:
+	echo "Nothing to clean"
+
+.PHONY: cleanup-main
+cleanup-main:
+	echo "Nothing to clean"
+
 .PHONY: login
 login:
 	cat ../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
