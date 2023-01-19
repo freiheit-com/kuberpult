@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -218,7 +217,7 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, internalError(ctx, err)
 	} else {
 		result.EnvironmentGroups = mapEnvironmentsToGroups(envs)
-		todo("iterate over groups")
+		//todo("iterate over groups")
 		for envName, config := range envs {
 			env := api.Environment{
 				Name: envName,
@@ -391,7 +390,7 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 	// now we have all environments grouped correctly.
 	// next step, sort envs by distance to prod.
 	// to do that, we first need to calculate the distance to upstream:
-	for groupName, bucket := range buckets {
+	for _, bucket := range buckets {
 		tmpDistancesToUpstreamByEnv := map[string]int32{}
 		// first, find all envs with distance 0
 		rest := []*api.Environment{}
@@ -427,6 +426,7 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 					tmpDistancesToUpstreamByEnv[env.Name] = int32(len(envs) + 1)
 				}
 			}
+			rest = nextRest
 		}
 	}
 
@@ -460,7 +460,7 @@ func calculateEnvironmentPriorities(environments []*api.Environment) {
 	for i := 0; i < len(environments); i++ {
 		var env = environments[i]
 		if env.DistanceToUpstream == maxDistance {
-			env.priority =
+			env.Priority = 42
 		}
 	}
 }

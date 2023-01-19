@@ -170,6 +170,7 @@ message GetDeployedOverviewResponse {
 message EnvironmentGroup {
   string environmentGroupName = 1;
   repeated Environment environments = 2;
+  uint32 distanceToUpstream = 3;
 }
 
 enum Priority {

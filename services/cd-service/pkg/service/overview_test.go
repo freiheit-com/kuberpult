@@ -19,6 +19,8 @@ package service
 
 import (
 	"context"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"sync"
 	"testing"
 
@@ -415,6 +417,61 @@ func TestOverviewService(t *testing.T) {
 			}
 			tc.Test(t, svc)
 			close(shutdown)
+		})
+	}
+}
+
+func TestMapEnvironmentsToGroup(t *testing.T) {
+	var nameA = "groupA"
+	tcs := []struct {
+		Name  string
+		InputEnvs map[string]config.EnvironmentConfig
+		ExpectedResult []*api.EnvironmentGroup
+	}{
+		{
+			Name: "One Environment is one Group",
+			InputEnvs: map[string]config.EnvironmentConfig{
+				"g-one": {
+					Upstream:         &config.EnvironmentConfigUpstream{
+						Environment: "g-one",
+						Latest:      true,
+					},
+					ArgoCd:           nil,
+					EnvironmentGroup: &nameA,
+				},
+			},
+			ExpectedResult: []*api.EnvironmentGroup{
+				{
+					EnvironmentGroupName: nameA,
+					Environments: []*api.Environment{
+						{
+							Name: nameA,
+							Config: &api.Environment_Config{
+								Upstream:         &api.Environment_Config_Upstream{
+									Upstream: &api.Environment_Config_Upstream_Latest{
+										Latest: true,
+									},
+								},
+								EnvironmentGroup: &nameA,
+							},
+							Locks:              nil,
+							Applications:       nil,
+							DistanceToUpstream: 0,
+							Priority:           0,
+						},
+					},
+					DistanceToUpstream:   0,
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		opts := cmpopts.IgnoreUnexported(api.EnvironmentGroup{}, api.Environment{})
+		t.Run(tc.Name, func(t *testing.T) {
+			actualResult := mapEnvironmentsToGroups(tc.InputEnvs)
+			if !cmp.Equal(tc.ExpectedResult[0].Environments[0], actualResult[0].Environments[0], opts) {
+				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedResult[0].Environments[0], actualResult[0].Environments[0], opts))
+			}
 		})
 	}
 }
