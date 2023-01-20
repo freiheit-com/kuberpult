@@ -42,6 +42,16 @@ spec:
           - name: http
             containerPort: 8081
             protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
         resources:
           limits:
             cpu: "{{ .Values.frontend.resources.limits.cpu }}"
