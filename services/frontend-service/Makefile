@@ -45,10 +45,10 @@ run: bin/main
 
 build: bin/main
 
-build-pr: test docker publish
+build-pr: test docker release
 	echo "build on pull request"
 
-build-main: test docker publish
+build-main: test docker release
 	echo "build on main"
 
 .PHONY: cleanup-pr

@@ -21,10 +21,10 @@ IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-builder:${VERSION}
 build:
 	docker build -t $(IMAGENAME) .
 
-build-pr: build publish
+build-pr: build release
 	echo "Building on pull request"
 
-build-main: build publish
+build-main: build release
 	echo "Building on main"
 
 .PHONY: cleanup-pr
