@@ -170,6 +170,7 @@ message GetDeployedOverviewResponse {
 message EnvironmentGroup {
   string environmentGroupName = 1;
   repeated Environment environments = 2;
+  // note that the distanceToUpstream should usually be configured to be the same for all envs in this group, but this is not enforced.
   uint32 distanceToUpstream = 3;
 }
 
@@ -215,7 +216,7 @@ message Environment {
   Config config = 2;
   map<string, Lock> locks = 3;
   map<string, Application> applications = 4;
-  int32 distanceToUpstream = 5;
+  uint32 distanceToUpstream = 5;
   Priority priority = 6;
 }
 

@@ -368,19 +368,20 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 		if groupName == nil {
 			groupName = &envName
 		}
+		var groupNameCopy = *groupName + "" // without this copy, unexpected pointer things happen :/
 		var bucket, ok = buckets[*groupName]
 		if !ok {
 			bucket = &api.EnvironmentGroup{
-				EnvironmentGroupName: *groupName,
+				EnvironmentGroupName: groupNameCopy,
 				Environments: []*api.Environment{},
 			}
-			buckets[*groupName] = bucket
+			buckets[groupNameCopy] = bucket
 		}
 		 var newEnv = &api.Environment{
 			Name: envName,
 			Config: &api.Environment_Config{
 				Upstream: transformUpstream(env.Upstream),
-				EnvironmentGroup: groupName,
+				EnvironmentGroup: &groupNameCopy,
 			},
 			Locks:        map[string]*api.Lock{},
 			Applications: map[string]*api.Environment_Application{},
@@ -389,11 +390,12 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 	}
 	// now we have all environments grouped correctly.
 	// next step, sort envs by distance to prod.
-	// to do that, we first need to calculate the distance to upstream:
+	// to do that, we first need to calculate the distance to upstream.
+	//
+	tmpDistancesToUpstreamByEnv := map[string]uint32{}
+	rest := []*api.Environment{}
 	for _, bucket := range buckets {
-		tmpDistancesToUpstreamByEnv := map[string]int32{}
 		// first, find all envs with distance 0
-		rest := []*api.Environment{}
 		for i := 0; i < len(bucket.Environments); i++ {
 			var environment = bucket.Environments[i]
 			if environment.Config.Upstream.GetLatest() {
@@ -404,13 +406,14 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 				rest = append(rest, environment)
 			}
 		}
+	}
 		// now we have all envs remaining that have upstream.latest == false
 		for ; len(rest) > 0; {
 			nextRest := []*api.Environment{}
 			for i := 0; i < len(rest); i++ {
 				env := rest[i]
 				upstreamEnv := env.Config.Upstream.GetEnvironment()
-				_, ok := tmpDistancesToUpstreamByEnv[env.Name]
+				_, ok := tmpDistancesToUpstreamByEnv[upstreamEnv]
 				if ok {
 					tmpDistancesToUpstreamByEnv[env.Name] = tmpDistancesToUpstreamByEnv[upstreamEnv] + 1
 					env.DistanceToUpstream = tmpDistancesToUpstreamByEnv[env.Name]
@@ -423,11 +426,16 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 				// to avoid an infinite loop, we fill it with an arbitrary number:
 				for i := 0; i < len(rest); i++{
 					env := rest[i]
-					tmpDistancesToUpstreamByEnv[env.Name] = int32(len(envs) + 1)
+					tmpDistancesToUpstreamByEnv[env.Name] = uint32(len(envs) + 1)
 				}
 			}
 			rest = nextRest
 		}
+
+	// now each environment has a distanceToUpstream.
+	// we set the distanceToUpstream also to each group:
+	for _, bucket := range buckets {
+		bucket.DistanceToUpstream = bucket.Environments[0].DistanceToUpstream
 	}
 
 	// now we can actually sort the environments:
@@ -440,19 +448,23 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 		result = append(result, bucket)
 	}
 	sort.Sort(EnvironmentGroupsByDistance(result))
-	// now, everything is sorted, so we can add more data on top that depends on the sorting:
+	// now, everything is sorted, so we can add more data on top that depends on the sorting.
+	// colllect all envs:
+	tmpEnvs :=  []*api.Environment{}
 	for i := 0; i < len(result); i++ {
 		var group = result[i]
-		calculateEnvironmentPriorities(group.Environments)
-		//for j := 0; j < len(group.Environments); j++ {
-		//}
+		//calculateEnvironmentPriorities(group.Environments)
+		for j := 0; j < len(group.Environments); j++ {
+			tmpEnvs = append(tmpEnvs , group.Environments[j])
+		}
 	}
+	calculateEnvironmentPriorities(tmpEnvs)
 	return result
 }
 
 func calculateEnvironmentPriorities(environments []*api.Environment) {
 	// first find the maximum:
-	var maxDistance int32 = 0
+	var maxDistance uint32 = 0
 	for i := 0; i < len(environments); i++ {
 		maxDistance = max(maxDistance, environments[i].DistanceToUpstream)
 	}
@@ -460,12 +472,18 @@ func calculateEnvironmentPriorities(environments []*api.Environment) {
 	for i := 0; i < len(environments); i++ {
 		var env = environments[i]
 		if env.DistanceToUpstream == maxDistance {
-			env.Priority = 42
+			env.Priority = api.Priority_PROD
+		} else if env.DistanceToUpstream == maxDistance - 1 {
+			env.Priority = api.Priority_PRE_PROD
+		} else if env.DistanceToUpstream == 0 {
+			env.Priority = api.Priority_UPSTREAM
+		} else {
+			env.Priority = api.Priority_OTHER
 		}
 	}
 }
 
-func max(a int32, b int32) int32 {
+func max(a uint32, b uint32) uint32 {
 	if a > b {
 		return a
 	}
@@ -482,7 +500,13 @@ func (s EnvironmentByDistance) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 func (s EnvironmentByDistance) Less(i, j int) bool {
-	return s[i].DistanceToUpstream < s[j].DistanceToUpstream
+	// first sort by distance, then by name
+	var di = s[i].DistanceToUpstream
+	var dj = s[j].DistanceToUpstream
+	if di != dj {
+		return di < dj
+	}
+	return s[i].Name < s[j].Name
 }
 
 type EnvironmentGroupsByDistance []*api.EnvironmentGroup
@@ -494,7 +518,13 @@ func (s EnvironmentGroupsByDistance) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 func (s EnvironmentGroupsByDistance) Less(i, j int) bool {
-	return s[i].Environments[0].DistanceToUpstream < s[j].Environments[0].DistanceToUpstream
+	// first sort by distance, then by name
+	var di = s[i].Environments[0].DistanceToUpstream
+	var dj = s[j].Environments[0].DistanceToUpstream
+	if dj != di {
+		return di < dj
+	}
+	return s[i].Environments[0].Name < s[j].Environments[0].Name
 }
 
 func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
