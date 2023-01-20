@@ -48,10 +48,10 @@ bin/:
 
 build: bin/main
 
-build-pr: test docker release
+build-pr: test docker publish
 	echo "build on pull request"
 
-build-main: test docker release
+build-main: test docker publish
 	echo "build on main"
 
 .PHONY: cleanup-pr
@@ -108,12 +108,8 @@ release: docker
 
 all: test docker
 
-.PHONY: login
-login:
-	cat ../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
-
 .PHONY: publish
-publish: login release
+publish: release
 
 .PHONY: all release test docker clean
 
