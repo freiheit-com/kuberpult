@@ -69,6 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ${{ matrix.data.image }}
+    # we want to publish to the ghcr.io registry. For this we need to have package:write rights
     permissions:
       packages: write
       contents: read
