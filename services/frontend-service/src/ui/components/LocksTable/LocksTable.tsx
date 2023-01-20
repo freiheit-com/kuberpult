@@ -80,9 +80,13 @@ export const LocksTable: React.FC<{
                         </tr>
                     </thead>
                     <tbody className="mdc-data-table__content">
-                        {locks.map((lock) => (
-                            <LockDisplay key={lock.lockId} lock={lock} />
-                        ))}
+                        <tr>
+                            <td>
+                                {locks.map((lock) => (
+                                    <LockDisplay key={lock.lockId} lock={lock} />
+                                ))}
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
