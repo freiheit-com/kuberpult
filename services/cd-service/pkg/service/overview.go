@@ -217,7 +217,7 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, internalError(ctx, err)
 	} else {
 		result.EnvironmentGroups = mapEnvironmentsToGroups(envs)
-		//todo("iterate over groups")
+		todo("now we just need to fill the groups data additionally to the iteration here over envs / maybe we can combine both")
 		for envName, config := range envs {
 			env := api.Environment{
 				Name: envName,

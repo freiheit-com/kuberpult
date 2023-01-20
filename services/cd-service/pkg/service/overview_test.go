@@ -440,17 +440,17 @@ func makeUpstreamEnvironment(env  string ) *api.Environment_Config_Upstream {
 var nameStagingDe = "staging-de"
 var nameDevDe = "dev-de"
 var nameProdDe = "prod-de"
-//var nameWhoKnowsDe = "whoknows-de"
+var nameWhoKnowsDe = "whoknows-de"
 
 var nameStagingFr = "staging-fr"
 var nameDevFr = "dev-fr"
 var nameProdFr = "prod-fr"
-//var nameWhoKnowsFr = "whoknows-fr"
+var nameWhoKnowsFr = "whoknows-fr"
 
 var nameStaging = "staging"
 var nameDev = "dev"
 var nameProd = "prod"
-//var nameWhoKnows = "whoknows"
+var nameWhoKnows = "whoknows"
 
 func makeEnv(envName string, groupName string, upstream *api.Environment_Config_Upstream, distanceToUpstream uint32 , priority api.Priority  ) *api.Environment {
 	return 						&api.Environment{
@@ -605,6 +605,61 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PROD),
 					},
 					DistanceToUpstream:   2,
+				},
+			},
+		},
+		{
+			Name: "Four Environments in a row to ensure that Priority_UPSTREAM works",
+			InputEnvs: map[string]config.EnvironmentConfig{
+				nameDevDe: {
+					Upstream:         &config.EnvironmentConfigUpstream{
+						Latest:      true,
+					},
+				},
+				nameStagingDe: {
+					Upstream:         &config.EnvironmentConfigUpstream{
+						Environment: nameDevDe,
+					},
+				},
+				nameProdDe: {
+					Upstream:         &config.EnvironmentConfigUpstream{
+						Environment: nameStagingDe,
+					},
+				},
+				nameWhoKnowsDe: {
+					Upstream:         &config.EnvironmentConfigUpstream{
+						Environment: nameProdDe,
+					},
+				},
+			},
+			ExpectedResult: []*api.EnvironmentGroup{
+				{
+					EnvironmentGroupName: nameDevDe,
+					Environments: []*api.Environment{
+						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
+					},
+					DistanceToUpstream:   0,
+				},
+				{
+					EnvironmentGroupName: nameStagingDe,
+					Environments: []*api.Environment{
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_OTHER),
+					},
+					DistanceToUpstream:   1,
+				},
+				{
+					EnvironmentGroupName: nameProdDe,
+					Environments: []*api.Environment{
+						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PRE_PROD),
+					},
+					DistanceToUpstream:   2,
+				},
+				{
+					EnvironmentGroupName: nameWhoKnowsDe,
+					Environments: []*api.Environment{
+						makeEnv(nameWhoKnowsDe, nameWhoKnowsDe, makeUpstreamEnvironment(nameProdDe), 3, api.Priority_PROD),
+					},
+					DistanceToUpstream:   3,
 				},
 			},
 		},
