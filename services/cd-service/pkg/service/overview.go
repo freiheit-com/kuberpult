@@ -415,6 +415,10 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 			if environment.Config.Upstream.GetLatest() {
 				environment.DistanceToUpstream = 0
 				tmpDistancesToUpstreamByEnv[environment.Name] = 0
+			} else if environment.Config.Upstream == nil {
+				// the environment has neither an upstream, nor latest configured. We can't determine where it belongs
+				environment.DistanceToUpstream = 100 // we can just pick an arbitrary number
+				tmpDistancesToUpstreamByEnv[environment.Name] = 100
 			} else {
 				// and remember the rest:
 				rest = append(rest, environment)
