@@ -15,7 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { Application, BatchRequest, GetOverviewResponse, BatchAction, Release } from '../../api/api';
+import { Application, BatchRequest, GetOverviewResponse, BatchAction, Release, EnvironmentGroup } from '../../api/api';
 import { useApi } from './GrpcApi';
 
 export interface DisplayLock {
@@ -172,6 +172,8 @@ export const useFilteredApps = (teams: string[]) =>
             (app) => teams.length === 0 || teams.includes(app.team.trim() || '<No Team>')
         )
     );
+
+export const useEnvironmentGroups = () => useOverview(({ environmentGroups }) => environmentGroups);
 
 // returns all environment names
 export const useEnvironmentNames = () =>
@@ -397,6 +399,9 @@ export const useDeployedReleases = (application: string) =>
     );
 
 // returns the environments where a release is currently deployed
+/**
+ * @deprecated
+ */
 export const useCurrentlyDeployedAt = (application: string, version: number) =>
     useOverview(({ environments }) =>
         Object.values(environments).filter(
@@ -406,6 +411,44 @@ export const useCurrentlyDeployedAt = (application: string, version: number) =>
                     ? env.applications[application].undeployVersion
                     : env.applications[application].version === version)
         )
+    );
+
+// export type FilteredGroup = {
+//     numDeployedHere : number;
+//     numEnvsInGroup: number;
+// }
+
+export const useCurrentlyDeployedAtGroup = (application: string, version: number) =>
+    useOverview(
+        ({ environmentGroups }) => {
+            const envGroups: EnvironmentGroup[] = [];
+            environmentGroups.forEach((group: EnvironmentGroup) => {
+                const envs = group.environments.filter(
+                    (env) =>
+                        env.applications[application] &&
+                        (version === -1
+                            ? env.applications[application].undeployVersion
+                            : env.applications[application].version === version)
+                );
+                if (envs.length > 0) {
+                    group.environments = envs; // this is changing the reference! TODO comment
+                    envGroups.push(group);
+                }
+            });
+            return envGroups;
+        }
+        // environmentGroups
+        //     .map((group) =>
+        //         group.environments = group.environments.filter(
+        //             (env) =>
+        //                 env.applications[application] &&
+        //                 (version === -1
+        //                     ? env.applications[application].undeployVersion
+        //                     : env.applications[application].version === version)
+        //         );
+        //         return group;
+        //     )
+        //     .filter((group) => group.length > 0)
     );
 
 // returns the environments where an app is currently deployed

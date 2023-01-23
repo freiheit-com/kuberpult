@@ -18,10 +18,8 @@ import classNames from 'classnames';
 import { Button } from '../button';
 import React, { useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
-import { updateReleaseDialog, useCurrentlyDeployedAt, useOverview, useRelease } from '../../utils/store';
+import { updateReleaseDialog, useCurrentlyDeployedAtGroup, useRelease } from '../../utils/store';
 import { Chip } from '../chip';
-import { Environment } from '../../../api/api';
-import { calculateEnvironmentPriorities, EnvPrioMap, sortEnvironmentsByUpstream } from '../ReleaseDialog/ReleaseDialog';
 
 export type ReleaseCardProps = {
     className?: string;
@@ -34,15 +32,22 @@ export type EnvChipListProps = {
     app: string;
 };
 
-export const EnvironmentChipList: React.FC<EnvChipListProps> = (props) => {
-    const allEnvs: Environment[] = useOverview((x) => Object.values(x.environments));
-    const sortedEnvs: Environment[] = sortEnvironmentsByUpstream(allEnvs);
-    const envPrioMap: EnvPrioMap = calculateEnvironmentPriorities(allEnvs);
-    const environmentsForApp = useCurrentlyDeployedAt(props.app, props.version);
-    const envsForAppSorted = sortedEnvs.filter((env: Environment) => environmentsForApp.includes(env));
-    return envsForAppSorted.map((env) => (
-        <Chip className={'release-environment'} label={env.name} key={env.name} priority={envPrioMap[env.name]} />
-    ));
+export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
+    // const envGroups = useEnvironmentGroups();
+    const deployedAt = useCurrentlyDeployedAtGroup(props.app, props.version);
+    return (
+        <>
+            {' '}
+            {deployedAt.map((envGroup) => (
+                <Chip
+                    className={'release-environment'}
+                    label={<span>{envGroup.environmentGroupName}</span>}
+                    key={envGroup.environmentGroupName}
+                    priority={envGroup.environments[0].priority}
+                />
+            ))}{' '}
+        </>
+    );
 };
 
 export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
@@ -80,7 +85,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                     <div className="release__author mdc-typography--body1">{'Author: ' + sourceAuthor}</div>
                 </div>
                 <div className="release__environments">
-                    <EnvironmentChipList app={props.app} version={props.version} />
+                    <EnvironmentGroupChipList app={props.app} version={props.version} />
                 </div>
             </div>
         </div>

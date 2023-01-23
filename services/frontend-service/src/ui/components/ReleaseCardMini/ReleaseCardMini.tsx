@@ -17,7 +17,7 @@ Copyright 2021 freiheit.com*/
 import classNames from 'classnames';
 import React from 'react';
 import { updateReleaseDialog, useRelease } from '../../utils/store';
-import { EnvironmentChipList } from '../ReleaseCard/ReleaseCard';
+import { EnvironmentGroupChipList } from '../ReleaseCard/ReleaseCard';
 
 export type ReleaseCardMiniProps = {
     className?: string;
@@ -58,7 +58,7 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
                 <div className="release__details-msg">{msg}</div>
             </div>
             <div className="release__environments-mini">
-                <EnvironmentChipList app={props.app} version={props.version} />
+                <EnvironmentGroupChipList app={props.app} version={props.version} />
             </div>
         </div>
     );
