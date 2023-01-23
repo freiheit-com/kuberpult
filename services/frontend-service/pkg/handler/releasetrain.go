@@ -73,7 +73,7 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, env
 	}
 	response, err := s.DeployClient.ReleaseTrain(req.Context(), &api.ReleaseTrainRequest{
 		Environment: environment,
-		Team: teamParam,
+		Team:        teamParam,
 	})
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)

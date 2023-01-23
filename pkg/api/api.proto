@@ -154,12 +154,12 @@ message GetOverviewRequest {
 }
 
 message GetOverviewResponse {
-  map<string, Environment> environments = 1;
+  map<string, Environment> environments = 1 [deprecated=true]; // use environmentGroups instead!
   map<string, Application> applications = 2;
+  repeated EnvironmentGroup environmentGroups = 3;
 }
 
 message GetDeployedOverviewRequest {
-
 }
 
 message GetDeployedOverviewResponse {
@@ -167,6 +167,19 @@ message GetDeployedOverviewResponse {
   map<string, Application> applications = 2;
 }
 
+message EnvironmentGroup {
+  string environmentGroupName = 1;
+  repeated Environment environments = 2;
+  // note that the distanceToUpstream should usually be configured to be the same for all envs in this group, but this is not enforced.
+  uint32 distanceToUpstream = 3;
+}
+
+enum Priority {
+  PROD = 0;
+  PRE_PROD = 1;
+  UPSTREAM = 2;
+  OTHER = 3;
+}
 
 message Environment {
   message Config {
@@ -203,6 +216,8 @@ message Environment {
   Config config = 2;
   map<string, Lock> locks = 3;
   map<string, Application> applications = 4;
+  uint32 distanceToUpstream = 5;
+  Priority priority = 6;
 }
 
 message Release {
