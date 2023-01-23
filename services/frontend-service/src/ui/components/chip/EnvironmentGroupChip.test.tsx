@@ -14,12 +14,12 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { Chip } from './chip';
+import { EnvironmentGroupChip } from './EnvironmentGroupChip';
 import { render } from '@testing-library/react';
 import { EnvPrio } from '../ReleaseDialog/ReleaseDialog';
 
-describe('Chip', () => {
-    const getNode = () => <Chip className={'chip--test'} label={'Test Me'} priority={EnvPrio.PROD} />;
+describe('EnvironmentGroupChip', () => {
+    const getNode = () => <EnvironmentGroupChip className={'chip--test'} label={'Test Me'} priority={EnvPrio.PROD} />;
     const getWrapper = () => render(getNode());
     it('renders a chip', () => {
         const { container } = getWrapper();
@@ -64,7 +64,9 @@ const data = [
 
 describe.each(data)(`Chip with envPrio Classname`, (testcase) => {
     it(`with envPrio=${testcase.envPrio}`, () => {
-        const getNode = () => <Chip className={'chip--hello'} label={'Test Me'} priority={testcase.envPrio} />;
+        const getNode = () => (
+            <EnvironmentGroupChip className={'chip--hello'} label={'Test Me'} priority={testcase.envPrio} />
+        );
         const getWrapper = () => render(getNode());
         const { container } = getWrapper();
         expect(container.firstChild).toHaveClass(

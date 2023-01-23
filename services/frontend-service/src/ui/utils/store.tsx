@@ -15,7 +15,15 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { Application, BatchRequest, GetOverviewResponse, BatchAction, Release, EnvironmentGroup } from '../../api/api';
+import {
+    Application,
+    BatchRequest,
+    GetOverviewResponse,
+    BatchAction,
+    Release,
+    EnvironmentGroup,
+    Environment,
+} from '../../api/api';
 import { useApi } from './GrpcApi';
 
 export interface DisplayLock {
@@ -413,15 +421,12 @@ export const useCurrentlyDeployedAt = (application: string, version: number) =>
         )
     );
 
-// export type FilteredGroup = {
-//     numDeployedHere : number;
-//     numEnvsInGroup: number;
-// }
+export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup: number };
 
 export const useCurrentlyDeployedAtGroup = (application: string, version: number) =>
     useOverview(
         ({ environmentGroups }) => {
-            const envGroups: EnvironmentGroup[] = [];
+            const envGroups: EnvironmentGroupExtended[] = [];
             environmentGroups.forEach((group: EnvironmentGroup) => {
                 const envs = group.environments.filter(
                     (env) =>
@@ -431,10 +436,27 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
                             : env.applications[application].version === version)
                 );
                 if (envs.length > 0) {
-                    group.environments = envs; // this is changing the reference! TODO comment
-                    envGroups.push(group);
+                    // we need to make a copy of the group here, because we want to remove some envs.
+                    // but that should not have any effect on the group saved in the store.
+                    const groupCopy: EnvironmentGroupExtended = {
+                        environmentGroupName: group.environmentGroupName,
+                        environments: envs,
+                        distanceToUpstream: group.distanceToUpstream,
+                        numberOfEnvsInGroup: group.environments.length,
+                    };
+                    envGroups.push(groupCopy);
                 }
             });
+            // eslint-disable-next-line no-console
+            console.log(
+                'SU DEBUG: deployedAtGroup',
+                application,
+                version,
+                'input:',
+                environmentGroups,
+                'result:',
+                envGroups
+            );
             return envGroups;
         }
         // environmentGroups

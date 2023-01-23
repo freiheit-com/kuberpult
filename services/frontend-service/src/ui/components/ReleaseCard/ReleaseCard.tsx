@@ -18,36 +18,13 @@ import classNames from 'classnames';
 import { Button } from '../button';
 import React, { useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
-import { updateReleaseDialog, useCurrentlyDeployedAtGroup, useRelease } from '../../utils/store';
-import { Chip } from '../chip';
+import { updateReleaseDialog, useRelease } from '../../utils/store';
+import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 
 export type ReleaseCardProps = {
     className?: string;
     version: number;
     app: string;
-};
-
-export type EnvChipListProps = {
-    version: number;
-    app: string;
-};
-
-export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
-    // const envGroups = useEnvironmentGroups();
-    const deployedAt = useCurrentlyDeployedAtGroup(props.app, props.version);
-    return (
-        <>
-            {' '}
-            {deployedAt.map((envGroup) => (
-                <Chip
-                    className={'release-environment'}
-                    label={<span>{envGroup.environmentGroupName}</span>}
-                    key={envGroup.environmentGroupName}
-                    priority={envGroup.environments[0].priority}
-                />
-            ))}{' '}
-        </>
-    );
 };
 
 export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
