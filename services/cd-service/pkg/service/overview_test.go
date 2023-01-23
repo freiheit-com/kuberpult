@@ -429,7 +429,7 @@ func makeUpstreamLatest() *api.Environment_Config_Upstream {
 	}
 }
 
-func makeUpstreamEnvironment(env  string ) *api.Environment_Config_Upstream {
+func makeUpstreamEnvironment(env string) *api.Environment_Config_Upstream {
 	return &api.Environment_Config_Upstream{
 		Upstream: &api.Environment_Config_Upstream_Environment{
 			Environment: env,
@@ -452,31 +452,31 @@ var nameDev = "dev"
 var nameProd = "prod"
 var nameWhoKnows = "whoknows"
 
-func makeEnv(envName string, groupName string, upstream *api.Environment_Config_Upstream, distanceToUpstream uint32 , priority api.Priority  ) *api.Environment {
-	return 						&api.Environment{
+func makeEnv(envName string, groupName string, upstream *api.Environment_Config_Upstream, distanceToUpstream uint32, priority api.Priority) *api.Environment {
+	return &api.Environment{
 		Name: envName,
 		Config: &api.Environment_Config{
-			Upstream: 		  upstream,
+			Upstream:         upstream,
 			EnvironmentGroup: &groupName,
 		},
-			Locks:              map[string]*api.Lock{},
-			Applications:       map[string]*api.Environment_Application{},
-			DistanceToUpstream: distanceToUpstream,
-			Priority:           priority, // we are 1 away from prod, hence pre-prod
-	};
+		Locks:              map[string]*api.Lock{},
+		Applications:       map[string]*api.Environment_Application{},
+		DistanceToUpstream: distanceToUpstream,
+		Priority:           priority, // we are 1 away from prod, hence pre-prod
+	}
 }
 
 func TestMapEnvironmentsToGroup(t *testing.T) {
 	tcs := []struct {
-		Name  string
-		InputEnvs map[string]config.EnvironmentConfig
+		Name           string
+		InputEnvs      map[string]config.EnvironmentConfig
 		ExpectedResult []*api.EnvironmentGroup
 	}{
 		{
 			Name: "One Environment is one Group",
 			InputEnvs: map[string]config.EnvironmentConfig{
 				nameDevDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: "",
 						Latest:      true,
 					},
@@ -490,7 +490,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 					Environments: []*api.Environment{
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_PROD),
 					},
-					DistanceToUpstream:   0,
+					DistanceToUpstream: 0,
 				},
 			},
 		},
@@ -498,16 +498,16 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 			Name: "Two Environments are two Groups",
 			InputEnvs: map[string]config.EnvironmentConfig{
 				nameDevDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
-						Latest:      true,
+					Upstream: &config.EnvironmentConfigUpstream{
+						Latest: true,
 					},
-					ArgoCd:           nil,
+					ArgoCd: nil,
 				},
 				nameStagingDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameDevDe,
 					},
-					ArgoCd:           nil,
+					ArgoCd: nil,
 				},
 			},
 			ExpectedResult: []*api.EnvironmentGroup{
@@ -516,14 +516,14 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 					Environments: []*api.Environment{
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_PRE_PROD),
 					},
-					DistanceToUpstream:   0,
+					DistanceToUpstream: 0,
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
 						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PROD),
 					},
-					DistanceToUpstream:   1,
+					DistanceToUpstream: 1,
 				},
 			},
 		},
@@ -533,16 +533,16 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 			Name: "Two Environments with a loop",
 			InputEnvs: map[string]config.EnvironmentConfig{
 				nameDevDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameStagingDe,
 					},
-					ArgoCd:           nil,
+					ArgoCd: nil,
 				},
 				nameStagingDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameDevDe,
 					},
-					ArgoCd:           nil,
+					ArgoCd: nil,
 				},
 			},
 			ExpectedResult: []*api.EnvironmentGroup{
@@ -551,14 +551,14 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 					Environments: []*api.Environment{
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamEnvironment(nameStagingDe), 4, api.Priority_PRE_PROD),
 					},
-					DistanceToUpstream:   4,
+					DistanceToUpstream: 4,
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
 						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 5, api.Priority_PROD),
 					},
-					DistanceToUpstream:   5,
+					DistanceToUpstream: 5,
 				},
 			},
 		},
@@ -566,22 +566,22 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 			Name: "Three Environments are three Groups",
 			InputEnvs: map[string]config.EnvironmentConfig{
 				nameDevDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
-						Latest:      true,
+					Upstream: &config.EnvironmentConfigUpstream{
+						Latest: true,
 					},
-					ArgoCd:           nil,
+					ArgoCd: nil,
 				},
 				nameStagingDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameDevDe,
 					},
-					ArgoCd:           nil,
+					ArgoCd: nil,
 				},
 				nameProdDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameStagingDe,
 					},
-					ArgoCd:           nil,
+					ArgoCd: nil,
 				},
 			},
 			ExpectedResult: []*api.EnvironmentGroup{
@@ -590,21 +590,21 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 					Environments: []*api.Environment{
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 					},
-					DistanceToUpstream:   0,
+					DistanceToUpstream: 0,
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
 						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
 					},
-					DistanceToUpstream:   1,
+					DistanceToUpstream: 1,
 				},
 				{
 					EnvironmentGroupName: nameProdDe,
 					Environments: []*api.Environment{
 						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PROD),
 					},
-					DistanceToUpstream:   2,
+					DistanceToUpstream: 2,
 				},
 			},
 		},
@@ -612,22 +612,22 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 			Name: "Four Environments in a row to ensure that Priority_UPSTREAM works",
 			InputEnvs: map[string]config.EnvironmentConfig{
 				nameDevDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
-						Latest:      true,
+					Upstream: &config.EnvironmentConfigUpstream{
+						Latest: true,
 					},
 				},
 				nameStagingDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameDevDe,
 					},
 				},
 				nameProdDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameStagingDe,
 					},
 				},
 				nameWhoKnowsDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameProdDe,
 					},
 				},
@@ -638,28 +638,28 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 					Environments: []*api.Environment{
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 					},
-					DistanceToUpstream:   0,
+					DistanceToUpstream: 0,
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
 						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_OTHER),
 					},
-					DistanceToUpstream:   1,
+					DistanceToUpstream: 1,
 				},
 				{
 					EnvironmentGroupName: nameProdDe,
 					Environments: []*api.Environment{
 						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PRE_PROD),
 					},
-					DistanceToUpstream:   2,
+					DistanceToUpstream: 2,
 				},
 				{
 					EnvironmentGroupName: nameWhoKnowsDe,
 					Environments: []*api.Environment{
 						makeEnv(nameWhoKnowsDe, nameWhoKnowsDe, makeUpstreamEnvironment(nameProdDe), 3, api.Priority_PROD),
 					},
-					DistanceToUpstream:   3,
+					DistanceToUpstream: 3,
 				},
 			},
 		},
@@ -668,37 +668,37 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 			Name: "Three Groups with 2 envs each",
 			InputEnvs: map[string]config.EnvironmentConfig{
 				nameDevDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
-						Latest:      true,
+					Upstream: &config.EnvironmentConfigUpstream{
+						Latest: true,
 					},
 					EnvironmentGroup: &nameDev,
 				},
 				nameDevFr: {
-					Upstream:         &config.EnvironmentConfigUpstream{
-						Latest:      true,
+					Upstream: &config.EnvironmentConfigUpstream{
+						Latest: true,
 					},
 					EnvironmentGroup: &nameDev,
 				},
 				nameStagingDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameDevDe,
 					},
 					EnvironmentGroup: &nameStaging,
 				},
 				nameStagingFr: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameDevFr,
 					},
 					EnvironmentGroup: &nameStaging,
 				},
 				nameProdDe: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameStagingDe,
 					},
 					EnvironmentGroup: &nameProd,
 				},
 				nameProdFr: {
-					Upstream:         &config.EnvironmentConfigUpstream{
+					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameStagingFr,
 					},
 					EnvironmentGroup: &nameProd,
@@ -711,7 +711,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameDevDe, nameDev, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 						makeEnv(nameDevFr, nameDev, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 					},
-					DistanceToUpstream:   0,
+					DistanceToUpstream: 0,
 				},
 				{
 					EnvironmentGroupName: nameStaging,
@@ -719,15 +719,15 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameStagingDe, nameStaging, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
 						makeEnv(nameStagingFr, nameStaging, makeUpstreamEnvironment(nameDevFr), 1, api.Priority_PRE_PROD),
 					},
-					DistanceToUpstream:   1,
+					DistanceToUpstream: 1,
 				},
 				{
 					EnvironmentGroupName: nameProd,
 					Environments: []*api.Environment{
-						makeEnv(nameProdDe,  nameProd, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PROD),
-						makeEnv(nameProdFr,  nameProd, makeUpstreamEnvironment(nameStagingFr), 2, api.Priority_PROD),
+						makeEnv(nameProdDe, nameProd, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PROD),
+						makeEnv(nameProdFr, nameProd, makeUpstreamEnvironment(nameStagingFr), 2, api.Priority_PROD),
 					},
-					DistanceToUpstream:   2,
+					DistanceToUpstream: 2,
 				},
 			},
 		},
