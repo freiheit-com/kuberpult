@@ -35,14 +35,11 @@ cleanup-pr:
 cleanup-main:
 	echo "Nothing to clean"
 
-login:
-	cat ../../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
-
 release:
 	echo "Releasing $(IMAGENAME)"
 	docker push $(IMAGENAME)
 
-publish: login release
+publish: release
 	echo $(VERSION)
 	echo $(IMAGENAME)
 

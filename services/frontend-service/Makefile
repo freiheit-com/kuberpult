@@ -59,12 +59,8 @@ cleanup-pr:
 cleanup-main:
 	echo "Nothing to clean"
 
-.PHONY: login
-login:
-	cat ../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
-
 .PHONY: publish
-publish: login release
+publish: release
 
 start: src/api/api.ts
 	pnpm i && pnpm start

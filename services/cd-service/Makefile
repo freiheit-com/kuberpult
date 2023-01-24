@@ -108,12 +108,8 @@ release: docker
 
 all: test docker
 
-.PHONY: login
-login:
-	cat ../../credential.json | docker login -u _json_key --password-stdin $(IMAGE_SERVER)
-
 .PHONY: publish
-publish: login release
+publish: release
 
 .PHONY: all release test docker clean
 

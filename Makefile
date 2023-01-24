@@ -23,13 +23,14 @@ CODE_REVIEWER_LOCATION?=$(HOME)/bin/codereviewr
 
 MAKEDIRS := services/cd-service services/frontend-service charts/kuberpult pkg/api pkg
 
+
 .install:
 	touch .install
 
 $(addsuffix /release,$(MAKEDIRS)):
 	make -C $(dir $@) release
 
-release: $(addsuffix /release,$(MAKEDIRS)) 
+release: $(addsuffix /release,$(MAKEDIRS))
 	git tag $(VERSION)
 
 $(addsuffix /clean,$(MAKEDIRS)):
