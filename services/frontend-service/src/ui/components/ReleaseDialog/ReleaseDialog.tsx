@@ -17,7 +17,7 @@ Copyright 2021 freiheit.com*/
 import { Dialog, Tooltip } from '@material-ui/core';
 import classNames from 'classnames';
 import React, { useCallback } from 'react';
-import { Environment, Lock, LockBehavior, Release } from '../../../api/api';
+import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import { addAction, updateReleaseDialog, useOverview } from '../../utils/store';
 import { Button } from '../button';
 import { Locks, LocksWhite } from '../../../images';
@@ -155,11 +155,13 @@ export const AppLock: React.FC<{
 
 export const EnvironmentListItem: React.FC<{
     env: Environment;
-    envPrioMap: EnvPrioMap;
     app: string;
     release: Release;
     className?: string;
-}> = ({ env, envPrioMap, app, release, className }) => {
+}> = ({ env, app, release, className }) => {
+    // eslint-disable-next-line no-console
+    console.log('SU DEBUG: EnvironmentListItem: ', env);
+
     const deploy = useCallback(() => {
         if (release.version)
             addAction({
@@ -273,22 +275,23 @@ export const EnvironmentList: React.FC<{ envs: Environment[]; release: Release; 
     app,
     className,
 }) => {
-    const allEnvs: Environment[] = useOverview((x) => Object.values(x.environments));
-    const envPrioMap: EnvPrioMap = calculateEnvironmentPriorities(allEnvs);
-
+    const allEnvGroups: EnvironmentGroup[] = useOverview((x) => Object.values(x.environmentGroups));
     return (
-        <ul className={classNames('release-env-list', className)}>
-            {sortEnvironmentsByUpstream(envs).map((env) => (
-                <EnvironmentListItem
-                    key={env.name}
-                    env={env}
-                    envPrioMap={envPrioMap}
-                    app={app}
-                    release={release}
-                    className={className}
-                />
+        <div className="release-env-group-list">
+            {allEnvGroups.map((envGroup) => (
+                <ul className={classNames('release-env-list', className)}>
+                    {envGroup.environments.map((env) => (
+                        <EnvironmentListItem
+                            key={env.name}
+                            env={env}
+                            app={app}
+                            release={release}
+                            className={className}
+                        />
+                    ))}
+                </ul>
             ))}
-        </ul>
+        </div>
     );
 };
 
