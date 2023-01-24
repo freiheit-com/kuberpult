@@ -19,6 +19,9 @@ import { EnvPrio } from '../ReleaseDialog/ReleaseDialog';
 import { Environment } from '../../../api/api';
 import React from 'react';
 import { EnvironmentGroupExtended, useCurrentlyDeployedAtGroup } from '../../utils/store';
+import { Tooltip } from '@material-ui/core';
+import { Button } from '../button';
+import { LocksWhite } from '../../../images';
 
 export const EnvironmentChip = (props: {
     className: string;
@@ -26,6 +29,7 @@ export const EnvironmentChip = (props: {
     groupNameOverride?: string;
     numberEnvsDeployed?: number;
     numberEnvsInGroup?: number;
+    withEnvLocks: boolean;
 }) => {
     const { className, env } = props;
     const priority = env.priority;
@@ -35,18 +39,36 @@ export const EnvironmentChip = (props: {
         props.numberEnvsDeployed && props.numberEnvsInGroup
             ? '(' + props.numberEnvsDeployed + '/' + props.numberEnvsInGroup + ')'
             : '';
+    const locks = props.withEnvLocks ? (
+        <div className={classNames('none2', className)} style={{ backgroundColor: 'transparent' }}>
+            {/*{env.name}*/}
+            {Object.values(env.locks).map((lock) => (
+                <Tooltip
+                    className="NONEx3"
+                    key={lock.lockId}
+                    arrow
+                    title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}>
+                    <div>
+                        <Button
+                            icon={<LocksWhite className="env-card-env-lock-icon" width="30px" height="42px" />}
+                            className={'button-lock'}
+                        />
+                    </div>
+                </Tooltip>
+            ))}
+        </div>
+    ) : null;
     return (
-        <span className={classNames('mdc-evolution-chip', className, prioClassName)} role="row">
+        <div className={classNames('mdc-evolution-chip', className, prioClassName)} role="row">
             <span
                 className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary ENV"
                 role="gridcell">
                 <span className="mdc-evolution-chip__text-label">
-                    <span>
-                        {name} {numberString}
-                    </span>
+                    {name} {numberString}
                 </span>
             </span>
-        </span>
+            {locks}
+        </div>
     );
 };
 

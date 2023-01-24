@@ -15,15 +15,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import {
-    Application,
-    BatchRequest,
-    GetOverviewResponse,
-    BatchAction,
-    Release,
-    EnvironmentGroup,
-    Environment,
-} from '../../api/api';
+import { Application, BatchRequest, GetOverviewResponse, BatchAction, Release, EnvironmentGroup } from '../../api/api';
 import { useApi } from './GrpcApi';
 
 export interface DisplayLock {

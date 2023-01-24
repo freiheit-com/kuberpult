@@ -20,7 +20,7 @@ import React, { useCallback } from 'react';
 import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import { addAction, updateReleaseDialog, useOverview } from '../../utils/store';
 import { Button } from '../button';
-import { Locks, LocksWhite } from '../../../images';
+import { Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 
 export type ReleaseDialogProps = {
@@ -118,6 +118,7 @@ export const EnvironmentListItem: React.FC<{
                     groupNameOverride={undefined}
                     numberEnvsDeployed={undefined}
                     numberEnvsInGroup={undefined}
+                    withEnvLocks={true}
                 />
                 <div className={classNames('env-card-app-locks')}>
                     {Object.values(env.applications)
