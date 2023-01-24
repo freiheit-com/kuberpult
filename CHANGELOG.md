@@ -6,6 +6,10 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.53
+* Bugfix: Do not require authentication in frontend-service health check [#467](https://github.com/freiheit-com/kuberpult/pull/467)
+
+
 ## 0.4.52
 * Publish the docker images additionally to the ghcr.io registry [#459](https://github.com/freiheit-com/kuberpult/pull/459)
 
