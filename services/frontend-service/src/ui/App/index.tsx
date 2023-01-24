@@ -49,8 +49,6 @@ export const App: React.FC = () => {
                 .StreamOverview({}, authHeader)
                 .subscribe(
                     (result) => {
-                        // eslint-disable-next-line no-console
-                        console.log('SU DEBUG: complete result', result);
                         UpdateOverview.set(result);
                         PanicOverview.set({ error: '' });
                     },

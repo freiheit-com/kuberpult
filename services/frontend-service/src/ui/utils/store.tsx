@@ -424,54 +424,30 @@ export const useCurrentlyDeployedAt = (application: string, version: number) =>
 export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup: number };
 
 export const useCurrentlyDeployedAtGroup = (application: string, version: number) =>
-    useOverview(
-        ({ environmentGroups }) => {
-            const envGroups: EnvironmentGroupExtended[] = [];
-            environmentGroups.forEach((group: EnvironmentGroup) => {
-                const envs = group.environments.filter(
-                    (env) =>
-                        env.applications[application] &&
-                        (version === -1
-                            ? env.applications[application].undeployVersion
-                            : env.applications[application].version === version)
-                );
-                if (envs.length > 0) {
-                    // we need to make a copy of the group here, because we want to remove some envs.
-                    // but that should not have any effect on the group saved in the store.
-                    const groupCopy: EnvironmentGroupExtended = {
-                        environmentGroupName: group.environmentGroupName,
-                        environments: envs,
-                        distanceToUpstream: group.distanceToUpstream,
-                        numberOfEnvsInGroup: group.environments.length,
-                    };
-                    envGroups.push(groupCopy);
-                }
-            });
-            // eslint-disable-next-line no-console
-            console.log(
-                'SU DEBUG: deployedAtGroup',
-                application,
-                version,
-                'input:',
-                environmentGroups,
-                'result:',
-                envGroups
+    useOverview(({ environmentGroups }) => {
+        const envGroups: EnvironmentGroupExtended[] = [];
+        environmentGroups.forEach((group: EnvironmentGroup) => {
+            const envs = group.environments.filter(
+                (env) =>
+                    env.applications[application] &&
+                    (version === -1
+                        ? env.applications[application].undeployVersion
+                        : env.applications[application].version === version)
             );
-            return envGroups;
-        }
-        // environmentGroups
-        //     .map((group) =>
-        //         group.environments = group.environments.filter(
-        //             (env) =>
-        //                 env.applications[application] &&
-        //                 (version === -1
-        //                     ? env.applications[application].undeployVersion
-        //                     : env.applications[application].version === version)
-        //         );
-        //         return group;
-        //     )
-        //     .filter((group) => group.length > 0)
-    );
+            if (envs.length > 0) {
+                // we need to make a copy of the group here, because we want to remove some envs.
+                // but that should not have any effect on the group saved in the store.
+                const groupCopy: EnvironmentGroupExtended = {
+                    environmentGroupName: group.environmentGroupName,
+                    environments: envs,
+                    distanceToUpstream: group.distanceToUpstream,
+                    numberOfEnvsInGroup: group.environments.length,
+                };
+                envGroups.push(groupCopy);
+            }
+        });
+        return envGroups;
+    });
 
 // returns the environments where an app is currently deployed
 export const useAllDeployedAt = (application: string) =>

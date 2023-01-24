@@ -27,8 +27,6 @@ export const EnvironmentChip = (props: {
     numberEnvsDeployed?: number;
     numberEnvsInGroup?: number;
 }) => {
-    // eslint-disable-next-line no-console
-    console.log('SU DEBUG: EnvChip: ', props.env);
     const { className, env } = props;
     const priority = env.priority;
     const prioClassName = className + '-' + String(EnvPrio[priority]).toLowerCase();
@@ -56,16 +54,8 @@ export const EnvironmentGroupChip = (props: { className: string; envGroup: Envir
     const { className, envGroup } = props;
 
     // we display it different if there's only one env in this group:
-    const summarizeAsGroupLabel = envGroup.environments.length >= 2;
-    // eslint-disable-next-line no-console
-    console.log(
-        'SU DEBUG: EnvironmentGroupChip: ',
-        summarizeAsGroupLabel,
-        envGroup.environments.length,
-        envGroup.environmentGroupName
-    );
-
-    if (summarizeAsGroupLabel) {
+    const displayAsGroup = envGroup.environments.length >= 2;
+    if (displayAsGroup) {
         return (
             <>
                 <div className={'EnvironmentGroupChip'}>
@@ -77,18 +67,10 @@ export const EnvironmentGroupChip = (props: { className: string; envGroup: Envir
                         numberEnvsInGroup={envGroup.numberOfEnvsInGroup}
                     />
                 </div>
-                {/*{envGroup.environments.map((env) => (*/}
-                {/*    <div className={'EnvironmentGroupChip'}>*/}
-                {/*        <EnvironmentChip*/}
-                {/*            className={className}*/}
-                {/*            env={env}*/}
-                {/*            groupNameOverride={envGroup.environmentGroupName}*/}
-                {/*        />*/}
-                {/*    </div>*/}
-                {/*))}*/}
             </>
         );
     }
+    // since there's only 1 env, we display that:
     return (
         <EnvironmentChip
             className={className}
@@ -97,16 +79,6 @@ export const EnvironmentGroupChip = (props: { className: string; envGroup: Envir
             numberEnvsDeployed={1}
             numberEnvsInGroup={envGroup.numberOfEnvsInGroup}
         />
-
-        // <span className={classNames('mdc-evolution-chip', className, prioClassName)} role="row">
-        //     <span
-        //         className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary GROUP"
-        //         role="gridcell">
-        //         <span className="mdc-evolution-chip__text-label">
-        //             <span>{envGroup.environmentGroupName}</span>
-        //         </span>
-        //     </span>
-        // </span>
     );
 };
 
@@ -118,9 +90,6 @@ export type EnvChipListProps = {
 export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
     // const envGroups = useEnvironmentGroups();
     const deployedAt = useCurrentlyDeployedAtGroup(props.app, props.version);
-    // eslint-disable-next-line no-console
-    console.log('SU DEBUG: Raw Data for app: ', props.app, props.version, deployedAt);
-
     return (
         <>
             {' '}

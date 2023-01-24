@@ -159,9 +159,6 @@ export const EnvironmentListItem: React.FC<{
     release: Release;
     className?: string;
 }> = ({ env, app, release, className }) => {
-    // eslint-disable-next-line no-console
-    console.log('SU DEBUG: EnvironmentListItem: ', env);
-
     const deploy = useCallback(() => {
         if (release.version)
             addAction({
