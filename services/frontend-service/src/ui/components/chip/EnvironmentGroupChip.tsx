@@ -16,7 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import classNames from 'classnames';
 import { EnvPrio } from '../ReleaseDialog/ReleaseDialog';
-import { Environment, EnvironmentGroup } from '../../../api/api';
+import { Environment } from '../../../api/api';
 import React from 'react';
 import { EnvironmentGroupExtended, useCurrentlyDeployedAtGroup } from '../../utils/store';
 
@@ -88,7 +88,6 @@ export type EnvChipListProps = {
 };
 
 export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
-    // const envGroups = useEnvironmentGroups();
     const deployedAt = useCurrentlyDeployedAtGroup(props.app, props.version);
     return (
         <>

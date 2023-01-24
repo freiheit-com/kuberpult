@@ -46,87 +46,6 @@ export enum EnvPrio {
     OTHER,
 }
 
-export type EnvPrioMap = { [key: string]: EnvPrio };
-
-/**
- * We have an arbitrary number of environments.
- * This function groups them. There are 4 groups:
- * prod: anything at the root of the tree
- * pre-prod: anything directly before prod.
- * upstream: anything with upstream.latest=true
- * other: anything else
- */
-export const calculateEnvironmentPriorities = (envs: Environment[]): EnvPrioMap => {
-    const distances: EnvSortOrder = calculateDistanceToUpstream(envs);
-    const result: EnvPrioMap = {};
-    let maxDistance = 0;
-    // first, find the maximum...
-    envs.forEach((env: Environment) => {
-        maxDistance = Math.max(maxDistance, distances[env.name]);
-    });
-    // now assign each environment a prio:
-    envs.forEach((env: Environment) => {
-        if (distances[env.name] === maxDistance) {
-            result[env.name] = EnvPrio.PROD;
-        } else if (distances[env.name] === maxDistance - 1) {
-            result[env.name] = EnvPrio.PRE_PROD;
-        } else if (distances[env.name] === 0) {
-            result[env.name] = EnvPrio.UPSTREAM;
-        } else {
-            result[env.name] = EnvPrio.OTHER;
-        }
-    });
-    return result;
-};
-
-export const sortEnvironmentsByUpstream = (envs: Environment[]): Environment[] => {
-    const sortedEnvs = [...envs];
-    const distance = calculateDistanceToUpstream(envs);
-    sortedEnvs.sort((a: Environment, b: Environment) => {
-        if (distance[a.name] === distance[b.name]) {
-            if (a.name < b.name) return -1;
-            if (a.name === b.name) return 0;
-            return 1;
-        }
-        if (distance[a.name] < distance[b.name]) return -1;
-        return 1;
-    });
-    return sortedEnvs;
-};
-
-export const calculateDistanceToUpstream = (envs: Environment[]): EnvSortOrder => {
-    const distanceToUpstream: EnvSortOrder = {};
-    let rest: Environment[] = [];
-    for (const env of envs) {
-        if (!env.config?.upstream?.upstream?.$case || env.config?.upstream?.upstream?.$case === 'latest') {
-            distanceToUpstream[env.name] = 0;
-        } else {
-            rest.push(env);
-        }
-    }
-    // iterate over rest until nothing is left
-    while (rest.length > 0) {
-        const nextRest: Environment[] = [];
-        for (const env of rest) {
-            const upstreamEnv = (env.config?.upstream?.upstream as any).environment;
-            if (upstreamEnv in distanceToUpstream) {
-                distanceToUpstream[env.name] = distanceToUpstream[upstreamEnv] + 1;
-            } else {
-                nextRest.push(env);
-            }
-        }
-        if (rest.length === nextRest.length) {
-            // infinite loop here, maybe fill in the remaining entries with max(distanceToUpstream) + 1
-            for (const env of rest) {
-                distanceToUpstream[env.name] = envs.length + 1;
-            }
-            return distanceToUpstream;
-        }
-        rest = nextRest;
-    }
-    return distanceToUpstream;
-};
-
 export const AppLock: React.FC<{
     env: Environment;
     app: string;
@@ -195,42 +114,10 @@ export const EnvironmentListItem: React.FC<{
                 <EnvironmentChip
                     env={env}
                     className={'release-environment'}
-                    // label={
-                    //     <div className={classNames('env-card-label', className)}>
-                    //         {env.name}
-                    //         {Object.values(env.locks).length !== 0 ? (
-                    //             <div className={classNames('env-card-env-locks', className)}>
-                    //                 {Object.values(env.locks).map((lock) => (
-                    //                     <Tooltip
-                    //                         className="env-card-env-lock"
-                    //                         key={lock.lockId}
-                    //                         arrow
-                    //                         title={
-                    //                             'Lock Message: "' +
-                    //                             lock.message +
-                    //                             '" | ID: "' +
-                    //                             lock.lockId +
-                    //                             '"  | Click to unlock. '
-                    //                         }>
-                    //                         <div>
-                    //                             <Button
-                    //                                 icon={<LocksWhite className="env-card-env-lock-icon" />}
-                    //                                 className={'button-lock'}
-                    //                             />
-                    //                         </div>
-                    //                     </Tooltip>
-                    //                 ))}
-                    //             </div>
-                    //         ) : (
-                    //             <></>
-                    //         )}
-                    //     </div>
-                    // }
                     key={env.name}
                     groupNameOverride={undefined}
                     numberEnvsDeployed={undefined}
                     numberEnvsInGroup={undefined}
-                    // priority={envPrioMap[env.name]}
                 />
                 <div className={classNames('env-card-app-locks')}>
                     {Object.values(env.applications)
