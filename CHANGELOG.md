@@ -6,6 +6,9 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.52
+* Publish the docker images additionally to the ghcr.io registry [#459](https://github.com/freiheit-com/kuberpult/pull/459)
+
 ## 0.4.51
 
 **released 2023-01-17**
