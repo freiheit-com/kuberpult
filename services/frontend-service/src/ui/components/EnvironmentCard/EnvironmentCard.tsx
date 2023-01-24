@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { addAction, useFilteredEnvironmentLocks } from '../../utils/store';
+import { addAction, useFilteredEnvironmentLockIDs } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import * as React from 'react';
@@ -22,7 +22,7 @@ import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLoc
 
 export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
     const { environment } = props;
-    const locks = useFilteredEnvironmentLocks(environment);
+    const locks = useFilteredEnvironmentLockIDs(environment);
     const addLock = React.useCallback(() => {
         const randBase36 = () => Math.random().toString(36).substring(7);
         const randomLockId = () => 'ui-v2-' + randBase36();

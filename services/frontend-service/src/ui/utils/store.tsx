@@ -184,24 +184,24 @@ export const useSearchedApplications = (applications: Application[], appNamePara
         .sort((a, b) => (a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)));
 
 // return all environment locks
-export const useEnvironmentLocks = () =>
-    useOverview(({ environments }) => {
-        const locks = Object.values(environments).map((environment) =>
-            Object.values(environment.locks).map(
-                (lockInfo) =>
-                    ({
-                        date: lockInfo.createdAt,
-                        environment: environment.name,
-                        lockId: lockInfo.lockId,
-                        message: lockInfo.message,
-                        authorName: lockInfo.createdBy?.name,
-                        authorEmail: lockInfo.createdBy?.email,
-                    } as DisplayLock)
-            )
-        );
-        const locksFiltered = locks.filter((displayLock) => displayLock.length !== 0);
-        return sortLocks(locksFiltered.flat(), 'descending');
-    });
+// export const useEnvironmentLocks = () =>
+//     useOverview(({ environments }) => {
+//         const locks = Object.values(environments).map((environment) =>
+//             Object.values(environment.locks).map(
+//                 (lockInfo) =>
+//                     ({
+//                         date: lockInfo.createdAt,
+//                         environment: environment.name,
+//                         lockId: lockInfo.lockId,
+//                         message: lockInfo.message,
+//                         authorName: lockInfo.createdBy?.name,
+//                         authorEmail: lockInfo.createdBy?.email,
+//                     } as DisplayLock)
+//             )
+//         );
+//         const locksFiltered = locks.filter((displayLock) => displayLock.length !== 0);
+//         return sortLocks(locksFiltered.flat(), 'descending');
+//     });
 
 // return all env lock IDs
 export const useEnvironmentLockIDs = () =>
@@ -222,22 +222,22 @@ export const useFilteredEnvironmentLockIDs = (envName: string) =>
             .map((lock) => lock.lockId)
     );
 
-export const useFilteredEnvironmentLocks = (envName: string) =>
-    useOverview(({ environments }) =>
-        Object.values(
-            Object.values(environments)
-                .filter((environment) => environment.name === envName)
-                .map((environment) => environment.locks)
-                .reduce((acc, val) => ({ ...acc, ...val }), {})
-        )
-            .sort((a, b) => {
-                if (!a.createdAt) {
-                    return b.createdAt ? 1 : 0;
-                }
-                return b.createdAt ? a.createdAt.valueOf() - b.createdAt.valueOf() : -1;
-            })
-            .map((v) => v.lockId)
-    );
+// export const useFilteredEnvironmentLocks = (envName: string) =>
+//     useOverview(({ environments }) =>
+//         Object.values(
+//             Object.values(environments)
+//                 .filter((environment) => environment.name === envName)
+//                 .map((environment) => environment.locks)
+//                 .reduce((acc, val) => ({ ...acc, ...val }), {})
+//         )
+//             .sort((a, b) => {
+//                 if (!a.createdAt) {
+//                     return b.createdAt ? 1 : 0;
+//                 }
+//                 return b.createdAt ? a.createdAt.valueOf() - b.createdAt.valueOf() : -1;
+//             })
+//             .map((v) => v.lockId)
+//     );
 
 export const useEnvironmentLock = (id: string) =>
     ({
@@ -263,31 +263,31 @@ export const useEnvironmentLock = (id: string) =>
     } as DisplayLock);
 
 // return all applications locks
-export const useFilteredApplicationLocks = (appNameParam: string | null) =>
-    useOverview(({ environments }) => {
-        const finalLocks: DisplayLock[] = [];
-        Object.values(environments)
-            .map((environment) => ({ envName: environment.name, apps: environment.applications }))
-            .forEach((app) => {
-                Object.values(app.apps)
-                    .map((myApp) => ({ environment: app.envName, appName: myApp.name, locks: myApp.locks }))
-                    .forEach((lock) => {
-                        Object.values(lock.locks).forEach((cena) =>
-                            finalLocks.push({
-                                date: cena.createdAt,
-                                application: lock.appName,
-                                environment: lock.environment,
-                                lockId: cena.lockId,
-                                message: cena.message,
-                                authorName: cena.createdBy?.name,
-                                authorEmail: cena.createdBy?.email,
-                            } as DisplayLock)
-                        );
-                    });
-            });
-        const filteredLocks = finalLocks.filter((val) => searchCustomFilter(appNameParam, val.application));
-        return sortLocks(filteredLocks, 'descending');
-    });
+// export const useFilteredApplicationLocks = (appNameParam: string | null) =>
+//     useOverview(({ environments }) => {
+//         const finalLocks: DisplayLock[] = [];
+//         Object.values(environments)
+//             .map((environment) => ({ envName: environment.name, apps: environment.applications }))
+//             .forEach((app) => {
+//                 Object.values(app.apps)
+//                     .map((myApp) => ({ environment: app.envName, appName: myApp.name, locks: myApp.locks }))
+//                     .forEach((lock) => {
+//                         Object.values(lock.locks).forEach((cena) =>
+//                             finalLocks.push({
+//                                 date: cena.createdAt,
+//                                 application: lock.appName,
+//                                 environment: lock.environment,
+//                                 lockId: cena.lockId,
+//                                 message: cena.message,
+//                                 authorName: cena.createdBy?.name,
+//                                 authorEmail: cena.createdBy?.email,
+//                             } as DisplayLock)
+//                         );
+//                     });
+//             });
+//         const filteredLocks = finalLocks.filter((val) => searchCustomFilter(appNameParam, val.application));
+//         return sortLocks(filteredLocks, 'descending');
+//     });
 
 export const searchCustomFilter = (queryContent: string | null, val: string | undefined) => {
     if (!!val && !!queryContent) {
@@ -362,30 +362,30 @@ export const useLock = (id: string) =>
     [useApplicationLock(id), useEnvironmentLock(id)].find((lock) => lock.lockId === id);
 
 // return all applications locks
-export const useApplicationLocks = () =>
-    useOverview(({ environments }) => {
-        const finalLocks: DisplayLock[] = [];
-        Object.values(environments)
-            .map((environment) => ({ envName: environment.name, apps: environment.applications }))
-            .forEach((app) => {
-                Object.values(app.apps)
-                    .map((myApp) => ({ environment: app.envName, appName: myApp.name, locks: myApp.locks }))
-                    .forEach((lock) => {
-                        Object.values(lock.locks).forEach((cena) =>
-                            finalLocks.push({
-                                date: cena.createdAt,
-                                application: lock.appName,
-                                environment: lock.environment,
-                                lockId: cena.lockId,
-                                message: cena.message,
-                                authorName: cena.createdBy?.name,
-                                authorEmail: cena.createdBy?.email,
-                            } as DisplayLock)
-                        );
-                    });
-            });
-        return sortLocks(finalLocks, 'descending');
-    });
+// export const useApplicationLocks = () =>
+//     useOverview(({ environments }) => {
+//         const finalLocks: DisplayLock[] = [];
+//         Object.values(environments)
+//             .map((environment) => ({ envName: environment.name, apps: environment.applications }))
+//             .forEach((app) => {
+//                 Object.values(app.apps)
+//                     .map((myApp) => ({ environment: app.envName, appName: myApp.name, locks: myApp.locks }))
+//                     .forEach((lock) => {
+//                         Object.values(lock.locks).forEach((cena) =>
+//                             finalLocks.push({
+//                                 date: cena.createdAt,
+//                                 application: lock.appName,
+//                                 environment: lock.environment,
+//                                 lockId: cena.lockId,
+//                                 message: cena.message,
+//                                 authorName: cena.createdBy?.name,
+//                                 authorEmail: cena.createdBy?.email,
+//                             } as DisplayLock)
+//                         );
+//                     });
+//             });
+//         return sortLocks(finalLocks, 'descending');
+//     });
 
 export const sortLocks = (displayLocks: DisplayLock[], sorting: 'ascending' | 'descending') => {
     const sortMethod = sorting === 'descending' ? -1 : 1;

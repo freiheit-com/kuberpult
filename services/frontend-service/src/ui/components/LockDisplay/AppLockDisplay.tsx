@@ -16,7 +16,7 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { Button } from '../button';
 import { Delete } from '../../../images';
-import { DisplayLock } from '../../utils/store';
+import { useApplicationLock } from '../../utils/store';
 import classNames from 'classnames';
 
 export const daysToString = (days: number) => {
@@ -38,25 +38,26 @@ export const calcLockAge = (time: Date | string | undefined): number => {
 
 export const isOutdated = (dateAdded: Date | string | undefined): boolean => calcLockAge(dateAdded) > 2;
 
-export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
-    const { lock } = props;
+export const AppLockDisplay: React.FC<{ lockID: string }> = (props) => {
+    const { lockID } = props;
+    const lock = useApplicationLock(lockID);
 
     const allClassNames = classNames('lock-display-info', {
-        'date-display--outdated': isOutdated(lock.date),
-        'date-display--normal': !isOutdated(lock.date),
+        'date-display--outdated': isOutdated(lock?.date),
+        'date-display--normal': !isOutdated(lock?.date),
     });
 
     return (
         <div className="lock-display">
             <div className="lock-display__table">
                 <div className="lock-display-table">
-                    <div className={allClassNames}>{daysToString(calcLockAge(lock.date))}</div>
-                    <div className="lock-display-info">{lock.environment}</div>
-                    {!!lock.application && <div className="lock-display-info">{lock.application}</div>}
-                    <div className="lock-display-info">{lock.lockId}</div>
-                    <div className="lock-display-info">{lock.message}</div>
-                    <div className="lock-display-info">{lock.authorName}</div>
-                    <div className="lock-display-info">{lock.authorEmail}</div>
+                    <div className={allClassNames}>{daysToString(calcLockAge(lock?.date))}</div>
+                    <div className="lock-display-info">{lock?.environment}</div>
+                    {!!lock?.application && <div className="lock-display-info">{lock?.application}</div>}
+                    <div className="lock-display-info">{lock?.lockId}</div>
+                    <div className="lock-display-info">{lock?.message}</div>
+                    <div className="lock-display-info">{lock?.authorName}</div>
+                    <div className="lock-display-info">{lock?.authorEmail}</div>
                     <Button className="lock-display-info lock-action service-action--delete" icon={<Delete />} />
                 </div>
             </div>

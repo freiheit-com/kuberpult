@@ -16,84 +16,145 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2021 freiheit.com*/
 import { render } from '@testing-library/react';
 import React from 'react';
-import { LockDisplay } from '../LockDisplay/LockDisplay';
-import { DisplayLock } from '../../../api/api';
+import { AppLockDisplay } from '../LockDisplay/AppLockDisplay';
+import { EnvLockDisplay } from '../LockDisplay/EnvLockDisplay';
+import { UpdateOverview } from '../../utils/store';
+import { Lock } from '../../../api/api';
 
 describe('Run Locks Table', () => {
-    interface dataT {
+    interface envDataT {
         name: string;
-        lock: DisplayLock;
+        locks: { [key: string]: Lock };
+        lockId: string;
         expect: (container: HTMLElement) => HTMLElement | void;
     }
 
-    const getNode = (overrides?: {}): JSX.Element | any => {
+    const getEnvNode = (overrides?: {}): JSX.Element | any => {
         // given
         const defaultProps: any = {
             children: null,
         };
-        return <LockDisplay {...defaultProps} {...overrides} />;
+        return <EnvLockDisplay {...defaultProps} {...overrides} />;
     };
-    const getWrapper = (overrides: { lock: DisplayLock }) => render(getNode(overrides));
+    const getEnvWrapper = (overrides: { lockID: string }) => render(getEnvNode(overrides));
 
-    const sampleApps: dataT[] = [
+    const sampleEnvData: envDataT[] = [
         {
-            name: 'one normal application lock',
-            lock: {
-                date: new Date(),
-                environment: 'test-env',
-                application: 'test-app',
-                lockId: 'test-id',
-                message: 'test-message',
-                authorName: 'defaultUser',
-                authorEmail: 'testEmail.com',
-            },
+            name: 'one normal Environment lock',
+            locks: { testLock: { lockId: 'test-id', message: 'test-message', createdAt: new Date() } },
+            lockId: 'test-id',
             expect: (container) => expect(container.getElementsByClassName('date-display--normal')).toHaveLength(1),
         },
         {
-            name: 'one normal environment lock',
-            lock: {
-                date: new Date(),
-                environment: 'test-env',
-                lockId: 'test-id',
-                message: 'test-message',
-                authorName: 'defaultUser',
-                authorEmail: 'testEmail.com',
+            name: 'one outdated Environment lock',
+            locks: {
+                testLock: { lockId: 'test-id', message: 'test-message', createdAt: new Date('1995-12-17T03:24:00') },
             },
-            expect: (container) => expect(container.getElementsByClassName('date-display--normal')).toHaveLength(1),
-        },
-        {
-            name: 'one outadeted application lock',
-            lock: {
-                date: new Date('1995-12-17T03:24:00'),
-                environment: 'test-env',
-                application: 'test-app',
-                lockId: 'test-id',
-                message: 'test-message',
-                authorName: 'defaultUser',
-                authorEmail: 'testEmail.com',
-            },
-            expect: (container) => expect(container.getElementsByClassName('date-display--outdated')).toHaveLength(1),
-        },
-        {
-            name: 'one outdated existing lock',
-            lock: {
-                date: new Date('1995-12-17T03:24:00'),
-                environment: 'test-env',
-                application: 'test-app',
-                lockId: 'test-id',
-                message: 'test-message',
-                authorName: 'defaultUser',
-                authorEmail: 'testEmail.com',
-            },
+            lockId: 'test-id',
             expect: (container) => expect(container.getElementsByClassName('date-display--outdated')).toHaveLength(1),
         },
     ];
 
-    describe.each(sampleApps)(`Renders an Application Card`, (testcase) => {
+    describe.each(sampleEnvData)(`Renders an Environment Lock Display`, (testcase) => {
         it(testcase.name, () => {
+            // given
+            UpdateOverview.set({
+                environments: {
+                    integration: {
+                        name: 'integration',
+                        applications: {},
+                        locks: testcase.locks,
+                        distanceToUpstream: 0,
+                        priority: 0,
+                    },
+                },
+            });
             // when
-            const { container } = getWrapper({ lock: testcase.lock });
+            const { container } = getEnvWrapper({ lockID: testcase.lockId });
+
+            testcase.expect(container);
+        });
+    });
+    interface appDataT {
+        name: string;
+        locks: { [key: string]: Lock };
+        lockId: string;
+        expect: (container: HTMLElement) => HTMLElement | void;
+    }
+
+    const getAppNode = (overrides?: {}): JSX.Element | any => {
+        // given
+        const defaultProps: any = {
+            children: null,
+        };
+        return <AppLockDisplay {...defaultProps} {...overrides} />;
+    };
+    const getAppWrapper = (overrides: { lockID: string }) => render(getAppNode(overrides));
+
+    const sampleAppData: appDataT[] = [
+        {
+            name: 'one normal Application lock',
+            locks: { testLock: { lockId: 'test-id', message: 'test-message', createdAt: new Date() } },
+            lockId: 'test-id',
+            expect: (container) => expect(container.getElementsByClassName('date-display--normal')).toHaveLength(1),
+        },
+        {
+            name: 'one outdated Application lock',
+            locks: {
+                testLock: { lockId: 'test-id', message: 'test-message', createdAt: new Date('1995-12-17T03:24:00') },
+            },
+            lockId: 'test-id',
+            expect: (container) => expect(container.getElementsByClassName('date-display--outdated')).toHaveLength(1),
+        },
+    ];
+
+    describe.each(sampleAppData)(`Renders an Application Lock Display`, (testcase) => {
+        it(testcase.name, () => {
+            // given
+            UpdateOverview.set({
+                environments: {
+                    integration: {
+                        name: 'integration',
+                        applications: {
+                            testApp: {
+                                name: 'testApp',
+                                locks: testcase.locks,
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                                version: 0,
+                            },
+                        },
+                        locks: {},
+                        distanceToUpstream: 0,
+                        priority: 0,
+                    },
+                },
+            });
+            // when
+            const { container } = getAppWrapper({ lockID: testcase.lockId });
             testcase.expect(container);
         });
     });
 });
+
+// {
+//     name: 'one normal environment lock',
+//     locks: { testLock: {lockId: 'test-id', message: 'test-message', createdAt: new Date()}},
+//     lockId: 'test-id',
+//     expect: (container) => expect(container.getElementsByClassName('date-display--normal')).toHaveLength(1),
+// },
+
+// {
+//     name: 'one outdated existing lock',
+//     locks: { testLock: {lock}}
+//     lock: {
+//         date: new Date('1995-12-17T03:24:00'),
+//         environment: 'test-env',
+//         application: 'test-app',
+//         lockId: 'test-id',
+//         message: 'test-message',
+//         authorName: 'defaultUser',
+//         authorEmail: 'testEmail.com',
+//     },
+//     expect: (container) => expect(container.getElementsByClassName('date-display--outdated')).toHaveLength(1),
+// },

@@ -15,8 +15,14 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 
-import { LocksTable } from '../../components/LocksTable/LocksTable';
-import { useEnvironmentLocks, useFilteredApplicationLocks } from '../../utils/store';
+import { EnvLocksTable } from '../../components/LocksTable/EnvLocksTable';
+import { AppLocksTable } from '../../components/LocksTable/AppLocksTable';
+import {
+    useEnvironmentLockIDs,
+    // useEnvironmentLocks,
+    useFilteredApplicationLockIDs,
+    // useFilteredApplicationLocks,
+} from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
 
 const applicationFieldHeaders = [
@@ -36,13 +42,15 @@ export const LocksPage: React.FC = () => {
     const [params] = useSearchParams();
     const appNameParam = params.get('application');
 
-    const appLocks = useFilteredApplicationLocks(appNameParam);
-    const envLocks = useEnvironmentLocks();
+    // const appLocks = useFilteredApplicationLocks(appNameParam);
+    // const envLocks = useEnvironmentLocks();
+    const appLocks = useFilteredApplicationLockIDs(appNameParam || '');
+    const envLocks = useEnvironmentLockIDs();
 
     return (
         <main className="main-content">
-            <LocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} locks={envLocks} />
-            <LocksTable headerTitle="Application Locks" columnHeaders={applicationFieldHeaders} locks={appLocks} />
+            <EnvLocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} lockIDs={envLocks} />
+            <AppLocksTable headerTitle="Application Locks" columnHeaders={applicationFieldHeaders} lockIDs={appLocks} />
         </main>
     );
 };

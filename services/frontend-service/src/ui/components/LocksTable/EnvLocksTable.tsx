@@ -15,21 +15,21 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 
-import { DisplayLock, sortLocks } from '../../utils/store';
-import { LockDisplay } from '../LockDisplay/LockDisplay';
+import { sortEnvLocksFromIDs } from '../../utils/store';
+import { EnvLockDisplay } from '../LockDisplay/EnvLockDisplay';
 import * as React from 'react';
 import { Button } from '../button';
 import { SortAscending, SortDescending } from '../../../images';
 import { useCallback } from 'react';
 
-export const LocksTable: React.FC<{
+export const EnvLocksTable: React.FC<{
     headerTitle: string;
     columnHeaders: string[];
-    locks: DisplayLock[];
+    lockIDs: string[];
 }> = (props) => {
-    const { headerTitle, columnHeaders, locks } = props;
+    const { headerTitle, columnHeaders, lockIDs } = props;
 
-    const [sort, setSort] = React.useState<string>('ascending');
+    const [sort, setSort] = React.useState<'ascending' | 'descending'>('ascending');
 
     const sortOnClick = useCallback(() => {
         if (sort === 'ascending') {
@@ -37,8 +37,8 @@ export const LocksTable: React.FC<{
         } else {
             setSort('ascending');
         }
-        sortLocks(locks, sort);
-    }, [locks, sort]);
+        sortEnvLocksFromIDs(lockIDs, sort);
+    }, [lockIDs, sort]);
 
     return (
         <div className="mdc-data-table">
@@ -82,8 +82,8 @@ export const LocksTable: React.FC<{
                     <tbody className="mdc-data-table__content">
                         <tr>
                             <td>
-                                {locks.map((lock) => (
-                                    <LockDisplay key={lock.lockId} lock={lock} />
+                                {lockIDs.map((lockId) => (
+                                    <EnvLockDisplay key={lockId} lockID={lockId} />
                                 ))}
                             </td>
                         </tr>
