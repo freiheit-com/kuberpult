@@ -406,8 +406,8 @@ export const useDeployedReleases = (application: string) =>
         ].sort((a, b) => (a === -1 ? -1 : b === -1 ? 1 : b - a))
     );
 
-// returns the environments where a release is currently deployed
 /**
+ * returns the environments where a release is currently deployed
  * @deprecated
  */
 export const useCurrentlyDeployedAt = (application: string, version: number) =>
@@ -449,7 +449,6 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
         return envGroups;
     });
 
-// returns the environments where an app is currently deployed
 export const useAllDeployedAt = (application: string) =>
     useOverview(({ environments }) => Object.values(environments).filter((env) => env.applications[application]));
 
