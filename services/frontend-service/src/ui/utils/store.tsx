@@ -184,24 +184,24 @@ export const useSearchedApplications = (applications: Application[], appNamePara
         .sort((a, b) => (a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)));
 
 // return all environment locks
-// export const useEnvironmentLocks = () =>
-//     useOverview(({ environments }) => {
-//         const locks = Object.values(environments).map((environment) =>
-//             Object.values(environment.locks).map(
-//                 (lockInfo) =>
-//                     ({
-//                         date: lockInfo.createdAt,
-//                         environment: environment.name,
-//                         lockId: lockInfo.lockId,
-//                         message: lockInfo.message,
-//                         authorName: lockInfo.createdBy?.name,
-//                         authorEmail: lockInfo.createdBy?.email,
-//                     } as DisplayLock)
-//             )
-//         );
-//         const locksFiltered = locks.filter((displayLock) => displayLock.length !== 0);
-//         return sortLocks(locksFiltered.flat(), 'descending');
-//     });
+export const useEnvironmentLocks = () =>
+    useOverview(({ environments }) => {
+        const locks = Object.values(environments).map((environment) =>
+            Object.values(environment.locks).map(
+                (lockInfo) =>
+                    ({
+                        date: lockInfo.createdAt,
+                        environment: environment.name,
+                        lockId: lockInfo.lockId,
+                        message: lockInfo.message,
+                        authorName: lockInfo.createdBy?.name,
+                        authorEmail: lockInfo.createdBy?.email,
+                    } as DisplayLock)
+            )
+        );
+        const locksFiltered = locks.filter((displayLock) => displayLock.length !== 0);
+        return sortLocks(locksFiltered.flat(), 'descending');
+    });
 
 // return all env lock IDs
 export const useEnvironmentLockIDs = () =>

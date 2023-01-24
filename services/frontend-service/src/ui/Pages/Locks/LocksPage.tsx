@@ -17,12 +17,7 @@ Copyright 2021 freiheit.com*/
 
 import { EnvLocksTable } from '../../components/LocksTable/EnvLocksTable';
 import { AppLocksTable } from '../../components/LocksTable/AppLocksTable';
-import {
-    useEnvironmentLockIDs,
-    // useEnvironmentLocks,
-    useFilteredApplicationLockIDs,
-    // useFilteredApplicationLocks,
-} from '../../utils/store';
+import { useEnvironmentLockIDs, useFilteredApplicationLockIDs } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
 
 const applicationFieldHeaders = [
@@ -42,10 +37,8 @@ export const LocksPage: React.FC = () => {
     const [params] = useSearchParams();
     const appNameParam = params.get('application');
 
-    // const appLocks = useFilteredApplicationLocks(appNameParam);
-    // const envLocks = useEnvironmentLocks();
-    const appLocks = useFilteredApplicationLockIDs(appNameParam || '');
     const envLocks = useEnvironmentLockIDs();
+    const appLocks = useFilteredApplicationLockIDs(appNameParam || '');
 
     return (
         <main className="main-content">

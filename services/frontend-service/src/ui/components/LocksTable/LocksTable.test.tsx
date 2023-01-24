@@ -136,25 +136,3 @@ describe('Run Locks Table', () => {
         });
     });
 });
-
-// {
-//     name: 'one normal environment lock',
-//     locks: { testLock: {lockId: 'test-id', message: 'test-message', createdAt: new Date()}},
-//     lockId: 'test-id',
-//     expect: (container) => expect(container.getElementsByClassName('date-display--normal')).toHaveLength(1),
-// },
-
-// {
-//     name: 'one outdated existing lock',
-//     locks: { testLock: {lock}}
-//     lock: {
-//         date: new Date('1995-12-17T03:24:00'),
-//         environment: 'test-env',
-//         application: 'test-app',
-//         lockId: 'test-id',
-//         message: 'test-message',
-//         authorName: 'defaultUser',
-//         authorEmail: 'testEmail.com',
-//     },
-//     expect: (container) => expect(container.getElementsByClassName('date-display--outdated')).toHaveLength(1),
-// },
