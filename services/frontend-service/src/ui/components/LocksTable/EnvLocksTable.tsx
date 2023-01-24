@@ -29,13 +29,13 @@ export const EnvLocksTable: React.FC<{
 }> = (props) => {
     const { headerTitle, columnHeaders, lockIDs } = props;
 
-    const [sort, setSort] = React.useState<'ascending' | 'descending'>('ascending');
+    const [sort, setSort] = React.useState<'oldestToNewest' | 'newestToOldest'>('oldestToNewest');
 
     const sortOnClick = useCallback(() => {
-        if (sort === 'ascending') {
-            setSort('descending');
+        if (sort === 'oldestToNewest') {
+            setSort('newestToOldest');
         } else {
-            setSort('ascending');
+            setSort('oldestToNewest');
         }
         sortEnvLocksFromIDs(lockIDs, sort);
     }, [lockIDs, sort]);
@@ -59,14 +59,14 @@ export const EnvLocksTable: React.FC<{
                                     {columnHeaders.map((columnHeader) => (
                                         <div key={columnHeader} className="mdc-data-indicator-field">
                                             {columnHeader}
-                                            {columnHeader === 'Date' && sort === 'ascending' && (
+                                            {columnHeader === 'Date' && sort === 'oldestToNewest' && (
                                                 <Button
                                                     className={'mdc-data-indicator-sort-button'}
                                                     onClick={sortOnClick}
                                                     icon={<SortAscending />}
                                                 />
                                             )}
-                                            {columnHeader === 'Date' && sort === 'descending' && (
+                                            {columnHeader === 'Date' && sort === 'newestToOldest' && (
                                                 <Button
                                                     className={'mdc-data-indicator-sort-button'}
                                                     onClick={sortOnClick}

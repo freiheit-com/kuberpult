@@ -200,7 +200,7 @@ export const useEnvironmentLocks = () =>
             )
         );
         const locksFiltered = locks.filter((displayLock) => displayLock.length !== 0);
-        return sortLocks(locksFiltered.flat(), 'descending');
+        return sortLocks(locksFiltered.flat(), 'newestToOldest');
     });
 
 // return all env lock IDs
@@ -286,7 +286,7 @@ export const useEnvironmentLock = (id: string) =>
 //                     });
 //             });
 //         const filteredLocks = finalLocks.filter((val) => searchCustomFilter(appNameParam, val.application));
-//         return sortLocks(filteredLocks, 'descending');
+//         return sortLocks(filteredLocks, 'newestToOldest');
 //     });
 
 export const searchCustomFilter = (queryContent: string | null, val: string | undefined) => {
@@ -384,11 +384,11 @@ export const useLock = (id: string) =>
 //                         );
 //                     });
 //             });
-//         return sortLocks(finalLocks, 'descending');
+//         return sortLocks(finalLocks, 'newestToOldest');
 //     });
 
-export const sortLocks = (displayLocks: DisplayLock[], sorting: 'ascending' | 'descending') => {
-    const sortMethod = sorting === 'descending' ? -1 : 1;
+export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest' | 'newestToOldest') => {
+    const sortMethod = sorting === 'newestToOldest' ? -1 : 1;
     displayLocks.sort((a: DisplayLock, b: DisplayLock) => {
         const aValues: (Date | string)[] = [];
         const bValues: (Date | string)[] = [];
@@ -411,8 +411,8 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'ascending' | 'd
     return displayLocks;
 };
 
-export const sortEnvLocksFromIDs = (lockIDs: string[], sorting: 'ascending' | 'descending') => {
-    const sortMethod = sorting === 'descending' ? -1 : 1;
+export const sortEnvLocksFromIDs = (lockIDs: string[], sorting: 'oldestToNewest' | 'newestToOldest') => {
+    const sortMethod = sorting === 'newestToOldest' ? -1 : 1;
     const displayLocks = lockIDs.map((lockId) => useEnvironmentLock(lockId));
     displayLocks.sort((a: DisplayLock, b: DisplayLock) => {
         const aValues: (Date | string)[] = [];
@@ -436,8 +436,8 @@ export const sortEnvLocksFromIDs = (lockIDs: string[], sorting: 'ascending' | 'd
     return displayLocks.map((lock) => lock.lockId);
 };
 
-export const sortAppLocksFromIDs = (lockIDs: string[], sorting: 'ascending' | 'descending') => {
-    const sortMethod = sorting === 'descending' ? -1 : 1;
+export const sortAppLocksFromIDs = (lockIDs: string[], sorting: 'oldestToNewest' | 'newestToOldest') => {
+    const sortMethod = sorting === 'newestToOldest' ? -1 : 1;
     const displayLocks = lockIDs.map((lockId) => useApplicationLock(lockId));
     displayLocks.sort((a: DisplayLock, b: DisplayLock) => {
         const aValues: (Date | string)[] = [];

@@ -50,7 +50,7 @@ describe('Test env locks', () => {
     interface dataEnvT {
         name: string;
         envs: { [key: string]: Environment };
-        sortOrder: 'ascending' | 'descending';
+        sortOrder: 'oldestToNewest' | 'newestToOldest';
         expectedLockIDs: string[];
     }
 
@@ -58,7 +58,7 @@ describe('Test env locks', () => {
         {
             name: 'no locks',
             envs: {},
-            sortOrder: 'ascending',
+            sortOrder: 'oldestToNewest',
             expectedLockIDs: [],
         },
         {
@@ -72,11 +72,11 @@ describe('Test env locks', () => {
                     priority: 2,
                 },
             },
-            sortOrder: 'ascending',
+            sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-1337'],
         },
         {
-            name: 'get a few locks (sorted, descending)',
+            name: 'get a few locks (sorted, newestToOldest)',
             envs: {
                 integration: {
                     name: 'integration',
@@ -90,11 +90,11 @@ describe('Test env locks', () => {
                     priority: 2,
                 },
             },
-            sortOrder: 'descending',
+            sortOrder: 'newestToOldest',
             expectedLockIDs: ['ui-v2-1337', 'ui-v2-123', 'ui-v2-321'],
         },
         {
-            name: 'get a few locks (sorted, ascending)',
+            name: 'get a few locks (sorted, oldestToNewest)',
             envs: {
                 integration: {
                     name: 'integration',
@@ -108,7 +108,7 @@ describe('Test env locks', () => {
                     priority: 2,
                 },
             },
-            sortOrder: 'ascending',
+            sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-321', 'ui-v2-123', 'ui-v2-1337'],
         },
     ];
@@ -214,7 +214,7 @@ describe('Test env locks', () => {
             // when
             const obtained = renderHook(() => useFilteredEnvironmentLockIDs(testcase.filter)).result.current;
             // then
-            const sortedObtained = renderHook(() => sortEnvLocksFromIDs(obtained, 'ascending')).result.current;
+            const sortedObtained = renderHook(() => sortEnvLocksFromIDs(obtained, 'oldestToNewest')).result.current;
             expect(sortedObtained).toStrictEqual(testcase.expectedLockIDs);
         });
     });
@@ -273,7 +273,7 @@ describe('Test app locks', () => {
     interface dataAppT {
         name: string;
         envs: { [key: string]: Environment };
-        sortOrder: 'ascending' | 'descending';
+        sortOrder: 'oldestToNewest' | 'newestToOldest';
         expectedLockIDs: string[];
     }
 
@@ -281,7 +281,7 @@ describe('Test app locks', () => {
         {
             name: 'no locks',
             envs: {},
-            sortOrder: 'ascending',
+            sortOrder: 'oldestToNewest',
             expectedLockIDs: [],
         },
         {
@@ -303,11 +303,11 @@ describe('Test app locks', () => {
                     },
                 },
             },
-            sortOrder: 'ascending',
+            sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-1337'],
         },
         {
-            name: 'get a few locks (sorted, descending)',
+            name: 'get a few locks (sorted, newestToOldest)',
             envs: {
                 integration: {
                     name: 'integration',
@@ -333,11 +333,11 @@ describe('Test app locks', () => {
                     },
                 },
             },
-            sortOrder: 'descending',
+            sortOrder: 'newestToOldest',
             expectedLockIDs: ['ui-v2-1337', 'ui-v2-123', 'ui-v2-321'],
         },
         {
-            name: 'get a few locks (sorted, ascending)',
+            name: 'get a few locks (sorted, oldestToNewest)',
             envs: {
                 integration: {
                     name: 'integration',
@@ -375,7 +375,7 @@ describe('Test app locks', () => {
                     },
                 },
             },
-            sortOrder: 'ascending',
+            sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-321', 'ui-v2-123', 'ui-v2-1337'],
         },
     ];
@@ -531,7 +531,7 @@ describe('Test app locks', () => {
             // when
             const obtained = renderHook(() => useFilteredApplicationLockIDs(testcase.filter)).result.current;
             // then
-            const sortedObtained = renderHook(() => sortAppLocksFromIDs(obtained, 'ascending')).result.current;
+            const sortedObtained = renderHook(() => sortAppLocksFromIDs(obtained, 'oldestToNewest')).result.current;
             expect(sortedObtained).toStrictEqual(testcase.expectedLockIDs);
         });
     });
