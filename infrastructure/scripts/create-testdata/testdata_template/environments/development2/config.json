@@ -29,6 +29,7 @@
     ]
   },
   "upstream": {
-    "environment": "development"
-  }
+    "latest": true
+  },
+  "group": "devgroup"
 }

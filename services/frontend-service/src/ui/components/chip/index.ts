@@ -14,6 +14,6 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import { EnvironmentGroupChip } from './environmentGroupChip';
+import { EnvironmentGroupChip } from './EnvironmentGroupChip';
 
 export { EnvironmentGroupChip };

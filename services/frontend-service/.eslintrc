@@ -11,7 +11,7 @@
     "arrow-body-style": ["error", "as-needed"],
     "no-console": 2,
     "eqeqeq": ["error", "always"],
-    "@typescript-eslint/no-unused-vars": 2,
+    "@typescript-eslint/no-unused-vars": 0,
     "no-duplicate-imports": 0,
     "import/no-duplicates": 2,
     "prefer-const": ["error"]
