@@ -15,21 +15,40 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 
-import { sortEnvLocksFromIDs } from '../../utils/store';
 import { EnvLockDisplay } from '../LockDisplay/EnvLockDisplay';
 import * as React from 'react';
 import { Button } from '../button';
 import { SortAscending, SortDescending } from '../../../images';
 import { useCallback } from 'react';
+// import { sortEnvLocksFromIDs } from '../../utils/store';
+// import { Environment } from '../../../api/api';
+import { DisplayLock, sortLocks } from '../../utils/store';
+import { Environment } from '../../../api/api';
 
 export const EnvLocksTable: React.FC<{
     headerTitle: string;
     columnHeaders: string[];
-    lockIDs: string[];
+    data: { [key: string]: Environment };
 }> = (props) => {
-    const { headerTitle, columnHeaders, lockIDs } = props;
+    const { headerTitle, columnHeaders, data } = props;
 
     const [sort, setSort] = React.useState<'oldestToNewest' | 'newestToOldest'>('oldestToNewest');
+
+    const locks = Object.values(data).map((environment) =>
+        Object.values(environment.locks).map(
+            (lockInfo) =>
+                ({
+                    date: lockInfo.createdAt,
+                    environment: environment.name,
+                    lockId: lockInfo.lockId,
+                    message: lockInfo.message,
+                    authorName: lockInfo.createdBy?.name,
+                    authorEmail: lockInfo.createdBy?.email,
+                } as DisplayLock)
+        )
+    );
+    const locksFiltered = sortLocks(locks.filter((displayLock) => displayLock.length !== 0).flat(), sort);
+    // const locks = Object.values(data);
 
     const sortOnClick = useCallback(() => {
         if (sort === 'oldestToNewest') {
@@ -37,9 +56,10 @@ export const EnvLocksTable: React.FC<{
         } else {
             setSort('oldestToNewest');
         }
-        sortEnvLocksFromIDs(lockIDs, sort);
-    }, [lockIDs, sort]);
-
+        // sortLocks(locksFiltered, sort);
+        sortLocks(locksFiltered, sort);
+        // sortEnvLocksFromIDs(data, sort);
+    }, [locksFiltered, sort]);
     return (
         <div className="mdc-data-table">
             <div className="mdc-data-table__table-container">
@@ -82,8 +102,8 @@ export const EnvLocksTable: React.FC<{
                     <tbody className="mdc-data-table__content">
                         <tr>
                             <td>
-                                {lockIDs.map((lockId) => (
-                                    <EnvLockDisplay key={lockId} lockID={lockId} />
+                                {locksFiltered.map((lockId) => (
+                                    <EnvLockDisplay key={lockId.lockId} lockID={lockId.lockId} />
                                 ))}
                             </td>
                         </tr>
