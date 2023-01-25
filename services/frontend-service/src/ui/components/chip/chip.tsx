@@ -17,7 +17,7 @@ Copyright 2021 freiheit.com*/
 import classNames from 'classnames';
 import { EnvPrio } from '../ReleaseDialog/ReleaseDialog';
 
-export const Chip = (props: { className: string; label: JSX.Element; priority: EnvPrio }) => {
+export const Chip = (props: { className: string; label: string | JSX.Element; priority: EnvPrio }) => {
     const { className, label } = props;
     const prioClassName = className + '-' + String(EnvPrio[props.priority]).toLowerCase();
     return (

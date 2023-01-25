@@ -29,17 +29,16 @@ export const LocksTable: React.FC<{
 }> = (props) => {
     const { headerTitle, columnHeaders, locks } = props;
 
-    const [sort, setSort] = React.useState<string>('ascending');
+    const [sort, setSort] = React.useState<'newestToOldest' | 'oldestToNewest'>('newestToOldest');
 
     const sortOnClick = useCallback(() => {
-        if (sort === 'ascending') {
-            setSort('descending');
+        if (sort === 'oldestToNewest') {
+            setSort('newestToOldest');
         } else {
-            setSort('ascending');
+            setSort('oldestToNewest');
         }
         sortLocks(locks, sort);
     }, [locks, sort]);
-
     return (
         <div className="mdc-data-table">
             <div className="mdc-data-table__table-container">
@@ -59,14 +58,14 @@ export const LocksTable: React.FC<{
                                     {columnHeaders.map((columnHeader) => (
                                         <div key={columnHeader} className="mdc-data-indicator-field">
                                             {columnHeader}
-                                            {columnHeader === 'Date' && sort === 'ascending' && (
+                                            {columnHeader === 'Date' && sort === 'oldestToNewest' && (
                                                 <Button
                                                     className={'mdc-data-indicator-sort-button'}
                                                     onClick={sortOnClick}
                                                     icon={<SortAscending />}
                                                 />
                                             )}
-                                            {columnHeader === 'Date' && sort === 'descending' && (
+                                            {columnHeader === 'Date' && sort === 'newestToOldest' && (
                                                 <Button
                                                     className={'mdc-data-indicator-sort-button'}
                                                     onClick={sortOnClick}

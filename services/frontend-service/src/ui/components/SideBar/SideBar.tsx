@@ -21,9 +21,9 @@ import {
     deleteAction,
     useActions,
     deleteAllActions,
-    useApplicationLocks,
-    DisplayLock,
-    useEnvironmentLocks,
+    useApplicationLockIDs,
+    useEnvironmentLockIDs,
+    useApplicationLock,
 } from '../../utils/store';
 import { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -58,9 +58,11 @@ export type ActionDetails = {
 
 export const getActionDetails = (
     { action }: BatchAction,
-    appLocks: DisplayLock[],
-    envLocks: DisplayLock[]
+    appLockIDs: string[],
+    envLockIDs: string[]
 ): ActionDetails => {
+    const appLocks = appLockIDs.map((lockId) => useApplicationLock(lockId));
+    const envLocks = envLockIDs.map((lockId) => useApplicationLock(lockId));
     switch (action?.$case) {
         case 'createEnvironmentLock':
             return {
@@ -169,8 +171,8 @@ type SideBarListItemProps = {
 };
 
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
-    const appLocks = useApplicationLocks();
-    const envLocks = useEnvironmentLocks();
+    const appLocks = useApplicationLockIDs();
+    const envLocks = useEnvironmentLockIDs();
     const actionDetails = getActionDetails(action, appLocks, envLocks);
 
     const handleDelete = useCallback(() => deleteAction(action), [action]);

@@ -18,7 +18,14 @@ import { act, render, renderHook } from '@testing-library/react';
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import { MemoryRouter } from 'react-router-dom';
 import { BatchAction, LockBehavior } from '../../../api/api';
-import { addAction, deleteAction, useActions, updateActions, deleteAllActions, DisplayLock } from '../../utils/store';
+import {
+    addAction,
+    deleteAction,
+    useActions,
+    updateActions,
+    deleteAllActions,
+    UpdateOverview,
+} from '../../utils/store';
 import { ActionDetails, ActionTypes, getActionDetails } from './SideBar';
 
 describe('Show and Hide Sidebar', () => {
@@ -382,8 +389,8 @@ describe('Action details', () => {
     interface dataT {
         name: string;
         action: BatchAction;
-        envLocks?: DisplayLock[];
-        appLocks?: DisplayLock[];
+        envLocks?: string[];
+        appLocks?: string[];
         expectedDetails: ActionDetails;
     }
     const data: dataT[] = [
@@ -411,16 +418,7 @@ describe('Action details', () => {
                     deleteEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337' },
                 },
             },
-            envLocks: [
-                {
-                    date: new Date('07.01.2023'),
-                    environment: 'foo',
-                    message: 'bar',
-                    lockId: 'ui-v2-1337',
-                    authorName: 'testman',
-                    authorEmail: 'foo@bar',
-                },
-            ],
+            envLocks: ['ui-v2-1337'],
             expectedDetails: {
                 type: ActionTypes.DeleteEnvironmentLock,
                 name: 'Delete Env Lock',
@@ -461,17 +459,7 @@ describe('Action details', () => {
                     deleteEnvironmentApplicationLock: { environment: 'foo', application: 'bar', lockId: 'ui-v2-1337' },
                 },
             },
-            appLocks: [
-                {
-                    date: new Date('07.01.2023'),
-                    environment: 'foo',
-                    application: 'bar',
-                    message: 'bar',
-                    lockId: 'ui-v2-1337',
-                    authorName: 'testman',
-                    authorEmail: 'foo@bar',
-                },
-            ],
+            appLocks: ['ui-v2-1337'],
             expectedDetails: {
                 type: ActionTypes.DeleteApplicationLock,
                 name: 'Delete App Lock',
@@ -552,9 +540,29 @@ describe('Action details', () => {
 
     describe.each(data)('Test getActionDetails function', (testcase) => {
         it(testcase.name, () => {
+            UpdateOverview.set({
+                environments: {
+                    foo: {
+                        name: 'foo',
+                        distanceToUpstream: 0,
+                        locks: { testLock: { lockId: 'ui-v2-1337', message: 'bar' } },
+                        priority: 0,
+                        applications: {
+                            bar: {
+                                name: 'bar',
+                                locks: { testLock: { lockId: 'ui-v2-1337', message: 'bar' } },
+                                queuedVersion: 0,
+                                undeployVersion: false,
+                                version: 0,
+                            },
+                        },
+                    },
+                },
+            });
             const envLocks = testcase.envLocks || [];
             const appLocks = testcase.appLocks || [];
-            const obtainedDetails = getActionDetails(testcase.action, appLocks, envLocks);
+            const obtainedDetails = renderHook(() => getActionDetails(testcase.action, appLocks, envLocks)).result
+                .current;
             expect(obtainedDetails).toStrictEqual(testcase.expectedDetails);
         });
     });
