@@ -232,10 +232,8 @@ export const useEnvironmentLocks = () =>
 
 // return all env lock IDs
 export const useEnvironmentLockIDs = () =>
-    useOverview(({ environmentGroups }) =>
-        environmentGroups
-            .map((envGroup) => envGroup.environments)
-            .flat()
+    useOverview(({ environments }) =>
+        Object.values(environments)
             .map((env) => Object.values(env.locks))
             .flat()
             .map((lock) => lock.lockId)
@@ -243,10 +241,8 @@ export const useEnvironmentLockIDs = () =>
 
 // return env lock IDs from given env
 export const useFilteredEnvironmentLockIDs = (envName: string) =>
-    useOverview(({ environmentGroups }) =>
-        environmentGroups
-            .map((envGroup) => envGroup.environments)
-            .flat()
+    useOverview(({ environments }) =>
+        Object.values(environments)
             .filter((env) => envName === '' || env.name === envName)
             .map((env) => Object.values(env.locks))
             .flat()
@@ -273,11 +269,9 @@ export const useFilteredEnvironmentLocks = (envName: string) =>
 export const useEnvironmentLock = (id: string) =>
     ({
         ...useOverview(
-            ({ environmentGroups }) =>
+            ({ environments }) =>
                 Object.values(
-                    environmentGroups
-                        .map((envGroup) => envGroup.environments)
-                        .flat()
+                    Object.values(environments)
                         .map((env) => env.locks)
                         .reduce((acc, val) => ({ ...acc, ...val }))
                 )
@@ -290,11 +284,8 @@ export const useEnvironmentLock = (id: string) =>
                     }))
                     .find((lock) => lock.lockId === id)!
         ),
-        environment: useOverview(({ environmentGroups }) =>
-            environmentGroups
-                .map((envGroup) => envGroup.environments)
-                .flat()
-                .find((env) => Object.values(env.locks).find((lock) => lock.lockId === id))
+        environment: useOverview(({ environments }) =>
+            Object.values(environments).find((env) => Object.values(env.locks).find((lock) => lock.lockId === id))
         )?.name,
     } as DisplayLock);
 
@@ -311,10 +302,8 @@ export const searchCustomFilter = (queryContent: string | null, val: string | un
 
 // return app lock IDs
 export const useApplicationLockIDs = () =>
-    useOverview(({ environmentGroups }) =>
-        environmentGroups
-            .map((envGroup) => envGroup.environments)
-            .flat()
+    useOverview(({ environments }) =>
+        Object.values(environments)
             .map((env) => Object.values(env.applications))
             .flat()
             .map((app) => Object.values(app.locks))
@@ -325,11 +314,9 @@ export const useApplicationLockIDs = () =>
 export const useApplicationLock = (id: string) =>
     ({
         ...useOverview(
-            ({ environmentGroups }) =>
+            ({ environments }) =>
                 Object.values(
-                    environmentGroups
-                        .map((envGroup) => envGroup.environments)
-                        .flat()
+                    Object.values(environments)
                         .map((env) => Object.values(env.applications))
                         .flat()
                         .map((app) => app.locks)
@@ -344,20 +331,15 @@ export const useApplicationLock = (id: string) =>
                     }))
                     .find((lock) => lock.lockId === id)!
         ),
-        environment: useOverview(({ environmentGroups }) =>
-            environmentGroups
-                .map((envGroup) => envGroup.environments)
-                .flat()
-                .find((env) =>
-                    Object.values(env.applications).find((app) =>
-                        Object.values(app.locks).find((lock) => lock.lockId === id)
-                    )
+        environment: useOverview(({ environments }) =>
+            Object.values(environments).find((env) =>
+                Object.values(env.applications).find((app) =>
+                    Object.values(app.locks).find((lock) => lock.lockId === id)
                 )
+            )
         )?.name,
-        application: useOverview(({ environmentGroups }) =>
-            environmentGroups
-                .map((envGroup) => envGroup.environments)
-                .flat()
+        application: useOverview(({ environments }) =>
+            Object.values(environments)
                 .map((env) => Object.values(env.applications))
                 .flat()
                 .find((app) => Object.values(app.locks).find((lock) => lock.lockId === id))
@@ -402,12 +384,10 @@ export const useRelease = (application: string, version: number) =>
 
 // returns the release versions that are currently deployed to at least one environment
 export const useDeployedReleases = (application: string) =>
-    useOverview(({ environmentGroups }) =>
+    useOverview(({ environments }) =>
         [
             ...new Set(
-                environmentGroups
-                    .map((envGroup) => envGroup.environments)
-                    .flat()
+                Object.values(environments)
                     .filter((env) => env.applications[application])
                     .map((env) =>
                         env.applications[application].undeployVersion ? -1 : env.applications[application].version
@@ -418,27 +398,19 @@ export const useDeployedReleases = (application: string) =>
 
 // returns the environments where a release is currently deployed
 export const useCurrentlyDeployedAt = (application: string, version: number) =>
-    useOverview(({ environmentGroups }) =>
-        environmentGroups
-            .map((envGroup) => envGroup.environments)
-            .flat()
-            .filter(
-                (env) =>
-                    env.applications[application] &&
-                    (version === -1
-                        ? env.applications[application].undeployVersion
-                        : env.applications[application].version === version)
-            )
+    useOverview(({ environments }) =>
+        Object.values(environments).filter(
+            (env) =>
+                env.applications[application] &&
+                (version === -1
+                    ? env.applications[application].undeployVersion
+                    : env.applications[application].version === version)
+        )
     );
 
 // returns the environments where an app is currently deployed
 export const useAllDeployedAt = (application: string) =>
-    useOverview(({ environmentGroups }) =>
-        environmentGroups
-            .map((envGroup) => envGroup.environments)
-            .flat()
-            .filter((env) => env.applications[application])
-    );
+    useOverview(({ environments }) => Object.values(environments).filter((env) => env.applications[application]));
 
 // Get release information for a version
 export const useReleaseInfo = (app: string, version: number) =>
