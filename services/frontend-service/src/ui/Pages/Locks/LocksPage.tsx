@@ -15,8 +15,9 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 
+import { useMemo } from 'react';
 import { LocksTable } from '../../components/LocksTable/LocksTable';
-import { useEnvironmentLocks, useFilteredApplicationLocks } from '../../utils/store';
+import { DisplayLock, searchCustomFilter, sortLocks, useOverview } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
 
 const applicationFieldHeaders = [
@@ -35,9 +36,57 @@ const environmentFieldHeaders = ['Date', 'Environment', 'Lock Id', 'Message', 'A
 export const LocksPage: React.FC = () => {
     const [params] = useSearchParams();
     const appNameParam = params.get('application');
-
-    const appLocks = useFilteredApplicationLocks(appNameParam);
-    const envLocks = useEnvironmentLocks();
+    const envs = useOverview(({ environments }) => Object.values(environments));
+    const envLocks = useMemo(
+        () =>
+            sortLocks(
+                Object.values(envs)
+                    .map((env) =>
+                        Object.values(env.locks).map(
+                            (lock) =>
+                                ({
+                                    date: lock.createdAt,
+                                    environment: env.name,
+                                    lockId: lock.lockId,
+                                    message: lock.message,
+                                    authorName: lock.createdBy?.name,
+                                    authorEmail: lock.createdBy?.email,
+                                } as DisplayLock)
+                        )
+                    )
+                    .flat(),
+                'oldestToNewest'
+            ),
+        [envs]
+    );
+    const appLocks = useMemo(
+        () =>
+            sortLocks(
+                Object.values(envs)
+                    .map((env) =>
+                        Object.values(env.applications)
+                            .map((app) =>
+                                Object.values(app.locks).map(
+                                    (lock) =>
+                                        ({
+                                            date: lock.createdAt,
+                                            environment: env.name,
+                                            application: app.name,
+                                            lockId: lock.lockId,
+                                            message: lock.message,
+                                            authorName: lock.createdBy?.name,
+                                            authorEmail: lock.createdBy?.email,
+                                        } as DisplayLock)
+                                )
+                            )
+                            .flat()
+                    )
+                    .flat()
+                    .filter((lock) => searchCustomFilter(appNameParam, lock.application)),
+                'oldestToNewest'
+            ),
+        [appNameParam, envs]
+    );
 
     return (
         <main className="main-content">
