@@ -33,18 +33,16 @@ export const EnvironmentChip = (props: {
 }) => {
     const { className, env } = props;
     const priority = env.priority;
-    const prioClassName = className + '-' + String(EnvPrio[priority]).toLowerCase();
+    const priorityClassName = className + '-' + String(EnvPrio[priority]).toLowerCase();
     const name = props.groupNameOverride ? props.groupNameOverride : env.name;
     const numberString =
         props.numberEnvsDeployed && props.numberEnvsInGroup
             ? '(' + props.numberEnvsDeployed + '/' + props.numberEnvsInGroup + ')'
             : '';
     const locks = props.withEnvLocks ? (
-        <div className={classNames('none2', className)} style={{ backgroundColor: 'transparent', display: 'flex' }}>
-            {/*{env.name}*/}
+        <div className={className} style={{ backgroundColor: 'transparent', display: 'flex' }}>
             {Object.values(env.locks).map((lock) => (
                 <Tooltip
-                    className="NONEx3"
                     key={lock.lockId}
                     arrow
                     title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}>
@@ -59,7 +57,7 @@ export const EnvironmentChip = (props: {
         </div>
     ) : null;
     return (
-        <div className={classNames('mdc-evolution-chip', className, prioClassName)} role="row">
+        <div className={classNames('mdc-evolution-chip', className, priorityClassName)} role="row">
             <span
                 className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary ENV"
                 role="gridcell">
@@ -87,6 +85,7 @@ export const EnvironmentGroupChip = (props: { className: string; envGroup: Envir
                         groupNameOverride={envGroup.environmentGroupName}
                         numberEnvsDeployed={envGroup.environments.length}
                         numberEnvsInGroup={envGroup.numberOfEnvsInGroup}
+                        withEnvLocks={false}
                     />
                 </div>
             </>
@@ -100,6 +99,7 @@ export const EnvironmentGroupChip = (props: { className: string; envGroup: Envir
             groupNameOverride={undefined}
             numberEnvsDeployed={1}
             numberEnvsInGroup={envGroup.numberOfEnvsInGroup}
+            withEnvLocks={false}
         />
     );
 };
