@@ -15,5 +15,5 @@
 
 #Copyright 2021 freiheit.com
 VERSION?=$(shell git describe --always --long --tags || echo 0.0.1)
-KUBERPULT_BUILDER?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-builder:0.4.32-7-g062caaa
+KUBERPULT_BUILDER?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-builder:0.4.54-6-g396937e
 IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry
