@@ -16,7 +16,7 @@
 #Copyright 2021 freiheit.com
 include ../../../Makefile.variables
 
-IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-builder:${VERSION}
+IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult/kuberpult-builder:${VERSION}
 
 build:
 	docker build -t $(IMAGENAME) .
