@@ -19,10 +19,11 @@ package service
 
 import (
 	"context"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"sync"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -530,7 +531,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 		{
 			// note that this is not a realistic example, we just want to make sure it does not crash!
 			// some outputs may be nonsensical (like distanceToUpstream), but that's fine as long as it's stable!
-			Name: "Two Environments with a loops",
+			Name: "Two Environments with a loop",
 			InputEnvs: map[string]config.EnvironmentConfig{
 				nameDevDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
@@ -595,7 +596,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
-						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PROD),
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 1,
 				},
