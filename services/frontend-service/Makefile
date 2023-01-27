@@ -26,7 +26,7 @@ GO := go
 GO_FILES := $(shell find . -type f -name '*.go')
 
 
-IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-frontend-service:${VERSION}
+IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult/kuberpult-frontend-service:${VERSION}
 
 GARBAGE := *.sentinel
 
