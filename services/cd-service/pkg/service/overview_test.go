@@ -530,7 +530,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 		{
 			// note that this is not a realistic example, we just want to make sure it does not crash!
 			// some outputs may be nonsensical (like distanceToUpstream), but that's fine as long as it's stable!
-			Name: "Two Environments with a loop",
+			Name: "Two Environments with a loops",
 			InputEnvs: map[string]config.EnvironmentConfig{
 				nameDevDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
@@ -735,6 +735,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 	for _, tc := range tcs {
 		opts := cmpopts.IgnoreUnexported(api.EnvironmentGroup{}, api.Environment{}, api.Environment_Config{}, api.Environment_Config_Upstream{})
 		t.Run(tc.Name, func(t *testing.T) {
+			log.Println(tc.InputEnvs)
 			actualResult := mapEnvironmentsToGroups(tc.InputEnvs)
 			if !cmp.Equal(tc.ExpectedResult, actualResult, opts) {
 				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedResult, actualResult, opts))
