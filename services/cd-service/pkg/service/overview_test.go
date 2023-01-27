@@ -595,7 +595,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
-						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PROD),
 					},
 					DistanceToUpstream: 1,
 				},
@@ -735,7 +735,6 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 	for _, tc := range tcs {
 		opts := cmpopts.IgnoreUnexported(api.EnvironmentGroup{}, api.Environment{}, api.Environment_Config{}, api.Environment_Config_Upstream{})
 		t.Run(tc.Name, func(t *testing.T) {
-			log.Println(tc.InputEnvs)
 			actualResult := mapEnvironmentsToGroups(tc.InputEnvs)
 			if !cmp.Equal(tc.ExpectedResult, actualResult, opts) {
 				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedResult, actualResult, opts))
