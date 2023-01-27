@@ -530,7 +530,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 		{
 			// note that this is not a realistic example, we just want to make sure it does not crash!
 			// some outputs may be nonsensical (like distanceToUpstream), but that's fine as long as it's stable!
-			Name: "Two Environments with a loops",
+			Name: "Two Environments with a loop",
 			InputEnvs: map[string]config.EnvironmentConfig{
 				nameDevDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
