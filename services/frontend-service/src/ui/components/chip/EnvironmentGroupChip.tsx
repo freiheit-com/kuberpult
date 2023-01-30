@@ -59,7 +59,7 @@ export const EnvironmentChip = (props: {
     return (
         <div className={classNames('mdc-evolution-chip', className, priorityClassName)} role="row">
             <span
-                className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary ENV"
+                className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
                 role="gridcell">
                 <span className="mdc-evolution-chip__text-label">
                     {name} {numberString}
