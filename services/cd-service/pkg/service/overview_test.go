@@ -549,16 +549,16 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameDevDe,
 					Environments: []*api.Environment{
-						makeEnv(nameDevDe, nameDevDe, makeUpstreamEnvironment(nameStagingDe), 4, api.Priority_PRE_PROD),
+						makeEnv(nameDevDe, nameDevDe, makeUpstreamEnvironment(nameStagingDe), 667, api.Priority_PRE_PROD),
 					},
-					DistanceToUpstream: 4,
+					DistanceToUpstream: 667,
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
-						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 5, api.Priority_PROD),
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 668, api.Priority_PROD),
 					},
-					DistanceToUpstream: 5,
+					DistanceToUpstream: 668,
 				},
 			},
 		},

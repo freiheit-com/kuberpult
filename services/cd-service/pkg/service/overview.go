@@ -408,7 +408,17 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 	//
 	tmpDistancesToUpstreamByEnv := map[string]uint32{}
 	rest := []*api.Environment{}
-	for _, bucket := range buckets {
+
+	// we need to sort the buckets here because:
+	// A) `range` of a map is not sorted in golang
+	// B) the result depends on the sort order, even though this happens just in some special cases
+	keys := make([]string, 0)
+	for k := range buckets {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		var bucket = buckets[k]
 		// first, find all envs with distance 0
 		for i := 0; i < len(bucket.Environments); i++ {
 			var environment = bucket.Environments[i]
@@ -444,7 +454,7 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 			// to avoid an infinite loop, we fill it with an arbitrary number:
 			for i := 0; i < len(rest); i++ {
 				env := rest[i]
-				tmpDistancesToUpstreamByEnv[env.Name] = uint32(len(envs) + 1)
+				tmpDistancesToUpstreamByEnv[env.Name] = 666
 			}
 		}
 		rest = nextRest
@@ -466,17 +476,15 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 		result = append(result, bucket)
 	}
 	sort.Sort(EnvironmentGroupsByDistance(result))
-	// now, everything is sorted, so we can add more data on top that depends on the sorting.
-	// colllect all envs:
-	tmpEnvs := []*api.Environment{}
+	// now, everything is sorted, so we can calculate the env priorities. For that we convert the data to an array:
+	var tmpEnvs []*api.Environment
 	for i := 0; i < len(result); i++ {
 		var group = result[i]
-		//calculateEnvironmentPriorities(group.Environments)
 		for j := 0; j < len(group.Environments); j++ {
 			tmpEnvs = append(tmpEnvs, group.Environments[j])
 		}
 	}
-	calculateEnvironmentPriorities(tmpEnvs)
+	calculateEnvironmentPriorities(tmpEnvs) // note that `tmpEnvs` were copied by reference - otherwise the sorting would not have an effect
 	return result
 }
 
