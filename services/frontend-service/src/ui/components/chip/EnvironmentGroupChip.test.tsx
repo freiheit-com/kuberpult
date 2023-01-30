@@ -14,10 +14,10 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import {EnvironmentChip, EnvironmentGroupChip} from './EnvironmentGroupChip';
-import {render} from '@testing-library/react';
-import {Environment, EnvironmentGroup, Priority} from '../../../api/api';
-import {EnvironmentGroupExtended} from "../../utils/store";
+import { EnvironmentChip, EnvironmentGroupChip } from './EnvironmentGroupChip';
+import { render } from '@testing-library/react';
+import { Environment, Priority } from '../../../api/api';
+import { EnvironmentGroupExtended } from '../../utils/store';
 
 describe('EnvironmentChip', () => {
     const env: Environment = {
@@ -41,31 +41,32 @@ describe('EnvironmentChip', () => {
                 role="gridcell"
               >
                 <span
-                  class="mdc-evolution-chip__text-label"
+                  class="mdc-evolution-chip__text-name"
                 >
                   Test Me
-                   
                 </span>
+                 
+                <span
+                  class="mdc-evolution-chip__text-numbers"
+                />
               </span>
             </div>
         `);
     });
 });
 
-const envFromPrio = (prio: Priority): Environment => {
-    return {
-        name: 'Test Me',
-        distanceToUpstream: 0,
-        priority: prio,
-        locks: {},
-        applications: {},
-    };
-};
+const envFromPrio = (prio: Priority): Environment => ({
+    name: 'Test Me',
+    distanceToUpstream: 0,
+    priority: prio,
+    locks: {},
+    applications: {},
+});
 
 type TestDataEnvs = {
-    env: Environment,
-    expectedClass: string,
-}
+    env: Environment;
+    expectedClass: string;
+};
 
 const envChipData: Array<TestDataEnvs> = [
     {
@@ -86,45 +87,9 @@ const envChipData: Array<TestDataEnvs> = [
     },
 ];
 
-const envGroupFromPrio = (prio: Priority, envs: Environment[]): EnvironmentGroupExtended => {
-    return {
-        numberOfEnvsInGroup: envs.length,
-        environmentGroupName: "",
-        environments: envs,
-        distanceToUpstream: 0
-    };
-};
-
-
-type TestDataGroups = {
-    envGroup: EnvironmentGroupExtended,
-    expectedClass: string,
-}
-
-const envGroupChipData: Array<TestDataGroups> = [
-    {
-        envGroup: envGroupFromPrio(Priority.PROD, [envFromPrio(Priority.PROD)]),
-        expectedClass: 'prod',
-    },
-    // {
-    //     env: envFromPrio(Priority.PRE_PROD),
-    //     expectedClass: 'pre_prod',
-    // },
-    // {
-    //     env: envFromPrio(Priority.UPSTREAM),
-    //     expectedClass: 'upstream',
-    // },
-    // {
-    //     env: envFromPrio(Priority.OTHER),
-    //     expectedClass: 'other',
-    // },
-];
-
 describe.each(envChipData)(`EnvironmentChip with envPrio Classname`, (testcase) => {
     it(`with envPrio=${testcase.env.priority}`, () => {
-        const getNode = () => (
-            <EnvironmentChip className={'chip--hello'} env={testcase.env}  withEnvLocks={false} />
-        );
+        const getNode = () => <EnvironmentChip className={'chip--hello'} env={testcase.env} withEnvLocks={false} />;
         const getWrapper = () => render(getNode());
         const { container } = getWrapper();
         expect(container.firstChild).toHaveClass(
@@ -133,16 +98,45 @@ describe.each(envChipData)(`EnvironmentChip with envPrio Classname`, (testcase) 
     });
 });
 
+const envGroupFromPrio = (prio: Priority, numEnvsInGroup: number, envs: Environment[]): EnvironmentGroupExtended => ({
+    numberOfEnvsInGroup: numEnvsInGroup,
+    environmentGroupName: 'i am the group',
+    environments: envs,
+    distanceToUpstream: 0,
+});
+
+type TestDataGroups = {
+    envGroup: EnvironmentGroupExtended;
+    expectedClass: string;
+    expectedNumbers: string;
+    expectedDisplayName: string;
+};
+
+const envGroupChipData: Array<TestDataGroups> = [
+    {
+        envGroup: envGroupFromPrio(Priority.PROD, 1, [envFromPrio(Priority.PROD)]),
+        expectedClass: 'prod',
+        expectedNumbers: '(1/1)',
+        expectedDisplayName: 'Test Me',
+    },
+    {
+        envGroup: envGroupFromPrio(Priority.PROD, 3, [envFromPrio(Priority.UPSTREAM), envFromPrio(Priority.PROD)]),
+        expectedClass: 'upstream',
+        expectedNumbers: '(2/3)',
+        expectedDisplayName: 'i am the group',
+    },
+];
 
 describe.each(envGroupChipData)(`EnvironmentGroupChip with envPrio Classname`, (testcase) => {
     it(`with envPrio=${testcase.expectedClass}`, () => {
-        const getNode = () => (
-            <EnvironmentGroupChip className={'chip--hello'} envGroup={testcase.envGroup} />
-        );
+        const getNode = () => <EnvironmentGroupChip className={'chip--hello'} envGroup={testcase.envGroup} />;
         const getWrapper = () => render(getNode());
         const { container } = getWrapper();
-        expect(container.firstChild).toHaveClass(
-            'mdc-evolution-chip chip--hello chip--hello-' + testcase.expectedClass
+        expect(container.querySelector('.mdc-evolution-chip__text-name')?.textContent).toContain(
+            testcase.expectedDisplayName
+        );
+        expect(container.querySelector('.mdc-evolution-chip__text-numbers')?.textContent).toContain(
+            testcase.expectedNumbers
         );
     });
 });

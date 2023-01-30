@@ -61,9 +61,8 @@ export const EnvironmentChip = (props: {
             <span
                 className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
                 role="gridcell">
-                <span className="mdc-evolution-chip__text-label">
-                    {name} {numberString}
-                </span>
+                <span className="mdc-evolution-chip__text-name">{name}</span>{' '}
+                <span className="mdc-evolution-chip__text-numbers">{numberString}</span>
             </span>
             {locks}
         </div>
@@ -77,18 +76,16 @@ export const EnvironmentGroupChip = (props: { className: string; envGroup: Envir
     const displayAsGroup = envGroup.environments.length >= 2;
     if (displayAsGroup) {
         return (
-            <>
-                <div className={'EnvironmentGroupChip'}>
-                    <EnvironmentChip
-                        className={className}
-                        env={envGroup.environments[0]}
-                        groupNameOverride={envGroup.environmentGroupName}
-                        numberEnvsDeployed={envGroup.environments.length}
-                        numberEnvsInGroup={envGroup.numberOfEnvsInGroup}
-                        withEnvLocks={false}
-                    />
-                </div>
-            </>
+            <div className={'EnvironmentGroupChip'}>
+                <EnvironmentChip
+                    className={className}
+                    env={envGroup.environments[0]}
+                    groupNameOverride={envGroup.environmentGroupName}
+                    numberEnvsDeployed={envGroup.environments.length}
+                    numberEnvsInGroup={envGroup.numberOfEnvsInGroup}
+                    withEnvLocks={false}
+                />
+            </div>
         );
     }
     // since there's only 1 env, we display that:
@@ -112,7 +109,7 @@ export type EnvChipListProps = {
 export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
     const deployedAt = useCurrentlyDeployedAtGroup(props.app, props.version);
     return (
-        <>
+        <div className={'env-group-chip-list-test'}>
             {' '}
             {deployedAt.map((envGroup) => (
                 <EnvironmentGroupChip
@@ -121,6 +118,6 @@ export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
                     className={'release-environment'}
                 />
             ))}{' '}
-        </>
+        </div>
     );
 };

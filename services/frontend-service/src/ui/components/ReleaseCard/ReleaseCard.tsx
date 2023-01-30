@@ -32,7 +32,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const control = useRef<HTMLDivElement>(null);
     const { className, app, version } = props;
     const { createdAt, sourceMessage, sourceCommitId, sourceAuthor } = useRelease(app, version);
-    const clickHanlder = React.useCallback(() => {
+    const clickHandler = React.useCallback(() => {
         updateReleaseDialog(app, version);
     }, [app, version]);
 
@@ -44,7 +44,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     }, []);
 
     return (
-        <div className={classNames('mdc-card release-card', className)} onClick={clickHanlder}>
+        <div className={classNames('mdc-card release-card', className)} onClick={clickHandler}>
             <div className="release-card__header">
                 <div className="release__title mdc-typography--headline6">{sourceMessage}</div>
                 {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
