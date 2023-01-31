@@ -484,7 +484,7 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 			tmpEnvs = append(tmpEnvs, group.Environments[j])
 		}
 	}
-	calculateEnvironmentPriorities(tmpEnvs) // note that `tmpEnvs` were copied by reference - otherwise the sorting would not have an effect
+	calculateEnvironmentPriorities(tmpEnvs) // note that `tmpEnvs` were copied by reference - otherwise this function would have no effect on `result`
 	return result
 }
 
