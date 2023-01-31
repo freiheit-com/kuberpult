@@ -17,7 +17,7 @@ Copyright 2021 freiheit.com*/
 import { render } from '@testing-library/react';
 import React from 'react';
 import { LockDisplay } from '../LockDisplay/LockDisplay';
-import { DisplayLock } from '../../../api/api';
+import { DisplayLock } from '../../utils/store';
 
 describe('Run Locks Table', () => {
     interface dataT {
