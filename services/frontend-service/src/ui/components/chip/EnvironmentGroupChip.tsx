@@ -40,7 +40,7 @@ export const EnvironmentChip = (props: {
             ? '(' + props.numberEnvsDeployed + '/' + props.numberEnvsInGroup + ')'
             : '';
     const locks = props.withEnvLocks ? (
-        <div className={classNames(className, "env-locks")} style={{ backgroundColor: 'transparent', display: 'flex' }}>
+        <div className={classNames(className, 'env-locks')} style={{ backgroundColor: 'transparent', display: 'flex' }}>
             {Object.values(env.locks).map((lock) => (
                 <Tooltip
                     key={lock.lockId}

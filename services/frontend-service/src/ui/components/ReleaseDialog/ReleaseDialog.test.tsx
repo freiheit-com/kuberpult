@@ -14,13 +14,10 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import {
-    ReleaseDialog,
-    ReleaseDialogProps,
-} from './ReleaseDialog';
+import { ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { render } from '@testing-library/react';
 import { UpdateOverview, updateReleaseDialog } from '../../utils/store';
-import {Environment_Config_Upstream, Priority, Release} from '../../../api/api';
+import { Priority, Release } from '../../../api/api';
 
 describe('Release Dialog', () => {
     interface dataT {
@@ -140,11 +137,13 @@ describe('Release Dialog', () => {
             UpdateOverview.set({
                 applications: { [testcase.props.app as string]: { releases: testcase.rels } },
                 environments: testcase.props.envs,
-                environmentGroups: [{
-                    environmentGroupName: "dev",
-                    environments: testcase.props.envs,
-                    distanceToUpstream: 2,
-                }],
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'dev',
+                        environments: testcase.props.envs,
+                        distanceToUpstream: 2,
+                    },
+                ],
             } as any);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
@@ -165,11 +164,13 @@ describe('Release Dialog', () => {
             UpdateOverview.set({
                 applications: { [testcase.props.app as string]: { releases: testcase.rels } },
                 environments: testcase.props.envs,
-                environmentGroups: [{
-                    environmentGroupName: "dev",
-                    environments: testcase.props.envs,
-                    distanceToUpstream: 2,
-                }],
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'dev',
+                        environments: testcase.props.envs,
+                        distanceToUpstream: 2,
+                    },
+                ],
             } as any);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
@@ -183,11 +184,13 @@ describe('Release Dialog', () => {
             UpdateOverview.set({
                 applications: { [testcase.props.app as string]: { releases: testcase.rels } },
                 environments: testcase.props.envs,
-                environmentGroups: [{
-                    environmentGroupName: "dev",
-                    environments: testcase.props.envs,
-                    distanceToUpstream: 2,
-                }],
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'dev',
+                        environments: testcase.props.envs,
+                        distanceToUpstream: 2,
+                    },
+                ],
             } as any);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
@@ -196,26 +199,8 @@ describe('Release Dialog', () => {
             expect(document.querySelectorAll('.release-env-group-list')).toHaveLength(1);
 
             testcase.props.envs.forEach((env) => {
-                expect(document.querySelector('.env-locks')?.children).toHaveLength(
-                    Object.values(env.locks).length
-                );
+                expect(document.querySelector('.env-locks')?.children).toHaveLength(Object.values(env.locks).length);
             });
         });
     });
 });
-
-// testing the sort function for environments
-const getUpstream = (env: string): Environment_Config_Upstream =>
-    env === 'latest'
-        ? {
-              upstream: {
-                  $case: 'latest',
-                  latest: true,
-              },
-          }
-        : {
-              upstream: {
-                  $case: 'environment',
-                  environment: env,
-              },
-          };

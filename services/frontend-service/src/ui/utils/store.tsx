@@ -22,7 +22,7 @@ import {
     BatchAction,
     Release,
     EnvironmentGroup,
-    Environment
+    Environment,
 } from '../../api/api';
 import { useApi } from './GrpcApi';
 
@@ -406,23 +406,12 @@ export const useDeployedReleases = (application: string) =>
         ].sort((a, b) => (a === -1 ? -1 : b === -1 ? 1 : b - a))
     );
 
+export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup: number };
+
 /**
  * returns the environments where a release is currently deployed
  * @deprecated
  */
-export const useCurrentlyDeployedAt = (application: string, version: number) =>
-    useOverview(({ environments }) =>
-        Object.values(environments).filter(
-            (env) =>
-                env.applications[application] &&
-                (version === -1
-                    ? env.applications[application].undeployVersion
-                    : env.applications[application].version === version)
-        )
-    );
-
-export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup: number };
-
 export const useCurrentlyDeployedAtGroup = (application: string, version: number): EnvironmentGroupExtended[] =>
     useOverview(({ environmentGroups }) => {
         const envGroups: EnvironmentGroupExtended[] = [];
