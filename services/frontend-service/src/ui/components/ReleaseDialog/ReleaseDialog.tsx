@@ -164,7 +164,7 @@ export const EnvironmentList: React.FC<{ envs: Environment[]; release: Release; 
     return (
         <div className="release-env-group-list">
             {allEnvGroups.map((envGroup) => (
-                <ul className={classNames('release-env-list', className)}>
+                <ul className={classNames('release-env-list', className)} key={envGroup.environmentGroupName}>
                     {envGroup.environments.map((env) => (
                         <EnvironmentListItem
                             key={env.name}

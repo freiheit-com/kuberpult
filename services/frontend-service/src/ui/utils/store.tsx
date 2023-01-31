@@ -15,7 +15,15 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { Application, BatchRequest, GetOverviewResponse, BatchAction, Release, EnvironmentGroup } from '../../api/api';
+import {
+    Application,
+    BatchRequest,
+    GetOverviewResponse,
+    BatchAction,
+    Release,
+    EnvironmentGroup,
+    Environment
+} from '../../api/api';
 import { useApi } from './GrpcApi';
 
 export interface DisplayLock {
@@ -415,7 +423,7 @@ export const useCurrentlyDeployedAt = (application: string, version: number) =>
 
 export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup: number };
 
-export const useCurrentlyDeployedAtGroup = (application: string, version: number) =>
+export const useCurrentlyDeployedAtGroup = (application: string, version: number): EnvironmentGroupExtended[] =>
     useOverview(({ environmentGroups }) => {
         const envGroups: EnvironmentGroupExtended[] = [];
         environmentGroups.forEach((group: EnvironmentGroup) => {
@@ -441,7 +449,10 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
         return envGroups;
     });
 
-export const useAllDeployedAt = (application: string) =>
+/**
+ * @deprecated use `useCurrentlyDeployedAtGroup` instead
+ */
+export const useAllDeployedAt = (application: string): Environment[] =>
     useOverview(({ environments }) => Object.values(environments).filter((env) => env.applications[application]));
 
 // Get release information for a version
