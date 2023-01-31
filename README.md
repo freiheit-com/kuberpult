@@ -60,9 +60,11 @@ There are 2 environments involved:
 
 #### Environment Config
 
-An "environment" is the set of machines where your microservices will run. For example: you will probably have some environments: "development", "staging" and "production". In a cloud provider like GCP, we recommend separating the environments on a project level. This means that one gcp project correlates to one kuberpult environment 1:1 - although this is not a technical requirement.
+An `environment` is the set of machines where your microservices will run. For example: `development`, `staging` and `production` (or `de-prod`, `jp-prod`, and `pt-prod` which would all be `production` environments - and belong to the `production` environment group - but are machines in different countries).
 
-Environments are also called "stages" - but in kuberpult we stick to "environments", short "envs".
+In a cloud provider like GCP, we recommend separating the environments on a project level. This means that one GCP project correlates to one kuberpult environment 1:1 - although this is not a technical requirement.
+
+Environments are also called `stages` - but in kuberpult we stick to `environments`, short `envs`.
 
 The config for an environment is stored in a json file called `config.json`. This file would go into an environment in the manifests repository like this: `environments/development/config.json` (in this example the `config.json` file would dictate the configuration for the `development` environment)
 
@@ -74,8 +76,8 @@ In the `config.json` file there are 3 main fields:
 ##### Upstream:
 
 The `"upstream"` field can have one of the two options (cannot have both):
-  - `latest`: can only be set to `true`
-  - `environment`: has a string which is the name of another environment. Following the chain of upstream environments would take you to the one with `"latest": true`
+  - `latest`: can only be set to `true` which means that any kuberpult will deploy the latest version of an application to this environment
+  - `environment`: has a string which is the name of another environment. Following the chain of upstream environments would take you to the one with `"latest": true`. This is used in release trains: when a release train is run in an environment, it will pull the version from the environment's upstream environment.
 
 ##### ArgoCd: 
 
