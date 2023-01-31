@@ -19,11 +19,10 @@ package service
 
 import (
 	"context"
-	"sync"
-	"testing"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"sync"
+	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"

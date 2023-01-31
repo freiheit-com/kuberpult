@@ -21,14 +21,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"sync"
 	"sync/atomic"
-
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -478,7 +477,6 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 		}
 	}
 	calculateEnvironmentPriorities(tmpEnvs)
-	sort.Sort(EnvironmentGroupsByDistance(result))
 	return result
 }
 
