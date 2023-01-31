@@ -83,7 +83,8 @@ The `"upstream"` field can have one of the two options (cannot have both):
 
 The `"argocd"` field has a few subfields:
 - `"accessList"`:  
-  Is a list of objects that describe which resources are allowed in the cluster ([ArgoCD Docs](https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#projects))
+  Is a list of objects that describe which resources are allowed in the cluster ([ArgoCD Docs](https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#projects)).
+  Note that this is only necessary when argoCd cannot apply a certain resource on the cluster. Most common resources (Pods, Configmaps, Cronjobs, Deployments...) just work out of the box.
   It has the following fields:
   - `"group"`: relates to the Kubernetes API group without the version
   - `"kind"`: the resource type in kubernetes
@@ -99,7 +100,7 @@ The `"argocd"` field has a few subfields:
   - `"namespace"`: Target namespace in which to deploy the manifests from source (Example: `"my-app-namespace"`)
 
 - `"syncWindows"`:
-  > Sync windows are configurable windows of time where syncs will either be blocked or allowed
+  > Sync windows are configurable windows of time where syncs will either be blocked or allowed. Note that this is not generally necessary, and by default, argoCd syncs all the time. We recommend to only use this setting, if it's really necessary, as it complicates the deployment pipeline.
   >
   > - [Sync Windows ArgoCD Docs](https://argo-cd.readthedocs.io/en/stable/user-guide/sync_windows/)
 
@@ -125,4 +126,6 @@ The `"argocd"` field has a few subfields:
 
 ##### Environment Group:
 
-The `"environmentGroup"` field is a string that defines which environment group the environment belongs to (Example: `Production` can be an environment group to group production environments in different countries)
+The `"environmentGroup"` field is a string that defines which environment group the environment belongs to (Example: `Production` can be an environment group to group production environments in different countries).
+EnvironmentGroups are still in development. We'll update this section once they are ready.
+The goal of EnvironmentGroups is to make handling of many similar clusters easier. They will also work with Release Trains.
