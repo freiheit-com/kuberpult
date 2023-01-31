@@ -18,7 +18,7 @@ import { ReleaseCardMini, ReleaseCardMiniProps } from './ReleaseCardMini';
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
 
-describe('Release Card', () => {
+describe('Release Card Mini', () => {
     const getNode = (overrides: ReleaseCardMiniProps) => <ReleaseCardMini {...overrides} />;
     const getWrapper = (overrides: ReleaseCardMiniProps) => render(getNode(overrides));
 
@@ -98,9 +98,7 @@ describe('Release Card', () => {
             Date.now = jest.fn(() => Date.parse('2022-12-16T14:20:00'));
             const { container } = getWrapper(testcase.props);
             expect(container.querySelector('.release__details-mini')?.textContent).toContain(testcase.msg);
-            if (testcase.environments?.other) {
-                expect(container.querySelector('.release-environment')?.textContent).toContain('other');
-            }
+            expect(container.querySelector('.env-group-chip-list-test')).not.toBeEmptyDOMElement();
         });
     });
 });

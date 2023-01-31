@@ -127,7 +127,7 @@ const envGroupChipData: Array<TestDataGroups> = [
     },
 ];
 
-describe.each(envGroupChipData)(`EnvironmentGroupChip with envPrio Classname`, (testcase) => {
+describe.each(envGroupChipData)(`EnvironmentGroupChip with different envs`, (testcase) => {
     it(`with envPrio=${testcase.expectedClass}`, () => {
         const getNode = () => <EnvironmentGroupChip className={'chip--hello'} envGroup={testcase.envGroup} />;
         const getWrapper = () => render(getNode());
