@@ -60,7 +60,11 @@ There are 2 environments involved:
 
 #### Environment Config
 
-The config for an environment is stored in a json file called `config.json`
+An "environment" is the set of machines where your microservices will run. For example: you will probably have some environments: "development", "staging" and "production". In a cloud provider like GCP, we recommend separating the environments on a project level. This means that one gcp project correlates to one kuberpult environment 1:1 - although this is not a technical requirement.
+
+Environments are also called "stages" - but in kuberpult we stick to "environments", short "envs".
+
+The config for an environment is stored in a json file called `config.json`. This file would go into an environment in the manifests repository like this: `environments/development/config.json` (in this example the `config.json` file would dictate the configuration for the `development` environment)
 
 In the `config.json` file there are 3 main fields:
 - [Upstream](#upstream)  `"upstream"`
