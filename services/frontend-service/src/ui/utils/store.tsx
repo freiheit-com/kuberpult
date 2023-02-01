@@ -17,14 +17,15 @@ Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
 import {
     Application,
-    BatchRequest,
-    GetOverviewResponse,
     BatchAction,
-    Release,
-    EnvironmentGroup,
+    BatchRequest,
     Environment,
+    EnvironmentGroup,
+    GetOverviewResponse,
+    Release,
 } from '../../api/api';
 import { useApi } from './GrpcApi';
+import { useMemo } from 'react';
 
 export interface DisplayLock {
     date: Date;
@@ -418,8 +419,9 @@ export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup:
 /**
  * returns the environments where a release is currently deployed
  */
-export const useCurrentlyDeployedAtGroup = (application: string, version: number): EnvironmentGroupExtended[] =>
-    useOverview(({ environmentGroups }) => {
+export const useCurrentlyDeployedAtGroup = (application: string, version: number): EnvironmentGroupExtended[] => {
+    const environmentGroups: EnvironmentGroup[] = useEnvironmentGroups();
+    return useMemo(() => {
         const envGroups: EnvironmentGroupExtended[] = [];
         environmentGroups.forEach((group: EnvironmentGroup) => {
             const envs = group.environments.filter(
@@ -442,7 +444,8 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
             }
         });
         return envGroups;
-    });
+    }, [environmentGroups]);
+};
 
 /**
  * @deprecated use `useCurrentlyDeployedAtGroup` instead
