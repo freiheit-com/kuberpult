@@ -221,7 +221,6 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                   </span>
                   <div
                     class="release-environment env-locks"
-                    style="background-color: transparent; display: flex;"
                   >
                     <div
                       aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
@@ -445,7 +444,6 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                   </span>
                   <div
                     class="release-environment env-locks"
-                    style="background-color: transparent; display: flex;"
                   >
                     <div
                       aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
@@ -561,7 +559,6 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                   </span>
                   <div
                     class="release-environment env-locks"
-                    style="background-color: transparent; display: flex;"
                   >
                     <div
                       aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
