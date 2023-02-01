@@ -103,8 +103,19 @@ The `"argocd"` field has a few subfields:
     > 
     > We also allow to use different namespaces for Applications and AppProjects. In that case **don't** use namespace, use `appProjectNamespace` and `applicationNamespace` instead.
 
-  - `"appProjectNamespace"`: Target namespace in which to deploy the `AppProject` resource.
-  - `"applicationNamespace"`: Target namespace in which to deploy the `Application` resource.
+  - `"appProjectNamespace"`: defines the namespaces allowed to deploy in the project. Example:
+      ```yaml
+        # Do not allow any app to be installed in `kube-system`  
+          - namespace: '!kube-system'
+      ```
+  - `"applicationNamespace"`: This sets the default namespace to deploy a resource in the application if no namespace is defined on the resource's manifests. Example:
+      ```yaml
+        # Destination cluster and namespace to deploy the application
+        destination:
+          server: https://kubernetes.default.svc
+          # The namespace will only be set for namespace-scoped resources that have not set a value for .metadata.namespace
+          namespace: guestbook
+      ```
 
 - `"syncWindows"`:
   > Sync windows are configurable windows of time where syncs will either be blocked or allowed. Note that this is not generally necessary, and by default, argoCd syncs all the time. We recommend to only use this setting, if it's really necessary, as it complicates the deployment pipeline.
