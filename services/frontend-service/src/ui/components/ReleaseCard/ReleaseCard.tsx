@@ -18,10 +18,8 @@ import classNames from 'classnames';
 import { Button } from '../button';
 import React, { useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
-import { updateReleaseDialog, useCurrentlyDeployedAt, useOverview, useRelease } from '../../utils/store';
-import { Chip } from '../chip';
-import { Environment } from '../../../api/api';
-import { calculateEnvironmentPriorities, EnvPrioMap, sortEnvironmentsByUpstream } from '../ReleaseDialog/ReleaseDialog';
+import { updateReleaseDialog, useRelease } from '../../utils/store';
+import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 
 export type ReleaseCardProps = {
     className?: string;
@@ -34,15 +32,9 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const control = useRef<HTMLDivElement>(null);
     const { className, app, version } = props;
     const { createdAt, sourceMessage, sourceCommitId, sourceAuthor } = useRelease(app, version);
-    const environmentsForApp = useCurrentlyDeployedAt(app, version);
-    const clickHanlder = React.useCallback(() => {
+    const clickHandler = React.useCallback(() => {
         updateReleaseDialog(app, version);
     }, [app, version]);
-
-    const allEnvs: Environment[] = useOverview((x) => Object.values(x.environments));
-    const sortedEnvs: Environment[] = sortEnvironmentsByUpstream(allEnvs);
-    const envPrioMap: EnvPrioMap = calculateEnvironmentPriorities(allEnvs);
-    const envsForAppSorted = sortedEnvs.filter((env: Environment) => environmentsForApp.includes(env));
 
     useEffect(() => {
         if (control.current) {
@@ -52,7 +44,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     }, []);
 
     return (
-        <div className={classNames('mdc-card release-card', className)} onClick={clickHanlder}>
+        <div className={classNames('mdc-card release-card', className)} onClick={clickHandler}>
             <div className="release-card__header">
                 <div className="release__title mdc-typography--headline6">{sourceMessage}</div>
                 {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
@@ -70,14 +62,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                     <div className="release__author mdc-typography--body1">{'Author: ' + sourceAuthor}</div>
                 </div>
                 <div className="release__environments">
-                    {envsForAppSorted.map((env) => (
-                        <Chip
-                            className={'release-environment'}
-                            label={env.name}
-                            key={env.name}
-                            priority={envPrioMap[env.name]}
-                        />
-                    ))}
+                    <EnvironmentGroupChipList app={props.app} version={props.version} />
                 </div>
             </div>
         </div>

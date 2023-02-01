@@ -53,7 +53,7 @@
     }
   }
 
-  .release-env-list {
+  .release-env-group-list {
     background-color: var(--mdc-theme-surface);
     display: flex;
     flex-direction: column;
@@ -64,6 +64,11 @@
     align-items: center;
     border-radius: $release-dialog-bottom-border-radius;
 
+    .release-env-list {
+        padding-left: 0;
+        margin-bottom: 0;
+    }
+
     .env-card {
       background-color: var(--mdc-theme-background);
       display: flex;
@@ -71,7 +76,10 @@
       width: 900px;
       height: 160px;
       padding: 0px;
-      margin: 0px 20px;
+      margin-top: 10px;
+      margin-bottom: 0px;
+      margin-left: 20px;
+      margin-right: 20px;
       border-radius: $release-dialog-inner-border-radius;
       gap: 16px;
 

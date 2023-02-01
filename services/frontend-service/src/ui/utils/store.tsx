@@ -15,8 +15,17 @@ along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
 import { createStore } from 'react-use-sub';
-import { Application, BatchRequest, GetOverviewResponse, BatchAction, Release } from '../../api/api';
+import {
+    Application,
+    BatchAction,
+    BatchRequest,
+    Environment,
+    EnvironmentGroup,
+    GetOverviewResponse,
+    Release,
+} from '../../api/api';
 import { useApi } from './GrpcApi';
+import { useMemo } from 'react';
 
 export interface DisplayLock {
     date: Date;
@@ -173,9 +182,18 @@ export const useFilteredApps = (teams: string[]) =>
         )
     );
 
-// returns all environment names
-export const useEnvironmentNames = () =>
-    useOverview(({ environments }) => Object.keys(environments).sort((a, b) => a.localeCompare(b)));
+export const useEnvironmentGroups = () => useOverview(({ environmentGroups }) => environmentGroups);
+
+/**
+ * returns all environments
+ */
+export const useEnvironments = (): Environment[] =>
+    useOverview(({ environmentGroups }) => environmentGroups.flatMap((envGroup) => envGroup.environments));
+
+/**
+ * returns all environment names
+ */
+export const useEnvironmentNames = (): string[] => useEnvironments().map((env) => env.name);
 
 // returns all application names
 export const useSearchedApplications = (applications: Application[], appNameParam: string) =>
@@ -396,20 +414,43 @@ export const useDeployedReleases = (application: string) =>
         ].sort((a, b) => (a === -1 ? -1 : b === -1 ? 1 : b - a))
     );
 
-// returns the environments where a release is currently deployed
-export const useCurrentlyDeployedAt = (application: string, version: number) =>
-    useOverview(({ environments }) =>
-        Object.values(environments).filter(
-            (env) =>
-                env.applications[application] &&
-                (version === -1
-                    ? env.applications[application].undeployVersion
-                    : env.applications[application].version === version)
-        )
-    );
+export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup: number };
 
-// returns the environments where an app is currently deployed
-export const useAllDeployedAt = (application: string) =>
+/**
+ * returns the environments where a release is currently deployed
+ */
+export const useCurrentlyDeployedAtGroup = (application: string, version: number): EnvironmentGroupExtended[] => {
+    const environmentGroups: EnvironmentGroup[] = useEnvironmentGroups();
+    return useMemo(() => {
+        const envGroups: EnvironmentGroupExtended[] = [];
+        environmentGroups.forEach((group: EnvironmentGroup) => {
+            const envs = group.environments.filter(
+                (env) =>
+                    env.applications[application] &&
+                    (version === -1
+                        ? env.applications[application].undeployVersion
+                        : env.applications[application].version === version)
+            );
+            if (envs.length > 0) {
+                // we need to make a copy of the group here, because we want to remove some envs.
+                // but that should not have any effect on the group saved in the store.
+                const groupCopy: EnvironmentGroupExtended = {
+                    environmentGroupName: group.environmentGroupName,
+                    environments: envs,
+                    distanceToUpstream: group.distanceToUpstream,
+                    numberOfEnvsInGroup: group.environments.length,
+                };
+                envGroups.push(groupCopy);
+            }
+        });
+        return envGroups;
+    }, [environmentGroups, application, version]);
+};
+
+/**
+ * @deprecated use `useCurrentlyDeployedAtGroup` instead
+ */
+export const useAllDeployedAt = (application: string): Environment[] =>
     useOverview(({ environments }) => Object.values(environments).filter((env) => env.applications[application]));
 
 // Get release information for a version

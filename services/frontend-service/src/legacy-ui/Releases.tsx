@@ -304,6 +304,9 @@ export const calculateDistanceToUpstream = (envs: Environment[]): EnvSortOrder =
     return distanceToUpstream;
 };
 
+/**
+ * @deprecated only use in legacy ui!
+ */
 export const sortEnvironmentsByUpstream = (envs: Environment[], distance: EnvSortOrder): Environment[] => {
     const sortedEnvs = [...envs];
     sortedEnvs.sort((a: Environment, b: Environment) => {

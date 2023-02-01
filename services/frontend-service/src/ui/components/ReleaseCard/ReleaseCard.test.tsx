@@ -130,15 +130,7 @@ describe('Release Card', () => {
                     (testcase.rels[0].createdAt as Date).toLocaleDateString()
                 );
             }
-            if (testcase.environments?.foo) {
-                expect(container.querySelector('.release-environment')?.textContent).toContain('foo');
-            }
-            if (testcase.environments?.undeployed) {
-                expect(container.querySelector('.release-environment')).toBe(null);
-            }
-            if (testcase.environments?.other) {
-                expect(container.querySelector('.release-environment')).toBe(null);
-            }
+            expect(container.querySelector('.env-group-chip-list-test')).not.toBeEmptyDOMElement();
         });
     });
 });

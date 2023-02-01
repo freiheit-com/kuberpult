@@ -33,3 +33,9 @@ make clean
 pnpm i
 make release
 ```
+
+# Run javascript tests
+To run the javascript tests interactively, run
+```shell
+pnpm test
+```

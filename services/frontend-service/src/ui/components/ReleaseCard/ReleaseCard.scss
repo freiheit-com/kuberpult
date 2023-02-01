@@ -58,11 +58,10 @@
 }
 
 .release-environment {
-  background-color: grey;
-  .mdc-evolution-chip__text-label {
-    color: white;
-    font-weight: bold;
-    font-size: 1.2em;
+  white-space: nowrap;
+  .mdc-evolution-chip__cell {
+    @extend .sub-headline1;
+    color: $environment-label-color;
   }
 }
 .release-environment.release-environment-prod {

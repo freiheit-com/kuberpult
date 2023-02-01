@@ -6,9 +6,12 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.54
+* This release is only useful if you want to take a look at the new kuberpult UI - which is still beta and not shown by default. It's reachable under the url path `/v2/home`
+* Render environment groups in UI [#465](https://github.com/freiheit-com/kuberpult/pull/465)
+
 ## 0.4.53
 * Bugfix: Do not require authentication in frontend-service health check [#467](https://github.com/freiheit-com/kuberpult/pull/467)
-
 
 ## 0.4.52
 * Publish the docker images additionally to the ghcr.io registry [#459](https://github.com/freiheit-com/kuberpult/pull/459)

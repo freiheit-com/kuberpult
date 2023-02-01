@@ -14,17 +14,10 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-import {
-    calculateDistanceToUpstream,
-    calculateEnvironmentPriorities,
-    EnvPrio,
-    ReleaseDialog,
-    ReleaseDialogProps,
-    sortEnvironmentsByUpstream,
-} from './ReleaseDialog';
+import { ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { render } from '@testing-library/react';
 import { UpdateOverview, updateReleaseDialog } from '../../utils/store';
-import { Environment, Environment_Config_Upstream, Release } from '../../../api/api';
+import { Priority, Release } from '../../../api/api';
 
 describe('Release Dialog', () => {
     interface dataT {
@@ -62,6 +55,8 @@ describe('Release Dialog', () => {
                                 undeployVersion: false,
                             },
                         },
+                        distanceToUpstream: 0,
+                        priority: Priority.UPSTREAM,
                     },
                 ],
             },
@@ -97,6 +92,8 @@ describe('Release Dialog', () => {
                                 undeployVersion: false,
                             },
                         },
+                        distanceToUpstream: 0,
+                        priority: Priority.UPSTREAM,
                     },
                     {
                         name: 'dev',
@@ -110,6 +107,8 @@ describe('Release Dialog', () => {
                                 undeployVersion: false,
                             },
                         },
+                        distanceToUpstream: 0,
+                        priority: Priority.UPSTREAM,
                     },
                 ],
             },
@@ -138,6 +137,13 @@ describe('Release Dialog', () => {
             UpdateOverview.set({
                 applications: { [testcase.props.app as string]: { releases: testcase.rels } },
                 environments: testcase.props.envs,
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'dev',
+                        environments: testcase.props.envs,
+                        distanceToUpstream: 2,
+                    },
+                ],
             } as any);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
@@ -158,6 +164,13 @@ describe('Release Dialog', () => {
             UpdateOverview.set({
                 applications: { [testcase.props.app as string]: { releases: testcase.rels } },
                 environments: testcase.props.envs,
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'dev',
+                        environments: testcase.props.envs,
+                        distanceToUpstream: 2,
+                    },
+                ],
             } as any);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
@@ -171,161 +184,22 @@ describe('Release Dialog', () => {
             UpdateOverview.set({
                 applications: { [testcase.props.app as string]: { releases: testcase.rels } },
                 environments: testcase.props.envs,
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'dev',
+                        environments: testcase.props.envs,
+                        distanceToUpstream: 2,
+                    },
+                ],
             } as any);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
+            expect(document.body).toMatchSnapshot();
+            expect(document.querySelectorAll('.release-env-group-list')).toHaveLength(1);
+
             testcase.props.envs.forEach((env) => {
-                expect(document.querySelector('.env-card-env-locks')?.children).toHaveLength(
-                    Object.values(env.locks).length
-                );
+                expect(document.querySelector('.env-locks')?.children).toHaveLength(Object.values(env.locks).length);
             });
         });
-    });
-});
-
-// testing the sort function for environments
-const getUpstream = (env: string): Environment_Config_Upstream =>
-    env === 'latest'
-        ? {
-              upstream: {
-                  $case: 'latest',
-                  latest: true,
-              },
-          }
-        : {
-              upstream: {
-                  $case: 'environment',
-                  environment: env,
-              },
-          };
-
-const getEnvironment = (name: string, upstreamEnv?: string): Environment => ({
-    name: name,
-    locks: {},
-    applications: {},
-    ...(upstreamEnv && {
-        config: {
-            upstream: getUpstream(upstreamEnv),
-        },
-    }),
-});
-
-// original order [ 4, 2, 0, 1, 3 ]
-const getEnvs = (testcase: string): Environment[] => {
-    switch (testcase) {
-        case 'chain':
-            return [
-                getEnvironment('env4', 'env3'),
-                getEnvironment('env2', 'env1'),
-                getEnvironment('env0', 'latest'),
-                getEnvironment('env1', 'env0'),
-                getEnvironment('env3', 'env2'),
-            ];
-        case 'tree':
-            return [
-                getEnvironment('env4', 'latest'),
-                getEnvironment('env2', 'env3'),
-                getEnvironment('env0', 'env2'),
-                getEnvironment('env1', 'env2'),
-                getEnvironment('env3', 'latest'),
-            ];
-        case 'cycle':
-            return [
-                getEnvironment('env4', 'latest'),
-                getEnvironment('env2', 'env4'),
-                getEnvironment('env0', 'env3'),
-                getEnvironment('env1', 'env0'),
-                getEnvironment('env3', 'env1'),
-            ];
-        case 'no-config':
-            return [
-                getEnvironment('env4'),
-                getEnvironment('env2'),
-                getEnvironment('env0'),
-                getEnvironment('env1'),
-                getEnvironment('env3'),
-            ];
-        default:
-            throw new Error('bad test: ' + testcase);
-    }
-};
-
-const sortByUpstreamData = [
-    {
-        type: 'simple chain',
-        envs: getEnvs('chain'),
-        expect: ['env0', 'env1', 'env2', 'env3', 'env4'],
-    },
-    {
-        type: 'simple tree',
-        envs: getEnvs('tree'),
-        expect: ['env3', 'env4', 'env2', 'env0', 'env1'],
-    },
-    {
-        type: 'simple cycle',
-        envs: getEnvs('cycle'),
-        expect: ['env4', 'env2', 'env0', 'env1', 'env3'],
-    },
-    {
-        type: 'no-config',
-        envs: getEnvs('no-config'),
-        expect: ['env0', 'env1', 'env2', 'env3', 'env4'],
-    },
-];
-
-describe.each(sortByUpstreamData)(`Environment set`, (testcase) => {
-    it(`with expected ${testcase.type} order`, () => {
-        const sortedEnvs = sortEnvironmentsByUpstream(testcase.envs);
-        calculateDistanceToUpstream(testcase.envs);
-        const sortedList = sortedEnvs.map((a) => a.name);
-        expect(sortedList).toStrictEqual(testcase.expect);
-    });
-});
-
-const calcEnvPrioData = [
-    {
-        type: 'chain',
-        expect: {
-            env0: EnvPrio.UPSTREAM,
-            env4: EnvPrio.PROD,
-            env3: EnvPrio.PRE_PROD,
-            env2: EnvPrio.OTHER,
-            env1: EnvPrio.OTHER,
-        },
-    },
-    {
-        type: 'tree',
-        expect: {
-            env0: EnvPrio.PROD,
-            env4: EnvPrio.UPSTREAM,
-            env3: EnvPrio.UPSTREAM,
-            env2: EnvPrio.PRE_PROD,
-            env1: EnvPrio.PROD,
-        },
-    },
-    {
-        // the main point here is that it doesn't crash
-        // we do not fully support disconnected trees
-        type: 'cycle',
-        expect: {
-            env0: EnvPrio.PROD,
-            env4: EnvPrio.UPSTREAM,
-            env3: EnvPrio.PROD,
-            env2: EnvPrio.OTHER,
-            env1: EnvPrio.PROD,
-        },
-    },
-    {
-        // the main point here is that it doesn't crash
-        type: 'no-config',
-        expect: { env0: EnvPrio.PROD, env4: EnvPrio.PROD, env3: EnvPrio.PROD, env2: EnvPrio.PROD, env1: EnvPrio.PROD },
-    },
-];
-
-describe.each(calcEnvPrioData)(`test calculateEnvironmentPriorities`, (testcase) => {
-    it(`with expected ${testcase.type}`, () => {
-        const envs = getEnvs(testcase.type);
-        const actualPriorities = calculateEnvironmentPriorities(envs);
-        expect(actualPriorities).toStrictEqual(testcase.expect);
     });
 });

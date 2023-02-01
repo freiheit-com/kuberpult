@@ -17,11 +17,11 @@ Copyright 2021 freiheit.com*/
 import { Dialog, Tooltip } from '@material-ui/core';
 import classNames from 'classnames';
 import React, { useCallback } from 'react';
-import { Environment, Lock, LockBehavior, Release } from '../../../api/api';
+import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import { addAction, updateReleaseDialog, useOverview } from '../../utils/store';
 import { Button } from '../button';
-import { Locks, LocksWhite } from '../../../images';
-import { Chip } from '../chip';
+import { Locks } from '../../../images';
+import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -45,87 +45,6 @@ export enum EnvPrio {
     UPSTREAM,
     OTHER,
 }
-
-export type EnvPrioMap = { [key: string]: EnvPrio };
-
-/**
- * We have an arbitrary number of environments.
- * This function groups them. There are 4 groups:
- * prod: anything at the root of the tree
- * pre-prod: anything directly before prod.
- * upstream: anything with upstream.latest=true
- * other: anything else
- */
-export const calculateEnvironmentPriorities = (envs: Environment[]): EnvPrioMap => {
-    const distances: EnvSortOrder = calculateDistanceToUpstream(envs);
-    const result: EnvPrioMap = {};
-    let maxDistance = 0;
-    // first, find the maximum...
-    envs.forEach((env: Environment) => {
-        maxDistance = Math.max(maxDistance, distances[env.name]);
-    });
-    // now assign each environment a prio:
-    envs.forEach((env: Environment) => {
-        if (distances[env.name] === maxDistance) {
-            result[env.name] = EnvPrio.PROD;
-        } else if (distances[env.name] === maxDistance - 1) {
-            result[env.name] = EnvPrio.PRE_PROD;
-        } else if (distances[env.name] === 0) {
-            result[env.name] = EnvPrio.UPSTREAM;
-        } else {
-            result[env.name] = EnvPrio.OTHER;
-        }
-    });
-    return result;
-};
-
-export const sortEnvironmentsByUpstream = (envs: Environment[]): Environment[] => {
-    const sortedEnvs = [...envs];
-    const distance = calculateDistanceToUpstream(envs);
-    sortedEnvs.sort((a: Environment, b: Environment) => {
-        if (distance[a.name] === distance[b.name]) {
-            if (a.name < b.name) return -1;
-            if (a.name === b.name) return 0;
-            return 1;
-        }
-        if (distance[a.name] < distance[b.name]) return -1;
-        return 1;
-    });
-    return sortedEnvs;
-};
-
-export const calculateDistanceToUpstream = (envs: Environment[]): EnvSortOrder => {
-    const distanceToUpstream: EnvSortOrder = {};
-    let rest: Environment[] = [];
-    for (const env of envs) {
-        if (!env.config?.upstream?.upstream?.$case || env.config?.upstream?.upstream?.$case === 'latest') {
-            distanceToUpstream[env.name] = 0;
-        } else {
-            rest.push(env);
-        }
-    }
-    // iterate over rest until nothing is left
-    while (rest.length > 0) {
-        const nextRest: Environment[] = [];
-        for (const env of rest) {
-            const upstreamEnv = (env.config?.upstream?.upstream as any).environment;
-            if (upstreamEnv in distanceToUpstream) {
-                distanceToUpstream[env.name] = distanceToUpstream[upstreamEnv] + 1;
-            } else {
-                nextRest.push(env);
-            }
-        }
-        if (rest.length === nextRest.length) {
-            // infinite loop here, maybe fill in the remaining entries with max(distanceToUpstream) + 1
-            for (const env of rest) {
-                distanceToUpstream[env.name] = envs.length + 1;
-            }
-            return distanceToUpstream;
-        }
-        rest = nextRest;
-    }
-    return distanceToUpstream;
-};
 
 export const AppLock: React.FC<{
     env: Environment;
@@ -155,11 +74,10 @@ export const AppLock: React.FC<{
 
 export const EnvironmentListItem: React.FC<{
     env: Environment;
-    envPrioMap: EnvPrioMap;
     app: string;
     release: Release;
     className?: string;
-}> = ({ env, envPrioMap, app, release, className }) => {
+}> = ({ env, app, release, className }) => {
     const deploy = useCallback(() => {
         if (release.version)
             addAction({
@@ -193,41 +111,14 @@ export const EnvironmentListItem: React.FC<{
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
-                <Chip
+                <EnvironmentChip
+                    env={env}
                     className={'release-environment'}
-                    label={
-                        <div className={classNames('env-card-label', className)}>
-                            {env.name}
-                            {Object.values(env.locks).length !== 0 ? (
-                                <div className={classNames('env-card-env-locks', className)}>
-                                    {Object.values(env.locks).map((lock) => (
-                                        <Tooltip
-                                            className="env-card-env-lock"
-                                            key={lock.lockId}
-                                            arrow
-                                            title={
-                                                'Lock Message: "' +
-                                                lock.message +
-                                                '" | ID: "' +
-                                                lock.lockId +
-                                                '"  | Click to unlock. '
-                                            }>
-                                            <div>
-                                                <Button
-                                                    icon={<LocksWhite className="env-card-env-lock-icon" />}
-                                                    className={'button-lock'}
-                                                />
-                                            </div>
-                                        </Tooltip>
-                                    ))}
-                                </div>
-                            ) : (
-                                <></>
-                            )}
-                        </div>
-                    }
                     key={env.name}
-                    priority={envPrioMap[env.name]}
+                    groupNameOverride={undefined}
+                    numberEnvsDeployed={undefined}
+                    numberEnvsInGroup={undefined}
+                    withEnvLocks={true}
                 />
                 <div className={classNames('env-card-app-locks')}>
                     {Object.values(env.applications)
@@ -269,22 +160,23 @@ export const EnvironmentList: React.FC<{ envs: Environment[]; release: Release; 
     app,
     className,
 }) => {
-    const allEnvs: Environment[] = useOverview((x) => Object.values(x.environments));
-    const envPrioMap: EnvPrioMap = calculateEnvironmentPriorities(allEnvs);
-
+    const allEnvGroups: EnvironmentGroup[] = useOverview((x) => Object.values(x.environmentGroups));
     return (
-        <ul className={classNames('release-env-list', className)}>
-            {sortEnvironmentsByUpstream(envs).map((env) => (
-                <EnvironmentListItem
-                    key={env.name}
-                    env={env}
-                    envPrioMap={envPrioMap}
-                    app={app}
-                    release={release}
-                    className={className}
-                />
+        <div className="release-env-group-list">
+            {allEnvGroups.map((envGroup) => (
+                <ul className={classNames('release-env-list', className)} key={envGroup.environmentGroupName}>
+                    {envGroup.environments.map((env) => (
+                        <EnvironmentListItem
+                            key={env.name}
+                            env={env}
+                            app={app}
+                            release={release}
+                            className={className}
+                        />
+                    ))}
+                </ul>
             ))}
-        </ul>
+        </div>
     );
 };
 

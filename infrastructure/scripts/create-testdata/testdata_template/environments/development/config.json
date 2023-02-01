@@ -30,5 +30,6 @@
   },
   "upstream": {
     "latest": true
-  }
+  },
+  "group": "devgroup"
 }
