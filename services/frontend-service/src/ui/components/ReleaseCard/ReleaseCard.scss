@@ -59,11 +59,9 @@
 
 .release-environment {
   white-space: nowrap;
-  background-color: grey;
   .mdc-evolution-chip__cell {
+    @extend .sub-headline1;
     color: $environment-label-color;
-    font-weight: bold;
-    font-size: 1.2em;
   }
 }
 .release-environment.release-environment-prod {
