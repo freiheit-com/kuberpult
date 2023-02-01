@@ -183,9 +183,16 @@ export const useFilteredApps = (teams: string[]) =>
 
 export const useEnvironmentGroups = () => useOverview(({ environmentGroups }) => environmentGroups);
 
-// returns all environment names
-export const useEnvironmentNames = () =>
-    useOverview(({ environments }) => Object.keys(environments).sort((a, b) => a.localeCompare(b)));
+/**
+ * returns all environments
+ */
+export const useEnvironments = (): Environment[] =>
+    useOverview(({ environmentGroups }) => environmentGroups.flatMap((envGroup) => envGroup.environments));
+
+/**
+ * returns all environment names
+ */
+export const useEnvironmentNames = (): string[] => useEnvironments().map((env) => env.name);
 
 // returns all application names
 export const useSearchedApplications = (applications: Application[], appNameParam: string) =>
@@ -410,7 +417,6 @@ export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup:
 
 /**
  * returns the environments where a release is currently deployed
- * @deprecated
  */
 export const useCurrentlyDeployedAtGroup = (application: string, version: number): EnvironmentGroupExtended[] =>
     useOverview(({ environmentGroups }) => {

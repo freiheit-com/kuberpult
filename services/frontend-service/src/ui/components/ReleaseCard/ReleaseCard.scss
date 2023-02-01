@@ -60,8 +60,8 @@
 .release-environment {
   white-space: nowrap;
   background-color: grey;
-  .mdc-evolution-chip__text-label {
-    color: white;
+  .mdc-evolution-chip__cell {
+    color: $environment-label-color;
     font-weight: bold;
     font-size: 1.2em;
   }
