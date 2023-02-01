@@ -194,7 +194,6 @@ describe('Release Dialog', () => {
             } as any);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
-            // console.info('SU DEBUG body: ', document.body.textContent);
             expect(document.body).toMatchSnapshot();
             expect(document.querySelectorAll('.release-env-group-list')).toHaveLength(1);
 
