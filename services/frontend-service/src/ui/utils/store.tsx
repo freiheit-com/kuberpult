@@ -444,7 +444,7 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
             }
         });
         return envGroups;
-    }, [environmentGroups]);
+    }, [environmentGroups, application, version]);
 };
 
 /**
