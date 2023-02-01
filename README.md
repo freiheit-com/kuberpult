@@ -76,7 +76,7 @@ In the `config.json` file there are 3 main fields:
 ##### Upstream:
 
 The `"upstream"` field can have one of the two options (cannot have both):
-  - `latest`: can only be set to `true` which means that any kuberpult will deploy the latest version of an application to this environment
+  - `latest`: can only be set to `true` which means that kuberpult will deploy the latest version of an application to this environment
   - `environment`: has a string which is the name of another environment. Following the chain of upstream environments would take you to the one with `"latest": true`. This is used in release trains: when a release train is run in an environment, it will pull the version from the environment's upstream environment.
 
 ##### ArgoCd: 
@@ -98,6 +98,13 @@ The `"argocd"` field has a few subfields:
   - `"name"` (**Mandatory**): Name of the cluster (within Argo CD) to deploy to
   - `"server"` (**Mandatory**): API Server URL for the cluster (Example: `"https://kubernetes.default.svc"`)
   - `"namespace"`: Target namespace in which to deploy the manifests from source (Example: `"my-app-namespace"`)
+
+    > Usually you want to use the same namespace for Applications and AppProjects. For this, use the field `"namespace"`.
+    > 
+    > We also allow to use different namespaces for Applications and AppProjects. In that case **don't** use namespace, use `appProjectNamespace` and `applicationNamespace` instead.
+
+  - `"appProjectNamespace"`: Target namespace in which to deploy the `AppProject` resource.
+  - `"applicationNamespace"`: Target namespace in which to deploy the `Application` resource.
 
 - `"syncWindows"`:
   > Sync windows are configurable windows of time where syncs will either be blocked or allowed. Note that this is not generally necessary, and by default, argoCd syncs all the time. We recommend to only use this setting, if it's really necessary, as it complicates the deployment pipeline.
@@ -123,6 +130,10 @@ The `"argocd"` field has a few subfields:
   - `"jsonPointers"`: is a list of strings that is used to configure which fields should be ignored when comparing differences (Example: `- /spec/replicas` would ignore differences in `spec.replicas` which is useful when we don't want to sync fields that change overtime but don't need a sync)
   - `"jqPathExpressions"`: is a list of strings that can be used to ignore elements of a list by identifying list items based of item content (Example: `- .spec.template.spec.initContainers[] | select(.name == "injected-init-container")`) ([JQ Docs](https://stedolan.github.io/jq/manual/#path(path_expression)))
   - `"managedFieldsManagers"`: is a list of string which can be used to ignore fields owned by specific managers defined in your live resources (Example: `- kube-controller-manager`)
+
+- `"applicationAnnotations"`: Map of annotations to add to the resources
+
+- `"syncOptions"`: A list of strings that allows users to customize some aspects of how it syncs the desired state in the target cluster ([Sync Options ArgoCD Docs](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/))
 
 ##### Environment Group:
 
