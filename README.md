@@ -36,7 +36,7 @@ If you're using kuberpult's helm chart, generally you don't have to worry about 
 
 ### GitHub Releases
 
-To use the helm chart, you can use [this url](https://github.com/freiheit-com/kuberpult/releases/download/0.4.54/kuberpult-0.4.55.tgz) (replace both versions with the current version!).
+To use the helm chart, you can use [this url](https://github.com/freiheit-com/kuberpult/releases/download/0.4.55/kuberpult-0.4.55.tgz) (replace both versions with the current version!).
 You can see all releases on the [Releases page on GitHub](https://github.com/freiheit-com/kuberpult/releases)
 
 ## Current Version and Queued Version
