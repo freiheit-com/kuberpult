@@ -22,6 +22,23 @@ Manual deployments (via the UI or a flag in the api) are always possible.
 `kuberpult` has a UI, and it can handle *locks*. When something is locked, it's version will not be changed.
 Both *environments* and *microservices* can be `locked`.
 
+## Public releases of Kuberpult
+
+### Docker Registries
+Kuberpult's docker images are currently available in 2 docker registries: (Example with version 0.4.55)
+* docker pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:0.4.55 ([Link for kuberpult devs](https://console.cloud.google.com/artifacts/docker/fdc-public-docker-registry/europe-west3/kuberpult/kuberpult-frontend-service))
+* docker pull ghcr.io/freiheit-com/kuberpult/kuberpult-frontend-service:0.4.55 ([Link for kuberpult devs](https://github.com/freiheit-com/kuberpult/pkgs/container/kuberpult%2Fkuberpult-frontend-service))
+And the same applies for the `kuberpult-cd-service` - just replace "frontend" by "cd".
+
+We may deprecate one of the registries in the future for simplicity.
+
+If you're using kuberpult's helm chart, generally you don't have to worry about that.
+
+### GitHub Releases
+
+To use the helm chart, you can use [this url](https://github.com/freiheit-com/kuberpult/releases/download/0.4.55/kuberpult-0.4.55.tgz) (replace both versions with the current version!).
+You can see all releases on the [Releases page on GitHub](https://github.com/freiheit-com/kuberpult/releases)
+
 ## Current Version and Queued Version
 
 Every app has a current version on every env (including `nil` for no version).
