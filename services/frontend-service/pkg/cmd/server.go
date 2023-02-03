@@ -229,7 +229,7 @@ func RunServer() {
 					}
 				}
 				if strings.HasPrefix(req.URL.Path, "/v2/home") {
-					http.ServeFile(resp, req, "build/index.html")
+					mux.ServeHTTP(resp, req)
 				} else {
 					mux.ServeHTTP(resp, req)
 				}
