@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/MicahParks/keyfunc"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
@@ -226,7 +227,11 @@ func RunServer() {
 						return
 					}
 				}
-				mux.ServeHTTP(resp, req)
+				if strings.HasPrefix(req.URL.Path, "/v2/home") {
+					http.ServeFile(resp, req, "build/index.html")
+				} else {
+					mux.ServeHTTP(resp, req)
+				}
 			}
 		})
 		authHandler := &Auth{
