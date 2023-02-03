@@ -19,12 +19,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"golang.org/x/crypto/openpgp"
 	"io"
 	"net/http"
 	"os"
-	"strings"
-
-	"golang.org/x/crypto/openpgp"
 
 	"github.com/MicahParks/keyfunc"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
@@ -228,12 +226,7 @@ func RunServer() {
 						return
 					}
 				}
-				if strings.HasPrefix(req.URL.Path, "/v2/home") {
-					mux.ServeHTTP(resp, req)
-				} else {
-					mux.ServeHTTP(resp, req)
-				}
-
+				mux.ServeHTTP(resp, req)
 			}
 		})
 		authHandler := &Auth{
