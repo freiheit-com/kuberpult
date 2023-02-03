@@ -54,6 +54,7 @@ type Config struct {
 	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true"`
 }
 
+// DELETE ME
 func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
 	if c.PgpKeyRing == "" {
 		return nil, nil
