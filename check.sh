@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# ./check.sh
+# Adds licence header to every relevant file.
+# NOTE: This script assumes that there is no licence header in any file.
+
 GO_COPY_RIGHT="/*This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
