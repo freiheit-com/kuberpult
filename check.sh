@@ -2,7 +2,7 @@
 
 # ./check.sh
 # Adds licence header to every relevant file.
-# NOTE: This script assumes that there is no licence header in any file.
+# NOTE: This script assumes that in any file there is either no licence header or exactly the one listed here.
 
 GO_COPY_RIGHT="/*This file is part of kuberpult.
 
@@ -40,13 +40,13 @@ RET_CODE=0
 set eu -pipefail
 
 check_file() {
-    x=$(head -n 16 $1 | wc -l)
-    if [ $x -lt 16 ];
+    x=$(head -n 15 $1 | wc -l)
+    if [ $x -lt 15 ];
     then
         return 1
     fi
-    # check the first 16 lines
-    lines=$(head -n 16 $1 )
+    # check the first 15 lines
+    lines=$(head -n 15 $1 )
     if [[ $2 -eq 1 ]];
     then
         if [ "$lines" = "$GO_COPY_RIGHT" ];
