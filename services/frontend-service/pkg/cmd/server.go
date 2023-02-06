@@ -19,12 +19,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"golang.org/x/crypto/openpgp"
 	"io"
 	"net/http"
 	"os"
 	"strings"
-
-	"golang.org/x/crypto/openpgp"
 
 	"github.com/MicahParks/keyfunc"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
@@ -224,7 +223,7 @@ func RunServer() {
 				*/
 				resp.Header().Set("strict-Transport-Security", "max-age=31536000; includeSubDomains;")
 				if c.AzureEnableAuth {
-					if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId, []string{"/", "/release", "/health", "/manifest.json", "/favicon.png"}, []string{"/static/js", "/static/css"}); err != nil {
+					if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId, []string{"/", "/v2/home", "/release", "/health", "/manifest.json", "/favicon.png"}, []string{"/static/js", "/static/css"}); err != nil {
 						return
 					}
 				}
@@ -233,7 +232,6 @@ func RunServer() {
 				} else {
 					mux.ServeHTTP(resp, req)
 				}
-
 			}
 		})
 		authHandler := &Auth{
