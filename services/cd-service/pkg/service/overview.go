@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"os"
 	"path/filepath"
@@ -59,7 +60,7 @@ func (o *OverviewServiceServer) getDeployedOverview(
 		Applications: map[string]*api.Application{},
 	}
 	if envs, err := s.GetEnvironmentConfigs(); err != nil {
-		return nil, internalError(ctx, err)
+		return nil, httperrors.InternalError(ctx, err)
 	} else {
 		for envName, config := range envs {
 			env := api.Environment{
@@ -214,7 +215,7 @@ func (o *OverviewServiceServer) getOverview(
 		EnvironmentGroups: []*api.EnvironmentGroup{},
 	}
 	if envs, err := s.GetEnvironmentConfigs(); err != nil {
-		return nil, internalError(ctx, err)
+		return nil, httperrors.InternalError(ctx, err)
 	} else {
 		result.EnvironmentGroups = mapEnvironmentsToGroups(envs)
 		for envName, config := range envs {

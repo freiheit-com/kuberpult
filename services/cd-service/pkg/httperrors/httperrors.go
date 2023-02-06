@@ -14,30 +14,24 @@ You should have received a copy of the GNU General Public License
 along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2021 freiheit.com*/
-package service
+package httperrors
 
 import (
 	"context"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
-
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"google.golang.org/protobuf/types/known/emptypb"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
-type EnvironmentServiceServer struct {
-	Repository repository.Repository
+func InternalError(ctx context.Context, err error) error {
+	logger := logger.FromContext(ctx)
+	logger.Error("grpc.internal", zap.Error(err))
+	return status.Error(codes.Internal, "internal error")
 }
 
-func (e *EnvironmentServiceServer) CreateEnvironment(
-	ctx context.Context,
-	in *api.CreateEnvironmentRequest) (*emptypb.Empty, error) {
-
-	err := e.Repository.Apply(ctx, &repository.CreateEnvironment{
-		Environment: in.Environment,
-	})
-	if err != nil {
-		return nil, httperrors.InternalError(ctx, err)
-	}
-	return &emptypb.Empty{}, nil
+func PublicError(ctx context.Context, err error) error {
+	logger := logger.FromContext(ctx)
+	logger.Error("grpc.internal", zap.Error(err))
+	return status.Error(codes.InvalidArgument, "error: " + err.Error())
 }
