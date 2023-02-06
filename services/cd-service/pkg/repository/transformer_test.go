@@ -490,7 +490,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 					Environment: "doesnotexistenvironment",
 				},
 			},
-			expectedError:     "could not find environment config for 'doesnotexistenvironment'",
+			expectedError:     "rpc error: code = InvalidArgument desc = error: could not find environment config for 'doesnotexistenvironment'",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
 		},
