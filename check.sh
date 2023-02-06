@@ -33,6 +33,7 @@ YAML_COPY_RIGHT="#This file is part of kuberpult.
 #Copyright 2023 freiheit.com"
 
 RET_CODE=0
+set eu -pipefail
 
 check_file() {
     x=$(head -n 16 $1 | wc -l)
@@ -68,22 +69,7 @@ fix_file() {
         RET_CODE=1
         FILE=$(cat $1)
         cat > $1 <<- EOF
-/*This file is part of kuberpult.
-
-Kuberpult is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Kuberpult is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
-
-Copyright 2021 freiheit.com*/
+$GO_COPY_RIGHT
 $FILE
 EOF
     fi
@@ -96,35 +82,22 @@ fix_file_yaml_make() {
         RET_CODE=1
         FILE=$(cat $1)
         cat > $1 <<- EOF
-#This file is part of kuberpult.
-
-#Kuberpult is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
-#(at your option) any later version.
-
-#Kuberpult is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
-
-#You should have received a copy of the GNU General Public License
-#along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
-
-#Copyright 2021 freiheit.com
+$YAML_COPY_RIGHT
 $FILE
 EOF
     fi
 }
 
+echo fixing go files...
 for go_file in $go_files
 do
     fix_file $go_file
 done
 
 # Read all ts files
-ts_files=$(find . -type f -name *.ts)
+ts_files=$(find . -type f -name '*.ts')
 
+echo fixing ts files...
 for ts_file in $ts_files
 do
     if [[ $ts_file =~ .*node_modules.* ]];
@@ -135,8 +108,8 @@ do
 done
 
 # Read all tsx files
-tsx_files=$(find . -type f -name *.tsx)
-
+tsx_files=$(find . -type f -name '*.tsx')
+echo fixing tsx files...
 for tsx_file in $tsx_files
 do
     if [[ $tsx_file =~ .*node_modules.* ]];
@@ -147,8 +120,8 @@ do
 done
 
 # Read all yaml files
-yaml_files=$(find . -type f -name *.yaml)
-
+yaml_files=$(find . -type f -name '*.yaml')
+echo fixing yaml files...
 for yaml_file in $yaml_files
 do
     fix_file_yaml_make $yaml_file
@@ -156,7 +129,7 @@ done
 
 # Read all Make files
 make_files=$(find . -type f -name "Makefile*")
-
+echo fixing make files...
 for make_file in $make_files
 do
     fix_file_yaml_make $make_file
