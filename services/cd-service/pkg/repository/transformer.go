@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"io"
 	"io/fs"
 	"os"
@@ -834,11 +835,11 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
-		return "", err
+		return "", httperrors.InternalError(ctx, err)
 	}
 	envConfig, ok := configs[targetEnvName]
 	if !ok {
-		return "", fmt.Errorf("could not find environment config for '%v'", targetEnvName)
+		return "", httperrors.PublicError(ctx, fmt.Errorf("could not find environment config for '%v'", targetEnvName))
 	}
 	if envConfig.Upstream == nil {
 		return fmt.Sprintf("Environment %q does not have upstream configured - exiting.", targetEnvName), nil
@@ -866,7 +867,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 
 	envLocks, err := state.GetEnvironmentLocks(targetEnvName)
 	if err != nil {
-		return "", fmt.Errorf("could not get lock for environment %q: %w", targetEnvName, err)
+		return "", httperrors.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", targetEnvName, err))
 	}
 	if len(envLocks) > 0 {
 		return fmt.Sprintf("Target Environment '%s' is locked - exiting.", targetEnvName), nil
@@ -876,12 +877,12 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 	if upstreamLatest {
 		apps, err = state.GetApplications()
 		if err != nil {
-			return "", fmt.Errorf("could not get all applications for %q: %w", source, err)
+			return "", httperrors.InternalError(ctx, fmt.Errorf("could not get all applications for %q: %w", source, err))
 		}
 	} else {
 		apps, err = state.GetEnvironmentApplications(upstreamEnvName)
 		if err != nil {
-			return "", fmt.Errorf("environment applications for %q not found: %w", upstreamEnvName, err)
+			return "", httperrors.PublicError(ctx, fmt.Errorf("upstream environment (%q) does not have applications: %w", upstreamEnvName, err))
 		}
 	}
 
@@ -898,18 +899,18 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		}
 		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(targetEnvName, appName)
 		if err != nil {
-			return "", fmt.Errorf("could not get version of application %q in env %q: %w", appName, targetEnvName, err)
+			return "", httperrors.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, targetEnvName, err))
 		}
 		var versionToDeploy uint64
 		if upstreamLatest {
 			versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
 			if err != nil {
-				return "", fmt.Errorf("could not get latest version of application %q: %w", appName, err)
+				return "", httperrors.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err))
 			}
 		} else {
 			upstreamVersion, err := state.GetEnvironmentApplicationVersion(upstreamEnvName, appName)
 			if err != nil {
-				return "", fmt.Errorf("could not get version of application %q in env %q: %w", appName, upstreamEnvName, err)
+				return "", httperrors.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err))
 			}
 			if upstreamVersion == nil {
 				completeMessage = fmt.Sprintf("skipping because there is no version for application %q in env %q", appName, upstreamEnvName)
@@ -937,7 +938,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 			if errors.Is(err, os.ErrNotExist) {
 				continue // some apps do not exist on all envs, we ignore those
 			}
-			return "", fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, targetEnvName, err)
+			return "", httperrors.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, targetEnvName, err))
 		}
 		numServices += 1
 		completeMessage = completeMessage + transform + "\n"

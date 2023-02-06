@@ -19,11 +19,8 @@ package service
 import (
 	"context"
 	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -44,7 +41,7 @@ func (l *LockServiceServer) CreateEnvironmentLock(
 		Message:     in.Message,
 	})
 	if err != nil {
-		return nil, internalError(ctx, err)
+		return nil, httperrors.InternalError(ctx, err)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -61,7 +58,7 @@ func (l *LockServiceServer) DeleteEnvironmentLock(
 		LockId:      in.LockId,
 	})
 	if err != nil {
-		return nil, internalError(ctx, err)
+		return nil, httperrors.InternalError(ctx, err)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -80,7 +77,7 @@ func (l *LockServiceServer) CreateEnvironmentApplicationLock(
 		Message:     in.Message,
 	})
 	if err != nil {
-		return nil, internalError(ctx, err)
+		return nil, httperrors.InternalError(ctx, err)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -98,15 +95,9 @@ func (l *LockServiceServer) DeleteEnvironmentApplicationLock(
 		LockId:      in.LockId,
 	})
 	if err != nil {
-		return nil, internalError(ctx, err)
+		return nil, httperrors.InternalError(ctx, err)
 	}
 	return &emptypb.Empty{}, nil
-}
-
-func internalError(ctx context.Context, err error) error {
-	logger := logger.FromContext(ctx)
-	logger.Error("grpc.internal", zap.Error(err))
-	return status.Error(codes.Internal, "internal error")
 }
 
 var _ api.LockServiceServer = (*LockServiceServer)(nil)
