@@ -1,49 +1,52 @@
 #!/usr/bin/env bash
 
+# ./check.sh
+# Adds licence header to every relevant file.
+# NOTE: This script assumes that in any file there is either no licence header or exactly the one listed here.
+
 GO_COPY_RIGHT="/*This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+it under the terms of the Expat(MIT) License as published by
+the Free Software Foundation.
 
 Kuberpult is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+MIT License for more details.
 
-You should have received a copy of the GNU General Public License
-along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the MIT License
+along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2021 freiheit.com*/"
+Copyright 2023 freiheit.com*/"
 
-YAML_COPY_RIGHT="#This file is part of kuberpult.
+YAML_COPY_RIGHT="# This file is part of kuberpult.
 
-#Kuberpult is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
-#(at your option) any later version.
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
 
-#Kuberpult is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
 
-#You should have received a copy of the GNU General Public License
-#along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-#Copyright 2021 freiheit.com"
+# Copyright 2023 freiheit.com"
 
 RET_CODE=0
+set eu -pipefail
 
 check_file() {
-    x=$(head -n 16 $1 | wc -l)
-    if [ $x -lt 16 ];
+    x=$(head -n 15 $1 | wc -l)
+    if [ $x -lt 15 ];
     then
         return 1
     fi
-    # check the first 16 lines
-    lines=$(head -n 16 $1 )
+    # check the first 15 lines
+    lines=$(head -n 15 $1 )
     if [[ $2 -eq 1 ]];
     then
         if [ "$lines" = "$GO_COPY_RIGHT" ];
@@ -67,25 +70,11 @@ fix_file() {
     check_file $1 1
     if [ $? -ne 0 ];
     then
+        echo "error in file $1"
         RET_CODE=1
         FILE=$(cat $1)
         cat > $1 <<- EOF
-/*This file is part of kuberpult.
-
-Kuberpult is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Kuberpult is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
-
-Copyright 2021 freiheit.com*/
+$GO_COPY_RIGHT
 $FILE
 EOF
     fi
@@ -95,38 +84,26 @@ fix_file_yaml_make() {
     check_file $1 2
     if [ $? -ne 0 ];
     then
+        echo "error in file $1"
         RET_CODE=1
         FILE=$(cat $1)
         cat > $1 <<- EOF
-#This file is part of kuberpult.
-
-#Kuberpult is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
-#(at your option) any later version.
-
-#Kuberpult is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
-
-#You should have received a copy of the GNU General Public License
-#along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
-
-#Copyright 2021 freiheit.com
+$YAML_COPY_RIGHT
 $FILE
 EOF
     fi
 }
 
+echo fixing go files...
 for go_file in $go_files
 do
     fix_file $go_file
 done
 
 # Read all ts files
-ts_files=$(find . -type f -name *.ts)
+ts_files=$(find . -type f -name '*.ts')
 
+echo fixing ts files...
 for ts_file in $ts_files
 do
     if [[ $ts_file =~ .*node_modules.* ]];
@@ -137,8 +114,8 @@ do
 done
 
 # Read all tsx files
-tsx_files=$(find . -type f -name *.tsx)
-
+tsx_files=$(find . -type f -name '*.tsx')
+echo fixing tsx files...
 for tsx_file in $tsx_files
 do
     if [[ $tsx_file =~ .*node_modules.* ]];
@@ -149,8 +126,8 @@ do
 done
 
 # Read all yaml files
-yaml_files=$(find . -type f -name *.yaml)
-
+yaml_files=$(find . -type f -name '*.yaml')
+echo fixing yaml files...
 for yaml_file in $yaml_files
 do
     fix_file_yaml_make $yaml_file
@@ -158,9 +135,13 @@ done
 
 # Read all Make files
 make_files=$(find . -type f -name "Makefile*")
-
+echo fixing make files...
 for make_file in $make_files
 do
+    if [[ $make_file =~ .*node_modules.* ]];
+    then
+        continue
+    fi
     fix_file_yaml_make $make_file
 done
 
