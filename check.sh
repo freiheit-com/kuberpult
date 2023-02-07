@@ -20,21 +20,21 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/"
 
-YAML_COPY_RIGHT="#This file is part of kuberpult.
+YAML_COPY_RIGHT="# This file is part of kuberpult.
 
-#Kuberpult is free software: you can redistribute it and/or modify
-#it under the terms of the Expat(MIT) License as published by
-#the Free Software Foundation.
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
 
-#Kuberpult is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#MIT License for more details.
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
 
-#You should have received a copy of the MIT License
-#along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-#Copyright 2023 freiheit.com"
+# Copyright 2023 freiheit.com"
 
 RET_CODE=0
 set eu -pipefail
@@ -138,6 +138,10 @@ make_files=$(find . -type f -name "Makefile*")
 echo fixing make files...
 for make_file in $make_files
 do
+    if [[ $make_file =~ .*node_modules.* ]];
+    then
+        continue
+    fi
     fix_file_yaml_make $make_file
 done
 
