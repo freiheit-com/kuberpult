@@ -70,6 +70,7 @@ fix_file() {
     check_file $1 1
     if [ $? -ne 0 ];
     then
+        echo "error in file $1"
         RET_CODE=1
         FILE=$(cat $1)
         cat > $1 <<- EOF
@@ -83,6 +84,7 @@ fix_file_yaml_make() {
     check_file $1 2
     if [ $? -ne 0 ];
     then
+        echo "error in file $1"
         RET_CODE=1
         FILE=$(cat $1)
         cat > $1 <<- EOF
