@@ -13,6 +13,12 @@ jobs:
       trigger: main
     secrets: inherit
 
+  integration-tests:
+    needs: [execution-plan]
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      trigger: main
+
   lint-and-test-helm-chart:
     needs: [execution-plan]
     uses: ./.github/workflows/test-helm-chart-release.yml
