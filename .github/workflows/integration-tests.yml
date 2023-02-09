@@ -2,8 +2,6 @@
 name: "Kuberpult Integration tests"
 'on':
   pull_request:
-    branches:
-      - pr
 jobs:
   integration-test:
     runs-on: ubuntu-latest
