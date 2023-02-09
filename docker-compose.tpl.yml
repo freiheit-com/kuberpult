@@ -10,14 +10,6 @@ services:
       - "8443:8443"
     volumes:
       - ./services/cd-service/repository_remote:/repository_remote
-  # backend:
-  #   build: infrastructure/docker/backend
-  #   container_name: kuberpult-cd-service
-  #   ports:
-  #     - "8080:8080"
-  #     - "8443:8443"
-  #   volumes:
-  #     - .:/kp/kuberpult
   frontend:
     image: ${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG}
     container_name: kuberpult-frontend-service

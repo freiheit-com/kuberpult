@@ -1,0 +1,26 @@
+# This runs the integration tests for kuberpult
+name: "Kuberpult Integration tests"
+on:
+  pull_request:
+    branches:
+      - pr
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    steps: 
+    - name: Checkout repository
+      uses: actions/checkout@v3.1.0
+      with:
+        fetch-depth: 0
+    - name: Create bare repository
+      run: |
+        mkdir -p ./services/cd-service/repository_remote
+        git -C ./services/cd-service/repository_remote init --bare
+        git clone ./services/cd-service/repository_remote ./services/cd-service/repository_checkedout
+    - name: Run docker compose
+      run: |
+        IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
+        IMAGE_TAG=$VERSION
+        docker compose -f ./docker-compose.tpl.yml up -d
+        curl --retry 10 --retry-max-time 32 http://localhost:8081/health
+        curl --retry 10 --retry-max-time 64 http://localhost:8080/health
