@@ -1,11 +1,12 @@
 # This runs the integration tests for kuberpult
 name: "Kuberpult Integration Tests"
 on:
-  workflow_run:
-    workflows:
-      - Execution Plan on Pull Request
-    types:
-      - completed
+  workflow_call:
+    inputs:
+      trigger:
+        required: true
+        type: string
+        description: 'The trigger which calls the workflow, one of [pull-request, main, tag]'
 jobs:
   integration-test:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
