@@ -16,9 +16,3 @@ jobs:
     with:
       trigger: pull-request
     secrets: inherit
-
-  integration-test:
-    needs: [execution-plan, lint-and-test-helm-chart]
-    uses: ./.github/workflows/integration-tests.yml
-    with:
-      trigger: pull-request
