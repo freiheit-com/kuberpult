@@ -1,5 +1,5 @@
 services:
-  backend:
+  cd:
     image: ${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG}
     container_name: kuberpult-cd-service
     environment:
