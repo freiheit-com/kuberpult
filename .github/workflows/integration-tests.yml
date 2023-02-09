@@ -4,8 +4,6 @@ on:
   workflow_run:
     workflows:
       - Execution Plan on Pull Request
-    branches:
-      - main
     types:
       - completed
 jobs:

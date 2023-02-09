@@ -118,7 +118,7 @@ ignoredFiles: [
     "*.npmrc",
     "chart/*",
     "LICENSE",
-    ".envs"
+    ".env"
   ] #ignored file extensions
 testFiles: ["_test.go", "_test.dart"]
 languagesConfig:
