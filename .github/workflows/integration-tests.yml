@@ -1,6 +1,6 @@
 # This runs the integration tests for kuberpult
 name: "Kuberpult Integration tests"
-on:
+'on':
   pull_request:
     branches:
       - pr
