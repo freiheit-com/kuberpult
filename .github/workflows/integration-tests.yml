@@ -20,10 +20,22 @@ jobs:
         mkdir -p ./services/cd-service/repository_remote
         git -C ./services/cd-service/repository_remote init --bare
         git clone ./services/cd-service/repository_remote ./services/cd-service/repository_checkedout
-    - name: Run docker compose
+    - name: Run docker compose pull-request
+      if: inputs.trigger == 'pull-request'
       run: |
         IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult \
-        IMAGE_TAG=$(make version) \
+        IMAGE_TAG_CD=$(docker images | grep $IMAGE_REGISTRY/kuberpult-cd-service && make version || git describe --always --long --tags main) \
+        IMAGE_TAG_FRONTEND=$(docker images | grep $IMAGE_REGISTRY/kuberpult-frontend-service && make version || git describe --always --long --tags main) \
         docker compose -f ./docker-compose.tpl.yml up -d
+    - name: Run docker compose main
+      if: inputs.trigger == main
+      run: |
+        IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult \
+        IMAGE_TAG_CD=$(make version) \
+        IMAGE_TAG_FRONTEND=$(make version) \
+        docker compose -f ./docker-compose.tpl.yml up -d
+        
+    - name: Integration test
+      run: |
         curl --retry 3 --retry-max-time 16 --retry-all-errors http://localhost:8081/health
         curl --retry 10 --retry-max-time 128 --retry-all-errors http://localhost:8080/health

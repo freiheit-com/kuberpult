@@ -1,6 +1,6 @@
 services:
   cd:
-    image: ${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG}
+    image: ${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_CD}
     container_name: kuberpult-cd-service
     environment:
       - KUBERPULT_GIT_URL=/repository_remote
@@ -11,7 +11,7 @@ services:
     volumes:
       - ./services/cd-service/repository_remote:/repository_remote
   frontend:
-    image: ${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG}
+    image: ${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_FRONTEND}
     container_name: kuberpult-frontend-service
     environment:
       - KUBERPULT_CDSERVER=kuberpult-cd-service:8443
