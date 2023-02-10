@@ -23,7 +23,7 @@ jobs:
     - name: Run docker compose
       run: |
         IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult \
-        IMAGE_TAG=$(make version) \
+        IMAGE_TAG=0.4.55-7-ge353304 \
         docker compose -f ./docker-compose.tpl.yml up -d
         curl --retry 3 --retry-max-time 16 --retry-all-errors http://localhost:8081/health
         curl --retry 10 --retry-max-time 128 --retry-all-errors http://localhost:8080/health
