@@ -22,22 +22,20 @@ jobs:
         git clone ./services/cd-service/repository_remote ./services/cd-service/repository_checkedout
     - name: Run docker compose pull-request
       if: inputs.trigger == 'pull-request'
-      env: 
-        IMAGE_REGISTRY: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-        IMAGE_TAG_CD: $(docker images | grep $IMAGE_REGISTRY/kuberpult-cd-service && make version || git fetch -q origin main:main && git describe --always --long --tags main)
-        IMAGE_TAG_FRONTEND: $(docker images | grep $IMAGE_REGISTRY/kuberpult-frontend-service && make version || git fetch -q origin main:main && git describe --always --long --tags main)
       run: |
+        echo "IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult" >> $GITHUB_ENV
+        echo "IMAGE_TAG_CD=$(docker images | grep $IMAGE_REGISTRY/kuberpult-cd-service && make version || git fetch -q origin main:main && git describe --always --long --tags main)" >> $GITHUB_ENV
+        echo "IMAGE_TAG_FRONTEND=$(docker images | grep $IMAGE_REGISTRY/kuberpult-frontend-service && make version || git fetch -q origin main:main && git describe --always --long --tags main)" >> $GITHUB_ENV
         echo Using $IMAGE_REGISTRY registry
         echo Using $IMAGE_TAG_CD tag for cd service
         echo Using $IMAGE_TAG_FRONTEND tag for frontend service
         docker compose -f ./docker-compose.tpl.yml up -d
     - name: Run docker compose main
       if: inputs.trigger == 'main'
-      env:
-        IMAGE_REGISTRY: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult \
-        IMAGE_TAG_CD: $(make version) \
-        IMAGE_TAG_FRONTEND: $(make version) \
       run: |
+        echo "IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult" >> $GITHUB_ENV
+        echo "IMAGE_TAG_CD=$(make version)" >> $GITHUB_ENV
+        echo "IMAGE_TAG_FRONTEND=$(make version)" >> $GITHUB_ENV
         echo Using $IMAGE_REGISTRY registry
         echo Using $IMAGE_TAG_CD tag for cd service
         echo Using $IMAGE_TAG_FRONTEND tag for frontend service
