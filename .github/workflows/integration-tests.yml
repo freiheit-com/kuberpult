@@ -13,6 +13,8 @@ jobs:
     steps: 
     - name: Checkout repository
       uses: actions/checkout@v3.1.0
+      with:
+        fetch-depth: 0
     - name: Create bare repository
       run: |
         mkdir -p ./services/cd-service/repository_remote
@@ -22,8 +24,8 @@ jobs:
       if: inputs.trigger == 'pull-request'
       run: |
         IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult \
-        IMAGE_TAG_CD=$(docker images | grep $IMAGE_REGISTRY/kuberpult-cd-service && make version || git describe --always --long --tags main) \
-        IMAGE_TAG_FRONTEND=$(docker images | grep $IMAGE_REGISTRY/kuberpult-frontend-service && make version || git describe --always --long --tags main) \
+        IMAGE_TAG_CD=$(docker images | grep $IMAGE_REGISTRY/kuberpult-cd-service && make version || git fetch -q origin main:main && git describe --always --long --tags main) \
+        IMAGE_TAG_FRONTEND=$(docker images | grep $IMAGE_REGISTRY/kuberpult-frontend-service && make version || git fetch -q origin main:main && git describe --always --long --tags main) \
         docker compose -f ./docker-compose.tpl.yml up -d
     - name: Run docker compose main
       if: inputs.trigger == 'main'
