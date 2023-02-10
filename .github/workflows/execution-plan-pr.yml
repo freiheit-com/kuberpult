@@ -14,7 +14,7 @@ jobs:
     needs: [execution-plan]
     uses: ./.github/workflows/integration-tests.yml
     with:
-      trigger: pull-request
+      trigger: main
 
   lint-and-test-helm-chart:
     needs: [execution-plan]
