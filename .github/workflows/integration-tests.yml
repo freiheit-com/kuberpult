@@ -32,6 +32,11 @@ jobs:
         mkdir -p ./services/cd-service/repository_remote
         git -C ./services/cd-service/repository_remote init --bare
         git clone ./services/cd-service/repository_remote ./services/cd-service/repository_checkedout
+    - name: Print environment
+      run: |
+        echo Using registry: $IMAGE_REGISTRY
+        echo Using tag for cd service: $IMAGE_TAG_CD 
+        echo Using tag for frontend service: $IMAGE_TAG_FRONTEND
     - name: Run docker compose
       run: |
         docker compose -f ./docker-compose.tpl.yml up -d
