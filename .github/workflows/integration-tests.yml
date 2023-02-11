@@ -25,12 +25,12 @@ jobs:
         echo "MAIN_VERSION=$(git describe --always --long --tags main)" >> $GITHUB_ENV
         echo $PR_VERSION
         echo $MAIN_VERSION
-        if docker manifest inspect "${IMAGE_REGISTRY}/kuberpult-cd-service:${PR_VERSION}"; then
+        if docker manifest inspect "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:$(make version)"; then
           echo "IMAGE_TAG_CD=$PR_VERSION" >> test.md
         else
           echo "IMAGE_TAG_CD=$MAIN_VERSION" >> test.md
         fi
-        if docker manifest inspect "${IMAGE_REGISTRY}/kuberpult-frontend-service:${PR_VERSION}"; then
+        if docker manifest inspect "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:$(make version)"; then
           echo "IMAGE_TAG_FRONTEND=$PR_VERSION" >> test.md
         else
           echo "IMAGE_TAG_FRONTEND=$MAIN_VERSION" >> test.md
