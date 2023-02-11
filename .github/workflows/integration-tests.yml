@@ -36,7 +36,7 @@ jobs:
       run: |
         echo Using registry: $IMAGE_REGISTRY
         echo PR tag: $(make version)
-        echo main tag: $(git describe --always --long --tags main)"
+        echo main tag: $(git describe --always --long --tags main)
         echo Using tag for cd service: $IMAGE_TAG_CD 
         echo Using tag for frontend service: $IMAGE_TAG_FRONTEND
     - name: Create bare repository # Needed for cd-service to start
