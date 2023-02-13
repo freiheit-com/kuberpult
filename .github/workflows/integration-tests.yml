@@ -49,5 +49,5 @@ jobs:
         docker compose -f ./docker-compose.tpl.yml up -d
     - name: Integration test
       run: |
-        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8082/health
-        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8083/health
+        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8081/health
+        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8080/health
