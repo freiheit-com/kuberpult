@@ -68,12 +68,12 @@ start: src/api/api.ts
 clean:
 	git clean -Xfd
 
-.PHONY: test-dependancies
-test-dependancies:
+.PHONY: test-dependencies
+test-dependencies:
 	make -C ../../pkg test
 	make -C ../../pkg/api test
 
-test: test-go test-ts test-dependancies
+test: test-go test-ts test-dependencies
 
 test-go: $(GO_FILES) proto
 	$(GO) test ./...
