@@ -37,7 +37,7 @@ jobs:
         echo Using registry: $IMAGE_REGISTRY
         echo PR tag: $(make version)
         echo main tag: $(git describe --always --long --tags main)
-        echo Using tag for cd service: $IMAGE_TAG_CD 
+        echo Using tag for cd service: $IMAGE_TAG_CD
         echo Using tag for frontend service: $IMAGE_TAG_FRONTEND
     - name: Create bare repository # Needed for cd-service to start
       run: |
@@ -49,5 +49,5 @@ jobs:
         docker compose -f ./docker-compose.tpl.yml up -d
     - name: Integration test
       run: |
-        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8081/health
-        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8080/health
+        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8082/health
+        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8083/health
