@@ -18,20 +18,27 @@ package handler
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/freiheit-com/kuberpult/pkg/api"
 	"golang.org/x/crypto/openpgp"
 	pgperrors "golang.org/x/crypto/openpgp/errors"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request, environment, tail string) {
 
 	if tail != "/" {
 		http.Error(w, fmt.Sprintf("Create Environment does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
+		return
+	}
+	if err := req.ParseMultipartForm(service.MAXIMUM_MULTIPART_SIZE); err != nil {
+		w.WriteHeader(400)
+		fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
 
@@ -65,12 +72,28 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 			return
 		}
 	}
-	fmt.Println(s.EnvironmentClient)
-	fmt.Println("METHOD", s.EnvironmentClient.CreateEnvironment)
-	_, err := s.EnvironmentClient.CreateEnvironment(req.Context(), &emptypb.Empty{})
+
+	form := req.MultipartForm
+	envConfig := api.EnvironmentConfig{}
+
+	if team, ok := form.Value["config"]; ok {
+		_ = json.Unmarshal([]byte(team[0]), &envConfig)
+	}
+
+	fmt.Println(envConfig.EnvironmentGroup)
+
+	response, err := s.EnvironmentClient.CreateEnvironment(req.Context(), &api.CreateEnvironmentRequest{
+		Environment: environment,
+		Config:      &envConfig,
+	})
+
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	json, err := json.Marshal(response)
+	if err != nil {
+		return
+	}
+	w.Write(json)
 }

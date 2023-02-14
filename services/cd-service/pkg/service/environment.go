@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
@@ -32,17 +31,18 @@ type EnvironmentServiceServer struct {
 
 func (e *EnvironmentServiceServer) CreateEnvironment(
 	ctx context.Context,
-	in *emptypb.Empty) (*emptypb.Empty, error) {
+	in *api.CreateEnvironmentRequest) (*emptypb.Empty, error) {
 
-	fmt.Println("WE ARE HERE")
 	err := e.Repository.Apply(ctx, &repository.CreateEnvironment{
-		Environment: "ss",
-		Config:      config.EnvironmentConfig{},
+		Environment: in.Environment,
+		Config: config.EnvironmentConfig{
+			Upstream:         &config.EnvironmentConfigUpstream{},
+			ArgoCd:           &config.EnvironmentConfigArgoCd{},
+			EnvironmentGroup: &in.Environment,
+		},
 	})
 	if err != nil {
 		return nil, httperrors.InternalError(ctx, err)
 	}
 	return &emptypb.Empty{}, nil
 }
-
-var _ api.EnvironmentServiceServer = (*EnvironmentServiceServer)(nil)

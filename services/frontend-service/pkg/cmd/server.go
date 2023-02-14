@@ -188,11 +188,12 @@ func RunServer() {
 
 		grpcWebServer := grpcweb.WrapServer(gsrv)
 		httpHandler := handler.Server{
-			DeployClient: deployClient,
-			LockClient:   lockClient,
-			Config:       c,
-			KeyRing:      pgpKeyRing,
-			AzureAuth:    c.AzureEnableAuth,
+			DeployClient:      deployClient,
+			LockClient:        lockClient,
+			EnvironmentClient: environmentClient,
+			Config:            c,
+			KeyRing:           pgpKeyRing,
+			AzureAuth:         c.AzureEnableAuth,
 		}
 		mux := http.NewServeMux()
 		mux.Handle("/environments/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -431,7 +432,6 @@ func (p *GrpcProxy) ReleaseTrain(
 
 func (p *GrpcProxy) CreateEnvironment(
 	ctx context.Context,
-	in *emptypb.Empty) (*emptypb.Empty, error) {
-	fmt.Println("HELlo")
+	in *api.CreateEnvironmentRequest) (*emptypb.Empty, error) {
 	return p.EnvironmentClient.CreateEnvironment(ctx, in)
 }

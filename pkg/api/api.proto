@@ -4,6 +4,7 @@ option go_package = "github.com/freiheit-com/kuberpult/pkg/api";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+
 package api.v1;
 
 service LockService {
@@ -174,7 +175,7 @@ enum Priority {
 }
 
 service EnvironmentService {
-  rpc CreateEnvironment (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc CreateEnvironment (CreateEnvironmentRequest) returns (google.protobuf.Empty) {}
 }
 
 message EnvironmentConfig {
@@ -224,7 +225,7 @@ message EnvironmentConfig {
 
   Upstream upstream = 1;
   ArgoCD argocd  = 2;
-  optional string environmentGroup = 3;
+  repeated string environmentGroup = 3;
 }
 
 
