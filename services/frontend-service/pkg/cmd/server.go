@@ -153,16 +153,19 @@ func RunServer() {
 
 		lockClient := api.NewLockServiceClient(con)
 		deployClient := api.NewDeployServiceClient(con)
+		environmentClient := api.NewEnvironmentServiceClient(con)
 		gproxy := &GrpcProxy{
-			LockClient:     lockClient,
-			OverviewClient: api.NewOverviewServiceClient(con),
-			DeployClient:   deployClient,
-			BatchClient:    api.NewBatchServiceClient(con),
+			LockClient:        lockClient,
+			OverviewClient:    api.NewOverviewServiceClient(con),
+			DeployClient:      deployClient,
+			BatchClient:       api.NewBatchServiceClient(con),
+			EnvironmentClient: environmentClient,
 		}
 		api.RegisterLockServiceServer(gsrv, gproxy)
 		api.RegisterOverviewServiceServer(gsrv, gproxy)
 		api.RegisterDeployServiceServer(gsrv, gproxy)
 		api.RegisterBatchServiceServer(gsrv, gproxy)
+		api.RegisterEnvironmentServiceServer(gsrv, gproxy)
 
 		frontendConfigService := &service.FrontendConfigServiceServer{
 			Config: config.FrontendConfig{
@@ -329,10 +332,11 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // An alternative to the more generic methods proposed in
 // https://github.com/grpc/grpc-go/issues/2297
 type GrpcProxy struct {
-	LockClient     api.LockServiceClient
-	OverviewClient api.OverviewServiceClient
-	DeployClient   api.DeployServiceClient
-	BatchClient    api.BatchServiceClient
+	LockClient        api.LockServiceClient
+	OverviewClient    api.OverviewServiceClient
+	DeployClient      api.DeployServiceClient
+	BatchClient       api.BatchServiceClient
+	EnvironmentClient api.EnvironmentServiceClient
 }
 
 func (p *GrpcProxy) ProcessBatch(
@@ -423,4 +427,11 @@ func (p *GrpcProxy) ReleaseTrain(
 	ctx context.Context,
 	in *api.ReleaseTrainRequest) (*api.ReleaseTrainResponse, error) {
 	return p.DeployClient.ReleaseTrain(ctx, in)
+}
+
+func (p *GrpcProxy) CreateEnvironment(
+	ctx context.Context,
+	in *emptypb.Empty) (*emptypb.Empty, error) {
+	fmt.Println("HELlo")
+	return p.EnvironmentClient.CreateEnvironment(ctx, in)
 }

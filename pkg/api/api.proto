@@ -106,14 +106,6 @@ message LockedError {
   map<string, Lock> environment_application_locks = 2;
 }
 
-service EnvironmentService {
-  rpc CreateEnvironment (CreateEnvironmentRequest) returns (google.protobuf.Empty) {}
-}
-
-message CreateEnvironmentRequest {
-  string environment = 1;
-}
-
 service FrontendConfigService {
   rpc GetConfig (GetFrontendConfigRequest) returns (GetFrontendConfigResponse) {}
 }
@@ -181,17 +173,68 @@ enum Priority {
   OTHER = 3;
 }
 
-message Environment {
-  message Config {
-    message Upstream {
-      oneof upstream {
-          string environment = 1;
-          bool   latest = 2;
-      }
+service EnvironmentService {
+  rpc CreateEnvironment (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+message EnvironmentConfig {
+  message Upstream {
+    oneof upstream {
+      string environment = 1;
+      bool   latest = 2;
     }
-    Upstream upstream = 1;
-    optional string environmentGroup = 2;
   }
+
+  message ArgoCD {
+    message SyncWindows {
+      string           kind = 1; // "allow" or "deny"
+      string           schedule = 2; // crontab format
+      string           duration = 3; // duration the window is open (or closed)
+      repeated string  apps = 4; // applications names
+    }
+    message Destination {
+      string          name = 1;
+      string          server = 2;
+      optional string namespace = 3;
+      optional string appProjectNamespace = 4;
+      optional string applicationNamespace = 5;
+    }
+    message ClusterResourceWhitelist {
+      string group = 1;
+      string kind = 2;
+    }
+    message IgnoreDifferences {
+      string          group = 1;
+      string          kind = 2;
+      string          name = 3;
+      string          namespace = 4;
+      repeated string JSONPointers = 5;
+      repeated string JqPathExpressions = 6;
+      repeated string ManagedFieldsManagers = 7;
+    }
+
+    repeated SyncWindows              syncWindows = 1;
+    Destination                       destination = 2;
+    optional ClusterResourceWhitelist clusterResourceWhitelist = 3;
+    map<string, string>               applicationAnnotations = 4;
+    repeated IgnoreDifferences        ignoreDifferences = 5;
+    repeated string                   syncOptions = 6;
+  }
+
+
+  Upstream upstream = 1;
+  ArgoCD argocd  = 2;
+  optional string environmentGroup = 3;
+}
+
+
+message CreateEnvironmentRequest {
+  string environment = 1;
+  EnvironmentConfig config = 2;
+}
+
+
+message Environment {
 
   message Application {
     message ArgoCD {
@@ -213,7 +256,7 @@ message Environment {
   }
 
   string name = 1;
-  Config config = 2;
+  EnvironmentConfig config = 2;
   map<string, Lock> locks = 3;
   map<string, Application> applications = 4;
   uint32 distanceToUpstream = 5;

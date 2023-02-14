@@ -17,28 +17,60 @@ Copyright 2023 freiheit.com*/
 package handler
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 
-	xpath "github.com/freiheit-com/kuberpult/pkg/path"
+	"golang.org/x/crypto/openpgp"
+	pgperrors "golang.org/x/crypto/openpgp/errors"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (s Server) HandleEnvironments(w http.ResponseWriter, req *http.Request, tail string) {
-	environment, tail := xpath.Shift(tail)
-	if environment == "" {
-		http.Error(w, "missing environment ID", http.StatusNotFound)
+func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request, environment, tail string) {
+
+	if tail != "/" {
+		http.Error(w, fmt.Sprintf("Create Environment does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
 		return
 	}
 
-	function, tail := xpath.Shift(tail)
-	switch function {
-	case "applications":
-		s.handleApplications(w, req, environment, tail)
-	case "locks":
-		s.handleEnvironmentLocks(w, req, environment, tail)
-	case "releasetrain":
-		s.handleReleaseTrain(w, req, environment, tail)
-	default:
-		http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
+	if s.AzureAuth {
+		if req.Body == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "missing request body")
+			return
+		}
+		signature, err := io.ReadAll(req.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Can't read request body %s", err)
+			return
+		}
+
+		if len(signature) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Missing signature in request body"))
+			return
+		}
+
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment), bytes.NewReader(signature)); err != nil {
+			if err != pgperrors.ErrUnknownIssuer {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				return
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "Invalid signature")
+			return
+		}
 	}
+	fmt.Println(s.EnvironmentClient)
+	fmt.Println("METHOD", s.EnvironmentClient.CreateEnvironment)
+	_, err := s.EnvironmentClient.CreateEnvironment(req.Context(), &emptypb.Empty{})
+	if err != nil {
+		handleGRPCError(req.Context(), w, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
