@@ -27,7 +27,6 @@ export type ReleaseDialogProps = {
     app: string;
     version: number;
     release: Release;
-    envs: Environment[];
 };
 
 const setClosed = () => {
@@ -75,8 +74,9 @@ export const EnvironmentListItem: React.FC<{
     env: Environment;
     app: string;
     release: Release;
+    queuedVersion: number;
     className?: string;
-}> = ({ env, app, release, className }) => {
+}> = ({ env, app, release, queuedVersion, className }) => {
     const deploy = useCallback(() => {
         if (release.version)
             addAction({
@@ -107,6 +107,18 @@ export const EnvironmentListItem: React.FC<{
             },
         });
     }, [app, env.name]);
+    const queueInfo =
+        queuedVersion === 0 ? null : (
+            <div
+                className={classNames('env-card-data', className)}
+                title={
+                    'An attempt was made to deploy version ' +
+                    queuedVersion +
+                    ' either by a release train, or when a new version was created. However, there was a lock present at the time, so kuberpult did not deploy this version. '
+                }>
+                Version {queuedVersion} was not deployed, because of a lock.
+            </div>
+        );
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -135,6 +147,7 @@ export const EnvironmentListItem: React.FC<{
                     ? release.sourceCommitId + ':' + release.sourceMessage
                     : env.name + ' is deployed to version ' + env.applications[app].version}
             </div>
+            {queueInfo}
             <div className="env-card-buttons">
                 <Button
                     className="env-card-add-lock-btn"
@@ -153,12 +166,12 @@ export const EnvironmentListItem: React.FC<{
     );
 };
 
-export const EnvironmentList: React.FC<{ envs: Environment[]; release: Release; app: string; className?: string }> = ({
-    envs,
-    release,
-    app,
-    className,
-}) => {
+export const EnvironmentList: React.FC<{
+    release: Release;
+    app: string;
+    version: number;
+    className?: string;
+}> = ({ release, app, version, className }) => {
     const allEnvGroups: EnvironmentGroup[] = useOverview((x) => Object.values(x.environmentGroups));
     return (
         <div className="release-env-group-list">
@@ -171,6 +184,7 @@ export const EnvironmentList: React.FC<{ envs: Environment[]; release: Release; 
                             app={app}
                             release={release}
                             className={className}
+                            queuedVersion={env.applications[app].queuedVersion}
                         />
                     ))}
                 </ul>
@@ -180,7 +194,7 @@ export const EnvironmentList: React.FC<{ envs: Environment[]; release: Release; 
 };
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
-    const { app, className, release, envs } = props;
+    const { app, className, release, version } = props;
     const dialog =
         app !== '' ? (
             <div>
@@ -236,7 +250,13 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             }
                         />
                     </div>
-                    <EnvironmentList app={app} envs={envs} className={className} release={release} />
+                    <EnvironmentList
+                        app={app}
+                        className={className}
+                        release={release}
+                        version={version}
+                        // deployedAtGroup={deployedAtGroup}
+                    />
                 </Dialog>
             </div>
         ) : (
