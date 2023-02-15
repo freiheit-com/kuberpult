@@ -6,28 +6,40 @@ Kuberpult is a catapult for [kubernetes](https://kubernetes.io/) :) it catapults
 
 ## About
 
-**Kuberpult** is a tool that allows you to manage Kubernetes manifests for your services in a
-Git repository and manage the same version of those services in different environments
-with differnt configs according to the environment.
+**Kuberpult** helps you manage different versions of different microservices in different cluster.
+While [ArgoCD](https://argo-cd.readthedocs.io/en/stable) applies the *current* version of your services in clusters,
+Kuberpult also helps you with managing what is deployed *next*.
 
-kuberpult works best with [ArgoCD](https://argo-cd.readthedocs.io/en/stable/) which applies the
-manifests to your clusters and kuberpult helps you to manage those manifests in the repository.
+## Purpose
+The purpose of kuberpult is to help roll out quickly yet organized.
+We use it for requirements like this:
+* We have 3 clusters, development, staging, production
+* Any merged changes should instantly be deployed to development.
+* After running some test on development, roll out to staging.
+* Once a day we trigger a release train that deploys everything to production - using the versions of staging as source.
+* Sometimes we want to prevent certain deployments, either of single services, or of entire clusters.
+* We never want to deploy (on production) between 9am and 11am as these are peak business hours.
 
-kuberpult allows you to lock some services or an entire environment, so automatic deployments (via a typical api call) to
-those services/environments will be queued until lock is deleted and then a new version is deployed.
-Manual deployments (via the UI or a flag in the api) are always possible.
+## API
+Kuberpult has an API that is intended to be used in CI/CD (GitHub Actions, Azure Pipelines, etc) to release new versions of one (or more) microservices.
+The API can also rollout many services at the same time via "release trains". It also supports rolling out some groups of services.
+
+# ArgoCD
+Kuberpult works best with [ArgoCD](https://argo-cd.readthedocs.io/en/stable/) which applies the
+manifests to your clusters and Kuberpult helps you to manage those manifests in the repository.
 
 `kuberpult` does not actually `deploy`. That part is usually handled by argoCD.
 
-`kuberpult` has a UI, and it can handle *locks*. When something is locked, it's version will not be changed.
+# App Locks & Environment Locks
+`kuberpult` can handle *locks* in its UI. When something is locked, it's version will not be changed via the API.
 Both *environments* and *microservices* can be `locked`.
 
 ## Public releases of Kuberpult
 
 ### Docker Registries
 Kuberpult's docker images are currently available in 2 docker registries: (Example with version 0.4.55)
-* docker pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:0.4.55 ([Link for kuberpult devs](https://console.cloud.google.com/artifacts/docker/fdc-public-docker-registry/europe-west3/kuberpult/kuberpult-frontend-service))
-* docker pull ghcr.io/freiheit-com/kuberpult/kuberpult-frontend-service:0.4.55 ([Link for kuberpult devs](https://github.com/freiheit-com/kuberpult/pkgs/container/kuberpult%2Fkuberpult-frontend-service))
+* `docker pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:0.4.55` ([Link for kuberpult devs](https://console.cloud.google.com/artifacts/docker/fdc-public-docker-registry/europe-west3/kuberpult/kuberpult-frontend-service))
+* `docker pull ghcr.io/freiheit-com/kuberpult/kuberpult-frontend-service:0.4.55` ([Link for kuberpult devs](https://github.com/freiheit-com/kuberpult/pkgs/container/kuberpult%2Fkuberpult-frontend-service))
 And the same applies for the `kuberpult-cd-service` - just replace "frontend" by "cd".
 
 We may deprecate one of the registries in the future for simplicity.

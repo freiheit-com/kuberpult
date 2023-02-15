@@ -16,6 +16,13 @@ Copyright 2023 freiheit.com*/
 
 package repository
 
+/**
+This queue contains transformers. Do not confuse with the "queuedVersion" field in protobuf (api.proto).
+The queue here is used because applying a change to git (pushing) takes some time,
+but this violates general rest patterns (every endpoint should return quickly).
+So we queue transformers, and don't wait for them to finish.
+*/
+
 import "context"
 
 type queue struct {
