@@ -206,6 +206,8 @@ message Environment {
     string name = 1;
     uint64 version = 2;
     map<string, Lock> locks = 3;
+    // "version" describe the currently deployed version. "queuedVersion" describes a version that was *tried* to be deployed, but a lock stopped it:
+    // "queuedVersion" has nothing to do with queue.go
     uint64 queuedVersion = 4;
     // google.protobuf.Timestamp deploy_date = 5; // This is never used
     bool undeployVersion = 6;
