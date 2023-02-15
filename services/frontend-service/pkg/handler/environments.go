@@ -20,13 +20,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"strings"
-
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"golang.org/x/crypto/openpgp"
 	pgperrors "golang.org/x/crypto/openpgp/errors"
+	"net/http"
 )
 
 const (
@@ -42,50 +39,48 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 		return
 	}
 	if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
-	
+	if req.Body == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "missing request body")
+		return
+	}
+
 	form := req.MultipartForm
 	envConfig := api.EnvironmentConfig{}
 
-	if config, ok := form.Value["config"]; ok {
+	config, ok := form.Value["config"]
+	if ok {
 		err := json.Unmarshal([]byte(config[0]), &envConfig)
 		if err != nil {
-			w.WriteHeader(400)
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "Invalid body: %s", err)
 			return
 		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Missing config in request body"))
+		return
 	}
 
 	if s.AzureAuth {
-		if req.Body == nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "missing request body")
-			return
-		}
-		signature, err := io.ReadAll(req.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "Can't read request body %s", err)
-			return
-		}
-
-		if len(signature) == 0 {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Missing signature in request body"))
-			return
-		}
-
-		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment), bytes.NewReader(signature)); err != nil {
-			if err != pgperrors.ErrUnknownIssuer {
-				w.WriteHeader(500)
-				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+		if signature, ok := form.Value["signature"]; ok {
+			if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader([]byte(config[0])), bytes.NewReader([]byte(signature[0]))); err != nil {
+				if err != pgperrors.ErrUnknownIssuer {
+					w.WriteHeader(http.StatusInternalServerError)
+					fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+					return
+				}
+				w.WriteHeader(http.StatusUnauthorized)
+				fmt.Fprintf(w, "Invalid signature")
 				return
 			}
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "Invalid signature")
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Missing signature in request body"))
 			return
 		}
 	}
