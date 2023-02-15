@@ -225,7 +225,7 @@ message EnvironmentConfig {
 
   Upstream upstream = 1;
   ArgoCD argocd  = 2;
-  repeated string environmentGroup = 3;
+  optional string environmentGroup = 3;
 }
 
 

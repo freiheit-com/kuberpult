@@ -33,12 +33,35 @@ func (e *EnvironmentServiceServer) CreateEnvironment(
 	ctx context.Context,
 	in *api.CreateEnvironmentRequest) (*emptypb.Empty, error) {
 
+	upstream := &config.EnvironmentConfigUpstream{}
+
+	if in.Config.Upstream.GetLatest() {
+		upstream.Latest = true
+	} else if env := in.Config.Upstream.GetEnvironment(); env != "" {
+		upstream.Environment = env
+	} else {
+		upstream = nil
+	}
+
 	err := e.Repository.Apply(ctx, &repository.CreateEnvironment{
 		Environment: in.Environment,
 		Config: config.EnvironmentConfig{
-			Upstream:         &config.EnvironmentConfigUpstream{},
-			ArgoCd:           &config.EnvironmentConfigArgoCd{},
-			EnvironmentGroup: &in.Environment,
+			Upstream: upstream,
+			ArgoCd: &config.EnvironmentConfigArgoCd{
+				Destination: config.ArgoCdDestination{
+					Name:                 in.Config.Argocd.Destination.Name,
+					Server:               in.Config.Argocd.Destination.Server,
+					Namespace:            in.Config.Argocd.Destination.Namespace,
+					AppProjectNamespace:  in.Config.Argocd.Destination.AppProjectNamespace,
+					ApplicationNamespace: in.Config.Argocd.Destination.ApplicationNamespace,
+				},
+				SyncWindows:              nil, // FIXME
+				ClusterResourceWhitelist: nil, // FIXME
+				ApplicationAnnotations:   in.Config.Argocd.ApplicationAnnotations,
+				IgnoreDifferences:        nil, // FIXME
+				SyncOptions:              in.Config.Argocd.SyncOptions,
+			},
+			EnvironmentGroup: in.Config.EnvironmentGroup,
 		},
 	})
 	if err != nil {

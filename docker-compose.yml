@@ -19,12 +19,12 @@ services:
       - backend
     volumes:
       - .:/kp/kuberpult
-  ui:
-    build: infrastructure/docker/ui
-    container_name: kuberpult-ui
-    ports:
-      - "3000:3000"
-    depends_on:
-      - frontend
-    volumes:
-      - .:/kp/kuberpult
+#  ui:
+#    build: infrastructure/docker/ui
+#    container_name: kuberpult-ui
+#    ports:
+#      - "3000:3000"
+#    depends_on:
+#      - frontend
+#    volumes:
+#      - .:/kp/kuberpult

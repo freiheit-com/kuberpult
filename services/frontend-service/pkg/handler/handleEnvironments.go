@@ -32,7 +32,6 @@ func (s Server) HandleEnvironments(w http.ResponseWriter, req *http.Request, tai
 
 	function, tail := xpath.Shift(tail)
 
-	fmt.Println(function, tail)
 	switch function {
 	case "applications":
 		s.handleApplications(w, req, environment, tail)

@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
 	"io"
 	"net/http"
 	"strings"
@@ -30,16 +29,34 @@ import (
 	pgperrors "golang.org/x/crypto/openpgp/errors"
 )
 
+const (
+	// This maximum in-memory multipart size.
+	// It was chosen based on the assumption that we have < 10 envs with < 3MB manifests per env.
+	MAXIMUM_MULTIPART_SIZE = 32 * 1024 * 1024 // = 32Mi
+)
+
 func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request, environment, tail string) {
 
 	if tail != "/" {
 		http.Error(w, fmt.Sprintf("Create Environment does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
 		return
 	}
-	if err := req.ParseMultipartForm(service.MAXIMUM_MULTIPART_SIZE); err != nil {
+	if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
 		fmt.Fprintf(w, "Invalid body: %s", err)
 		return
+	}
+	
+	form := req.MultipartForm
+	envConfig := api.EnvironmentConfig{}
+
+	if config, ok := form.Value["config"]; ok {
+		err := json.Unmarshal([]byte(config[0]), &envConfig)
+		if err != nil {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid body: %s", err)
+			return
+		}
 	}
 
 	if s.AzureAuth {
@@ -73,16 +90,7 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 		}
 	}
 
-	form := req.MultipartForm
-	envConfig := api.EnvironmentConfig{}
-
-	if team, ok := form.Value["config"]; ok {
-		_ = json.Unmarshal([]byte(team[0]), &envConfig)
-	}
-
-	fmt.Println(envConfig.EnvironmentGroup)
-
-	response, err := s.EnvironmentClient.CreateEnvironment(req.Context(), &api.CreateEnvironmentRequest{
+	_, err := s.EnvironmentClient.CreateEnvironment(req.Context(), &api.CreateEnvironmentRequest{
 		Environment: environment,
 		Config:      &envConfig,
 	})
@@ -91,9 +99,5 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 		handleGRPCError(req.Context(), w, err)
 		return
 	}
-	json, err := json.Marshal(response)
-	if err != nil {
-		return
-	}
-	w.Write(json)
+	w.WriteHeader(http.StatusOK)
 }
