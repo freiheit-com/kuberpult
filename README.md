@@ -8,22 +8,30 @@ Kuberpult is a catapult for [kubernetes](https://kubernetes.io/) :) it catapults
 
 **Kuberpult** helps you manage different versions of different microservices in different cluster.
 While [ArgoCD](https://argo-cd.readthedocs.io/en/stable) applies the *current* version of your services in clusters,
-Kuberpult helps you managing which version of which services is deployed in what clusters.
+Kuberpult also helps you with managing what is deployed *next*.
 
-**Kuberpult** is a tool that allows you to manage Kubernetes manifests for your services in a
-Git repository and manage the same version of those services in different environments
-with different configs according to the environment.
+## Purpose
+The purpose of kuberpult is to help roll out quickly yet organized.
+We use it for requirements like this:
+* We have 3 clusters, development, staging, production
+* Any merged changes should instantly be deployed to development.
+* After running some test on development, roll out to staging.
+* Once a day we trigger a release train that deploys everything to production - using the versions of staging as source.
+* Sometimes we want to prevent certain deployments, either of single services, or of entire clusters.
+* We never want to deploy (on production) between 9am and 11am as these are peak business hours.
 
+## API
+Kuberpult has an API that is intended to be used in CI/CD (GitHub Actions, Azure Pipelines, etc) to release new versions of one (or more) microservices.
+The API can also rollout many services at the same time via "release trains". It also supports rolling out some groups of services.
+
+# ArgoCD
 Kuberpult works best with [ArgoCD](https://argo-cd.readthedocs.io/en/stable/) which applies the
 manifests to your clusters and Kuberpult helps you to manage those manifests in the repository.
 
-Kuberpult allows you to lock some services or an entire environment, so automatic deployments (via a typical api call) to
-those services/environments will be queued until lock is deleted and then a new version is deployed.
-Manual deployments (via the UI or a flag in the api) are always possible.
-
 `kuberpult` does not actually `deploy`. That part is usually handled by argoCD.
 
-`kuberpult` has a UI, and it can handle *locks*. When something is locked, it's version will not be changed.
+# App Locks & Environment Locks
+`kuberpult` can handle *locks* in its UI. When something is locked, it's version will not be changed via the API.
 Both *environments* and *microservices* can be `locked`.
 
 ## Public releases of Kuberpult
