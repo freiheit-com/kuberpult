@@ -180,10 +180,8 @@ service EnvironmentService {
 
 message EnvironmentConfig {
   message Upstream {
-    oneof upstream {
-      string environment = 1;
-      bool   latest = 2;
-    }
+    optional string  environment = 1;
+    optional bool    latest = 2;
   }
 
   message ArgoCD {
@@ -191,7 +189,7 @@ message EnvironmentConfig {
       string           kind = 1; // "allow" or "deny"
       string           schedule = 2; // crontab format
       string           duration = 3; // duration the window is open (or closed)
-      repeated string  apps = 4; // applications names
+      repeated string  applications = 4; // applications names
     }
     message Destination {
       string          name = 1;
@@ -200,7 +198,7 @@ message EnvironmentConfig {
       optional string appProjectNamespace = 4;
       optional string applicationNamespace = 5;
     }
-    message ClusterResourceWhitelist {
+    message AccessEntry {
       string group = 1;
       string kind = 2;
     }
@@ -209,19 +207,18 @@ message EnvironmentConfig {
       string          kind = 2;
       string          name = 3;
       string          namespace = 4;
-      repeated string JSONPointers = 5;
-      repeated string JqPathExpressions = 6;
-      repeated string ManagedFieldsManagers = 7;
+      repeated string jsonPointers = 5;
+      repeated string jqPathExpressions = 6;
+      repeated string managedFieldsManagers = 7;
     }
 
     repeated SyncWindows              syncWindows = 1;
     Destination                       destination = 2;
-    optional ClusterResourceWhitelist clusterResourceWhitelist = 3;
+    repeated AccessEntry              accessList = 3;
     map<string, string>               applicationAnnotations = 4;
     repeated IgnoreDifferences        ignoreDifferences = 5;
     repeated string                   syncOptions = 6;
   }
-
 
   Upstream upstream = 1;
   ArgoCD argocd  = 2;

@@ -33,15 +33,10 @@ func (e *EnvironmentServiceServer) CreateEnvironment(
 	ctx context.Context,
 	in *api.CreateEnvironmentRequest) (*emptypb.Empty, error) {
 
-	upstream := &config.EnvironmentConfigUpstream{}
-
-	if in.Config.Upstream.GetLatest() {
-		upstream.Latest = true
-	} else if env := in.Config.Upstream.GetEnvironment(); env != "" {
-		upstream.Environment = env
-	} else {
-		upstream = nil
-	}
+	upstream := transformUpstreamToConfig(in.Config.Upstream)
+	syncWindows := transformSyncWindowsToConfig(in.Config.Argocd.SyncWindows)
+	clusterResourceWhitelist := transformClusterResourceWhitelistToConfig(in.Config.Argocd.AccessList)
+	ignoreDifferences := transformIgnoreDifferencesToConfig(in.Config.Argocd.IgnoreDifferences)
 
 	err := e.Repository.Apply(ctx, &repository.CreateEnvironment{
 		Environment: in.Environment,
@@ -55,10 +50,10 @@ func (e *EnvironmentServiceServer) CreateEnvironment(
 					AppProjectNamespace:  in.Config.Argocd.Destination.AppProjectNamespace,
 					ApplicationNamespace: in.Config.Argocd.Destination.ApplicationNamespace,
 				},
-				SyncWindows:              nil, // FIXME
-				ClusterResourceWhitelist: nil, // FIXME
+				SyncWindows:              syncWindows,
+				ClusterResourceWhitelist: clusterResourceWhitelist,
 				ApplicationAnnotations:   in.Config.Argocd.ApplicationAnnotations,
-				IgnoreDifferences:        nil, // FIXME
+				IgnoreDifferences:        ignoreDifferences,
 				SyncOptions:              in.Config.Argocd.SyncOptions,
 			},
 			EnvironmentGroup: in.Config.EnvironmentGroup,
@@ -68,4 +63,61 @@ func (e *EnvironmentServiceServer) CreateEnvironment(
 		return nil, httperrors.InternalError(ctx, err)
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func transformUpstreamToConfig(upstream *api.EnvironmentConfig_Upstream) *config.EnvironmentConfigUpstream {
+	if upstream == nil {
+		return nil
+	}
+	if upstream.GetLatest() {
+		return &config.EnvironmentConfigUpstream{
+			Latest: true,
+		}
+	}
+	if upstream.GetEnvironment() != "" {
+		return &config.EnvironmentConfigUpstream{
+			Environment: upstream.GetEnvironment(),
+		}
+	}
+	return nil
+}
+
+func transformSyncWindowsToConfig(syncWindows []*api.EnvironmentConfig_ArgoCD_SyncWindows) []config.ArgoCdSyncWindow {
+	var transformedSyncWindows []config.ArgoCdSyncWindow
+	for _, syncWindow := range syncWindows {
+		transformedSyncWindows = append(transformedSyncWindows, config.ArgoCdSyncWindow{
+			Schedule: syncWindow.Schedule,
+			Duration: syncWindow.Duration,
+			Kind:     syncWindow.Kind,
+			Apps:     syncWindow.Applications,
+		})
+	}
+	return transformedSyncWindows
+}
+
+func transformClusterResourceWhitelistToConfig(accessList []*api.EnvironmentConfig_ArgoCD_AccessEntry) []config.AccessEntry {
+	var transformedAccessList []config.AccessEntry
+	for _, accessEntry := range accessList {
+		transformedAccessList = append(transformedAccessList, config.AccessEntry{
+			Group: accessEntry.Group,
+			Kind:  accessEntry.Kind,
+		})
+	}
+	return transformedAccessList
+}
+
+func transformIgnoreDifferencesToConfig(ignoreDifferences []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences) []config.ArgoCdIgnoreDifference {
+	var transformedIgnoreDifferences []config.ArgoCdIgnoreDifference
+	for _, ignoreDifference := range ignoreDifferences {
+		transformedIgnoreDifferences = append(transformedIgnoreDifferences, config.ArgoCdIgnoreDifference{
+			Group:                 ignoreDifference.Group,
+			Kind:                  ignoreDifference.Kind,
+			Name:                  ignoreDifference.Name,
+			Namespace:             ignoreDifference.Namespace,
+			JSONPointers:          ignoreDifference.JsonPointers,
+			JqPathExpressions:     ignoreDifference.JqPathExpressions,
+			ManagedFieldsManagers: ignoreDifference.ManagedFieldsManagers,
+		})
+	}
+	return transformedIgnoreDifferences
 }

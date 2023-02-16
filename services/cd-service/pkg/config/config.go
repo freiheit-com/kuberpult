@@ -23,7 +23,7 @@ type EnvironmentConfig struct {
 }
 
 type EnvironmentConfigUpstream struct {
-	Environment string `json:"environment"`
+	Environment string `json:"environment,omitempty"`
 	Latest      bool   `json:"latest,omitempty"`
 }
 

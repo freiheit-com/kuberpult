@@ -675,16 +675,12 @@ func transformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environm
 	}
 	if upstream.Latest {
 		return &api.EnvironmentConfig_Upstream{
-			Upstream: &api.EnvironmentConfig_Upstream_Latest{
-				Latest: upstream.Latest,
-			},
+			Latest: &upstream.Latest,
 		}
 	}
 	if upstream.Environment != "" {
 		return &api.EnvironmentConfig_Upstream{
-			Upstream: &api.EnvironmentConfig_Upstream_Environment{
-				Environment: upstream.Environment,
-			},
+			Environment: &upstream.Environment,
 		}
 	}
 	return nil
