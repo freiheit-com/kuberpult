@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -45,6 +46,15 @@ func TestServer_Handle(t *testing.T) {
 	exampleKeyRing := openpgp.EntityList{exampleKey}
 	exampleEnvironment := "development"
 	exampleLockId := "test"
+	exampleConfig := `{
+   "upstream":{
+      "environment": "development"
+   }
+}`
+	// workaround for *bool
+	latestFlag := true
+	starFlag := "*"
+
 	signatureBuffer := bytes.Buffer{}
 	err = openpgp.ArmoredDetachSign(&signatureBuffer, exampleKey, bytes.NewReader([]byte(exampleEnvironment)), nil)
 	if err != nil {
@@ -57,6 +67,12 @@ func TestServer_Handle(t *testing.T) {
 		t.Fatal(err)
 	}
 	exampleLockSignature := signatureBuffer.String()
+	signatureBuffer = bytes.Buffer{}
+	err = openpgp.ArmoredDetachSign(&signatureBuffer, exampleKey, bytes.NewReader([]byte(exampleConfig)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exampleConfigSignature := signatureBuffer.String()
 	lockRequestJSON, _ := json.Marshal(putLockRequest{
 		Message:   "test message",
 		Signature: exampleLockSignature,
@@ -72,6 +88,7 @@ func TestServer_Handle(t *testing.T) {
 		expectedBody                                    string
 		expectedDeployRequest                           *api.DeployRequest
 		expectedReleaseTrainRequest                     *api.ReleaseTrainRequest
+		expectedCreateEnvironmentRequest                *api.CreateEnvironmentRequest
 		expectedCreateEnvironmentLockRequest            *api.CreateEnvironmentLockRequest
 		expectedDeleteEnvironmentLockRequest            *api.DeleteEnvironmentLockRequest
 		expectedCreateEnvironmentApplicationLockRequest *api.CreateEnvironmentApplicationLockRequest
@@ -185,6 +202,196 @@ func TestServer_Handle(t *testing.T) {
 					Path: "/environments/development/releasetrain",
 				},
 				Body: io.NopCloser(strings.NewReader("uncool")),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+			},
+			expectedBody: "Internal: Invalid Signature: EOF",
+		},
+		{
+			name: "create environment",
+			req: &http.Request{
+				Method: http.MethodPost,
+				Header: http.Header{
+					"Content-Type": []string{"multipart/form-data"},
+				},
+				URL: &url.URL{
+					Path: "/environments/stg/",
+				},
+				Body: io.NopCloser(strings.NewReader("uncool")),
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config": []string{exampleConfig},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "",
+			expectedCreateEnvironmentRequest: &api.CreateEnvironmentRequest{
+				Environment: "stg",
+				Config: &api.EnvironmentConfig{
+					Upstream: &api.EnvironmentConfig_Upstream{
+						Environment: &exampleEnvironment,
+					},
+					Argocd:           nil,
+					EnvironmentGroup: nil,
+				},
+			},
+		},
+		{
+			name: "create environment  - more data version",
+			req: &http.Request{
+				Method: http.MethodPost,
+				Header: http.Header{
+					"Content-Type": []string{"multipart/form-data"},
+				},
+				URL: &url.URL{
+					Path: "/environments/stg/",
+				},
+				Body: io.NopCloser(strings.NewReader("uncool")),
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config": []string{`
+{
+  "argocd": {
+    "accessList": [],
+    "applicationAnnotations": {},
+    "destination": {
+      "namespace": "*",
+      "server": "https://intwawiplatform-dev-aks-a17d3d29.privatelink.westeurope.azmk8s.io:443"
+    }
+  },
+  "upstream": {
+    "latest": true
+  },
+  "EnvironmentGroup": "*"
+}
+`},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "",
+			expectedCreateEnvironmentRequest: &api.CreateEnvironmentRequest{
+				Environment: "stg",
+				Config: &api.EnvironmentConfig{
+					Upstream: &api.EnvironmentConfig_Upstream{
+						Latest: &latestFlag,
+					},
+					Argocd: &api.EnvironmentConfig_ArgoCD{
+						SyncWindows: nil,
+						Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+							Server:    "https://intwawiplatform-dev-aks-a17d3d29.privatelink.westeurope.azmk8s.io:443",
+							Namespace: &starFlag,
+						},
+						AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
+						ApplicationAnnotations: nil,
+						IgnoreDifferences:      nil,
+						SyncOptions:            nil,
+					},
+					EnvironmentGroup: &starFlag,
+				},
+			},
+		},
+		{
+			name: "create environment but wrong method",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/environments/stg/",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "unknown function ''\n",
+		},
+		{
+			name: "create environment but additional path params",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/stg/my-awesome-path",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "unknown function 'my-awesome-path'\n",
+		},
+		{
+			name:             "create environment - Azure enabled",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/environments/stg/",
+				},
+				Body: io.NopCloser(strings.NewReader("uncool")),
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config":    []string{exampleConfig},
+						"signature": []string{exampleConfigSignature},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "",
+			expectedCreateEnvironmentRequest: &api.CreateEnvironmentRequest{
+				Environment: "stg",
+				Config: &api.EnvironmentConfig{
+					Upstream: &api.EnvironmentConfig_Upstream{
+						Environment: &exampleEnvironment,
+					},
+					Argocd:           nil,
+					EnvironmentGroup: nil,
+				},
+			},
+		},
+		{
+			name:             "create environment - Azure enabled - missing signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/environments/stg/",
+				},
+				Body: io.NopCloser(strings.NewReader("uncool")),
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config": []string{exampleConfig},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "Missing signature in request body",
+		},
+		{
+			name:             "create environment - Azure enabled - invalid signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/environments/stg/",
+				},
+				Body: io.NopCloser(strings.NewReader("uncool")),
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config":    []string{exampleConfig},
+						"signature": []string{"my bad signature"},
+					},
+				},
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusInternalServerError,
@@ -539,11 +746,13 @@ func TestServer_Handle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			deployClient := &mockDeployClient{}
 			lockClient := &mockLockClient{}
+			environmentClient := &mockEnvironmentClient{}
 			s := Server{
-				DeployClient: deployClient,
-				LockClient:   lockClient,
-				KeyRing:      tt.KeyRing,
-				AzureAuth:    tt.AzureAuthEnabled,
+				DeployClient:      deployClient,
+				EnvironmentClient: environmentClient,
+				LockClient:        lockClient,
+				KeyRing:           tt.KeyRing,
+				AzureAuth:         tt.AzureAuthEnabled,
 			}
 
 			w := httptest.NewRecorder()
@@ -566,6 +775,9 @@ func TestServer_Handle(t *testing.T) {
 			if d := cmp.Diff(tt.expectedReleaseTrainRequest, deployClient.releaseTrainRequest, protocmp.Transform()); d != "" {
 				t.Errorf("release train request mismatch: %s", d)
 			}
+			if d := cmp.Diff(tt.expectedCreateEnvironmentRequest, environmentClient.createEnvironmentRequest, protocmp.Transform()); d != "" {
+				t.Errorf("create environment request mismatch: %s", d)
+			}
 			if d := cmp.Diff(tt.expectedCreateEnvironmentLockRequest, lockClient.createEnvironmentLockRequest, protocmp.Transform()); d != "" {
 				t.Errorf("create environment lock request mismatch: %s", d)
 			}
@@ -580,6 +792,15 @@ func TestServer_Handle(t *testing.T) {
 			}
 		})
 	}
+}
+
+type mockEnvironmentClient struct {
+	createEnvironmentRequest *api.CreateEnvironmentRequest
+}
+
+func (m *mockEnvironmentClient) CreateEnvironment(_ context.Context, in *api.CreateEnvironmentRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.createEnvironmentRequest = in
+	return &emptypb.Empty{}, nil
 }
 
 type mockDeployClient struct {
