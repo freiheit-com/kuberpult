@@ -24,6 +24,7 @@ describe('Release Dialog', () => {
         props: ReleaseDialogProps;
         rels: Release[];
         expect_message: boolean;
+        expect_queues: number;
         data_length: number;
     }
     const data: dataT[] = [
@@ -62,6 +63,7 @@ describe('Release Dialog', () => {
             rels: [],
 
             expect_message: true,
+            expect_queues: 0,
             data_length: 1,
         },
         {
@@ -102,7 +104,7 @@ describe('Release Dialog', () => {
                                 name: 'test1',
                                 version: 3,
                                 locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
-                                queuedVersion: 0,
+                                queuedVersion: 666,
                                 undeployVersion: false,
                             },
                         },
@@ -114,6 +116,7 @@ describe('Release Dialog', () => {
             rels: [],
 
             expect_message: true,
+            expect_queues: 1,
             data_length: 2,
         },
         {
@@ -126,6 +129,7 @@ describe('Release Dialog', () => {
             },
             rels: [],
             expect_message: false,
+            expect_queues: 0,
             data_length: 0,
         },
     ];
@@ -199,6 +203,26 @@ describe('Release Dialog', () => {
             testcase.props.envs.forEach((env) => {
                 expect(document.querySelector('.env-locks')?.children).toHaveLength(Object.values(env.locks).length);
             });
+        });
+    });
+
+    describe.each(data)(`Renders the queuedVersion`, (testcase) => {
+        it(testcase.name, () => {
+            // when
+            UpdateOverview.set({
+                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
+                environments: testcase.props.envs,
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'dev',
+                        environments: testcase.props.envs,
+                        distanceToUpstream: 2,
+                    },
+                ],
+            } as any);
+            updateReleaseDialog(testcase.props.app, testcase.props.version);
+            render(<ReleaseDialog {...testcase.props} />);
+            expect(document.querySelectorAll('.env-card-data-queue')).toHaveLength(testcase.expect_queues);
         });
     });
 });
