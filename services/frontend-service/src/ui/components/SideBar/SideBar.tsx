@@ -188,7 +188,7 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
     );
 };
 
-export const SideBarList = () => {
+export const SideBarList = (): JSX.Element => {
     const actions = useActions();
 
     return (
@@ -210,7 +210,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
     const [open, setOpen] = useState(false);
 
     const handleClose = useCallback(() => setOpen(false), []);
-    const handleOpen = () => setOpen(true);
+    const handleOpen = (): void => setOpen(true);
 
     const lockCreationList = actions.filter(
         (action) =>

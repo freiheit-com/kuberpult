@@ -23,7 +23,7 @@ export const Button = (props: {
     label?: string;
     icon?: JSX.Element;
     onClick?: () => void;
-}) => {
+}): JSX.Element => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLButtonElement>(null);
     const { disabled, className, label, icon, onClick } = props;
@@ -32,7 +32,7 @@ export const Button = (props: {
         if (control.current) {
             MDComponent.current = new MDCRipple(control.current);
         }
-        return () => MDComponent.current?.destroy();
+        return (): void => MDComponent.current?.destroy();
     }, []);
 
     return (

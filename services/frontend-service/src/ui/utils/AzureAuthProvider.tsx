@@ -92,7 +92,7 @@ export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children
     return <>{children}</>;
 };
 
-export const AzureAutoSignIn = () => {
+export const AzureAutoSignIn = (): JSX.Element => {
     const isAuthenticated = useIsAuthenticated();
     const { instance } = useMsal();
     React.useEffect(() => {

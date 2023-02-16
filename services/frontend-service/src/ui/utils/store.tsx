@@ -25,6 +25,7 @@ import {
 } from '../../api/api';
 import { useApi } from './GrpcApi';
 import { useMemo } from 'react';
+import { Empty } from '../../google/protobuf/empty';
 
 export interface DisplayLock {
     date: Date;
@@ -46,16 +47,16 @@ export const [_, PanicOverview] = createStore({ error: '' });
 
 export const [useReleaseDialog, UpdateReleaseDialog] = createStore({ app: '', version: 0 });
 
-export const useApplyActions = () => useApi.batchService().ProcessBatch({ actions: useActions() });
+export const useApplyActions = (): Promise<Empty> => useApi.batchService().ProcessBatch({ actions: useActions() });
 
-export const useActions = () => useAction(({ actions }) => actions);
+export const useActions = (): BatchAction[] => useAction(({ actions }) => actions);
 
-export const updateActions = (actions: BatchAction[]) => {
+export const updateActions = (actions: BatchAction[]): void => {
     deleteAllActions();
     actions.forEach((action) => addAction(action));
 };
 
-export const addAction = (action: BatchAction) => {
+export const addAction = (action: BatchAction): void => {
     const actions = UpdateAction.get().actions;
     // checking for duplicates
     switch (action.action?.$case) {
@@ -150,12 +151,12 @@ export const addAction = (action: BatchAction) => {
     UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
 };
 
-export const updateReleaseDialog = (app: string, version: number) => {
+export const updateReleaseDialog = (app: string, version: number): void => {
     UpdateReleaseDialog.set({ app: app, version: version });
 };
-export const deleteAllActions = () => UpdateAction.set({ actions: [] });
+export const deleteAllActions = (): void => UpdateAction.set({ actions: [] });
 
-export const deleteAction = (action: BatchAction) =>
+export const deleteAction = (action: BatchAction): void =>
     UpdateAction.set(({ actions }) => ({
         // create comparison function
         actions: actions.filter((act) => JSON.stringify(act).localeCompare(JSON.stringify(action))),
@@ -164,7 +165,7 @@ export const deleteAction = (action: BatchAction) =>
 // returns all application names
 // doesn't return empty team names (i.e.: '')
 // doesn't return repeated team names
-export const useTeamNames = () =>
+export const useTeamNames = (): string[] =>
     useOverview(({ applications }) => [
         ...new Set(
             Object.values(applications)
@@ -174,14 +175,14 @@ export const useTeamNames = () =>
     ]);
 
 // returns applications filtered by dropdown and sorted by team name and then by app name
-export const useFilteredApps = (teams: string[]) =>
+export const useFilteredApps = (teams: string[]): Application[] =>
     useOverview(({ applications }) =>
         Object.values(applications).filter(
             (app) => teams.length === 0 || teams.includes(app.team.trim() || '<No Team>')
         )
     );
 
-export const useEnvironmentGroups = () => useOverview(({ environmentGroups }) => environmentGroups);
+export const useEnvironmentGroups = (): EnvironmentGroup[] => useOverview(({ environmentGroups }) => environmentGroups);
 
 /**
  * returns all environments
@@ -195,13 +196,13 @@ export const useEnvironments = (): Environment[] =>
 export const useEnvironmentNames = (): string[] => useEnvironments().map((env) => env.name);
 
 // returns all application names
-export const useSearchedApplications = (applications: Application[], appNameParam: string) =>
+export const useSearchedApplications = (applications: Application[], appNameParam: string): Application[] =>
     applications
         .filter((app) => appNameParam === '' || app.name.includes(appNameParam))
         .sort((a, b) => (a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)));
 
 // return all applications locks
-export const useFilteredApplicationLocks = (appNameParam: string | null) =>
+export const useFilteredApplicationLocks = (appNameParam: string | null): DisplayLock[] =>
     useOverview(({ environments }) => {
         const finalLocks: DisplayLock[] = [];
         Object.values(environments)
@@ -228,7 +229,7 @@ export const useFilteredApplicationLocks = (appNameParam: string | null) =>
     });
 
 // return all environment locks
-export const useEnvironmentLocks = () =>
+export const useEnvironmentLocks = (): DisplayLock[] =>
     useOverview(({ environments }) => {
         const locks = Object.values(environments).map((environment) =>
             Object.values(environment.locks).map(
@@ -248,7 +249,7 @@ export const useEnvironmentLocks = () =>
     });
 
 // return all env lock IDs
-export const useEnvironmentLockIDs = () =>
+export const useEnvironmentLockIDs = (): string[] =>
     useOverview(({ environments }) =>
         Object.values(environments)
             .map((env) => Object.values(env.locks))
@@ -257,7 +258,7 @@ export const useEnvironmentLockIDs = () =>
     );
 
 // return env lock IDs from given env
-export const useFilteredEnvironmentLockIDs = (envName: string) =>
+export const useFilteredEnvironmentLockIDs = (envName: string): string[] =>
     useOverview(({ environments }) =>
         Object.values(environments)
             .filter((env) => envName === '' || env.name === envName)
@@ -266,7 +267,7 @@ export const useFilteredEnvironmentLockIDs = (envName: string) =>
             .map((lock) => lock.lockId)
     );
 
-export const useFilteredEnvironmentLocks = (envName: string) =>
+export const useFilteredEnvironmentLocks = (envName: string): string[] =>
     useOverview(({ environments }) =>
         Object.values(
             Object.values(environments)
@@ -283,7 +284,7 @@ export const useFilteredEnvironmentLocks = (envName: string) =>
             .map((v) => v.lockId)
     );
 
-export const useEnvironmentLock = (lockId: string) =>
+export const useEnvironmentLock = (lockId: string): DisplayLock =>
     ({
         ...useOverview(
             ({ environments }) =>
@@ -306,7 +307,7 @@ export const useEnvironmentLock = (lockId: string) =>
         )?.name,
     } as DisplayLock);
 
-export const searchCustomFilter = (queryContent: string | null, val: string | undefined) => {
+export const searchCustomFilter = (queryContent: string | null, val: string | undefined): string | undefined | null => {
     if (!!val && !!queryContent) {
         if (val.includes(queryContent)) {
             return val;
@@ -318,7 +319,7 @@ export const searchCustomFilter = (queryContent: string | null, val: string | un
 };
 
 // return app lock IDs
-export const useApplicationLockIDs = () =>
+export const useApplicationLockIDs = (): string[] =>
     useOverview(({ environments }) =>
         Object.values(environments)
             .map((env) => Object.values(env.applications))
@@ -328,7 +329,7 @@ export const useApplicationLockIDs = () =>
             .map((lock) => lock.lockId)
     );
 
-export const useApplicationLock = (lockId: string) =>
+export const useApplicationLock = (lockId: string): DisplayLock =>
     ({
         ...useOverview(
             ({ environments }) =>
@@ -363,10 +364,10 @@ export const useApplicationLock = (lockId: string) =>
         )?.name,
     } as DisplayLock);
 
-export const useLock = (lockId: string) =>
+export const useLock = (lockId: string): DisplayLock | undefined =>
     [useApplicationLock(lockId), useEnvironmentLock(lockId)].find((lock) => lock.lockId === lockId);
 
-export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest' | 'newestToOldest') => {
+export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest' | 'newestToOldest'): DisplayLock[] => {
     const sortMethod = sorting === 'newestToOldest' ? -1 : 1;
     displayLocks.sort((a: DisplayLock, b: DisplayLock) => {
         const aValues: (Date | string)[] = [];
@@ -391,7 +392,7 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest'
 };
 
 // returns the release number {$version} of {$application}
-export const useRelease = (application: string, version: number) =>
+export const useRelease = (application: string, version: number): Release =>
     useOverview(
         ({ applications }) =>
             applications[application].releases.find((r) =>
@@ -400,7 +401,7 @@ export const useRelease = (application: string, version: number) =>
     );
 
 // returns the release versions that are currently deployed to at least one environment
-export const useDeployedReleases = (application: string) =>
+export const useDeployedReleases = (application: string): number[] =>
     useOverview(({ environments }) =>
         [
             ...new Set(
@@ -453,7 +454,7 @@ export const useAllDeployedAt = (application: string): Environment[] =>
     useOverview(({ environments }) => Object.values(environments).filter((env) => env.applications[application]));
 
 // Get release information for a version
-export const useReleaseInfo = (app: string, version: number) =>
+export const useReleaseInfo = (app: string, version: number): Release =>
     useOverview(({ applications }) => {
         const releaseInfo = applications[app]?.releases.filter((release) => release.version === version)[0];
         if (!releaseInfo) {
@@ -463,7 +464,7 @@ export const useReleaseInfo = (app: string, version: number) =>
     });
 
 // Get all releases for an app
-export const useReleasesForApp = (app: string) =>
+export const useReleasesForApp = (app: string): Release[] =>
     useOverview(({ applications }) =>
         applications[app]?.releases.sort((a, b) =>
             a.version === -1 ? -1 : b.version === -1 ? 1 : b.version - a.version

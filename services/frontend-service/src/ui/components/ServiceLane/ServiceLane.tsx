@@ -22,7 +22,7 @@ import { Tooltip } from '@material-ui/core';
 import { useNavigate } from 'react-router-dom';
 import * as React from 'react';
 
-function getNumberOfReleasesBetween(releases: Array<Release>, lowerVersion: number, higherVersion: number) {
+function getNumberOfReleasesBetween(releases: Array<Release>, lowerVersion: number, higherVersion: number): number {
     let diff = 0;
     let count = false;
     if (!releases) {

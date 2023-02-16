@@ -24,12 +24,12 @@ export type ReleasesProps = {
     app: string;
 };
 
-const dateFormat = (date: Date) => {
+const dateFormat = (date: Date): string => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 };
 
-const getReleasesForAppGroupByDate = (releases: Array<Release>) => {
+const getReleasesForAppGroupByDate = (releases: Array<Release>): Release[][] => {
     if (releases === undefined) {
         return [];
     }

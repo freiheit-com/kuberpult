@@ -53,7 +53,7 @@ export const App: React.FC = () => {
                     },
                     (error) => PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) })
                 );
-            return () => subscription.unsubscribe();
+            return (): void => subscription.unsubscribe();
         }
     }, [api, authHeader, authReady]);
 

@@ -38,7 +38,7 @@ export const TopAppBar: React.FC = () => {
         if (control.current) {
             MDComponent.current = new MDCTopAppBar(control.current);
         }
-        return () => MDComponent.current?.destroy();
+        return (): void => MDComponent.current?.destroy();
     }, []);
 
     return (
