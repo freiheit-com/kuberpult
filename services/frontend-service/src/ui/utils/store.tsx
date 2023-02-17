@@ -364,9 +364,6 @@ export const useApplicationLock = (lockId: string): DisplayLock =>
         )?.name,
     } as DisplayLock);
 
-export const useLock = (lockId: string): DisplayLock | undefined =>
-    [useApplicationLock(lockId), useEnvironmentLock(lockId)].find((lock) => lock.lockId === lockId);
-
 export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest' | 'newestToOldest'): DisplayLock[] => {
     const sortMethod = sorting === 'newestToOldest' ? -1 : 1;
     displayLocks.sort((a: DisplayLock, b: DisplayLock) => {
