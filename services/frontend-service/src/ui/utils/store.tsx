@@ -307,14 +307,14 @@ export const useEnvironmentLock = (lockId: string): DisplayLock =>
         )?.name,
     } as DisplayLock);
 
-export const searchCustomFilter = (queryContent: string | null, val: string | undefined): string | undefined | null => {
+export const searchCustomFilter = (queryContent: string | null, val: string | undefined): string => {
     if (!!val && !!queryContent) {
         if (val.includes(queryContent)) {
             return val;
         }
-        return null;
+        return '';
     } else {
-        return val;
+        return val || '';
     }
 };
 
