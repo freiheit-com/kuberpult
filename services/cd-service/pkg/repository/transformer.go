@@ -34,7 +34,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 
-	"github.com/go-git/go-billy/v5"
+	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 )
 
@@ -695,6 +695,7 @@ func (c *CreateEnvironment) Transform(ctx context.Context, state *State) (string
 			return "", fmt.Errorf("error creating config: %w", err)
 		}
 		enc := json.NewEncoder(file)
+		enc.SetIndent("", "  ")
 		if err := enc.Encode(c.Config); err != nil {
 			return "", fmt.Errorf("error writing json: %w", err)
 		}

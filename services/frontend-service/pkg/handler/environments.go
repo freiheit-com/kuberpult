@@ -17,28 +17,72 @@ Copyright 2023 freiheit.com*/
 package handler
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"golang.org/x/crypto/openpgp"
+	pgperrors "golang.org/x/crypto/openpgp/errors"
 	"net/http"
-
-	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 )
 
-func (s Server) HandleEnvironments(w http.ResponseWriter, req *http.Request, tail string) {
-	environment, tail := xpath.Shift(tail)
-	if environment == "" {
-		http.Error(w, "missing environment ID", http.StatusNotFound)
+const (
+	MAXIMUM_MULTIPART_SIZE = 12 * 1024 * 1024 // = 12Mi
+)
+
+func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request, environment, tail string) {
+
+	if tail != "/" {
+		http.Error(w, fmt.Sprintf("Create Environment does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
+		return
+	}
+	if err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Invalid body: %s", err)
 		return
 	}
 
-	function, tail := xpath.Shift(tail)
-	switch function {
-	case "applications":
-		s.handleApplications(w, req, environment, tail)
-	case "locks":
-		s.handleEnvironmentLocks(w, req, environment, tail)
-	case "releasetrain":
-		s.handleReleaseTrain(w, req, environment, tail)
-	default:
-		http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
+	form := req.MultipartForm
+	envConfig := api.EnvironmentConfig{}
+
+	config, ok := form.Value["config"]
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Missing config in request body"))
+		return
 	}
+	err := json.Unmarshal([]byte(config[0]), &envConfig)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Invalid body: %s", err)
+		return
+	}
+
+	if signature, ok := form.Value["signature"]; ok {
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader([]byte(config[0])), bytes.NewReader([]byte(signature[0]))); err != nil {
+			if err != pgperrors.ErrUnknownIssuer {
+				w.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				return
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "Invalid signature")
+			return
+		}
+	} else if s.AzureAuth {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Missing signature in request body"))
+		return
+	}
+
+	_, err = s.EnvironmentClient.CreateEnvironment(req.Context(), &api.CreateEnvironmentRequest{
+		Environment: environment,
+		Config:      &envConfig,
+	})
+
+	if err != nil {
+		handleGRPCError(req.Context(), w, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }

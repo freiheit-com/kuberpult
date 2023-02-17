@@ -14,7 +14,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-
 package service
 
 import (
@@ -65,7 +64,7 @@ func (o *OverviewServiceServer) getDeployedOverview(
 		for envName, config := range envs {
 			env := api.Environment{
 				Name: envName,
-				Config: &api.Environment_Config{
+				Config: &api.EnvironmentConfig{
 					Upstream:         transformUpstream(config.Upstream),
 					EnvironmentGroup: config.EnvironmentGroup,
 				},
@@ -223,7 +222,7 @@ func (o *OverviewServiceServer) getOverview(
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
 			env := api.Environment{
 				Name: envName,
-				Config: &api.Environment_Config{
+				Config: &api.EnvironmentConfig{
 					Upstream:         transformUpstream(config.Upstream),
 					EnvironmentGroup: &groupName,
 				},
@@ -394,7 +393,7 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 		}
 		var newEnv = &api.Environment{
 			Name: envName,
-			Config: &api.Environment_Config{
+			Config: &api.EnvironmentConfig{
 				Upstream:         transformUpstream(env.Upstream),
 				EnvironmentGroup: &groupNameCopy,
 			},
@@ -670,22 +669,18 @@ func (o *OverviewServiceServer) updateDeployed(s *repository.State) {
 	o.notify.Notify()
 }
 
-func transformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environment_Config_Upstream {
+func transformUpstream(upstream *config.EnvironmentConfigUpstream) *api.EnvironmentConfig_Upstream {
 	if upstream == nil {
 		return nil
 	}
 	if upstream.Latest {
-		return &api.Environment_Config_Upstream{
-			Upstream: &api.Environment_Config_Upstream_Latest{
-				Latest: upstream.Latest,
-			},
+		return &api.EnvironmentConfig_Upstream{
+			Latest: &upstream.Latest,
 		}
 	}
 	if upstream.Environment != "" {
-		return &api.Environment_Config_Upstream{
-			Upstream: &api.Environment_Config_Upstream_Environment{
-				Environment: upstream.Environment,
-			},
+		return &api.EnvironmentConfig_Upstream{
+			Environment: &upstream.Environment,
 		}
 	}
 	return nil
