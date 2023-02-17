@@ -30,7 +30,11 @@ export const Tooltip = (props: { children: JSX.Element; content: JSX.Element; id
 
     return (
         <div className="mdc-tooltip-wrapper--rich">
-            <div data-tooltip-id={'tt-' + id} aria-haspopup="dialog" aria-expanded="false">
+            <div
+                data-tooltip-id={'tt-' + id}
+                className="mdc-tooltip__container"
+                aria-haspopup="dialog"
+                aria-expanded="false">
                 {children}
             </div>
             <div
