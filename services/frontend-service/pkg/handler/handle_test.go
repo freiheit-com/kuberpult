@@ -218,7 +218,6 @@ func TestServer_Handle(t *testing.T) {
 				URL: &url.URL{
 					Path: "/environments/stg/",
 				},
-				Body: io.NopCloser(strings.NewReader("uncool")),
 				MultipartForm: &multipart.Form{
 					Value: map[string][]string{
 						"config": []string{exampleConfig},
@@ -250,7 +249,6 @@ func TestServer_Handle(t *testing.T) {
 				URL: &url.URL{
 					Path: "/environments/stg/",
 				},
-				Body: io.NopCloser(strings.NewReader("uncool")),
 				MultipartForm: &multipart.Form{
 					Value: map[string][]string{
 						"config": []string{`
@@ -332,7 +330,6 @@ func TestServer_Handle(t *testing.T) {
 				URL: &url.URL{
 					Path: "/environments/stg/",
 				},
-				Body: io.NopCloser(strings.NewReader("uncool")),
 				MultipartForm: &multipart.Form{
 					Value: map[string][]string{
 						"config":    []string{exampleConfig},
@@ -364,7 +361,6 @@ func TestServer_Handle(t *testing.T) {
 				URL: &url.URL{
 					Path: "/environments/stg/",
 				},
-				Body: io.NopCloser(strings.NewReader("uncool")),
 				MultipartForm: &multipart.Form{
 					Value: map[string][]string{
 						"config": []string{exampleConfig},
@@ -385,7 +381,26 @@ func TestServer_Handle(t *testing.T) {
 				URL: &url.URL{
 					Path: "/environments/stg/",
 				},
-				Body: io.NopCloser(strings.NewReader("uncool")),
+				MultipartForm: &multipart.Form{
+					Value: map[string][]string{
+						"config":    []string{exampleConfig},
+						"signature": []string{"my bad signature"},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+			},
+			expectedBody: "Internal: Invalid Signature: EOF",
+		},
+		{
+			name:    "create environment - Azure disabled - invalid signature",
+			KeyRing: exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/environments/stg/",
+				},
 				MultipartForm: &multipart.Form{
 					Value: map[string][]string{
 						"config":    []string{exampleConfig},
