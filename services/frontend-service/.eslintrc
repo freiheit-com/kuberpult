@@ -16,5 +16,13 @@
     "no-duplicate-imports": 0,
     "import/no-duplicates": 2,
     "prefer-const": ["error"]
-  }
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.tsx"],
+      "rules": {
+        "@typescript-eslint/explicit-function-return-type": ["off"]
+      }
+    }
+  ]
 }
