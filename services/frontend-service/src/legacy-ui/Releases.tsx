@@ -152,7 +152,12 @@ const getFreshnessColor = (authorTime?: Date): string => {
     return 'version-history';
 };
 
-const ReleaseBox = (props: { name: string; release: Release; envs: Array<Environment>; sortOrder: EnvSortOrder }) => {
+const ReleaseBox = (props: {
+    name: string;
+    release: Release;
+    envs: Array<Environment>;
+    sortOrder: EnvSortOrder;
+}): JSX.Element => {
     const { name, release, envs, sortOrder } = props;
     const openReleaseBox = useOpen(name, release.version);
     const sortedEnvs = sortEnvironmentsByUpstream(envs, sortOrder);
@@ -178,7 +183,7 @@ const UndeployButton = (props: {
     addToCart?: () => void; //
     inCart?: boolean; //
     applicationName: string; //
-}) => {
+}): JSX.Element => {
     const buttonMsg = 'Prepare to Undeploy';
     const tooltipMsg =
         'This will create a new version that is empty. Use this only for services that are not needed anymore.';
@@ -252,7 +257,7 @@ const ApplicationBox: React.FC<any> = (props: {
     );
 };
 
-const EnvAvatar = (props: { env: Environment; application: string }) => {
+const EnvAvatar = (props: { env: Environment; application: string }): JSX.Element => {
     const { env, application } = props;
     const locked = Object.keys(env.locks).length > 0 || Object.keys(env.applications[application]?.locks).length > 0;
     const ava = <Avatar variant="rounded">{env.name.substring(0, 1).toUpperCase()}</Avatar>;

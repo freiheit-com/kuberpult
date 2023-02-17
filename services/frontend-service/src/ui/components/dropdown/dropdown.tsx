@@ -69,7 +69,7 @@ export const DropdownSelect: React.FC<{
     );
 };
 
-export const Dropdown = (props: DropdownProps) => {
+export const Dropdown = (props: DropdownProps): JSX.Element => {
     const { className, floatingLabel, leadingIcon } = props;
     const control = useRef<HTMLDivElement>(null);
     const teams = useTeamNames();

@@ -24,8 +24,8 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
     const locks = useFilteredEnvironmentLockIDs(environment);
 
     const addLock = React.useCallback(() => {
-        const randBase36 = () => Math.random().toString(36).substring(7);
-        const randomLockId = () => 'ui-v2-' + randBase36();
+        const randBase36 = (): string => Math.random().toString(36).substring(7);
+        const randomLockId = (): string => 'ui-v2-' + randBase36();
         addAction({
             action: {
                 $case: 'createEnvironmentLock',

@@ -24,7 +24,7 @@ export type ReleaseCardMiniProps = {
     app: string;
 };
 
-const getDays = (date: Date) => {
+const getDays = (date: Date): number => {
     const current = new Date(Date.now());
     const diff = current.getTime() - date.getTime();
 

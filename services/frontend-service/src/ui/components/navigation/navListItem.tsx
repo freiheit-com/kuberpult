@@ -18,7 +18,7 @@ import { cloneElement, useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
 import { Link, useLocation } from 'react-router-dom';
 
-export const NavbarIndicator = (props: { pathname: string; to: string }) => {
+export const NavbarIndicator = (props: { pathname: string; to: string }): JSX.Element => {
     const { pathname, to } = props;
     return (
         <div
@@ -28,7 +28,12 @@ export const NavbarIndicator = (props: { pathname: string; to: string }) => {
     );
 };
 
-export const NavListItem = (props: { className?: string; to: string; queryParams?: string; icon?: JSX.Element }) => {
+export const NavListItem = (props: {
+    className?: string;
+    to: string;
+    queryParams?: string;
+    icon?: JSX.Element;
+}): JSX.Element => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLAnchorElement>(null);
     const { className, to, queryParams, icon } = props;
@@ -38,7 +43,7 @@ export const NavListItem = (props: { className?: string; to: string; queryParams
         if (control.current) {
             MDComponent.current = new MDCRipple(control.current);
         }
-        return () => MDComponent.current?.destroy();
+        return (): void => MDComponent.current?.destroy();
     }, []);
 
     const allClassNames = classNames(

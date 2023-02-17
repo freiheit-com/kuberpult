@@ -27,7 +27,7 @@ export const NavList: React.FC<{ children?: ReactNode; className?: string }> = (
             MDComponent.current = new MDCList(control.current);
             MDComponent.current.wrapFocus = true;
         }
-        return () => MDComponent.current?.destroy();
+        return (): void => MDComponent.current?.destroy();
     }, []);
 
     return (

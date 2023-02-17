@@ -29,7 +29,7 @@ export type ReleaseDialogProps = {
     release: Release;
 };
 
-const setClosed = () => {
+const setClosed = (): void => {
     updateReleaseDialog('', 0);
 };
 
@@ -93,8 +93,8 @@ export const EnvironmentListItem: React.FC<{
             });
     }, [app, env.name, release.version]);
     const createAppLock = useCallback(() => {
-        const randBase36 = () => Math.random().toString(36).substring(7);
-        const randomLockId = () => 'ui-v2-' + randBase36();
+        const randBase36 = (): string => Math.random().toString(36).substring(7);
+        const randomLockId = (): string => 'ui-v2-' + randBase36();
         addAction({
             action: {
                 $case: 'createEnvironmentApplicationLock',

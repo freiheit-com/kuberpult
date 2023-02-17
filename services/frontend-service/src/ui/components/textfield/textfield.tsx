@@ -25,7 +25,7 @@ export type TextfieldProps = {
     leadingIcon?: string;
 };
 
-export const Textfield = (props: TextfieldProps) => {
+export const Textfield = (props: TextfieldProps): JSX.Element => {
     const { className, floatingLabel, leadingIcon, value } = props;
     const control = useRef<HTMLDivElement>(null);
     const input = useRef<HTMLInputElement>(null);
@@ -35,7 +35,7 @@ export const Textfield = (props: TextfieldProps) => {
         if (control.current) {
             MDComponent.current = new MDCTextField(control.current);
         }
-        return () => MDComponent.current?.destroy();
+        return (): void => MDComponent.current?.destroy();
     }, []);
 
     useEffect(() => {
