@@ -15,10 +15,14 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
 import { Button } from '../button';
+import { Tooltip } from '../tooltip';
 import React, { useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
 import { updateReleaseDialog, useRelease } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
+import { daysToString } from '../LockDisplay/LockDisplay';
+
+const MsPerDay = 1000 * 60 * 60 * 24;
 
 export type ReleaseCardProps = {
     className?: string;
@@ -43,27 +47,50 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     }, []);
 
     return (
-        <div className={classNames('mdc-card release-card', className)} onClick={clickHandler}>
-            <div className="release-card__header">
-                <div className="release__title mdc-typography--headline6">{sourceMessage}</div>
-                {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
-            </div>
-            <div className="mdc-card__primary-action release-card__description" ref={control} tabIndex={0}>
-                <div className="mdc-card__ripple" />
-                <div className="release__details">
-                    {!!createdAt && (
-                        <div className="release__metadata mdc-typography--subtitle2">
-                            <div>{'Created at: ' + createdAt.toLocaleDateString()}</div>
-                            <div>{'Time ' + createdAt.toLocaleTimeString()}</div>
-                        </div>
-                    )}
-                    <div className="release__version mdc-typography--body2">{'Version: ' + version}</div>
-                    <div className="release__author mdc-typography--body1">{'Author: ' + sourceAuthor}</div>
-                </div>
+        <Tooltip
+            id={app + version}
+            content={
+                <>
+                    <h2 className="mdc-tooltip__title release__details">
+                        {!!sourceMessage && <b>{sourceMessage}</b>}
+                        {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
+                        {!!sourceAuthor && <div>{'| ' + sourceAuthor + ' |'}</div>}
+                        {!!createdAt && (
+                            <div className="release__metadata mdc-typography--subtitle2">
+                                <div>
+                                    {`${createdAt.getDay()}-${createdAt.getMonth()}-${createdAt.getFullYear()}` +
+                                        ' @ ' +
+                                        `${createdAt.getHours()}:${createdAt.getMinutes()}` +
+                                        ' | '}
+                                    <i>
+                                        {daysToString(((Date.now().valueOf() - createdAt.valueOf()) / MsPerDay) >> 0)}
+                                    </i>
+                                </div>
+                            </div>
+                        )}
+                    </h2>
+                </>
+            }>
+            <>
                 <div className="release__environments">
-                    <EnvironmentGroupChipList app={props.app} version={props.version} />
+                    <EnvironmentGroupChipList app={props.app} version={props.version} useFirstLetter />
                 </div>
-            </div>
-        </div>
+                <div className={classNames('mdc-card release-card', className)}>
+                    <div
+                        className="mdc-card__primary-action release-card__description"
+                        ref={control}
+                        tabIndex={0}
+                        onClick={clickHandler}>
+                        <div className="release-card__header">
+                            <div className="release__title mdc-typography--headline6">
+                                {sourceMessage === '' ? 'Undeploy Version' : sourceMessage}
+                            </div>
+                            {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
+                        </div>
+                        <div className="mdc-card__ripple" />
+                    </div>
+                </div>
+            </>
+        </Tooltip>
     );
 };
