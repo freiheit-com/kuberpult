@@ -29,8 +29,9 @@ export const EnvironmentChip = (props: {
     numberEnvsDeployed?: number;
     numberEnvsInGroup?: number;
     withEnvLocks: boolean;
+    useFirstLetter?: boolean;
 }) => {
-    const { className, env } = props;
+    const { className, env, useFirstLetter } = props;
     const priority = env.priority;
     const priorityClassName = className + '-' + String(EnvPrio[priority]).toLowerCase();
     const name = props.groupNameOverride ? props.groupNameOverride : env.name;
@@ -60,7 +61,7 @@ export const EnvironmentChip = (props: {
             <span
                 className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
                 role="gridcell">
-                <span className="mdc-evolution-chip__text-name">{name[0].toUpperCase()}</span>{' '}
+                <span className="mdc-evolution-chip__text-name">{useFirstLetter ? name[0].toUpperCase() : name}</span>{' '}
                 <span className="mdc-evolution-chip__text-numbers">{numberString}</span>
             </span>
             {locks}
@@ -68,8 +69,12 @@ export const EnvironmentChip = (props: {
     );
 };
 
-export const EnvironmentGroupChip = (props: { className: string; envGroup: EnvironmentGroupExtended }) => {
-    const { className, envGroup } = props;
+export const EnvironmentGroupChip = (props: {
+    className: string;
+    envGroup: EnvironmentGroupExtended;
+    useFirstLetter?: boolean;
+}) => {
+    const { className, envGroup, useFirstLetter } = props;
 
     // we display it different if there's only one env in this group:
     const displayAsGroup = envGroup.environments.length >= 2;
@@ -83,6 +88,7 @@ export const EnvironmentGroupChip = (props: { className: string; envGroup: Envir
                     numberEnvsDeployed={envGroup.environments.length}
                     numberEnvsInGroup={envGroup.numberOfEnvsInGroup}
                     withEnvLocks={false}
+                    useFirstLetter={useFirstLetter}
                 />
             </div>
         );
@@ -96,6 +102,7 @@ export const EnvironmentGroupChip = (props: { className: string; envGroup: Envir
             numberEnvsDeployed={1}
             numberEnvsInGroup={envGroup.numberOfEnvsInGroup}
             withEnvLocks={false}
+            useFirstLetter={useFirstLetter}
         />
     );
 };
@@ -103,6 +110,7 @@ export const EnvironmentGroupChip = (props: { className: string; envGroup: Envir
 export type EnvChipListProps = {
     version: number;
     app: string;
+    useFirstLetter?: boolean;
 };
 
 export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
@@ -115,6 +123,7 @@ export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
                     key={envGroup.environmentGroupName}
                     envGroup={envGroup}
                     className={'release-environment'}
+                    useFirstLetter={props.useFirstLetter}
                 />
             ))}{' '}
         </div>
