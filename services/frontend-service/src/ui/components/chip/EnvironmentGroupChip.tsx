@@ -60,7 +60,7 @@ export const EnvironmentChip = (props: {
             <span
                 className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
                 role="gridcell">
-                <span className="mdc-evolution-chip__text-name">{name}</span>{' '}
+                <span className="mdc-evolution-chip__text-name">{name[0].toUpperCase()}</span>{' '}
                 <span className="mdc-evolution-chip__text-numbers">{numberString}</span>
             </span>
             {locks}
