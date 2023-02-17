@@ -143,9 +143,11 @@ export const EnvironmentListItem: React.FC<{
                 </div>
             </div>
             <div className={classNames('env-card-data', className)}>
-                {release.version === env.applications[app].version
-                    ? release.sourceCommitId + ':' + release.sourceMessage
-                    : env.name + ' is deployed to version ' + env.applications[app].version}
+                {env.applications[app]
+                    ? release.version === env.applications[app].version
+                        ? release.sourceCommitId + ':' + release.sourceMessage
+                        : env.name + ' is deployed to version ' + env.applications[app].version
+                    : `"${app}" has no version deployed on "${env.name}"`}
             </div>
             {queueInfo}
             <div className="env-card-buttons">
@@ -184,7 +186,7 @@ export const EnvironmentList: React.FC<{
                             app={app}
                             release={release}
                             className={className}
-                            queuedVersion={env.applications[app].queuedVersion}
+                            queuedVersion={env.applications[app] ? env.applications[app].queuedVersion : 0}
                         />
                     ))}
                 </ul>
