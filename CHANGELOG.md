@@ -12,11 +12,9 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 * Upgrade go to v1.19.4 [#472](https://github.com/freiheit-com/kuberpult/pull/472)
 * Add documentation for config.json files [#475](https://github.com/freiheit-com/kuberpult/pull/475)
 * Improved error handling for release trains [#482](https://github.com/freiheit-com/kuberpult/pull/482)
-* Run kp in github actions [#484](https://github.com/freiheit-com/kuberpult/pull/484)
 * Display queued version in v2 release dialog [#491](https://github.com/freiheit-com/kuberpult/pull/491)
 * Bugfix: Add a check if the application version is available or not [#493](https://github.com/freiheit-com/kuberpult/pull/493)
 * Add createEnvironment http endpoint [#489](https://github.com/freiheit-com/kuberpult/pull/489)
-* Refactoring: Require return types in new ui [#492](https://github.com/freiheit-com/kuberpult/pull/492)
 
 ## 0.4.54
 * This release is only useful if you want to take a look at the new kuberpult UI - which is still beta and not shown by default. It's reachable under the url path `/v2/home`
