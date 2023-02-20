@@ -16,7 +16,7 @@ Copyright 2023 freiheit.com*/
 import { useEffect, useRef } from 'react';
 import { MDCTooltip } from '@material/tooltip';
 
-export const Tooltip = (props: { children: JSX.Element; content: JSX.Element; id: string }) => {
+export const Tooltip = (props: { children: JSX.Element; content: JSX.Element; id: string }): JSX.Element => {
     const MDComponent = useRef<MDCTooltip>();
     const control = useRef<HTMLDivElement>(null);
     const { children, content, id } = props;
@@ -25,7 +25,7 @@ export const Tooltip = (props: { children: JSX.Element; content: JSX.Element; id
         if (control.current) {
             MDComponent.current = new MDCTooltip(control.current);
         }
-        return () => MDComponent.current?.destroy();
+        return (): void => MDComponent.current?.destroy();
     }, []);
 
     return (
