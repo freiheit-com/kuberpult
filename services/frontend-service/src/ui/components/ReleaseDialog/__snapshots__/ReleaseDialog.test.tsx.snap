@@ -613,7 +613,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 dev is deployed to version 3
               </div>
               <div
-                class="env-card-data-queue"
+                class="env-card-data env-card-data-queue"
                 title="An attempt was made to deploy version 666 either by a release train, or when a new version was created. However, there was a lock present at the time, so kuberpult did not deploy this version. "
               >
                 Version 
