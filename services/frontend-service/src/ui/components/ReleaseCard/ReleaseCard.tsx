@@ -43,7 +43,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
         if (control.current) {
             MDComponent.current = new MDCRipple(control.current);
         }
-        return () => MDComponent.current?.destroy();
+        return (): void => MDComponent.current?.destroy();
     }, []);
 
     return (

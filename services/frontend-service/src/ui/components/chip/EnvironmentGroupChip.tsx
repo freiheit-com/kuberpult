@@ -30,7 +30,7 @@ export const EnvironmentChip = (props: {
     numberEnvsInGroup?: number;
     withEnvLocks: boolean;
     useFirstLetter?: boolean;
-}) => {
+}): JSX.Element => {
     const { className, env, useFirstLetter } = props;
     const priority = env.priority;
     const priorityClassName = className + '-' + String(EnvPrio[priority]).toLowerCase();
@@ -73,7 +73,7 @@ export const EnvironmentGroupChip = (props: {
     className: string;
     envGroup: EnvironmentGroupExtended;
     useFirstLetter?: boolean;
-}) => {
+}): JSX.Element => {
     const { className, envGroup, useFirstLetter } = props;
 
     // we display it different if there's only one env in this group:

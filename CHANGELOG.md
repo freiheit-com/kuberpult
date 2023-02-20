@@ -6,6 +6,19 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.56
+
+**released 2023-02-20**
+* Improved error handling for release trains [#482](https://github.com/freiheit-com/kuberpult/pull/482)
+* Display queued version in v2 release dialog [#491](https://github.com/freiheit-com/kuberpult/pull/491)
+* Bugfix: Add a check if the application version is available or not [#493](https://github.com/freiheit-com/kuberpult/pull/493)
+* Add createEnvironment http endpoint [#489](https://github.com/freiheit-com/kuberpult/pull/489)
+
+## 0.4.55
+* Upgrade go to v1.19.4 [#472](https://github.com/freiheit-com/kuberpult/pull/472)
+* Fix Sorting of EnvironmentGroups [#474](https://github.com/freiheit-com/kuberpult/pull/474)
+* Add documentation for config.json files [#475](https://github.com/freiheit-com/kuberpult/pull/475)
+
 ## 0.4.54
 * This release is only useful if you want to take a look at the new kuberpult UI - which is still beta and not shown by default. It's reachable under the url path `/v2/home`
 * Render environment groups in UI [#465](https://github.com/freiheit-com/kuberpult/pull/465)

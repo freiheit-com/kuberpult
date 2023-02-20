@@ -18,7 +18,7 @@ import { Delete } from '../../../images';
 import { DisplayLock } from '../../utils/store';
 import classNames from 'classnames';
 
-export const daysToString = (days: number) => {
+export const daysToString = (days: number): string => {
     if (days === -1) return '';
     if (days === 0) return '< 1 day ago';
     if (days === 1) return '1 day ago';

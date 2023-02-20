@@ -4,6 +4,7 @@ option go_package = "github.com/freiheit-com/kuberpult/pkg/api";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+
 package api.v1;
 
 service LockService {
@@ -106,14 +107,6 @@ message LockedError {
   map<string, Lock> environment_application_locks = 2;
 }
 
-service EnvironmentService {
-  rpc CreateEnvironment (CreateEnvironmentRequest) returns (google.protobuf.Empty) {}
-}
-
-message CreateEnvironmentRequest {
-  string environment = 1;
-}
-
 service FrontendConfigService {
   rpc GetConfig (GetFrontendConfigRequest) returns (GetFrontendConfigResponse) {}
 }
@@ -181,17 +174,65 @@ enum Priority {
   OTHER = 3;
 }
 
-message Environment {
-  message Config {
-    message Upstream {
-      oneof upstream {
-          string environment = 1;
-          bool   latest = 2;
-      }
-    }
-    Upstream upstream = 1;
-    optional string environmentGroup = 2;
+service EnvironmentService {
+  rpc CreateEnvironment (CreateEnvironmentRequest) returns (google.protobuf.Empty) {}
+}
+
+message EnvironmentConfig {
+  message Upstream {
+    optional string  environment = 1;
+    optional bool    latest = 2;
   }
+
+  message ArgoCD {
+    message SyncWindows {
+      string           kind = 1; // "allow" or "deny"
+      string           schedule = 2; // crontab format
+      string           duration = 3; // duration the window is open (or closed)
+      repeated string  applications = 4; // applications names
+    }
+    message Destination {
+      string          name = 1;
+      string          server = 2;
+      optional string namespace = 3;
+      optional string appProjectNamespace = 4;
+      optional string applicationNamespace = 5;
+    }
+    message AccessEntry {
+      string group = 1;
+      string kind = 2;
+    }
+    message IgnoreDifferences {
+      string          group = 1;
+      string          kind = 2;
+      string          name = 3;
+      string          namespace = 4;
+      repeated string jsonPointers = 5;
+      repeated string jqPathExpressions = 6;
+      repeated string managedFieldsManagers = 7;
+    }
+
+    repeated SyncWindows              syncWindows = 1;
+    Destination                       destination = 2;
+    repeated AccessEntry              accessList = 3;
+    map<string, string>               applicationAnnotations = 4;
+    repeated IgnoreDifferences        ignoreDifferences = 5;
+    repeated string                   syncOptions = 6;
+  }
+
+  Upstream upstream = 1;
+  ArgoCD argocd  = 2;
+  optional string environmentGroup = 3;
+}
+
+
+message CreateEnvironmentRequest {
+  string environment = 1;
+  EnvironmentConfig config = 2;
+}
+
+
+message Environment {
 
   message Application {
     message ArgoCD {
@@ -215,7 +256,7 @@ message Environment {
   }
 
   string name = 1;
-  Config config = 2;
+  EnvironmentConfig config = 2;
   map<string, Lock> locks = 3;
   map<string, Application> applications = 4;
   uint32 distanceToUpstream = 5;

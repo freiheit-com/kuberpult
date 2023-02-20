@@ -14,7 +14,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-
 package service
 
 import (
@@ -421,19 +420,16 @@ func TestOverviewService(t *testing.T) {
 	}
 }
 
-func makeUpstreamLatest() *api.Environment_Config_Upstream {
-	return &api.Environment_Config_Upstream{
-		Upstream: &api.Environment_Config_Upstream_Latest{
-			Latest: true,
-		},
+func makeUpstreamLatest() *api.EnvironmentConfig_Upstream {
+	f := true
+	return &api.EnvironmentConfig_Upstream{
+		Latest: &f,
 	}
 }
 
-func makeUpstreamEnvironment(env string) *api.Environment_Config_Upstream {
-	return &api.Environment_Config_Upstream{
-		Upstream: &api.Environment_Config_Upstream_Environment{
-			Environment: env,
-		},
+func makeUpstreamEnvironment(env string) *api.EnvironmentConfig_Upstream {
+	return &api.EnvironmentConfig_Upstream{
+		Environment: &env,
 	}
 }
 
@@ -452,10 +448,10 @@ var nameDev = "dev"
 var nameProd = "prod"
 var nameWhoKnows = "whoknows"
 
-func makeEnv(envName string, groupName string, upstream *api.Environment_Config_Upstream, distanceToUpstream uint32, priority api.Priority) *api.Environment {
+func makeEnv(envName string, groupName string, upstream *api.EnvironmentConfig_Upstream, distanceToUpstream uint32, priority api.Priority) *api.Environment {
 	return &api.Environment{
 		Name: envName,
-		Config: &api.Environment_Config{
+		Config: &api.EnvironmentConfig{
 			Upstream:         upstream,
 			EnvironmentGroup: &groupName,
 		},
@@ -733,7 +729,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 		},
 	}
 	for _, tc := range tcs {
-		opts := cmpopts.IgnoreUnexported(api.EnvironmentGroup{}, api.Environment{}, api.Environment_Config{}, api.Environment_Config_Upstream{})
+		opts := cmpopts.IgnoreUnexported(api.EnvironmentGroup{}, api.Environment{}, api.EnvironmentConfig{}, api.EnvironmentConfig_Upstream{})
 		t.Run(tc.Name, func(t *testing.T) {
 			actualResult := mapEnvironmentsToGroups(tc.InputEnvs)
 			if !cmp.Equal(tc.ExpectedResult, actualResult, opts) {
