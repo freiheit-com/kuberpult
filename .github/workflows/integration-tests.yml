@@ -19,7 +19,9 @@ jobs:
         fetch-depth: 0
     - name: Setup PR environment
       if: inputs.trigger == 'pull-request'
-      run: | # If the image with PR branch's version as tag doesn't exist, use the one in main that should already exist (fallback on 0.4.56 incase neither exists)
+      # If the image with PR branch's version as tag doesn't exist, use the one in main that should already exist.
+      # If main's doesn't exist, that means there was an official release, so the short version is chosen
+      run: |
         git fetch -q origin main:main
 
         if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(make version) > /dev/null; then
@@ -29,7 +31,7 @@ jobs:
         elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(git describe --always --tags main) > /dev/null; then
           echo "IMAGE_TAG_CD=$(git describe --always --tags main)" >> $GITHUB_ENV
         fi
-        
+
         if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(make version) > /dev/null; then
           echo "IMAGE_TAG_FRONTEND=$(make version)" >> $GITHUB_ENV
         elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(git describe --always --long --tags main); then
