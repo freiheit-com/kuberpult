@@ -35,7 +35,7 @@ jobs:
         elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(git describe --always --long --tags main); then
           echo "IMAGE_TAG_FRONTEND=$(git describe --always --long --tags main)" >> $GITHUB_ENV
         else
-          echo "IMAGE_TAG_CD=latest" >> $GITHUB_ENV
+          echo "IMAGE_TAG_FRONTEND=latest" >> $GITHUB_ENV
         fi
 
     - name: Setup main environment
