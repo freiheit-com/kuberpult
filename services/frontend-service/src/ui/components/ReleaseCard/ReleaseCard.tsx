@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
 import { Button } from '../button';
-import { Tooltip } from '../tooltip';
+import { Tooltip } from '../tooltip/tooltip';
 import React, { useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
 import { updateReleaseDialog, useRelease } from '../../utils/store';
@@ -34,7 +34,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLDivElement>(null);
     const { className, app, version } = props;
-    const { createdAt, sourceMessage, sourceCommitId, sourceAuthor } = useRelease(app, version);
+    const { createdAt, sourceMessage, sourceCommitId, sourceAuthor, undeployVersion } = useRelease(app, version);
     const clickHandler = React.useCallback(() => {
         updateReleaseDialog(app, version);
     }, [app, version]);
@@ -83,7 +83,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                         onClick={clickHandler}>
                         <div className="release-card__header">
                             <div className="release__title mdc-typography--headline6">
-                                {sourceMessage === '' ? 'Undeploy Version' : sourceMessage}
+                                {undeployVersion ? 'Undeploy Version' : sourceMessage}
                             </div>
                             {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
                         </div>
