@@ -22,7 +22,7 @@ import { Tooltip } from '@material-ui/core';
 import { Button } from '../button';
 import { LocksWhite } from '../../../images';
 
-export const EnvironmentChip = (props: {
+export type EnvironmentChipProps = {
     className: string;
     env: Environment;
     groupNameOverride?: string;
@@ -30,7 +30,9 @@ export const EnvironmentChip = (props: {
     numberEnvsInGroup?: number;
     withEnvLocks: boolean;
     useFirstLetter?: boolean;
-}): JSX.Element => {
+};
+
+export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     const { className, env, useFirstLetter } = props;
     const priority = env.priority;
     const priorityClassName = className + '-' + String(EnvPrio[priority]).toLowerCase();
