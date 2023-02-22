@@ -20,9 +20,48 @@ import React, { useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
 import { updateReleaseDialog, useRelease } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
-import { daysToString } from '../LockDisplay/LockDisplay';
 
-const MsPerDay = 1000 * 60 * 60 * 24;
+const getRelativeDate = (date: Date): string => {
+    const millisecondsPerHour = 1000 * 60 * 60 * 24; // 1000ms * 60s * 60m
+    const elapsedTime = Date.now().valueOf() - date.valueOf();
+    const hoursSinceDate = Math.floor(elapsedTime / millisecondsPerHour);
+
+    if (hoursSinceDate >= 24) {
+        // too many hours, calculate relative time in days
+        const daysSinceDate = Math.floor(hoursSinceDate / 24);
+        if (daysSinceDate === 0) {
+            return '< 1 day ago';
+        } else if (daysSinceDate === 1) {
+            return '1 day ago';
+        } else {
+            return `${daysSinceDate} days ago`;
+        }
+    } else {
+        // recent date, calculate relative time in hours
+        if (hoursSinceDate === 0) {
+            return '< 1 hour ago';
+        } else if (hoursSinceDate === 1) {
+            return '1 hour ago';
+        } else {
+            return `${hoursSinceDate} hours ago`;
+        }
+    }
+};
+
+export const getFormattedReleaseDate = (createdAt: Date): JSX.Element => {
+    // date format: dd-mm-yyyy, with no leading zeros, month is 0-indexed.
+    const formattedDate = `${createdAt.getDate()}-${createdAt.getMonth() + 1}-${createdAt.getFullYear()}`;
+
+    // getHours automatically gets the hours in the correct timezone. in 24h format (no timezone calculation needed)
+    const formattedTime = `${createdAt.getHours()}:${createdAt.getMinutes()}`;
+
+    return (
+        <div>
+            {formattedDate + ' @ ' + formattedTime + ' | '}
+            <i>{getRelativeDate(createdAt)}</i>
+        </div>
+    );
+};
 
 export type ReleaseCardProps = {
     className?: string;
@@ -46,32 +85,18 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
         return (): void => MDComponent.current?.destroy();
     }, []);
 
+    const tooltipContents = (
+        <h2 className="mdc-tooltip__title release__details">
+            {!!sourceMessage && <b>{sourceMessage}</b>}
+            {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
+            {!!sourceAuthor && <div>{'| ' + sourceAuthor + ' |'}</div>}
+            {!!createdAt && <div className="release__metadata">{getFormattedReleaseDate(createdAt)}</div>}
+        </h2>
+    );
+
     return (
-        <Tooltip
-            id={app + version}
-            content={
-                <>
-                    <h2 className="mdc-tooltip__title release__details">
-                        {!!sourceMessage && <b>{sourceMessage}</b>}
-                        {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
-                        {!!sourceAuthor && <div>{'| ' + sourceAuthor + ' |'}</div>}
-                        {!!createdAt && (
-                            <div className="release__metadata mdc-typography--subtitle2">
-                                <div>
-                                    {`${createdAt.getDay()}-${createdAt.getMonth()}-${createdAt.getFullYear()}` +
-                                        ' @ ' +
-                                        `${createdAt.getHours()}:${createdAt.getMinutes()}` +
-                                        ' | '}
-                                    <i>
-                                        {daysToString(((Date.now().valueOf() - createdAt.valueOf()) / MsPerDay) >> 0)}
-                                    </i>
-                                </div>
-                            </div>
-                        )}
-                    </h2>
-                </>
-            }>
-            <>
+        <Tooltip id={app + version} content={tooltipContents}>
+            <div className="release-card__container">
                 <div className="release__environments">
                     <EnvironmentGroupChipList app={props.app} version={props.version} useFirstLetter />
                 </div>
@@ -82,15 +107,13 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                         tabIndex={0}
                         onClick={clickHandler}>
                         <div className="release-card__header">
-                            <div className="release__title mdc-typography--headline6">
-                                {undeployVersion ? 'Undeploy Version' : sourceMessage}
-                            </div>
+                            <div className="release__title">{undeployVersion ? 'Undeploy Version' : sourceMessage}</div>
                             {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
                         </div>
                         <div className="mdc-card__ripple" />
                     </div>
                 </div>
-            </>
+            </div>
         </Tooltip>
     );
 };
