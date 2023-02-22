@@ -17,6 +17,9 @@ import { ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { render } from '@testing-library/react';
 import { UpdateOverview, updateReleaseDialog } from '../../utils/store';
 import { Priority, Release } from '../../../api/api';
+import { Spy } from 'spy4js';
+
+const mock_getFormattedReleaseDate = Spy.mockModule('../ReleaseCard/ReleaseCard', 'getFormattedReleaseDate');
 
 describe('Release Dialog', () => {
     interface dataT {
@@ -183,6 +186,8 @@ describe('Release Dialog', () => {
 
     describe.each(data)(`Renders the environment locks`, (testcase) => {
         it(testcase.name, () => {
+            // given
+            mock_getFormattedReleaseDate.getFormattedReleaseDate.returns(<div>some formatted date</div>);
             // when
             UpdateOverview.set({
                 applications: { [testcase.props.app as string]: { releases: testcase.rels } },

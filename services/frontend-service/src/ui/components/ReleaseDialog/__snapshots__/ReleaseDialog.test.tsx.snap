@@ -152,10 +152,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
               class="release-dialog-createdAt"
             >
               <div>
-                1-1-1970 @ 1:0 | 
-                <i>
-                  19410 days ago
-                </i>
+                some formatted date
               </div>
             </div>
             <div
@@ -378,10 +375,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
               class="release-dialog-createdAt"
             >
               <div>
-                1-1-1970 @ 1:0 | 
-                <i>
-                  19410 days ago
-                </i>
+                some formatted date
               </div>
             </div>
             <div
