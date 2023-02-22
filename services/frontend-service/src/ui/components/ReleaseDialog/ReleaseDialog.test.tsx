@@ -117,7 +117,7 @@ describe('Release Dialog', () => {
 
             expect_message: true,
             expect_queues: 1,
-            data_length: 2,
+            data_length: 3,
         },
         {
             name: 'no release',
@@ -158,6 +158,7 @@ describe('Release Dialog', () => {
                 expect(document.querySelector('.release-dialog-message') === undefined);
             }
             expect(document.querySelectorAll('.env-card-data')).toHaveLength(testcase.data_length);
+            expect(document.querySelectorAll('.env-card-data-queue')).toHaveLength(testcase.expect_queues);
         });
     });
 
