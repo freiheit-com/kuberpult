@@ -1,5 +1,9 @@
-@use '@material/typography/mdc-typography';
 @use '@material/card/mdc-card';
+
+.release-card__container {
+  display: flex;
+  flex-direction: column;
+}
 
 .release-card {
   border-radius: 10px;
