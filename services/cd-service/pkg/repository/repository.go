@@ -215,8 +215,12 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			}
 
 			// Check configuration for errors and abort early if any:
-			if _, err := state.GetEnvironmentConfigs(); err != nil {
+			envConfigs, err := state.GetEnvironmentConfigs()
+			if err != nil {
 				return nil, err
+			}
+			if len(envConfigs) == 0 {
+				logger.Warn("No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
 			}
 			go result.ProcessQueue(ctx)
 			return result, nil
