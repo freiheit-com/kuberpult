@@ -22,21 +22,11 @@ import { updateReleaseDialog, useRelease } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 
 const getRelativeDate = (date: Date): string => {
-    const millisecondsPerHour = 1000 * 60 * 60 * 24; // 1000ms * 60s * 60m
+    const millisecondsPerHour = 1000 * 60 * 60; // 1000ms * 60s * 60m
     const elapsedTime = Date.now().valueOf() - date.valueOf();
     const hoursSinceDate = Math.floor(elapsedTime / millisecondsPerHour);
 
-    if (hoursSinceDate >= 24) {
-        // too many hours, calculate relative time in days
-        const daysSinceDate = Math.floor(hoursSinceDate / 24);
-        if (daysSinceDate === 0) {
-            return '< 1 day ago';
-        } else if (daysSinceDate === 1) {
-            return '1 day ago';
-        } else {
-            return `${daysSinceDate} days ago`;
-        }
-    } else {
+    if (hoursSinceDate < 24) {
         // recent date, calculate relative time in hours
         if (hoursSinceDate === 0) {
             return '< 1 hour ago';
@@ -44,6 +34,14 @@ const getRelativeDate = (date: Date): string => {
             return '1 hour ago';
         } else {
             return `${hoursSinceDate} hours ago`;
+        }
+    } else {
+        // too many hours, calculate relative time in days
+        const daysSinceDate = Math.floor(hoursSinceDate / 24);
+        if (daysSinceDate === 1) {
+            return '1 day ago';
+        } else {
+            return `${daysSinceDate} days ago`;
         }
     }
 };
