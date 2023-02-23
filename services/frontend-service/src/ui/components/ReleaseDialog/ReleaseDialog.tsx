@@ -21,6 +21,7 @@ import { addAction, updateReleaseDialog, useOverview } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
+import { getFormattedReleaseDate } from '../ReleaseCard/ReleaseCard';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -214,16 +215,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                 </span>
                             </div>
                             <div className={classNames('release-dialog-createdAt', className)}>
-                                {!!release?.createdAt && (
-                                    <div>
-                                        {'Release date ' +
-                                            release?.createdAt.toISOString().split('T')[0] +
-                                            ' ' +
-                                            release?.createdAt.toISOString().split('T')[1].split(':')[0] +
-                                            ':' +
-                                            release?.createdAt.toISOString().split('T')[1].split(':')[1]}
-                                    </div>
-                                )}
+                                {!!release?.createdAt && getFormattedReleaseDate(release.createdAt)}
                             </div>
                             <div className={classNames('release-dialog-author', className)}>
                                 {release?.sourceAuthor ? 'Author: ' + release?.sourceAuthor : ''}

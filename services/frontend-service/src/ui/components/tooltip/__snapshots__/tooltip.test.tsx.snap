@@ -1,0 +1,40 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Tooltip Renders a tooltip 1`] = `
+<div
+  class="mdc-tooltip-wrapper--rich"
+>
+  <div
+    aria-expanded="false"
+    aria-haspopup="dialog"
+    class="mdc-tooltip__container"
+    data-tooltip-id="tt-test-tooltip"
+  >
+    <button>
+      click me
+    </button>
+  </div>
+  <div
+    aria-hidden="true"
+    class="mdc-tooltip mdc-tooltip--rich"
+    id="tt-test-tooltip"
+    role="dialog"
+    tabindex="-1"
+  >
+    <div
+      class="mdc-tooltip__surface mdc-tooltip__surface-animation"
+    >
+      <div
+        class="mdc-tooltip__caret-surface-top"
+      />
+      <div
+        class="mdc-tooltip__content"
+      >
+        <div>
+          I'm inside the tooltip
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;

@@ -1,5 +1,13 @@
 @use "@material/chips/styles";
 
+.mdc-evolution-chip {
+    border-radius: 4px;
+    .mdc-evolution-chip__action--primary {
+        padding-left: 7px;
+        padding-right: 7px;
+    }
+}
+
 span.mdc-evolution-chip button.mdc-evolution-chip__action span.mdc-evolution-chip__text-label {
     @extend .text-bold;
 }

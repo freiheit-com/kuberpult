@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { EnvironmentChip, EnvironmentGroupChip } from './EnvironmentGroupChip';
+import { EnvironmentChip, EnvironmentChipProps, EnvironmentGroupChip } from './EnvironmentGroupChip';
 import { render } from '@testing-library/react';
 import { Environment, Priority } from '../../../api/api';
 import { EnvironmentGroupExtended } from '../../utils/store';
@@ -26,8 +26,10 @@ describe('EnvironmentChip', () => {
         locks: {},
         applications: {},
     };
-    const getNode = () => <EnvironmentChip className={'chip--test'} env={env} withEnvLocks={false} />;
-    const getWrapper = () => render(getNode());
+    const getNode = (overloads?: EnvironmentChipProps) => (
+        <EnvironmentChip className={'chip--test'} env={env} withEnvLocks={false} {...overloads} />
+    );
+    const getWrapper = (overloads?: EnvironmentChipProps) => render(getNode(overloads));
     it('renders a chip', () => {
         const { container } = getWrapper();
         expect(container.firstChild).toMatchInlineSnapshot(`
@@ -51,6 +53,10 @@ describe('EnvironmentChip', () => {
               </span>
             </div>
         `);
+    });
+    it('renders a short form tag chip', () => {
+        const { container } = getWrapper({ useFirstLetter: true } as any);
+        expect(container.querySelector('.mdc-evolution-chip__text-name')?.textContent).toBe(env.name[0].toUpperCase());
     });
 });
 

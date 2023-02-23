@@ -13,9 +13,60 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { ReleaseCard, ReleaseCardProps } from './ReleaseCard';
+import { getFormattedReleaseDate, ReleaseCard, ReleaseCardProps } from './ReleaseCard';
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
+
+describe('Relative Date Calculation', () => {
+    // the test release date ===  18/06/2001 is constant across this test
+    const testReleaseDate = new Date(2001, 5, 8);
+
+    const data = [
+        {
+            name: 'less than 1 hour ago',
+            systemTime: new Date(2001, 5, 8, 0, 1),
+            expected: '< 1 hour ago',
+        },
+        {
+            name: 'little over 1 hour ago',
+            systemTime: new Date(2001, 5, 8, 1, 1),
+            expected: '1 hour ago',
+        },
+        {
+            name: '5 hours ago',
+            systemTime: new Date(2001, 5, 8, 5, 1),
+            expected: '5 hours ago',
+        },
+        {
+            name: 'little over 1 day ago',
+            systemTime: new Date(2001, 5, 9, 1, 1),
+            expected: '1 day ago',
+        },
+        {
+            name: '92 days ago',
+            systemTime: new Date(2001, 8, 8, 5, 1),
+            expected: '92 days ago',
+        },
+    ];
+
+    describe.each(data)('calculates the right date and time', (testcase) => {
+        it(testcase.name, () => {
+            // given
+            jest.useFakeTimers('modern'); // fake time is now "0"
+            jest.setSystemTime(testcase.systemTime.valueOf()); // time is now at the exact moment when release was created
+            const { container } = render(getFormattedReleaseDate(testReleaseDate));
+
+            // then
+            expect(container.textContent).toContain('2001-06-08');
+            expect(container.textContent).toContain('0:0');
+            expect(container.textContent).toContain(testcase.expected);
+
+            // finally
+            jest.runOnlyPendingTimers();
+            jest.useRealTimers();
+        });
+    });
+});
 
 describe('Release Card', () => {
     const getNode = (overrides: ReleaseCardProps) => <ReleaseCard {...overrides} />;
@@ -30,7 +81,7 @@ describe('Release Card', () => {
         {
             name: 'using a sample undeploy release - useRelease hook',
             props: { app: 'test2', version: -1 },
-            rels: [{ undeployVersion: true, sourceMessage: 'test-rel' }],
+            rels: [{ undeployVersion: true }],
         },
         {
             name: 'using a full release - component test',
@@ -117,7 +168,14 @@ describe('Release Card', () => {
             } as any);
             const { container } = getWrapper(testcase.props);
 
-            expect(container.querySelector('.release__title')?.textContent).toContain(testcase.rels[0].sourceMessage);
+            // then
+            if (testcase.rels[0].undeployVersion) {
+                expect(container.querySelector('.release__title')?.textContent).toContain('Undeploy Version');
+            } else {
+                expect(container.querySelector('.release__title')?.textContent).toContain(
+                    testcase.rels[0].sourceMessage
+                );
+            }
 
             if (testcase.rels[0].sourceCommitId) {
                 expect(container.querySelector('.release__hash')?.textContent).toContain(
@@ -126,7 +184,7 @@ describe('Release Card', () => {
             }
             if (testcase.rels[0].createdAt) {
                 expect(container.querySelector('.release__metadata')?.textContent).toContain(
-                    (testcase.rels[0].createdAt as Date).toLocaleDateString()
+                    (testcase.rels[0].createdAt as Date).getFullYear()
                 );
             }
             expect(container.querySelector('.env-group-chip-list-test')).not.toBeEmptyDOMElement();
