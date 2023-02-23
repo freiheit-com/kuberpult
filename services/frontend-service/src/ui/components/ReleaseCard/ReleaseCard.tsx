@@ -47,8 +47,13 @@ const getRelativeDate = (date: Date): string => {
 };
 
 export const getFormattedReleaseDate = (createdAt: Date): JSX.Element => {
-    // date format: dd-mm-yyyy, with no leading zeros, month is 0-indexed.
-    const formattedDate = `${createdAt.getDate()}-${createdAt.getMonth() + 1}-${createdAt.getFullYear()}`;
+    // Adds leading zero to get two digit day and month
+    const twoDigit = (num: number): string => (num < 10 ? '0' : '') + num;
+    // date format (ISO): yyyy-mm-dd, with no leading zeros, month is 0-indexed.
+    // createdAt.toISOString() can't be used because it ignores the current time zone.
+    const formattedDate = `${createdAt.getFullYear()}-${twoDigit(createdAt.getMonth() + 1)}-${twoDigit(
+        createdAt.getDate()
+    )}`;
 
     // getHours automatically gets the hours in the correct timezone. in 24h format (no timezone calculation needed)
     const formattedTime = `${createdAt.getHours()}:${createdAt.getMinutes()}`;

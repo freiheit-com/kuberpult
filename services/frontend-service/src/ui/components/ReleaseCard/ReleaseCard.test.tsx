@@ -19,32 +19,32 @@ import { UpdateOverview } from '../../utils/store';
 
 describe('Relative Date Calculation', () => {
     // the test release date ===  18/06/2001 is constant across this test
-    const testReleaseDate = new Date(2001, 5, 18);
+    const testReleaseDate = new Date(2001, 5, 8);
 
     const data = [
         {
             name: 'less than 1 hour ago',
-            systemTime: new Date(2001, 5, 18, 0, 1),
+            systemTime: new Date(2001, 5, 8, 0, 1),
             expected: '< 1 hour ago',
         },
         {
             name: 'little over 1 hour ago',
-            systemTime: new Date(2001, 5, 18, 1, 1),
+            systemTime: new Date(2001, 5, 8, 1, 1),
             expected: '1 hour ago',
         },
         {
             name: '5 hours ago',
-            systemTime: new Date(2001, 5, 18, 5, 1),
+            systemTime: new Date(2001, 5, 8, 5, 1),
             expected: '5 hours ago',
         },
         {
             name: 'little over 1 day ago',
-            systemTime: new Date(2001, 5, 19, 1, 1),
+            systemTime: new Date(2001, 5, 9, 1, 1),
             expected: '1 day ago',
         },
         {
             name: '92 days ago',
-            systemTime: new Date(2001, 8, 18, 5, 1),
+            systemTime: new Date(2001, 8, 8, 5, 1),
             expected: '92 days ago',
         },
     ];
@@ -57,7 +57,7 @@ describe('Relative Date Calculation', () => {
             const { container } = render(getFormattedReleaseDate(testReleaseDate));
 
             // then
-            expect(container.textContent).toContain('18-6-2001');
+            expect(container.textContent).toContain('2001-06-08');
             expect(container.textContent).toContain('0:0');
             expect(container.textContent).toContain(testcase.expected);
 
