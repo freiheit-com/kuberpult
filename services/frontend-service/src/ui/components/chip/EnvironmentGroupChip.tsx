@@ -118,7 +118,11 @@ export type EnvChipListProps = {
 export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
     const deployedAt = useCurrentlyDeployedAtGroup(props.app, props.version);
     return (
-        <div className={'env-group-chip-list-test'}>
+        <div
+            className={classNames(
+                'env-group-chip-list-test',
+                deployedAt.length === 0 ? 'release__environments--empty' : ''
+            )}>
             {' '}
             {deployedAt.map((envGroup) => (
                 <EnvironmentGroupChip
