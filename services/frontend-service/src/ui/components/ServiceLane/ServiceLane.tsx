@@ -23,16 +23,17 @@ import { useNavigate } from 'react-router-dom';
 import * as React from 'react';
 
 // number of releases on home. based on design
+// we could update this dynamically based on viewport width
 const numberOfDisplayedReleasesOnHome = 6;
 
 const getReleasesToDisplay = (deployedReleases: number[], allReleases: number[]): number[] => {
     // number of remaining releases to get from history
     const numOfTrailingReleases = numberOfDisplayedReleasesOnHome - deployedReleases.length;
-    // find the index of the last deployed release e.g. Prod
+    // find the index of the last deployed release e.g. Prod (or -1 when there's no deployed releases)
     const oldestDeployedReleaseIndex = deployedReleases.length
         ? allReleases.findIndex((version) => version === deployedReleases.slice(-1)[0])
-        : 0;
-    // take the deployed releases + a slice from the oldest element with total length 6
+        : -1;
+    // take the deployed releases + a slice from the oldest element (or very first, see above) with total length 6
     return [
         ...deployedReleases,
         ...allReleases.slice(oldestDeployedReleaseIndex + 1, oldestDeployedReleaseIndex + numOfTrailingReleases + 1),
