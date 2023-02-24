@@ -64,14 +64,8 @@
   @extend .text-bold;
   align-self: center;
   z-index: 2;
-
+  min-height: 42px;
   > *:not(:last-child) {
     margin-right: 8px;
-  }
-
-  &--empty {
-    // when no environment chips are displayed, take the same space with an empty div
-    // used to make release cards on the same level
-    height: 42px;
   }
 }
