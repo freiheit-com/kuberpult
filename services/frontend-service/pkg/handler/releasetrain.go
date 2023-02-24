@@ -29,7 +29,7 @@ import (
 	pgperrors "golang.org/x/crypto/openpgp/errors"
 )
 
-func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, environment, tail string) {
+func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
 	if req.Method != http.MethodPut {
 		http.Error(w, fmt.Sprintf("releasetrain only accepts method PUT, got: '%s'", req.Method), http.StatusMethodNotAllowed)
 		return
@@ -60,7 +60,7 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, env
 			return
 		}
 
-		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment), bytes.NewReader(signature)); err != nil {
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(target), bytes.NewReader(signature)); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(500)
 				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
@@ -72,8 +72,8 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, env
 		}
 	}
 	response, err := s.DeployClient.ReleaseTrain(req.Context(), &api.ReleaseTrainRequest{
-		Environment: environment,
-		Team:        teamParam,
+		Target: target,
+		Team:   teamParam,
 	})
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)

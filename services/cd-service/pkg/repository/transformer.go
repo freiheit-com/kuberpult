@@ -827,126 +827,183 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 }
 
 type ReleaseTrain struct {
-	Environment string
-	Team        string
+	Target string
+	Team   string
+}
+
+func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string) map[string]config.EnvironmentConfig {
+
+	envGroupConfigs := make(map[string]config.EnvironmentConfig)
+
+	for env, config := range configs {
+		if config.EnvironmentGroup != nil && *config.EnvironmentGroup == targetGroupName {
+			envGroupConfigs[env] = config
+		}
+	}
+	if len(envGroupConfigs) == 0 {
+		envConfig, ok := configs[targetGroupName]
+		if ok {
+			envGroupConfigs[targetGroupName] = envConfig
+		}
+	}
+	return envGroupConfigs
+}
+
+func generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg map[string]string, targetGroupName string) string {
+	resp := fmt.Sprintf("Release Train commit message for environment/environment group '%s':\n\n", targetGroupName)
+
+	// this to sort the env, to make sure that for the same input we always got the same output
+	envGroups := make([]string, 0, len(envDeployedMsg))
+	for env := range envDeployedMsg {
+		envGroups = append(envGroups, env)
+	}
+	sort.Strings(envGroups)
+
+	for _, env := range envGroups {
+		msg := envDeployedMsg[env]
+		resp += fmt.Sprintf("Release Train for '%s' environment:\n\n", env)
+		resp += msg
+		if skippedMsg, ok := envSkippedMsg[env]; ok {
+			resp += "Skipped services:\n"
+			resp += skippedMsg
+		}
+	}
+	return resp
 }
 
 func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, error) {
-	var targetEnvName = c.Environment
+	var targetGroupName = c.Target
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return "", httperrors.InternalError(ctx, err)
 	}
-	envConfig, ok := configs[targetEnvName]
-	if !ok {
-		return "", httperrors.PublicError(ctx, fmt.Errorf("could not find environment config for '%v'", targetEnvName))
-	}
-	if envConfig.Upstream == nil {
-		return fmt.Sprintf("Environment %q does not have upstream configured - exiting.", targetEnvName), nil
-	}
-	var upstreamLatest = envConfig.Upstream.Latest
-	var upstreamEnvName = envConfig.Upstream.Environment
+	var envGroupConfigs = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
 
-	if !upstreamLatest && upstreamEnvName == "" {
-		return fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - exiting.", targetEnvName), nil
-	}
-	if upstreamLatest && upstreamEnvName != "" {
-		return fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - exiting.", targetEnvName), nil
-	}
-	source := upstreamEnvName
-	if upstreamLatest {
-		source = "latest"
+	if len(envGroupConfigs) == 0 {
+		return "", httperrors.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName))
 	}
 
-	if !upstreamLatest {
-		_, ok = configs[upstreamEnvName]
-		if !ok {
-			return fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, targetEnvName), err
+	// this to sort the env, to make sure that for the same input we always got the same output
+	envGroups := make([]string, 0, len(envGroupConfigs))
+	for env := range envGroupConfigs {
+		envGroups = append(envGroups, env)
+	}
+	sort.Strings(envGroups)
+
+	envDeployedMsg := make(map[string]string)
+	envSkippedMsg := make(map[string]string)
+	for _, envName := range envGroups {
+		envConfig := envGroupConfigs[envName]
+		if envConfig.Upstream == nil {
+			return fmt.Sprintf("Environment %q does not have upstream configured - exiting.", envName), nil
 		}
-	}
+		var upstreamLatest = envConfig.Upstream.Latest
+		var upstreamEnvName = envConfig.Upstream.Environment
 
-	envLocks, err := state.GetEnvironmentLocks(targetEnvName)
-	if err != nil {
-		return "", httperrors.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", targetEnvName, err))
-	}
-	if len(envLocks) > 0 {
-		return fmt.Sprintf("Target Environment '%s' is locked - exiting.", targetEnvName), nil
-	}
-
-	var apps []string
-	if upstreamLatest {
-		apps, err = state.GetApplications()
-		if err != nil {
-			return "", httperrors.InternalError(ctx, fmt.Errorf("could not get all applications for %q: %w", source, err))
+		if !upstreamLatest && upstreamEnvName == "" {
+			return fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - exiting.", envName), nil
 		}
-	} else {
-		apps, err = state.GetEnvironmentApplications(upstreamEnvName)
-		if err != nil {
-			return "", httperrors.PublicError(ctx, fmt.Errorf("upstream environment (%q) does not have applications: %w", upstreamEnvName, err))
+		if upstreamLatest && upstreamEnvName != "" {
+			return fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - exiting.", envName), nil
 		}
-	}
+		source := upstreamEnvName
+		if upstreamLatest {
+			source = "latest"
+		}
 
-	// now iterate over all apps, deploying all that are not locked
-	numServices := 0
-	completeMessage := ""
-	for _, appName := range apps {
-		if c.Team != "" {
-			if team, err := state.GetApplicationTeamOwner(appName); err != nil {
-				return "", nil
-			} else if c.Team != team {
-				continue
+		if !upstreamLatest {
+			_, ok := configs[upstreamEnvName]
+			if !ok {
+				return fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, envName), err
 			}
 		}
-		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(targetEnvName, appName)
+
+		envLocks, err := state.GetEnvironmentLocks(envName)
 		if err != nil {
-			return "", httperrors.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, targetEnvName, err))
+			return "", httperrors.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", envName, err))
 		}
-		var versionToDeploy uint64
+		if len(envLocks) > 0 {
+			return fmt.Sprintf("Target Environment '%s' is locked - exiting.", envName), nil
+		}
+
+		var apps []string
 		if upstreamLatest {
-			versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
+			apps, err = state.GetApplications()
 			if err != nil {
-				return "", httperrors.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err))
+				return "", httperrors.InternalError(ctx, fmt.Errorf("could not get all applications for %q: %w", source, err))
 			}
 		} else {
-			upstreamVersion, err := state.GetEnvironmentApplicationVersion(upstreamEnvName, appName)
+			apps, err = state.GetEnvironmentApplications(upstreamEnvName)
 			if err != nil {
-				return "", httperrors.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err))
+				return "", httperrors.PublicError(ctx, fmt.Errorf("upstream environment (%q) does not have applications: %w", upstreamEnvName, err))
 			}
-			if upstreamVersion == nil {
-				completeMessage = fmt.Sprintf("skipping because there is no version for application %q in env %q", appName, upstreamEnvName)
+		}
+		sort.Strings(apps)
+
+		// now iterate over all apps, deploying all that are not locked
+		numServices := 0
+		completeMessage := ""
+		for _, appName := range apps {
+			if c.Team != "" {
+				if team, err := state.GetApplicationTeamOwner(appName); err != nil {
+					return "", nil
+				} else if c.Team != team {
+					continue
+				}
+			}
+			currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(envName, appName)
+			if err != nil {
+				return "", httperrors.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, envName, err))
+			}
+			var versionToDeploy uint64
+			if upstreamLatest {
+				versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
+				if err != nil {
+					return "", httperrors.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err))
+				}
+			} else {
+				upstreamVersion, err := state.GetEnvironmentApplicationVersion(upstreamEnvName, appName)
+				if err != nil {
+					return "", httperrors.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err))
+				}
+				if upstreamVersion == nil {
+					envSkippedMsg[envName] += fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)
+					continue
+				}
+				versionToDeploy = *upstreamVersion
+			}
+			if currentlyDeployedVersion != nil && *currentlyDeployedVersion == versionToDeploy {
+				envSkippedMsg[envName] += fmt.Sprintf("%sskipping %q because it is already in the version %d\n", completeMessage, appName, *currentlyDeployedVersion)
 				continue
 			}
-			versionToDeploy = *upstreamVersion
-		}
-		if currentlyDeployedVersion != nil && *currentlyDeployedVersion == versionToDeploy {
-			completeMessage = fmt.Sprintf("%sskipping %q because it is already in the version %d\n", completeMessage, appName, *currentlyDeployedVersion)
-			continue
-		}
 
-		d := &DeployApplicationVersion{
-			Environment:   targetEnvName, // here we deploy to the next env
-			Application:   appName,
-			Version:       versionToDeploy,
-			LockBehaviour: api.LockBehavior_Record,
-		}
-		transform, err := d.Transform(ctx, state)
-		if err != nil {
-			_, ok := err.(*LockedError)
-			if ok {
-				continue // locked errors are to be expected
+			d := &DeployApplicationVersion{
+				Environment:   envName, // here we deploy to the next env
+				Application:   appName,
+				Version:       versionToDeploy,
+				LockBehaviour: api.LockBehavior_Record,
 			}
-			if errors.Is(err, os.ErrNotExist) {
-				continue // some apps do not exist on all envs, we ignore those
+			transform, err := d.Transform(ctx, state)
+			if err != nil {
+				_, ok := err.(*LockedError)
+				if ok {
+					continue // locked errors are to be expected
+				}
+				if errors.Is(err, os.ErrNotExist) {
+					continue // some apps do not exist on all envs, we ignore those
+				}
+				return "", httperrors.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, envName, err))
 			}
-			return "", httperrors.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, targetEnvName, err))
+			numServices += 1
+			completeMessage = completeMessage + transform + "\n"
 		}
-		numServices += 1
-		completeMessage = completeMessage + transform + "\n"
+		teamInfo := ""
+		if c.Team != "" {
+			teamInfo = " for team '" + c.Team + "'"
+		}
+		envDeployedMsg[envName] = fmt.Sprintf("The release train deployed %d services from '%s' to '%s'%s\n%s\n", numServices, source, envName, teamInfo, completeMessage)
 	}
-	teamInfo := ""
-	if c.Team != "" {
-		teamInfo = " for team '" + c.Team + "'"
-	}
-	return fmt.Sprintf("The release train deployed %d services from '%s' to '%s'%s\n%s\n", numServices, source, targetEnvName, teamInfo, completeMessage), nil
+
+	return generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg, targetGroupName), nil
 }

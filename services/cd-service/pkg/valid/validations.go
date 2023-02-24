@@ -27,7 +27,7 @@ var (
 	envNameRx         = regexp.MustCompile(`\A[a-z0-9]+(?:-[a-z0-9]+)*\z`)
 )
 
-// {application}-{environemnt} should be a valid dns name
+// {application}-{environment} should be a valid dns name
 func EnvironmentName(env string) bool {
 	return len(env) < 21 && envNameRx.MatchString(env)
 }

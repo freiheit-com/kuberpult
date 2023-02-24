@@ -18,7 +18,7 @@ package service
 
 import (
 	"context"
-	"strings"
+	"github.com/google/go-cmp/cmp"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -28,8 +28,16 @@ import (
 )
 
 const (
-	envAcceptance = "acceptance"
-	envProduction = "production"
+	envAcceptance   = "acceptance"
+	envAcceptanceDE = "acceptance-de"
+	envAcceptancePT = "acceptance-pt"
+	envProduction   = "production"
+	envProductionDE = "production-de"
+	envProductionPT = "production-pt"
+)
+
+var (
+	groupEnvProduction = "prd-group"
 )
 
 func TestDeployService(t *testing.T) {
@@ -165,48 +173,82 @@ func TestReleaseTrainErrors(t *testing.T) {
 			Name: "release train all teams ",
 			Transformers: []repository.Transformer{
 				&repository.ReleaseTrain{
-					Environment: envProduction,
+					Target: envProduction,
 				},
 			},
-			expectedError:     "",
-			expectedCommitMsg: "The release train deployed 3 services from 'acceptance' to 'production'",
-			shouldSucceed:     true,
+			expectedError: "",
+			expectedCommitMsg: `Release Train commit message for environment/environment group 'production':
+
+Release Train for 'production' environment:
+
+The release train deployed 3 services from 'acceptance' to 'production'
+deployed version 1 of "app1" to "production"
+
+deployed version 1 of "app2" to "production"
+
+deployed version 1 of "app3" to "production"
+
+
+`,
+			shouldSucceed: true,
 		},
 		{
 			Name: "release train for team1 ",
 			Transformers: []repository.Transformer{
 				&repository.ReleaseTrain{
-					Environment: envProduction,
-					Team:        "team1",
+					Target: envProduction,
+					Team:   "team1",
 				},
 			},
-			expectedError:     "",
-			expectedCommitMsg: "The release train deployed 1 services from 'acceptance' to 'production' for team 'team1'",
-			shouldSucceed:     true,
+			expectedError: "",
+			expectedCommitMsg: `Release Train commit message for environment/environment group 'production':
+
+Release Train for 'production' environment:
+
+The release train deployed 1 services from 'acceptance' to 'production' for team 'team1'
+deployed version 1 of "app1" to "production"
+
+
+`,
+			shouldSucceed: true,
 		},
 		{
 			Name: "release train for team2 ",
 			Transformers: []repository.Transformer{
 				&repository.ReleaseTrain{
-					Environment: envProduction,
-					Team:        "team2",
+					Target: envProduction,
+					Team:   "team2",
 				},
 			},
-			expectedError:     "",
-			expectedCommitMsg: "The release train deployed 1 services from 'acceptance' to 'production' for team 'team2'",
-			shouldSucceed:     true,
+			expectedError: "",
+			expectedCommitMsg: `Release Train commit message for environment/environment group 'production':
+
+Release Train for 'production' environment:
+
+The release train deployed 1 services from 'acceptance' to 'production' for team 'team2'
+deployed version 1 of "app2" to "production"
+
+
+`,
+			shouldSucceed: true,
 		},
 		{
 			Name: "release train for team3 ( not exists )  ",
 			Transformers: []repository.Transformer{
 				&repository.ReleaseTrain{
-					Environment: envProduction,
-					Team:        "team3",
+					Target: envProduction,
+					Team:   "team3",
 				},
 			},
-			expectedError:     "",
-			expectedCommitMsg: "The release train deployed 0 services from 'acceptance' to 'production' for team 'team3'",
-			shouldSucceed:     true,
+			expectedError: "",
+			expectedCommitMsg: `Release Train commit message for environment/environment group 'production':
+
+Release Train for 'production' environment:
+
+The release train deployed 0 services from 'acceptance' to 'production' for team 'team3'
+
+`,
+			shouldSucceed: true,
 		},
 	}
 	for _, tc := range tcs {
@@ -272,16 +314,236 @@ func TestReleaseTrainErrors(t *testing.T) {
 			}
 			transformers := append(initTransformers, tc.Transformers...)
 			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, transformers...)
-			// note that we only check the LAST error here:
+			actualMsg := commitMsg[len(commitMsg)-1]
+
 			if tc.shouldSucceed {
 				if err != nil {
 					t.Fatalf("Expected no error: %v", err)
 				}
-				actualMsg := commitMsg[len(commitMsg)-1]
-				Msgs := strings.Split(actualMsg, "\n") // ignoring deploying messages
-				if Msgs[0] != tc.expectedCommitMsg {
-					t.Fatalf("expected a different message.\nExpected: %q\nGot %q", tc.expectedCommitMsg, Msgs[0])
+
+				if d := cmp.Diff(tc.expectedCommitMsg, actualMsg); d != "" {
+					t.Fatalf("expected a different message.\n %s", d)
 				}
+			} else {
+				if err == nil {
+					t.Fatalf("Expected an error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
+				}
+			}
+		})
+	}
+}
+func TestGroupReleaseTrainErrors(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []repository.Transformer
+		expectedError     string
+		expectedCommitMsg string
+		shouldSucceed     bool
+	}{
+
+		{
+			Name: "release train all teams ",
+			Transformers: []repository.Transformer{
+				&repository.ReleaseTrain{
+					Target: groupEnvProduction,
+				},
+			},
+			expectedError: "",
+			expectedCommitMsg: `Release Train commit message for environment/environment group 'prd-group':
+
+Release Train for 'production-de' environment:
+
+The release train deployed 3 services from 'acceptance-de' to 'production-de'
+deployed version 1 of "app1" to "production-de"
+
+deployed version 1 of "app2" to "production-de"
+
+deployed version 1 of "app3" to "production-de"
+
+
+Release Train for 'production-pt' environment:
+
+The release train deployed 3 services from 'acceptance-pt' to 'production-pt'
+deployed version 1 of "app1" to "production-pt"
+
+deployed version 1 of "app2" to "production-pt"
+
+deployed version 1 of "app3" to "production-pt"
+
+
+`,
+			shouldSucceed: true,
+		},
+		{
+			Name: "release train for team1 ",
+			Transformers: []repository.Transformer{
+				&repository.ReleaseTrain{
+					Target: groupEnvProduction,
+					Team:   "team1",
+				},
+			},
+			expectedError: "",
+			expectedCommitMsg: `Release Train commit message for environment/environment group 'prd-group':
+
+Release Train for 'production-de' environment:
+
+The release train deployed 1 services from 'acceptance-de' to 'production-de' for team 'team1'
+deployed version 1 of "app1" to "production-de"
+
+
+Release Train for 'production-pt' environment:
+
+The release train deployed 1 services from 'acceptance-pt' to 'production-pt' for team 'team1'
+deployed version 1 of "app1" to "production-pt"
+
+
+`,
+			shouldSucceed: true,
+		},
+		{
+			Name: "release train for team2 ",
+			Transformers: []repository.Transformer{
+				&repository.ReleaseTrain{
+					Target: groupEnvProduction,
+					Team:   "team2",
+				},
+			},
+			expectedError: "",
+			expectedCommitMsg: `Release Train commit message for environment/environment group 'prd-group':
+
+Release Train for 'production-de' environment:
+
+The release train deployed 1 services from 'acceptance-de' to 'production-de' for team 'team2'
+deployed version 1 of "app2" to "production-de"
+
+
+Release Train for 'production-pt' environment:
+
+The release train deployed 1 services from 'acceptance-pt' to 'production-pt' for team 'team2'
+deployed version 1 of "app2" to "production-pt"
+
+
+`,
+			shouldSucceed: true,
+		},
+		{
+			Name: "release train for team3 ( not exists )  ",
+			Transformers: []repository.Transformer{
+				&repository.ReleaseTrain{
+					Target: groupEnvProduction,
+					Team:   "team3",
+				},
+			},
+			expectedError: "",
+			expectedCommitMsg: `Release Train commit message for environment/environment group 'prd-group':
+
+Release Train for 'production-de' environment:
+
+The release train deployed 0 services from 'acceptance-de' to 'production-de' for team 'team3'
+
+Release Train for 'production-pt' environment:
+
+The release train deployed 0 services from 'acceptance-pt' to 'production-pt' for team 'team3'
+
+`,
+			shouldSucceed: true,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			//t.Parallel()
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			ctx := context.Background()
+			initTransformers := []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: envAcceptancePT,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&repository.CreateEnvironment{
+					Environment: envAcceptanceDE,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&repository.CreateEnvironment{
+					Environment: envProductionPT,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptancePT}, EnvironmentGroup: &groupEnvProduction},
+				},
+				&repository.CreateEnvironment{
+					Environment: envProductionDE,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptanceDE}, EnvironmentGroup: &groupEnvProduction},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptancePT: "acceptance-pt",
+						envAcceptanceDE: "acceptance-de",
+						envProductionPT: "production-pt",
+						envProductionDE: "production-de",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProductionPT: "production-pt",
+						envProductionDE: "production-de",
+					},
+					Team: "team1",
+				},
+				&repository.CreateApplicationVersion{
+					Application: "app2",
+					Manifests: map[string]string{
+						envAcceptancePT: "acceptance-pt",
+						envAcceptanceDE: "acceptance-de",
+						envProductionPT: "production-pt",
+						envProductionDE: "production-de",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "app2",
+					Manifests: map[string]string{
+						envProductionPT: "production-pt",
+						envProductionDE: "production-de",
+					},
+					Team: "team2",
+				},
+				&repository.CreateApplicationVersion{
+					Application: "app3",
+					Manifests: map[string]string{
+						envAcceptancePT: "acceptance-pt",
+						envAcceptanceDE: "acceptance-de",
+						envProductionPT: "production-pt",
+						envProductionDE: "production-de",
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "app3",
+					Manifests: map[string]string{
+						envProductionPT: "production-pt",
+						envProductionDE: "production-de",
+					},
+				},
+			}
+			transformers := append(initTransformers, tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(ctx, transformers...)
+			actualMsg := commitMsg[len(commitMsg)-1]
+
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				if d := cmp.Diff(tc.expectedCommitMsg, actualMsg); d != "" {
+					t.Fatalf("expected a different message.\n %s", d)
+				}
+
 			} else {
 				if err == nil {
 					t.Fatalf("Expected an error but got none")
@@ -320,18 +582,18 @@ func TestReleaseTrain(t *testing.T) {
 				resp, err := svc.ReleaseTrain(
 					context.Background(),
 					&api.ReleaseTrainRequest{
-						Environment: "acceptance",
-						Team:        "team",
+						Target: "acceptance",
+						Team:   "team",
 					},
 				)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if resp.TargetEnv != "acceptance" {
-					t.Errorf("Expected targetEnv to be 'acceptance', got %q\n", resp.TargetEnv)
+				if resp.Target != "acceptance" {
+					t.Errorf("Expected targetEnv to be 'acceptance', got %q\n", resp.Target)
 				}
-				if resp.Upstream != "production" {
-					t.Errorf("Expected upstream to be 'production', got %q\n", resp.Upstream)
+				if resp.Team != "team" {
+					t.Errorf("Expected upstream to be 'production', got %q\n", resp.Team)
 				}
 			},
 		},
@@ -353,18 +615,18 @@ func TestReleaseTrain(t *testing.T) {
 				resp, err := svc.ReleaseTrain(
 					context.Background(),
 					&api.ReleaseTrainRequest{
-						Environment: "acceptance",
-						Team:        "team",
+						Target: "acceptance",
+						Team:   "team",
 					},
 				)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if resp.TargetEnv != "acceptance" {
-					t.Errorf("Expected targetEnv to be 'acceptance', got %q\n", resp.TargetEnv)
+				if resp.Target != "acceptance" {
+					t.Errorf("Expected targetEnv to be 'acceptance', got %q\n", resp.Target)
 				}
-				if resp.Upstream != "latest" {
-					t.Errorf("Expected upstream to be 'latest', got %q\n", resp.Upstream)
+				if resp.Team != "team" {
+					t.Errorf("Expected upstream to be 'latest', got %q\n", resp.Team)
 				}
 			},
 		},

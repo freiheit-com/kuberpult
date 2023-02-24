@@ -487,10 +487,10 @@ func TestReleaseTrainErrors(t *testing.T) {
 			Name: "Access non-existent environment",
 			Transformers: []Transformer{
 				&ReleaseTrain{
-					Environment: "doesnotexistenvironment",
+					Target: "doesnotexistenvironment",
 				},
 			},
-			expectedError:     "rpc error: code = InvalidArgument desc = error: could not find environment config for 'doesnotexistenvironment'",
+			expectedError:     "rpc error: code = InvalidArgument desc = error: could not find environment group or environment configs for 'doesnotexistenvironment'",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
 		},
@@ -511,7 +511,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 					LockId:      "care",
 				},
 				&ReleaseTrain{
-					Environment: envAcceptance,
+					Target: envAcceptance,
 				},
 			},
 			shouldSucceed:     true,
@@ -698,7 +698,7 @@ func TestTransformer(t *testing.T) {
 					Version:     2,
 				},
 				&ReleaseTrain{
-					Environment: envProduction,
+					Target: envProduction,
 				},
 			},
 			Test: func(t *testing.T, s *State) {
@@ -744,7 +744,7 @@ func TestTransformer(t *testing.T) {
 					},
 				},
 				&ReleaseTrain{
-					Environment: envAcceptance,
+					Target: envAcceptance,
 				},
 			},
 			Test: func(t *testing.T, s *State) {
@@ -810,8 +810,8 @@ func TestTransformer(t *testing.T) {
 					Version:     2,
 				},
 				&ReleaseTrain{
-					Environment: envProduction,
-					Team:        "test",
+					Target: envProduction,
+					Team:   "test",
 				},
 			},
 			Test: func(t *testing.T, s *State) {

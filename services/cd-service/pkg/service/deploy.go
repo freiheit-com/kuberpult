@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -86,49 +85,20 @@ func (d *DeployServiceServer) ReleaseTrain(
 	ctx context.Context,
 	in *api.ReleaseTrainRequest,
 ) (*api.ReleaseTrainResponse, error) {
-	if !valid.EnvironmentName(in.Environment) {
+	if !valid.EnvironmentName(in.Target) {
 		return nil, status.Error(codes.InvalidArgument, "invalid environment")
 	}
 	if in.Team != "" && !valid.TeamName(in.Team) {
 		return nil, status.Error(codes.InvalidArgument, "invalid Team name")
 	}
 	err := d.Repository.Apply(ctx, &repository.ReleaseTrain{
-		Environment: in.Environment,
-		Team:        in.Team,
+		Target: in.Target,
+		Team:   in.Team,
 	})
 	if err != nil {
 		return nil, err
 	}
-	state := d.Repository.State()
-	configs, err := state.GetEnvironmentConfigs()
-	if err != nil {
-		return &api.ReleaseTrainResponse{}, fmt.Errorf("could not get environment config with state '%v': %w", state, err)
-	}
-	targetEnvName := in.Environment
-	envConfigs, ok := configs[targetEnvName]
-	if !ok {
-		return &api.ReleaseTrainResponse{}, fmt.Errorf("could not find environment config for '%v'", targetEnvName)
-	}
-	if envConfigs.Upstream == nil {
-		return &api.ReleaseTrainResponse{}, nil
-	}
-
-	upstreamLatest := envConfigs.Upstream.Latest
-	upstreamEnvName := envConfigs.Upstream.Environment
-
-	if !upstreamLatest && upstreamEnvName == "" {
-		return nil, fmt.Errorf("Environment %q does not have upstream.latest or upstream.environment configured - exiting.", targetEnvName)
-	}
-	if upstreamLatest && upstreamEnvName != "" {
-		return nil, fmt.Errorf("Environment %q has both upstream.latest and upstream.environment configured - exiting.", targetEnvName)
-	}
-
-	upstream := upstreamEnvName
-	if upstreamLatest {
-		upstream = "latest"
-	}
-
-	return &api.ReleaseTrainResponse{Upstream: upstream, TargetEnv: targetEnvName}, nil
+	return &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team}, nil
 }
 
 var _ api.DeployServiceServer = (*DeployServiceServer)(nil)
