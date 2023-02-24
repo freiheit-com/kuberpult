@@ -86,13 +86,13 @@ message UndeployRequest {
 }
 
 message ReleaseTrainRequest {
-  string environment = 1;
+  string target = 1;
   string team = 2;
 }
 
 message ReleaseTrainResponse {
-  string upstream = 1;
-  string targetEnv = 2;
+  string target = 1;
+  string team = 2;
 }
 
 message Lock {
