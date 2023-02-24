@@ -35,9 +35,41 @@
   display: flex;
 }
 
-.service-lane__diff_number {
+.service-lane__diff--container {
   display: flex;
-  font-size: xx-large;
-  padding: 100px 0px 20px 10px;
-  height: 40px;
+  flex-direction: row;
+  align-self: center;
+  justify-content: space-evenly;
+  width: 80px;
+
+  .service-lane__diff--number {
+    @extend .sub-headline1;
+    display: flex;
+    align-self: center;
+    box-sizing: border-box;
+    justify-content: space-evenly;
+
+    // Copied from figma
+    width: 33px;
+    height: 33px;
+    left: calc(50% - 33px / 2 - 0.5px);
+    top: calc(50% - 33px / 2);
+
+    border: 2px solid $service-lane-diff-element-border-color;
+    border-radius: 10px;
+  }
+
+  .service-lane__diff--dot {
+    align-self: center;
+    box-sizing: border-box;
+
+
+    // Copied from figma
+    width: 4px;
+    height: 4px;
+    left: calc(50% - 4px / 2 - 23px);
+    top: calc(50% - 4px / 2);
+    background: $service-lane-diff-element-border-color;
+    border-radius: 10px;
+  }
 }

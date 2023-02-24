@@ -45,6 +45,18 @@ function getNumberOfReleasesBetween(releases: number[], higherVersion: number, l
     return releases.findIndex((ver) => ver === lowerVersion) - releases.findIndex((ver) => ver === higherVersion) - 1;
 }
 
+const DiffElement = (diff: number): JSX.Element => (
+    <div className="service-lane__diff--container">
+        <div className="service-lane__diff--dot" />
+        <div className="service-lane__diff--dot" />
+        <div className="service-lane__diff--dot" />
+        <div className="service-lane__diff--number">{diff}</div>
+        <div className="service-lane__diff--dot" />
+        <div className="service-lane__diff--dot" />
+        <div className="service-lane__diff--dot" />
+    </div>
+);
+
 export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const { application } = props;
     const deployedReleases = useDeployedReleases(application.name);
@@ -77,7 +89,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                                 ' and version ' +
                                 rel
                             }>
-                            <div className="service-lane__diff_number">{diff}</div>
+                            {DiffElement(diff)}
                         </Tooltip>
                     )}
                 </div>
