@@ -26,6 +26,7 @@ import {
 import { useApi } from './GrpcApi';
 import { useMemo } from 'react';
 import { Empty } from '../../google/protobuf/empty';
+import { updateActionsNumber } from '../components/SideBar/SideBar';
 
 export interface DisplayLock {
     date: Date;
@@ -50,6 +51,10 @@ export const [useReleaseDialog, UpdateReleaseDialog] = createStore({ app: '', ve
 export const useApplyActions = (): Promise<Empty> => useApi.batchService().ProcessBatch({ actions: useActions() });
 
 export const useActions = (): BatchAction[] => useAction(({ actions }) => actions);
+
+export const [useSidebar, UpdateSidebar] = createStore({ shown: false });
+
+export const useSidebarShown = (): boolean => useSidebar(({ shown }) => shown);
 
 export const updateActions = (actions: BatchAction[]): void => {
     deleteAllActions();
@@ -147,7 +152,7 @@ export const addAction = (action: BatchAction): void => {
                 return;
             break;
     }
-
+    updateActionsNumber(true);
     UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
 };
 
@@ -156,12 +161,13 @@ export const updateReleaseDialog = (app: string, version: number): void => {
 };
 export const deleteAllActions = (): void => UpdateAction.set({ actions: [] });
 
-export const deleteAction = (action: BatchAction): void =>
+export const deleteAction = (action: BatchAction): void => {
     UpdateAction.set(({ actions }) => ({
         // create comparison function
         actions: actions.filter((act) => JSON.stringify(act).localeCompare(JSON.stringify(action))),
     }));
-
+    updateActionsNumber(false);
+};
 // returns all application names
 // doesn't return empty team names (i.e.: '')
 // doesn't return repeated team names

@@ -17,7 +17,7 @@ import { Dialog, Tooltip } from '@material-ui/core';
 import classNames from 'classnames';
 import React, { useCallback } from 'react';
 import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
-import { addAction, updateReleaseDialog, useOverview } from '../../utils/store';
+import { addAction, updateReleaseDialog, UpdateSidebar, useOverview } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
@@ -79,7 +79,7 @@ export const EnvironmentListItem: React.FC<{
     className?: string;
 }> = ({ env, app, release, queuedVersion, className }) => {
     const deploy = useCallback(() => {
-        if (release.version)
+        if (release.version) {
             addAction({
                 action: {
                     $case: 'deploy',
@@ -92,6 +92,8 @@ export const EnvironmentListItem: React.FC<{
                     },
                 },
             });
+            UpdateSidebar.set({ shown: true });
+        }
     }, [app, env.name, release.version]);
     const createAppLock = useCallback(() => {
         const randBase36 = (): string => Math.random().toString(36).substring(7);
@@ -107,6 +109,7 @@ export const EnvironmentListItem: React.FC<{
                 },
             },
         });
+        UpdateSidebar.set({ shown: true });
     }, [app, env.name]);
     const queueInfo =
         queuedVersion === 0 ? null : (

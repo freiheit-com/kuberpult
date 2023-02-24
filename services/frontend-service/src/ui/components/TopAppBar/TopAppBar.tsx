@@ -16,22 +16,22 @@ Copyright 2023 freiheit.com*/
 import { MDCTopAppBar } from '@material/top-app-bar';
 
 import { Textfield } from '../textfield';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { SideBar } from '../SideBar/SideBar';
 import { Button } from '../button';
 import { ShowBarWhite } from '../../../images';
 import { useSearchParams } from 'react-router-dom';
 import { Dropdown } from '../dropdown/dropdown';
 import classNames from 'classnames';
+import { UpdateSidebar, useSidebarShown } from '../../utils/store';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);
     const MDComponent = useRef<MDCTopAppBar>();
-    const [sideBar, showSideBar] = useState(false);
+    const sideBar = useSidebarShown();
     const [params] = useSearchParams();
 
-    const toggleSideBar = useCallback(() => showSideBar((old) => !old), [showSideBar]);
-
+    const toggleSideBar = useCallback(() => UpdateSidebar.set({ shown: !sideBar }), [sideBar]);
     const query = params.get('application') || undefined;
 
     useEffect(() => {

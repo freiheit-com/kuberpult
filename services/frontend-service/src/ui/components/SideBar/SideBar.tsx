@@ -54,7 +54,25 @@ export type ActionDetails = {
     lockMessage?: string;
     version?: number;
 };
-
+let totalActions = 0;
+export const clearActionsNumber = (): void => {
+    totalActions = 0;
+    const elem = document.getElementsByClassName('mdc-drawer-sidebar-header-title');
+    if (elem[0]) {
+        elem[0].innerHTML = 'Planned Actions';
+    }
+};
+export const updateActionsNumber = (added: boolean): void => {
+    added ? (totalActions += 1) : (totalActions -= 1);
+    const elem = document.getElementsByClassName('mdc-drawer-sidebar-header-title');
+    if (elem[0]) {
+        if (totalActions > 0) {
+            elem[0].innerHTML = 'Planned Actions (' + totalActions + ')';
+        } else {
+            elem[0].innerHTML = 'Planned Actions';
+        }
+    }
+};
 export const getActionDetails = (
     { action }: BatchAction,
     appLockIDs: string[],
@@ -236,6 +254,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                 deleteAllActions();
             });
         handleClose();
+        clearActionsNumber();
     }, [actions, api, handleClose, lockCreationList, lockMessage]);
 
     const newLockExists = useMemo(() => lockCreationList.length !== 0, [lockCreationList.length]);

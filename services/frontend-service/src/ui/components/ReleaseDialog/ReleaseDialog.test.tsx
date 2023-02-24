@@ -13,11 +13,12 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
+import { EnvironmentListItem, ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { render } from '@testing-library/react';
-import { UpdateOverview, updateReleaseDialog } from '../../utils/store';
+import { UpdateOverview, updateReleaseDialog, UpdateSidebar } from '../../utils/store';
 import { Priority, Release } from '../../../api/api';
 import { Spy } from 'spy4js';
+import { SideBar } from '../SideBar/SideBar';
 
 const mock_getFormattedReleaseDate = Spy.mockModule('../ReleaseCard/ReleaseCard', 'getFormattedReleaseDate');
 
@@ -229,6 +230,77 @@ describe('Release Dialog', () => {
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
             expect(document.querySelectorAll('.env-card-data-queue')).toHaveLength(testcase.expect_queues);
+        });
+    });
+
+    describe(`Test automatic cart opening`, () => {
+        const testcase = data[0];
+        it('Test using direct call to open function', () => {
+            if (UpdateSidebar.get().shown === true) {
+                UpdateSidebar.set({ shown: false });
+            }
+            UpdateSidebar.set({ shown: true });
+            expect(UpdateSidebar.get().shown).toBeTruthy();
+        });
+        it('Test using deploy button click simulation', () => {
+            if (UpdateSidebar.get().shown === true) {
+                UpdateSidebar.set({ shown: false });
+            }
+            UpdateOverview.set({
+                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
+                environments: testcase.props.envs,
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'dev',
+                        environments: testcase.props.envs,
+                        distanceToUpstream: 2,
+                    },
+                ],
+            } as any);
+
+            render(<ReleaseDialog {...testcase.props} />);
+            render(
+                <EnvironmentListItem
+                    env={testcase.props.envs[0]}
+                    app={testcase.props.app}
+                    queuedVersion={0}
+                    release={testcase.props.release}
+                />
+            );
+            render(<SideBar/>);
+            const result = document.querySelector('.env-card-deploy-btn');
+            result?.click();
+            expect(UpdateSidebar.get().shown).toBeTruthy();
+        });
+        it('Test using add lock button click simulation', () => {
+            if (UpdateSidebar.get().shown === true) {
+                UpdateSidebar.set({ shown: false });
+            }
+            UpdateOverview.set({
+                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
+                environments: testcase.props.envs,
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'dev',
+                        environments: testcase.props.envs,
+                        distanceToUpstream: 2,
+                    },
+                ],
+            } as any);
+
+            render(<ReleaseDialog {...testcase.props} />);
+            render(
+                <EnvironmentListItem
+                    env={testcase.props.envs[0]}
+                    app={testcase.props.app}
+                    queuedVersion={0}
+                    release={testcase.props.release}
+                />
+            );
+            render(<SideBar/>);
+            const result = document.querySelector('.env-card-add-lock-btn');
+            result?.click();
+            expect(UpdateSidebar.get().shown).toBeTruthy();
         });
     });
 });
