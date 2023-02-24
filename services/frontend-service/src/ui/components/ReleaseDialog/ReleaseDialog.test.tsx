@@ -267,7 +267,7 @@ describe('Release Dialog', () => {
                     release={testcase.props.release}
                 />
             );
-            render(<SideBar/>);
+            render(<SideBar />);
             const result = document.querySelector('.env-card-deploy-btn');
             result?.click();
             expect(UpdateSidebar.get().shown).toBeTruthy();
@@ -297,7 +297,7 @@ describe('Release Dialog', () => {
                     release={testcase.props.release}
                 />
             );
-            render(<SideBar/>);
+            render(<SideBar />);
             const result = document.querySelector('.env-card-add-lock-btn');
             result?.click();
             expect(UpdateSidebar.get().shown).toBeTruthy();
