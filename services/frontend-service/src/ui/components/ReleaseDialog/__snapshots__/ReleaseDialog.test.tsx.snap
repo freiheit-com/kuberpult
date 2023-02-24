@@ -218,32 +218,32 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                     <span
                       class="mdc-evolution-chip__text-numbers"
                     />
-                  </span>
-                  <div
-                    class="release-environment env-locks"
-                  >
                     <div
-                      aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
-                      class=""
-                      data-mui-internal-clone-element="true"
+                      class="release-environment env-locks"
                     >
-                      <button
-                        aria-label=""
-                        class="mdc-button button-lock"
+                      <div
+                        aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
+                        class=""
+                        data-mui-internal-clone-element="true"
                       >
-                        <div
-                          class="mdc-button__ripple"
-                        />
-                        <svg
-                          class="env-card-env-lock-icon"
-                          height="42px"
-                          width="30px"
+                        <button
+                          aria-label=""
+                          class="mdc-button button-lock"
                         >
-                          Locks_White.svg
-                        </svg>
-                      </button>
+                          <div
+                            class="mdc-button__ripple"
+                          />
+                          <svg
+                            class="env-card-env-lock-icon"
+                            height="24px"
+                            width="24px"
+                          >
+                            Locks_White.svg
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  </span>
                 </div>
                 <div
                   class="env-card-app-locks"
@@ -441,32 +441,32 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     <span
                       class="mdc-evolution-chip__text-numbers"
                     />
-                  </span>
-                  <div
-                    class="release-environment env-locks"
-                  >
                     <div
-                      aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
-                      class=""
-                      data-mui-internal-clone-element="true"
+                      class="release-environment env-locks"
                     >
-                      <button
-                        aria-label=""
-                        class="mdc-button button-lock"
+                      <div
+                        aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
+                        class=""
+                        data-mui-internal-clone-element="true"
                       >
-                        <div
-                          class="mdc-button__ripple"
-                        />
-                        <svg
-                          class="env-card-env-lock-icon"
-                          height="42px"
-                          width="30px"
+                        <button
+                          aria-label=""
+                          class="mdc-button button-lock"
                         >
-                          Locks_White.svg
-                        </svg>
-                      </button>
+                          <div
+                            class="mdc-button__ripple"
+                          />
+                          <svg
+                            class="env-card-env-lock-icon"
+                            height="24px"
+                            width="24px"
+                          >
+                            Locks_White.svg
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  </span>
                 </div>
                 <div
                   class="env-card-app-locks"
@@ -556,32 +556,32 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     <span
                       class="mdc-evolution-chip__text-numbers"
                     />
-                  </span>
-                  <div
-                    class="release-environment env-locks"
-                  >
                     <div
-                      aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
-                      class=""
-                      data-mui-internal-clone-element="true"
+                      class="release-environment env-locks"
                     >
-                      <button
-                        aria-label=""
-                        class="mdc-button button-lock"
+                      <div
+                        aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
+                        class=""
+                        data-mui-internal-clone-element="true"
                       >
-                        <div
-                          class="mdc-button__ripple"
-                        />
-                        <svg
-                          class="env-card-env-lock-icon"
-                          height="42px"
-                          width="30px"
+                        <button
+                          aria-label=""
+                          class="mdc-button button-lock"
                         >
-                          Locks_White.svg
-                        </svg>
-                      </button>
+                          <div
+                            class="mdc-button__ripple"
+                          />
+                          <svg
+                            class="env-card-env-lock-icon"
+                            height="24px"
+                            width="24px"
+                          >
+                            Locks_White.svg
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  </span>
                 </div>
                 <div
                   class="env-card-app-locks"

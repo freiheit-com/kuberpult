@@ -27,7 +27,7 @@ describe('EnvironmentChip', () => {
         applications: {},
     };
     const getNode = (overloads?: EnvironmentChipProps) => (
-        <EnvironmentChip className={'chip--test'} env={env} withEnvLocks={false} {...overloads} />
+        <EnvironmentChip className={'chip--test'} env={env} {...overloads} />
     );
     const getWrapper = (overloads?: EnvironmentChipProps) => render(getNode(overloads));
     it('renders a chip', () => {
@@ -50,12 +50,15 @@ describe('EnvironmentChip', () => {
                 <span
                   class="mdc-evolution-chip__text-numbers"
                 />
+                <div
+                  class="chip--test env-locks"
+                />
               </span>
             </div>
         `);
     });
     it('renders a short form tag chip', () => {
-        const { container } = getWrapper({ useFirstLetter: true } as any);
+        const { container } = getWrapper({ smallEnvChip: true } as any);
         expect(container.querySelector('.mdc-evolution-chip__text-name')?.textContent).toBe(env.name[0].toUpperCase());
     });
 });
@@ -121,7 +124,7 @@ const envGroupChipData: Array<TestDataGroups> = [
     {
         envGroup: envGroupFromPrio(Priority.PROD, 1, [envFromPrio(Priority.PROD)]),
         expectedClass: 'prod',
-        expectedNumbers: '(1/1)',
+        expectedNumbers: '(1)',
         expectedDisplayName: 'Test Me',
     },
     {

@@ -78,15 +78,18 @@ describe('Service Lane', () => {
     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
     it('Renders a row of releases', () => {
         // when
-        UpdateOverview.set({
-            environments: sampleEnvs,
-        });
         const sampleApp = {
             name: 'test2',
-            releases: [],
+            releases: [{ version: -1 }, { version: 2 }, { version: 3 }],
             sourceRepoUrl: 'http://test2.com',
             team: 'example',
-        };
+        } as any;
+        UpdateOverview.set({
+            environments: sampleEnvs,
+            applications: {
+                test2: sampleApp,
+            },
+        });
         getWrapper({ application: sampleApp });
 
         // then releases are sorted and Release card is called with props:
@@ -288,10 +291,10 @@ describe('Service Lane Diff', () => {
             const { container } = getWrapper({ application: sampleApp });
 
             // check for the diff between versions
-            if (testcase.diff === '-1') {
-                expect(document.querySelector('.service-lane__diff_number') === undefined);
+            if (testcase.diff === '-1' || testcase.diff === '0') {
+                expect(document.querySelector('.service-lane__diff--number') === undefined);
             } else {
-                expect(container.querySelector('.service-lane__diff_number')?.textContent).toContain(testcase.diff);
+                expect(container.querySelector('.service-lane__diff--number')?.textContent).toContain(testcase.diff);
             }
         });
     });
