@@ -39,7 +39,9 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     const name = props.groupNameOverride ? props.groupNameOverride : env.name;
     const numberString =
         props.numberEnvsDeployed && props.numberEnvsInGroup
-            ? '(' + props.numberEnvsDeployed + '/' + props.numberEnvsInGroup + ')'
+            ? props.numberEnvsDeployed !== props.numberEnvsInGroup
+                ? '(' + props.numberEnvsDeployed + '/' + props.numberEnvsInGroup + ')'
+                : '(' + props.numberEnvsInGroup + ')' // when all envs are deployed, only show the total number on envs
             : '';
     const locks = props.withEnvLocks ? (
         <div className={classNames(className, 'env-locks')}>
@@ -118,11 +120,7 @@ export type EnvChipListProps = {
 export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
     const deployedAt = useCurrentlyDeployedAtGroup(props.app, props.version);
     return (
-        <div
-            className={classNames(
-                'env-group-chip-list-test',
-                deployedAt.length === 0 ? 'release__environments--empty' : ''
-            )}>
+        <div className={'env-group-chip-list-test'}>
             {' '}
             {deployedAt.map((envGroup) => (
                 <EnvironmentGroupChip
