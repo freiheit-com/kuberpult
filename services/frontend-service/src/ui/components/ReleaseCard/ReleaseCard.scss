@@ -48,6 +48,7 @@
   .mdc-evolution-chip__cell {
     @extend .sub-headline1;
     color: $environment-label-color;
+    overflow: hidden;
   }
 }
 .release-environment.release-environment-prod {

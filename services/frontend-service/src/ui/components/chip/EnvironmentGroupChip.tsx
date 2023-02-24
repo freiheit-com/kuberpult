@@ -28,12 +28,11 @@ export type EnvironmentChipProps = {
     groupNameOverride?: string;
     numberEnvsDeployed?: number;
     numberEnvsInGroup?: number;
-    withEnvLocks: boolean;
-    useFirstLetter?: boolean;
+    smallEnvChip?: boolean;
 };
 
 export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
-    const { className, env, useFirstLetter } = props;
+    const { className, env, smallEnvChip } = props;
     const priority = env.priority;
     const priorityClassName = className + '-' + String(EnvPrio[priority]).toLowerCase();
     const name = props.groupNameOverride ? props.groupNameOverride : env.name;
@@ -43,7 +42,7 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
                 ? '(' + props.numberEnvsDeployed + '/' + props.numberEnvsInGroup + ')'
                 : '(' + props.numberEnvsInGroup + ')' // when all envs are deployed, only show the total number on envs
             : '';
-    const locks = props.withEnvLocks ? (
+    const locks = !smallEnvChip ? (
         <div className={classNames(className, 'env-locks')}>
             {Object.values(env.locks).map((lock) => (
                 <Tooltip
@@ -52,23 +51,29 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
                     title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}>
                     <div>
                         <Button
-                            icon={<LocksWhite className="env-card-env-lock-icon" width="30px" height="42px" />}
+                            icon={<LocksWhite className="env-card-env-lock-icon" width="24px" height="24px" />}
                             className={'button-lock'}
                         />
                     </div>
                 </Tooltip>
             ))}
         </div>
-    ) : null;
+    ) : (
+        !!Object.entries(env.locks).length && (
+            <div className={classNames(className, 'env-locks')}>
+                <LocksWhite className="env-card-env-lock-icon" width="18px" height="18px" />
+            </div>
+        )
+    );
     return (
         <div className={classNames('mdc-evolution-chip', className, priorityClassName)} role="row">
             <span
                 className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
                 role="gridcell">
-                <span className="mdc-evolution-chip__text-name">{useFirstLetter ? name[0].toUpperCase() : name}</span>{' '}
+                <span className="mdc-evolution-chip__text-name">{smallEnvChip ? name[0].toUpperCase() : name}</span>{' '}
                 <span className="mdc-evolution-chip__text-numbers">{numberString}</span>
+                {locks}
             </span>
-            {locks}
         </div>
     );
 };
@@ -76,9 +81,9 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
 export const EnvironmentGroupChip = (props: {
     className: string;
     envGroup: EnvironmentGroupExtended;
-    useFirstLetter?: boolean;
+    smallEnvChip?: boolean;
 }): JSX.Element => {
-    const { className, envGroup, useFirstLetter } = props;
+    const { className, envGroup, smallEnvChip } = props;
 
     // we display it different if there's only one env in this group:
     const displayAsGroup = envGroup.environments.length >= 2;
@@ -91,8 +96,7 @@ export const EnvironmentGroupChip = (props: {
                     groupNameOverride={envGroup.environmentGroupName}
                     numberEnvsDeployed={envGroup.environments.length}
                     numberEnvsInGroup={envGroup.numberOfEnvsInGroup}
-                    withEnvLocks={false}
-                    useFirstLetter={useFirstLetter}
+                    smallEnvChip={smallEnvChip}
                 />
             </div>
         );
@@ -105,8 +109,7 @@ export const EnvironmentGroupChip = (props: {
             groupNameOverride={undefined}
             numberEnvsDeployed={1}
             numberEnvsInGroup={envGroup.numberOfEnvsInGroup}
-            withEnvLocks={false}
-            useFirstLetter={useFirstLetter}
+            smallEnvChip={smallEnvChip}
         />
     );
 };
@@ -114,7 +117,7 @@ export const EnvironmentGroupChip = (props: {
 export type EnvChipListProps = {
     version: number;
     app: string;
-    useFirstLetter?: boolean;
+    smallEnvChip?: boolean;
 };
 
 export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
@@ -127,7 +130,7 @@ export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
                     key={envGroup.environmentGroupName}
                     envGroup={envGroup}
                     className={'release-environment'}
-                    useFirstLetter={props.useFirstLetter}
+                    smallEnvChip={props.smallEnvChip}
                 />
             ))}{' '}
         </div>
