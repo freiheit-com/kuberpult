@@ -131,8 +131,8 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
 			},
-			expectedBody:                "{\"upstream\":\"production\",\"targetEnv\":\"development\"}",
-			expectedReleaseTrainRequest: &api.ReleaseTrainRequest{Environment: "development"},
+			expectedBody:                "{\"target\":\"development\"}",
+			expectedReleaseTrainRequest: &api.ReleaseTrainRequest{Target: "development"},
 		},
 		{
 			name: "release train but wrong method",
@@ -174,8 +174,8 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
 			},
-			expectedBody:                "{\"upstream\":\"production\",\"targetEnv\":\"development\"}",
-			expectedReleaseTrainRequest: &api.ReleaseTrainRequest{Environment: "development"},
+			expectedBody:                "{\"target\":\"development\"}",
+			expectedReleaseTrainRequest: &api.ReleaseTrainRequest{Target: "development"},
 		},
 		{
 			name:             "release train - Azure enabled - missing signature",
@@ -830,7 +830,7 @@ func (m *mockDeployClient) Deploy(_ context.Context, in *api.DeployRequest, _ ..
 
 func (m *mockDeployClient) ReleaseTrain(_ context.Context, in *api.ReleaseTrainRequest, _ ...grpc.CallOption) (*api.ReleaseTrainResponse, error) {
 	m.releaseTrainRequest = in
-	return &api.ReleaseTrainResponse{TargetEnv: in.Environment, Upstream: "production"}, nil
+	return &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team}, nil
 }
 
 type mockLockClient struct {
