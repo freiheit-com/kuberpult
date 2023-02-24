@@ -838,7 +838,6 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 	for env, config := range configs {
 		if config.EnvironmentGroup != nil && *config.EnvironmentGroup == targetGroupName {
 			envGroupConfigs[env] = config
-			fmt.Println()
 		}
 	}
 	if len(envGroupConfigs) == 0 {
