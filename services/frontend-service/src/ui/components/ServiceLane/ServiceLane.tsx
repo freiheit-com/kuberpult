@@ -41,7 +41,7 @@ const getReleasesToDisplay = (deployedReleases: number[], allReleases: number[])
 };
 
 function getNumberOfReleasesBetween(releases: number[], higherVersion: number, lowerVersion: number): number {
-    // = index of lower version (older release) - index of lower version (newer release) - 1
+    // diff = index of lower version (older release) - index of higher version (newer release) - 1
     return releases.findIndex((ver) => ver === lowerVersion) - releases.findIndex((ver) => ver === higherVersion) - 1;
 }
 
