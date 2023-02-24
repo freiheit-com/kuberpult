@@ -467,3 +467,6 @@ export const useReleasesForApp = (app: string): Release[] =>
             a.version === -1 ? -1 : b.version === -1 ? 1 : b.version - a.version
         )
     );
+
+// Get all release versions for an app
+export const useVersionsForApp = (app: string): number[] => useReleasesForApp(app).map((rel) => rel.version);

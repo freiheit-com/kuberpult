@@ -13,11 +13,11 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { useDeployedReleases, useReleasesForApp } from '../../utils/store';
+import { useDeployedReleases, useVersionsForApp } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { Button } from '../button';
 import { DeleteWhite, HistoryWhite } from '../../../images';
-import { Application, Release } from '../../../api/api';
+import { Application } from '../../../api/api';
 import { Tooltip } from '@material-ui/core';
 import { useNavigate } from 'react-router-dom';
 import * as React from 'react';
@@ -25,62 +25,47 @@ import * as React from 'react';
 // number of releases on home. based on design
 const numberOfDisplayedReleasesOnHome = 6;
 
-const getAllDisplayedReleases = (deployedReleases: number[], allReleases: number[]): number[] => {
+const getReleasesToDisplay = (deployedReleases: number[], allReleases: number[]): number[] => {
     // number of remaining releases to get from history
     const numOfTrailingReleases = numberOfDisplayedReleasesOnHome - deployedReleases.length;
-    // last deployed release e.g. Prod
-    const oldestDeployedRelease = deployedReleases[deployedReleases.length - 1];
-
-    const allDisplayedReleases = deployedReleases;
-    // go over the remaining spots and fill from history
-    for (let i = 1; i <= numOfTrailingReleases; i++) {
-        const index = allReleases.indexOf(oldestDeployedRelease) + i;
-        if (index >= allReleases.length) break;
-        allDisplayedReleases.push(allReleases[index]);
-    }
-    return allDisplayedReleases;
+    // find the index of the last deployed release e.g. Prod
+    const oldestDeployedReleaseIndex = deployedReleases.length
+        ? allReleases.findIndex((version) => version === deployedReleases.slice(-1)[0])
+        : 0;
+    // take the deployed releases + a slice from the oldest element with total length 6
+    return [
+        ...deployedReleases,
+        ...allReleases.slice(oldestDeployedReleaseIndex + 1, oldestDeployedReleaseIndex + numOfTrailingReleases + 1),
+    ];
 };
 
-function getNumberOfReleasesBetween(releases: Array<Release>, lowerVersion: number, higherVersion: number): number {
-    let diff = 0;
-    let count = false;
-    if (!releases) {
-        return diff;
-    }
-
-    for (const release of releases) {
-        if (release.version === higherVersion) {
-            break;
-        }
-        if (count) {
-            diff += 1;
-        }
-        if (release.version === lowerVersion) {
-            count = true;
-        }
-    }
-    return diff;
+function getNumberOfReleasesBetween(releases: number[], higherVersion: number, lowerVersion: number): number {
+    // = index of lower version (older release) - index of lower version (newer release) - 1
+    return releases.findIndex((ver) => ver === lowerVersion) - releases.findIndex((ver) => ver === higherVersion) - 1;
 }
 
 export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const { application } = props;
     const deployedReleases = useDeployedReleases(application.name);
-    const all_releases = useReleasesForApp(application.name);
+    const allReleases = useVersionsForApp(application.name);
     const navigate = useNavigate();
     const navigateToReleases = React.useCallback(() => {
         navigate('releases/' + application.name);
     }, [application.name, navigate]);
-    const releases = getAllDisplayedReleases(
-        deployedReleases,
-        all_releases.map((rel) => rel.version)
-    );
+    const releases = getReleasesToDisplay(deployedReleases, allReleases);
 
     const releases_lane =
         !!releases &&
         releases.map((rel, index) => {
-            const diff = index > 0 ? getNumberOfReleasesBetween(all_releases, releases[index - 1], rel) : 0;
+            // diff is releases between current card and the next.
+            // for the last card, diff is number of remaining releases in history
+            const diff =
+                index < releases.length - 1
+                    ? getNumberOfReleasesBetween(allReleases, rel, releases[index + 1])
+                    : getNumberOfReleasesBetween(allReleases, rel, allReleases.slice(-1)[0]) + 1;
             return (
-                <div key={application + '-' + rel} className="service-lane__diff">
+                <div key={application.name + '-' + rel} className="service-lane__diff">
+                    <ReleaseCard app={application.name} version={rel} key={application.name + '-' + rel} />
                     {!!diff && (
                         <Tooltip
                             title={
@@ -94,7 +79,6 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                             <div className="service-lane__diff_number">{diff}</div>
                         </Tooltip>
                     )}
-                    <ReleaseCard app={application.name} version={rel} key={application + '-' + rel} />
                 </div>
             );
         });
