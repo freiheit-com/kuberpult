@@ -11,6 +11,7 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 * Added warning if there are no envs configured during startup [#502](https://github.com/freiheit-com/kuberpult/pull/502)
 * Update homepage design, add Tooltip, fix bug with date [#496](https://github.com/freiheit-com/kuberpult/pull/496)
 * Added environment group release train [#504](https://github.com/freiheit-com/kuberpult/pull/504)
+* Update release card design, show more releases on home [#503](https://github.com/freiheit-com/kuberpult/pull/503)
 
 ## 0.4.56
 **released 2023-02-20**
