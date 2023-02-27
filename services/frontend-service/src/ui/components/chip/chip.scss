@@ -6,6 +6,12 @@
         padding-left: 7px;
         padding-right: 7px;
     }
+    .env-locks {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        padding-right: -7px;
+    }
 }
 
 span.mdc-evolution-chip button.mdc-evolution-chip__action span.mdc-evolution-chip__text-label {

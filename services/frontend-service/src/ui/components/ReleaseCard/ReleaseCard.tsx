@@ -101,7 +101,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
         <Tooltip id={app + version} content={tooltipContents}>
             <div className="release-card__container">
                 <div className="release__environments">
-                    <EnvironmentGroupChipList app={props.app} version={props.version} useFirstLetter />
+                    <EnvironmentGroupChipList app={props.app} version={props.version} smallEnvChip />
                 </div>
                 <div className={classNames('mdc-card release-card', className)}>
                     <div
