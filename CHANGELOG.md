@@ -6,8 +6,13 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
-## 0.4.56
+## 0.4.57
+**released 2023-02-27**
+* Added warning if there are no envs configured during startup [#502](https://github.com/freiheit-com/kuberpult/pull/502)
+* Update homepage design, add Tooltip, fix bug with date [#496](https://github.com/freiheit-com/kuberpult/pull/496)
+* Added environment group release train [#504](https://github.com/freiheit-com/kuberpult/pull/504)
 
+## 0.4.56
 **released 2023-02-20**
 * Improved error handling for release trains [#482](https://github.com/freiheit-com/kuberpult/pull/482)
 * Display queued version in v2 release dialog [#491](https://github.com/freiheit-com/kuberpult/pull/491)
