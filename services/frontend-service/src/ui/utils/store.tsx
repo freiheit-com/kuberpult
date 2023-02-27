@@ -56,8 +56,14 @@ export const [useSidebar, UpdateSidebar] = createStore({ shown: false });
 
 export const useSidebarShown = (): boolean => useSidebar(({ shown }) => shown);
 
+export const getNumberOfActions = (): number => UpdateAction.get().actions.length;
+
 export const updateActions = (actions: BatchAction[]): void => {
     deleteAllActions();
+    actions.forEach((action) => addAction(action));
+};
+
+export const appendAction = (actions: BatchAction[]): void => {
     actions.forEach((action) => addAction(action));
 };
 
@@ -152,21 +158,24 @@ export const addAction = (action: BatchAction): void => {
                 return;
             break;
     }
-    updateActionsNumber(true);
     UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
+    updateActionsNumber(UpdateAction.get().actions.length);
 };
 
 export const updateReleaseDialog = (app: string, version: number): void => {
     UpdateReleaseDialog.set({ app: app, version: version });
 };
-export const deleteAllActions = (): void => UpdateAction.set({ actions: [] });
+export const deleteAllActions = (): void => {
+    UpdateAction.set({ actions: [] });
+    updateActionsNumber(UpdateAction.get().actions.length);
+};
 
 export const deleteAction = (action: BatchAction): void => {
     UpdateAction.set(({ actions }) => ({
         // create comparison function
         actions: actions.filter((act) => JSON.stringify(act).localeCompare(JSON.stringify(action))),
     }));
-    updateActionsNumber(false);
+    updateActionsNumber(UpdateAction.get().actions.length);
 };
 // returns all application names
 // doesn't return empty team names (i.e.: '')

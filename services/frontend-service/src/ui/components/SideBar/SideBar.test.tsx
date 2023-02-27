@@ -24,8 +24,10 @@ import {
     updateActions,
     deleteAllActions,
     UpdateOverview,
+    appendAction,
+    getNumberOfActions,
 } from '../../utils/store';
-import { ActionDetails, ActionTypes, getActionDetails, SideBar, clearActionsNumber } from './SideBar';
+import { ActionDetails, ActionTypes, getActionDetails, getTitle, SideBar } from './SideBar';
 
 describe('Show and Hide Sidebar', () => {
     interface dataT {
@@ -612,10 +614,9 @@ describe('Action details', () => {
 
         describe.each(data)('', (testcase) => {
             it(testcase.name, () => {
-                clearActionsNumber();
-                const { container } = getWrapper({});
                 updateActions(testcase.actions);
-                expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].innerHTML).toBe(
+                const { container } = getWrapper({});
+                expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].textContent).toBe(
                     testcase.expectedTitle
                 );
             });
@@ -630,25 +631,38 @@ describe('Action details', () => {
 
         const data: dataT[] = [
             {
-                name: 'Create initially 2 actions',
+                name: 'add 2 actions',
                 actions: [
                     { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
                     { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
                 ],
-                expectedTitle: 'Planned Actions (2)',
+                expectedTitle: 'Planned Actions (3)',
             },
             {
                 name: 'Add another action',
-                actions: [{ action: { $case: 'undeploy', undeploy: { application: 'nmww' } } }],
-                expectedTitle: 'Planned Actions (3)',
+                actions: [
+                    {
+                        action: {
+                            $case: 'deploy',
+                            deploy: {
+                                environment: 'foo',
+                                application: 'bread',
+                                version: 1337,
+                                ignoreAllLocks: false,
+                                lockBehavior: LockBehavior.Ignore,
+                            },
+                        },
+                    },
+                ],
+                expectedTitle: 'Planned Actions (4)',
             },
             {
                 name: 'Add 2 more actions actions',
                 actions: [
-                    { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                    { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                    { action: { $case: 'undeploy', undeploy: { application: 'test2' } } },
+                    { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'test2' } } },
                 ],
-                expectedTitle: 'Planned Actions (5)',
+                expectedTitle: 'Planned Actions (6)',
             },
         ];
 
@@ -664,32 +678,39 @@ describe('Action details', () => {
             );
         };
         const getWrapper = (overrides?: {}) => render(getNode(overrides));
-
+        it('Create an action initially', () => {
+            updateActions([{ action: { $case: 'undeploy', undeploy: { application: 'test' } } }]);
+            const { container } = getWrapper({});
+            expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].textContent).toBe(
+                'Planned Actions (1)'
+            );
+        });
         describe.each(data)('', (testcase) => {
-            clearActionsNumber();
             it(testcase.name, () => {
+                appendAction(testcase.actions);
                 const { container } = getWrapper({});
-                updateActions(testcase.actions);
-                expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].innerHTML).toBe(
+                expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].textContent).toBe(
                     testcase.expectedTitle
                 );
             });
         });
         describe('Deleting an action from the cart', () => {
             it('Test deleting an an action', () => {
-                const { container } = getWrapper({});
+                let expected = 'Planned Actions';
                 updateActions([{ action: { $case: 'undeploy', undeploy: { application: 'nmww' } } }]);
+                appendAction([{ action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } }]);
                 // Here we expect the value to be Planned Actions (x)
-                const textValue = container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].innerHTML;
-                const numberOfActions = textValue.substring(textValue.indexOf('(') + 1, textValue.indexOf(')'));
+                const numberOfActions = getNumberOfActions();
+                if (numberOfActions > 1) {
+                    expected = 'Planned Actions (' + (numberOfActions - 1) + ')';
+                }
+                const { container } = getWrapper({});
                 const svg = container.getElementsByClassName('mdc-drawer-sidebar-list-item-delete-icon')[0];
                 if (svg) {
                     const button = svg.parentElement;
                     if (button) button.click();
                 }
-                expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].innerHTML).toBe(
-                    'Planned Actions (' + (parseInt(numberOfActions) - 1) + ')'
-                );
+                expect(getTitle()).toBe(expected);
             });
         });
     });

@@ -54,23 +54,13 @@ export type ActionDetails = {
     lockMessage?: string;
     version?: number;
 };
-let totalActions = 0;
-export const clearActionsNumber = (): void => {
-    totalActions = 0;
-    const elem = document.getElementsByClassName('mdc-drawer-sidebar-header-title');
-    if (elem[0]) {
-        elem[0].innerHTML = 'Planned Actions';
-    }
-};
-export const updateActionsNumber = (added: boolean): void => {
-    added ? (totalActions += 1) : (totalActions -= 1);
-    const elem = document.getElementsByClassName('mdc-drawer-sidebar-header-title');
-    if (elem[0]) {
-        if (totalActions > 0) {
-            elem[0].innerHTML = 'Planned Actions (' + totalActions + ')';
-        } else {
-            elem[0].innerHTML = 'Planned Actions';
-        }
+let title = 'Planned Actions';
+export const getTitle = (): string => title;
+export const updateActionsNumber = (numActions: number): void => {
+    if (numActions > 0) {
+        title = 'Planned Actions (' + numActions + ')';
+    } else {
+        title = 'Planned Actions';
     }
 };
 export const getActionDetails = (
@@ -254,7 +244,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                 deleteAllActions();
             });
         handleClose();
-        clearActionsNumber();
+        updateActionsNumber(0);
     }, [actions, api, handleClose, lockCreationList, lockMessage]);
 
     const newLockExists = useMemo(() => lockCreationList.length !== 0, [lockCreationList.length]);
@@ -277,7 +267,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                         icon={<HideBarWhite />}
                         onClick={toggleSidebar}
                     />
-                    <h1 className="mdc-drawer-sidebar mdc-drawer-sidebar-header-title">Planned Actions</h1>
+                    <h1 className="mdc-drawer-sidebar mdc-drawer-sidebar-header-title">{title}</h1>
                 </div>
                 <nav className="mdc-drawer-sidebar mdc-drawer-sidebar-content">
                     <div className="mdc-drawer-sidebar mdc-drawer-sidebar-list">
