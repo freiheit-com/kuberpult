@@ -23,6 +23,7 @@ import {
     useApplicationLockIDs,
     useEnvironmentLockIDs,
     useApplicationLock,
+    useNumberOfActions,
 } from '../../utils/store';
 import { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -54,15 +55,7 @@ export type ActionDetails = {
     lockMessage?: string;
     version?: number;
 };
-let title = 'Planned Actions';
-export const getTitle = (): string => title;
-export const updateActionsNumber = (numActions: number): void => {
-    if (numActions > 0) {
-        title = 'Planned Actions (' + numActions + ')';
-    } else {
-        title = 'Planned Actions';
-    }
-};
+
 export const getActionDetails = (
     { action }: BatchAction,
     appLockIDs: string[],
@@ -219,7 +212,13 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
 
     const handleClose = useCallback(() => setOpen(false), []);
     const handleOpen = (): void => setOpen(true);
-
+    let title = 'Planned Actions';
+    const numActions = useNumberOfActions();
+    if (numActions > 0) {
+        title = 'Planned Actions (' + numActions + ')';
+    } else {
+        title = 'Planned Actions';
+    }
     const lockCreationList = actions.filter(
         (action) =>
             action.action?.$case === 'createEnvironmentLock' ||
@@ -244,7 +243,6 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                 deleteAllActions();
             });
         handleClose();
-        updateActionsNumber(0);
     }, [actions, api, handleClose, lockCreationList, lockMessage]);
 
     const newLockExists = useMemo(() => lockCreationList.length !== 0, [lockCreationList.length]);

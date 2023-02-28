@@ -25,9 +25,8 @@ import {
     deleteAllActions,
     UpdateOverview,
     appendAction,
-    getNumberOfActions,
 } from '../../utils/store';
-import { ActionDetails, ActionTypes, getActionDetails, getTitle, SideBar } from './SideBar';
+import { ActionDetails, ActionTypes, getActionDetails, SideBar } from './SideBar';
 
 describe('Show and Hide Sidebar', () => {
     interface dataT {
@@ -696,21 +695,19 @@ describe('Action details', () => {
         });
         describe('Deleting an action from the cart', () => {
             it('Test deleting an an action', () => {
-                let expected = 'Planned Actions';
                 updateActions([{ action: { $case: 'undeploy', undeploy: { application: 'nmww' } } }]);
                 appendAction([{ action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } }]);
-                // Here we expect the value to be Planned Actions (x)
-                const numberOfActions = getNumberOfActions();
-                if (numberOfActions > 1) {
-                    expected = 'Planned Actions (' + (numberOfActions - 1) + ')';
-                }
+                // Here we expect the value to be Planned Actions (1)
+                const expected = 'Planned Actions (1)';
                 const { container } = getWrapper({});
                 const svg = container.getElementsByClassName('mdc-drawer-sidebar-list-item-delete-icon')[0];
                 if (svg) {
                     const button = svg.parentElement;
                     if (button) button.click();
                 }
-                expect(getTitle()).toBe(expected);
+                expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].textContent).toBe(
+                    expected
+                );
             });
         });
     });

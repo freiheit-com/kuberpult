@@ -26,7 +26,6 @@ import {
 import { useApi } from './GrpcApi';
 import { useMemo } from 'react';
 import { Empty } from '../../google/protobuf/empty';
-import { updateActionsNumber } from '../components/SideBar/SideBar';
 
 export interface DisplayLock {
     date: Date;
@@ -56,7 +55,7 @@ export const [useSidebar, UpdateSidebar] = createStore({ shown: false });
 
 export const useSidebarShown = (): boolean => useSidebar(({ shown }) => shown);
 
-export const getNumberOfActions = (): number => UpdateAction.get().actions.length;
+export const useNumberOfActions = (): number => useAction(({ actions }) => actions.length);
 
 export const updateActions = (actions: BatchAction[]): void => {
     deleteAllActions();
@@ -159,7 +158,7 @@ export const addAction = (action: BatchAction): void => {
             break;
     }
     UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
-    updateActionsNumber(UpdateAction.get().actions.length);
+    UpdateSidebar.set({ shown: true });
 };
 
 export const updateReleaseDialog = (app: string, version: number): void => {
@@ -167,7 +166,6 @@ export const updateReleaseDialog = (app: string, version: number): void => {
 };
 export const deleteAllActions = (): void => {
     UpdateAction.set({ actions: [] });
-    updateActionsNumber(UpdateAction.get().actions.length);
 };
 
 export const deleteAction = (action: BatchAction): void => {
@@ -175,7 +173,6 @@ export const deleteAction = (action: BatchAction): void => {
         // create comparison function
         actions: actions.filter((act) => JSON.stringify(act).localeCompare(JSON.stringify(action))),
     }));
-    updateActionsNumber(UpdateAction.get().actions.length);
 };
 // returns all application names
 // doesn't return empty team names (i.e.: '')

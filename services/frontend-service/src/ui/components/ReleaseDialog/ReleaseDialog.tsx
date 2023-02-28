@@ -17,7 +17,7 @@ import { Dialog, Tooltip } from '@material-ui/core';
 import classNames from 'classnames';
 import React, { useCallback } from 'react';
 import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
-import { addAction, updateReleaseDialog, UpdateSidebar, useOverview } from '../../utils/store';
+import { addAction, updateReleaseDialog, useOverview } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
@@ -92,7 +92,6 @@ export const EnvironmentListItem: React.FC<{
                     },
                 },
             });
-            UpdateSidebar.set({ shown: true });
         }
     }, [app, env.name, release.version]);
     const createAppLock = useCallback(() => {
@@ -109,7 +108,6 @@ export const EnvironmentListItem: React.FC<{
                 },
             },
         });
-        UpdateSidebar.set({ shown: true });
     }, [app, env.name]);
     const queueInfo =
         queuedVersion === 0 ? null : (
