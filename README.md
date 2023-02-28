@@ -82,7 +82,8 @@ See `k8s-jenkins-cac.tf` in your project.
 ### Environments
 
 There are 2 environments involved:
-* *target*: this is where the services will be deployed (where the version changes happen).
+* *target*:  this is where the services will be deployed (where the version changes happen), *target* can be either a single `environment` or `environmentGroup`
+in the case of `environmentGroup` the train will run for all environments belonging to this `environmentGroup`, if one of those environments fails, the train will fail too.
 * *upstream*: this is where the system tests are run. It is also the source for the *versions* of the apps.
 
 ---
