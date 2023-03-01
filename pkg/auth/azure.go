@@ -162,20 +162,19 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 		}
 	}
 
-	// Skip azure authentication with ID for `/` (POST: createEnv), `/releasetrain` and `/locks`  endpoints. The requests will be validated with pgp signature
+	// Skip azure authentication with ID for `/` (POST: createEnv), `/release`, `/releasetrain` and `/locks`  endpoints. The requests will be validated with pgp signature
 	// usage in requests from outside the cluster (e.g. by GitHub Actions and the publish.sh script).
 	group, tail := xpath.Shift(req.URL.Path)
 	if group == "environments" {
 		envName, tail := xpath.Shift(tail)
-		fmt.Println(group, envName, tail)
-		if envName != "" { // We should receive an empty env, added just as a second layer of validation
+		if envName != "" { // We shouldn't receive an empty env, added just as a second layer of validation
 			function, tail := xpath.Shift(tail)
 			switch function {
 			case "locks":
 				return nil
 			case "releasetrain":
 				return nil
-			case "":
+			case "": // create environment
 				if tail == "/" && req.Method == http.MethodPost {
 					return nil
 				}
