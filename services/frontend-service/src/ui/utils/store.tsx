@@ -51,8 +51,18 @@ export const useApplyActions = (): Promise<Empty> => useApi.batchService().Proce
 
 export const useActions = (): BatchAction[] => useAction(({ actions }) => actions);
 
+export const [useSidebar, UpdateSidebar] = createStore({ shown: false });
+
+export const useSidebarShown = (): boolean => useSidebar(({ shown }) => shown);
+
+export const useNumberOfActions = (): number => useAction(({ actions }) => actions.length);
+
 export const updateActions = (actions: BatchAction[]): void => {
     deleteAllActions();
+    actions.forEach((action) => addAction(action));
+};
+
+export const appendAction = (actions: BatchAction[]): void => {
     actions.forEach((action) => addAction(action));
 };
 
@@ -147,21 +157,23 @@ export const addAction = (action: BatchAction): void => {
                 return;
             break;
     }
-
     UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
+    UpdateSidebar.set({ shown: true });
 };
 
 export const updateReleaseDialog = (app: string, version: number): void => {
     UpdateReleaseDialog.set({ app: app, version: version });
 };
-export const deleteAllActions = (): void => UpdateAction.set({ actions: [] });
+export const deleteAllActions = (): void => {
+    UpdateAction.set({ actions: [] });
+};
 
-export const deleteAction = (action: BatchAction): void =>
+export const deleteAction = (action: BatchAction): void => {
     UpdateAction.set(({ actions }) => ({
         // create comparison function
         actions: actions.filter((act) => JSON.stringify(act).localeCompare(JSON.stringify(action))),
     }));
-
+};
 // returns all application names
 // doesn't return empty team names (i.e.: '')
 // doesn't return repeated team names

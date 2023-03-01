@@ -23,6 +23,7 @@ import {
     useApplicationLockIDs,
     useEnvironmentLockIDs,
     useApplicationLock,
+    useNumberOfActions,
 } from '../../utils/store';
 import { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -211,7 +212,13 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
 
     const handleClose = useCallback(() => setOpen(false), []);
     const handleOpen = (): void => setOpen(true);
-
+    let title = 'Planned Actions';
+    const numActions = useNumberOfActions();
+    if (numActions > 0) {
+        title = 'Planned Actions (' + numActions + ')';
+    } else {
+        title = 'Planned Actions';
+    }
     const lockCreationList = actions.filter(
         (action) =>
             action.action?.$case === 'createEnvironmentLock' ||
@@ -258,7 +265,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                         icon={<HideBarWhite />}
                         onClick={toggleSidebar}
                     />
-                    <h1 className="mdc-drawer-sidebar mdc-drawer-sidebar-header-title">Planned Actions</h1>
+                    <h1 className="mdc-drawer-sidebar mdc-drawer-sidebar-header-title">{title}</h1>
                 </div>
                 <nav className="mdc-drawer-sidebar mdc-drawer-sidebar-content">
                     <div className="mdc-drawer-sidebar mdc-drawer-sidebar-list">
