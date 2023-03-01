@@ -247,35 +247,83 @@ func TestHttpMiddleware(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		Path          string
+		Method        string
 		ExpectedError string
 		Authenticated bool
 	}{
 		{
 			Name:          "root path",
 			Path:          "/",
+			Method:        http.MethodGet,
 			ExpectedError: "",
 		},
 		{
 			Name:          "js path",
 			Path:          "/static/js/content.js",
+			Method:        http.MethodGet,
 			ExpectedError: "",
 		},
 		{
 			Name:          "css path",
 			Path:          "/static/css/content.css",
+			Method:        http.MethodGet,
 			ExpectedError: "",
 		},
 		{
 			Name:          "api call",
-			Path:          "/environment/production/locks/999",
-			ExpectedError: "Failed to parse the JWT.\nError: token contains an invalid number of segments",
+			Path:          "/environments/production/locks/999",
+			Method:        http.MethodGet,
+			ExpectedError: "",
 			Authenticated: false,
 		},
 		{
 			Name:          "api call",
-			Path:          "/environment/production/locks/999",
+			Path:          "/environments/production/locks/999",
+			Method:        http.MethodGet,
 			ExpectedError: "",
 			Authenticated: true,
+		},
+		{
+			Name:          "api call create environment POST",
+			Path:          "/environments/dev",
+			Method:        http.MethodPost,
+			ExpectedError: "",
+			Authenticated: false,
+		},
+		{
+			Name:          "api call create environment GET",
+			Path:          "/environments/dev",
+			Method:        http.MethodGet,
+			ExpectedError: "Failed to parse the JWT.\nError: token contains an invalid number of segments",
+			Authenticated: false,
+		},
+		{
+			Name:          "api call create environment wrong url",
+			Path:          "/environments/dev/something",
+			Method:        http.MethodPost,
+			ExpectedError: "Failed to parse the JWT.\nError: token contains an invalid number of segments",
+			Authenticated: false,
+		},
+		{
+			Name:          "api call create environment another wrong url GET",
+			Path:          "/environments/something/dev",
+			Method:        http.MethodPost,
+			ExpectedError: "Failed to parse the JWT.\nError: token contains an invalid number of segments",
+			Authenticated: false,
+		},
+		{
+			Name:          "api call create environment another wrong url POST",
+			Path:          "/environments/something/dev",
+			Method:        http.MethodPost,
+			ExpectedError: "Failed to parse the JWT.\nError: token contains an invalid number of segments",
+			Authenticated: false,
+		},
+		{
+			Name:          "api call create environment - no env",
+			Path:          "/environments/",
+			Method:        http.MethodPost,
+			ExpectedError: "Failed to parse the JWT.\nError: token contains an invalid number of segments",
+			Authenticated: false,
 		},
 	}
 
@@ -285,7 +333,7 @@ func TestHttpMiddleware(t *testing.T) {
 			t.Parallel()
 			r := strings.NewReader("Test message incoming")
 			sr := io.Reader(r)
-			req, err := http.NewRequest("GET", tc.Path, sr)
+			req, err := http.NewRequest(tc.Method, tc.Path, sr)
 			if err != nil {
 				t.Fatal(err)
 			}
