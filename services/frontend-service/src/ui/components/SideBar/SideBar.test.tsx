@@ -24,8 +24,9 @@ import {
     updateActions,
     deleteAllActions,
     UpdateOverview,
+    appendAction,
 } from '../../utils/store';
-import { ActionDetails, ActionTypes, getActionDetails } from './SideBar';
+import { ActionDetails, ActionTypes, getActionDetails, SideBar } from './SideBar';
 
 describe('Show and Hide Sidebar', () => {
     interface dataT {
@@ -563,6 +564,151 @@ describe('Action details', () => {
             const obtainedDetails = renderHook(() => getActionDetails(testcase.action, appLocks, envLocks)).result
                 .current;
             expect(obtainedDetails).toStrictEqual(testcase.expectedDetails);
+        });
+    });
+
+    describe('Sidebar shows the number of planned actions', () => {
+        interface dataT {
+            name: string;
+            actions: BatchAction[];
+            expectedTitle: string;
+        }
+
+        const data: dataT[] = [
+            {
+                name: '2 results',
+                actions: [
+                    { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                    { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                ],
+                expectedTitle: 'Planned Actions (2)',
+            },
+            {
+                name: '1 results, repeated',
+                actions: [
+                    { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                    { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                ],
+                expectedTitle: 'Planned Actions (1)',
+            },
+            {
+                name: '0 results',
+                actions: [],
+                expectedTitle: 'Planned Actions',
+            },
+        ];
+
+        const getNode = (overrides?: {}): JSX.Element | any => {
+            // given
+            const defaultProps: any = {
+                children: null,
+            };
+            return (
+                <MemoryRouter>
+                    <SideBar {...defaultProps} {...overrides} />
+                </MemoryRouter>
+            );
+        };
+        const getWrapper = (overrides?: {}) => render(getNode(overrides));
+
+        describe.each(data)('', (testcase) => {
+            it(testcase.name, () => {
+                updateActions(testcase.actions);
+                const { container } = getWrapper({});
+                expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].textContent).toBe(
+                    testcase.expectedTitle
+                );
+            });
+        });
+    });
+    describe('Sidebar shows updates number of planned actions', () => {
+        interface dataT {
+            name: string;
+            actions: BatchAction[];
+            expectedTitle: string;
+        }
+
+        const data: dataT[] = [
+            {
+                name: 'add 2 actions',
+                actions: [
+                    { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
+                    { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                ],
+                expectedTitle: 'Planned Actions (3)',
+            },
+            {
+                name: 'Add another action',
+                actions: [
+                    {
+                        action: {
+                            $case: 'deploy',
+                            deploy: {
+                                environment: 'foo',
+                                application: 'bread',
+                                version: 1337,
+                                ignoreAllLocks: false,
+                                lockBehavior: LockBehavior.Ignore,
+                            },
+                        },
+                    },
+                ],
+                expectedTitle: 'Planned Actions (4)',
+            },
+            {
+                name: 'Add 2 more actions actions',
+                actions: [
+                    { action: { $case: 'undeploy', undeploy: { application: 'test2' } } },
+                    { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'test2' } } },
+                ],
+                expectedTitle: 'Planned Actions (6)',
+            },
+        ];
+
+        const getNode = (overrides?: {}): JSX.Element | any => {
+            // given
+            const defaultProps: any = {
+                children: null,
+            };
+            return (
+                <MemoryRouter>
+                    <SideBar {...defaultProps} {...overrides} />
+                </MemoryRouter>
+            );
+        };
+        const getWrapper = (overrides?: {}) => render(getNode(overrides));
+        it('Create an action initially', () => {
+            updateActions([{ action: { $case: 'undeploy', undeploy: { application: 'test' } } }]);
+            const { container } = getWrapper({});
+            expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].textContent).toBe(
+                'Planned Actions (1)'
+            );
+        });
+        describe.each(data)('', (testcase) => {
+            it(testcase.name, () => {
+                appendAction(testcase.actions);
+                const { container } = getWrapper({});
+                expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].textContent).toBe(
+                    testcase.expectedTitle
+                );
+            });
+        });
+        describe('Deleting an action from the cart', () => {
+            it('Test deleting an an action', () => {
+                updateActions([{ action: { $case: 'undeploy', undeploy: { application: 'nmww' } } }]);
+                appendAction([{ action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } }]);
+                // Here we expect the value to be Planned Actions (1)
+                const expected = 'Planned Actions (1)';
+                const { container } = getWrapper({});
+                const svg = container.getElementsByClassName('mdc-drawer-sidebar-list-item-delete-icon')[0];
+                if (svg) {
+                    const button = svg.parentElement;
+                    if (button) button.click();
+                }
+                expect(container.getElementsByClassName('mdc-drawer-sidebar-header-title')[0].textContent).toBe(
+                    expected
+                );
+            });
         });
     });
 });
