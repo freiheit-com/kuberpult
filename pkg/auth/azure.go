@@ -19,9 +19,9 @@ package auth
 import (
 	"context"
 	"fmt"
+	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"log"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -161,17 +161,26 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 			return nil
 		}
 	}
-	// Skip azure authentication with ID for `/release`, `/releasetrain` and `/locks`  endpoints. The requests will be validated with pgp signature
-	// usage in requests from outside the cluster (e.g. by GitHub Actions and the publish.sh script).
-	releaseTrainRx := regexp.MustCompile("^/environments/[^/]+/releasetrain$")
-	if releaseTrainRx.MatchString(req.URL.Path) {
-		return nil
-	}
-	environmentLocksRx := regexp.MustCompile("^/environments/[^/]+/locks/[^/]+$")
-	if environmentLocksRx.MatchString(req.URL.Path) {
-		return nil
-	}
 
+	// Skip azure authentication with ID for `/` (POST: createEnv), `/release`, `/releasetrain` and `/locks`  endpoints. The requests will be validated with pgp signature
+	// usage in requests from outside the cluster (e.g. by GitHub Actions and the publish.sh script).
+	group, tail := xpath.Shift(req.URL.Path)
+	if group == "environments" {
+		envName, tail := xpath.Shift(tail)
+		if envName != "" { // We shouldn't receive an empty env, added just as a second layer of validation
+			function, tail := xpath.Shift(tail)
+			switch function {
+			case "locks":
+				return nil
+			case "releasetrain":
+				return nil
+			case "": // create environment
+				if tail == "/" && req.Method == http.MethodPost {
+					return nil
+				}
+			}
+		}
+	}
 	claims, err := ValidateToken(token, jwks, clientId, tenantId)
 	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
 		req.Header.Set("username", claims["name"].(string))

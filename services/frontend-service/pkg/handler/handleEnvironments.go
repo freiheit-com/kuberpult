@@ -40,7 +40,7 @@ func (s Server) HandleEnvironments(w http.ResponseWriter, req *http.Request, tai
 	case "releasetrain":
 		s.handleReleaseTrain(w, req, environment, tail)
 	case "":
-		if req.Method == http.MethodPost {
+		if tail == "/" && req.Method == http.MethodPost {
 			s.handleCreateEnvironment(w, req, environment, tail)
 		} else {
 			http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
