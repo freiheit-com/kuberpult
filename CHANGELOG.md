@@ -6,6 +6,12 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.58
+**released 2023-03-01**
+* Update release train documentation [#507](https://github.com/freiheit-com/kuberpult/pull/507)
+* Added Automatically open cart when actions [#505](https://github.com/freiheit-com/kuberpult/pull/505)
+* Whitelist create environment endpoint in Azure Auth [#510](https://github.com/freiheit-com/kuberpult/pull/510)
+
 ## 0.4.57
 **released 2023-02-27**
 * Added warning if there are no envs configured during startup [#502](https://github.com/freiheit-com/kuberpult/pull/502)
