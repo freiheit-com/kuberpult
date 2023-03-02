@@ -454,7 +454,7 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 			// to avoid an infinite loop, we fill it with an arbitrary number:
 			for i := 0; i < len(rest); i++ {
 				env := rest[i]
-				tmpDistancesToUpstreamByEnv[env.Name] = 666
+				tmpDistancesToUpstreamByEnv[env.Config.Upstream.GetEnvironment()] = 666
 			}
 		}
 		rest = nextRest
