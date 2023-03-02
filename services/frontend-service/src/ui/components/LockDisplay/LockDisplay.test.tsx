@@ -14,11 +14,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import { act, render } from '@testing-library/react';
-import { BatchAction } from '../../../api/api';
-import { useApi } from '../../utils/GrpcApi';
-import { updateActions } from '../../utils/store';
+import { Spy } from 'spy4js';
+import { DisplayLock } from '../../utils/store';
 import { calcLockAge, daysToString, isOutdated, LockDisplay } from '../LockDisplay/LockDisplay';
-import { SideBar } from '../SideBar/SideBar';
+const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
 
 describe('Test Auxiliary Functions for Lock Display', () => {
     describe('Test daysToString', () => {
@@ -126,72 +125,46 @@ describe('Test Auxiliary Functions for Lock Display', () => {
 describe('Test delete lock button', () => {
     interface dataT {
         name: string;
-        actions: BatchAction[];
-        expectedNumOfActions: number;
+        lock: DisplayLock;
         date: Date;
     }
     const lock = {
-        date: new Date('2/1/22'),
         environment: 'test-env',
-        // application?: string,
-        message: 'string',
         lockId: 'test-lock-id',
-        authorName: 'test-auth',
-        authorEmail: 'test-mail',
     };
     const data: dataT[] = [
         {
             name: 'Test environment delete button',
             date: new Date('2/1/22'),
-            actions: [
-                {
-                    action: {
-                        $case: 'createEnvironmentLock',
-                        createEnvironmentLock: {
-                            environment: 'nmww',
-                            lockId: 'test-lock-id',
-                            message: 'test-message',
-                        },
-                    },
-                },
-                {
-                    action: {
-                        $case: 'createEnvironmentApplicationLock',
-                        createEnvironmentApplicationLock: {
-                            environment: 'nmww',
-                            application: 'test-application',
-                            lockId: 'test-lock-id',
-                            message: 'test-message',
-                        },
-                    },
-                },
-            ],
-            expectedNumOfActions: 1,
+            lock: lock as any,
+        },
+        {
+            name: 'Test environment delete button',
+            date: new Date('2/1/22'),
+            lock: { ...lock, application: 'test-app' } as any,
         },
     ];
 
     describe.each(data)('', (testcase) => {
-        it('Cart initially empty', () => {
-            render(<LockDisplay lock={lock} />);
-            expect(document.getElementsByClassName('mdc-drawer-sidebar-list').length).toBe(0);
-        });
         it(testcase.name, () => {
-            const api = useApi;
-            // given
-            updateActions(testcase.actions);
-            api.batchService().ProcessBatch(testcase.actions);
-            // when
-            // const { container } = getWrapper({});
-            render(<LockDisplay lock={lock} />);
+            render(<LockDisplay lock={testcase.lock} />);
             const result = document.querySelector('.service-action--delete')! as HTMLElement;
             act(() => {
                 result.click();
             });
-            render(<SideBar />);
             // then
-            expect(document.getElementsByClassName('mdc-drawer-sidebar-list').length).toBe(
-                testcase.expectedNumOfActions
+            expect(JSON.stringify(mock_addAction.addAction.getAllCallArguments()[0][0])).toContain(
+                testcase.lock.lockId
             );
+            if (testcase.lock.application) {
+                expect(JSON.stringify(mock_addAction.addAction.getAllCallArguments()[0][0])).toContain(
+                    'deleteEnvironmentApplicationLock'
+                );
+            } else {
+                expect(JSON.stringify(mock_addAction.addAction.getAllCallArguments()[0][0])).toContain(
+                    'deleteEnvironmentLock'
+                );
+            }
         });
     });
 });
