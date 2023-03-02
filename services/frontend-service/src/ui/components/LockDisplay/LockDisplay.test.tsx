@@ -13,7 +13,11 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { calcLockAge, daysToString, isOutdated } from '../LockDisplay/LockDisplay';
+import { act, render } from '@testing-library/react';
+import { Spy } from 'spy4js';
+import { DisplayLock } from '../../utils/store';
+import { calcLockAge, daysToString, isOutdated, LockDisplay } from '../LockDisplay/LockDisplay';
+const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
 
 describe('Test Auxiliary Functions for Lock Display', () => {
     describe('Test daysToString', () => {
@@ -114,6 +118,53 @@ describe('Test Auxiliary Functions for Lock Display', () => {
             it(testcase.name, () => {
                 expect(isOutdated(testcase.date)).toBe(testcase.expected);
             });
+        });
+    });
+});
+
+describe('Test delete lock button', () => {
+    interface dataT {
+        name: string;
+        lock: DisplayLock;
+        date: Date;
+    }
+    const lock = {
+        environment: 'test-env',
+        lockId: 'test-lock-id',
+    };
+    const data: dataT[] = [
+        {
+            name: 'Test environment delete button',
+            date: new Date('2/1/22'),
+            lock: lock as any,
+        },
+        {
+            name: 'Test environment delete button',
+            date: new Date('2/1/22'),
+            lock: { ...lock, application: 'test-app' } as any,
+        },
+    ];
+
+    describe.each(data)('', (testcase) => {
+        it(testcase.name, () => {
+            render(<LockDisplay lock={testcase.lock} />);
+            const result = document.querySelector('.service-action--delete')! as HTMLElement;
+            act(() => {
+                result.click();
+            });
+            // then
+            expect(JSON.stringify(mock_addAction.addAction.getAllCallArguments()[0][0])).toContain(
+                testcase.lock.lockId
+            );
+            if (testcase.lock.application) {
+                expect(JSON.stringify(mock_addAction.addAction.getAllCallArguments()[0][0])).toContain(
+                    'deleteEnvironmentApplicationLock'
+                );
+            } else {
+                expect(JSON.stringify(mock_addAction.addAction.getAllCallArguments()[0][0])).toContain(
+                    'deleteEnvironmentLock'
+                );
+            }
         });
     });
 });
