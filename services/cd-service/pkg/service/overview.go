@@ -430,6 +430,10 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 				environment.DistanceToUpstream = 100 // we can just pick an arbitrary number
 				tmpDistancesToUpstreamByEnv[environment.Name] = 100
 			} else {
+				upstreamEnv := environment.Config.Upstream.GetEnvironment()
+				if _, exists := envs[upstreamEnv]; !exists { // upstreamEnv is not exists!
+					tmpDistancesToUpstreamByEnv[upstreamEnv] = 666
+				}
 				// and remember the rest:
 				rest = append(rest, environment)
 			}
@@ -454,7 +458,7 @@ func mapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 			// to avoid an infinite loop, we fill it with an arbitrary number:
 			for i := 0; i < len(rest); i++ {
 				env := rest[i]
-				tmpDistancesToUpstreamByEnv[env.Name] = 666
+				tmpDistancesToUpstreamByEnv[env.Config.Upstream.GetEnvironment()] = 666
 			}
 		}
 		rest = nextRest
