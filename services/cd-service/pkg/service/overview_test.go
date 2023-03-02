@@ -559,6 +559,41 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 			},
 		},
 		{
+			// note that this is not a realistic example, we just want to make sure it does not crash!
+			// some outputs may be nonsensical (like distanceToUpstream), but that's fine as long as it's stable!
+			Name: "Two Environments with non exists upstream",
+			InputEnvs: map[string]config.EnvironmentConfig{
+				nameDevDe: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Latest: true,
+					},
+					ArgoCd: nil,
+				},
+				nameStagingDe: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameWhoKnows,
+					},
+					ArgoCd: nil,
+				},
+			},
+			ExpectedResult: []*api.EnvironmentGroup{
+				{
+					EnvironmentGroupName: nameDevDe,
+					Environments: []*api.Environment{
+						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
+					},
+					DistanceToUpstream: 0,
+				},
+				{
+					EnvironmentGroupName: nameStagingDe,
+					Environments: []*api.Environment{
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameWhoKnows), 667, api.Priority_PROD),
+					},
+					DistanceToUpstream: 667,
+				},
+			},
+		},
+		{
 			Name: "Three Environments are three Groups",
 			InputEnvs: map[string]config.EnvironmentConfig{
 				nameDevDe: {
