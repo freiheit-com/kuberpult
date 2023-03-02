@@ -6,6 +6,11 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.59
+**released 2023-03-02**
+* Allow deleting locks from the locks page [#509](https://github.com/freiheit-com/kuberpult/pull/509)
+* Bugfix: fix distance to upstream [#513](https://github.com/freiheit-com/kuberpult/pull/513)
+
 ## 0.4.58
 **released 2023-03-01**
 * Update release train documentation [#507](https://github.com/freiheit-com/kuberpult/pull/507)
