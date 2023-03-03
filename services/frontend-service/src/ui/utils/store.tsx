@@ -60,14 +60,12 @@ export enum SnackbarStatus {
 }
 
 export const [useSnackbar, UpdateSnackbar] = createStore({ show: false, status: SnackbarStatus.SUCCESS, content: '' });
-export const showSnackbarSuccess = (): void =>
-    UpdateSnackbar.set({ show: true, status: SnackbarStatus.SUCCESS, content: 'Actions were applied successfully' });
-export const showSnackbarError = (): void =>
-    UpdateSnackbar.set({
-        show: true,
-        status: SnackbarStatus.ERROR,
-        content: 'Error applying actions. Please try again',
-    });
+export const showSnackbarSuccess = (content: string): void =>
+    UpdateSnackbar.set({ show: true, status: SnackbarStatus.SUCCESS, content: content });
+export const showSnackbarError = (content: string): void =>
+    UpdateSnackbar.set({ show: true, status: SnackbarStatus.ERROR, content: content });
+export const showSnackbarWarn = (content: string): void =>
+    UpdateSnackbar.set({ show: true, status: SnackbarStatus.WARN, content: content });
 
 export const useSidebarShown = (): boolean => useSidebar(({ shown }) => shown);
 

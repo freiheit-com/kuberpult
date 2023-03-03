@@ -35,6 +35,14 @@ export const Snackbar = (): JSX.Element => {
     useEffect(() => {
         if (show) {
             // open the snackbar and then set show to false. the snackbar will remain opened 5s
+            if (status === SnackbarStatus.WARN) {
+                // Warn is used for connection errors
+                // when you can't connect, always show a warning
+                MDComponent.current!.timeoutMs = -1;
+            } else {
+                // snackbar closes after 5s
+                MDComponent.current!.timeoutMs = 5000;
+            }
             MDComponent.current?.open();
             UpdateSnackbar.set({ show: false });
         }

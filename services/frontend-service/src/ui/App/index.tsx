@@ -19,7 +19,7 @@ import { ReleaseDialog } from '../components/ReleaseDialog/ReleaseDialog';
 import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
-import { PanicOverview, UpdateOverview, useReleaseDialog, useReleaseInfo } from '../utils/store';
+import { PanicOverview, showSnackbarWarn, UpdateOverview, useReleaseDialog, useReleaseInfo } from '../utils/store';
 import { useApi } from '../utils/GrpcApi';
 import { AzureAuthProvider, UpdateFrontendConfig, useAzureAuthSub } from '../utils/AzureAuthProvider';
 import { Snackbar } from '../components/snackbar/snackbar';
@@ -52,7 +52,10 @@ export const App: React.FC = () => {
                         UpdateOverview.set(result);
                         PanicOverview.set({ error: '' });
                     },
-                    (error) => PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) })
+                    (error) => {
+                        PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) });
+                        showSnackbarWarn('Connection Error: Refresh the page');
+                    }
                 );
             return (): void => subscription.unsubscribe();
         }
