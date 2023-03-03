@@ -1,10 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base"
+    "config:base",
+    "schedule:earlyMondays"
   ],
-  "packageRules": [],
-  "schedule": [
-    "earlyMondays"
-  ]
+  "packageRules": []
 }
