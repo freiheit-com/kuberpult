@@ -5,5 +5,14 @@
     "schedule:earlyMondays"
   ],
   "packageRules": [],
-  "prHourlyLimit": 0
+  "regexManagers": [
+    {
+      "fileMatch": [".*Dockerfile$"],
+      "matchStrings": [
+        "datasource=(?<datasource>.*?) depName=(?<depName>.*)( versioning=(?<versioning>.*?))?\\sENV .*?_VERSION=(?<currentValue>.*)"
+      ]
+    }
+  ],
+  "prHourlyLimit": 0,
+  "labels": ["renovate"]
 }

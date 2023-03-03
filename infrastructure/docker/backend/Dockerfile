@@ -1,5 +1,6 @@
 FROM alpine:3.15
-
+# renovate: datasource=github-releases depName=bufbuild/buf
+ENV BUFF_VERSION=v1.7.0
 RUN apk --update add --no-cache curl make go git libgit2-dev pkgconfig build-base
 RUN BIN="/usr/local/bin" && \
   curl -sSL \
