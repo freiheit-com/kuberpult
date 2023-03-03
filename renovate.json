@@ -4,5 +4,6 @@
     "config:base",
     "schedule:earlyMondays"
   ],
-  "packageRules": []
+  "packageRules": [],
+  "prHourlyLimit": 0
 }
