@@ -1,0 +1,26 @@
+@use "@material/snackbar/mdc-snackbar";
+
+.mdc-snackbar {
+  margin-left: ($nav-bar-width + 0.5em);
+  .mdc-snackbar__surface {
+    border-radius: 6px;
+  }
+}
+
+.mdc-snackbar--success {
+  .mdc-snackbar__surface {
+    background: var(--mdc-theme-success);
+  }
+}
+
+.mdc-snackbar--warn {
+  .mdc-snackbar__surface {
+    background: var(--mdc-theme-warn);
+  }
+}
+
+.mdc-snackbar--error {
+  .mdc-snackbar__surface {
+    background: var(--mdc-theme-error);
+  }
+}

@@ -19,9 +19,10 @@ import { ReleaseDialog } from '../components/ReleaseDialog/ReleaseDialog';
 import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
-import { PanicOverview, UpdateOverview, useReleaseDialog, useAllDeployedAt, useReleaseInfo } from '../utils/store';
+import { PanicOverview, UpdateOverview, useReleaseDialog, useReleaseInfo } from '../utils/store';
 import { useApi } from '../utils/GrpcApi';
 import { AzureAuthProvider, UpdateFrontendConfig, useAzureAuthSub } from '../utils/AzureAuthProvider';
+import { Snackbar } from '../components/snackbar/snackbar';
 
 export const App: React.FC = () => {
     const api = useApi;
@@ -66,17 +67,17 @@ export const App: React.FC = () => {
     );
 
     const { app, version } = useReleaseDialog(({ app, version }) => ({ app, version }));
-    const envs = useAllDeployedAt(app);
     const releaseInfo = useReleaseInfo(app, version);
 
     return (
         <AzureAuthProvider>
             <div className={'app-container--v2'}>
-                <ReleaseDialog app={app} version={version} release={releaseInfo} envs={envs} />
+                <ReleaseDialog app={app} version={version} release={releaseInfo} />
                 <NavigationBar />
                 <div className="mdc-drawer-app-content">
                     <TopAppBar />
                     <PageRoutes />
+                    <Snackbar />
                 </div>
             </div>
         </AzureAuthProvider>

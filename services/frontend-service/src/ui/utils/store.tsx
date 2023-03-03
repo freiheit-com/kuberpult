@@ -53,6 +53,22 @@ export const useActions = (): BatchAction[] => useAction(({ actions }) => action
 
 export const [useSidebar, UpdateSidebar] = createStore({ shown: false });
 
+export enum SnackbarStatus {
+    SUCCESS,
+    WARN,
+    ERROR,
+}
+
+export const [useSnackbar, UpdateSnackbar] = createStore({ show: false, status: SnackbarStatus.SUCCESS, content: '' });
+export const showSnackbarSuccess = (): void =>
+    UpdateSnackbar.set({ show: true, status: SnackbarStatus.SUCCESS, content: 'Actions were applied successfully' });
+export const showSnackbarError = (): void =>
+    UpdateSnackbar.set({
+        show: true,
+        status: SnackbarStatus.ERROR,
+        content: 'Error applying actions. Please try again',
+    });
+
 export const useSidebarShown = (): boolean => useSidebar(({ shown }) => shown);
 
 export const useNumberOfActions = (): number => useAction(({ actions }) => actions.length);
@@ -455,12 +471,6 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
         return envGroups;
     }, [environmentGroups, application, version]);
 };
-
-/**
- * @deprecated use `useCurrentlyDeployedAtGroup` instead
- */
-export const useAllDeployedAt = (application: string): Environment[] =>
-    useOverview(({ environments }) => Object.values(environments).filter((env) => env.applications[application]));
 
 // Get release information for a version
 export const useReleaseInfo = (app: string, version: number): Release =>
