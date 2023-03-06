@@ -6,10 +6,11 @@
   ],
   "packageRules": [
     {
+      "description": "Separate Major and Minor versions' PRs for packages in go.mod",
       "matchPaths": [
         "go.mod"
       ],
-      "separateMajorMinor": "true"
+      "separateMajorMinor": "false"
     }
   ],
   "prHourlyLimit": 0,
