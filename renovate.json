@@ -10,7 +10,7 @@
       "matchPaths": [
         "go.mod"
       ],
-      "separateMajorMinor": "false"
+      "separateMajorMinor": "true"
     }
   ],
   "prHourlyLimit": 0,
