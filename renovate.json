@@ -18,7 +18,7 @@
   "prHourlyLimit": 0,
   "labels": ["renovate"],
   "schedule": [
-    "before 12pm on Monday",
-    "before 12pm on Thursday"
+    "before 12pm on Tuesday",
+    "before 12pm on Friday"
   ]
 }
