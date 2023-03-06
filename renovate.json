@@ -4,13 +4,12 @@
     "config:base",
     "schedule:earlyMondays"
   ],
-  "packageRules": [],
-  "regexManagers": [
+  "packageRules": [
     {
-      "fileMatch": [".*Dockerfile$"],
-      "matchStrings": [
-        "datasource=(?<datasource>.*?) depName=(?<depName>.*)( versioning=(?<versioning>.*?))?\\sENV .*?_VERSION=(?<currentValue>.*)"
-      ]
+      "matchPaths": [
+        "go.mod"
+      ],
+      "separateMajorMinor": "true"
     }
   ],
   "prHourlyLimit": 0,
