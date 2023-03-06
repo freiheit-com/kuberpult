@@ -3,6 +3,9 @@
   "extends": [
     "config:base"
   ],
+  "ignorePaths": [
+    ".github/**"
+  ],
   "packageRules": [
     {
       "description": "Separate Major and Minor versions' PRs for packages in go.mod",
