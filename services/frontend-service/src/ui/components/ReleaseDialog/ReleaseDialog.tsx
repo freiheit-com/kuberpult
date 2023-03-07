@@ -17,7 +17,7 @@ import { Dialog, Tooltip } from '@material-ui/core';
 import classNames from 'classnames';
 import React, { useCallback } from 'react';
 import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
-import { addAction, updateReleaseDialog, useOverview } from '../../utils/store';
+import { addAction, updateReleaseDialog, useOverview, useRelease } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
@@ -121,6 +121,7 @@ export const EnvironmentListItem: React.FC<{
                 Version {queuedVersion} was not deployed, because of a lock.
             </div>
         );
+    const otherRelease = useRelease(app, env.applications[app].version);
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -145,11 +146,13 @@ export const EnvironmentListItem: React.FC<{
             </div>
             <div className="content-area">
                 <div className="content-left">
-                    <div className={classNames('env-card-data', className)}>
+                    <div
+                        className={classNames('env-card-data', className)}
+                        title={'Shows the version that is currently deployed on ' + env.name}>
                         {env.applications[app]
                             ? release.version === env.applications[app].version
-                                ? release.sourceCommitId + ':' + release.sourceMessage
-                                : env.name + ' is deployed to version ' + env.applications[app].version
+                                ? release.sourceCommitId + ': ' + release.sourceMessage
+                                : otherRelease.sourceCommitId + ': ' + otherRelease.sourceMessage
                             : `"${app}" has no version deployed on "${env.name}"`}
                     </div>
                     {queueInfo}

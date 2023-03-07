@@ -117,7 +117,24 @@ describe('Release Dialog', () => {
                     },
                 ],
             },
-            rels: [],
+            rels: [
+                {
+                    sourceCommitId: 'cafe',
+                    sourceMessage: 'the other commit message 2',
+                    version: 2,
+                    undeployVersion: false,
+                    prNumber: 'PR123',
+                    sourceAuthor: 'nobody',
+                },
+                {
+                    sourceCommitId: 'cafe',
+                    sourceMessage: 'the other commit message 3',
+                    version: 3,
+                    undeployVersion: false,
+                    prNumber: 'PR123',
+                    sourceAuthor: 'nobody',
+                },
+            ],
 
             expect_message: true,
             expect_queues: 1,
