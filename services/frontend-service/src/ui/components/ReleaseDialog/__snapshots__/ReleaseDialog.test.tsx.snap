@@ -270,44 +270,56 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                 </div>
               </div>
               <div
-                class="env-card-data"
+                class="content-area"
               >
-                commit:test1
-              </div>
-              <div
-                class="env-card-buttons"
-              >
-                <button
-                  aria-label="Add lock"
-                  class="mdc-button env-card-add-lock-btn"
+                <div
+                  class="content-left"
                 >
                   <div
-                    class="mdc-button__ripple"
-                  />
-                  <svg
-                    class="icon"
+                    class="env-card-data"
                   >
-                    Locks.svg
-                  </svg>
-                  <span
-                    class="mdc-button__label"
-                  >
-                    Add lock
-                  </span>
-                </button>
-                <button
-                  aria-label="Deploy"
-                  class="mdc-button env-card-deploy-btn"
+                    commit:test1
+                  </div>
+                </div>
+                <div
+                  class="content-right"
                 >
                   <div
-                    class="mdc-button__ripple"
-                  />
-                  <span
-                    class="mdc-button__label"
+                    class="env-card-buttons"
                   >
-                    Deploy
-                  </span>
-                </button>
+                    <button
+                      aria-label="Add lock"
+                      class="mdc-button env-card-add-lock-btn"
+                    >
+                      <div
+                        class="mdc-button__ripple"
+                      />
+                      <svg
+                        class="icon"
+                      >
+                        Locks.svg
+                      </svg>
+                      <span
+                        class="mdc-button__label"
+                      >
+                        Add lock
+                      </span>
+                    </button>
+                    <button
+                      aria-label="Deploy"
+                      class="mdc-button env-card-deploy-btn"
+                    >
+                      <div
+                        class="mdc-button__ripple"
+                      />
+                      <span
+                        class="mdc-button__label"
+                      >
+                        Deploy
+                      </span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </li>
           </ul>
@@ -493,44 +505,56 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 </div>
               </div>
               <div
-                class="env-card-data"
+                class="content-area"
               >
-                commit:test1
-              </div>
-              <div
-                class="env-card-buttons"
-              >
-                <button
-                  aria-label="Add lock"
-                  class="mdc-button env-card-add-lock-btn"
+                <div
+                  class="content-left"
                 >
                   <div
-                    class="mdc-button__ripple"
-                  />
-                  <svg
-                    class="icon"
+                    class="env-card-data"
                   >
-                    Locks.svg
-                  </svg>
-                  <span
-                    class="mdc-button__label"
-                  >
-                    Add lock
-                  </span>
-                </button>
-                <button
-                  aria-label="Deploy"
-                  class="mdc-button env-card-deploy-btn"
+                    commit:test1
+                  </div>
+                </div>
+                <div
+                  class="content-right"
                 >
                   <div
-                    class="mdc-button__ripple"
-                  />
-                  <span
-                    class="mdc-button__label"
+                    class="env-card-buttons"
                   >
-                    Deploy
-                  </span>
-                </button>
+                    <button
+                      aria-label="Add lock"
+                      class="mdc-button env-card-add-lock-btn"
+                    >
+                      <div
+                        class="mdc-button__ripple"
+                      />
+                      <svg
+                        class="icon"
+                      >
+                        Locks.svg
+                      </svg>
+                      <span
+                        class="mdc-button__label"
+                      >
+                        Add lock
+                      </span>
+                    </button>
+                    <button
+                      aria-label="Deploy"
+                      class="mdc-button env-card-deploy-btn"
+                    >
+                      <div
+                        class="mdc-button__ripple"
+                      />
+                      <span
+                        class="mdc-button__label"
+                      >
+                        Deploy
+                      </span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </li>
             <li
@@ -608,52 +632,64 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 </div>
               </div>
               <div
-                class="env-card-data"
+                class="content-area"
               >
-                dev is deployed to version 3
-              </div>
-              <div
-                class="env-card-data env-card-data-queue"
-                title="An attempt was made to deploy version 666 either by a release train, or when a new version was created. However, there was a lock present at the time, so kuberpult did not deploy this version. "
-              >
-                Version 
-                666
-                 was not deployed, because of a lock.
-              </div>
-              <div
-                class="env-card-buttons"
-              >
-                <button
-                  aria-label="Add lock"
-                  class="mdc-button env-card-add-lock-btn"
+                <div
+                  class="content-left"
                 >
                   <div
-                    class="mdc-button__ripple"
-                  />
-                  <svg
-                    class="icon"
+                    class="env-card-data"
                   >
-                    Locks.svg
-                  </svg>
-                  <span
-                    class="mdc-button__label"
+                    dev is deployed to version 3
+                  </div>
+                  <div
+                    class="env-card-data env-card-data-queue"
+                    title="An attempt was made to deploy version 666 either by a release train, or when a new version was created. However, there was a lock present at the time, so kuberpult did not deploy this version. "
                   >
-                    Add lock
-                  </span>
-                </button>
-                <button
-                  aria-label="Deploy"
-                  class="mdc-button env-card-deploy-btn"
+                    Version 
+                    666
+                     was not deployed, because of a lock.
+                  </div>
+                </div>
+                <div
+                  class="content-right"
                 >
                   <div
-                    class="mdc-button__ripple"
-                  />
-                  <span
-                    class="mdc-button__label"
+                    class="env-card-buttons"
                   >
-                    Deploy
-                  </span>
-                </button>
+                    <button
+                      aria-label="Add lock"
+                      class="mdc-button env-card-add-lock-btn"
+                    >
+                      <div
+                        class="mdc-button__ripple"
+                      />
+                      <svg
+                        class="icon"
+                      >
+                        Locks.svg
+                      </svg>
+                      <span
+                        class="mdc-button__label"
+                      >
+                        Add lock
+                      </span>
+                    </button>
+                    <button
+                      aria-label="Deploy"
+                      class="mdc-button env-card-deploy-btn"
+                    >
+                      <div
+                        class="mdc-button__ripple"
+                      />
+                      <span
+                        class="mdc-button__label"
+                      >
+                        Deploy
+                      </span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </li>
           </ul>

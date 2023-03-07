@@ -131,7 +131,6 @@ export const EnvironmentListItem: React.FC<{
                     groupNameOverride={undefined}
                     numberEnvsDeployed={undefined}
                     numberEnvsInGroup={undefined}
-                    withEnvLocks={true}
                 />
                 <div className={classNames('env-card-app-locks')}>
                     {Object.values(env.applications)
@@ -144,27 +143,33 @@ export const EnvironmentListItem: React.FC<{
                         )}
                 </div>
             </div>
-            <div className={classNames('env-card-data', className)}>
-                {env.applications[app]
-                    ? release.version === env.applications[app].version
-                        ? release.sourceCommitId + ':' + release.sourceMessage
-                        : env.name + ' is deployed to version ' + env.applications[app].version
-                    : `"${app}" has no version deployed on "${env.name}"`}
-            </div>
-            {queueInfo}
-            <div className="env-card-buttons">
-                <Button
-                    className="env-card-add-lock-btn"
-                    label="Add lock"
-                    onClick={createAppLock}
-                    icon={<Locks className="icon" />}
-                />
-                <Button
-                    disabled={!release.version}
-                    className={classNames('env-card-deploy-btn', { 'btn-disabled': !release.version })}
-                    onClick={deploy}
-                    label="Deploy"
-                />
+            <div className="content-area">
+                <div className="content-left">
+                    <div className={classNames('env-card-data', className)}>
+                        {env.applications[app]
+                            ? release.version === env.applications[app].version
+                                ? release.sourceCommitId + ':' + release.sourceMessage
+                                : env.name + ' is deployed to version ' + env.applications[app].version
+                            : `"${app}" has no version deployed on "${env.name}"`}
+                    </div>
+                    {queueInfo}
+                </div>
+                <div className="content-right">
+                    <div className="env-card-buttons">
+                        <Button
+                            className="env-card-add-lock-btn"
+                            label="Add lock"
+                            onClick={createAppLock}
+                            icon={<Locks className="icon" />}
+                        />
+                        <Button
+                            disabled={!release.version}
+                            className={classNames('env-card-deploy-btn', { 'btn-disabled': !release.version })}
+                            onClick={deploy}
+                            label="Deploy"
+                        />
+                    </div>
+                </div>
             </div>
         </li>
     );
