@@ -46,7 +46,7 @@ export const Snackbar = (): JSX.Element => {
             MDComponent.current?.open();
             UpdateSnackbar.set({ show: false });
         }
-    }, [show]);
+    }, [show, status]);
 
     return (
         <aside
