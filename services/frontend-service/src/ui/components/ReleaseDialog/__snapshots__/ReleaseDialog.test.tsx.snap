@@ -66,19 +66,8 @@ exports[`Release Dialog Renders the environment locks no release 1`] = `
             <div
               class="mdc-button__ripple"
             />
-            <svg
-              fill="none"
-              height="20"
-              viewBox="0 0 20 20"
-              width="20"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M1 1L19 19M19 1L1 19"
-                stroke="white"
-                stroke-linecap="round"
-                stroke-width="2"
-              />
+            <svg>
+              Close.svg
             </svg>
           </button>
         </div>
@@ -173,19 +162,8 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
             <div
               class="mdc-button__ripple"
             />
-            <svg
-              fill="none"
-              height="20"
-              viewBox="0 0 20 20"
-              width="20"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M1 1L19 19M19 1L1 19"
-                stroke="white"
-                stroke-linecap="round"
-                stroke-width="2"
-              />
+            <svg>
+              Close.svg
             </svg>
           </button>
         </div>
@@ -409,19 +387,8 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
             <div
               class="mdc-button__ripple"
             />
-            <svg
-              fill="none"
-              height="20"
-              viewBox="0 0 20 20"
-              width="20"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M1 1L19 19M19 1L1 19"
-                stroke="white"
-                stroke-linecap="round"
-                stroke-width="2"
-              />
+            <svg>
+              Close.svg
             </svg>
           </button>
         </div>

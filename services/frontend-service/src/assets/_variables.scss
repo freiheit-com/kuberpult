@@ -109,4 +109,7 @@ $main-content-padding: ($top-app-bar-height + 0.5em) 2em 2em ($nav-bar-width + 2
   --mdc-theme-on-surface: #4A4A4A;
   --mdc-theme-secondary: #00AFFF;
   --mdc-theme-on-secondary: #FFFFFF;
+  --mdc-theme-error: rgba(220, 0, 0, 0.92);
+  --mdc-theme-warn: rgba(243, 190, 0, 0.92);
+  --mdc-theme-success: rgba(80, 194, 65, 0.93);
 }

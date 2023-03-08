@@ -19,7 +19,7 @@ import React, { useCallback } from 'react';
 import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import { addAction, updateReleaseDialog, useOverview, useRelease } from '../../utils/store';
 import { Button } from '../button';
-import { Locks } from '../../../images';
+import { Close, Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { getFormattedReleaseDate } from '../ReleaseCard/ReleaseCard';
 
@@ -236,21 +236,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         <Button
                             onClick={setClosed}
                             className={classNames('release-dialog-close', className)}
-                            icon={
-                                <svg
-                                    width="20"
-                                    height="20"
-                                    viewBox="0 0 20 20"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M1 1L19 19M19 1L1 19"
-                                        stroke="white"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                    />
-                                </svg>
-                            }
+                            icon={<Close />}
                         />
                     </div>
                     <EnvironmentList

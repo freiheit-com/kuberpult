@@ -24,6 +24,8 @@ import {
     useEnvironmentLockIDs,
     useApplicationLock,
     useNumberOfActions,
+    showSnackbarSuccess,
+    showSnackbarError,
 } from '../../utils/store';
 import { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -241,6 +243,10 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
             .ProcessBatch({ actions })
             .then((result) => {
                 deleteAllActions();
+                showSnackbarSuccess('Actions were applied successfully');
+            })
+            .catch(() => {
+                showSnackbarError('Actions were not applied. Please try again');
             });
         handleClose();
     }, [actions, api, handleClose, lockCreationList, lockMessage]);

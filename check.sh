@@ -130,6 +130,10 @@ yaml_files=$(find . -type f -name '*.yaml')
 echo fixing yaml files...
 for yaml_file in $yaml_files
 do
+    if [[ $yaml_file =~ .*pnpm-lock.* ]];
+      then
+          continue
+    fi
     fix_file_yaml_make $yaml_file
 done
 
