@@ -17,7 +17,7 @@ import { Dialog, Tooltip } from '@material-ui/core';
 import classNames from 'classnames';
 import React, { useCallback } from 'react';
 import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
-import { addAction, updateReleaseDialog, useOverview, useRelease } from '../../utils/store';
+import { addAction, updateReleaseDialog, useOverview, useReleaseOptional } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
@@ -121,7 +121,7 @@ export const EnvironmentListItem: React.FC<{
                 Version {queuedVersion} was not deployed, because of a lock.
             </div>
         );
-    const otherRelease = useRelease(app, env.applications[app].version);
+    const otherRelease = useReleaseOptional(app, env);
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -152,7 +152,7 @@ export const EnvironmentListItem: React.FC<{
                         {env.applications[app]
                             ? release.version === env.applications[app].version
                                 ? release.sourceCommitId + ': ' + release.sourceMessage
-                                : otherRelease.sourceCommitId + ': ' + otherRelease.sourceMessage
+                                : otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage
                             : `"${app}" has no version deployed on "${env.name}"`}
                     </div>
                     {queueInfo}
