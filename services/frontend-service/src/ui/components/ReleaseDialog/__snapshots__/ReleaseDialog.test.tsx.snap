@@ -277,8 +277,9 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                 >
                   <div
                     class="env-card-data"
+                    title="Shows the version that is currently deployed on prod"
                   >
-                    commit:test1
+                    commit: test1
                   </div>
                 </div>
                 <div
@@ -512,8 +513,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 >
                   <div
                     class="env-card-data"
+                    title="Shows the version that is currently deployed on prod"
                   >
-                    commit:test1
+                    commit: test1
                   </div>
                 </div>
                 <div
@@ -639,8 +641,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 >
                   <div
                     class="env-card-data"
+                    title="Shows the version that is currently deployed on dev"
                   >
-                    dev is deployed to version 3
+                    cafe: the other commit message 3
                   </div>
                   <div
                     class="env-card-data env-card-data-queue"
