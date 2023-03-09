@@ -423,6 +423,20 @@ export const useRelease = (application: string, version: number): Release =>
             )!
     );
 
+export const useReleaseOptional = (application: string, env: Environment): Release | undefined => {
+    const x = env.applications[application];
+    return useOverview(({ applications }) => {
+        const version = x ? x.version : 0;
+        const res = applications[application].releases.find((r) =>
+            version === -1 ? r.undeployVersion : r.version === version
+        )!;
+        if (!x) {
+            return undefined;
+        }
+        return res;
+    });
+};
+
 // returns the release versions that are currently deployed to at least one environment
 export const useDeployedReleases = (application: string): number[] =>
     useOverview(({ environments }) =>
