@@ -3,6 +3,9 @@
   "extends": [
     "config:base"
   ],
+  "platform": "github",
+  "endpoint": "https://github.com/freiheit-com/kuberpult",
+  "repositories": ["freiheit-com/kuberpult"],
   "ignorePaths": [
     ".github/**"
   ],
