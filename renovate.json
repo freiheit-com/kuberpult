@@ -18,6 +18,7 @@
   "prHourlyLimit": 0,
   "labels": ["renovate"],
   "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+  "rebaseWhen": "behind-base-branch",
   "schedule": [
     "before 12pm on Tuesday",
     "before 12pm on Friday"
