@@ -17,6 +17,7 @@
   ],
   "prHourlyLimit": 0,
   "labels": ["renovate"],
+  "postUpdateOptions": ["gomodTidy"],
   "schedule": [
     "before 12pm on Tuesday",
     "before 12pm on Friday"
