@@ -11,7 +11,7 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 * Add snackbar notifications [#517](https://github.com/freiheit-com/kuberpult/pull/517)
 * Rephrase release dialog text [#532](https://github.com/freiheit-com/kuberpult/pull/532)
 * Remove whitespace in ReleaseDialog of new UI [#531](https://github.com/freiheit-com/kuberpult/pull/531)
-* Configure Renovate [#515](https://github.com/freiheit-com/kuberpult/pull/515)
+* Configure regular updates with Renovate [#515](https://github.com/freiheit-com/kuberpult/pull/515)
 
 ## 0.4.59
 **released 2023-03-02**
