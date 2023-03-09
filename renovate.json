@@ -12,12 +12,13 @@
       "matchPaths": [
         "go.mod"
       ],
-      "separateMajorMinor": "true"
+      "separateMajorMinor": "true",
+      "excludePackagePatterns": ["github.com/freiheit-com/kuberpult/.*"]
     }
   ],
   "prHourlyLimit": 0,
   "labels": ["renovate"],
-  "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+  "postUpdateOptions": ["gomodUpdateImportPaths"],
   "rebaseWhen": "behind-base-branch",
   "schedule": [
     "before 12pm on Tuesday",
