@@ -10,10 +10,38 @@ set -o pipefail
 name=${1}
 applicationOwnerTeam=${2:-sreteam}
 commit_id=$(LC_CTYPE=C tr -dc a-f0-9 </dev/urandom | head -c 12 ; echo '')
-author="The Author"
+authors[0]="urbansky"
+authors[1]="Medo"
+authors[2]="Hannes"
+authors[3]="Mouhsen"
+authors[4]="Tamer"
+authors[5]="Ahmed"
+authors[6]="João"
+authors[7]="Leandro"
+sizeAuthors=${#authors[@]}
+index=$(($RANDOM % $sizeAuthors))
+echo ${authors[$index]}
+author="${authors[$index]}"
 commit_message_file="$(mktemp "${TMPDIR:-/tmp}/publish.XXXXXX")"
 trap "rm -f ""$commit_message_file" INT TERM HUP EXIT
-echo "This is the commit $commit_id" > "${commit_message_file}"
+
+
+msgs[0]="Added new eslint rule"
+msgs[1]="Fix annotations in helm templates"
+msgs[2]="Improve performance with gitLib2"
+msgs[3]="Add colors to new UI"
+msgs[4]="Release trains for env groups"
+msgs[5]="Fix whitespace in ReleaseDialog"
+msgs[6]="Add Snackbar Notifications"
+msgs[7]="Rephrase ReleaseDialog text"
+msgs[8]="Change renovate schedule"
+msgs[9]="Fix bug in distanceToUpstream calculation"
+msgs[10]="Allow deleting locks on locks page"
+sizeMsgs=${#msgs[@]}
+index=$(($RANDOM % $sizeMsgs))
+echo $index
+echo ${msgs[$index]}" "$commit_id > "${commit_message_file}"
+
 ls ${commit_message_file}
 
 release_version=()
