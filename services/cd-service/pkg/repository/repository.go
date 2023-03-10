@@ -215,12 +215,9 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			}
 
 			// Check configuration for errors and abort early if any:
-			envConfigs, err := state.GetEnvironmentConfigs()
+			_, err = state.GetEnvironmentConfigsAndValidate(ctx)
 			if err != nil {
 				return nil, err
-			}
-			if len(envConfigs) == 0 {
-				logger.Warn("No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
 			}
 			go result.ProcessQueue(ctx)
 			return result, nil
@@ -857,6 +854,34 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 }
 
 var invalidJson = errors.New("JSON file is not valid")
+
+func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFor string) bool {
+	if _, found := envConfigs[envNameToSearchFor]; found {
+		return true
+	}
+	return false
+}
+
+func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[string]config.EnvironmentConfig, error) {
+	logger := logger.FromContext(ctx)
+	envConfigs, err := s.GetEnvironmentConfigs()
+	if err != nil {
+		return nil, err
+	}
+	if len(envConfigs) == 0 {
+		logger.Warn("No environment configurations found. Check git settings like the branch name. Kuberpult cannot operate without environments.")
+	}
+	for envName, env := range envConfigs {
+		if env.Upstream == nil || env.Upstream.Environment == "" {
+			continue
+		}
+		upstreamEnv := env.Upstream.Environment
+		if !envExists(envConfigs, upstreamEnv) {
+			logger.Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
+		}
+	}
+	return envConfigs, err
+}
 
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
 	if s.BootstrapMode {
