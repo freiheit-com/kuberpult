@@ -447,7 +447,9 @@ export const useDeployedReleases = (application: string): number[] =>
                     env.applications[application].undeployVersion ? -1 : env.applications[application].version
                 )
         ),
-    ].sort((a, b) => (a === -1 ? -1 : b === -1 ? 1 : b - a));
+    ]
+        .sort((a, b) => (a === -1 ? -1 : b === -1 ? 1 : b - a))
+        .filter((version) => version !== 0); // 0 means "not deployed", so we filter those out
 
 export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup: number };
 
