@@ -23,6 +23,26 @@ import { PanicOverview, showSnackbarWarn, UpdateOverview, useReleaseDialog, useR
 import { useApi } from '../utils/GrpcApi';
 import { AzureAuthProvider, UpdateFrontendConfig, useAzureAuthSub } from '../utils/AzureAuthProvider';
 import { Snackbar } from '../components/snackbar/snackbar';
+import { mergeMap, retryWhen } from 'rxjs/operators';
+import { Observable, throwError, timer } from 'rxjs';
+
+// retry strategy: retries the observable subscription with randomized exponential backoff
+// source: https://www.learnrxjs.io/learn-rxjs/operators/error_handling/retrywhen#examples
+function retryStrategy(maxRetryAttempts = 3) {
+    return (attempts: Observable<any>): Observable<any> =>
+        attempts.pipe(
+            mergeMap((error, i) => {
+                // retry attempt number
+                const retryAttempt = i;
+                if (retryAttempt > maxRetryAttempts) {
+                    return throwError(error);
+                }
+                // backoff time in seconds = 2^attempt number (exponential) + random
+                const backoffTime = 1000 * (2 ** retryAttempt + Math.random());
+                return timer(backoffTime);
+            })
+        );
+}
 
 export const App: React.FC = () => {
     const api = useApi;
@@ -47,6 +67,7 @@ export const App: React.FC = () => {
             const subscription = api
                 .overviewService()
                 .StreamOverview({}, authHeader)
+                .pipe(retryWhen(retryStrategy()))
                 .subscribe(
                     (result) => {
                         UpdateOverview.set(result);
