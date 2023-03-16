@@ -439,17 +439,15 @@ export const useReleaseOptional = (application: string, env: Environment): Relea
 
 // returns the release versions that are currently deployed to at least one environment
 export const useDeployedReleases = (application: string): number[] =>
-    useOverview(({ environments }) =>
-        [
-            ...new Set(
-                Object.values(environments)
-                    .filter((env) => env.applications[application])
-                    .map((env) =>
-                        env.applications[application].undeployVersion ? -1 : env.applications[application].version
-                    )
-            ),
-        ].sort((a, b) => (a === -1 ? -1 : b === -1 ? 1 : b - a))
-    );
+    [
+        ...new Set(
+            Object.values(useEnvironments())
+                .filter((env) => env.applications[application])
+                .map((env) =>
+                    env.applications[application].undeployVersion ? -1 : env.applications[application].version
+                )
+        ),
+    ].sort((a, b) => (a === -1 ? -1 : b === -1 ? 1 : b - a));
 
 export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup: number };
 
