@@ -118,8 +118,10 @@ const data: TestData[] = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit1',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
-        ] as Array<Release>,
+        ],
         envs: [
             {
                 name: 'foo',
@@ -163,6 +165,8 @@ const data: TestData[] = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit1',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
             {
                 version: 2,
@@ -170,8 +174,10 @@ const data: TestData[] = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit2',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
-        ] as Array<Release>,
+        ],
         envs: [
             {
                 name: 'foo',
@@ -215,6 +221,8 @@ const data: TestData[] = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit1',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
             {
                 version: 4,
@@ -222,6 +230,8 @@ const data: TestData[] = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit5',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
             {
                 version: 2,
@@ -229,8 +239,10 @@ const data: TestData[] = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit3',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
-        ] as Array<Release>,
+        ],
         envs: [
             {
                 name: 'foo',
