@@ -197,6 +197,39 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			shouldSucceed:     false,
 		},
 		{
+			Name: "Undeploy application where the app does not have a release in all envs should work",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateEnvironment{
+					Environment: "production",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateEnvironmentLock{
+					Environment: "acceptance",
+					LockId:      "22133",
+					Message:     "test",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed",
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+		{
 			Name: "Undeploy application where there is an environment lock should work",
 			Transformers: []Transformer{
 				&CreateEnvironment{
