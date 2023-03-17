@@ -839,10 +839,10 @@ func TestRetrySsh(t *testing.T) {
 
 			if resp == nil || tc.ExpectedResponse == nil {
 				if resp != tc.ExpectedResponse {
-					t.Fatalf("new: expected '%e',  got '%e'", tc.ExpectedResponse, resp)
+					t.Fatalf("new: expected '%v',  got '%v'", tc.ExpectedResponse, resp)
 				}
 			} else if resp.Error() != tc.ExpectedResponse.Error() {
-				t.Fatalf("new: expected '%e',  got '%e'", tc.ExpectedResponse, resp)
+				t.Fatalf("new: expected '%v',  got '%v'", tc.ExpectedResponse.Error(), resp.Error())
 			}
 			if counter != tc.ExpectedNumOfCall {
 				t.Fatalf("new: expected number of calls  '%d',  got '%d'", tc.ExpectedNumOfCall, counter)
