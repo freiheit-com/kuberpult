@@ -17,7 +17,7 @@ import { render } from '@testing-library/react';
 import { ServiceLane } from './ServiceLane';
 import { UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
-import { Application, Release } from '../../../api/api';
+import { Application, Environment, Priority, Release } from '../../../api/api';
 import { MemoryRouter } from 'react-router-dom';
 
 const mock_ReleaseCard = Spy.mockReactComponents('../../components/ReleaseCard/ReleaseCard', 'ReleaseCard');
@@ -67,7 +67,7 @@ const sampleEnvs = {
             },
         },
     },
-} as any;
+};
 
 describe('Service Lane', () => {
     const getNode = (overrides: { application: Application }) => (
@@ -100,7 +100,14 @@ describe('Service Lane', () => {
     });
 });
 
-const data = [
+type TestData = {
+    name: string;
+    diff: string;
+    releases: Release[];
+    envs: Environment[];
+};
+
+const data: TestData[] = [
     {
         name: 'test same version',
         diff: '-1',
@@ -111,26 +118,42 @@ const data = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit1',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
-        ] as Array<Release>,
-        envs: {
-            foo: {
+        ],
+        envs: [
+            {
                 name: 'foo',
                 applications: {
                     test2: {
                         version: 1,
+                        name: '',
+                        locks: {},
+                        queuedVersion: 0,
+                        undeployVersion: false,
                     },
                 },
+                distanceToUpstream: 0,
+                priority: Priority.UPSTREAM,
+                locks: {},
             },
-            foo2: {
+            {
                 name: 'foo2',
                 applications: {
                     test2: {
                         version: 1,
+                        name: '',
+                        locks: {},
+                        queuedVersion: 0,
+                        undeployVersion: false,
                     },
                 },
+                distanceToUpstream: 0,
+                priority: Priority.UPSTREAM,
+                locks: {},
             },
-        } as any,
+        ],
     },
     {
         name: 'test no diff',
@@ -142,6 +165,8 @@ const data = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit1',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
             {
                 version: 2,
@@ -149,26 +174,42 @@ const data = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit2',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
-        ] as Array<Release>,
-        envs: {
-            foo: {
+        ],
+        envs: [
+            {
                 name: 'foo',
                 applications: {
                     test2: {
                         version: 1,
+                        name: '',
+                        locks: {},
+                        queuedVersion: 0,
+                        undeployVersion: false,
                     },
                 },
+                distanceToUpstream: 0,
+                priority: Priority.UPSTREAM,
+                locks: {},
             },
-            foo2: {
+            {
                 name: 'foo2',
                 applications: {
                     test2: {
                         version: 2,
+                        name: '',
+                        locks: {},
+                        queuedVersion: 0,
+                        undeployVersion: false,
                     },
                 },
+                distanceToUpstream: 0,
+                priority: Priority.UPSTREAM,
+                locks: {},
             },
-        } as any,
+        ],
     },
     {
         name: 'test diff by one',
@@ -180,6 +221,8 @@ const data = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit1',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
             {
                 version: 4,
@@ -187,6 +230,8 @@ const data = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit5',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
             {
                 version: 2,
@@ -194,26 +239,30 @@ const data = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit3',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
-        ] as Array<Release>,
-        envs: {
-            foo: {
+        ],
+        envs: [
+            {
                 name: 'foo',
                 applications: {
                     test2: {
                         version: 1,
                     },
                 },
+                locks: {},
             },
-            foo2: {
+            {
                 name: 'foo2',
                 applications: {
                     test2: {
                         version: 4,
                     },
                 },
+                locks: {},
             } as any,
-        },
+        ],
     },
     {
         name: 'test diff by two',
@@ -225,6 +274,8 @@ const data = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit1',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
             {
                 version: 4,
@@ -232,6 +283,8 @@ const data = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit2',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
             {
                 version: 3,
@@ -239,33 +292,51 @@ const data = [
                 sourceAuthor: 'test',
                 sourceCommitId: 'commit2',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
             {
                 version: 5,
                 sourceMessage: 'test2',
-                sourceAuhor: 'test',
+                sourceAuthor: 'test',
                 sourceCommitId: 'commit2',
                 createdAt: new Date(2002),
+                undeployVersion: false,
+                prNumber: '666',
             },
-        ] as Array<Release>,
-        envs: {
-            foo: {
+        ],
+        envs: [
+            {
                 name: 'foo',
                 applications: {
                     test2: {
                         version: 2,
+                        name: '',
+                        locks: {},
+                        queuedVersion: 0,
+                        undeployVersion: false,
                     },
                 },
+                distanceToUpstream: 0,
+                priority: Priority.UPSTREAM,
+                locks: {},
             },
-            foo2: {
+            {
                 name: 'foo2',
                 applications: {
                     test2: {
                         version: 5,
+                        name: '',
+                        locks: {},
+                        queuedVersion: 0,
+                        undeployVersion: false,
                     },
                 },
-            } as any,
-        },
+                distanceToUpstream: 0,
+                priority: Priority.UPSTREAM,
+                locks: {},
+            },
+        ],
     },
 ];
 
@@ -279,8 +350,15 @@ describe('Service Lane Diff', () => {
     describe.each(data)('Service Lane diff', (testcase) => {
         it(testcase.name, () => {
             UpdateOverview.set({
-                environments: testcase.envs,
-                applications: { test2: { releases: testcase.releases } },
+                environments: undefined, // deprecated
+                applications: { test2: { releases: testcase.releases, name: '', team: '', sourceRepoUrl: '' } },
+                environmentGroups: [
+                    {
+                        environments: testcase.envs,
+                        environmentGroupName: 'group1',
+                        distanceToUpstream: 0,
+                    },
+                ],
             });
             const sampleApp = {
                 name: 'test2',
