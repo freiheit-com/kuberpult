@@ -367,9 +367,7 @@ func TestCreateApplicationVersionWithVersion(t *testing.T) {
 	tcs := []struct {
 		Name             string
 		Transformers     []Transformer
-		expectedError    string
 		expectedPath     string
-		shouldSucceed    bool
 		expectedFileData []byte
 	}{
 		{
@@ -394,10 +392,8 @@ func TestCreateApplicationVersionWithVersion(t *testing.T) {
 					Version: 101,
 				},
 			},
-			expectedError:    "",
 			expectedPath:     "applications/app1/releases/101/environments/acceptance/manifests.yaml",
 			expectedFileData: []byte("second version (101) manifest"),
-			shouldSucceed:    true,
 		},
 		{
 			Name: "successfully create 2 app versions in wrong order - should work",
@@ -421,10 +417,8 @@ func TestCreateApplicationVersionWithVersion(t *testing.T) {
 					Version: 99,
 				},
 			},
-			expectedError:    "",
 			expectedPath:     "applications/app1/releases/99/environments/acceptance/manifests.yaml",
 			expectedFileData: []byte("second version (99) manifest"),
-			shouldSucceed:    true,
 		},
 	}
 	for _, tc := range tcs {
@@ -436,22 +430,11 @@ func TestCreateApplicationVersionWithVersion(t *testing.T) {
 
 			fileData, err := util.ReadFile(updatedState.Filesystem, updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath))
 
-			if tc.shouldSucceed {
-				if err != nil {
-					t.Fatalf("Expected no error: %v", err)
-				}
-				if !cmp.Equal(fileData, tc.expectedFileData) {
-					t.Fatalf("Expected %v, got %v", string(tc.expectedFileData), string(fileData))
-				}
-			} else {
-				if err == nil {
-					t.Fatal("Expected error but got none")
-				} else {
-					actualMsg := err.Error()
-					if actualMsg != tc.expectedError {
-						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
-					}
-				}
+			if err != nil {
+				t.Fatalf("Expected no error: %v", err)
+			}
+			if !cmp.Equal(fileData, tc.expectedFileData) {
+				t.Fatalf("Expected %v, got %v", string(tc.expectedFileData), string(fileData))
 			}
 		})
 	}
