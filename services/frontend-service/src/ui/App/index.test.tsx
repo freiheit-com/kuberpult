@@ -17,7 +17,7 @@ import { App } from './index';
 import { render } from '@testing-library/react';
 import { Spy } from 'spy4js';
 import { AzureAuthSub } from '../utils/AzureAuthProvider';
-import { Observable, Subject } from 'rxjs';
+import { Observable } from 'rxjs';
 import { PanicOverview, UpdateOverview } from '../utils/store';
 
 Spy.mockModule('../components/NavigationBar/NavigationBar', 'NavigationBar');
