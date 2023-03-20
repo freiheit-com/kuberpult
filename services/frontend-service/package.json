@@ -27,9 +27,11 @@
     "build": "GENERATE_SOURCEMAP=false react-scripts build",
     "test": "react-scripts test --color",
     "start": "react-scripts start",
-    "eslint": "eslint --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx,.scss src/",
-    "eslint-fix": "eslint --fix --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx,.scss src/",
-    "circular-check": "madge -c --extensions ts,tsx --ts-config tsconfig.json --no-spinner src/"
+    "eslint": "eslint --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
+    "eslint-fix": "eslint --fix --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
+    "circular-check": "madge -c --extensions ts,tsx --ts-config tsconfig.json --no-spinner src/",
+    "lint-scss": "prettier -c --parser scss 'src/**/*.scss'",
+    "format-scss": "prettier --write --parser scss 'src/**/*.scss'"
   },
   "devDependencies": {
     "@babel/core": "^7.19.0",
