@@ -241,43 +241,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	if err != nil {
 		return "", err
 	}
-	if isLatest {
-		for env, man := range c.Manifests {
-			envDir := fs.Join(releaseDir, "environments", env)
-
-			config, found := configs[env]
-			hasUpstream := false
-			if found {
-				hasUpstream = config.Upstream != nil
-			}
-
-			if err = fs.MkdirAll(envDir, 0777); err != nil {
-				return "", err
-			}
-			if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
-				return "", err
-			}
-
-			if hasUpstream && config.Upstream.Latest {
-				d := &DeployApplicationVersion{
-					Environment:   env,
-					Application:   c.Application,
-					Version:       version, // the train should queue deployments, instead of giving up:
-					LockBehaviour: api.LockBehavior_Record,
-				}
-				deployResult, err := d.Transform(ctx, state)
-				if err != nil {
-					_, ok := err.(*LockedError)
-					if ok {
-						continue // locked error are expected
-					} else {
-						return "", err
-					}
-				}
-				result = result + deployResult + "\n"
-			}
-		}
-	} else {
+	if !isLatest {
 		// check that we can actually backfill this version
 		oldVersions, err := findOldApplicationVersions(state, c.Application)
 		if err != nil {
@@ -288,7 +252,42 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 				return "", ErrReleaseTooOld
 			}
 		}
+	}
 
+	for env, man := range c.Manifests {
+		envDir := fs.Join(releaseDir, "environments", env)
+
+		config, found := configs[env]
+		hasUpstream := false
+		if found {
+			hasUpstream = config.Upstream != nil
+		}
+
+		if err = fs.MkdirAll(envDir, 0777); err != nil {
+			return "", err
+		}
+		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
+			return "", err
+		}
+
+		if hasUpstream && config.Upstream.Latest && isLatest {
+			d := &DeployApplicationVersion{
+				Environment:   env,
+				Application:   c.Application,
+				Version:       version, // the train should queue deployments, instead of giving up:
+				LockBehaviour: api.LockBehavior_Record,
+			}
+			deployResult, err := d.Transform(ctx, state)
+			if err != nil {
+				_, ok := err.(*LockedError)
+				if ok {
+					continue // locked error are expected
+				} else {
+					return "", err
+				}
+			}
+			result = result + deployResult + "\n"
+		}
 	}
 	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), nil
 }
@@ -427,6 +426,15 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 	configs, err := state.GetEnvironmentConfigs()
 	for env := range configs {
 		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
+		entries, err := fs.ReadDir(envAppDir)
+		if err != nil {
+			return "", wrapFileError(err, envAppDir, "UndeployApplication: Could not open application directory. Does the app exist?")
+		}
+		if entries == nil {
+			// app was never deployed on this env, so we must ignore it!
+			continue
+		}
+
 		locksDir := fs.Join(envAppDir, "locks")
 		undeployFile := fs.Join(envAppDir, "version", "undeploy")
 

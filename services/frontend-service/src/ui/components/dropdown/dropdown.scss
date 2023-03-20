@@ -4,27 +4,27 @@
 @use '@material/select/icon';
 
 label.mdc-select-label.new-line-height {
-  line-height: 17px;
+    line-height: 17px;
 }
 
 label.mdc-select-label {
-  @extend .text-bold;
+    @extend .text-bold;
 }
 
-div.mdc-select{
-  @extend .text-bold;
-  width: 100%;
-  min-height: 100%;
-  border-radius: 10px;
-  fieldset{
-    border-color: var(--mdc-theme-primary);
-  }
+div.mdc-select {
+    @extend .text-bold;
+    width: 100%;
+    min-height: 100%;
+    border-radius: 10px;
+    fieldset {
+        border-color: var(--mdc-theme-primary);
+    }
 }
 
 .remove-space {
-  fieldset {
-    legend {
-      max-width: 0.01px;
+    fieldset {
+        legend {
+            max-width: 0.01px;
+        }
     }
-  }
 }

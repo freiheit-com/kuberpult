@@ -1,51 +1,51 @@
-.environment-lane{
-  position: relative;
-  background-color: $environment-lane-background-color;
-  height: $environment-lane-height;
-  border-radius: $environment-lane-border-radius;
-  margin: $environment-lane-margin;
-  overflow: visible;
+.environment-lane {
+    position: relative;
+    background-color: $environment-lane-background-color;
+    height: $environment-lane-height;
+    border-radius: $environment-lane-border-radius;
+    margin: $environment-lane-margin;
+    overflow: visible;
 
-  .environment-lane__header{
-    position: absolute;
-    top: $environment-lane-header-top-displacement;
-    left: $environment-lane-header-left-displacement;
-    color: $environment-lane-header-color;
-    background-color: $environment-lane-header-background-color;
-    display: flex;
-    justify-content: space-between;
-    padding: $environment-lane-header-padding;
-    border-radius: $environment-lane-header-border-radius;
-    width: max-content;
-    height: $environment-lane-header-height;
+    .environment-lane__header {
+        position: absolute;
+        top: $environment-lane-header-top-displacement;
+        left: $environment-lane-header-left-displacement;
+        color: $environment-lane-header-color;
+        background-color: $environment-lane-header-background-color;
+        display: flex;
+        justify-content: space-between;
+        padding: $environment-lane-header-padding;
+        border-radius: $environment-lane-header-border-radius;
+        width: max-content;
+        height: $environment-lane-header-height;
 
-    .environment__name {
-      @extend .headline1;
-      display: flex;
-      align-items: center;
+        .environment__name {
+            @extend .headline1;
+            display: flex;
+            align-items: center;
+        }
     }
-  }
 
-  .environment__locks{
-    display: flex;
-    position: absolute;
-    bottom: $environment-locks-bottom;
-    margin: $environment-locks-margin;
-  }
-
-  .environment__actions{
-    position: absolute;
-    right: $environment-actions-right-displacement;
-    bottom: $environment-actions-bottom-displacement;
-
-    .environment-action {
-      border: $environment-add-lock-button-border;
-      border-radius: $environment-add-lock-button-border-radius;
-      color: $environment-add-lock-button-color;
-      .mdc-button__label{
-        padding-left: $environment-add-lock-button-padding-left;
-        @extend .text-bold;
-      }
+    .environment__locks {
+        display: flex;
+        position: absolute;
+        bottom: $environment-locks-bottom;
+        margin: $environment-locks-margin;
     }
-  }
+
+    .environment__actions {
+        position: absolute;
+        right: $environment-actions-right-displacement;
+        bottom: $environment-actions-bottom-displacement;
+
+        .environment-action {
+            border: $environment-add-lock-button-border;
+            border-radius: $environment-add-lock-button-border-radius;
+            color: $environment-add-lock-button-color;
+            .mdc-button__label {
+                padding-left: $environment-add-lock-button-padding-left;
+                @extend .text-bold;
+            }
+        }
+    }
 }

@@ -3,43 +3,43 @@
 @use '@material/notched-outline';
 
 .mdc-top-app-bar {
-  background: var(--mdc-theme-background);
-  color: var(--mdc-theme-primary);
+    background: var(--mdc-theme-background);
+    color: var(--mdc-theme-primary);
 
-  padding: $top-app-bar-padding;
+    padding: $top-app-bar-padding;
 
-  .mdc-top-app-bar__row {
-    align-content: center;
+    .mdc-top-app-bar__row {
+        align-content: center;
 
-    .mdc-top-app-bar__section--align-end{
-      padding-right: 0;
+        .mdc-top-app-bar__section--align-end {
+            padding-right: 0;
+        }
+        .top-app-bar-search-field {
+            width: $top-app-bar-search-field-width;
+            height: $top-app-bar-search-field-height;
+        }
     }
-    .top-app-bar-search-field{
-      width: $top-app-bar-search-field-width;
-      height: $top-app-bar-search-field-height;
+
+    .mdc-top-app-bar__section {
+        gap: 100px;
     }
-  }
+    .mdc-top-app-bar__title {
+        @extend .headline1;
+    }
 
-  .mdc-top-app-bar__section{
-    gap: 100px
-  }
-  .mdc-top-app-bar__title{
-    @extend .headline1;
-  }
+    .mdc-text-field {
+        @include notched-outline.shape-radius(10px);
+        @include notched-outline.color(var(--mdc-theme-primary));
+    }
 
-  .mdc-text-field {
-    @include notched-outline.shape-radius(10px);
-    @include notched-outline.color(var(--mdc-theme-primary));
-  }
+    .mdc-show-button {
+        color: var(--mdc-theme-background);
+        background: var(--mdc-theme-primary);
 
-  .mdc-show-button {
-    color: var(--mdc-theme-background);
-    background: var(--mdc-theme-primary);
-
-    margin-left: 1em;
-    margin-right: 0;
-    width: 5em;
-    height: 4.5em;
-    border-radius: $sidebar-display-button-border-radius;
-  }
+        margin-left: 1em;
+        margin-right: 0;
+        width: 5em;
+        height: 4.5em;
+        border-radius: $sidebar-display-button-border-radius;
+    }
 }

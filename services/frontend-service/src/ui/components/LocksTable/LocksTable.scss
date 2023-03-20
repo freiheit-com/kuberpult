@@ -1,35 +1,35 @@
-@use "@material/data-table/data-table";
+@use '@material/data-table/data-table';
 
-.mdc-data-table__table{
-  width: 100%;
+.mdc-data-table__table {
+    width: 100%;
 }
 
-.mdc-data-table{
-  margin: $locks-list-margin;
+.mdc-data-table {
+    margin: $locks-list-margin;
 }
 
-.mdc-data-indicator{
-  background-color: var(--mdc-theme-primary);
-  color: var(--mdc-theme-on-primary);
-  height: $locks-list-header-height;
-  border-radius: $locks-list-header-border-radius;
-  @extend .text-regular;
+.mdc-data-indicator {
+    background-color: var(--mdc-theme-primary);
+    color: var(--mdc-theme-on-primary);
+    height: $locks-list-header-height;
+    border-radius: $locks-list-header-border-radius;
+    @extend .text-regular;
 
-  .mdc-data-indicator-header{
-    display: flex;
-    padding-inline: $locks-list-header-padding;
-  }
+    .mdc-data-indicator-header {
+        display: flex;
+        padding-inline: $locks-list-header-padding;
+    }
 
-  .mdc-data-header-title{
-    @extend .headline1;
-  }
+    .mdc-data-header-title {
+        @extend .headline1;
+    }
 
-  .mdc-data-indicator-field{
-    flex: 1;
-    @extend .sub-headline1;
-  }
+    .mdc-data-indicator-field {
+        flex: 1;
+        @extend .sub-headline1;
+    }
 
-  .mdc-data-indicator-sort-button{
-    padding-inline: 0;
-  }
+    .mdc-data-indicator-sort-button {
+        padding-inline: 0;
+    }
 }

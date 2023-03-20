@@ -15,7 +15,7 @@ $sidebar-planned-actions-border-radius: 1em 0 0 0;
 $sidebar-apply-border-radius: 0 0 0 1em;
 $sidebar-display-button-border-radius: 1em 0 0 1em;
 $sidebar-hidden-displacement: -$sidebar-width;
-$sidebar-transition-duration-large-screen: .4s;
+$sidebar-transition-duration-large-screen: 0.4s;
 $sidebar-apply-font-size: 1.5em;
 
 // Top App Bar
@@ -26,14 +26,14 @@ $top-app-bar-search-field-height: 48px;
 
 $locks-list-header-border-radius: 10px;
 $locks-list-header-height: 3em;
-$locks-list-header-padding: .5em;
+$locks-list-header-padding: 0.5em;
 $locks-list-header-line-height: 2em;
 $locks-list-header-font-size: 1.1em;
-$locks-list-row-spacing: -.3em 0;
+$locks-list-row-spacing: -0.3em 0;
 $locks-list-row-height: 3.5em;
-$locks-list-row-margin: .5em;
+$locks-list-row-margin: 0.5em;
 $locks-button-delete-height: 4em;
-$locks-date-outdated-color: #FF8A00;
+$locks-date-outdated-color: #ff8a00;
 $locks-row-font-size: 16px;
 $locks-header-font-size: 28px;
 $locks-subheader-font-size: 18px;
@@ -80,12 +80,12 @@ $release-dialog-lock-icon-size: 24px;
 
 // Release Card Tooltip
 $release-card-tooltip-border-radius: 10px;
-$release-card-tooltip-border-color: #BABABA;
+$release-card-tooltip-border-color: #bababa;
 $release-card-tooltip-width: 285px;
 $release-card-tooltip-caret-shift-left: 55px;
 
 // Service Lane Diff Element
-$service-lane-diff-element-border-color: #BABABA;
+$service-lane-diff-element-border-color: #bababa;
 
 // Logo
 // 6em = 96px - Logo_width(60px) = 36px / 2 = 18px
@@ -101,15 +101,15 @@ $kp-logo-font-line-height: 93%;
 $main-content-padding: ($top-app-bar-height + 0.5em) 2em 2em ($nav-bar-width + 2em);
 
 :root {
-  // Colors
-  --mdc-theme-primary: #2D70D6;
-  --mdc-theme-on-primary: #ffffff;
-  --mdc-theme-background: #ffffff;
-  --mdc-theme-surface: #F5F5F5;
-  --mdc-theme-on-surface: #4A4A4A;
-  --mdc-theme-secondary: #00AFFF;
-  --mdc-theme-on-secondary: #FFFFFF;
-  --mdc-theme-error: rgba(220, 0, 0, 0.92);
-  --mdc-theme-warn: rgba(243, 190, 0, 0.92);
-  --mdc-theme-success: rgba(80, 194, 65, 0.93);
+    // Colors
+    --mdc-theme-primary: #2d70d6;
+    --mdc-theme-on-primary: #ffffff;
+    --mdc-theme-background: #ffffff;
+    --mdc-theme-surface: #f5f5f5;
+    --mdc-theme-on-surface: #4a4a4a;
+    --mdc-theme-secondary: #00afff;
+    --mdc-theme-on-secondary: #ffffff;
+    --mdc-theme-error: rgba(220, 0, 0, 0.92);
+    --mdc-theme-warn: rgba(243, 190, 0, 0.92);
+    --mdc-theme-success: rgba(80, 194, 65, 0.93);
 }

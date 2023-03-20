@@ -1,15 +1,15 @@
 .mdc-list-item-container {
-  display: flex;
-  height: 130px;
+    display: flex;
+    height: 130px;
 }
 
 .mdc-list-item-indicator {
-  background-color: transparent;
-  width: $nav-indicator-width;
-  border-radius: $nav-indicator-border-radius;
+    background-color: transparent;
+    width: $nav-indicator-width;
+    border-radius: $nav-indicator-border-radius;
 }
 
 .mdc-list-item-indicator--activated {
-  background-color: orange;
-  transition: background-color 0.2s ease-in-out;
+    background-color: orange;
+    transition: background-color 0.2s ease-in-out;
 }

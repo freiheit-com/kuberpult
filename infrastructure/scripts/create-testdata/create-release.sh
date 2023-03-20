@@ -45,6 +45,14 @@ echo ${msgs[$index]}" "$commit_id > "${commit_message_file}"
 ls ${commit_message_file}
 
 release_version=()
+case "${RELEASE_VERSION:-}" in
+	'') echo "No RELEASE_VERSION set. Using non-idempotent versioning scheme";;
+	*[!0-9]*) echo "Please set the env variable RELEASE_VERSION to a number"; exit 1;;
+	*) release_version=(--form-string "version=${RELEASE_VERSION:-}");;
+esac
+
+echo "release version:" "${release_version[@]}"
+
 configuration=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
 
@@ -63,6 +71,7 @@ curl http://localhost:8081/release \
   --form-string "application=$name" \
   --form-string "source_commit_id=${commit_id}" \
   --form-string "source_author=${author}" \
+  "${release_version[@]}" \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \
   "${manifests[@]}"
