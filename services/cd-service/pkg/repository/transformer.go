@@ -432,7 +432,7 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 		entries, errorx := fs.ReadDir(envAppDir)
 		logger.FromContext(ctx).Warn("helloWORLD", zap.Error(errorx), zap.Bool("entries exists", entries != nil), zap.String("env", env), zap.String("appdir", envAppDir))
 		if entries == nil {
-			// app was never deployed on this env, so we can ignore it!
+			// app was never deployed on this env, so we must ignore it!
 			continue
 		}
 
