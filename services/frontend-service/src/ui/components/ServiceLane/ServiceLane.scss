@@ -1,75 +1,74 @@
 .service-lane__header {
-  background: var(--mdc-theme-primary);
-  color: var(--mdc-theme-on-primary);
-  display: flex;
-  justify-content: space-between;
-  padding: 13px 20px;
-  border-radius: 10px;
-  height: 62px;
-
-  white-space: nowrap;
-  .service__name {
-    overflow: hidden;
-    @extend .headline1;
-    display: flex;
-    align-items: center;
-  }
-  .service-action {
-    border: 1px solid var(--mdc-theme-on-primary);
-    border-radius: 10px;
-    margin-left: 51px;
+    background: var(--mdc-theme-primary);
     color: var(--mdc-theme-on-primary);
-    .mdc-button__label{
-      padding-left: 1em;
-      @extend .text-bold
+    display: flex;
+    justify-content: space-between;
+    padding: 13px 20px;
+    border-radius: 10px;
+    height: 62px;
+
+    white-space: nowrap;
+    .service__name {
+        overflow: hidden;
+        @extend .headline1;
+        display: flex;
+        align-items: center;
     }
-  }
+    .service-action {
+        border: 1px solid var(--mdc-theme-on-primary);
+        border-radius: 10px;
+        margin-left: 51px;
+        color: var(--mdc-theme-on-primary);
+        .mdc-button__label {
+            padding-left: 1em;
+            @extend .text-bold;
+        }
+    }
 }
 
 .service__releases {
-  display: flex;
-  margin: 0 -12px 34px -12px;
+    display: flex;
+    margin: 0 -12px 34px -12px;
 }
 
 .service-lane__diff {
-  display: flex;
+    display: flex;
 }
 
 .service-lane__diff--container {
-  display: flex;
-  flex-direction: row;
-  align-self: center;
-  justify-content: space-evenly;
-  width: 80px;
-
-  .service-lane__diff--number {
-    @extend .sub-headline1;
     display: flex;
+    flex-direction: row;
     align-self: center;
-    box-sizing: border-box;
     justify-content: space-evenly;
+    width: 80px;
 
-    // Copied from figma
-    width: 33px;
-    height: 33px;
-    left: calc(50% - 33px / 2 - 0.5px);
-    top: calc(50% - 33px / 2);
+    .service-lane__diff--number {
+        @extend .sub-headline1;
+        display: flex;
+        align-self: center;
+        box-sizing: border-box;
+        justify-content: space-evenly;
 
-    border: 2px solid $service-lane-diff-element-border-color;
-    border-radius: 10px;
-  }
+        // Copied from figma
+        width: 33px;
+        height: 33px;
+        left: calc(50% - 33px / 2 - 0.5px);
+        top: calc(50% - 33px / 2);
 
-  .service-lane__diff--dot {
-    align-self: center;
-    box-sizing: border-box;
+        border: 2px solid $service-lane-diff-element-border-color;
+        border-radius: 10px;
+    }
 
+    .service-lane__diff--dot {
+        align-self: center;
+        box-sizing: border-box;
 
-    // Copied from figma
-    width: 4px;
-    height: 4px;
-    left: calc(50% - 4px / 2 - 23px);
-    top: calc(50% - 4px / 2);
-    background: $service-lane-diff-element-border-color;
-    border-radius: 10px;
-  }
+        // Copied from figma
+        width: 4px;
+        height: 4px;
+        left: calc(50% - 4px / 2 - 23px);
+        top: calc(50% - 4px / 2);
+        background: $service-lane-diff-element-border-color;
+        border-radius: 10px;
+    }
 }

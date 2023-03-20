@@ -73,7 +73,7 @@ test-dependencies:
 	make -C ../../pkg test
 	make -C ../../pkg/api test
 
-test: test-go test-ts test-dependencies test-scss
+test: test-go lint-scss test-ts test-dependencies
 
 test-go: $(GO_FILES) proto
 	$(GO) test ./...
@@ -83,7 +83,7 @@ test-ts: src/api/api.ts
 	# The extra '--' was added because of pnpm, Usage: pnpm test [-- <args>...]
 	pnpm test -- --watchAll=false
 
-test-scss:
+lint-scss:
 	pnpm lint-scss
 
 docker: bin/main | dist

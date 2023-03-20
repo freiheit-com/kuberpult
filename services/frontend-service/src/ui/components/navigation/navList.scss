@@ -1,16 +1,16 @@
 @use '@material/list/mdc-list';
 
 .mdc-list {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  gap: 150px;
-  height: 100%;
-
-  .mdc-list-item {
-    height: 130px;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-  }
+    justify-content: center;
+    overflow: hidden;
+    gap: 150px;
+    height: 100%;
+
+    .mdc-list-item {
+        height: 130px;
+        align-items: center;
+    }
 }

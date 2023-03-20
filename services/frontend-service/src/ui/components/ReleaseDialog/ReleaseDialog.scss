@@ -1,172 +1,170 @@
 .release-dialog {
-
-  div.MuiPaper-root {
-    background-color: transparent;
-    border-radius: $release-dialog-outer-border-radius;
-    overflow-y: inherit;
-  }
-  .content-area {
-    display: flex;
-  }
-  .content-right {
-    margin-right: 20px;
-    margin-left: auto;
-    display: flex;
-  }
-
-  .release-dialog-app-bar {
-    border-radius: $release-dialog-top-border-radius;
-    background: var(--mdc-theme-primary);
-    color: var(--mdc-theme-on-primary);
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-
-    .release-dialog-app-bar-data {
-      margin: 24px 10px 24px 47px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-
-      .release-dialog-message {
-        @extend .sub-headline1;
+    div.MuiPaper-root {
+        background-color: transparent;
+        border-radius: $release-dialog-outer-border-radius;
+        overflow-y: inherit;
+    }
+    .content-area {
         display: flex;
-        justify-content: space-between;
-
-        .release-dialog-commitMessage {
-          text-overflow: wrap;
-        }
-      }
     }
-
-    .release-dialog-commitId {
-      height: 28px;
-      white-space: nowrap;
-      width: auto;
-      padding: 2px 6px;
-      border: 1px solid var(--mdc-theme-on-primary);
-      border-radius: $release-dialog-inner-border-radius;
-      margin-top: 26px;
-      margin-bottom: auto;
-      text-align: center;
-      @extend .text-regular;
-    }
-
-    button.release-dialog-close {
-      display: flex;
-      margin: 20px 10px 100px;
-    }
-  }
-
-  .release-env-group-list {
-    background-color: var(--mdc-theme-surface);
-    display: flex;
-    flex-direction: column;
-    overflow: overlay;
-    gap: 22px;
-    margin: 0px;
-    padding: 35px 0px;
-    align-items: center;
-    border-radius: $release-dialog-bottom-border-radius;
-
-    .release-env-list {
-        padding-left: 0;
-        margin-bottom: 0;
-    }
-
-    .env-card {
-      background-color: var(--mdc-theme-background);
-      display: flex;
-      flex-direction: column;
-      width: 900px;
-      padding: 0px;
-      margin-top: 10px;
-      margin-bottom: 0px;
-      margin-left: 20px;
-      margin-right: 20px;
-      border-radius: $release-dialog-inner-border-radius;
-      gap: 16px;
-
-      .env-card-header {
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        .release-environment {
-          top: $release-dialog-label-displacement;
-          left: $release-dialog-label-displacement;
-          height: 42px;
-          .env-card-label {
-            display: flex;
-
-            svg.env-card-env-lock-icon {
-              width: $release-dialog-lock-icon-size;
-              height: $release-dialog-lock-icon-size;
-              margin: unset;
-            }
-
-            .env-card-env-locks:first-child {
-              margin-left: 55px;
-              display: flex;
-              flex-direction: row;
-            }
-
-          }
-        }
-
-        .env-card-app-locks {
-          display: flex;
-          position: relative;
-          top: 20px;
-          right: 36px;
-          flex-direction: row;
-          gap: 13px;
-        }
-      }
-
-      .env-card-data {
-        display: flex;
-        flex-direction: row;
-        padding-left: 27px;
-        @extend .text-medium;
-      }
-
-      .env-card-buttons {
+    .content-right {
+        margin-right: 20px;
         margin-left: auto;
-        margin-right: 18px;
-        margin-bottom: 17px;
+        display: flex;
+    }
+
+    .release-dialog-app-bar {
+        border-radius: $release-dialog-top-border-radius;
+        background: var(--mdc-theme-primary);
+        color: var(--mdc-theme-on-primary);
         display: flex;
         flex-direction: row;
-        gap: 20px;
-        button {
-          padding: 8px 19px;
+        justify-content: space-between;
+
+        .release-dialog-app-bar-data {
+            margin: 24px 10px 24px 47px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+
+            .release-dialog-message {
+                @extend .sub-headline1;
+                display: flex;
+                justify-content: space-between;
+
+                .release-dialog-commitMessage {
+                    text-overflow: wrap;
+                }
+            }
         }
 
-        .env-card-add-lock-btn {
-          border: 1px solid var(--mdc-theme-primary);
-          border-radius: $release-dialog-inner-border-radius;
-          @extend .text-bold;
-          .icon {
-            margin-right: 9px;
-          }
+        .release-dialog-commitId {
+            height: 28px;
+            white-space: nowrap;
+            width: auto;
+            padding: 2px 6px;
+            border: 1px solid var(--mdc-theme-on-primary);
+            border-radius: $release-dialog-inner-border-radius;
+            margin-top: 26px;
+            margin-bottom: auto;
+            text-align: center;
+            @extend .text-regular;
         }
-      }
+
+        button.release-dialog-close {
+            display: flex;
+            margin: 20px 10px 100px;
+        }
     }
-  }
+
+    .release-env-group-list {
+        background-color: var(--mdc-theme-surface);
+        display: flex;
+        flex-direction: column;
+        overflow: overlay;
+        gap: 22px;
+        margin: 0px;
+        padding: 35px 0px;
+        align-items: center;
+        border-radius: $release-dialog-bottom-border-radius;
+
+        .release-env-list {
+            padding-left: 0;
+            margin-bottom: 0;
+        }
+
+        .env-card {
+            background-color: var(--mdc-theme-background);
+            display: flex;
+            flex-direction: column;
+            width: 900px;
+            padding: 0px;
+            margin-top: 10px;
+            margin-bottom: 0px;
+            margin-left: 20px;
+            margin-right: 20px;
+            border-radius: $release-dialog-inner-border-radius;
+            gap: 16px;
+
+            .env-card-header {
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+                .release-environment {
+                    top: $release-dialog-label-displacement;
+                    left: $release-dialog-label-displacement;
+                    height: 42px;
+                    .env-card-label {
+                        display: flex;
+
+                        svg.env-card-env-lock-icon {
+                            width: $release-dialog-lock-icon-size;
+                            height: $release-dialog-lock-icon-size;
+                            margin: unset;
+                        }
+
+                        .env-card-env-locks:first-child {
+                            margin-left: 55px;
+                            display: flex;
+                            flex-direction: row;
+                        }
+                    }
+                }
+
+                .env-card-app-locks {
+                    display: flex;
+                    position: relative;
+                    top: 20px;
+                    right: 36px;
+                    flex-direction: row;
+                    gap: 13px;
+                }
+            }
+
+            .env-card-data {
+                display: flex;
+                flex-direction: row;
+                padding-left: 27px;
+                @extend .text-medium;
+            }
+
+            .env-card-buttons {
+                margin-left: auto;
+                margin-right: 18px;
+                margin-bottom: 17px;
+                display: flex;
+                flex-direction: row;
+                gap: 20px;
+                button {
+                    padding: 8px 19px;
+                }
+
+                .env-card-add-lock-btn {
+                    border: 1px solid var(--mdc-theme-primary);
+                    border-radius: $release-dialog-inner-border-radius;
+                    @extend .text-bold;
+                    .icon {
+                        margin-right: 9px;
+                    }
+                }
+            }
+        }
+    }
 }
 
 button.button-lock {
-  min-width: unset;
-  padding: unset;
-  height: auto;
+    min-width: unset;
+    padding: unset;
+    height: auto;
 }
 
 button.mdc-button.env-card-deploy-btn {
-  background-color: var(--mdc-theme-primary);
-  color: var(--mdc-theme-on-primary);
-  border-radius: $release-dialog-inner-border-radius;
-  @extend .text-bold;
+    background-color: var(--mdc-theme-primary);
+    color: var(--mdc-theme-on-primary);
+    border-radius: $release-dialog-inner-border-radius;
+    @extend .text-bold;
 }
 
 button.mdc-button.env-card-deploy-btn.btn-disabled {
-  background-color: var(--mdc-theme-on-surface);
+    background-color: var(--mdc-theme-on-surface);
 }
