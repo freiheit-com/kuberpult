@@ -21,9 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
-	"go.uber.org/zap"
 	"io"
 	"io/fs"
 	"os"
@@ -429,8 +427,10 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 	configs, err := state.GetEnvironmentConfigs()
 	for env := range configs {
 		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
-		entries, errorx := fs.ReadDir(envAppDir)
-		logger.FromContext(ctx).Warn("helloWORLD", zap.Error(errorx), zap.Bool("entries exists", entries != nil), zap.String("env", env), zap.String("appdir", envAppDir))
+		entries, err := fs.ReadDir(envAppDir)
+		if err != nil {
+			return "", wrapFileError(err, envAppDir, "UndeployApplication: Could not open application directory. Does the app exist?")
+		}
 		if entries == nil {
 			// app was never deployed on this env, so we must ignore it!
 			continue
