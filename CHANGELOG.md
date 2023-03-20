@@ -6,6 +6,19 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.61
+**released 2023-03-20**
+
+This release contains 2 major bugfixes:
+* Fix for creating older versions in release endpoint [#556](https://github.com/freiheit-com/kuberpult/pull/556)
+* Fix undeploy for apps that are not in all environments [#555](https://github.com/freiheit-com/kuberpult/pull/555)
+
+Other changes:
+* (new UI) Fix rendering of group labels on ReleaseCards [#544](https://github.com/freiheit-com/kuberpult/pull/544)
+* Warn on startup if an upstream does not exist [#550](https://github.com/freiheit-com/kuberpult/pull/550)
+* (new UI) Fix 0 deployment [#554](https://github.com/freiheit-com/kuberpult/pull/554)
+
+
 ## 0.4.60
 **released 2023-03-09**
 * Add snackbar notifications [#517](https://github.com/freiheit-com/kuberpult/pull/517)
