@@ -83,7 +83,7 @@ test-ts: src/api/api.ts
 	# The extra '--' was added because of pnpm, Usage: pnpm test [-- <args>...]
 	pnpm test -- --watchAll=false
 
-lint-scss:
+lint-scss: deps
 	pnpm lint-scss
 
 docker: bin/main | dist
