@@ -28,13 +28,11 @@ import { Observable, throwError, timer } from 'rxjs';
 
 // retry strategy: retries the observable subscription with randomized exponential backoff
 // source: https://www.learnrxjs.io/learn-rxjs/operators/error_handling/retrywhen#examples
-function retryStrategy(maxRetryAttempts = 3) {
+function retryStrategy(maxRetryAttempts: number) {
     return (attempts: Observable<any>): Observable<any> =>
         attempts.pipe(
-            mergeMap((error, i) => {
-                // retry attempt number
-                const retryAttempt = i;
-                if (retryAttempt > maxRetryAttempts) {
+            mergeMap((error, retryAttempt) => {
+                if (retryAttempt >= maxRetryAttempts) {
                     return throwError(error);
                 }
                 // backoff time in seconds = 2^attempt number (exponential) + random
@@ -67,7 +65,7 @@ export const App: React.FC = () => {
             const subscription = api
                 .overviewService()
                 .StreamOverview({}, authHeader)
-                .pipe(retryWhen(retryStrategy()))
+                .pipe(retryWhen(retryStrategy(8)))
                 .subscribe(
                     (result) => {
                         UpdateOverview.set(result);
