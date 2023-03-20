@@ -1,30 +1,30 @@
 @use '@material/tooltip/styles';
 
 .mdc-tooltip.mdc-tooltip--rich {
-  // !important to overwrite the default styling of the Tooltip.
-  // The `mdc-tooltip--rich` is restricted to be placed on one of the 4 corners of a component
-  // https://github.com/material-components/material-components-web/blob/066d9439b7f1bf11426153573560b35462a3b9d5/packages/mdc-tooltip/README.md?plain=1#L281-L286
-  left: 10px !important;
-  width: $release-card-tooltip-width !important;
-  .mdc-tooltip__surface {
-    box-shadow: none;
-    background: transparent;
-    // add padding to allow for the Caret (the arrow)
-    padding: 8px 0px 0px 0px;
-    border-radius: $release-card-tooltip-border-radius;
+    // !important to overwrite the default styling of the Tooltip.
+    // The `mdc-tooltip--rich` is restricted to be placed on one of the 4 corners of a component
+    // https://github.com/material-components/material-components-web/blob/066d9439b7f1bf11426153573560b35462a3b9d5/packages/mdc-tooltip/README.md?plain=1#L281-L286
+    left: 10px !important;
+    width: $release-card-tooltip-width !important;
+    .mdc-tooltip__surface {
+        box-shadow: none;
+        background: transparent;
+        // add padding to allow for the Caret (the arrow)
+        padding: 8px 0px 0px 0px;
+        border-radius: $release-card-tooltip-border-radius;
 
-    .mdc-tooltip__content {
-      background: var(--mdc-theme-background);
-      // add margin to allow for the Caret (the arrow)
-      margin: 12px 0px 0px 0px;
-      border: 1px solid $release-card-tooltip-border-color;
-      border-radius: $release-card-tooltip-border-radius;
-    }
+        .mdc-tooltip__content {
+            background: var(--mdc-theme-background);
+            // add margin to allow for the Caret (the arrow)
+            margin: 12px 0px 0px 0px;
+            border: 1px solid $release-card-tooltip-border-color;
+            border-radius: $release-card-tooltip-border-radius;
+        }
 
-    .mdc-tooltip__caret-surface-top {
-      border: 1px solid $release-card-tooltip-border-color;
-      border-radius: 0px;
-      left: $release-card-tooltip-caret-shift-left;
+        .mdc-tooltip__caret-surface-top {
+            border: 1px solid $release-card-tooltip-border-color;
+            border-radius: 0px;
+            left: $release-card-tooltip-caret-shift-left;
+        }
     }
-  }
 }

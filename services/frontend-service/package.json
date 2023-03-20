@@ -29,7 +29,9 @@
     "start": "react-scripts start",
     "eslint": "eslint --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
     "eslint-fix": "eslint --fix --cache --cache-location 'misc/.eslintcache' --ext .ts,.tsx src/",
-    "circular-check": "madge -c --extensions ts,tsx --ts-config tsconfig.json --no-spinner src/"
+    "circular-check": "madge -c --extensions ts,tsx --ts-config tsconfig.json --no-spinner src/",
+    "lint-scss": "prettier -c --parser scss 'src/**/*.scss'",
+    "format-scss": "prettier --write --parser scss 'src/**/*.scss'"
   },
   "devDependencies": {
     "@babel/core": "^7.19.0",
@@ -62,7 +64,9 @@
   },
   "pnpm": {
     "peerDependencyRules": {
-      "ignoreMissing": ["eslint"],
+      "ignoreMissing": [
+        "eslint"
+      ],
       "allowedVersions": {
         "react": "18",
         "react-dom": "18",

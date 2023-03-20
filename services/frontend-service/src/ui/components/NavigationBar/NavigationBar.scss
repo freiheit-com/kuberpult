@@ -1,12 +1,12 @@
 @use '@material/drawer/mdc-drawer';
 
 .mdc-drawer {
-  background: var(--mdc-theme-primary);
-  width: 108px;
-  position: fixed;
-  width: $nav-bar-width;
+    background: var(--mdc-theme-primary);
+    width: 108px;
+    position: fixed;
+    width: $nav-bar-width;
 
-  .kp-logo {
-    padding: $kp-logo-padding;
-  }
+    .kp-logo {
+        padding: $kp-logo-padding;
+    }
 }

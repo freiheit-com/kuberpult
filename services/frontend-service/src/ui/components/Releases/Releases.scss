@@ -11,12 +11,12 @@
     position: relative;
     background-color: inherit;
     width: 50%;
-    background: linear-gradient(var(--mdc-theme-primary),var(--mdc-theme-primary)) left 9px top 19px/2px 100% no-repeat;
-    margin-bottom:-2px;
+    background: linear-gradient(var(--mdc-theme-primary), var(--mdc-theme-primary)) left 9px top 19px/2px 100% no-repeat;
+    margin-bottom: -2px;
 }
 /* Add arrows to the right container (pointing left) */
 .right::before {
-    content: " ";
+    content: ' ';
     height: 0;
     position: absolute;
     top: 22px;
@@ -26,12 +26,12 @@
     border: medium solid white;
     border-width: 10px 10px 10px 0;
     border-color: transparent white transparent transparent;
-  }
+}
 
-  /* Fix the circle for containers on the right side */
-  .right::after {
+/* Fix the circle for containers on the right side */
+.right::after {
     left: -16px;
-  }
+}
 
 /* The actual content */
 .content {
