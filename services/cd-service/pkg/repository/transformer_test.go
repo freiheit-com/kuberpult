@@ -197,7 +197,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 			shouldSucceed:     false,
 		},
 		{
-			Name: "Undeploy application where the app does not have a release in all envs should work",
+			Name: "Undeploy application where the app does not have a release in all envs must work",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "acceptance",
