@@ -426,6 +426,15 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 	configs, err := state.GetEnvironmentConfigs()
 	for env := range configs {
 		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
+		entries, err := fs.ReadDir(envAppDir)
+		if err != nil {
+			return "", wrapFileError(err, envAppDir, "UndeployApplication: Could not open application directory. Does the app exist?")
+		}
+		if entries == nil {
+			// app was never deployed on this env, so we must ignore it!
+			continue
+		}
+
 		locksDir := fs.Join(envAppDir, "locks")
 		undeployFile := fs.Join(envAppDir, "version", "undeploy")
 
