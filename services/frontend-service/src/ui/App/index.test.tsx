@@ -59,15 +59,17 @@ describe('App uses the API', () => {
     });
 
     it('subscribes to StreamOverview', () => {
-        // given - Subject is an Observable that we can control easily
-        const dummyOverviewObserver = new Subject();
+        // given
+        mock_StreamOverview.returns(
+            new Observable((observer) => {
+                observer.next({ applications: 'test-application' });
+            })
+        );
         mock_GetConfig.returns(Promise.resolve('test-config'));
-        mock_StreamOverview.returns(dummyOverviewObserver);
         AzureAuthSub.set({ authReady: true });
 
         // when
         getWrapper();
-        dummyOverviewObserver.next({ applications: 'test-application' });
 
         // then
         expect(UpdateOverview.get().applications).toBe('test-application');
