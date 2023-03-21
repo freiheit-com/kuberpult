@@ -7,7 +7,7 @@
     "@azure/msal-react": "^1.4.5",
     "@emotion/react": "^11.1.5",
     "@emotion/styled": "^11.1.5",
-    "@improbable-eng/grpc-web": "^0.14.0",
+    "@improbable-eng/grpc-web": "^0.15.0",
     "@material-ui/core": "5.0.0-alpha.34",
     "@material-ui/icons": "5.0.0-alpha.34",
     "@peculiar/webcrypto": "^1.4.0",
