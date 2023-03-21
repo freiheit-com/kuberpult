@@ -118,7 +118,8 @@ ignoredFiles: [
     "*.npmrc",
     "chart/*",
     "LICENSE",
-    ".env"
+    ".env",
+    ".go-version",
   ] #ignored file extensions
 testFiles: ["_test.go", "_test.dart"]
 languagesConfig:
