@@ -5,7 +5,9 @@
   ],
   "platform": "github",
   "endpoint": "https://github.com/freiheit-com/kuberpult",
-  "repositories": ["freiheit-com/kuberpult"],
+  "repositories": [
+    "freiheit-com/kuberpult"
+  ],
   "ignorePaths": [
     ".github/**"
   ],
@@ -16,12 +18,22 @@
         "go.mod"
       ],
       "separateMajorMinor": "true",
-      "excludePackagePatterns": ["github.com/freiheit-com/kuberpult/.*"]
+      "excludePackagePatterns": [
+        "github.com/freiheit-com/kuberpult/.*"
+      ]
     }
   ],
+  "constraints": {
+    "go": "1.19.5"
+  },
   "prHourlyLimit": 0,
-  "labels": ["renovate"],
-  "postUpdateOptions": ["gomodUpdateImportPaths", "gomodTidy"],
+  "labels": [
+    "renovate"
+  ],
+  "postUpdateOptions": [
+    "gomodUpdateImportPaths",
+    "gomodTidy"
+  ],
   "rebaseWhen": "behind-base-branch",
   "schedule": [
     "before 12pm on Tuesday",
