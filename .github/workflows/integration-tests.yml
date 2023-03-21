@@ -49,8 +49,25 @@ jobs:
     - name: Setup main environment
       if: inputs.trigger == 'main'
       run: |
-        echo "IMAGE_TAG_CD=$(make version)" >> $GITHUB_ENV
-        echo "IMAGE_TAG_FRONTEND=$(make version)" >> $GITHUB_ENV
+
+        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(make version) > /dev/null; then
+          echo "IMAGE_TAG_CD=$(make version)" >> $GITHUB_ENV
+        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(git describe --tags --abbrev=0 main) > /dev/null; then
+          echo "IMAGE_TAG_CD=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
+        else
+          echo "No valid images found in the registry for the backend service"
+          exit 1
+        fi
+
+        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(make version) > /dev/null; then
+          echo "IMAGE_TAG_FRONTEND=$(make version)" >> $GITHUB_ENV
+        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(git describe --tags --abbrev=0 main); then
+          echo "IMAGE_TAG_FRONTEND=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
+        else
+          echo "No valid images found in the registry for the frontend service"
+          exit 1
+        fi
+
     - name: Print environment
       run: |
         echo Using registry: $IMAGE_REGISTRY
