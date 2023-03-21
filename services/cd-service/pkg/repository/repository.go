@@ -256,6 +256,8 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 				return r.applyElements(elements, false)
 			} else {
 				e.result <- applyErr
+				// here, we keep all elements "behind i".
+				// these are the elements that have not been applied yet
 				elements = append(elements[:i], elements[i+1:]...)
 			}
 		} else {
@@ -471,12 +473,23 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		r.writesDone = r.writesDone + uint(len(transformers))
 		r.maybeGc(ctx)
 	}()
-	eCh := r.applyDeferred(ctx, transformers...)
-	select {
-	case err := <-eCh:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
+	const deferIt = true
+	if deferIt {
+		eCh := r.applyDeferred(ctx, transformers...)
+		select {
+		case err := <-eCh:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	} else {
+		elem := element{
+			ctx:          ctx,
+			transformers: transformers,
+			result:       make(chan error, 1),
+		}
+		r.ProcessQueueOnce(elem)
+		return nil
 	}
 }
 
