@@ -60,12 +60,12 @@ describe('Test Auxiliary Functions for Lock Display', () => {
         const cases: dataT[] = [
             {
                 name: 'working for same date',
-                date: new Date('2/1/22'),
+                date: new Date(2022, 1, 1),
                 expected: 0,
             },
             {
                 name: 'working for different dates',
-                date: new Date('1/15/22'),
+                date: new Date(2022, 0, 15),
                 expected: 17,
             },
         ];
@@ -73,7 +73,7 @@ describe('Test Auxiliary Functions for Lock Display', () => {
         describe.each(cases)(`Tests each calcLocksAge`, (testcase) => {
             beforeAll(() => {
                 jest.useFakeTimers('modern');
-                jest.setSystemTime(new Date('2/1/22'));
+                jest.setSystemTime(new Date(2022, 1, 1));
             });
 
             afterAll(() => {
@@ -95,12 +95,12 @@ describe('Test Auxiliary Functions for Lock Display', () => {
         const cases: dataT[] = [
             {
                 name: 'working for normal lock',
-                date: new Date('2/1/22'),
+                date: new Date(2022, 1, 1),
                 expected: false,
             },
             {
                 name: 'working for outdated lock',
-                date: new Date('1/15/22'),
+                date: new Date(2022, 0, 15),
                 expected: true,
             },
         ];
@@ -108,7 +108,7 @@ describe('Test Auxiliary Functions for Lock Display', () => {
         describe.each(cases)(`Tests each isOutdated`, (testcase) => {
             beforeAll(() => {
                 jest.useFakeTimers('modern');
-                jest.setSystemTime(new Date('2/1/22'));
+                jest.setSystemTime(new Date(2022, 1, 1));
             });
 
             afterAll(() => {
@@ -134,18 +134,18 @@ describe('Test delete lock button', () => {
     };
     const data: dataT[] = [
         {
-            name: 'Test environment delete button',
-            date: new Date('2/1/22'),
+            name: 'Test environment lock delete button',
+            date: new Date(2022, 0, 2),
             lock: lock as any,
         },
         {
-            name: 'Test environment delete button',
-            date: new Date('2/1/22'),
+            name: 'Test application lock delete button',
+            date: new Date(2022, 0, 2),
             lock: { ...lock, application: 'test-app' } as any,
         },
     ];
 
-    describe.each(data)('', (testcase) => {
+    describe.each(data)('lock type', (testcase) => {
         it(testcase.name, () => {
             render(<LockDisplay lock={testcase.lock} />);
             const result = document.querySelector('.service-action--delete')! as HTMLElement;

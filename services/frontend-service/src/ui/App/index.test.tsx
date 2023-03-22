@@ -50,7 +50,6 @@ const getWrapper = () => render(getNode());
 describe('App uses the API', () => {
     beforeAll(() => {
         jest.useFakeTimers('modern');
-        jest.setSystemTime(new Date('2/1/22'));
     });
 
     afterAll(() => {
