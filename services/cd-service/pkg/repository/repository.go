@@ -473,23 +473,12 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		r.writesDone = r.writesDone + uint(len(transformers))
 		r.maybeGc(ctx)
 	}()
-	const deferIt = true
-	if deferIt {
-		eCh := r.applyDeferred(ctx, transformers...)
-		select {
-		case err := <-eCh:
-			return err
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	} else {
-		elem := element{
-			ctx:          ctx,
-			transformers: transformers,
-			result:       make(chan error, 1),
-		}
-		r.ProcessQueueOnce(elem)
-		return nil
+	eCh := r.applyDeferred(ctx, transformers...)
+	select {
+	case err := <-eCh:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 

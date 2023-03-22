@@ -19,8 +19,8 @@ package repository
 /**
 This queue contains transformers. Do not confuse with the "queuedVersion" field in protobuf (api.proto).
 The queue here is used because applying a change to git (pushing) takes some time.
-Still, every request waits for the transformer AND push to finish (that's what the `result` channel is for).
-This queue improves the throughput when there are many parallel requests (like in a CI with many microservices).
+Still, every request waits for the transformer AND push to finish (that's what the `result` channel is for in the "element struct" below).
+This queue improves the throughput when there are many parallel requests (like in a CI with many microservices), because the "push" operation is done only once for multiple requests.
 This queue does not improve the latency, because each request still waits for the push to finish.
 */
 
