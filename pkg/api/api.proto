@@ -275,11 +275,21 @@ message Release {
   string prNumber = 7;
 }
 
+enum UndeploySummary {
+  // "normal": usual case for an active app, there is no undeploy version deployed in any environment
+  Normal = 0;
+  // "undeploy": all versions are in "undeploy" or don't exist on an environment
+  Undeploy = 1;
+  // "mixed": undeploy is deployed in one or more, but not all environments
+  Mixed = 2;
+}
+
 message Application {
   string name = 1;
   repeated Release releases = 2;
   string sourceRepoUrl= 3;
   string team = 4;
+  UndeploySummary undeploySummary = 5;
 }
 
 message Actor {

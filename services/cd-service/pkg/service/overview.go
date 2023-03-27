@@ -355,10 +355,40 @@ func (o *OverviewServiceServer) getOverview(
 			} else {
 				app.SourceRepoUrl = url
 			}
+			app.UndeploySummary = deriveUndeploySummary(appName, result.EnvironmentGroups) // TODO SU
 			result.Applications[appName] = &app
 		}
 	}
 	return &result, nil
+}
+
+func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.UndeploySummary {
+	var allNormal = true
+	var allUndeploy = true
+	for _, group := range groups {
+		for _, environment := range group.Environments {
+			var app, exists = environment.Applications[appName]
+			if !exists {
+				continue
+			}
+			if app.UndeployVersion {
+				allNormal = false
+			} else {
+				allUndeploy = false
+			}
+		}
+	}
+	if len(groups) == 0 {
+		return api.UndeploySummary_Undeploy
+	}
+	if allUndeploy {
+		return api.UndeploySummary_Undeploy
+	}
+	if allNormal {
+		return api.UndeploySummary_Normal
+	}
+	return api.UndeploySummary_Mixed
+
 }
 
 func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {

@@ -942,6 +942,9 @@ func (s *State) GetApplicationReleases(application string) ([]uint64, error) {
 				result = append(result, i)
 			}
 		}
+		sort.Slice(result, func(i, j int) bool {
+			return result[i] < result[j]
+		})
 		return result, nil
 	}
 }
