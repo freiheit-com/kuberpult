@@ -104,12 +104,12 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                 </div>
                 <div className="service__actions">
                     <Button
-                        className="service-action service-action--prepare-undeploy"
+                        className="service-action service-action--prepare-undeploy mdc-button--unelevated"
                         label={'Prepare to delete'}
                         icon={<DeleteWhite />}
                     />
                     <Button
-                        className="service-action service-action--history"
+                        className="service-action service-action--history mdc-button--unelevated"
                         label={'View history'}
                         icon={<HistoryWhite />}
                         onClick={navigateToReleases}

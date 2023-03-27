@@ -213,7 +213,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
     const [open, setOpen] = useState(false);
 
     const handleClose = useCallback(() => setOpen(false), []);
-    const handleOpen = (): void => setOpen(true);
+    const handleOpen = useCallback(() => setOpen(true), []);
     let title = 'Planned Actions';
     const numActions = useNumberOfActions();
     if (numActions > 0) {
@@ -267,7 +267,7 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
             <nav className="mdc-drawer-sidebar mdc-drawer__drawer sidebar-content">
                 <div className="mdc-drawer-sidebar mdc-drawer-sidebar-header">
                     <Button
-                        className={'mdc-drawer-sidebar mdc-drawer-sidebar-header mdc-drawer-sidebar-header__button'}
+                        className={'mdc-drawer-sidebar-header__button mdc-button--unelevated'}
                         icon={<HideBarWhite />}
                         onClick={toggleSidebar}
                     />
@@ -290,12 +290,14 @@ export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }>
                 )}
                 <div className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer">
                     <Button
-                        className={classNames('mdc-drawer-sidebar mdc-sidebar-sidebar-footer', {
-                            'mdc-drawer-sidebar-apply-button': canApply,
-                            'mdc-drawer-sidebar-apply-button-disabled': !canApply,
-                        })}
+                        className={classNames(
+                            'mdc-sidebar-sidebar-footer',
+                            'mdc-button--unelevated',
+                            'mdc-drawer-sidebar-apply-button'
+                        )}
                         label={'Apply'}
-                        onClick={canApply ? handleOpen : undefined}
+                        disabled={!canApply}
+                        onClick={handleOpen}
                     />
                     <Dialog open={open} onClose={handleClose}>
                         <DialogTitle id="alert-dialog-title">
