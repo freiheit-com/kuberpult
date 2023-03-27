@@ -275,16 +275,14 @@ describe('Release Dialog', () => {
                 ],
             } as any);
 
-            render(<ReleaseDialog {...testcase.props} />);
             render(
                 <EnvironmentListItem
                     env={testcase.props.envs[0]}
                     app={testcase.props.app}
                     queuedVersion={0}
-                    release={testcase.props.release}
+                    release={{ version: testcase.props.version + 1 } as Release}
                 />
             );
-            render(<SideBar />);
             const result = document.querySelector('.env-card-deploy-btn');
             result?.click();
             expect(UpdateSidebar.get().shown).toBeTruthy();

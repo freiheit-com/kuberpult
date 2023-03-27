@@ -286,7 +286,8 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                     </button>
                     <button
                       aria-label="Deploy"
-                      class="mdc-button env-card-deploy-btn"
+                      class="mdc-button env-card-deploy-btn mdc-button--unelevated"
+                      disabled=""
                     >
                       <div
                         class="mdc-button__ripple"
@@ -511,7 +512,8 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     </button>
                     <button
                       aria-label="Deploy"
-                      class="mdc-button env-card-deploy-btn"
+                      class="mdc-button env-card-deploy-btn mdc-button--unelevated"
+                      disabled=""
                     >
                       <div
                         class="mdc-button__ripple"
@@ -647,7 +649,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     </button>
                     <button
                       aria-label="Deploy"
-                      class="mdc-button env-card-deploy-btn"
+                      class="mdc-button env-card-deploy-btn mdc-button--unelevated"
                     >
                       <div
                         class="mdc-button__ripple"
