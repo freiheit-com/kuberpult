@@ -56,9 +56,7 @@ exports[`Release Dialog Renders the environment locks no release 1`] = `
           </div>
           <span
             class="release-dialog-commitId"
-          >
-            undeploy version
-          </span>
+          />
           <button
             aria-label=""
             class="mdc-button release-dialog-close"

@@ -54,7 +54,8 @@ const sampleEnvs = {
         name: 'undeploy',
         applications: {
             test2: {
-                version: -1,
+                version: 5,
+                undeployVersion: true,
             },
         },
     },
@@ -80,7 +81,7 @@ describe('Service Lane', () => {
         // when
         const sampleApp = {
             name: 'test2',
-            releases: [{ version: -1 }, { version: 2 }, { version: 3 }],
+            releases: [{ version: 5 }, { version: 2 }, { version: 3 }],
             sourceRepoUrl: 'http://test2.com',
             team: 'example',
         } as any;
@@ -93,7 +94,7 @@ describe('Service Lane', () => {
         getWrapper({ application: sampleApp });
 
         // then releases are sorted and Release card is called with props:
-        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: sampleApp.name, version: -1 });
+        expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: sampleApp.name, version: 5 });
         expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1, 0)).toStrictEqual({ app: sampleApp.name, version: 3 });
         expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({ app: sampleApp.name, version: 2 });
         mock_ReleaseCard.ReleaseCard.wasCalled(3);

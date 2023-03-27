@@ -416,20 +416,13 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest'
 
 // returns the release number {$version} of {$application}
 export const useRelease = (application: string, version: number): Release =>
-    useOverview(
-        ({ applications }) =>
-            applications[application].releases.find((r) =>
-                version === -1 ? r.undeployVersion : r.version === version
-            )!
-    );
+    useOverview(({ applications }) => applications[application].releases.find((r) => r.version === version)!);
 
 export const useReleaseOptional = (application: string, env: Environment): Release | undefined => {
     const x = env.applications[application];
     return useOverview(({ applications }) => {
         const version = x ? x.version : 0;
-        const res = applications[application].releases.find((r) =>
-            version === -1 ? r.undeployVersion : r.version === version
-        )!;
+        const res = applications[application].releases.find((r) => r.version === version)!;
         if (!x) {
             return undefined;
         }
@@ -443,12 +436,10 @@ export const useDeployedReleases = (application: string): number[] =>
         ...new Set(
             Object.values(useEnvironments())
                 .filter((env) => env.applications[application])
-                .map((env) =>
-                    env.applications[application].undeployVersion ? -1 : env.applications[application].version
-                )
+                .map((env) => env.applications[application].version)
         ),
     ]
-        .sort((a, b) => (a === -1 ? -1 : b === -1 ? 1 : b - a))
+        .sort((a, b) => b - a)
         .filter((version) => version !== 0); // 0 means "not deployed", so we filter those out
 
 export type EnvironmentGroupExtended = EnvironmentGroup & { numberOfEnvsInGroup: number };
@@ -462,11 +453,7 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
         const envGroups: EnvironmentGroupExtended[] = [];
         environmentGroups.forEach((group: EnvironmentGroup) => {
             const envs = group.environments.filter(
-                (env) =>
-                    env.applications[application] &&
-                    (version === -1
-                        ? env.applications[application].undeployVersion
-                        : env.applications[application].version === version)
+                (env) => env.applications[application] && env.applications[application].version === version
             );
             if (envs.length > 0) {
                 // we need to make a copy of the group here, because we want to remove some envs.
@@ -496,11 +483,7 @@ export const useReleaseInfo = (app: string, version: number): Release =>
 
 // Get all releases for an app
 export const useReleasesForApp = (app: string): Release[] =>
-    useOverview(({ applications }) =>
-        applications[app]?.releases.sort((a, b) =>
-            a.version === -1 ? -1 : b.version === -1 ? 1 : b.version - a.version
-        )
-    );
+    useOverview(({ applications }) => applications[app]?.releases.sort((a, b) => b.version - a.version));
 
 // Get all release versions for an app
 export const useVersionsForApp = (app: string): number[] => useReleasesForApp(app).map((rel) => rel.version);
