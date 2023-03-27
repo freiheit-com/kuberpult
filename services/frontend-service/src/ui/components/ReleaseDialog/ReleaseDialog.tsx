@@ -122,6 +122,9 @@ export const EnvironmentListItem: React.FC<{
             </div>
         );
     const otherRelease = useReleaseOptional(app, env);
+    const envHasADeployedVersion = !!env.applications[app];
+    const relIsCurrentlyDeployed = envHasADeployedVersion && release.version === env.applications[app].version;
+
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -149,8 +152,8 @@ export const EnvironmentListItem: React.FC<{
                     <div
                         className={classNames('env-card-data', className)}
                         title={'Shows the version that is currently deployed on ' + env.name}>
-                        {env.applications[app]
-                            ? release.version === env.applications[app].version
+                        {envHasADeployedVersion
+                            ? relIsCurrentlyDeployed
                                 ? release.sourceCommitId + ': ' + release.sourceMessage
                                 : otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage
                             : `"${app}" has no version deployed on "${env.name}"`}
@@ -166,8 +169,8 @@ export const EnvironmentListItem: React.FC<{
                             icon={<Locks className="icon" />}
                         />
                         <Button
-                            disabled={!release.version}
-                            className={classNames('env-card-deploy-btn', { 'btn-disabled': !release.version })}
+                            disabled={relIsCurrentlyDeployed}
+                            className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
                             onClick={deploy}
                             label="Deploy"
                         />

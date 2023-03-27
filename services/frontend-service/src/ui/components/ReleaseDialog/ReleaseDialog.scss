@@ -142,6 +142,7 @@
                 .env-card-add-lock-btn {
                     border: 1px solid var(--mdc-theme-primary);
                     border-radius: $release-dialog-inner-border-radius;
+                    white-space: nowrap;
                     @extend .text-bold;
                     .icon {
                         margin-right: 9px;
@@ -159,12 +160,7 @@ button.button-lock {
 }
 
 button.mdc-button.env-card-deploy-btn {
-    background-color: var(--mdc-theme-primary);
-    color: var(--mdc-theme-on-primary);
     border-radius: $release-dialog-inner-border-radius;
+    color: white;
     @extend .text-bold;
-}
-
-button.mdc-button.env-card-deploy-btn.btn-disabled {
-    background-color: var(--mdc-theme-on-surface);
 }

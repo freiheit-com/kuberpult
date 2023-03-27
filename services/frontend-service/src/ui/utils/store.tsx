@@ -487,7 +487,9 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
 // Get release information for a version
 export const useReleaseInfo = (app: string, version: number): Release =>
     useOverview(({ applications }) => {
-        const releaseInfo = applications[app]?.releases.filter((release) => release.version === version)[0];
+        const releaseInfo = applications[app]?.releases.filter((r) =>
+            version === -1 ? r.undeployVersion : r.version === version
+        )[0];
         if (!releaseInfo) {
             return {} as Release;
         }
