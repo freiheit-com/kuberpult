@@ -71,13 +71,21 @@ export const AppLock: React.FC<{
     );
 };
 
-export const EnvironmentListItem: React.FC<{
+export type EnvironmentListItemProps = {
     env: Environment;
     app: string;
     release: Release;
     queuedVersion: number;
     className?: string;
-}> = ({ env, app, release, queuedVersion, className }) => {
+};
+
+export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
+    env,
+    app,
+    release,
+    queuedVersion,
+    className,
+}) => {
     const deploy = useCallback(() => {
         if (release.version) {
             addAction({
