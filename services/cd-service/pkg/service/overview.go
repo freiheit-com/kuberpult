@@ -378,9 +378,6 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 			}
 		}
 	}
-	if len(groups) == 0 {
-		return api.UndeploySummary_Undeploy
-	}
 	if allUndeploy {
 		return api.UndeploySummary_Undeploy
 	}
