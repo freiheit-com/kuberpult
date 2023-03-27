@@ -13,14 +13,15 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import { ServiceLane } from './ServiceLane';
 import { UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
-import { Application, Environment, Priority, Release, UndeploySummary } from '../../../api/api';
+import { Application, BatchAction, Environment, Priority, Release, UndeploySummary } from '../../../api/api';
 import { MemoryRouter } from 'react-router-dom';
 
 const mock_ReleaseCard = Spy.mockReactComponents('../../components/ReleaseCard/ReleaseCard', 'ReleaseCard');
+const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
 const sampleEnvs = {
     foo: {
         // third release card contains two environments
@@ -389,8 +390,9 @@ describe('Service Lane Diff', () => {
 });
 
 type TestDataUndeploy = TestData & {
-    expectedUndeployButton: string | null;
     renderedApp: Application;
+    expectedUndeployButton: string | null;
+    expectedAction: BatchAction;
 };
 const dataUndeploy: TestDataUndeploy[] = (() => {
     const releaseNormal = [
@@ -415,7 +417,7 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
             prNumber: '666',
         },
     ];
-    return [
+    const result: TestDataUndeploy[] = [
         {
             name: 'test no undeploy',
             renderedApp: {
@@ -436,6 +438,12 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
                 },
             ],
             expectedUndeployButton: 'Prepare Undeploy Release',
+            expectedAction: {
+                action: {
+                    $case: 'prepareUndeploy',
+                    prepareUndeploy: { application: 'test1' },
+                },
+            },
         },
         {
             name: 'test no undeploy',
@@ -457,8 +465,15 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
                 },
             ],
             expectedUndeployButton: 'Delete Forever',
+            expectedAction: {
+                action: {
+                    $case: 'undeploy',
+                    undeploy: { application: 'test1' },
+                },
+            },
         },
     ];
+    return result;
 })();
 
 describe('Service Lane Undeploy Buttons', () => {
@@ -470,6 +485,8 @@ describe('Service Lane Undeploy Buttons', () => {
     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
     describe.each(dataUndeploy)('Service Lane diff', (testcase) => {
         it(testcase.name, () => {
+            mock_addAction.addAction.returns(undefined);
+
             UpdateOverview.set({
                 applications: {
                     test1: testcase.renderedApp,
@@ -485,10 +502,15 @@ describe('Service Lane Undeploy Buttons', () => {
 
             const { container } = getWrapper({ application: testcase.renderedApp });
 
-            // check for the diff between versions
             const undeployButton = container.querySelector('.service-action.service-action--prepare-undeploy');
             const label = undeployButton?.querySelector('span');
             expect(label?.textContent).toBe(testcase.expectedUndeployButton);
+
+            mock_addAction.addAction.wasNotCalled();
+
+            fireEvent.click(undeployButton!);
+
+            mock_addAction.addAction.wasCalledWith(testcase.expectedAction);
         });
     });
 });
