@@ -122,6 +122,14 @@ export const EnvironmentListItem: React.FC<{
             </div>
         );
     const otherRelease = useReleaseOptional(app, env);
+    const application = env.applications[app];
+    const commitString = application
+        ? release.undeployVersion
+            ? 'Undeploy Version'
+            : release.version === application.version
+            ? release.sourceCommitId + ': ' + release.sourceMessage
+            : otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage
+        : `"${app}" has no version deployed on "${env.name}"`;
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -148,12 +156,13 @@ export const EnvironmentListItem: React.FC<{
                 <div className="content-left">
                     <div
                         className={classNames('env-card-data', className)}
-                        title={'Shows the version that is currently deployed on ' + env.name}>
-                        {env.applications[app]
-                            ? release.version === env.applications[app].version
-                                ? release.sourceCommitId + ': ' + release.sourceMessage
-                                : otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage
-                            : `"${app}" has no version deployed on "${env.name}"`}
+                        title={
+                            'Shows the version that is currently deployed on ' +
+                            env.name +
+                            '. ' +
+                            (release.undeployVersion ? undeployTooltipExplanation : '')
+                        }>
+                        {commitString}
                     </div>
                     {queueInfo}
                 </div>
@@ -205,8 +214,14 @@ export const EnvironmentList: React.FC<{
     );
 };
 
+const undeployTooltipExplanation =
+    'This is the "undeploy" version. It is essentially an empty manifest. Deploying this means removing all kubernetes entities like deployments from the given environment. You must deploy this to all environments before kuberpult allows to delete the app entirely.';
+
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, release, version } = props;
+    const undeployVersionTitle = release.undeployVersion
+        ? undeployTooltipExplanation
+        : 'Commit Hash of the source repository.';
     const dialog =
         app !== '' ? (
             <div>
@@ -230,8 +245,8 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                 {release?.sourceAuthor ? 'Author: ' + release?.sourceAuthor : ''}
                             </div>
                         </div>
-                        <span className={classNames('release-dialog-commitId', className)}>
-                            {release.undeployVersion ? 'undeploy version' : release?.sourceCommitId}
+                        <span className={classNames('release-dialog-commitId', className)} title={undeployVersionTitle}>
+                            {release.undeployVersion ? 'Undeploy Version' : release?.sourceCommitId}
                         </span>
                         <Button
                             onClick={setClosed}
