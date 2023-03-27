@@ -355,7 +355,7 @@ func (o *OverviewServiceServer) getOverview(
 			} else {
 				app.SourceRepoUrl = url
 			}
-			app.UndeploySummary = deriveUndeploySummary(appName, result.EnvironmentGroups) // TODO SU
+			app.UndeploySummary = deriveUndeploySummary(appName, result.EnvironmentGroups)
 			result.Applications[appName] = &app
 		}
 	}
