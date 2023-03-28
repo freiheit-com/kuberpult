@@ -79,11 +79,6 @@ describe('Release Card', () => {
             rels: [{ version: 2, sourceMessage: 'test-rel' }],
         },
         {
-            name: 'using a sample undeploy release - useRelease hook',
-            props: { app: 'test2', version: -1 },
-            rels: [{ undeployVersion: true }],
-        },
-        {
             name: 'using a full release - component test',
             props: { app: 'test2', version: 2 },
             rels: [

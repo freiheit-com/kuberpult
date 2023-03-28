@@ -773,3 +773,141 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 		})
 	}
 }
+
+func groupFromEnvs(environments []*api.Environment) []*api.EnvironmentGroup {
+	return []*api.EnvironmentGroup{
+		{
+			EnvironmentGroupName: "group1",
+			Environments:         environments,
+		},
+	}
+}
+
+func TestDeriveUndeploySummary(t *testing.T) {
+	var tcs = []struct {
+		Name           string
+		AppName        string
+		groups         []*api.EnvironmentGroup
+		ExpectedResult api.UndeploySummary
+	}{
+		{
+			Name:           "No Environments",
+			AppName:        "foo",
+			groups:         []*api.EnvironmentGroup{},
+			ExpectedResult: api.UndeploySummary_Undeploy,
+		},
+		{
+			Name:    "one Environment but no Application",
+			AppName: "foo",
+			groups: groupFromEnvs([]*api.Environment{
+				{
+					Applications: map[string]*api.Environment_Application{
+						"bar": { // different app
+							UndeployVersion: true,
+						},
+					},
+				},
+			}),
+			ExpectedResult: api.UndeploySummary_Undeploy,
+		},
+		{
+			Name:    "One Env with undeploy",
+			AppName: "foo",
+			groups: groupFromEnvs([]*api.Environment{
+				{
+					Applications: map[string]*api.Environment_Application{
+						"foo": {
+							UndeployVersion: true,
+						},
+					},
+				},
+			}),
+			ExpectedResult: api.UndeploySummary_Undeploy,
+		},
+		{
+			Name:    "One Env with normal version",
+			AppName: "foo",
+			groups: groupFromEnvs([]*api.Environment{
+				{
+					Applications: map[string]*api.Environment_Application{
+						"foo": {
+							UndeployVersion: false,
+						},
+					},
+				},
+			}),
+			ExpectedResult: api.UndeploySummary_Normal,
+		},
+		{
+			Name:    "Two Envs all undeploy",
+			AppName: "foo",
+			groups: groupFromEnvs([]*api.Environment{
+				{
+					Applications: map[string]*api.Environment_Application{
+						"foo": {
+							UndeployVersion: true,
+						},
+					},
+				},
+				{
+					Applications: map[string]*api.Environment_Application{
+						"foo": {
+							UndeployVersion: true,
+						},
+					},
+				},
+			}),
+			ExpectedResult: api.UndeploySummary_Undeploy,
+		},
+		{
+			Name:    "Two Envs all normal",
+			AppName: "foo",
+			groups: groupFromEnvs([]*api.Environment{
+				{
+					Applications: map[string]*api.Environment_Application{
+						"foo": {
+							UndeployVersion: false,
+						},
+					},
+				},
+				{
+					Applications: map[string]*api.Environment_Application{
+						"foo": {
+							UndeployVersion: false,
+						},
+					},
+				},
+			}),
+			ExpectedResult: api.UndeploySummary_Normal,
+		},
+		{
+			Name:    "Two Envs all different",
+			AppName: "foo",
+			groups: groupFromEnvs([]*api.Environment{
+				{
+					Applications: map[string]*api.Environment_Application{
+						"foo": {
+							UndeployVersion: true,
+						},
+					},
+				},
+				{
+					Applications: map[string]*api.Environment_Application{
+						"foo": {
+							UndeployVersion: false,
+						},
+					},
+				},
+			}),
+			ExpectedResult: api.UndeploySummary_Mixed,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			actualResult := deriveUndeploySummary(tc.AppName, tc.groups)
+			if !cmp.Equal(tc.ExpectedResult, actualResult) {
+				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedResult, actualResult))
+			}
+		})
+	}
+}
