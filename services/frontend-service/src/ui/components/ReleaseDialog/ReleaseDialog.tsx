@@ -231,7 +231,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             </div>
                         </div>
                         <span className={classNames('release-dialog-commitId', className)}>
-                            {release.undeployVersion === undefined ? 'undeploy version' : release?.sourceCommitId}
+                            {release.undeployVersion ? 'undeploy version' : release?.sourceCommitId}
                         </span>
                         <Button
                             onClick={setClosed}
