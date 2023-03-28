@@ -141,6 +141,9 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         if (release.version === application.version) {
             return release.sourceCommitId + ': ' + release.sourceMessage;
         }
+        if (otherRelease?.undeployVersion) {
+            return 'Undeploy Version';
+        }
         return otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage;
     };
     return (
