@@ -17,7 +17,13 @@ import { Dialog, Tooltip } from '@material-ui/core';
 import classNames from 'classnames';
 import React, { useCallback } from 'react';
 import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
-import { addAction, updateReleaseDialog, useOverview, useReleaseOptional } from '../../utils/store';
+import {
+    addAction,
+    updateReleaseDialog,
+    useOverview,
+    useReleaseOptional,
+    useTeamFromApplication,
+} from '../../utils/store';
 import { Button } from '../button';
 import { Close, Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
@@ -207,6 +213,7 @@ export const EnvironmentList: React.FC<{
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, release, version } = props;
+    const team = useTeamFromApplication(app);
     const dialog =
         app !== '' ? (
             <div>
@@ -229,6 +236,11 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             <div className={classNames('release-dialog-author', className)}>
                                 {release?.sourceAuthor ? 'Author: ' + release?.sourceAuthor : ''}
                             </div>
+                            <div
+                                className={classNames(
+                                    'release-dialog-app',
+                                    className
+                                )}>{`Service: ${app} | Team: ${team}`}</div>
                         </div>
                         <span className={classNames('release-dialog-commitId', className)}>
                             {release.undeployVersion ? 'undeploy version' : release?.sourceCommitId}
