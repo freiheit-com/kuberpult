@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/DataDog/datadog-go/v5 v5.3.0
-	github.com/MicahParks/keyfunc v1.2.2
+	github.com/MicahParks/keyfunc v1.9.0
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/go-git/go-billy/v5 v5.3.1
