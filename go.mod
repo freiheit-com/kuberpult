@@ -15,7 +15,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/libgit2/git2go/v33 v33.0.9
-	go.uber.org/zap v1.16.0
+	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b
 	google.golang.org/api v0.30.0
 	google.golang.org/grpc v1.46.2
