@@ -14,9 +14,12 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import { EnvironmentChip, EnvironmentChipProps, EnvironmentGroupChip } from './EnvironmentGroupChip';
-import { render } from '@testing-library/react';
-import { Environment, Priority } from '../../../api/api';
+import { fireEvent, render } from '@testing-library/react';
+import { Environment, Lock, Priority } from '../../../api/api';
 import { EnvironmentGroupExtended } from '../../utils/store';
+import { Spy } from 'spy4js';
+
+const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
 
 describe('EnvironmentChip', () => {
     const env: Environment = {
@@ -58,8 +61,27 @@ describe('EnvironmentChip', () => {
         `);
     });
     it('renders a short form tag chip', () => {
-        const { container } = getWrapper({ smallEnvChip: true } as any);
+        const { container } = getWrapper({
+            smallEnvChip: true,
+            env: { ...env, locks: [{ lockId: 'lock1' }, { lockId: 'lock2' }] as Lock[] },
+        } as any);
         expect(container.querySelector('.mdc-evolution-chip__text-name')?.textContent).toBe(env.name[0].toUpperCase());
+        // only show one lock icon in the small env tag
+        expect(container.querySelectorAll('.env-card-env-lock-icon').length).toBe(1);
+    });
+    it('renders env locks in big env chip', () => {
+        const { container } = getWrapper({
+            env: { ...env, locks: [{ lockId: 'test-lock1' }, { lockId: 'test-lock2' }] as Lock[] },
+        } as any);
+        // big chip shows all locks
+        expect(container.querySelectorAll('.env-card-env-lock-icon').length).toBe(2);
+        const lock1 = container.querySelectorAll('.button-lock')[0];
+        fireEvent.click(lock1);
+        mock_addAction.addAction.wasCalled();
+        expect(mock_addAction.addAction.getCallArguments()[0]).toHaveProperty(
+            'action.deleteEnvironmentLock.lockId',
+            'test-lock1'
+        );
     });
 });
 
