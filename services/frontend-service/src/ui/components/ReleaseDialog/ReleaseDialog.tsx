@@ -131,13 +131,18 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         );
     const otherRelease = useReleaseOptional(app, env);
     const application = env.applications[app];
-    const commitString = application
-        ? release.undeployVersion
-            ? 'Undeploy Version'
-            : release.version === application.version
-            ? release.sourceCommitId + ': ' + release.sourceMessage
-            : otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage
-        : `"${app}" has no version deployed on "${env.name}"`;
+    const getCommitString = (): string => {
+        if (!application) {
+            return `"${app}" has no version deployed on "${env.name}"`;
+        }
+        if (release.undeployVersion) {
+            return 'Undeploy Version';
+        }
+        if (release.version === application.version) {
+            return release.sourceCommitId + ': ' + release.sourceMessage;
+        }
+        return otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage;
+    };
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -170,7 +175,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             '. ' +
                             (release.undeployVersion ? undeployTooltipExplanation : '')
                         }>
-                        {commitString}
+                        {getCommitString()}
                     </div>
                     {queueInfo}
                 </div>
@@ -222,7 +227,7 @@ export const EnvironmentList: React.FC<{
     );
 };
 
-const undeployTooltipExplanation =
+export const undeployTooltipExplanation =
     'This is the "undeploy" version. It is essentially an empty manifest. Deploying this means removing all kubernetes entities like deployments from the given environment. You must deploy this to all environments before kuberpult allows to delete the app entirely.';
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {

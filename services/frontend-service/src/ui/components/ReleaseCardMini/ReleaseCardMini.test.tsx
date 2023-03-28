@@ -34,6 +34,7 @@ describe('Release Card Mini', () => {
                     createdAt: new Date('2022-12-14T14:20:00'),
                 },
             ],
+            expectedMessage: 'test-rel',
         },
         {
             name: 'A release from 4 days ago',
@@ -47,6 +48,7 @@ describe('Release Card Mini', () => {
                     createdAt: new Date('2022-12-12T08:20:00'),
                 },
             ],
+            expectedMessage: 'test-rel',
         },
         {
             name: 'using A release today',
@@ -60,6 +62,7 @@ describe('Release Card Mini', () => {
                     createdAt: new Date('2022-12-16T14:20:00'),
                 },
             ],
+            expectedMessage: 'test-rel',
         },
         {
             name: 'A release three days ago with an env',
@@ -83,6 +86,32 @@ describe('Release Card Mini', () => {
                     },
                 },
             },
+            expectedMessage: 'test-rel',
+        },
+        {
+            name: 'A release with undeploy version',
+            props: { app: 'test2', version: 2 },
+            msg: 'test-author commited 3 days ago at 14:20:0',
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                    sourceAuthor: 'test-author',
+                    createdAt: new Date('2022-12-13T14:20:00'),
+                    undeployVersion: true,
+                },
+            ],
+            environments: {
+                other: {
+                    name: 'other',
+                    applications: {
+                        test2: {
+                            version: 2,
+                        },
+                    },
+                },
+            },
+            expectedMessage: 'Undeploy Version',
         },
     ];
 
@@ -98,6 +127,7 @@ describe('Release Card Mini', () => {
             const { container } = getWrapper(testcase.props);
             expect(container.querySelector('.release__details-mini')?.textContent).toContain(testcase.msg);
             expect(container.querySelector('.env-group-chip-list-test')).not.toBeEmptyDOMElement();
+            expect(container.querySelector('.release__details-header')?.textContent).toBe(testcase.expectedMessage);
         });
     });
 });
