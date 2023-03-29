@@ -280,7 +280,7 @@ describe('Release Dialog', () => {
                     env={testcase.props.envs[0]}
                     app={testcase.props.app}
                     queuedVersion={0}
-                    release={{ version: testcase.props.version + 1 } as Release}
+                    release={{ ...testcase.props.release, version: 3 }}
                 />
             );
             const result = document.querySelector('.env-card-deploy-btn');
