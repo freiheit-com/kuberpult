@@ -25,6 +25,7 @@ import {
     deleteAllActions,
     UpdateOverview,
     appendAction,
+    DisplayLock,
 } from '../../utils/store';
 import { ActionDetails, ActionTypes, getActionDetails, SideBar } from './SideBar';
 
@@ -389,8 +390,8 @@ describe('Action details', () => {
     interface dataT {
         name: string;
         action: BatchAction;
-        envLocks?: string[];
-        appLocks?: string[];
+        envLocks?: DisplayLock[];
+        appLocks?: DisplayLock[];
         expectedDetails: ActionDetails;
     }
     const data: dataT[] = [
@@ -418,7 +419,13 @@ describe('Action details', () => {
                     deleteEnvironmentLock: { environment: 'foo', lockId: 'ui-v2-1337' },
                 },
             },
-            envLocks: ['ui-v2-1337'],
+            envLocks: [
+                {
+                    lockId: 'ui-v2-1337',
+                    environment: 'foo',
+                    message: 'bar',
+                },
+            ],
             expectedDetails: {
                 type: ActionTypes.DeleteEnvironmentLock,
                 name: 'Delete Env Lock',
@@ -459,7 +466,14 @@ describe('Action details', () => {
                     deleteEnvironmentApplicationLock: { environment: 'foo', application: 'bar', lockId: 'ui-v2-1337' },
                 },
             },
-            appLocks: ['ui-v2-1337'],
+            appLocks: [
+                {
+                    lockId: 'ui-v2-1337',
+                    environment: 'foo',
+                    message: 'bar',
+                    application: 'bar',
+                },
+            ],
             expectedDetails: {
                 type: ActionTypes.DeleteApplicationLock,
                 name: 'Delete App Lock',

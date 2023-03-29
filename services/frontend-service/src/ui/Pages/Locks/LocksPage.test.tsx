@@ -18,10 +18,9 @@ import { LocksPage } from './LocksPage';
 import {
     DisplayLock,
     UpdateOverview,
+    useAllLocks,
     useApplicationLock,
-    useApplicationLockIDs,
     useEnvironmentLock,
-    useEnvironmentLockIDs,
     useFilteredEnvironmentLockIDs,
 } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
@@ -45,7 +44,7 @@ describe('LocksPage', () => {
 describe('Test env locks', () => {
     interface dataEnvT {
         name: string;
-        envs: { [key: string]: Environment };
+        envs: Environment[];
         sortOrder: 'oldestToNewest' | 'newestToOldest';
         expectedLockIDs: string[];
     }
@@ -53,28 +52,28 @@ describe('Test env locks', () => {
     const sampleEnvData: dataEnvT[] = [
         {
             name: 'no locks',
-            envs: {},
+            envs: [],
             sortOrder: 'oldestToNewest',
             expectedLockIDs: [],
         },
         {
             name: 'get one lock',
-            envs: {
-                integration: {
+            envs: [
+                {
                     name: 'integration',
                     locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
                     applications: {},
                     distanceToUpstream: 0,
                     priority: 2,
                 },
-            },
+            ],
             sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-1337'],
         },
         {
             name: 'get a few locks (sorted, newestToOldest)',
-            envs: {
-                integration: {
+            envs: [
+                {
                     name: 'integration',
                     locks: {
                         locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
@@ -85,14 +84,14 @@ describe('Test env locks', () => {
                     distanceToUpstream: 0,
                     priority: 2,
                 },
-            },
+            ],
             sortOrder: 'newestToOldest',
             expectedLockIDs: ['ui-v2-1337', 'ui-v2-123', 'ui-v2-321'],
         },
         {
             name: 'get a few locks (sorted, oldestToNewest)',
-            envs: {
-                integration: {
+            envs: [
+                {
                     name: 'integration',
                     locks: {
                         lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
@@ -103,7 +102,7 @@ describe('Test env locks', () => {
                     distanceToUpstream: 0,
                     priority: 2,
                 },
-            },
+            ],
             sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-321', 'ui-v2-123', 'ui-v2-1337'],
         },
@@ -112,11 +111,15 @@ describe('Test env locks', () => {
     describe.each(sampleEnvData)(`Test Lock IDs`, (testcase) => {
         it(testcase.name, () => {
             // given
-            UpdateOverview.set({ environments: testcase.envs });
+            UpdateOverview.set({
+                environmentGroups: [
+                    { environments: testcase.envs, environmentGroupName: 'dontcare', distanceToUpstream: 0 },
+                ],
+            });
             // when
-            const obtained = renderHook(() => useEnvironmentLockIDs()).result.current;
+            const obtained = renderHook(() => useAllLocks().environmentLocks).result.current;
             // then
-            expect(obtained).toStrictEqual(testcase.expectedLockIDs);
+            expect(obtained.map((lock) => lock.lockId)).toStrictEqual(testcase.expectedLockIDs);
         });
     });
 
@@ -266,7 +269,7 @@ describe('Test env locks', () => {
 describe('Test app locks', () => {
     interface dataAppT {
         name: string;
-        envs: { [key: string]: Environment };
+        envs: Environment[];
         sortOrder: 'oldestToNewest' | 'newestToOldest';
         expectedLockIDs: string[];
     }
@@ -274,14 +277,14 @@ describe('Test app locks', () => {
     const sampleAppData: dataAppT[] = [
         {
             name: 'no locks',
-            envs: {},
+            envs: [],
             sortOrder: 'oldestToNewest',
             expectedLockIDs: [],
         },
         {
             name: 'get one lock',
-            envs: {
-                integration: {
+            envs: [
+                {
                     name: 'integration',
                     locks: {},
                     distanceToUpstream: 0,
@@ -296,14 +299,14 @@ describe('Test app locks', () => {
                         },
                     },
                 },
-            },
+            ],
             sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-1337'],
         },
         {
             name: 'get a few locks (sorted, newestToOldest)',
-            envs: {
-                integration: {
+            envs: [
+                {
                     name: 'integration',
                     locks: {},
                     distanceToUpstream: 0,
@@ -326,14 +329,14 @@ describe('Test app locks', () => {
                         },
                     },
                 },
-            },
+            ],
             sortOrder: 'newestToOldest',
             expectedLockIDs: ['ui-v2-1337', 'ui-v2-123', 'ui-v2-321'],
         },
         {
             name: 'get a few locks (sorted, oldestToNewest)',
-            envs: {
-                integration: {
+            envs: [
+                {
                     name: 'integration',
                     locks: {
                         lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
@@ -368,7 +371,7 @@ describe('Test app locks', () => {
                         },
                     },
                 },
-            },
+            ],
             sortOrder: 'oldestToNewest',
             expectedLockIDs: ['ui-v2-321', 'ui-v2-123', 'ui-v2-1337'],
         },
@@ -377,11 +380,17 @@ describe('Test app locks', () => {
     describe.each(sampleAppData)(`Test Lock IDs`, (testcase) => {
         it(testcase.name, () => {
             // given
-            UpdateOverview.set({ environments: testcase.envs });
+            // UpdateOverview.set({ environmentGroups: testcase.envs });
+            UpdateOverview.set({
+                environmentGroups: [
+                    { environments: testcase.envs, environmentGroupName: 'dontcare', distanceToUpstream: 0 },
+                ],
+            });
+
             // when
-            const obtained = renderHook(() => useApplicationLockIDs()).result.current;
+            const obtained = renderHook(() => useAllLocks().appLocks).result.current;
             // then
-            expect(obtained).toStrictEqual(testcase.expectedLockIDs);
+            expect(obtained.map((lock) => lock.lockId)).toStrictEqual(testcase.expectedLockIDs);
         });
     });
 
