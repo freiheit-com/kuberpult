@@ -71,13 +71,21 @@ export const AppLock: React.FC<{
     );
 };
 
-export const EnvironmentListItem: React.FC<{
+export type EnvironmentListItemProps = {
     env: Environment;
     app: string;
     release: Release;
     queuedVersion: number;
     className?: string;
-}> = ({ env, app, release, queuedVersion, className }) => {
+};
+
+export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
+    env,
+    app,
+    release,
+    queuedVersion,
+    className,
+}) => {
     const deploy = useCallback(() => {
         if (release.version) {
             addAction({
@@ -122,9 +130,22 @@ export const EnvironmentListItem: React.FC<{
             </div>
         );
     const otherRelease = useReleaseOptional(app, env);
-    const envHasADeployedVersion = !!env.applications[app];
-    const relIsCurrentlyDeployed = envHasADeployedVersion && release.version === env.applications[app].version;
-
+    const application = env.applications[app];
+    const getCommitString = (): string => {
+        if (!application) {
+            return `"${app}" has no version deployed on "${env.name}"`;
+        }
+        if (release.undeployVersion) {
+            return 'Undeploy Version';
+        }
+        if (release.version === application.version) {
+            return release.sourceCommitId + ': ' + release.sourceMessage;
+        }
+        if (otherRelease?.undeployVersion) {
+            return 'Undeploy Version';
+        }
+        return otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage;
+    };
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -151,12 +172,13 @@ export const EnvironmentListItem: React.FC<{
                 <div className="content-left">
                     <div
                         className={classNames('env-card-data', className)}
-                        title={'Shows the version that is currently deployed on ' + env.name}>
-                        {envHasADeployedVersion
-                            ? relIsCurrentlyDeployed
-                                ? release.sourceCommitId + ': ' + release.sourceMessage
-                                : otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage
-                            : `"${app}" has no version deployed on "${env.name}"`}
+                        title={
+                            'Shows the version that is currently deployed on ' +
+                            env.name +
+                            '. ' +
+                            (release.undeployVersion ? undeployTooltipExplanation : '')
+                        }>
+                        {getCommitString()}
                     </div>
                     {queueInfo}
                 </div>
@@ -169,7 +191,7 @@ export const EnvironmentListItem: React.FC<{
                             icon={<Locks className="icon" />}
                         />
                         <Button
-                            disabled={relIsCurrentlyDeployed}
+                            disabled={application && application.version === release.version}
                             className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
                             onClick={deploy}
                             label="Deploy"
@@ -208,8 +230,14 @@ export const EnvironmentList: React.FC<{
     );
 };
 
+export const undeployTooltipExplanation =
+    'This is the "undeploy" version. It is essentially an empty manifest. Deploying this means removing all kubernetes entities like deployments from the given environment. You must deploy this to all environments before kuberpult allows to delete the app entirely.';
+
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, release, version } = props;
+    const undeployVersionTitle = release.undeployVersion
+        ? undeployTooltipExplanation
+        : 'Commit Hash of the source repository.';
     const dialog =
         app !== '' ? (
             <div>
@@ -233,8 +261,8 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                 {release?.sourceAuthor ? 'Author: ' + release?.sourceAuthor : ''}
                             </div>
                         </div>
-                        <span className={classNames('release-dialog-commitId', className)}>
-                            {release.undeployVersion ? 'undeploy version' : release?.sourceCommitId}
+                        <span className={classNames('release-dialog-commitId', className)} title={undeployVersionTitle}>
+                            {release.undeployVersion ? 'Undeploy Version' : release?.sourceCommitId}
                         </span>
                         <Button
                             onClick={setClosed}

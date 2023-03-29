@@ -17,6 +17,7 @@ import classNames from 'classnames';
 import React from 'react';
 import { updateReleaseDialog, useRelease } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
+import { undeployTooltipExplanation } from '../ReleaseDialog/ReleaseDialog';
 
 export type ReleaseCardMiniProps = {
     className?: string;
@@ -33,7 +34,7 @@ const getDays = (date: Date): number => {
 
 export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
     const { className, app, version } = props;
-    const { createdAt, sourceMessage, sourceAuthor } = useRelease(app, version);
+    const { createdAt, sourceMessage, sourceAuthor, undeployVersion } = useRelease(app, version);
     const clickHanlder = React.useCallback(() => {
         updateReleaseDialog(app, version);
     }, [app, version]);
@@ -49,11 +50,14 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
         }
         msg += `${createdAt.getHours()}:${createdAt.getMinutes()}:${createdAt.getSeconds()}`;
     }
-
+    const displayedMessage = undeployVersion ? 'Undeploy Version' : sourceMessage;
+    const displayedTitle = undeployVersion ? undeployTooltipExplanation : '';
     return (
         <div className={classNames('release-card-mini', className)} onClick={clickHanlder}>
             <div className={classNames('release__details-mini', className)}>
-                <div className="release__details-header">{sourceMessage}</div>
+                <div className="release__details-header" title={displayedTitle}>
+                    {displayedMessage}
+                </div>
                 <div className="release__details-msg">{msg}</div>
             </div>
             <div className="release__environments-mini">
