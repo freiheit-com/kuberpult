@@ -13,11 +13,11 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { useDeployedReleases, useVersionsForApp } from '../../utils/store';
+import { addAction, showSnackbarError, useDeployedReleases, useVersionsForApp } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { Button } from '../button';
 import { DeleteWhite, HistoryWhite } from '../../../images';
-import { Application } from '../../../api/api';
+import { Application, UndeploySummary } from '../../../api/api';
 import { Tooltip } from '@material-ui/core';
 import { useNavigate } from 'react-router-dom';
 import * as React from 'react';
@@ -57,6 +57,19 @@ const DiffElement = (diff: number): JSX.Element => (
     </div>
 );
 
+const deriveUndeployMessage = (undeploySummary: UndeploySummary): string | undefined => {
+    switch (undeploySummary) {
+        case UndeploySummary.Undeploy:
+            return 'Delete Forever';
+        case UndeploySummary.Normal:
+            return 'Prepare Undeploy Release';
+        case UndeploySummary.Mixed:
+            return undefined;
+        default:
+            return undefined;
+    }
+};
+
 export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const { application } = props;
     const deployedReleases = useDeployedReleases(application.name);
@@ -65,6 +78,33 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     const navigateToReleases = React.useCallback(() => {
         navigate('releases/' + application.name);
     }, [application.name, navigate]);
+    const prepareUndeployOrUndeployText = deriveUndeployMessage(application.undeploySummary);
+    const prepareUndeployOrUndeploy = React.useCallback(() => {
+        switch (application.undeploySummary) {
+            case UndeploySummary.Undeploy:
+                addAction({
+                    action: {
+                        $case: 'undeploy',
+                        undeploy: { application: application.name },
+                    },
+                });
+                break;
+            case UndeploySummary.Normal:
+                addAction({
+                    action: {
+                        $case: 'prepareUndeploy',
+                        prepareUndeploy: { application: application.name },
+                    },
+                });
+                break;
+            case UndeploySummary.Mixed:
+                showSnackbarError('Internal Error: Cannot prepare to undeploy or actual undeploy in mixed state.');
+                break;
+            default:
+                showSnackbarError('Internal Error: Cannot prepare to undeploy or actual undeploy in unknown state.');
+                break;
+        }
+    }, [application.name, application.undeploySummary]);
     const releases = getReleasesToDisplay(deployedReleases, allReleases);
 
     const releases_lane =
@@ -96,6 +136,14 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
             );
         });
 
+    const undeployButton = prepareUndeployOrUndeployText ? (
+        <Button
+            className="service-action service-action--prepare-undeploy"
+            label={prepareUndeployOrUndeployText}
+            icon={<DeleteWhite />}
+            onClick={prepareUndeployOrUndeploy}
+        />
+    ) : null;
     return (
         <div className="service-lane">
             <div className="service-lane__header">
@@ -103,11 +151,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                     {(application.team ? application.team + ' | ' : '<No Team> | ') + application.name}
                 </div>
                 <div className="service__actions">
-                    <Button
-                        className="service-action service-action--prepare-undeploy"
-                        label={'Prepare to delete'}
-                        icon={<DeleteWhite />}
-                    />
+                    {undeployButton}
                     <Button
                         className="service-action service-action--history"
                         label={'View history'}

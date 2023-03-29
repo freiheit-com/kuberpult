@@ -61,6 +61,7 @@ exports[`Release Dialog Renders the environment locks no release 1`] = `
           </div>
           <span
             class="release-dialog-commitId"
+            title="Commit Hash of the source repository."
           />
           <button
             aria-label=""
@@ -160,6 +161,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
           </div>
           <span
             class="release-dialog-commitId"
+            title="Commit Hash of the source repository."
           >
             commit
           </span>
@@ -263,7 +265,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                 >
                   <div
                     class="env-card-data"
-                    title="Shows the version that is currently deployed on prod"
+                    title="Shows the version that is currently deployed on prod. "
                   >
                     commit: test1
                   </div>
@@ -390,6 +392,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
           </div>
           <span
             class="release-dialog-commitId"
+            title="Commit Hash of the source repository."
           >
             commit
           </span>
@@ -493,7 +496,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 >
                   <div
                     class="env-card-data"
-                    title="Shows the version that is currently deployed on prod"
+                    title="Shows the version that is currently deployed on prod. "
                   >
                     commit: test1
                   </div>
@@ -621,7 +624,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 >
                   <div
                     class="env-card-data"
-                    title="Shows the version that is currently deployed on dev"
+                    title="Shows the version that is currently deployed on dev. "
                   >
                     cafe: the other commit message 3
                   </div>

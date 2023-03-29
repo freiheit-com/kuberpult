@@ -13,14 +13,15 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import { ServiceLane } from './ServiceLane';
 import { UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
-import { Application, Environment, Priority, Release } from '../../../api/api';
+import { Application, BatchAction, Environment, Priority, Release, UndeploySummary } from '../../../api/api';
 import { MemoryRouter } from 'react-router-dom';
 
 const mock_ReleaseCard = Spy.mockReactComponents('../../components/ReleaseCard/ReleaseCard', 'ReleaseCard');
+const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
 const sampleEnvs = {
     foo: {
         // third release card contains two environments
@@ -103,12 +104,13 @@ describe('Service Lane', () => {
 
 type TestData = {
     name: string;
-    diff: string;
     releases: Release[];
     envs: Environment[];
 };
 
-const data: TestData[] = [
+type TestDataDiff = TestData & { diff: string };
+
+const data: TestDataDiff[] = [
     {
         name: 'test same version',
         diff: '-1',
@@ -352,7 +354,15 @@ describe('Service Lane Diff', () => {
         it(testcase.name, () => {
             UpdateOverview.set({
                 environments: undefined, // deprecated
-                applications: { test2: { releases: testcase.releases, name: '', team: '', sourceRepoUrl: '' } },
+                applications: {
+                    test2: {
+                        releases: testcase.releases,
+                        name: '',
+                        team: '',
+                        sourceRepoUrl: '',
+                        undeploySummary: UndeploySummary.Mixed,
+                    },
+                },
                 environmentGroups: [
                     {
                         environments: testcase.envs,
@@ -375,6 +385,132 @@ describe('Service Lane Diff', () => {
             } else {
                 expect(container.querySelector('.service-lane__diff--number')?.textContent).toContain(testcase.diff);
             }
+        });
+    });
+});
+
+type TestDataUndeploy = TestData & {
+    renderedApp: Application;
+    expectedUndeployButton: string | null;
+    expectedAction: BatchAction;
+};
+const dataUndeploy: TestDataUndeploy[] = (() => {
+    const releaseNormal = [
+        {
+            version: 1,
+            sourceMessage: 'test1',
+            sourceAuthor: 'test',
+            sourceCommitId: 'commit1',
+            createdAt: new Date(2002),
+            undeployVersion: false,
+            prNumber: '666',
+        },
+    ];
+    const releaseUndeploy = [
+        {
+            version: 1,
+            sourceMessage: 'test1',
+            sourceAuthor: 'test',
+            sourceCommitId: 'commit1',
+            createdAt: new Date(2002),
+            undeployVersion: true,
+            prNumber: '666',
+        },
+    ];
+    const result: TestDataUndeploy[] = [
+        {
+            name: 'test no undeploy',
+            renderedApp: {
+                name: 'test1',
+                releases: [],
+                sourceRepoUrl: 'http://test2.com',
+                team: 'example',
+                undeploySummary: UndeploySummary.Normal,
+            },
+            releases: releaseNormal,
+            envs: [
+                {
+                    name: 'foo2',
+                    applications: {},
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                    locks: {},
+                },
+            ],
+            expectedUndeployButton: 'Prepare Undeploy Release',
+            expectedAction: {
+                action: {
+                    $case: 'prepareUndeploy',
+                    prepareUndeploy: { application: 'test1' },
+                },
+            },
+        },
+        {
+            name: 'test no undeploy',
+            renderedApp: {
+                name: 'test1',
+                releases: [],
+                sourceRepoUrl: 'http://test2.com',
+                team: 'example',
+                undeploySummary: UndeploySummary.Undeploy,
+            },
+            releases: releaseUndeploy,
+            envs: [
+                {
+                    name: 'foo2',
+                    applications: {},
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                    locks: {},
+                },
+            ],
+            expectedUndeployButton: 'Delete Forever',
+            expectedAction: {
+                action: {
+                    $case: 'undeploy',
+                    undeploy: { application: 'test1' },
+                },
+            },
+        },
+    ];
+    return result;
+})();
+
+describe('Service Lane Undeploy Buttons', () => {
+    const getNode = (overrides: { application: Application }) => (
+        <MemoryRouter>
+            <ServiceLane {...overrides} />
+        </MemoryRouter>
+    );
+    const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
+    describe.each(dataUndeploy)('Service Lane diff', (testcase) => {
+        it(testcase.name, () => {
+            mock_addAction.addAction.returns(undefined);
+
+            UpdateOverview.set({
+                applications: {
+                    test1: testcase.renderedApp,
+                },
+                environmentGroups: [
+                    {
+                        environments: testcase.envs,
+                        environmentGroupName: 'group1',
+                        distanceToUpstream: 0,
+                    },
+                ],
+            });
+
+            const { container } = getWrapper({ application: testcase.renderedApp });
+
+            const undeployButton = container.querySelector('.service-action.service-action--prepare-undeploy');
+            const label = undeployButton?.querySelector('span');
+            expect(label?.textContent).toBe(testcase.expectedUndeployButton);
+
+            mock_addAction.addAction.wasNotCalled();
+
+            fireEvent.click(undeployButton!);
+
+            mock_addAction.addAction.wasCalledWith(testcase.expectedAction);
         });
     });
 });
