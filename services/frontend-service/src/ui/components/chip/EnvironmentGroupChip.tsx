@@ -15,12 +15,40 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
 import { EnvPrio } from '../ReleaseDialog/ReleaseDialog';
-import { Environment } from '../../../api/api';
-import React from 'react';
-import { EnvironmentGroupExtended, useCurrentlyDeployedAtGroup } from '../../utils/store';
+import { Environment, Lock } from '../../../api/api';
+import React, { useCallback } from 'react';
+import { addAction, EnvironmentGroupExtended, useCurrentlyDeployedAtGroup } from '../../utils/store';
 import { Tooltip } from '@material-ui/core';
 import { Button } from '../button';
 import { LocksWhite } from '../../../images';
+
+const EnvLock: React.FC<{
+    env: string;
+    lock: Lock;
+}> = ({ env, lock }) => {
+    const deleteEnvLock = useCallback(() => {
+        addAction({
+            action: {
+                $case: 'deleteEnvironmentLock',
+                deleteEnvironmentLock: { environment: env, lockId: lock.lockId },
+            },
+        });
+    }, [env, lock.lockId]);
+    return (
+        <Tooltip
+            key={lock.lockId}
+            arrow
+            title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}>
+            <div>
+                <Button
+                    icon={<LocksWhite className="env-card-env-lock-icon" width="24px" height="24px" />}
+                    className={'button-lock'}
+                    onClick={deleteEnvLock}
+                />
+            </div>
+        </Tooltip>
+    );
+};
 
 export type EnvironmentChipProps = {
     className: string;
@@ -45,17 +73,7 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     const locks = !smallEnvChip ? (
         <div className={classNames(className, 'env-locks')}>
             {Object.values(env.locks).map((lock) => (
-                <Tooltip
-                    key={lock.lockId}
-                    arrow
-                    title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}>
-                    <div>
-                        <Button
-                            icon={<LocksWhite className="env-card-env-lock-icon" width="24px" height="24px" />}
-                            className={'button-lock'}
-                        />
-                    </div>
-                </Tooltip>
+                <EnvLock env={env.name} lock={lock} key={lock.lockId} />
             ))}
         </div>
     ) : (
