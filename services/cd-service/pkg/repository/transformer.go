@@ -435,11 +435,13 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 			continue
 		}
 
-		locksDir := fs.Join(envAppDir, "locks")
+		appLocksDir := fs.Join(envAppDir, "locks")
 		undeployFile := fs.Join(envAppDir, "version", "undeploy")
 
-		if entries, _ := fs.ReadDir(locksDir); entries != nil {
-			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' unlock the application lock in the '%v' environment first", u.Application, env)
+		entries, _ = fs.ReadDir(appLocksDir)
+		if entries != nil && len(entries) > 0 {
+			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' unlock the application lock in the '%v' environment first. Path '%v'. Entries: '%v'",
+				u.Application, env, appLocksDir, entries)
 		}
 
 		if _, err := fs.Stat(undeployFile); err != nil && errors.Is(err, os.ErrNotExist) {
