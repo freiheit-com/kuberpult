@@ -267,11 +267,9 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             <div className={classNames('release-dialog-author', className)}>
                                 {release?.sourceAuthor ? 'Author: ' + release?.sourceAuthor : ''}
                             </div>
-                            <div
-                                className={classNames(
-                                    'release-dialog-app',
-                                    className
-                                )}>{`Service: ${app} | Team: ${team}`}</div>
+                            <div className={classNames('release-dialog-app', className)}>
+                                {`App: ${app} ` + (team ? ` | Team: ${team}` : '')}
+                            </div>
                         </div>
                         <span className={classNames('release-dialog-commitId', className)} title={undeployVersionTitle}>
                             {release.undeployVersion ? 'Undeploy Version' : release?.sourceCommitId}

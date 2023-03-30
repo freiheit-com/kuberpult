@@ -201,7 +201,7 @@ export const useTeamNames = (): string[] =>
     ]);
 
 export const useTeamFromApplication = (app: string): string =>
-    useOverview(({ applications }) => applications[app]?.team?.trim() || '<No Team>');
+    useOverview(({ applications }) => applications[app]?.team?.trim() || '');
 
 // returns applications filtered by dropdown and sorted by team name and then by app name
 export const useFilteredApps = (teams: string[]): Application[] =>
