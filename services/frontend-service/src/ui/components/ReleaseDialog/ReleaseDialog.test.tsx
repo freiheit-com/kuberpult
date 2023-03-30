@@ -31,6 +31,7 @@ describe('Release Dialog', () => {
         expect_message: boolean;
         expect_queues: number;
         data_length: number;
+        teamName: string;
     }
     const data: dataT[] = [
         {
@@ -69,6 +70,7 @@ describe('Release Dialog', () => {
             expect_message: true,
             expect_queues: 0,
             data_length: 1,
+            teamName: '',
         },
         {
             name: 'two envs release',
@@ -139,6 +141,7 @@ describe('Release Dialog', () => {
             expect_message: true,
             expect_queues: 1,
             data_length: 3,
+            teamName: 'test me team',
         },
         {
             name: 'no release',
@@ -152,23 +155,27 @@ describe('Release Dialog', () => {
             expect_message: false,
             expect_queues: 0,
             data_length: 0,
+            teamName: '',
         },
     ];
+
+    const setTheStore = (testcase: dataT) =>
+        UpdateOverview.set({
+            applications: { [testcase.props.app]: { releases: testcase.rels, team: testcase.teamName } },
+            environments: testcase.envs,
+            environmentGroups: [
+                {
+                    environmentGroupName: 'dev',
+                    environments: testcase.envs,
+                    distanceToUpstream: 2,
+                },
+            ],
+        } as any);
 
     describe.each(data)(`Renders a Release Dialog`, (testcase) => {
         it(testcase.name, () => {
             // when
-            UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.envs,
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'dev',
-                        environments: testcase.envs,
-                        distanceToUpstream: 2,
-                    },
-                ],
-            } as any);
+            setTheStore(testcase);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
             if (testcase.expect_message) {
@@ -186,17 +193,7 @@ describe('Release Dialog', () => {
     describe.each(data)(`Renders the environment cards`, (testcase) => {
         it(testcase.name, () => {
             // when
-            UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.envs,
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'dev',
-                        environments: testcase.envs,
-                        distanceToUpstream: 2,
-                    },
-                ],
-            } as any);
+            setTheStore(testcase);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
             expect(document.querySelector('.release-env-list')?.children).toHaveLength(testcase.envs.length);
@@ -208,17 +205,7 @@ describe('Release Dialog', () => {
             // given
             mock_getFormattedReleaseDate.getFormattedReleaseDate.returns(<div>some formatted date</div>);
             // when
-            UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.envs,
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'dev',
-                        environments: testcase.envs,
-                        distanceToUpstream: 2,
-                    },
-                ],
-            } as any);
+            setTheStore(testcase);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
             expect(document.body).toMatchSnapshot();
@@ -233,17 +220,7 @@ describe('Release Dialog', () => {
     describe.each(data)(`Renders the queuedVersion`, (testcase) => {
         it(testcase.name, () => {
             // when
-            UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.envs,
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'dev',
-                        environments: testcase.envs,
-                        distanceToUpstream: 2,
-                    },
-                ],
-            } as any);
+            setTheStore(testcase);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
             expect(document.querySelectorAll('.env-card-data-queue')).toHaveLength(testcase.expect_queues);
@@ -259,17 +236,7 @@ describe('Release Dialog', () => {
         });
         it('Test using deploy button click simulation', () => {
             UpdateSidebar.set({ shown: false });
-            UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.envs,
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'dev',
-                        environments: testcase.envs,
-                        distanceToUpstream: 2,
-                    },
-                ],
-            } as any);
+            setTheStore(testcase);
 
             render(<ReleaseDialog {...testcase.props} />);
             render(
@@ -287,17 +254,7 @@ describe('Release Dialog', () => {
         });
         it('Test using add lock button click simulation', () => {
             UpdateSidebar.set({ shown: false });
-            UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.envs,
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'dev',
-                        environments: testcase.envs,
-                        distanceToUpstream: 2,
-                    },
-                ],
-            } as any);
+            setTheStore(testcase);
 
             render(<ReleaseDialog {...testcase.props} />);
             render(

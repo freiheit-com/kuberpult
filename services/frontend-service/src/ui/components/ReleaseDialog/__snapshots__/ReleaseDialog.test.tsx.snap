@@ -387,7 +387,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
             <div
               class="release-dialog-app"
             >
-              App: test1 
+              App: test1  | Team: test me team
             </div>
           </div>
           <span
