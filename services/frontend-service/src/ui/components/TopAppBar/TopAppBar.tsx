@@ -58,7 +58,11 @@ export const TopAppBar: React.FC = () => {
                 </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong className="sub-headline1">Planned Actions</strong>
-                    <Button className="mdc-show-button" icon={<ShowBarWhite />} onClick={toggleSideBar} />
+                    <Button
+                        className="mdc-show-button mdc-button--unelevated"
+                        icon={<ShowBarWhite />}
+                        onClick={toggleSideBar}
+                    />
                     <SideBar
                         className={classNames(`mdc-drawer-sidebar mdc-drawer-sidebar-container`, {
                             'mdc-drawer-sidebar--displayed': sideBar,

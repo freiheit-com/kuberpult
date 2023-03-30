@@ -191,8 +191,8 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             icon={<Locks className="icon" />}
                         />
                         <Button
-                            disabled={!release.version}
-                            className={classNames('env-card-deploy-btn', { 'btn-disabled': !release.version })}
+                            disabled={application && application.version === release.version}
+                            className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
                             onClick={deploy}
                             label="Deploy"
                         />

@@ -17,7 +17,7 @@
         position: relative;
         height: auto;
         color: white;
-        margin: $sidebar-planned-actions-button-margin;
+        border-radius: $sidebar-planned-actions-border-radius;
     }
 }
 
@@ -104,12 +104,6 @@
     height: $sidebar-apply-button-height;
     border-radius: $sidebar-apply-border-radius;
     @extend .sub-headline1;
-    .mdc-drawer-sidebar-apply-button {
-        background-color: var(--mdc-theme-primary);
-    }
-    .mdc-drawer-sidebar-apply-button-disabled {
-        background-color: var(--mdc-theme-on-surface);
-    }
 }
 
 .mdc-drawer__drawer {
