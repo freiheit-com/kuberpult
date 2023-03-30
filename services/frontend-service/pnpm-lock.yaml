@@ -33,7 +33,6 @@ specifiers:
   prettier: ^2.2.1
   protobufjs: ^6.11.2
   react: ^18.2.0
-  react-beforeunload: ^2.5.2
   react-dom: ^18.2.0
   react-refresh: ^0.14.0
   react-router-dom: '6'
@@ -58,7 +57,6 @@ dependencies:
   classnames: 2.3.2
   material-components-web: 14.0.0
   react: 18.2.0
-  react-beforeunload: 2.5.3_react@18.2.0
   react-dom: 18.2.0_react@18.2.0
   react-router-dom: 6.4.0_biqbaboplfbrettd7655fr4n2y
   react-scripts: 4.0.3_rhtwo3lcediinuuogl7ls4rbje
@@ -11499,16 +11497,6 @@ packages:
       whatwg-fetch: 3.6.2
     dev: false
 
-  /react-beforeunload/2.5.3_react@18.2.0:
-    resolution: {integrity: sha512-roOH5Qja6DGwydKYDMdzw3LR/mX6CCaglGqOb/1W9VREVBDp+DlOlC+aXKru5K7aH+vxdviBpfgyX3lTutOulg==}
-    peerDependencies:
-      react: ^16.8.0 || 17 || 18
-    dependencies:
-      prop-types: 15.8.1
-      react: 18.2.0
-      tiny-invariant: 1.2.0
-    dev: false
-
   /react-dev-utils/11.0.4_itbbunfgtftpwv4w5yqom4rvni:
     resolution: {integrity: sha512-dx0LvIGHcOPtKbeiSUM4jqpBl3TcY7CDjZdfOIcKeznE7BWr9dg0iPG90G5yfVQ+p/rGNMXdbfStvzQZEVEi4A==}
     engines: {node: '>=10'}
@@ -13152,10 +13140,6 @@ packages:
 
   /timsort/0.3.0:
     resolution: {integrity: sha512-qsdtZH+vMoCARQtyod4imc2nIJwg9Cc7lPRrw9CzF8ZKR0khdr8+2nX80PBhET3tcyTtJDxAffGh2rXH4tyU8A==}
-    dev: false
-
-  /tiny-invariant/1.2.0:
-    resolution: {integrity: sha512-1Uhn/aqw5C6RI4KejVeTg6mIS7IqxnLJ8Mv2tV5rTc0qWobay7pDUz6Wi392Cnc8ak1H0F2cjoRzb2/AW4+Fvg==}
     dev: false
 
   /tiny-warning/1.0.3:
