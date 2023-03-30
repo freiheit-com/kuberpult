@@ -137,6 +137,15 @@ do
     fix_file_yaml_make $yaml_file
 done
 
+# Read all c/h files
+c_files=$(find . -type f -name '*.[ch]')
+echo fixing c files...
+for c_file in $c_files
+do
+    fix_file $c_file
+done
+
+
 # Read all Make files
 make_files=$(find . -type f -name "Makefile*")
 echo fixing make files...

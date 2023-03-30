@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,6 +41,7 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/sqlitestore"
 	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -100,7 +102,8 @@ type RepositoryConfig struct {
 	// default branch is master
 	Branch string
 	//
-	GcFrequency uint
+	GcFrequency   uint
+	DisableSqlite bool
 	// Bootstrap mode controls where configurations are read from
 	// true: read from json file at EnvironmentConfigsPath
 	// false: read from config files in manifest repo
@@ -108,7 +111,7 @@ type RepositoryConfig struct {
 	EnvironmentConfigsPath string
 }
 
-func openOrCreate(path string) (*git.Repository, error) {
+func openOrCreate(path string, disableSqlite bool) (*git.Repository, error) {
 	repo2, err := git.OpenRepositoryExtended(path, git.RepositoryOpenNoSearch, path)
 	if err != nil {
 		var gerr *git.GitError
@@ -124,6 +127,21 @@ func openOrCreate(path string) (*git.Repository, error) {
 			}
 		} else {
 			return nil, err
+		}
+	}
+	if !disableSqlite {
+		sqlitePath := filepath.Join(path, "odb.sqlite")
+		be, err := sqlitestore.NewOdbBackend(sqlitePath)
+		if err != nil {
+			return nil, fmt.Errorf("creating odb backend: %w", err)
+		}
+		odb, err := repo2.Odb()
+		if err != nil {
+			return nil, fmt.Errorf("gettting odb: %w", err)
+		}
+		err = odb.AddBackend(be, 99)
+		if err != nil {
+			return nil, fmt.Errorf("setting odb backend: %w", err)
 		}
 	}
 	return repo2, err
@@ -163,7 +181,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		}
 	}
 
-	if repo2, err := openOrCreate(cfg.Path); err != nil {
+	if repo2, err := openOrCreate(cfg.Path, cfg.DisableSqlite); err != nil {
 		return nil, err
 	} else {
 		// configure remotes
@@ -666,7 +684,7 @@ func (r *repository) countObjects(ctx context.Context) (ObjectCount, error) {
 }
 
 func (r *repository) maybeGc(ctx context.Context) {
-	if r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
+	if !r.config.DisableSqlite || r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
 		return
 	}
 	log := logger.FromContext(ctx)

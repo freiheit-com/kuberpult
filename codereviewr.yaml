@@ -23,6 +23,7 @@ ignoredFiles: [
     "*.VERSION",
     "*.arb",
     "*.avro",
+    "*.c",
     "*.firebaserc",
     "*.g.dart",
     "*.gcloudignore",
