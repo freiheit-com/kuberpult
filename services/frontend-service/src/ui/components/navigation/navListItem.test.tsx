@@ -51,7 +51,7 @@ describe('Navigation List Item', () => {
     const data: dataT[] = [
         {
             name: 'Navigation Item Selected',
-            initialEntries: ['/v2/test'],
+            initialEntries: ['/test'],
             to: 'test',
             expect: (container) =>
                 expect(container.querySelectorAll('a')[0]?.className).toEqual(
@@ -60,7 +60,7 @@ describe('Navigation List Item', () => {
         },
         {
             name: 'Navigation Item Not Selected',
-            initialEntries: ['/v2/not-test'],
+            initialEntries: ['/not-test'],
             to: 'test',
             expect: (container) =>
                 expect(container.querySelectorAll('a')[0]?.className).toEqual('mdc-list-item test-item'),
@@ -100,14 +100,14 @@ describe('Display sidebar indicator', () => {
     const data: dataT[] = [
         {
             name: 'Indicator is not displayed',
-            pathname: '/v2/test/',
+            pathname: '/test/',
             to: 'anotherTest',
             expect: (container) =>
                 expect(container.querySelector(`.mdc-list-item-indicator--activated`)).not.toBeTruthy(),
         },
         {
             name: 'Indicator is displayed',
-            pathname: '/v2/test/',
+            pathname: '/test/',
             to: 'test',
             expect: (container) => expect(container.querySelector(`.mdc-list-item-indicator--activated`)).toBeTruthy(),
         },

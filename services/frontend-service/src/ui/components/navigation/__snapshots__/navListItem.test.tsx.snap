@@ -19,3 +19,47 @@ exports[`Navigation List Item Renders a navigation item base 1`] = `
   </a>
 </div>
 `;
+
+exports[`Navigation List Item Renders a navigation item with selected Navigation Item Not Selected 1`] = `
+<div>
+  <div
+    class="mdc-list-item-container"
+  >
+    <div
+      class="mdc-list-item-indicator"
+    />
+    <a
+      aria-label="test"
+      class="mdc-list-item test-item"
+      href="/test"
+      tabindex="-1"
+    >
+      <div
+        class="mdc-list-item__ripple"
+      />
+    </a>
+  </div>
+</div>
+`;
+
+exports[`Navigation List Item Renders a navigation item with selected Navigation Item Selected 1`] = `
+<div>
+  <div
+    class="mdc-list-item-container"
+  >
+    <div
+      class="mdc-list-item-indicator mdc-list-item-indicator--activated"
+    />
+    <a
+      aria-label="test"
+      class="mdc-list-item mdc-list-item--activated test-item"
+      href="/test"
+      tabindex="0"
+    >
+      <div
+        class="mdc-list-item__ripple"
+      />
+    </a>
+  </div>
+</div>
+`;
