@@ -371,12 +371,6 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 			if !exists {
 				continue
 			}
-			if len(app.Locks) > 0 {
-				// if there are locks on the app, we should not allow deletion - maybe the lock is there for a good reason.
-				// note that we ignore environment locks here. Otherwise, you would essentially never be able to delete an app,
-				// because there is very often SOME lock on some environment.
-				return api.UndeploySummary_Locked
-			}
 			if app.UndeployVersion {
 				allNormal = false
 			} else {

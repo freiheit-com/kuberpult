@@ -282,8 +282,6 @@ enum UndeploySummary {
   Undeploy = 1;
   // "mixed": undeploy is deployed in one or more, but not all environments
   Mixed = 2;
-  // "locked": there is a lock on the app, so we do not allow deletion
-  Locked = 3;
 }
 
 message Application {
