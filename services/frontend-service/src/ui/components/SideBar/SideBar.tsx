@@ -201,7 +201,7 @@ export const SideBarList = (): JSX.Element => {
     );
 };
 
-export const SideBar: React.FC<{ className: string; toggleSidebar: () => void }> = (props) => {
+export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }> = (props) => {
     const { className, toggleSidebar } = props;
     const actions = useActions();
     const [lockMessage, setLockMessage] = useState('');

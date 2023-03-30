@@ -53,6 +53,11 @@ exports[`Release Dialog Renders the environment locks no release 1`] = `
             <div
               class="release-dialog-author"
             />
+            <div
+              class="release-dialog-app"
+            >
+              App: test1 
+            </div>
           </div>
           <span
             class="release-dialog-commitId"
@@ -147,6 +152,11 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
               class="release-dialog-author"
             >
               Author: test
+            </div>
+            <div
+              class="release-dialog-app"
+            >
+              App: test1 
             </div>
           </div>
           <span
@@ -374,6 +384,11 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
               class="release-dialog-author"
             >
               Author: test
+            </div>
+            <div
+              class="release-dialog-app"
+            >
+              App: test1  | Team: test me team
             </div>
           </div>
           <span

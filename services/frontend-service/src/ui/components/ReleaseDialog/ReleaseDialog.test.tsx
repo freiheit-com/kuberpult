@@ -14,9 +14,9 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import { EnvironmentListItem, ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import { UpdateOverview, updateReleaseDialog, UpdateSidebar } from '../../utils/store';
-import { Priority, Release } from '../../../api/api';
+import { Environment, Priority, Release } from '../../../api/api';
 import { Spy } from 'spy4js';
 import { SideBar } from '../SideBar/SideBar';
 
@@ -27,9 +27,11 @@ describe('Release Dialog', () => {
         name: string;
         props: ReleaseDialogProps;
         rels: Release[];
+        envs: Environment[];
         expect_message: boolean;
         expect_queues: number;
         data_length: number;
+        teamName: string;
     }
     const data: dataT[] = [
         {
@@ -46,29 +48,29 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '#1337',
                 },
-                envs: [
-                    {
-                        name: 'prod',
-                        locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                        applications: {
-                            test1: {
-                                name: 'test1',
-                                version: 2,
-                                locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
-                                queuedVersion: 0,
-                                undeployVersion: false,
-                            },
-                        },
-                        distanceToUpstream: 0,
-                        priority: Priority.UPSTREAM,
-                    },
-                ],
             },
             rels: [],
-
+            envs: [
+                {
+                    name: 'prod',
+                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
+                    applications: {
+                        test1: {
+                            name: 'test1',
+                            version: 2,
+                            locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                },
+            ],
             expect_message: true,
             expect_queues: 0,
             data_length: 1,
+            teamName: '',
         },
         {
             name: 'two envs release',
@@ -84,39 +86,39 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '#1337',
                 },
-                envs: [
-                    {
-                        name: 'prod',
-                        locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                        applications: {
-                            test1: {
-                                name: 'test1',
-                                version: 2,
-                                locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
-                                queuedVersion: 0,
-                                undeployVersion: false,
-                            },
-                        },
-                        distanceToUpstream: 0,
-                        priority: Priority.UPSTREAM,
-                    },
-                    {
-                        name: 'dev',
-                        locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                        applications: {
-                            test1: {
-                                name: 'test1',
-                                version: 3,
-                                locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
-                                queuedVersion: 666,
-                                undeployVersion: false,
-                            },
-                        },
-                        distanceToUpstream: 0,
-                        priority: Priority.UPSTREAM,
-                    },
-                ],
             },
+            envs: [
+                {
+                    name: 'prod',
+                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
+                    applications: {
+                        test1: {
+                            name: 'test1',
+                            version: 2,
+                            locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                },
+                {
+                    name: 'dev',
+                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
+                    applications: {
+                        test1: {
+                            name: 'test1',
+                            version: 3,
+                            locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                            queuedVersion: 666,
+                            undeployVersion: false,
+                        },
+                    },
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                },
+            ],
             rels: [
                 {
                     sourceCommitId: 'cafe',
@@ -139,6 +141,7 @@ describe('Release Dialog', () => {
             expect_message: true,
             expect_queues: 1,
             data_length: 3,
+            teamName: 'test me team',
         },
         {
             name: 'no release',
@@ -146,29 +149,33 @@ describe('Release Dialog', () => {
                 app: 'test1',
                 version: -1,
                 release: {} as Release,
-                envs: [],
             },
             rels: [],
+            envs: [],
             expect_message: false,
             expect_queues: 0,
             data_length: 0,
+            teamName: '',
         },
     ];
+
+    const setTheStore = (testcase: dataT) =>
+        UpdateOverview.set({
+            applications: { [testcase.props.app]: { releases: testcase.rels, team: testcase.teamName } },
+            environments: testcase.envs,
+            environmentGroups: [
+                {
+                    environmentGroupName: 'dev',
+                    environments: testcase.envs,
+                    distanceToUpstream: 2,
+                },
+            ],
+        } as any);
 
     describe.each(data)(`Renders a Release Dialog`, (testcase) => {
         it(testcase.name, () => {
             // when
-            UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.props.envs,
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'dev',
-                        environments: testcase.props.envs,
-                        distanceToUpstream: 2,
-                    },
-                ],
-            } as any);
+            setTheStore(testcase);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
             if (testcase.expect_message) {
@@ -186,20 +193,10 @@ describe('Release Dialog', () => {
     describe.each(data)(`Renders the environment cards`, (testcase) => {
         it(testcase.name, () => {
             // when
-            UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.props.envs,
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'dev',
-                        environments: testcase.props.envs,
-                        distanceToUpstream: 2,
-                    },
-                ],
-            } as any);
+            setTheStore(testcase);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
-            expect(document.querySelector('.release-env-list')?.children).toHaveLength(testcase.props.envs.length);
+            expect(document.querySelector('.release-env-list')?.children).toHaveLength(testcase.envs.length);
         });
     });
 
@@ -208,23 +205,13 @@ describe('Release Dialog', () => {
             // given
             mock_getFormattedReleaseDate.getFormattedReleaseDate.returns(<div>some formatted date</div>);
             // when
-            UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.props.envs,
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'dev',
-                        environments: testcase.props.envs,
-                        distanceToUpstream: 2,
-                    },
-                ],
-            } as any);
+            setTheStore(testcase);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
             expect(document.body).toMatchSnapshot();
             expect(document.querySelectorAll('.release-env-group-list')).toHaveLength(1);
 
-            testcase.props.envs.forEach((env) => {
+            testcase.envs.forEach((env) => {
                 expect(document.querySelector('.env-locks')?.children).toHaveLength(Object.values(env.locks).length);
             });
         });
@@ -233,17 +220,7 @@ describe('Release Dialog', () => {
     describe.each(data)(`Renders the queuedVersion`, (testcase) => {
         it(testcase.name, () => {
             // when
-            UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.props.envs,
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'dev',
-                        environments: testcase.props.envs,
-                        distanceToUpstream: 2,
-                    },
-                ],
-            } as any);
+            setTheStore(testcase);
             updateReleaseDialog(testcase.props.app, testcase.props.version);
             render(<ReleaseDialog {...testcase.props} />);
             expect(document.querySelectorAll('.env-card-data-queue')).toHaveLength(testcase.expect_queues);
@@ -253,68 +230,42 @@ describe('Release Dialog', () => {
     describe(`Test automatic cart opening`, () => {
         const testcase = data[0];
         it('Test using direct call to open function', () => {
-            if (UpdateSidebar.get().shown === true) {
-                UpdateSidebar.set({ shown: false });
-            }
+            UpdateSidebar.set({ shown: false });
             UpdateSidebar.set({ shown: true });
             expect(UpdateSidebar.get().shown).toBeTruthy();
         });
         it('Test using deploy button click simulation', () => {
-            if (UpdateSidebar.get().shown === true) {
-                UpdateSidebar.set({ shown: false });
-            }
-            UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.props.envs,
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'dev',
-                        environments: testcase.props.envs,
-                        distanceToUpstream: 2,
-                    },
-                ],
-            } as any);
+            UpdateSidebar.set({ shown: false });
+            setTheStore(testcase);
 
             render(
                 <EnvironmentListItem
-                    env={testcase.props.envs[0]}
+                    env={testcase.envs[0]}
                     app={testcase.props.app}
                     queuedVersion={0}
                     release={{ ...testcase.props.release, version: 3 }}
                 />
             );
-            const result = document.querySelector('.env-card-deploy-btn');
-            result?.click();
+            const result = document.querySelector('.env-card-deploy-btn')!;
+            fireEvent.click(result);
             expect(UpdateSidebar.get().shown).toBeTruthy();
         });
         it('Test using add lock button click simulation', () => {
-            if (UpdateSidebar.get().shown === true) {
-                UpdateSidebar.set({ shown: false });
-            }
-            UpdateOverview.set({
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
-                environments: testcase.props.envs,
-                environmentGroups: [
-                    {
-                        environmentGroupName: 'dev',
-                        environments: testcase.props.envs,
-                        distanceToUpstream: 2,
-                    },
-                ],
-            } as any);
+            UpdateSidebar.set({ shown: false });
+            setTheStore(testcase);
 
             render(<ReleaseDialog {...testcase.props} />);
             render(
                 <EnvironmentListItem
-                    env={testcase.props.envs[0]}
+                    env={testcase.envs[0]}
                     app={testcase.props.app}
                     queuedVersion={0}
                     release={testcase.props.release}
                 />
             );
-            render(<SideBar />);
-            const result = document.querySelector('.env-card-add-lock-btn');
-            result?.click();
+            render(<SideBar toggleSidebar={Spy()} />);
+            const result = document.querySelector('.env-card-add-lock-btn')!;
+            fireEvent.click(result);
             expect(UpdateSidebar.get().shown).toBeTruthy();
         });
     });
