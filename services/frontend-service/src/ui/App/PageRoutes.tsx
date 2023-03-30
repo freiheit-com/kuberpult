@@ -38,7 +38,7 @@ const routes = [
     },
     {
         path: `/*`,
-        element: <Navigate replace to="/v2/home" />,
+        element: <Navigate replace to="/home" />,
     },
 ];
 

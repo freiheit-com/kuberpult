@@ -13,20 +13,15 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { App as LegacyApp } from './legacy-ui/App';
 import { App } from './ui/App';
 import { Routes as ReactRoutes, Route } from 'react-router-dom';
+import React from 'react';
 
-const prefix = 'v2';
 const routes = [
     {
-        path: `/${prefix}/*`,
-        element: <App />,
-    },
-    {
         // If none of the above paths are matched, then this route is chosen
-        path: '*',
-        element: <LegacyApp />,
+        path: '/*',
+        element: <App />,
     },
 ];
 
