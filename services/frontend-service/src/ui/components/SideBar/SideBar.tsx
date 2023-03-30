@@ -20,12 +20,11 @@ import {
     deleteAction,
     useActions,
     deleteAllActions,
-    useApplicationLockIDs,
-    useEnvironmentLockIDs,
-    useApplicationLock,
     useNumberOfActions,
     showSnackbarSuccess,
     showSnackbarError,
+    useAllLocks,
+    DisplayLock,
 } from '../../utils/store';
 import { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -60,11 +59,9 @@ export type ActionDetails = {
 
 export const getActionDetails = (
     { action }: BatchAction,
-    appLockIDs: string[],
-    envLockIDs: string[]
+    appLocks: DisplayLock[],
+    envLocks: DisplayLock[]
 ): ActionDetails => {
-    const appLocks = appLockIDs.map((lockId) => useApplicationLock(lockId));
-    const envLocks = envLockIDs.map((lockId) => useApplicationLock(lockId));
     switch (action?.$case) {
         case 'createEnvironmentLock':
             return {
@@ -173,9 +170,8 @@ type SideBarListItemProps = {
 };
 
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
-    const appLocks = useApplicationLockIDs();
-    const envLocks = useEnvironmentLockIDs();
-    const actionDetails = getActionDetails(action, appLocks, envLocks);
+    const { environmentLocks, appLocks } = useAllLocks();
+    const actionDetails = getActionDetails(action, appLocks, environmentLocks);
 
     const handleDelete = useCallback(() => deleteAction(action), [action]);
     return (
@@ -213,7 +209,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
     const [open, setOpen] = useState(false);
 
     const handleClose = useCallback(() => setOpen(false), []);
-    const handleOpen = (): void => setOpen(true);
+    const handleOpen = useCallback(() => setOpen(true), []);
     let title = 'Planned Actions';
     const numActions = useNumberOfActions();
     if (numActions > 0) {
@@ -267,7 +263,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
             <nav className="mdc-drawer-sidebar mdc-drawer__drawer sidebar-content">
                 <div className="mdc-drawer-sidebar mdc-drawer-sidebar-header">
                     <Button
-                        className={'mdc-drawer-sidebar mdc-drawer-sidebar-header mdc-drawer-sidebar-header__button'}
+                        className={'mdc-drawer-sidebar-header__button mdc-button--unelevated'}
                         icon={<HideBarWhite />}
                         onClick={toggleSidebar}
                     />
@@ -290,12 +286,14 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 )}
                 <div className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer">
                     <Button
-                        className={classNames('mdc-drawer-sidebar mdc-sidebar-sidebar-footer', {
-                            'mdc-drawer-sidebar-apply-button': canApply,
-                            'mdc-drawer-sidebar-apply-button-disabled': !canApply,
-                        })}
+                        className={classNames(
+                            'mdc-sidebar-sidebar-footer',
+                            'mdc-button--unelevated',
+                            'mdc-drawer-sidebar-apply-button'
+                        )}
                         label={'Apply'}
-                        onClick={canApply ? handleOpen : undefined}
+                        disabled={!canApply}
+                        onClick={handleOpen}
                     />
                     <Dialog open={open} onClose={handleClose}>
                         <DialogTitle id="alert-dialog-title">

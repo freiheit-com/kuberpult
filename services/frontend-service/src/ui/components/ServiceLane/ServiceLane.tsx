@@ -138,7 +138,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
 
     const undeployButton = prepareUndeployOrUndeployText ? (
         <Button
-            className="service-action service-action--prepare-undeploy"
+            className="service-action service-action--prepare-undeploy mdc-button--unelevated"
             label={prepareUndeployOrUndeployText}
             icon={<DeleteWhite />}
             onClick={prepareUndeployOrUndeploy}
@@ -153,7 +153,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                 <div className="service__actions">
                     {undeployButton}
                     <Button
-                        className="service-action service-action--history"
+                        className="service-action service-action--history mdc-button--unelevated"
                         label={'View history'}
                         icon={<HistoryWhite />}
                         onClick={navigateToReleases}

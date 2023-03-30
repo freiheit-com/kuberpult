@@ -28,13 +28,13 @@ import { useMemo } from 'react';
 import { Empty } from '../../google/protobuf/empty';
 
 export interface DisplayLock {
-    date: Date;
+    date?: Date;
     environment: string;
     application?: string;
     message: string;
     lockId: string;
-    authorName: string;
-    authorEmail: string;
+    authorName?: string;
+    authorEmail?: string;
 }
 
 const emptyOverview: GetOverviewResponse = { applications: {}, environments: {}, environmentGroups: [] };
@@ -277,15 +277,6 @@ export const useEnvironmentLocks = (): DisplayLock[] =>
         return sortLocks(locksFiltered.flat(), 'oldestToNewest');
     });
 
-// return all env lock IDs
-export const useEnvironmentLockIDs = (): string[] =>
-    useOverview(({ environments }) =>
-        Object.values(environments)
-            .map((env) => Object.values(env.locks))
-            .flat()
-            .map((lock) => lock.lockId)
-    );
-
 // return env lock IDs from given env
 export const useFilteredEnvironmentLockIDs = (envName: string): string[] =>
     useOverview(({ environments }) =>
@@ -347,16 +338,50 @@ export const searchCustomFilter = (queryContent: string | null, val: string | un
     }
 };
 
-// return app lock IDs
-export const useApplicationLockIDs = (): string[] =>
-    useOverview(({ environments }) =>
-        Object.values(environments)
-            .map((env) => Object.values(env.applications))
-            .flat()
-            .map((app) => Object.values(app.locks))
-            .flat()
-            .map((lock) => lock.lockId)
-    );
+export type AllLocks = {
+    environmentLocks: DisplayLock[];
+    appLocks: DisplayLock[];
+};
+
+export const useAllLocks = (): AllLocks => {
+    const envs = useEnvironments();
+    const environmentLocks: DisplayLock[] = [];
+    const appLocks: DisplayLock[] = [];
+    envs.forEach((env: Environment) => {
+        for (const locksKey in env.locks) {
+            const lock = env.locks[locksKey];
+            const displayLock: DisplayLock = {
+                lockId: lock.lockId,
+                date: lock.createdAt,
+                environment: env.name,
+                message: lock.message,
+                authorName: lock.createdBy?.name,
+                authorEmail: lock.createdBy?.email,
+            };
+            environmentLocks.push(displayLock);
+        }
+        for (const applicationsKey in env.applications) {
+            const app = env.applications[applicationsKey];
+            for (const locksKey in app.locks) {
+                const lock = app.locks[locksKey];
+                const displayLock: DisplayLock = {
+                    lockId: lock.lockId,
+                    application: app.name,
+                    date: lock.createdAt,
+                    environment: env.name,
+                    message: lock.message,
+                    authorName: lock.createdBy?.name,
+                    authorEmail: lock.createdBy?.email,
+                };
+                appLocks.push(displayLock);
+            }
+        }
+    });
+    return {
+        environmentLocks,
+        appLocks,
+    };
+};
 
 export const useApplicationLock = (lockId: string): DisplayLock =>
     ({

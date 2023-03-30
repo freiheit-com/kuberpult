@@ -238,16 +238,14 @@ describe('Release Dialog', () => {
             UpdateSidebar.set({ shown: false });
             setTheStore(testcase);
 
-            render(<ReleaseDialog {...testcase.props} />);
             render(
                 <EnvironmentListItem
                     env={testcase.envs[0]}
                     app={testcase.props.app}
                     queuedVersion={0}
-                    release={testcase.props.release}
+                    release={{ ...testcase.props.release, version: 3 }}
                 />
             );
-            render(<SideBar toggleSidebar={Spy()} />);
             const result = document.querySelector('.env-card-deploy-btn')!;
             fireEvent.click(result);
             expect(UpdateSidebar.get().shown).toBeTruthy();
