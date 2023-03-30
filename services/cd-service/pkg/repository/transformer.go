@@ -436,17 +436,25 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 		}
 
 		appLocksDir := fs.Join(envAppDir, "locks")
-		undeployFile := fs.Join(envAppDir, "version", "undeploy")
-
-		entries, _ = fs.ReadDir(appLocksDir)
-		if entries != nil && len(entries) > 0 {
-			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' unlock the application lock in the '%v' environment first. Path '%v'. Entries: '%v'",
-				u.Application, env, appLocksDir, entries)
+		err = fs.Remove(appLocksDir)
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: cannot delete app locks '%v'", appLocksDir)
 		}
 
-		if _, err := fs.Stat(undeployFile); err != nil && errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' the release '%v' is not un-deployed", u.Application, env)
+		versionDir := fs.Join(envAppDir, "version")
+		undeployFile := fs.Join(versionDir, "undeploy")
+
+		_, err = fs.Stat(versionDir)
+		if err != nil && errors.Is(err, os.ErrNotExist) {
+			// if the app was never deployed here, that's not a reason to stop
+			continue
 		}
+
+		_, err = fs.Stat(undeployFile)
+		if err != nil && errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' the release '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
+		}
+
 	}
 	// remove application
 	if err = fs.Remove(appDir); err != nil {

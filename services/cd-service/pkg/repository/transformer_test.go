@@ -120,22 +120,22 @@ func TestUndeployApplicationErrors(t *testing.T) {
 						envAcceptance: "acceptance",
 					},
 				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "acceptance",
 					Application: "app1",
 					LockId:      "22133",
 					Message:     "test",
 				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
 				&UndeployApplication{
 					Application: "app1",
 				},
 			},
-			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' unlock the application lock in the 'acceptance' environment first",
-			expectedCommitMsg: "",
-			shouldSucceed:     false,
+			expectedError:     "",
+			expectedCommitMsg: "application 'app1' was deleted successfully",
+			shouldSucceed:     true,
 		},
 		{
 			Name: "Undeploy application where there is an application lock created after the un-deploy version creation shouldn't work",
