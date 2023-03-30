@@ -56,7 +56,7 @@ exports[`Release Dialog Renders the environment locks no release 1`] = `
             <div
               class="release-dialog-app"
             >
-              Service: test1 | Team: &lt;No Team&gt;
+              App: test1 
             </div>
           </div>
           <span
@@ -156,7 +156,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
             <div
               class="release-dialog-app"
             >
-              Service: test1 | Team: &lt;No Team&gt;
+              App: test1 
             </div>
           </div>
           <span
@@ -387,7 +387,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
             <div
               class="release-dialog-app"
             >
-              Service: test1 | Team: &lt;No Team&gt;
+              App: test1 
             </div>
           </div>
           <span
