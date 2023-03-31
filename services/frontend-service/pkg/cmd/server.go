@@ -227,11 +227,11 @@ func RunServer() {
 				*/
 				resp.Header().Set("strict-Transport-Security", "max-age=31536000; includeSubDomains;")
 				if c.AzureEnableAuth {
-					if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId, []string{"/", "/v2/home", "/release", "/health", "/manifest.json", "/favicon.png"}, []string{"/static/js", "/static/css"}); err != nil {
+					if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId, []string{"/", "/home", "/release", "/health", "/manifest.json", "/favicon.png"}, []string{"/static/js", "/static/css"}); err != nil {
 						return
 					}
 				}
-				if strings.HasPrefix(req.URL.Path, "/v2/home") {
+				if strings.HasPrefix(req.URL.Path, "/home") {
 					http.ServeFile(resp, req, "build/index.html")
 				} else {
 					mux.ServeHTTP(resp, req)
