@@ -6,6 +6,46 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.62
+**released 2023-03-31**
+### Summary:
+* Old UI was removed
+* Implemented various features that were missing from the old UI
+* various library upgrades and bugfixes
+
+### Major Changes:
+* [New UI is now available under /](https://github.com/freiheit-com/kuberpult/pull/594)
+* [Fix bug in app deletion when there are app locks](https://github.com/freiheit-com/kuberpult/pull/590)
+* [Show Application and Team on Release Dialog](https://github.com/freiheit-com/kuberpult/pull/586)
+* [Fix issue with deleting locks](https://github.com/freiheit-com/kuberpult/pull/589)
+* [disable apply button, fix button ripples bug](https://github.com/freiheit-com/kuberpult/pull/579)
+* [Allow deleting env locks from release dialog](https://github.com/freiheit-com/kuberpult/pull/585)
+* [new UI: add prepareToUndeploy and Undeploy functions](https://github.com/freiheit-com/kuberpult/pull/580)
+* [Retry connection on errors with exponential backoff](https://github.com/freiheit-com/kuberpult/pull/552)
+
+### Internal changes & version updates:
+* [update module gopkg.in/datadog/dd-trace-go.v1 to v1.48.0](https://github.com/freiheit-com/kuberpult/pull/587)
+* [update module github.com/go-git/go-billy/v5 to v5.4.1](https://github.com/freiheit-com/kuberpult/pull/569)
+* [update module github.com/golang-jwt/jwt/v4 to v4.5.0](https://github.com/freiheit-com/kuberpult/pull/570)
+* [update module github.com/micahparks/keyfunc to v1.9.0](https://github.com/freiheit-com/kuberpult/pull/573)
+* [update module go.uber.org/zap to v1.24.0](https://github.com/freiheit-com/kuberpult/pull/574)
+* [refactoring: remove version -1 from everywhere](https://github.com/freiheit-com/kuberpult/pull/581)
+* [Return undeploy summary in cd-service](https://github.com/freiheit-com/kuberpult/pull/578)
+* [Update Github SSH key in certificates test](https://github.com/freiheit-com/kuberpult/pull/575)
+* [Comments for queuing of transformers/requests](https://github.com/freiheit-com/kuberpult/pull/561)
+* [update golang docker tag to v1.20.2](https://github.com/freiheit-com/kuberpult/pull/530)
+* [update dependency @improbable-eng/grpc-web to ^0.15.0](https://github.com/freiheit-com/kuberpult/pull/527)
+* [Integ tests Workflow: Add case for abbreviated version](https://github.com/freiheit-com/kuberpult/pull/564)
+* [Update softprops-action-gh-release to use node16](https://github.com/freiheit-com/kuberpult/pull/562)
+* [chore(deps): update node.js to v14.21.3](https://github.com/freiheit-com/kuberpult/pull/525)
+* [update module github.com/google/go-cmp to v0.5.9](https://github.com/freiheit-com/kuberpult/pull/522)
+* [update module github.com/libgit2/git2go/v33 to v33.0.9](https://github.com/freiheit-com/kuberpult/pull/523)
+* [update module google.golang.org/protobuf to v1.30.0](https://github.com/freiheit-com/kuberpult/pull/524)
+* [update module github.com/datadog/datadog-go/v5 to v5.3.0](https://github.com/freiheit-com/kuberpult/pull/549)
+* [update module golang.org/x/crypto to v0.7.0](https://github.com/freiheit-com/kuberpult/pull/582)
+* [Add api.go to pkg/api](https://github.com/freiheit-com/kuberpult/pull/560)
+
+
 ## 0.4.61
 **released 2023-03-20**
 
