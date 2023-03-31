@@ -371,6 +371,10 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 			if !exists {
 				continue
 			}
+			if app.Version == 0 {
+				// if the app exists but nothing is deployed, we ignore this
+				continue
+			}
 			if app.UndeployVersion {
 				allNormal = false
 			} else {

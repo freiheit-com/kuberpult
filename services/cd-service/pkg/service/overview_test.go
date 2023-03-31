@@ -804,6 +804,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					Applications: map[string]*api.Environment_Application{
 						"bar": { // different app
 							UndeployVersion: true,
+							Version:         666,
 						},
 					},
 				},
@@ -818,6 +819,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					Applications: map[string]*api.Environment_Application{
 						"foo": {
 							UndeployVersion: true,
+							Version:         666,
 						},
 					},
 				},
@@ -832,6 +834,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					Applications: map[string]*api.Environment_Application{
 						"foo": {
 							UndeployVersion: false,
+							Version:         666,
 						},
 					},
 				},
@@ -846,6 +849,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					Applications: map[string]*api.Environment_Application{
 						"foo": {
 							UndeployVersion: true,
+							Version:         666,
 						},
 					},
 				},
@@ -853,6 +857,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					Applications: map[string]*api.Environment_Application{
 						"foo": {
 							UndeployVersion: true,
+							Version:         666,
 						},
 					},
 				},
@@ -867,6 +872,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					Applications: map[string]*api.Environment_Application{
 						"foo": {
 							UndeployVersion: false,
+							Version:         666,
 						},
 					},
 				},
@@ -874,6 +880,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					Applications: map[string]*api.Environment_Application{
 						"foo": {
 							UndeployVersion: false,
+							Version:         666,
 						},
 					},
 				},
@@ -888,6 +895,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					Applications: map[string]*api.Environment_Application{
 						"foo": {
 							UndeployVersion: true,
+							Version:         666,
 						},
 					},
 				},
@@ -895,6 +903,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					Applications: map[string]*api.Environment_Application{
 						"foo": {
 							UndeployVersion: false,
+							Version:         666,
 						},
 					},
 				},
