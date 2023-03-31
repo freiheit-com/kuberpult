@@ -23,7 +23,7 @@ export const NavbarIndicator = (props: { pathname: string; to: string }): JSX.El
     return (
         <div
             className={classNames('mdc-list-item-indicator', {
-                'mdc-list-item-indicator--activated': pathname.startsWith(`/v2/${to}`),
+                'mdc-list-item-indicator--activated': pathname.startsWith(`/${to}`),
             })}></div>
     );
 };
@@ -48,7 +48,7 @@ export const NavListItem = (props: {
 
     const allClassNames = classNames(
         'mdc-list-item',
-        { 'mdc-list-item--activated': pathname.startsWith(`/v2/${to}`) },
+        { 'mdc-list-item--activated': pathname.startsWith(`/${to}`) },
         className
     );
 
@@ -60,7 +60,7 @@ export const NavListItem = (props: {
                 className={allClassNames}
                 ref={control}
                 to={`${to}${queryParams ? queryParams : ''}`}
-                tabIndex={pathname.startsWith(`/v2/${to}`) ? 0 : -1}>
+                tabIndex={pathname.startsWith(`/${to}`) ? 0 : -1}>
                 <div className="mdc-list-item__ripple" />
                 {icon &&
                     cloneElement(icon, {

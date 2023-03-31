@@ -77,19 +77,6 @@
     height: 75vh;
 }
 
-.legacy-ui-lock.actions-cart__lock-message {
-    label {
-        transform: translate(14px, -18px) scale(0.75);
-        color: white;
-    }
-}
-
-.legacy-ui-lock {
-    input.MuiOutlinedInput-input {
-        color: black;
-    }
-}
-
 .actions-cart__lock-message {
     background: var(--mdc-theme-background);
     position: relative;
