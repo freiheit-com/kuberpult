@@ -1,4 +1,4 @@
-FROM alpine:3.15 AS builder
+FROM alpine:3.17 AS builder
 RUN apk --update add ca-certificates tzdata
 
 FROM scratch

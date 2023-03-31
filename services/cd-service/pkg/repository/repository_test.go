@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
-	git "github.com/libgit2/git2go/v33"
+	git "github.com/libgit2/git2go/v34"
 	"io/fs"
 	"os"
 	"os/exec"

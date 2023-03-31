@@ -46,7 +46,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
-	git "github.com/libgit2/git2go/v33"
+	git "github.com/libgit2/git2go/v34"
 )
 
 // A Repository provides a multiple reader / single writer access to a git repository.

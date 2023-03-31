@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	git "github.com/libgit2/git2go/v33"
+	git "github.com/libgit2/git2go/v34"
 )
 
 const example_known_hosts = "github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg="

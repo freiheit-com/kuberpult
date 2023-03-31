@@ -14,7 +14,7 @@ require (
 	github.com/improbable-eng/grpc-web v0.14.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/libgit2/git2go/v33 v33.0.9
+	github.com/libgit2/git2go/v34 v34.0.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.7.0
 	google.golang.org/api v0.30.0

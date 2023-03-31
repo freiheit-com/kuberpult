@@ -27,7 +27,7 @@ import (
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-billy/v5/util"
-	git "github.com/libgit2/git2go/v33"
+	git "github.com/libgit2/git2go/v34"
 )
 
 func TestFs(t *testing.T) {
