@@ -179,7 +179,7 @@ describe('Release Card', () => {
             }
             if (testcase.rels[0].createdAt) {
                 expect(container.querySelector('.release__metadata')?.textContent).toContain(
-                    (testcase.rels[0].createdAt as Date).getFullYear()
+                    (testcase.rels[0].createdAt as Date).getFullYear().toString()
                 );
             }
             expect(container.querySelector('.env-group-chip-list-test')).not.toBeEmptyDOMElement();
