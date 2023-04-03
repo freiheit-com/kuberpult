@@ -670,7 +670,7 @@ func (r *repository) maybeGc(ctx context.Context) {
 	cmd.Dir = r.config.Path
 	err := cmd.Run()
 	if err != nil {
-		log.Error("git.repack", zap.Error(err))
+		log.Fatal("git.repack", zap.Error(err))
 		return
 	}
 	statsAfter, _ := r.countObjects(ctx)
