@@ -41,7 +41,7 @@ const getReleasesForAppGroupByDate = (releases: Array<Release>): Release[][] => 
                     curRelease
                 );
             }
-            return previousRelease;
+            return previousReleases;
         },
         {}
     );
