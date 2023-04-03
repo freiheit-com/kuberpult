@@ -34,8 +34,12 @@ const getReleasesForAppGroupByDate = (releases: Array<Release>): Release[][] => 
         return [];
     }
     const releaseGroupedByCreatedAt = releases.reduce((previousRelease: Release, curRelease: Release) => {
-        (previousRelease[curRelease.createdAt?.toDateString()] =
-            previousRelease[curRelease.createdAt?.toDateString()] || []).push(curRelease);
+        const createdAt = curRelease.createdAt;
+        if (createdAt) {
+            previousRelease[createdAt.toDateString()] = (previousRelease[createdAt.toDateString()] || []).push(
+                curRelease
+            );
+        }
         return previousRelease;
     }, {});
     const rel: Array<Array<Release>> = [];
