@@ -37,7 +37,7 @@ const getReleasesForAppGroupByDate = (releases: Array<Release>): Release[][] => 
         (previousReleases: Map<string, Array<Release>>, curRelease: Release) => {
             const createdAt = curRelease.createdAt;
             if (createdAt) {
-                previousRelease[createdAt.toDateString()] = (previousRelease[createdAt.toDateString()] || []).push(
+                previousReleases[createdAt.toDateString()] = (previousReleases[createdAt.toDateString()] || []).push(
                     curRelease
                 );
             }
