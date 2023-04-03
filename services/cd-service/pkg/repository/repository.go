@@ -58,6 +58,12 @@ type Repository interface {
 	Notify() *notify.Notify
 }
 
+func defaultBackOffProvider() backoff.BackOff {
+	eb := backoff.NewExponentialBackOff()
+	eb.MaxElapsedTime = 7 * time.Second
+	return backoff.WithMaxRetries(eb, 6)
+}
+
 var (
 	ddMetrics *statsd.Client
 )
@@ -78,6 +84,8 @@ type repository struct {
 	headLock sync.Mutex
 
 	notify notify.Notify
+
+	backOffProvider func() backoff.BackOff
 }
 
 type RepositoryConfig struct {
@@ -163,12 +171,13 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			return nil, err
 		} else {
 			result := &repository{
-				remote:       remote,
-				config:       &cfg,
-				credentials:  credentials,
-				certificates: certificates,
-				repository:   repo2,
-				queue:        makeQueue(),
+				remote:          remote,
+				config:          &cfg,
+				credentials:     credentials,
+				certificates:    certificates,
+				repository:      repo2,
+				queue:           makeQueue(),
+				backOffProvider: defaultBackOffProvider,
 			}
 			result.headLock.Lock()
 
@@ -491,12 +500,10 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "Apply")
 	defer span.Finish()
 
-	eb := backoff.NewExponentialBackOff()
-	eb.MaxElapsedTime = 7 * time.Second
+	eb := r.backOffProvider()
 	return backoff.Retry(
 		func() error {
 			span, _ := tracer.StartSpanFromContext(ctx, "Push")
-			span.SetTag("elapsedTime", eb.GetElapsedTime())
 			defer span.Finish()
 			err := pushAction()
 			if err != nil {
@@ -507,7 +514,7 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 			}
 			return err
 		},
-		backoff.WithMaxRetries(eb, 6),
+		eb,
 	)
 }
 

@@ -20,9 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-git/go-billy/v5/util"
-	"github.com/google/go-cmp/cmp"
-	git "github.com/libgit2/git2go/v34"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -30,6 +27,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cenkalti/backoff/v4"
+	"github.com/go-git/go-billy/v5/util"
+	"github.com/google/go-cmp/cmp"
+	git "github.com/libgit2/git2go/v34"
 )
 
 func TestNew(t *testing.T) {
@@ -822,7 +824,9 @@ func TestRetrySsh(t *testing.T) {
 			t.Parallel()
 			repo := &repository{}
 			counter := 0
-
+			repo.backOffProvider = func() backoff.BackOff {
+				return backoff.WithMaxRetries(&backoff.ZeroBackOff{}, 5)
+			}
 			resp := repo.Push(context.Background(), func() error {
 				counter++
 				if counter > tc.NumOfFailures {
@@ -834,7 +838,7 @@ func TestRetrySsh(t *testing.T) {
 				if counter == 6 { // max number of retries
 					return &git.GitError{Message: "max number of retries exceeded error"}
 				}
-				return &git.GitError{Message: "mock error"}
+				return &git.GitError{Message: fmt.Sprintf("mock error %d", counter)}
 			})
 
 			if resp == nil || tc.ExpectedResponse == nil {
