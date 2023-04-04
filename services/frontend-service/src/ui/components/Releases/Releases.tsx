@@ -37,9 +37,9 @@ const getReleasesForAppGroupByDate = (releases: Array<Release>): Release[][] => 
         (previousReleases: Map<string, Array<Release>>, curRelease: Release) => {
             const createdAt = curRelease.createdAt;
             if (createdAt) {
-                previousReleases[createdAt.toDateString()] = (previousReleases[createdAt.toDateString()] || []).push(
-                    curRelease
-                );
+                const rels = previousReleases[createdAt.toDateString()] || [];
+                previousReleases[createdAt.toDateString()] = rels;
+                rels.push(curRelease);
             }
             return previousReleases;
         },
@@ -56,7 +56,6 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
     const { app, className } = props;
     const releases = useReleasesForApp(app);
     const rel = getReleasesForAppGroupByDate(releases);
-
     return (
         <div className={classNames('timeline', className)}>
             <h1 className={classNames('app_name', className)}>{'Releases | ' + app}</h1>
