@@ -17,7 +17,15 @@ import { fireEvent, render } from '@testing-library/react';
 import { ServiceLane } from './ServiceLane';
 import { UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
-import { Application, BatchAction, Environment, Priority, Release, UndeploySummary } from '../../../api/api';
+import {
+    Application,
+    BatchAction,
+    Environment,
+    Environment_Application,
+    Priority,
+    Release,
+    UndeploySummary,
+} from '../../../api/api';
 import { MemoryRouter } from 'react-router-dom';
 
 const mock_ReleaseCard = Spy.mockReactComponents('../../components/ReleaseCard/ReleaseCard', 'ReleaseCard');
@@ -105,11 +113,10 @@ describe('Service Lane', () => {
 
 type TestData = {
     name: string;
-    releases: Release[];
     envs: Environment[];
 };
 
-type TestDataDiff = TestData & { diff: string };
+type TestDataDiff = TestData & { diff: string; releases: Release[] };
 
 const data: TestDataDiff[] = [
     {
@@ -253,6 +260,7 @@ const data: TestDataDiff[] = [
                 applications: {
                     test2: {
                         version: 1,
+                        locks: {},
                     },
                 },
                 locks: {},
@@ -262,6 +270,7 @@ const data: TestDataDiff[] = [
                 applications: {
                     test2: {
                         version: 4,
+                        locks: {},
                     },
                 },
                 locks: {},
@@ -351,7 +360,7 @@ describe('Service Lane Diff', () => {
         </MemoryRouter>
     );
     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
-    describe.each(data)('Service Lane diff', (testcase) => {
+    describe.each(data)('Service Lane diff number', (testcase) => {
         it(testcase.name, () => {
             UpdateOverview.set({
                 environments: undefined as any, // deprecated
@@ -372,7 +381,8 @@ describe('Service Lane Diff', () => {
                     },
                 ],
             });
-            const sampleApp = {
+            const sampleApp: Application = {
+                undeploySummary: UndeploySummary.Normal,
                 name: 'test2',
                 releases: [],
                 sourceRepoUrl: 'http://test2.com',
@@ -396,31 +406,9 @@ type TestDataUndeploy = TestData & {
     expectedAction: BatchAction;
 };
 const dataUndeploy: TestDataUndeploy[] = (() => {
-    const releaseNormal = [
-        {
-            version: 1,
-            sourceMessage: 'test1',
-            sourceAuthor: 'test',
-            sourceCommitId: 'commit1',
-            createdAt: new Date(2002),
-            undeployVersion: false,
-            prNumber: '666',
-        },
-    ];
-    const releaseUndeploy = [
-        {
-            version: 1,
-            sourceMessage: 'test1',
-            sourceAuthor: 'test',
-            sourceCommitId: 'commit1',
-            createdAt: new Date(2002),
-            undeployVersion: true,
-            prNumber: '666',
-        },
-    ];
     const result: TestDataUndeploy[] = [
         {
-            name: 'test no undeploy',
+            name: 'test no prepareUndeploy',
             renderedApp: {
                 name: 'test1',
                 releases: [],
@@ -428,7 +416,6 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
                 team: 'example',
                 undeploySummary: UndeploySummary.Normal,
             },
-            releases: releaseNormal,
             envs: [
                 {
                     name: 'foo2',
@@ -455,7 +442,6 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
                 team: 'example',
                 undeploySummary: UndeploySummary.Undeploy,
             },
-            releases: releaseUndeploy,
             envs: [
                 {
                     name: 'foo2',
@@ -484,7 +470,7 @@ describe('Service Lane Undeploy Buttons', () => {
         </MemoryRouter>
     );
     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
-    describe.each(dataUndeploy)('Service Lane diff', (testcase) => {
+    describe.each(dataUndeploy)('Undeploy Buttons', (testcase) => {
         it(testcase.name, () => {
             mock_addAction.addAction.returns(undefined);
 
@@ -512,6 +498,136 @@ describe('Service Lane Undeploy Buttons', () => {
             fireEvent.click(undeployButton!);
 
             mock_addAction.addAction.wasCalledWith(testcase.expectedAction);
+        });
+    });
+});
+
+type TestDataAppLockSummary = TestData & {
+    renderedApp: Application;
+    expected: string | undefined;
+};
+const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
+    const appWith1Lock: Environment_Application = {
+        name: 'test1',
+        version: 123,
+        queuedVersion: 0,
+        undeployVersion: false,
+        locks: {
+            l1: { message: 'test lock', lockId: '321' },
+        },
+    };
+    const appWith2Locks: Environment_Application = {
+        name: 'test1',
+        version: 123,
+        queuedVersion: 0,
+        undeployVersion: false,
+        locks: {
+            l1: { message: 'test lock', lockId: '321' },
+            l2: { message: 'test lock', lockId: '321' },
+        },
+    };
+    const result: TestDataAppLockSummary[] = [
+        {
+            name: 'test no prepareUndeploy',
+            renderedApp: {
+                name: 'test1',
+                releases: [],
+                sourceRepoUrl: 'http://test2.com',
+                team: 'example',
+                undeploySummary: UndeploySummary.Normal,
+            },
+            envs: [
+                {
+                    name: 'foo2',
+                    applications: {},
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                    locks: {
+                        envLockThatDoesNotMatter: {
+                            message: 'I am an env lock, I should not count',
+                            lockId: '487329463874223',
+                        },
+                    },
+                },
+            ],
+            expected: undefined,
+        },
+        {
+            name: 'test one lock',
+            renderedApp: {
+                name: 'test1',
+                releases: [],
+                sourceRepoUrl: 'http://test2.com',
+                team: 'example',
+                undeploySummary: UndeploySummary.Normal,
+            },
+            envs: [
+                {
+                    name: 'foo2',
+                    applications: {
+                        foo2: appWith1Lock,
+                    },
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                    locks: {},
+                },
+            ],
+            expected: '"test1" has 1 application lock. Click on a tile to see details.',
+        },
+        {
+            name: 'test two locks',
+            renderedApp: {
+                name: 'test1',
+                releases: [],
+                sourceRepoUrl: 'http://test2.com',
+                team: 'example',
+                undeploySummary: UndeploySummary.Normal,
+            },
+            envs: [
+                {
+                    name: 'foo2',
+                    applications: {
+                        foo2: appWith2Locks,
+                    },
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                    locks: {},
+                },
+            ],
+            expected: '"test1" has 2 application locks. Click on a tile to see details.',
+        },
+    ];
+    return result;
+})();
+
+describe('Service Lane AppLockSummary', () => {
+    const getNode = (overrides: { application: Application }) => (
+        <MemoryRouter>
+            <ServiceLane {...overrides} />
+        </MemoryRouter>
+    );
+    const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
+    describe.each(dataAppLockSummary)('diff', (testcase) => {
+        it(testcase.name, () => {
+            mock_addAction.addAction.returns(undefined);
+
+            UpdateOverview.set({
+                applications: {
+                    test1: testcase.renderedApp,
+                },
+                environmentGroups: [
+                    {
+                        environments: testcase.envs,
+                        environmentGroupName: 'group1',
+                        distanceToUpstream: 0,
+                    },
+                ],
+            });
+
+            const { container } = getWrapper({ application: testcase.renderedApp });
+
+            const appLockSummary = container.querySelector('.test-app-lock-summary div');
+            expect(appLockSummary?.attributes.getNamedItem('aria-label')?.value).toBe(testcase.expected);
         });
     });
 });

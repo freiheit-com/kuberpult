@@ -13,7 +13,13 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { addAction, showSnackbarError, useDeployedReleases, useVersionsForApp } from '../../utils/store';
+import {
+    addAction,
+    showSnackbarError,
+    useDeployedReleases,
+    useFilteredApplicationLocks,
+    useVersionsForApp,
+} from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { Button } from '../button';
 import { DeleteWhite, HistoryWhite } from '../../../images';
@@ -21,6 +27,7 @@ import { Application, UndeploySummary } from '../../../api/api';
 import { Tooltip } from '@material-ui/core';
 import { useNavigate } from 'react-router-dom';
 import * as React from 'react';
+import { AppLockSummary } from '../chip/EnvironmentGroupChip';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -144,11 +151,18 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
             onClick={prepareUndeployOrUndeploy}
         />
     ) : null;
+
+    const appLocks = useFilteredApplicationLocks(application.name);
     return (
         <div className="service-lane">
             <div className="service-lane__header">
                 <div className="service__name">
                     {(application.team ? application.team + ' | ' : '<No Team> | ') + application.name}
+                    {appLocks.length >= 1 && (
+                        <div className={'test-app-lock-summary'}>
+                            <AppLockSummary app={application.name} numLocks={appLocks.length} />
+                        </div>
+                    )}
                 </div>
                 <div className="service__actions">
                     {undeployButton}
