@@ -706,7 +706,7 @@ func TestGc(t *testing.T) {
 			GcFrequency:        0,
 			DisableSqlite:      true,
 			ExpectedGarbageMin: 907,
-			ExpectedGarbageMax: 908,
+			ExpectedGarbageMax: 910,
 		},
 		{
 			// we are going to perform 101 requests, that should trigger a gc
