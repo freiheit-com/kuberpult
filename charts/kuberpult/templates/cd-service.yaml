@@ -139,6 +139,11 @@ spec:
         - name: KUBERPULT_BOOTSTRAP_MODE
           value: "{{ .Values.environment_configs.bootstrap_mode }}"
 {{- end }}
+{{- if .Values.cd.disableSqlite }}
+        - name: KUBERPULT_DISABLE_SQLITE
+          value: "true"
+{
+{{- end }}
         volumeMounts:
         - name: repository
           mountPath: /repository
