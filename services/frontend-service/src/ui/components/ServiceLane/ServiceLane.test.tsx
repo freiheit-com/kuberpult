@@ -252,6 +252,7 @@ const data: TestDataDiff[] = [
                 applications: {
                     test2: {
                         version: 1,
+                        locks: {},
                     },
                 },
                 locks: {},
@@ -261,6 +262,7 @@ const data: TestDataDiff[] = [
                 applications: {
                     test2: {
                         version: 4,
+                        locks: {},
                     },
                 },
                 locks: {},
@@ -371,7 +373,8 @@ describe('Service Lane Diff', () => {
                     },
                 ],
             });
-            const sampleApp = {
+            const sampleApp: Application = {
+                undeploySummary: UndeploySummary.Normal,
                 name: 'test2',
                 releases: [],
                 sourceRepoUrl: 'http://test2.com',
@@ -419,7 +422,7 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
     ];
     const result: TestDataUndeploy[] = [
         {
-            name: 'test no undeploy',
+            name: 'test no prepareUndeploy',
             renderedApp: {
                 name: 'test1',
                 releases: [],
