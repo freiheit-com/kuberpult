@@ -29,12 +29,12 @@ const dateFormat = (date: Date): string => {
     return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 };
 
-const getReleasesForAppGroupByDate = (releases: Array<Release>): Release[][] => {
+const getReleasesForAppGroupByDate = (releases: Array<Release>): [Release, ...Release[]][] => {
     if (releases === undefined) {
         return [];
     }
     const releaseGroupedByCreatedAt = releases.reduce(
-        (previousReleases: Map<string, Array<Release>>, curRelease: Release) => {
+        (previousReleases: { [key: string]: [Release, ...Release[]] }, curRelease: Release) => {
             const createdAt = curRelease.createdAt;
             if (createdAt) {
                 const rels = previousReleases[createdAt.toDateString()] || [];
@@ -45,11 +45,7 @@ const getReleasesForAppGroupByDate = (releases: Array<Release>): Release[][] => 
         },
         {}
     );
-    const rel: Array<Array<Release>> = [];
-    for (const [, value] of Object.entries(releaseGroupedByCreatedAt)) {
-        rel.push(value);
-    }
-    return rel;
+    return Object.values(releaseGroupedByCreatedAt);
 };
 
 export const Releases: React.FC<ReleasesProps> = (props) => {
@@ -61,7 +57,9 @@ export const Releases: React.FC<ReleasesProps> = (props) => {
             <h1 className={classNames('app_name', className)}>{'Releases | ' + app}</h1>
             {rel.map((release) => (
                 <div key={release[0].version} className={classNames('container right', className)}>
-                    <div className={classNames('release_date', className)}>{dateFormat(release[0].createdAt)}</div>
+                    <div className={classNames('release_date', className)}>
+                        {release[0].createdAt ? dateFormat(release[0].createdAt) : ''}
+                    </div>
                     {release.map((rele) => (
                         <div key={rele.version} className={classNames('content', className)}>
                             <ReleaseCardMini app={app} version={rele.version} />
