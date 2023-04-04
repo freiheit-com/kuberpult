@@ -120,6 +120,7 @@ ignoredFiles: [
     "LICENSE",
     ".env",
     ".go-version",
+    "gitconfig",
   ] #ignored file extensions
 testFiles: ["_test.go", "_test.dart"]
 languagesConfig:
