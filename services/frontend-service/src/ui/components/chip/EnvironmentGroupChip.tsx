@@ -22,7 +22,7 @@ import { Tooltip } from '@material-ui/core';
 import { Button } from '../button';
 import { LocksWhite } from '../../../images';
 
-const EnvLock: React.FC<{
+export const EnvLock: React.FC<{
     env: string;
     lock: Lock;
 }> = ({ env, lock }) => {
@@ -45,6 +45,25 @@ const EnvLock: React.FC<{
                     className={'button-lock'}
                     onClick={deleteEnvLock}
                 />
+            </div>
+        </Tooltip>
+    );
+};
+
+export const AppLockSummary: React.FC<{
+    app: string;
+    numLocks: number;
+}> = ({ app, numLocks }) => {
+    const plural = numLocks === 1 ? 'lock' : 'locks';
+    return (
+        <Tooltip
+            key={'app-lock-hint-' + app}
+            arrow
+            title={
+                'The Application "' + app + '" has ' + numLocks + ' ' + plural + '. Click on a tile to see details.'
+            }>
+            <div>
+                <LocksWhite className="env-card-env-lock-icon" width="24px" height="24px" />
             </div>
         </Tooltip>
     );
