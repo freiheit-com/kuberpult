@@ -473,7 +473,7 @@ export const useReleaseInfo = (app: string, version: number): Release =>
 
 // Get all releases for an app
 export const useReleasesForApp = (app: string): Release[] =>
-    useOverview(({ applications }) => applications[app]?.releases.sort((a, b) => b.version - a.version));
+    useOverview(({ applications }) => applications[app]?.releases?.sort((a, b) => b.version - a.version));
 
 // Get all release versions for an app
 export const useVersionsForApp = (app: string): number[] => useReleasesForApp(app).map((rel) => rel.version);
