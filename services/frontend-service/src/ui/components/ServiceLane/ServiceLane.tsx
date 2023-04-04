@@ -159,10 +159,9 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                 <div className="service__name">
                     {(application.team ? application.team + ' | ' : '<No Team> | ') + application.name}
                     {appLocks.length >= 1 && (
-                        <span className={'test-app-lock-summary'}>
-                            &nbsp;
+                        <div className={'test-app-lock-summary'}>
                             <AppLockSummary app={application.name} numLocks={appLocks.length} />
-                        </span>
+                        </div>
                     )}
                 </div>
                 <div className="service__actions">

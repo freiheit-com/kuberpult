@@ -59,10 +59,9 @@ export const AppLockSummary: React.FC<{
         <Tooltip
             key={'app-lock-hint-' + app}
             arrow
-            title={
-                'The Application "' + app + '" has ' + numLocks + ' ' + plural + '. Click on a tile to see details.'
-            }>
+            title={'"' + app + '" has ' + numLocks + ' application ' + plural + '. Click on a tile to see details.'}>
             <div>
+                &nbsp;
                 <LocksWhite className="env-card-env-lock-icon" width="24px" height="24px" />
             </div>
         </Tooltip>
