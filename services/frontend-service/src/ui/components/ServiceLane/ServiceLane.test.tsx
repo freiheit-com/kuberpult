@@ -85,14 +85,15 @@ describe('Service Lane', () => {
             releases: [{ version: 5 }, { version: 2 }, { version: 3 }],
             sourceRepoUrl: 'http://test2.com',
             team: 'example',
-        } as any;
+            undeploySummary: '',
+        };
         UpdateOverview.set({
-            environments: sampleEnvs,
+            environments: sampleEnvs as any,
             applications: {
-                test2: sampleApp,
+                test2: sampleApp as any,
             },
         });
-        getWrapper({ application: sampleApp });
+        getWrapper({ application: sampleApp as any });
 
         // then releases are sorted and Release card is called with props:
         expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: sampleApp.name, version: 5 });
@@ -353,7 +354,7 @@ describe('Service Lane Diff', () => {
     describe.each(data)('Service Lane diff', (testcase) => {
         it(testcase.name, () => {
             UpdateOverview.set({
-                environments: undefined, // deprecated
+                environments: undefined as any, // deprecated
                 applications: {
                     test2: {
                         releases: testcase.releases,
@@ -377,7 +378,7 @@ describe('Service Lane Diff', () => {
                 sourceRepoUrl: 'http://test2.com',
                 team: 'example',
             };
-            const { container } = getWrapper({ application: sampleApp });
+            const { container } = getWrapper({ application: sampleApp as any });
 
             // check for the diff between versions
             if (testcase.diff === '-1' || testcase.diff === '0') {

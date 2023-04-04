@@ -15,4 +15,4 @@
 # Copyright 2023 freiheit.com
 
 VERSION?=$(shell git describe --always --long --tags || echo 0.0.1)
-KUBERPULT_BUILDER?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-builder:0.4.54-5-gb4d8076
+KUBERPULT_BUILDER?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-builder:0.4.62-2-gdd4b718

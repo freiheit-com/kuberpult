@@ -1,4 +1,4 @@
-FROM alpine:3.15
+FROM alpine:3.17
 
 RUN apk --update add --no-cache curl go make nodejs npm
 RUN npm install -g pnpm@7.30.5

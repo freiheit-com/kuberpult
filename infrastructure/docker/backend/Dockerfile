@@ -1,4 +1,4 @@
-FROM alpine:3.15
+FROM alpine:3.17
 
 RUN apk --update add --no-cache curl make go git libgit2-dev pkgconfig build-base
 RUN BIN="/usr/local/bin" && \

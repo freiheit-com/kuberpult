@@ -50,10 +50,7 @@ describe('AuthProvider', () => {
 
     beforeEach(() => {
         pca = new PublicClientApplication(msalConfig);
-        global.document = {
-            ...document,
-            cookie: '',
-        };
+        global.document.cookie = '';
     });
 
     afterEach(() => {

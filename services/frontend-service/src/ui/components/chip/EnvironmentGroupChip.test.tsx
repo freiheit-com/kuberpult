@@ -119,7 +119,7 @@ const envChipData: Array<TestDataEnvs> = [
 
 describe.each(envChipData)(`EnvironmentChip with envPrio Classname`, (testcase) => {
     it(`with envPrio=${testcase.env.priority}`, () => {
-        const getNode = () => <EnvironmentChip className={'chip--hello'} env={testcase.env} withEnvLocks={false} />;
+        const getNode = () => <EnvironmentChip className={'chip--hello'} env={testcase.env} />;
         const getWrapper = () => render(getNode());
         const { container } = getWrapper();
         expect(container.firstChild).toHaveClass(
