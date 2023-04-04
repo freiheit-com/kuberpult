@@ -248,7 +248,7 @@ export const useFilteredApplicationLocks = (appNameParam: string | null): Displa
                             message: cena.message,
                             authorName: cena.createdBy?.name,
                             authorEmail: cena.createdBy?.email,
-                        } as DisplayLock)
+                        })
                     );
                 });
         });
