@@ -16,7 +16,7 @@ Copyright 2023 freiheit.com*/
 import { Releases } from '../../components/Releases/Releases';
 
 export const ReleasesPage: React.FC = () => {
-    const url = window.location.href.split('/');
+    const url = window.location.pathname.split('/');
     const app_name = url[url.length - 1];
     return (
         <main className="main-content">
