@@ -15,14 +15,22 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { EnvironmentListItem, ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { fireEvent, render } from '@testing-library/react';
-import { UpdateOverview, updateReleaseDialog, UpdateSidebar } from '../../utils/store';
+import { UpdateOverview, UpdateSidebar } from '../../utils/store';
 import { Environment, Priority, Release } from '../../../api/api';
 import { Spy } from 'spy4js';
 import { SideBar } from '../SideBar/SideBar';
+import { MemoryRouter } from 'react-router-dom';
 
 const mock_getFormattedReleaseDate = Spy.mockModule('../ReleaseCard/ReleaseCard', 'getFormattedReleaseDate');
 
 describe('Release Dialog', () => {
+    const getNode = (overrides: ReleaseDialogProps) => (
+        <MemoryRouter>
+            <ReleaseDialog {...overrides} />
+        </MemoryRouter>
+    );
+    const getWrapper = (overrides: ReleaseDialogProps) => render(getNode(overrides));
+
     interface dataT {
         name: string;
         props: ReleaseDialogProps;
@@ -39,7 +47,9 @@ describe('Release Dialog', () => {
             props: {
                 app: 'test1',
                 version: 2,
-                release: {
+            },
+            rels: [
+                {
                     version: 2,
                     sourceMessage: 'test1',
                     sourceAuthor: 'test',
@@ -48,8 +58,7 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: '#1337',
                 },
-            },
-            rels: [],
+            ],
             envs: [
                 {
                     name: 'prod',
@@ -77,15 +86,6 @@ describe('Release Dialog', () => {
             props: {
                 app: 'test1',
                 version: 2,
-                release: {
-                    version: 2,
-                    sourceMessage: 'test1',
-                    sourceAuthor: 'test',
-                    sourceCommitId: 'commit',
-                    createdAt: new Date(2002),
-                    undeployVersion: false,
-                    prNumber: '#1337',
-                },
             },
             envs: [
                 {
@@ -124,6 +124,7 @@ describe('Release Dialog', () => {
                     sourceCommitId: 'cafe',
                     sourceMessage: 'the other commit message 2',
                     version: 2,
+                    createdAt: new Date(2002),
                     undeployVersion: false,
                     prNumber: 'PR123',
                     sourceAuthor: 'nobody',
@@ -132,6 +133,7 @@ describe('Release Dialog', () => {
                     sourceCommitId: 'cafe',
                     sourceMessage: 'the other commit message 3',
                     version: 3,
+                    createdAt: new Date(2002),
                     undeployVersion: false,
                     prNumber: 'PR123',
                     sourceAuthor: 'nobody',
@@ -144,13 +146,22 @@ describe('Release Dialog', () => {
             teamName: 'test me team',
         },
         {
-            name: 'no release',
+            name: 'undeploy version release',
             props: {
                 app: 'test1',
-                version: -1,
-                release: {} as Release,
+                version: 4,
             },
-            rels: [],
+            rels: [
+                {
+                    version: 4,
+                    sourceAuthor: 'test1',
+                    sourceMessage: '',
+                    sourceCommitId: '',
+                    prNumber: '',
+                    createdAt: new Date(2002),
+                    undeployVersion: true,
+                },
+            ],
             envs: [],
             expect_message: false,
             expect_queues: 0,
@@ -176,11 +187,10 @@ describe('Release Dialog', () => {
         it(testcase.name, () => {
             // when
             setTheStore(testcase);
-            updateReleaseDialog(testcase.props.app, testcase.props.version);
-            render(<ReleaseDialog {...testcase.props} />);
+            getWrapper(testcase.props);
             if (testcase.expect_message) {
                 expect(document.querySelector('.release-dialog-message')?.textContent).toContain(
-                    testcase.props.release.sourceMessage
+                    testcase.rels[0].sourceMessage
                 );
             } else {
                 expect(document.querySelector('.release-dialog-message') === undefined);
@@ -194,8 +204,7 @@ describe('Release Dialog', () => {
         it(testcase.name, () => {
             // when
             setTheStore(testcase);
-            updateReleaseDialog(testcase.props.app, testcase.props.version);
-            render(<ReleaseDialog {...testcase.props} />);
+            getWrapper(testcase.props);
             expect(document.querySelector('.release-env-list')?.children).toHaveLength(testcase.envs.length);
         });
     });
@@ -206,8 +215,7 @@ describe('Release Dialog', () => {
             mock_getFormattedReleaseDate.getFormattedReleaseDate.returns(<div>some formatted date</div>);
             // when
             setTheStore(testcase);
-            updateReleaseDialog(testcase.props.app, testcase.props.version);
-            render(<ReleaseDialog {...testcase.props} />);
+            getWrapper(testcase.props);
             expect(document.body).toMatchSnapshot();
             expect(document.querySelectorAll('.release-env-group-list')).toHaveLength(1);
 
@@ -221,8 +229,7 @@ describe('Release Dialog', () => {
         it(testcase.name, () => {
             // when
             setTheStore(testcase);
-            updateReleaseDialog(testcase.props.app, testcase.props.version);
-            render(<ReleaseDialog {...testcase.props} />);
+            getWrapper(testcase.props);
             expect(document.querySelectorAll('.env-card-data-queue')).toHaveLength(testcase.expect_queues);
         });
     });
@@ -243,7 +250,7 @@ describe('Release Dialog', () => {
                     env={testcase.envs[0]}
                     app={testcase.props.app}
                     queuedVersion={0}
-                    release={{ ...testcase.props.release, version: 3 }}
+                    release={{ ...testcase.rels[0], version: 3 }}
                 />
             );
             const result = document.querySelector('.env-card-deploy-btn')!;
@@ -254,13 +261,13 @@ describe('Release Dialog', () => {
             UpdateSidebar.set({ shown: false });
             setTheStore(testcase);
 
-            render(<ReleaseDialog {...testcase.props} />);
+            getWrapper(testcase.props);
             render(
                 <EnvironmentListItem
                     env={testcase.envs[0]}
                     app={testcase.props.app}
                     queuedVersion={0}
-                    release={testcase.props.release}
+                    release={testcase.rels[0]}
                 />
             );
             render(<SideBar toggleSidebar={Spy()} />);
