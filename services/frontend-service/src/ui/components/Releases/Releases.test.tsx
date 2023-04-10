@@ -17,6 +17,7 @@ import { Releases } from './Releases';
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
 import { Release } from '../../../api/api';
+import { MemoryRouter } from 'react-router-dom';
 
 describe('Release Dialog', () => {
     const data = [
@@ -83,7 +84,11 @@ describe('Release Dialog', () => {
                 applications: { test: { releases: testcase.releases } },
                 environments: {},
             } as any);
-            render(<Releases app="test" />);
+            render(
+                <MemoryRouter>
+                    <Releases app="test" />
+                </MemoryRouter>
+            );
 
             expect(document.querySelectorAll('.release_date')).toHaveLength(testcase.dates);
             expect(document.querySelectorAll('.content')).toHaveLength(testcase.releases.length);
