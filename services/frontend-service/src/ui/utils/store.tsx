@@ -192,7 +192,7 @@ export const useCloseReleaseDialog = (): (() => void) => {
     }, [params, setParams]);
 };
 
-export const useValidReleaseDialogParams = (): { app: string | null; version: number | null } => {
+export const useReleaseDialogParams = (): { app: string | null; version: number | null } => {
     const [params] = useSearchParams();
     const app = params.get('dialog-app') ?? '';
     const version = +(params.get('dialog-version') ?? '');
