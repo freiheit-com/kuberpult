@@ -6,6 +6,29 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.63
+**released 2023-04-11**
+
+### Major Changes
+* [Workaround git repack issue by restarting the pod](https://github.com/freiheit-com/kuberpult/pull/601)
+* [Display app locks in Overview](https://github.com/freiheit-com/kuberpult/pull/605)
+* [Bugfix: Allow hard reload on UI ](https://github.com/freiheit-com/kuberpult/pull/604)
+
+### Minor Changes
+* [fix pnpm to version 7.30.5 in Docker images](https://github.com/freiheit-com/kuberpult/pull/599)
+* [Update alpine image and add sqlite of the build image](https://github.com/freiheit-com/kuberpult/pull/600)
+* [Update alpine image + libgit ](https://github.com/freiheit-com/kuberpult/pull/597)
+* [fix(deps): update module google.golang.org/api to v0.114.0](https://github.com/freiheit-com/kuberpult/pull/583)
+* [fix(deps): update module github.com/cenkalti/backoff/v4 to v4.2.0 (](https://github.com/freiheit-com/kuberpult/pull/568)
+* [fix(deps): update module github.com/grpc-ecosystem/go-grpc-middleware](https://github.com/freiheit-com/kuberpult/pull/571)
+* [fix(deps): update module k8s.io/apimachinery to v0.26.3](https://github.com/freiheit-com/kuberpult/pull/595)
+* [fix(deps): update module google.golang.org/grpc to v1.54.0 ](https://github.com/freiheit-com/kuberpult/pull/584)
+* [fix(deps): update module github.com/improbable-eng/grpc-web to v0.15.0](https://github.com/freiheit-com/kuberpult/pull/572)
+* [fix(deps): update module google.golang.org/api to v0.117.0](https://github.com/freiheit-com/kuberpult/pull/614)
+* [chore(deps): update golang docker tag to v1.20.3 ](https://github.com/freiheit-com/kuberpult/pull/613)
+
+
+
 ## 0.4.62
 **released 2023-03-31**
 ### Summary:
