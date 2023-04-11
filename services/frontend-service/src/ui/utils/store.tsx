@@ -192,14 +192,14 @@ export const useCloseReleaseDialog = (): (() => void) => {
     }, [params, setParams]);
 };
 
-export const useValidReleaseDialogParams = (): [string, number] => {
+export const useValidReleaseDialogParams = (): { app: string | null; version: number | null } => {
     const [params] = useSearchParams();
     const app = params.get('dialog-app') ?? '';
     const version = +(params.get('dialog-version') ?? '');
     const valid = useOverview(({ applications }) =>
         applications[app] ? !!applications[app].releases.find((r) => r.version === version) : false
     );
-    return valid ? [app, version] : ['', 0];
+    return valid ? { app, version } : { app: null, version: null };
 };
 
 export const deleteAllActions = (): void => {

@@ -88,12 +88,12 @@ export const App: React.FC = () => {
         }
     );
 
-    const [app, version] = useValidReleaseDialogParams();
+    const { app, version } = useValidReleaseDialogParams();
 
     return (
         <AzureAuthProvider>
             <div className={'app-container--v2'}>
-                {app ? <ReleaseDialog app={app} version={version} /> : null}
+                {app && version ? <ReleaseDialog app={app} version={version} /> : null}
                 <NavigationBar />
                 <div className="mdc-drawer-app-content">
                     <TopAppBar />
