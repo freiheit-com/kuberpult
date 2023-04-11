@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
 import React from 'react';
-import { updateReleaseDialog, useRelease } from '../../utils/store';
+import { useOpenReleaseDialog, useRelease } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { undeployTooltipExplanation } from '../ReleaseDialog/ReleaseDialog';
 
@@ -35,9 +35,7 @@ const getDays = (date: Date): number => {
 export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
     const { className, app, version } = props;
     const { createdAt, sourceMessage, sourceAuthor, undeployVersion } = useRelease(app, version);
-    const clickHanlder = React.useCallback(() => {
-        updateReleaseDialog(app, version);
-    }, [app, version]);
+    const openReleaseDialog = useOpenReleaseDialog(app, version);
     let msg = sourceAuthor;
     if (createdAt !== undefined) {
         const days = getDays(createdAt);
@@ -53,7 +51,7 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
     const displayedMessage = undeployVersion ? 'Undeploy Version' : sourceMessage;
     const displayedTitle = undeployVersion ? undeployTooltipExplanation : '';
     return (
-        <div className={classNames('release-card-mini', className)} onClick={clickHanlder}>
+        <div className={classNames('release-card-mini', className)} onClick={openReleaseDialog}>
             <div className={classNames('release__details-mini', className)}>
                 <div className="release__details-header" title={displayedTitle}>
                     {displayedMessage}

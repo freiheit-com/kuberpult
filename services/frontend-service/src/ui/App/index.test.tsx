@@ -19,6 +19,7 @@ import { Spy } from 'spy4js';
 import { AzureAuthSub } from '../utils/AzureAuthProvider';
 import { Observable } from 'rxjs';
 import { PanicOverview, UpdateOverview } from '../utils/store';
+import { MemoryRouter } from 'react-router-dom';
 
 Spy.mockModule('../components/NavigationBar/NavigationBar', 'NavigationBar');
 Spy.mockModule('../components/TopAppBar/TopAppBar', 'TopAppBar');
@@ -44,7 +45,11 @@ jest.mock('../utils/GrpcApi', () => ({
     },
 }));
 
-const getNode = (): JSX.Element => <App />;
+const getNode = (): JSX.Element => (
+    <MemoryRouter>
+        <App />
+    </MemoryRouter>
+);
 const getWrapper = () => render(getNode());
 
 describe('App uses the API', () => {

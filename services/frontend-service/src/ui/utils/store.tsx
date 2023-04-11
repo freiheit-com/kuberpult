@@ -24,8 +24,9 @@ import {
     Release,
 } from '../../api/api';
 import { useApi } from './GrpcApi';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Empty } from '../../google/protobuf/empty';
+import { useSearchParams } from 'react-router-dom';
 
 export interface DisplayLock {
     date?: Date;
@@ -44,8 +45,6 @@ const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 
 export const [_, PanicOverview] = createStore({ error: '' });
-
-export const [useReleaseDialog, UpdateReleaseDialog] = createStore({ app: '', version: 0 });
 
 export const useApplyActions = (): Promise<Empty> => useApi.batchService().ProcessBatch({ actions: useActions() });
 
@@ -175,9 +174,34 @@ export const addAction = (action: BatchAction): void => {
     UpdateSidebar.set({ shown: true });
 };
 
-export const updateReleaseDialog = (app: string, version: number): void => {
-    UpdateReleaseDialog.set({ app: app, version: version });
+export const useOpenReleaseDialog = (app: string, version: number): (() => void) => {
+    const [params, setParams] = useSearchParams();
+    return useCallback(() => {
+        params.set('dialog-app', app);
+        params.set('dialog-version', version.toString());
+        setParams(params);
+    }, [app, params, setParams, version]);
 };
+
+export const useCloseReleaseDialog = (): (() => void) => {
+    const [params, setParams] = useSearchParams();
+    return useCallback(() => {
+        params.delete('dialog-app');
+        params.delete('dialog-version');
+        setParams(params);
+    }, [params, setParams]);
+};
+
+export const useReleaseDialogParams = (): { app: string | null; version: number | null } => {
+    const [params] = useSearchParams();
+    const app = params.get('dialog-app') ?? '';
+    const version = +(params.get('dialog-version') ?? '');
+    const valid = useOverview(({ applications }) =>
+        applications[app] ? !!applications[app].releases.find((r) => r.version === version) : false
+    );
+    return valid ? { app, version } : { app: null, version: null };
+};
+
 export const deleteAllActions = (): void => {
     UpdateAction.set({ actions: [] });
 };
@@ -460,16 +484,6 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
         return envGroups;
     }, [environmentGroups, application, version]);
 };
-
-// Get release information for a version
-export const useReleaseInfo = (app: string, version: number): Release =>
-    useOverview(({ applications }) => {
-        const releaseInfo = applications[app]?.releases.filter((release) => release.version === version)[0];
-        if (!releaseInfo) {
-            return {} as Release;
-        }
-        return releaseInfo;
-    });
 
 // Get all releases for an app
 export const useReleasesForApp = (app: string): Release[] =>

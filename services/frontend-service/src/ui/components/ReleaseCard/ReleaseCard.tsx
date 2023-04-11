@@ -18,7 +18,7 @@ import { Button } from '../button';
 import { Tooltip } from '../tooltip/tooltip';
 import React, { useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
-import { updateReleaseDialog, useRelease } from '../../utils/store';
+import { useRelease, useOpenReleaseDialog } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 
 const getRelativeDate = (date: Date): string => {
@@ -77,9 +77,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const control = useRef<HTMLDivElement>(null);
     const { className, app, version } = props;
     const { createdAt, sourceMessage, sourceCommitId, sourceAuthor, undeployVersion } = useRelease(app, version);
-    const clickHandler = React.useCallback(() => {
-        updateReleaseDialog(app, version);
-    }, [app, version]);
+    const openReleaseDialog = useOpenReleaseDialog(app, version);
 
     useEffect(() => {
         if (control.current) {
@@ -108,7 +106,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                         className="mdc-card__primary-action release-card__description"
                         ref={control}
                         tabIndex={0}
-                        onClick={clickHandler}>
+                        onClick={openReleaseDialog}>
                         <div className="release-card__header">
                             <div className="release__title">{undeployVersion ? 'Undeploy Version' : sourceMessage}</div>
                             {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}

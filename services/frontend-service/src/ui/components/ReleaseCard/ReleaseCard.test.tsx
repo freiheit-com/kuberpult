@@ -16,6 +16,7 @@ Copyright 2023 freiheit.com*/
 import { getFormattedReleaseDate, ReleaseCard, ReleaseCardProps } from './ReleaseCard';
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
+import { MemoryRouter } from 'react-router-dom';
 
 describe('Relative Date Calculation', () => {
     // the test release date ===  18/06/2001 is constant across this test
@@ -69,7 +70,11 @@ describe('Relative Date Calculation', () => {
 });
 
 describe('Release Card', () => {
-    const getNode = (overrides: ReleaseCardProps) => <ReleaseCard {...overrides} />;
+    const getNode = (overrides: ReleaseCardProps) => (
+        <MemoryRouter>
+            <ReleaseCard {...overrides} />
+        </MemoryRouter>
+    );
     const getWrapper = (overrides: ReleaseCardProps) => render(getNode(overrides));
 
     const data = [

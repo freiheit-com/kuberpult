@@ -19,8 +19,9 @@ import React, { useCallback } from 'react';
 import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import {
     addAction,
-    updateReleaseDialog,
+    useCloseReleaseDialog,
     useOverview,
+    useRelease,
     useReleaseOptional,
     useTeamFromApplication,
 } from '../../utils/store';
@@ -33,11 +34,6 @@ export type ReleaseDialogProps = {
     className?: string;
     app: string;
     version: number;
-    release: Release;
-};
-
-const setClosed = (): void => {
-    updateReleaseDialog('', 0);
 };
 
 export type EnvSortOrder = { [index: string]: number };
@@ -240,8 +236,10 @@ export const undeployTooltipExplanation =
     'This is the "undeploy" version. It is essentially an empty manifest. Deploying this means removing all kubernetes entities like deployments from the given environment. You must deploy this to all environments before kuberpult allows to delete the app entirely.';
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
-    const { app, className, release, version } = props;
+    const { app, className, version } = props;
+    const release = useRelease(app, version);
     const team = useTeamFromApplication(app);
+    const closeReleaseDialog = useCloseReleaseDialog();
     const undeployVersionTitle = release.undeployVersion
         ? undeployTooltipExplanation
         : 'Commit Hash of the source repository.';
@@ -253,7 +251,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                     fullWidth={true}
                     maxWidth="md"
                     open={app !== ''}
-                    onClose={setClosed}>
+                    onClose={closeReleaseDialog}>
                     <div className={classNames('release-dialog-app-bar', className)}>
                         <div className={classNames('release-dialog-app-bar-data')}>
                             <div className={classNames('release-dialog-message', className)}>
@@ -275,7 +273,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             {release.undeployVersion ? 'Undeploy Version' : release?.sourceCommitId}
                         </span>
                         <Button
-                            onClick={setClosed}
+                            onClick={closeReleaseDialog}
                             className={classNames('release-dialog-close', className)}
                             icon={<Close />}
                         />

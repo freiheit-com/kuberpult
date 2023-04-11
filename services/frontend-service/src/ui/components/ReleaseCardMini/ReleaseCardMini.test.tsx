@@ -16,9 +16,14 @@ Copyright 2023 freiheit.com*/
 import { ReleaseCardMini, ReleaseCardMiniProps } from './ReleaseCardMini';
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
+import { MemoryRouter } from 'react-router-dom';
 
 describe('Release Card Mini', () => {
-    const getNode = (overrides: ReleaseCardMiniProps) => <ReleaseCardMini {...overrides} />;
+    const getNode = (overrides: ReleaseCardMiniProps) => (
+        <MemoryRouter>
+            <ReleaseCardMini {...overrides} />
+        </MemoryRouter>
+    );
     const getWrapper = (overrides: ReleaseCardMiniProps) => render(getNode(overrides));
 
     const data = [

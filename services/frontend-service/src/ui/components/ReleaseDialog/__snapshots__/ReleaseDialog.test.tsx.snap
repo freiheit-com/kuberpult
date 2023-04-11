@@ -1,97 +1,5 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Release Dialog Renders the environment locks no release 1`] = `
-<body
-  style="padding-right: 0px; overflow: hidden;"
->
-  <div
-    aria-hidden="true"
-  >
-    <div>
-      <div />
-    </div>
-  </div>
-  <div
-    class="MuiModal-root MuiDialog-root release-dialog css-zw3mfo-MuiModal-root-MuiDialog-root"
-    role="presentation"
-  >
-    <div
-      aria-hidden="true"
-      class="MuiBackdrop-root css-yiavyu-MuiBackdrop-root-MuiDialog-backdrop"
-      style="opacity: 1; webkit-transition: opacity 225ms cubic-bezier(0.4, 0, 0.2, 1) 0ms; transition: opacity 225ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;"
-    />
-    <div
-      data-test="sentinelStart"
-      tabindex="0"
-    />
-    <div
-      class="MuiDialog-container MuiDialog-scrollPaper css-hz1bth-MuiDialog-container"
-      role="presentation"
-      style="opacity: 1; webkit-transition: opacity 225ms cubic-bezier(0.4, 0, 0.2, 1) 0ms; transition: opacity 225ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;"
-      tabindex="-1"
-    >
-      <div
-        class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation24 MuiDialog-paper MuiDialog-paperScrollPaper MuiDialog-paperWidthMd MuiDialog-paperFullWidth css-142erj9-MuiPaper-root-MuiDialog-paper"
-        role="dialog"
-      >
-        <div
-          class="release-dialog-app-bar"
-        >
-          <div
-            class="release-dialog-app-bar-data"
-          >
-            <div
-              class="release-dialog-message"
-            >
-              <span
-                class="release-dialog-commitMessage"
-              />
-            </div>
-            <div
-              class="release-dialog-createdAt"
-            />
-            <div
-              class="release-dialog-author"
-            />
-            <div
-              class="release-dialog-app"
-            >
-              App: test1 
-            </div>
-          </div>
-          <span
-            class="release-dialog-commitId"
-            title="Commit Hash of the source repository."
-          />
-          <button
-            aria-label=""
-            class="mdc-button release-dialog-close"
-          >
-            <div
-              class="mdc-button__ripple"
-            />
-            <svg>
-              Close.svg
-            </svg>
-          </button>
-        </div>
-        <div
-          class="release-env-group-list"
-        >
-          <ul
-            class="release-env-list"
-          />
-        </div>
-      </div>
-    </div>
-    <div
-      data-test="sentinelEnd"
-      tabindex="0"
-    />
-  </div>
-</body>
-`;
-
 exports[`Release Dialog Renders the environment locks normal release 1`] = `
 <body
   style="padding-right: 0px; overflow: hidden;"
@@ -370,7 +278,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
               <span
                 class="release-dialog-commitMessage"
               >
-                test1
+                the other commit message 2
               </span>
             </div>
             <div
@@ -383,7 +291,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
             <div
               class="release-dialog-author"
             >
-              Author: test
+              Author: nobody
             </div>
             <div
               class="release-dialog-app"
@@ -395,7 +303,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
             class="release-dialog-commitId"
             title="Commit Hash of the source repository."
           >
-            commit
+            cafe
           </span>
           <button
             aria-label=""
@@ -499,7 +407,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     class="env-card-data"
                     title="Shows the version that is currently deployed on prod. "
                   >
-                    commit: test1
+                    cafe: the other commit message 2
                   </div>
                 </div>
                 <div
@@ -681,6 +589,106 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
               </div>
             </li>
           </ul>
+        </div>
+      </div>
+    </div>
+    <div
+      data-test="sentinelEnd"
+      tabindex="0"
+    />
+  </div>
+</body>
+`;
+
+exports[`Release Dialog Renders the environment locks undeploy version release 1`] = `
+<body
+  style="padding-right: 0px; overflow: hidden;"
+>
+  <div
+    aria-hidden="true"
+  >
+    <div>
+      <div />
+    </div>
+  </div>
+  <div
+    class="MuiModal-root MuiDialog-root release-dialog css-zw3mfo-MuiModal-root-MuiDialog-root"
+    role="presentation"
+  >
+    <div
+      aria-hidden="true"
+      class="MuiBackdrop-root css-yiavyu-MuiBackdrop-root-MuiDialog-backdrop"
+      style="opacity: 1; webkit-transition: opacity 225ms cubic-bezier(0.4, 0, 0.2, 1) 0ms; transition: opacity 225ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;"
+    />
+    <div
+      data-test="sentinelStart"
+      tabindex="0"
+    />
+    <div
+      class="MuiDialog-container MuiDialog-scrollPaper css-hz1bth-MuiDialog-container"
+      role="presentation"
+      style="opacity: 1; webkit-transition: opacity 225ms cubic-bezier(0.4, 0, 0.2, 1) 0ms; transition: opacity 225ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;"
+      tabindex="-1"
+    >
+      <div
+        class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation24 MuiDialog-paper MuiDialog-paperScrollPaper MuiDialog-paperWidthMd MuiDialog-paperFullWidth css-142erj9-MuiPaper-root-MuiDialog-paper"
+        role="dialog"
+      >
+        <div
+          class="release-dialog-app-bar"
+        >
+          <div
+            class="release-dialog-app-bar-data"
+          >
+            <div
+              class="release-dialog-message"
+            >
+              <span
+                class="release-dialog-commitMessage"
+              />
+            </div>
+            <div
+              class="release-dialog-createdAt"
+            >
+              <div>
+                some formatted date
+              </div>
+            </div>
+            <div
+              class="release-dialog-author"
+            >
+              Author: test1
+            </div>
+            <div
+              class="release-dialog-app"
+            >
+              App: test1 
+            </div>
+          </div>
+          <span
+            class="release-dialog-commitId"
+            title="This is the \\"undeploy\\" version. It is essentially an empty manifest. Deploying this means removing all kubernetes entities like deployments from the given environment. You must deploy this to all environments before kuberpult allows to delete the app entirely."
+          >
+            Undeploy Version
+          </span>
+          <button
+            aria-label=""
+            class="mdc-button release-dialog-close"
+          >
+            <div
+              class="mdc-button__ripple"
+            />
+            <svg>
+              Close.svg
+            </svg>
+          </button>
+        </div>
+        <div
+          class="release-env-group-list"
+        >
+          <ul
+            class="release-env-list"
+          />
         </div>
       </div>
     </div>
