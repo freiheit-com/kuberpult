@@ -30,6 +30,7 @@ import { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
 import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core';
 import classNames from 'classnames';
+import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 
 export enum ActionTypes {
     Deploy,
@@ -207,6 +208,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
     const [lockMessage, setLockMessage] = useState('');
     const api = useApi;
     const [open, setOpen] = useState(false);
+    const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
 
     const handleClose = useCallback(() => setOpen(false), []);
     const handleOpen = useCallback(() => setOpen(true), []);
@@ -235,17 +237,19 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
             });
             setLockMessage('');
         }
-        api.batchService()
-            .ProcessBatch({ actions })
-            .then((result) => {
-                deleteAllActions();
-                showSnackbarSuccess('Actions were applied successfully');
-            })
-            .catch(() => {
-                showSnackbarError('Actions were not applied. Please try again');
-            });
-        handleClose();
-    }, [actions, api, handleClose, lockCreationList, lockMessage]);
+        if (authReady) {
+            api.batchService()
+                .ProcessBatch({ actions }, authHeader)
+                .then((result) => {
+                    deleteAllActions();
+                    showSnackbarSuccess('Actions were applied successfully');
+                })
+                .catch(() => {
+                    showSnackbarError('Actions were not applied. Please try again');
+                });
+            handleClose();
+        }
+    }, [actions, api, handleClose, lockCreationList, lockMessage, authHeader, authReady]);
 
     const newLockExists = useMemo(() => lockCreationList.length !== 0, [lockCreationList.length]);
 
