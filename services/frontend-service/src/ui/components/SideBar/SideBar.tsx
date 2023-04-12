@@ -244,7 +244,9 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                     deleteAllActions();
                     showSnackbarSuccess('Actions were applied successfully');
                 })
-                .catch(() => {
+                .catch((e) => {
+                    // eslint-disable-next-line no-console
+                    console.error('error in batch request: ', e);
                     showSnackbarError('Actions were not applied. Please try again');
                 });
             handleClose();
