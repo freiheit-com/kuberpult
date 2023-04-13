@@ -6,6 +6,17 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.64
+**released 2023-04-13**
+### Major Changes
+* [Fix: Azure Auth for batch service in new UI](https://github.com/freiheit-com/kuberpult/pull/624)
+* [Allow Release Dialog to open via query parameters](https://github.com/freiheit-com/kuberpult/pull/619)
+
+### Minor Changes
+* [improved readme on releasing kuberpult](https://github.com/freiheit-com/kuberpult/pull/627)
+* [chore(deps): update docker docker tag to v23.0.3](https://github.com/freiheit-com/kuberpult/pull/612)
+
+
 ## 0.4.63
 **released 2023-04-11**
 
