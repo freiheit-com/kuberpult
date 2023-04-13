@@ -111,7 +111,7 @@ describe('Service Lane', () => {
     });
 });
 
-const getMockRelease = (version: number): Release => ({
+const makeRelease = (version: number): Release => ({
     version: version,
     sourceMessage: 'test' + version,
     sourceAuthor: 'test',
@@ -132,7 +132,7 @@ const data: TestDataDiff[] = [
     {
         name: 'test same version',
         diff: '-1',
-        releases: [getMockRelease(1)],
+        releases: [makeRelease(1)],
         envs: [
             {
                 name: 'foo',
@@ -169,7 +169,7 @@ const data: TestDataDiff[] = [
     {
         name: 'test no diff',
         diff: '0',
-        releases: [getMockRelease(1), getMockRelease(2)],
+        releases: [makeRelease(1), makeRelease(2)],
         envs: [
             {
                 name: 'foo',
@@ -206,7 +206,7 @@ const data: TestDataDiff[] = [
     {
         name: 'test diff by one',
         diff: '1',
-        releases: [getMockRelease(1), getMockRelease(4), getMockRelease(2)],
+        releases: [makeRelease(1), makeRelease(4), makeRelease(2)],
         envs: [
             {
                 name: 'foo',
@@ -233,7 +233,7 @@ const data: TestDataDiff[] = [
     {
         name: 'test diff by two',
         diff: '2',
-        releases: [getMockRelease(2), getMockRelease(4), getMockRelease(3), getMockRelease(5)],
+        releases: [makeRelease(2), makeRelease(4), makeRelease(3), makeRelease(5)],
         envs: [
             {
                 name: 'foo',
@@ -323,42 +323,42 @@ const dataImportantRels: TestDataImportantRels[] = [
         name: 'Gets deployed release first and 5 trailing releases',
         currentlyDeployedVersion: 9,
         releases: [
-            getMockRelease(9),
-            getMockRelease(7),
-            getMockRelease(6),
-            getMockRelease(5),
-            getMockRelease(4),
-            getMockRelease(3),
-            getMockRelease(2),
-            getMockRelease(1),
+            makeRelease(9),
+            makeRelease(7),
+            makeRelease(6),
+            makeRelease(5),
+            makeRelease(4),
+            makeRelease(3),
+            makeRelease(2),
+            makeRelease(1), // not important
         ],
     },
     {
         name: 'Gets latest release first, then deployed release and 4 trailing releases',
         currentlyDeployedVersion: 7,
         releases: [
-            getMockRelease(9),
-            getMockRelease(7),
-            getMockRelease(6),
-            getMockRelease(5),
-            getMockRelease(4),
-            getMockRelease(3),
-            getMockRelease(2),
-            getMockRelease(1),
+            makeRelease(9),
+            makeRelease(7),
+            makeRelease(6),
+            makeRelease(5),
+            makeRelease(4),
+            makeRelease(3),
+            makeRelease(2),
+            makeRelease(1), // not important
         ],
     },
     {
         name: 'jumps over not important second release',
         currentlyDeployedVersion: 6,
         releases: [
-            getMockRelease(9),
-            getMockRelease(7), // not important
-            getMockRelease(6),
-            getMockRelease(5),
-            getMockRelease(4),
-            getMockRelease(3),
-            getMockRelease(2),
-            getMockRelease(1),
+            makeRelease(9),
+            makeRelease(7), // not important
+            makeRelease(6),
+            makeRelease(5),
+            makeRelease(4),
+            makeRelease(3),
+            makeRelease(2),
+            makeRelease(1), // not important
         ],
     },
 ];
