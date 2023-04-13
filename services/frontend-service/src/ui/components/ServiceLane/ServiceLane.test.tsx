@@ -111,6 +111,16 @@ describe('Service Lane', () => {
     });
 });
 
+const getMockRelease = (version: number): Release => ({
+    version: version,
+    sourceMessage: 'test' + version,
+    sourceAuthor: 'test',
+    sourceCommitId: 'commit' + version,
+    createdAt: new Date(2002),
+    undeployVersion: false,
+    prNumber: '666',
+});
+
 type TestData = {
     name: string;
     envs: Environment[];
@@ -122,17 +132,7 @@ const data: TestDataDiff[] = [
     {
         name: 'test same version',
         diff: '-1',
-        releases: [
-            {
-                version: 1,
-                sourceMessage: 'test1',
-                sourceAuthor: 'test',
-                sourceCommitId: 'commit1',
-                createdAt: new Date(2002),
-                undeployVersion: false,
-                prNumber: '666',
-            },
-        ],
+        releases: [getMockRelease(1)],
         envs: [
             {
                 name: 'foo',
@@ -169,26 +169,7 @@ const data: TestDataDiff[] = [
     {
         name: 'test no diff',
         diff: '0',
-        releases: [
-            {
-                version: 1,
-                sourceMessage: 'test1',
-                sourceAuthor: 'test',
-                sourceCommitId: 'commit1',
-                createdAt: new Date(2002),
-                undeployVersion: false,
-                prNumber: '666',
-            },
-            {
-                version: 2,
-                sourceMessage: 'test2',
-                sourceAuthor: 'test',
-                sourceCommitId: 'commit2',
-                createdAt: new Date(2002),
-                undeployVersion: false,
-                prNumber: '666',
-            },
-        ],
+        releases: [getMockRelease(1), getMockRelease(2)],
         envs: [
             {
                 name: 'foo',
@@ -225,35 +206,7 @@ const data: TestDataDiff[] = [
     {
         name: 'test diff by one',
         diff: '1',
-        releases: [
-            {
-                version: 1,
-                sourceMessage: 'test1',
-                sourceAuthor: 'test',
-                sourceCommitId: 'commit1',
-                createdAt: new Date(2002),
-                undeployVersion: false,
-                prNumber: '666',
-            },
-            {
-                version: 4,
-                sourceMessage: 'test5',
-                sourceAuthor: 'test',
-                sourceCommitId: 'commit5',
-                createdAt: new Date(2002),
-                undeployVersion: false,
-                prNumber: '666',
-            },
-            {
-                version: 2,
-                sourceMessage: 'test3',
-                sourceAuthor: 'test',
-                sourceCommitId: 'commit3',
-                createdAt: new Date(2002),
-                undeployVersion: false,
-                prNumber: '666',
-            },
-        ],
+        releases: [getMockRelease(1), getMockRelease(4), getMockRelease(2)],
         envs: [
             {
                 name: 'foo',
@@ -280,44 +233,7 @@ const data: TestDataDiff[] = [
     {
         name: 'test diff by two',
         diff: '2',
-        releases: [
-            {
-                version: 2,
-                sourceMessage: 'test1',
-                sourceAuthor: 'test',
-                sourceCommitId: 'commit1',
-                createdAt: new Date(2002),
-                undeployVersion: false,
-                prNumber: '666',
-            },
-            {
-                version: 4,
-                sourceMessage: 'test2',
-                sourceAuthor: 'test',
-                sourceCommitId: 'commit2',
-                createdAt: new Date(2002),
-                undeployVersion: false,
-                prNumber: '666',
-            },
-            {
-                version: 3,
-                sourceMessage: 'test2',
-                sourceAuthor: 'test',
-                sourceCommitId: 'commit2',
-                createdAt: new Date(2002),
-                undeployVersion: false,
-                prNumber: '666',
-            },
-            {
-                version: 5,
-                sourceMessage: 'test2',
-                sourceAuthor: 'test',
-                sourceCommitId: 'commit2',
-                createdAt: new Date(2002),
-                undeployVersion: false,
-                prNumber: '666',
-            },
-        ],
+        releases: [getMockRelease(2), getMockRelease(4), getMockRelease(3), getMockRelease(5)],
         envs: [
             {
                 name: 'foo',
@@ -396,6 +312,127 @@ describe('Service Lane Diff', () => {
             } else {
                 expect(container.querySelector('.service-lane__diff--number')?.textContent).toContain(testcase.diff);
             }
+        });
+    });
+});
+
+type TestDataImportantRels = { name: string; releases: Release[]; currentlyDeployedVersion: number };
+
+const dataImportantRels: TestDataImportantRels[] = [
+    {
+        name: 'Gets deployed release first and 5 trailing releases',
+        currentlyDeployedVersion: 9,
+        releases: [
+            getMockRelease(9),
+            getMockRelease(7),
+            getMockRelease(6),
+            getMockRelease(5),
+            getMockRelease(4),
+            getMockRelease(3),
+            getMockRelease(2),
+            getMockRelease(1),
+        ],
+    },
+    {
+        name: 'Gets latest release first, then deployed release and 4 trailing releases',
+        currentlyDeployedVersion: 7,
+        releases: [
+            getMockRelease(9),
+            getMockRelease(7),
+            getMockRelease(6),
+            getMockRelease(5),
+            getMockRelease(4),
+            getMockRelease(3),
+            getMockRelease(2),
+            getMockRelease(1),
+        ],
+    },
+    {
+        name: 'jumps over not important second release',
+        currentlyDeployedVersion: 6,
+        releases: [
+            getMockRelease(9),
+            getMockRelease(7), // not important
+            getMockRelease(6),
+            getMockRelease(5),
+            getMockRelease(4),
+            getMockRelease(3),
+            getMockRelease(2),
+            getMockRelease(1),
+        ],
+    },
+];
+
+describe('Service Lane Important Releases', () => {
+    const getNode = (overrides: { application: Application }) => (
+        <MemoryRouter>
+            <ServiceLane {...overrides} />
+        </MemoryRouter>
+    );
+    const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
+    describe.each(dataImportantRels)('Service Lane important releases', (testcase) => {
+        it(testcase.name, () => {
+            // given
+            const sampleApp: Application = {
+                releases: testcase.releases,
+                name: 'test2',
+                team: 'test2',
+                sourceRepoUrl: 'test2',
+                undeploySummary: UndeploySummary.Mixed,
+            };
+            UpdateOverview.set({
+                applications: {
+                    test2: sampleApp,
+                },
+                environmentGroups: [
+                    {
+                        environments: [
+                            {
+                                name: 'foo',
+                                applications: {
+                                    test2: {
+                                        name: 'test2',
+                                        version: testcase.currentlyDeployedVersion,
+                                        locks: {},
+                                        undeployVersion: false,
+                                        queuedVersion: 0,
+                                    },
+                                },
+                                distanceToUpstream: 0,
+                                priority: Priority.UPSTREAM,
+                                locks: {},
+                            },
+                        ],
+                        environmentGroupName: 'group1',
+                        distanceToUpstream: 0,
+                    },
+                ],
+            });
+            // when
+            getWrapper({ application: sampleApp });
+
+            // then - the latest release is always important and is displayed first
+            expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0)).toMatchObject({
+                version: testcase.releases[0].version,
+            });
+            if (testcase.currentlyDeployedVersion !== testcase.releases[0].version) {
+                // then - the currently deployed version always important and displayed second after latest
+                expect(mock_ReleaseCard.ReleaseCard.getCallArgument(1)).toMatchObject({
+                    version: testcase.currentlyDeployedVersion,
+                });
+            }
+            if (testcase.releases[1].version > testcase.currentlyDeployedVersion) {
+                // then - second release not deployed and not latest -> not important
+                mock_ReleaseCard.ReleaseCard.wasNotCalledWith(
+                    { app: 'test2', version: testcase.releases[1].version },
+                    Spy.IGNORE
+                );
+            }
+            // then - the old release is not important and not displayed
+            mock_ReleaseCard.ReleaseCard.wasNotCalledWith(
+                { app: 'test2', version: testcase.releases[7].version },
+                Spy.IGNORE
+            );
         });
     });
 });
