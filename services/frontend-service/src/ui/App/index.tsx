@@ -48,7 +48,7 @@ export const App: React.FC = () => {
 
     React.useEffect(() => {
         api.configService()
-            .GetConfig({})
+            .GetConfig({}) // the config service does not require authorisation
             .then(
                 (result) => {
                     UpdateFrontendConfig.set({ configs: result, configReady: true });
