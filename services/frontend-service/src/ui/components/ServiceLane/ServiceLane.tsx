@@ -34,16 +34,20 @@ import { AppLockSummary } from '../chip/EnvironmentGroupChip';
 const numberOfDisplayedReleasesOnHome = 6;
 
 const getReleasesToDisplay = (deployedReleases: number[], allReleases: number[]): number[] => {
+    // all deployed releases are important, latest release is also important
+    const importantReleases = deployedReleases.includes(allReleases[0])
+        ? deployedReleases
+        : [allReleases[0], ...deployedReleases];
     // number of remaining releases to get from history
-    const numOfTrailingReleases = numberOfDisplayedReleasesOnHome - deployedReleases.length;
+    const numOfTrailingReleases = numberOfDisplayedReleasesOnHome - importantReleases.length;
     // find the index of the last deployed release e.g. Prod (or -1 when there's no deployed releases)
-    const oldestDeployedReleaseIndex = deployedReleases.length
-        ? allReleases.findIndex((version) => version === deployedReleases.slice(-1)[0])
+    const oldestImportantReleaseIndex = importantReleases.length
+        ? allReleases.findIndex((version) => version === importantReleases.slice(-1)[0])
         : -1;
     // take the deployed releases + a slice from the oldest element (or very first, see above) with total length 6
     return [
-        ...deployedReleases,
-        ...allReleases.slice(oldestDeployedReleaseIndex + 1, oldestDeployedReleaseIndex + numOfTrailingReleases + 1),
+        ...importantReleases,
+        ...allReleases.slice(oldestImportantReleaseIndex + 1, oldestImportantReleaseIndex + numOfTrailingReleases + 1),
     ];
 };
 
