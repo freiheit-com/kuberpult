@@ -24,6 +24,23 @@ import {
 import { Crypto } from '@peculiar/webcrypto';
 import { PublicClientApplication, IPublicClientApplication, Configuration, AccountInfo } from '@azure/msal-browser';
 import { AuthenticatedTemplate, MsalProvider, UnauthenticatedTemplate } from '@azure/msal-react';
+import { AuthenticationResult } from '@azure/msal-common';
+
+const makeAuthenticationResult = (partial: Partial<AuthenticationResult>): AuthenticationResult => ({
+    authority: 'authority',
+    uniqueId: 'unqueId',
+    tenantId: 'tenantId',
+    scopes: [],
+    account: null,
+    idToken: 'idToken',
+    idTokenClaims: {},
+    accessToken: 'accessToken',
+    fromCache: false,
+    expiresOn: null,
+    tokenType: 'tokenType',
+    correlationId: 'correlationId',
+    ...partial,
+});
 
 describe('AuthProvider', () => {
     let pca: IPublicClientApplication;
@@ -99,8 +116,7 @@ describe('AuthProvider', () => {
             jest.spyOn(pca, 'getAllAccounts').mockImplementation(() => [testAccount]);
             const acquireTokenSilentSpy = jest
                 .spyOn(pca, 'acquireTokenSilent')
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                .mockImplementation((r) => Promise.resolve({ idToken: 'unique-token' } as any));
+                .mockImplementation((r) => Promise.resolve(makeAuthenticationResult({ idToken: 'unique-token' })));
 
             // when
             render(
@@ -124,11 +140,22 @@ describe('AuthProvider', () => {
     describe('Azure Not Enabled Test', () => {
         it('Provider can display content when azure auth is off', () => {
             // given
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
             UpdateFrontendConfig.set({
-                configs: { authConfig: { azureAuth: { enabled: false } } },
+                configs: {
+                    sourceRepoUrl: 'myrepo',
+                    kuberpultVersion: '1.2.3',
+                    authConfig: {
+                        azureAuth: {
+                            enabled: false,
+                            clientId: 'none',
+                            tenantId: 'no-tenant',
+                            cloudInstance: 'myinstance',
+                            redirectURL: 'example.com',
+                        },
+                    },
+                },
                 configReady: true,
-            } as any);
+            });
 
             // when
             const { container } = render(
