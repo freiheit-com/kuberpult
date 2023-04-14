@@ -39,7 +39,8 @@ export interface DisplayLock {
 }
 
 const emptyOverview: GetOverviewResponse = { applications: {}, environments: {}, environmentGroups: [] };
-export const [useOverview, UpdateOverview] = createStore(emptyOverview);
+const [useOverview, UpdateOverview_] = createStore(emptyOverview);
+export const UpdateOverview = UpdateOverview_; // we do not want to export "useOverview". The store.tsx should act like a facade to the data.
 
 const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
