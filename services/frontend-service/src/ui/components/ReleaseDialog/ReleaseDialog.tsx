@@ -20,7 +20,7 @@ import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../.
 import {
     addAction,
     useCloseReleaseDialog,
-    useOverview,
+    useEnvironmentGroups,
     useRelease,
     useReleaseOptional,
     useTeamFromApplication,
@@ -211,7 +211,7 @@ export const EnvironmentList: React.FC<{
     version: number;
     className?: string;
 }> = ({ release, app, version, className }) => {
-    const allEnvGroups: EnvironmentGroup[] = useOverview((x) => Object.values(x.environmentGroups));
+    const allEnvGroups: EnvironmentGroup[] = useEnvironmentGroups();
     return (
         <div className="release-env-group-list">
             {allEnvGroups.map((envGroup) => (
