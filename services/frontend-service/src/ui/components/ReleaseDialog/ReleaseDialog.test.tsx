@@ -16,7 +16,7 @@ Copyright 2023 freiheit.com*/
 import { EnvironmentListItem, ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { fireEvent, render } from '@testing-library/react';
 import { UpdateOverview, UpdateSidebar } from '../../utils/store';
-import { Environment, Priority, Release } from '../../../api/api';
+import { Environment, Priority, Release, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
 import { SideBar } from '../SideBar/SideBar';
 import { MemoryRouter } from 'react-router-dom';
@@ -170,11 +170,22 @@ describe('Release Dialog', () => {
         },
     ];
 
-    const setTheStore = (testcase: dataT) =>
-        // eslint-disable-next-line no-type-assertion/no-type-assertion
+    const setTheStore = (testcase: dataT) => {
+        const asMap: { [key: string]: Environment } = {};
+        testcase.envs.forEach((obj) => {
+            asMap[obj.name] = obj;
+        });
         UpdateOverview.set({
-            applications: { [testcase.props.app]: { releases: testcase.rels, team: testcase.teamName } },
-            environments: testcase.envs,
+            applications: {
+                [testcase.props.app]: {
+                    name: testcase.props.app,
+                    releases: testcase.rels,
+                    team: testcase.teamName,
+                    sourceRepoUrl: 'url',
+                    undeploySummary: UndeploySummary.Normal,
+                },
+            },
+            environments: asMap,
             environmentGroups: [
                 {
                     environmentGroupName: 'dev',
@@ -182,7 +193,8 @@ describe('Release Dialog', () => {
                     distanceToUpstream: 2,
                 },
             ],
-        } as any);
+        });
+    };
 
     describe.each(data)(`Renders a Release Dialog`, (testcase) => {
         it(testcase.name, () => {
@@ -235,6 +247,14 @@ describe('Release Dialog', () => {
         });
     });
 
+    const querySelectorSafe = (selectors: string): Element => {
+        const result = document.querySelector(selectors);
+        if (!result) {
+            throw new Error('did not find in selector in document ' + selectors);
+        }
+        return result;
+    };
+
     describe(`Test automatic cart opening`, () => {
         const testcase = data[0];
         it('Test using direct call to open function', () => {
@@ -254,8 +274,7 @@ describe('Release Dialog', () => {
                     release={{ ...testcase.rels[0], version: 3 }}
                 />
             );
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
-            const result = document.querySelector('.env-card-deploy-btn')!;
+            const result = querySelectorSafe('.env-card-deploy-btn');
             fireEvent.click(result);
             expect(UpdateSidebar.get().shown).toBeTruthy();
         });
@@ -273,8 +292,7 @@ describe('Release Dialog', () => {
                 />
             );
             render(<SideBar toggleSidebar={Spy()} />);
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
-            const result = document.querySelector('.env-card-add-lock-btn')!;
+            const result = querySelectorSafe('.env-card-add-lock-btn');
             fireEvent.click(result);
             expect(UpdateSidebar.get().shown).toBeTruthy();
         });

@@ -16,15 +16,20 @@ Copyright 2023 freiheit.com*/
 import { Releases } from './Releases';
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
-import { Release } from '../../../api/api';
+import { Release, UndeploySummary } from '../../../api/api';
 import { MemoryRouter } from 'react-router-dom';
 
 describe('Release Dialog', () => {
-    const data = [
+    type TestData = {
+        name: string;
+        dates: number;
+        releases: Release[];
+    };
+
+    const data: TestData[] = [
         {
             name: '3 releases in 3 days',
             dates: 3,
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
             releases: [
                 {
                     version: 1,
@@ -32,6 +37,8 @@ describe('Release Dialog', () => {
                     sourceAuthor: 'test',
                     sourceCommitId: 'commit',
                     createdAt: new Date('2022-12-04T12:30:12'),
+                    undeployVersion: false,
+                    prNumber: '666',
                 },
                 {
                     version: 2,
@@ -39,6 +46,8 @@ describe('Release Dialog', () => {
                     sourceAuthor: 'test',
                     sourceCommitId: 'commit',
                     createdAt: new Date('2022-12-05T12:30:12'),
+                    undeployVersion: false,
+                    prNumber: '666',
                 },
                 {
                     version: 3,
@@ -46,13 +55,14 @@ describe('Release Dialog', () => {
                     sourceAuthor: 'test',
                     sourceCommitId: 'commit',
                     createdAt: new Date('2022-12-06T12:30:12'),
+                    undeployVersion: false,
+                    prNumber: '666',
                 },
-            ] as Array<Release>,
+            ],
         },
         {
             name: '3 releases in 2 days',
             dates: 2,
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
             releases: [
                 {
                     version: 1,
@@ -60,6 +70,8 @@ describe('Release Dialog', () => {
                     sourceAuthor: 'test',
                     sourceCommitId: 'commit',
                     createdAt: new Date('2022-12-04T12:30:12'),
+                    undeployVersion: false,
+                    prNumber: '666',
                 },
                 {
                     version: 2,
@@ -67,6 +79,8 @@ describe('Release Dialog', () => {
                     sourceAuthor: 'test',
                     sourceCommitId: 'commit',
                     createdAt: new Date('2022-12-04T15:30:12'),
+                    undeployVersion: false,
+                    prNumber: '666',
                 },
                 {
                     version: 3,
@@ -74,19 +88,28 @@ describe('Release Dialog', () => {
                     sourceAuthor: 'test',
                     sourceCommitId: 'commit',
                     createdAt: new Date('2022-12-06T12:30:12'),
+                    undeployVersion: false,
+                    prNumber: '666',
                 },
-            ] as Array<Release>,
+            ],
         },
     ];
 
     describe.each(data)(`Renders releases for an app`, (testcase) => {
         it(testcase.name, () => {
             // when
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
             UpdateOverview.set({
-                applications: { test: { releases: testcase.releases } },
+                applications: {
+                    test: {
+                        releases: testcase.releases,
+                        name: 'test',
+                        sourceRepoUrl: 'url',
+                        undeploySummary: UndeploySummary.Normal,
+                        team: 'no-team',
+                    },
+                },
                 environments: {},
-            } as any);
+            });
             render(
                 <MemoryRouter>
                     <Releases app="test" />

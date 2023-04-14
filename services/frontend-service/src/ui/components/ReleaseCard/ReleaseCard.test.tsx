@@ -17,6 +17,7 @@ import { getFormattedReleaseDate, ReleaseCard, ReleaseCardProps } from './Releas
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
+import { Environment, Release, UndeploySummary } from '../../../api/api';
 
 describe('Relative Date Calculation', () => {
     // the test release date ===  18/06/2001 is constant across this test
@@ -77,43 +78,75 @@ describe('Release Card', () => {
     );
     const getWrapper = (overrides: ReleaseCardProps) => render(getNode(overrides));
 
-    const data = [
+    type TestData = {
+        name: string;
+        props: {
+            app: string;
+            version: number;
+        };
+        rels: Release[];
+        environments: { [key: string]: Environment };
+    };
+    const data: TestData[] = [
         {
             name: 'using a sample release - useRelease hook',
             props: { app: 'test1', version: 2 },
-            rels: [{ version: 2, sourceMessage: 'test-rel' }],
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                    undeployVersion: false,
+                    sourceCommitId: 'commit123',
+                    sourceAuthor: 'author',
+                    prNumber: '666',
+                    createdAt: new Date(2023, 6, 6),
+                },
+            ],
+            environments: {},
         },
         {
             name: 'using a full release - component test',
             props: { app: 'test2', version: 2 },
             rels: [
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 {
                     undeployVersion: false,
                     version: 2,
                     sourceMessage: 'test-rel',
                     sourceCommitId: '12s3',
                     sourceAuthor: 'test-author',
+                    prNumber: '666',
                     createdAt: new Date(2002),
-                } as any,
+                },
             ],
+            environments: {},
         },
         {
             name: 'using a deployed release - useDeployedAt test',
             props: { app: 'test2', version: 2 },
             rels: [
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 {
                     version: 2,
                     sourceMessage: 'test-rel',
-                } as any,
+                    sourceCommitId: 'commit123',
+                    sourceAuthor: 'test-author',
+                    prNumber: '666',
+                    undeployVersion: false,
+                    createdAt: new Date(2023, 6, 6),
+                },
             ],
             environments: {
                 foo: {
                     name: 'foo',
+                    locks: {},
+                    distanceToUpstream: 0,
+                    priority: 0,
                     applications: {
                         test2: {
                             version: 2,
+                            queuedVersion: 0,
+                            name: 'test2',
+                            locks: {},
+                            undeployVersion: false,
                         },
                     },
                 },
@@ -123,18 +156,29 @@ describe('Release Card', () => {
             name: 'using an undeployed release - useDeployedAt test',
             props: { app: 'test2', version: 2 },
             rels: [
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 {
                     version: 2,
                     sourceMessage: 'test-rel',
-                } as any,
+                    sourceCommitId: 'commit123',
+                    undeployVersion: false,
+                    createdAt: new Date(2023, 6, 6),
+                    sourceAuthor: 'test-author',
+                    prNumber: '666',
+                },
             ],
             environments: {
                 undeployed: {
                     name: 'undeployed',
+                    locks: {},
+                    distanceToUpstream: 0,
+                    priority: 0,
                     applications: {
                         test2: {
                             version: 3,
+                            queuedVersion: 0,
+                            name: 'test2',
+                            locks: {},
+                            undeployVersion: false,
                         },
                     },
                 },
@@ -144,18 +188,29 @@ describe('Release Card', () => {
             name: 'using another environment - useDeployedAt test',
             props: { app: 'test2', version: 2 },
             rels: [
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 {
                     version: 2,
                     sourceMessage: 'test-rel',
-                } as any,
+                    sourceCommitId: 'commit123',
+                    undeployVersion: false,
+                    sourceAuthor: 'test-author',
+                    prNumber: '666',
+                    createdAt: new Date(2023, 6, 6),
+                },
             ],
             environments: {
                 other: {
+                    locks: {},
+                    distanceToUpstream: 0,
+                    priority: 0,
                     name: 'other',
                     applications: {
                         test3: {
                             version: 3,
+                            queuedVersion: 0,
+                            name: 'test2',
+                            locks: {},
+                            undeployVersion: false,
                         },
                     },
                 },
@@ -166,12 +221,19 @@ describe('Release Card', () => {
     describe.each(data)(`Renders a Release Card`, (testcase) => {
         it(testcase.name, () => {
             // when
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
             UpdateOverview.set({
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
+                applications: {
+                    [testcase.props.app]: {
+                        name: testcase.props.app,
+                        releases: testcase.rels,
+                        sourceRepoUrl: 'url',
+                        undeploySummary: UndeploySummary.Normal,
+                        team: 'no-team',
+                    },
+                },
                 environments: testcase.environments ?? {},
-            } as any);
+                environmentGroups: [],
+            });
             const { container } = getWrapper(testcase.props);
 
             // then
@@ -190,8 +252,7 @@ describe('Release Card', () => {
             }
             if (testcase.rels[0].createdAt) {
                 expect(container.querySelector('.release__metadata')?.textContent).toContain(
-                    // eslint-disable-next-line no-type-assertion/no-type-assertion
-                    (testcase.rels[0].createdAt as Date).getFullYear().toString()
+                    testcase.rels[0].createdAt.getFullYear().toString()
                 );
             }
             expect(container.querySelector('.env-group-chip-list-test')).not.toBeEmptyDOMElement();
