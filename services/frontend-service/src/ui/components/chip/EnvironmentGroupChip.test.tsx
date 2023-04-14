@@ -21,6 +21,11 @@ import { Spy } from 'spy4js';
 
 const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
 
+const makeLock = (id: string): Lock => ({
+    message: id,
+    lockId: id,
+});
+
 describe('EnvironmentChip', () => {
     const env: Environment = {
         name: 'Test Me',
@@ -29,10 +34,10 @@ describe('EnvironmentChip', () => {
         locks: {},
         applications: {},
     };
-    const getNode = (overloads?: EnvironmentChipProps) => (
+    const getNode = (overloads?: Partial<EnvironmentChipProps>) => (
         <EnvironmentChip className={'chip--test'} env={env} {...overloads} />
     );
-    const getWrapper = (overloads?: EnvironmentChipProps) => render(getNode(overloads));
+    const getWrapper = (overloads?: Partial<EnvironmentChipProps>) => render(getNode(overloads));
     it('renders a chip', () => {
         const { container } = getWrapper();
         expect(container.firstChild).toMatchInlineSnapshot(`
@@ -61,22 +66,30 @@ describe('EnvironmentChip', () => {
         `);
     });
     it('renders a short form tag chip', () => {
-        // eslint-disable-next-line no-type-assertion/no-type-assertion
         const { container } = getWrapper({
             smallEnvChip: true,
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
-            env: { ...env, locks: [{ lockId: 'lock1' }, { lockId: 'lock2' }] as Lock[] },
-        } as any);
+            env: {
+                ...env,
+                locks: {
+                    lock1: makeLock('lock1'),
+                    lock2: makeLock('lock2'),
+                },
+            },
+        });
         expect(container.querySelector('.mdc-evolution-chip__text-name')?.textContent).toBe(env.name[0].toUpperCase());
         // only show one lock icon in the small env tag
         expect(container.querySelectorAll('.env-card-env-lock-icon').length).toBe(1);
     });
     it('renders env locks in big env chip', () => {
-        // eslint-disable-next-line no-type-assertion/no-type-assertion
         const { container } = getWrapper({
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
-            env: { ...env, locks: [{ lockId: 'test-lock1' }, { lockId: 'test-lock2' }] as Lock[] },
-        } as any);
+            env: {
+                ...env,
+                locks: {
+                    lock1: makeLock('test-lock1'),
+                    lock2: makeLock('test-lock2'),
+                },
+            },
+        });
         // big chip shows all locks
         expect(container.querySelectorAll('.env-card-env-lock-icon').length).toBe(2);
         const lock1 = container.querySelectorAll('.button-lock')[0];
