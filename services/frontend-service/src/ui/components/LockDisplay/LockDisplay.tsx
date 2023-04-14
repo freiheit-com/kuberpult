@@ -53,8 +53,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     deleteEnvironmentApplicationLock: {
                         environment: lock.environment,
                         lockId: lock.lockId,
-                        // eslint-disable-next-line no-type-assertion/no-type-assertion
-                        application: lock.application!,
+                        application: lock.application,
                     },
                 },
             });

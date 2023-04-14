@@ -20,8 +20,10 @@ import { Routes } from './Routes';
 import { BrowserRouter } from 'react-router-dom';
 
 const container = document.getElementById('root');
-// eslint-disable-next-line no-type-assertion/no-type-assertion
-const root = createRoot(container!); // createRoot(container!) using TypeScript
+if (!container) {
+    throw new Error('error: could not find "root" element');
+}
+const root = createRoot(container);
 root.render(
     <React.StrictMode>
         <BrowserRouter>

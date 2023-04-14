@@ -16,9 +16,9 @@ Copyright 2023 freiheit.com*/
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
 import { EnvironmentCard } from '../../components/EnvironmentCard/EnvironmentCard';
+import { Environment, Priority } from '../../../api/api';
 
-// eslint-disable-next-line no-type-assertion/no-type-assertion
-const sampleEnvs = {
+const sampleEnvs: { [key: string]: Environment } = {
     foo: {
         name: 'foo',
         locks: {
@@ -39,12 +39,18 @@ const sampleEnvs = {
                 },
             },
         },
+        applications: {},
+        distanceToUpstream: 0,
+        priority: Priority.UPSTREAM,
     },
     moreTest: {
         name: 'moreTest',
         locks: {},
+        applications: {},
+        distanceToUpstream: 0,
+        priority: Priority.UPSTREAM,
     },
-} as any;
+};
 
 interface dataT {
     name: string;

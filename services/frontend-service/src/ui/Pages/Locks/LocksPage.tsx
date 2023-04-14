@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { useMemo } from 'react';
 import { LocksTable } from '../../components/LocksTable/LocksTable';
-import { DisplayLock, searchCustomFilter, sortLocks, useOverview } from '../../utils/store';
+import { searchCustomFilter, sortLocks, useEnvironments } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
 
 const applicationFieldHeaders = [
@@ -33,24 +33,20 @@ const environmentFieldHeaders = ['Date', 'Environment', 'Lock Id', 'Message', 'A
 export const LocksPage: React.FC = () => {
     const [params] = useSearchParams();
     const appNameParam = params.get('application');
-    const envs = useOverview(({ environments }) => Object.values(environments));
+    const envs = useEnvironments();
     const envLocks = useMemo(
         () =>
             sortLocks(
                 Object.values(envs)
                     .map((env) =>
-                        Object.values(env.locks).map(
-                            (lock) =>
-                                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                                ({
-                                    date: lock.createdAt,
-                                    environment: env.name,
-                                    lockId: lock.lockId,
-                                    message: lock.message,
-                                    authorName: lock.createdBy?.name,
-                                    authorEmail: lock.createdBy?.email,
-                                } as DisplayLock)
-                        )
+                        Object.values(env.locks).map((lock) => ({
+                            date: lock.createdAt,
+                            environment: env.name,
+                            lockId: lock.lockId,
+                            message: lock.message,
+                            authorName: lock.createdBy?.name,
+                            authorEmail: lock.createdBy?.email,
+                        }))
                     )
                     .flat(),
                 'oldestToNewest'
@@ -64,19 +60,15 @@ export const LocksPage: React.FC = () => {
                     .map((env) =>
                         Object.values(env.applications)
                             .map((app) =>
-                                Object.values(app.locks).map(
-                                    (lock) =>
-                                        // eslint-disable-next-line no-type-assertion/no-type-assertion
-                                        ({
-                                            date: lock.createdAt,
-                                            environment: env.name,
-                                            application: app.name,
-                                            lockId: lock.lockId,
-                                            message: lock.message,
-                                            authorName: lock.createdBy?.name,
-                                            authorEmail: lock.createdBy?.email,
-                                        } as DisplayLock)
-                                )
+                                Object.values(app.locks).map((lock) => ({
+                                    date: lock.createdAt,
+                                    environment: env.name,
+                                    application: app.name,
+                                    lockId: lock.lockId,
+                                    message: lock.message,
+                                    authorName: lock.createdBy?.name,
+                                    authorEmail: lock.createdBy?.email,
+                                }))
                             )
                             .flat()
                     )
