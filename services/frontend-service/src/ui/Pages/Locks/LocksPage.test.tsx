@@ -19,7 +19,6 @@ import {
     DisplayLock,
     UpdateOverview,
     useAllLocks,
-    useApplicationLock,
     useEnvironmentLock,
     useFilteredEnvironmentLockIDs,
 } from '../../utils/store';
@@ -125,7 +124,7 @@ describe('Test env locks', () => {
 
     interface dataEnvFilteredT {
         name: string;
-        envs: { [key: string]: Environment };
+        envs: Environment[];
         filter: string;
         expectedLockIDs: string[];
     }
@@ -133,28 +132,28 @@ describe('Test env locks', () => {
     const sampleFilteredEnvData: dataEnvFilteredT[] = [
         {
             name: 'no locks',
-            envs: {},
+            envs: [],
             filter: 'integration',
             expectedLockIDs: [],
         },
         {
             name: 'get one lock',
-            envs: {
-                integration: {
+            envs: [
+                {
                     name: 'integration',
                     locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
                     applications: {},
                     distanceToUpstream: 0,
                     priority: 0,
                 },
-            },
+            ],
             filter: 'integration',
             expectedLockIDs: ['ui-v2-1337'],
         },
         {
             name: 'get filtered locks (integration, get 1 lock)',
-            envs: {
-                integration: {
+            envs: [
+                {
                     name: 'integration',
                     locks: {
                         lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
@@ -163,7 +162,7 @@ describe('Test env locks', () => {
                     distanceToUpstream: 0,
                     priority: 0,
                 },
-                development: {
+                {
                     name: 'development',
                     locks: {
                         locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
@@ -173,14 +172,14 @@ describe('Test env locks', () => {
                     distanceToUpstream: 0,
                     priority: 0,
                 },
-            },
+            ],
             filter: 'integration',
             expectedLockIDs: ['ui-v2-123'],
         },
         {
             name: 'get filtered locks (development, get 2 lock)',
-            envs: {
-                integration: {
+            envs: [
+                {
                     name: 'integration',
                     locks: {
                         lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
@@ -189,7 +188,7 @@ describe('Test env locks', () => {
                     distanceToUpstream: 0,
                     priority: 0,
                 },
-                development: {
+                {
                     name: 'development',
                     locks: {
                         lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
@@ -199,7 +198,7 @@ describe('Test env locks', () => {
                     distanceToUpstream: 0,
                     priority: 0,
                 },
-            },
+            ],
             filter: 'development',
             expectedLockIDs: ['ui-v2-321', 'ui-v2-1337'],
         },
@@ -208,7 +207,16 @@ describe('Test env locks', () => {
     describe.each(sampleFilteredEnvData)(`Test Filtered Lock IDs`, (testcase) => {
         it(testcase.name, () => {
             // given
-            UpdateOverview.set({ environments: testcase.envs });
+            UpdateOverview.set({
+                // environments: testcase.envs,
+                environmentGroups: [
+                    {
+                        distanceToUpstream: 0,
+                        environmentGroupName: 'group1',
+                        environments: testcase.envs,
+                    },
+                ],
+            });
             // when
             const obtained = renderHook(() => useFilteredEnvironmentLockIDs(testcase.filter)).result.current;
             // then
@@ -218,7 +226,7 @@ describe('Test env locks', () => {
 
     interface dataTranslateEnvLockT {
         name: string;
-        envs: { [key: string]: Environment };
+        envs: [Environment];
         id: string;
         expectedLock: DisplayLock;
     }
@@ -226,8 +234,8 @@ describe('Test env locks', () => {
     const sampleTranslateEnvLockData: dataTranslateEnvLockT[] = [
         {
             name: 'Translate lockID to DisplayLock',
-            envs: {
-                integration: {
+            envs: [
+                {
                     name: 'integration',
                     locks: {
                         locktest: {
@@ -241,7 +249,7 @@ describe('Test env locks', () => {
                     distanceToUpstream: 0,
                     priority: 0,
                 },
-            },
+            ],
             id: 'ui-v2-1337',
             expectedLock: {
                 date: new Date(1995, 11, 17),
@@ -257,7 +265,17 @@ describe('Test env locks', () => {
     describe.each(sampleTranslateEnvLockData)(`Test translating lockID to DisplayLock`, (testcase) => {
         it(testcase.name, () => {
             // given
-            UpdateOverview.set({ environments: testcase.envs });
+            UpdateOverview.set({
+                environments: {},
+                applications: {},
+                environmentGroups: [
+                    {
+                        environments: testcase.envs,
+                        environmentGroupName: 'group1',
+                        distanceToUpstream: 0,
+                    },
+                ],
+            });
             // when
             const obtained = renderHook(() => useEnvironmentLock(testcase.id)).result.current;
             // then
@@ -391,64 +409,6 @@ describe('Test app locks', () => {
             const obtained = renderHook(() => useAllLocks().appLocks).result.current;
             // then
             expect(obtained.map((lock) => lock.lockId)).toStrictEqual(testcase.expectedLockIDs);
-        });
-    });
-
-    interface dataTranslateAppLockT {
-        name: string;
-        envs: { [key: string]: Environment };
-        id: string;
-        expectedLock: DisplayLock;
-    }
-
-    const sampleTranslateAppLockData: dataTranslateAppLockT[] = [
-        {
-            name: 'Translate lockID to DisplayLock',
-            envs: {
-                integration: {
-                    name: 'integration',
-                    locks: {},
-                    distanceToUpstream: 0,
-                    priority: 0,
-                    applications: {
-                        foo: {
-                            name: 'foo',
-                            queuedVersion: 0,
-                            undeployVersion: false,
-                            version: 1337,
-                            locks: {
-                                locktest: {
-                                    message: 'locktest',
-                                    lockId: 'ui-v2-1337',
-                                    createdAt: new Date(1995, 11, 17),
-                                    createdBy: { email: 'kuberpult@fdc.com', name: 'kuberpultUser' },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-            id: 'ui-v2-1337',
-            expectedLock: {
-                application: 'foo',
-                date: new Date(1995, 11, 17),
-                lockId: 'ui-v2-1337',
-                environment: 'integration',
-                message: 'locktest',
-                authorEmail: 'kuberpult@fdc.com',
-                authorName: 'kuberpultUser',
-            },
-        },
-    ];
-
-    describe.each(sampleTranslateAppLockData)(`Test translating lockID to DisplayLock`, (testcase) => {
-        it(testcase.name, () => {
-            // given
-            UpdateOverview.set({ environments: testcase.envs });
-            // when
-            const obtained = renderHook(() => useApplicationLock(testcase.id)).result.current;
-            // then
-            expect(obtained).toStrictEqual(testcase.expectedLock);
         });
     });
 });
