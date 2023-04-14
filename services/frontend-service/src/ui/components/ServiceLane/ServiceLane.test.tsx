@@ -27,57 +27,20 @@ import {
     UndeploySummary,
 } from '../../../api/api';
 import { MemoryRouter } from 'react-router-dom';
+import { elementQuerySelectorSafe } from '../../../setupTests';
 
 const mock_ReleaseCard = Spy.mockReactComponents('../../components/ReleaseCard/ReleaseCard', 'ReleaseCard');
 const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
-const sampleEnvs = {
-    foo: {
-        // third release card contains two environments
-        name: 'foo',
-        applications: {
-            test2: {
-                version: 2,
-            },
-        },
-    },
-    foo2: {
-        // third release card contains two environments
-        name: 'foo2',
-        applications: {
-            test2: {
-                version: 2,
-            },
-        },
-    },
-    bar: {
-        // second release card contains one environment, newest version
-        name: 'bar',
-        applications: {
-            test2: {
-                version: 3,
-            },
-        },
-    },
-    undeploy: {
-        // first release card is for the undeploy one
-        name: 'undeploy',
-        applications: {
-            test2: {
-                version: 5,
-                undeployVersion: true,
-            },
-        },
-    },
-    other: {
-        // no release card for different app
-        name: 'other',
-        applications: {
-            test3: {
-                version: 3,
-            },
-        },
-    },
-};
+
+const extendRelease = (props: Partial<Release>): Release => ({
+    version: 123,
+    sourceCommitId: 'id',
+    sourceAuthor: 'author',
+    sourceMessage: 'source',
+    undeployVersion: false,
+    prNumber: 'pr',
+    ...props,
+});
 
 describe('Service Lane', () => {
     const getNode = (overrides: { application: Application }) => (
@@ -88,23 +51,20 @@ describe('Service Lane', () => {
     const getWrapper = (overrides: { application: Application }) => render(getNode(overrides));
     it('Renders a row of releases', () => {
         // when
-        const sampleApp = {
+        const sampleApp: Application = {
             name: 'test2',
-            releases: [{ version: 5 }, { version: 2 }, { version: 3 }],
+            releases: [extendRelease({ version: 5 }), extendRelease({ version: 2 }), extendRelease({ version: 3 })],
             sourceRepoUrl: 'http://test2.com',
             team: 'example',
-            undeploySummary: '',
+            undeploySummary: UndeploySummary.Normal,
         };
         UpdateOverview.set({
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
-            environments: sampleEnvs as any,
+            environments: {},
             applications: {
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                test2: sampleApp as any,
+                test2: sampleApp,
             },
         });
-        // eslint-disable-next-line no-type-assertion/no-type-assertion
-        getWrapper({ application: sampleApp as any });
+        getWrapper({ application: sampleApp });
 
         // then releases are sorted and Release card is called with props:
         expect(mock_ReleaseCard.ReleaseCard.getCallArgument(0, 0)).toStrictEqual({ app: sampleApp.name, version: 5 });
@@ -215,23 +175,32 @@ const data: TestDataDiff[] = [
                 name: 'foo',
                 applications: {
                     test2: {
+                        name: 'test2',
                         version: 1,
                         locks: {},
+                        queuedVersion: 0,
+                        undeployVersion: false,
                     },
                 },
                 locks: {},
+                distanceToUpstream: 0,
+                priority: Priority.UPSTREAM,
             },
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
             {
                 name: 'foo2',
                 applications: {
                     test2: {
+                        name: 'test2',
                         version: 4,
                         locks: {},
+                        queuedVersion: 0,
+                        undeployVersion: false,
                     },
                 },
                 locks: {},
-            } as any,
+                distanceToUpstream: 0,
+                priority: Priority.UPSTREAM,
+            },
         ],
     },
     {
@@ -283,8 +252,7 @@ describe('Service Lane Diff', () => {
     describe.each(data)('Service Lane diff number', (testcase) => {
         it(testcase.name, () => {
             UpdateOverview.set({
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                environments: undefined as any, // deprecated
+                environments: {},
                 applications: {
                     test2: {
                         releases: testcase.releases,
@@ -309,8 +277,7 @@ describe('Service Lane Diff', () => {
                 sourceRepoUrl: 'http://test2.com',
                 team: 'example',
             };
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
-            const { container } = getWrapper({ application: sampleApp as any });
+            const { container } = getWrapper({ application: sampleApp });
 
             // check for the diff between versions
             if (testcase.diff === '-1' || testcase.diff === '0') {
@@ -532,14 +499,16 @@ describe('Service Lane Undeploy Buttons', () => {
 
             const { container } = getWrapper({ application: testcase.renderedApp });
 
-            const undeployButton = container.querySelector('.service-action.service-action--prepare-undeploy');
-            const label = undeployButton?.querySelector('span');
+            const undeployButton = elementQuerySelectorSafe(
+                container,
+                '.service-action.service-action--prepare-undeploy'
+            );
+            const label = elementQuerySelectorSafe(undeployButton, 'span');
             expect(label?.textContent).toBe(testcase.expectedUndeployButton);
 
             mock_addAction.addAction.wasNotCalled();
 
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
-            fireEvent.click(undeployButton!);
+            fireEvent.click(undeployButton);
 
             mock_addAction.addAction.wasCalledWith(testcase.expectedAction);
         });
