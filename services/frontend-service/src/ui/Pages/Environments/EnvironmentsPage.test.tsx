@@ -17,6 +17,7 @@ import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
 import { EnvironmentCard } from '../../components/EnvironmentCard/EnvironmentCard';
 
+// eslint-disable-next-line no-type-assertion/no-type-assertion
 const sampleEnvs = {
     foo: {
         name: 'foo',

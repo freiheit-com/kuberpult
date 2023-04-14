@@ -44,6 +44,7 @@ describe('Show and Hide Sidebar', () => {
         {
             name: 'Sidebar is displayed',
             expect: (container) => {
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 const result = container.querySelector('.mdc-show-button')! as HTMLElement;
                 act(() => {
                     result.click();
@@ -144,6 +145,7 @@ describe('Sidebar shows list of actions', () => {
             updateActions(testcase.actions);
             // when
             const { container } = getWrapper({});
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             const result = container.querySelector('.mdc-show-button')! as HTMLElement;
             act(() => {
                 result.click();
@@ -207,6 +209,7 @@ describe('Sidebar test deletebutton', () => {
             updateActions(testcase.actions);
             // when
             const { container } = getWrapper({});
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             const result = container.querySelector('.mdc-show-button')! as HTMLElement;
             act(() => {
                 result.click();

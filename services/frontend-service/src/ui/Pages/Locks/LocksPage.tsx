@@ -41,6 +41,7 @@ export const LocksPage: React.FC = () => {
                     .map((env) =>
                         Object.values(env.locks).map(
                             (lock) =>
+                                // eslint-disable-next-line no-type-assertion/no-type-assertion
                                 ({
                                     date: lock.createdAt,
                                     environment: env.name,
@@ -65,6 +66,7 @@ export const LocksPage: React.FC = () => {
                             .map((app) =>
                                 Object.values(app.locks).map(
                                     (lock) =>
+                                        // eslint-disable-next-line no-type-assertion/no-type-assertion
                                         ({
                                             date: lock.createdAt,
                                             environment: env.name,

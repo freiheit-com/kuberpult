@@ -99,6 +99,7 @@ describe('AuthProvider', () => {
             jest.spyOn(pca, 'getAllAccounts').mockImplementation(() => [testAccount]);
             const acquireTokenSilentSpy = jest
                 .spyOn(pca, 'acquireTokenSilent')
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 .mockImplementation((r) => Promise.resolve({ idToken: 'unique-token' } as any));
 
             // when
@@ -123,6 +124,7 @@ describe('AuthProvider', () => {
     describe('Azure Not Enabled Test', () => {
         it('Provider can display content when azure auth is off', () => {
             // given
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             UpdateFrontendConfig.set({
                 configs: { authConfig: { azureAuth: { enabled: false } } },
                 configReady: true,

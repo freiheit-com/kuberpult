@@ -291,9 +291,11 @@ export const useFilteredEnvironmentLockIDs = (envName: string): string[] =>
     );
 
 export const useEnvironmentLock = (lockId: string): DisplayLock =>
+    // eslint-disable-next-line no-type-assertion/no-type-assertion
     ({
         ...useOverview(
             ({ environments }) =>
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 Object.values(
                     Object.values(environments)
                         .map((env) => env.locks)
@@ -370,9 +372,11 @@ export const useAllLocks = (): AllLocks => {
 };
 
 export const useApplicationLock = (lockId: string): DisplayLock =>
+    // eslint-disable-next-line no-type-assertion/no-type-assertion
     ({
         ...useOverview(
             ({ environments }) =>
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 Object.values(
                     Object.values(environments)
                         .map((env) => Object.values(env.applications))
@@ -430,12 +434,14 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest'
 
 // returns the release number {$version} of {$application}
 export const useRelease = (application: string, version: number): Release =>
+    // eslint-disable-next-line no-type-assertion/no-type-assertion
     useOverview(({ applications }) => applications[application].releases.find((r) => r.version === version)!);
 
 export const useReleaseOptional = (application: string, env: Environment): Release | undefined => {
     const x = env.applications[application];
     return useOverview(({ applications }) => {
         const version = x ? x.version : 0;
+        // eslint-disable-next-line no-type-assertion/no-type-assertion
         const res = applications[application].releases.find((r) => r.version === version)!;
         if (!x) {
             return undefined;

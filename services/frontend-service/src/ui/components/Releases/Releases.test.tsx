@@ -24,6 +24,7 @@ describe('Release Dialog', () => {
         {
             name: '3 releases in 3 days',
             dates: 3,
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             releases: [
                 {
                     version: 1,
@@ -51,6 +52,7 @@ describe('Release Dialog', () => {
         {
             name: '3 releases in 2 days',
             dates: 2,
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             releases: [
                 {
                     version: 1,
@@ -80,6 +82,7 @@ describe('Release Dialog', () => {
     describe.each(data)(`Renders releases for an app`, (testcase) => {
         it(testcase.name, () => {
             // when
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             UpdateOverview.set({
                 applications: { test: { releases: testcase.releases } },
                 environments: {},
