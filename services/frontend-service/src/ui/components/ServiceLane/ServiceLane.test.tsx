@@ -96,11 +96,14 @@ describe('Service Lane', () => {
             undeploySummary: '',
         };
         UpdateOverview.set({
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             environments: sampleEnvs as any,
             applications: {
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 test2: sampleApp as any,
             },
         });
+        // eslint-disable-next-line no-type-assertion/no-type-assertion
         getWrapper({ application: sampleApp as any });
 
         // then releases are sorted and Release card is called with props:
@@ -218,6 +221,7 @@ const data: TestDataDiff[] = [
                 },
                 locks: {},
             },
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             {
                 name: 'foo2',
                 applications: {
@@ -279,6 +283,7 @@ describe('Service Lane Diff', () => {
     describe.each(data)('Service Lane diff number', (testcase) => {
         it(testcase.name, () => {
             UpdateOverview.set({
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 environments: undefined as any, // deprecated
                 applications: {
                     test2: {
@@ -304,6 +309,7 @@ describe('Service Lane Diff', () => {
                 sourceRepoUrl: 'http://test2.com',
                 team: 'example',
             };
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             const { container } = getWrapper({ application: sampleApp as any });
 
             // check for the diff between versions
@@ -532,6 +538,7 @@ describe('Service Lane Undeploy Buttons', () => {
 
             mock_addAction.addAction.wasNotCalled();
 
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             fireEvent.click(undeployButton!);
 
             mock_addAction.addAction.wasCalledWith(testcase.expectedAction);

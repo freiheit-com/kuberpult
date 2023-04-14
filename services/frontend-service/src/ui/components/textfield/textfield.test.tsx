@@ -99,6 +99,7 @@ describe('Verify textfield content', () => {
             floatingLabel: 'Search',
             value: 'test-search',
             expect: (container) => {
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 const input = container.getElementsByClassName('mdc-text-field__input')[0] as HTMLElement;
                 input.nodeValue = 'test-search';
                 return expect(container.getElementsByClassName('mdc-text-field__input')[0]).toHaveDisplayValue(

@@ -61,8 +61,10 @@ describe('EnvironmentChip', () => {
         `);
     });
     it('renders a short form tag chip', () => {
+        // eslint-disable-next-line no-type-assertion/no-type-assertion
         const { container } = getWrapper({
             smallEnvChip: true,
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             env: { ...env, locks: [{ lockId: 'lock1' }, { lockId: 'lock2' }] as Lock[] },
         } as any);
         expect(container.querySelector('.mdc-evolution-chip__text-name')?.textContent).toBe(env.name[0].toUpperCase());
@@ -70,7 +72,9 @@ describe('EnvironmentChip', () => {
         expect(container.querySelectorAll('.env-card-env-lock-icon').length).toBe(1);
     });
     it('renders env locks in big env chip', () => {
+        // eslint-disable-next-line no-type-assertion/no-type-assertion
         const { container } = getWrapper({
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             env: { ...env, locks: [{ lockId: 'test-lock1' }, { lockId: 'test-lock2' }] as Lock[] },
         } as any);
         // big chip shows all locks

@@ -87,6 +87,7 @@ describe('Release Card', () => {
             name: 'using a full release - component test',
             props: { app: 'test2', version: 2 },
             rels: [
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 {
                     undeployVersion: false,
                     version: 2,
@@ -101,6 +102,7 @@ describe('Release Card', () => {
             name: 'using a deployed release - useDeployedAt test',
             props: { app: 'test2', version: 2 },
             rels: [
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 {
                     version: 2,
                     sourceMessage: 'test-rel',
@@ -121,6 +123,7 @@ describe('Release Card', () => {
             name: 'using an undeployed release - useDeployedAt test',
             props: { app: 'test2', version: 2 },
             rels: [
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 {
                     version: 2,
                     sourceMessage: 'test-rel',
@@ -141,6 +144,7 @@ describe('Release Card', () => {
             name: 'using another environment - useDeployedAt test',
             props: { app: 'test2', version: 2 },
             rels: [
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 {
                     version: 2,
                     sourceMessage: 'test-rel',
@@ -162,7 +166,9 @@ describe('Release Card', () => {
     describe.each(data)(`Renders a Release Card`, (testcase) => {
         it(testcase.name, () => {
             // when
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             UpdateOverview.set({
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 applications: { [testcase.props.app as string]: { releases: testcase.rels } },
                 environments: testcase.environments ?? {},
             } as any);
@@ -184,6 +190,7 @@ describe('Release Card', () => {
             }
             if (testcase.rels[0].createdAt) {
                 expect(container.querySelector('.release__metadata')?.textContent).toContain(
+                    // eslint-disable-next-line no-type-assertion/no-type-assertion
                     (testcase.rels[0].createdAt as Date).getFullYear().toString()
                 );
             }

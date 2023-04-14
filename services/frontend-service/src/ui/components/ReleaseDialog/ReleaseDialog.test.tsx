@@ -171,6 +171,7 @@ describe('Release Dialog', () => {
     ];
 
     const setTheStore = (testcase: dataT) =>
+        // eslint-disable-next-line no-type-assertion/no-type-assertion
         UpdateOverview.set({
             applications: { [testcase.props.app]: { releases: testcase.rels, team: testcase.teamName } },
             environments: testcase.envs,
@@ -253,6 +254,7 @@ describe('Release Dialog', () => {
                     release={{ ...testcase.rels[0], version: 3 }}
                 />
             );
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             const result = document.querySelector('.env-card-deploy-btn')!;
             fireEvent.click(result);
             expect(UpdateSidebar.get().shown).toBeTruthy();
@@ -271,6 +273,7 @@ describe('Release Dialog', () => {
                 />
             );
             render(<SideBar toggleSidebar={Spy()} />);
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             const result = document.querySelector('.env-card-add-lock-btn')!;
             fireEvent.click(result);
             expect(UpdateSidebar.get().shown).toBeTruthy();

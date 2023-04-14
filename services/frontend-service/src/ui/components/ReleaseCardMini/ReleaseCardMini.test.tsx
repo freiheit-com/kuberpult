@@ -123,7 +123,9 @@ describe('Release Card Mini', () => {
     describe.each(data)(`Renders a Release Card`, (testcase) => {
         it(testcase.name, () => {
             // when
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             UpdateOverview.set({
+                // eslint-disable-next-line no-type-assertion/no-type-assertion
                 applications: { [testcase.props.app as string]: { releases: testcase.rels } },
                 environments: testcase.environments ?? {},
             } as any);

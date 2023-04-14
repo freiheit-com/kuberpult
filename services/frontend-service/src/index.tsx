@@ -20,6 +20,7 @@ import { Routes } from './Routes';
 import { BrowserRouter } from 'react-router-dom';
 
 const container = document.getElementById('root');
+// eslint-disable-next-line no-type-assertion/no-type-assertion
 const root = createRoot(container!); // createRoot(container!) using TypeScript
 root.render(
     <React.StrictMode>

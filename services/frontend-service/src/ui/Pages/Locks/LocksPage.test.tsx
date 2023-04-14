@@ -243,6 +243,7 @@ describe('Test env locks', () => {
                 },
             },
             id: 'ui-v2-1337',
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             expectedLock: {
                 date: new Date(1995, 11, 17),
                 lockId: 'ui-v2-1337',
@@ -429,6 +430,7 @@ describe('Test app locks', () => {
                 },
             },
             id: 'ui-v2-1337',
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             expectedLock: {
                 application: 'foo',
                 date: new Date(1995, 11, 17),

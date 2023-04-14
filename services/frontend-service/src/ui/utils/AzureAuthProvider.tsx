@@ -28,6 +28,7 @@ import { createStore } from 'react-use-sub';
 import { grpc } from '@improbable-eng/grpc-web';
 
 export const [useFrontendConfig, UpdateFrontendConfig] = createStore({
+    // eslint-disable-next-line no-type-assertion/no-type-assertion
     configs: {} as GetFrontendConfigResponse,
     configReady: false,
 });
@@ -38,6 +39,7 @@ type AzureAuthSubType = {
     };
     authReady: boolean;
 };
+// eslint-disable-next-line no-type-assertion/no-type-assertion
 export const [useAzureAuthSub, AzureAuthSub] = createStore({
     authHeader: new BrowserHeaders({}),
     authReady: false,

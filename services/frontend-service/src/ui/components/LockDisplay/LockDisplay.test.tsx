@@ -136,11 +136,13 @@ describe('Test delete lock button', () => {
         {
             name: 'Test environment lock delete button',
             date: new Date(2022, 0, 2),
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             lock: lock as any,
         },
         {
             name: 'Test application lock delete button',
             date: new Date(2022, 0, 2),
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             lock: { ...lock, application: 'test-app' } as any,
         },
     ];
@@ -148,6 +150,7 @@ describe('Test delete lock button', () => {
     describe.each(data)('lock type', (testcase) => {
         it(testcase.name, () => {
             render(<LockDisplay lock={testcase.lock} />);
+            // eslint-disable-next-line no-type-assertion/no-type-assertion
             const result = document.querySelector('.service-action--delete')! as HTMLElement;
             act(() => {
                 result.click();
