@@ -34,18 +34,19 @@ export const Snackbar = (): JSX.Element => {
 
     useEffect(() => {
         if (show) {
+            if (!MDComponent.current) {
+                throw new Error('snackbar: mdcomponent.current not set');
+            }
             // open the snackbar and then set show to false. the snackbar will remain opened 5s
             if (status === SnackbarStatus.WARN) {
                 // Warn is used for connection errors
                 // when you can't connect, always show a warning
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                MDComponent.current!.timeoutMs = -1;
+                MDComponent.current.timeoutMs = -1;
             } else {
                 // snackbar closes after 5s
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                MDComponent.current!.timeoutMs = 5000;
+                MDComponent.current.timeoutMs = 5000;
             }
-            MDComponent.current?.open();
+            MDComponent.current.open();
             UpdateSnackbar.set({ show: false });
         }
     }, [show, status]);

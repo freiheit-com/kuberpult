@@ -17,6 +17,7 @@ import { Textfield } from './textfield';
 import { render } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { getElementsByClassNameSafe } from '../../../setupTests';
 
 describe('Textfield', () => {
     it('renders correctly using Snapshot', () => {
@@ -99,8 +100,7 @@ describe('Verify textfield content', () => {
             floatingLabel: 'Search',
             value: 'test-search',
             expect: (container) => {
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                const input = container.getElementsByClassName('mdc-text-field__input')[0] as HTMLElement;
+                const input = getElementsByClassNameSafe(container, 'mdc-text-field__input')[0];
                 input.nodeValue = 'test-search';
                 return expect(container.getElementsByClassName('mdc-text-field__input')[0]).toHaveDisplayValue(
                     'test-search'
