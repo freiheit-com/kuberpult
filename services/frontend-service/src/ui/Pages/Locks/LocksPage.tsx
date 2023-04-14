@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { useMemo } from 'react';
 import { LocksTable } from '../../components/LocksTable/LocksTable';
-import { searchCustomFilter, sortLocks, useOverview } from '../../utils/store';
+import { searchCustomFilter, sortLocks, useEnvironments } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
 
 const applicationFieldHeaders = [
@@ -33,7 +33,7 @@ const environmentFieldHeaders = ['Date', 'Environment', 'Lock Id', 'Message', 'A
 export const LocksPage: React.FC = () => {
     const [params] = useSearchParams();
     const appNameParam = params.get('application');
-    const envs = useOverview(({ environments }) => Object.values(environments));
+    const envs = useEnvironments();
     const envLocks = useMemo(
         () =>
             sortLocks(
