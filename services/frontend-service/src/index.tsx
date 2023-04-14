@@ -23,7 +23,7 @@ const container = document.getElementById('root');
 if (!container) {
     throw new Error('error: could not find "root" element');
 }
-const root = createRoot(container); // createRoot(container!) using TypeScript
+const root = createRoot(container);
 root.render(
     <React.StrictMode>
         <BrowserRouter>
