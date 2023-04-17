@@ -46,10 +46,6 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-// gin-swagger middleware
-
-//import "github.com/swaggo/files" // swagger embed files
-
 var c config.ServerConfig
 
 func readAllAndClose(r io.ReadCloser, maxBytes int64) {
@@ -86,27 +82,6 @@ func RunServer() {
 		logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
 		logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
 
-		useSwagger := false
-		if useSwagger {
-			logger.FromContext(ctx).Info("using swagger: \n")
-			//r := route.SetupRouter()
-			//r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-			//r.Run(":" + os.Getenv("SERVER_PORT"))
-
-			//r := gin.Default()
-			//docs.SwaggerInfo.BasePath = "/api/v1"
-			//v1 := r.Group("/api/v1")
-			//{
-			//	eg := v1.Group("/example")
-			//	{
-			//		eg.GET("/helloworld", handler.Server.HandleReleaseTrain)
-			//	}
-			//}
-			//r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
-			//logger.FromContext(ctx).Info("starting swagger server: \n")
-			//r.Run(":1234")
-			//logger.FromContext(ctx).Info("done starting swagger server: \n")
-		}
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 
 		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
