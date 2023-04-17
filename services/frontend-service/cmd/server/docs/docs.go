@@ -22,4 +22,12 @@
 //
 // swagger:meta
 
+/*
+*
+To generate:
+swagger generate spec -o ./swagger.json
+
+To serve swagger ui:
+swagger generate spec -o ./swagger.json
+*/
 package docs
