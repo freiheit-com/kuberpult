@@ -30,21 +30,19 @@ typedef struct {
 int kp_backend__read_header(size_t *len_out, git_otype *type_out, git_odb_backend *_backend, const git_oid *oid)
 {
 	kp_backend *backend = (kp_backend *)_backend;
-	int error = GIT_ERROR;
         if( sqlite3_bind_text(backend->read_header, 1, (char *)oid->id, 20, SQLITE_TRANSIENT) != SQLITE_OK) {
-
-          goto cleanup;
+	  sqlite3_reset(backend->read_header);
+          return GIT_ERROR;
         }
 	if (sqlite3_step(backend->read_header) == SQLITE_ROW) {
 	  *type_out = (git_otype)sqlite3_column_int(backend->read_header, 0);
 	  *len_out = (size_t)sqlite3_column_int(backend->read_header, 1);
-	  error = GIT_OK;
+	  sqlite3_reset(backend->read_header);
+	  return GIT_OK;
 	} else {
-	  error = GIT_ENOTFOUND;
+	  sqlite3_reset(backend->read_header);
+	  return GIT_ENOTFOUND;
 	}
-cleanup:
-	sqlite3_reset(backend->read_header);
-	return error;
 }
 
 int kp_backend__read(void **data_out, size_t *len_out, git_otype *type_out, git_odb_backend *_backend, const git_oid *oid)
@@ -53,7 +51,8 @@ int kp_backend__read(void **data_out, size_t *len_out, git_otype *type_out, git_
 	int error = GIT_ERROR;
 
 	if (sqlite3_bind_text(backend->read, 1, (char *)oid->id, 20, SQLITE_TRANSIENT) != SQLITE_OK) {
-          goto cleanup;
+	  sqlite3_reset(backend->read);
+          return GIT_ERROR;
         }
 	if (sqlite3_step(backend->read) == SQLITE_ROW) {
 		*type_out = (git_otype)sqlite3_column_int(backend->read, 0);
@@ -62,30 +61,29 @@ int kp_backend__read(void **data_out, size_t *len_out, git_otype *type_out, git_
 
 		if (*data_out == NULL) {
 			giterr_set_oom();
-			error = GIT_ERROR;
+	                sqlite3_reset(backend->read);
+			return GIT_ERROR;
 		} else {
 			memcpy(*data_out, sqlite3_column_blob(backend->read, 2), *len_out);
-			error = GIT_OK;
+			sqlite3_reset(backend->read);
+			return GIT_OK;
 		}
 	} else {
-		error = GIT_ENOTFOUND;
+	    sqlite3_reset(backend->read);
+	    return GIT_ENOTFOUND;
 	}
-cleanup:
-	sqlite3_reset(backend->read);
-	return error;
+
 }
 
-int kp_backend__read_prefix(git_oid *out_oid, void **data_p, size_t *len_p, git_otype *type_p, git_odb_backend *_backend,
+int kp_backend__read_prefix(git_oid *out_oid, void **data_out, size_t *len_out, git_otype *type_out, git_odb_backend *_backend,
 					const git_oid *short_oid, size_t len) {
 	if (len >= GIT_OID_HEXSZ) {
-		/* Just match the full identifier */
-		int error = kp_backend__read(data_p, len_p, type_p, _backend, short_oid);
+		int error = kp_backend__read(data_out, len_out, type_out, _backend, short_oid);
 		if (error == GIT_OK)
 			git_oid_cpy(out_oid, short_oid);
 
 		return error;
 	}
-	/* not implemented (yet) */
 	return GIT_ERROR;
 }
 
@@ -184,16 +182,25 @@ int kp_backend_sqlite(git_odb_backend **backend_out, const char *sqlite_db, cons
 	}
 
         error = sqlite3_open(sqlite_db, &backend->db);
-	if (error != SQLITE_OK)
-		goto cleanup;
+	if (error != SQLITE_OK){
+          *err_out = sqlite3_errmsg(backend->db);
+	  kp_backend__free((git_odb_backend *)backend);
+	  return error;
+        }
 
 	error = create_table_if_not_exists(backend->db);
-	if (error != SQLITE_OK)
-		goto cleanup;
+	if (error != SQLITE_OK){
+          *err_out = sqlite3_errmsg(backend->db);
+	  kp_backend__free((git_odb_backend *)backend);
+	  return error;
+        }
 
 	error = init_statements(backend);
-	if (error != SQLITE_OK)
-		goto cleanup;
+	if (error != SQLITE_OK) {
+          *err_out = sqlite3_errmsg(backend->db);
+	  kp_backend__free((git_odb_backend *)backend);
+	  return error;
+        }
 
 	backend->parent.version = GIT_ODB_BACKEND_VERSION;
 	backend->parent.read = &kp_backend__read;
@@ -205,8 +212,4 @@ int kp_backend_sqlite(git_odb_backend **backend_out, const char *sqlite_db, cons
 
 	*backend_out = (git_odb_backend *)backend;
         return SQLITE_OK;
-cleanup:
-        *err_out = sqlite3_errmsg(backend->db);
-	kp_backend__free((git_odb_backend *)backend);
-	return error;
 }
