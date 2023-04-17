@@ -283,38 +283,32 @@ export const useFilteredApplicationLocks = (appNameParam: string | null): Displa
 
 // return env lock IDs from given env
 export const useFilteredEnvironmentLockIDs = (envName: string): string[] =>
-    useOverview(({ environments }) =>
-        Object.values(environments)
-            .filter((env) => envName === '' || env.name === envName)
-            .map((env) => Object.values(env.locks))
-            .flat()
-            .map((lock) => lock.lockId)
-    );
+    useEnvironments()
+        .filter((env) => envName === '' || env.name === envName)
+        .map((env) => Object.values(env.locks))
+        .flat()
+        .map((lock) => lock.lockId);
 
-export const useEnvironmentLock = (lockId: string): DisplayLock =>
-    // eslint-disable-next-line no-type-assertion/no-type-assertion
-    ({
-        ...useOverview(
-            ({ environments }) =>
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                Object.values(
-                    Object.values(environments)
-                        .map((env) => env.locks)
-                        .reduce((acc, val) => ({ ...acc, ...val }))
-                )
-                    .map((lock) => ({
-                        date: lock.createdAt,
-                        message: lock.message,
-                        lockId: lock.lockId,
-                        authorName: lock.createdBy?.name,
-                        authorEmail: lock.createdBy?.email,
-                    }))
-                    .find((lock) => lock.lockId === lockId)!
-        ),
-        environment: useOverview(({ environments }) =>
-            Object.values(environments).find((env) => Object.values(env.locks).find((lock) => lock.lockId === lockId))
-        )?.name,
-    } as DisplayLock);
+export const useEnvironmentLock = (lockId: string): DisplayLock => {
+    const envs = useEnvironments();
+    for (let i = 0; i < envs.length; i++) {
+        const env = envs[i];
+        for (const locksKey in env.locks) {
+            const lock = env.locks[locksKey];
+            if (lock.lockId === lockId) {
+                return {
+                    date: lock.createdAt,
+                    message: lock.message,
+                    lockId: lock.lockId,
+                    authorName: lock.createdBy?.name,
+                    authorEmail: lock.createdBy?.email,
+                    environment: env.name,
+                };
+            }
+        }
+    }
+    throw new Error('lock with id not found: ' + lockId);
+};
 
 export const searchCustomFilter = (queryContent: string | null, val: string | undefined): string => {
     if (!!val && !!queryContent) {
@@ -371,43 +365,6 @@ export const useAllLocks = (): AllLocks => {
         appLocks,
     };
 };
-
-export const useApplicationLock = (lockId: string): DisplayLock =>
-    // eslint-disable-next-line no-type-assertion/no-type-assertion
-    ({
-        ...useOverview(
-            ({ environments }) =>
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                Object.values(
-                    Object.values(environments)
-                        .map((env) => Object.values(env.applications))
-                        .flat()
-                        .map((app) => app.locks)
-                        .reduce((acc, val) => ({ ...acc, ...val }))
-                )
-                    .map((lock) => ({
-                        date: lock.createdAt,
-                        message: lock.message,
-                        lockId: lock.lockId,
-                        authorName: lock.createdBy?.name,
-                        authorEmail: lock.createdBy?.email,
-                    }))
-                    .find((lock) => lock.lockId === lockId)!
-        ),
-        environment: useOverview(({ environments }) =>
-            Object.values(environments).find((env) =>
-                Object.values(env.applications).find((app) =>
-                    Object.values(app.locks).find((lock) => lock.lockId === lockId)
-                )
-            )
-        )?.name,
-        application: useOverview(({ environments }) =>
-            Object.values(environments)
-                .map((env) => Object.values(env.applications))
-                .flat()
-                .find((app) => Object.values(app.locks).find((lock) => lock.lockId === lockId))
-        )?.name,
-    } as DisplayLock);
 
 export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest' | 'newestToOldest'): DisplayLock[] => {
     const sortMethod = sorting === 'newestToOldest' ? -1 : 1;

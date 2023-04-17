@@ -18,8 +18,8 @@ import { UpdateOverview } from '../../utils/store';
 import { EnvironmentCard } from '../../components/EnvironmentCard/EnvironmentCard';
 import { Environment, Priority } from '../../../api/api';
 
-const sampleEnvs: { [key: string]: Environment } = {
-    foo: {
+const sampleEnvs: Environment[] = [
+    {
         name: 'foo',
         locks: {
             testId: {
@@ -43,14 +43,14 @@ const sampleEnvs: { [key: string]: Environment } = {
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
     },
-    moreTest: {
+    {
         name: 'moreTest',
         locks: {},
         applications: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
     },
-};
+];
 
 interface dataT {
     name: string;
@@ -84,7 +84,14 @@ describe('Environment Lane', () => {
         it(testcase.name, () => {
             //given
             UpdateOverview.set({
-                environments: sampleEnvs,
+                environments: {},
+                environmentGroups: [
+                    {
+                        environments: sampleEnvs,
+                        environmentGroupName: 'group321321',
+                        distanceToUpstream: 321321,
+                    },
+                ],
             });
             // when
             const { container } = getWrapper({ environment: testcase.environment });

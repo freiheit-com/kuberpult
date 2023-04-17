@@ -27,9 +27,16 @@ import { GetFrontendConfigResponse } from '../../api/api';
 import { createStore } from 'react-use-sub';
 import { grpc } from '@improbable-eng/grpc-web';
 
-export const [useFrontendConfig, UpdateFrontendConfig] = createStore({
-    // eslint-disable-next-line no-type-assertion/no-type-assertion
-    configs: {} as GetFrontendConfigResponse,
+type FrontendConfig = {
+    configs: GetFrontendConfigResponse;
+    configReady: boolean;
+};
+
+export const [useFrontendConfig, UpdateFrontendConfig] = createStore<FrontendConfig>({
+    configs: {
+        sourceRepoUrl: '',
+        kuberpultVersion: '0',
+    },
     configReady: false,
 });
 
@@ -39,11 +46,11 @@ type AzureAuthSubType = {
     };
     authReady: boolean;
 };
-// eslint-disable-next-line no-type-assertion/no-type-assertion
-export const [useAzureAuthSub, AzureAuthSub] = createStore({
+
+export const [useAzureAuthSub, AzureAuthSub] = createStore<AzureAuthSubType>({
     authHeader: new BrowserHeaders({}),
     authReady: false,
-} as AzureAuthSubType);
+});
 
 const getMsalConfig = (configs: GetFrontendConfigResponse): Configuration => ({
     auth: {
