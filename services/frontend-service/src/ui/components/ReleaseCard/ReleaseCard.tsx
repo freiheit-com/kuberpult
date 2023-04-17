@@ -18,7 +18,7 @@ import { Button } from '../button';
 import { Tooltip } from '../tooltip/tooltip';
 import React, { useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
-import { useRelease, useOpenReleaseDialog } from '../../utils/store';
+import { useOpenReleaseDialog, useReleaseOrThrow } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 
 const getRelativeDate = (date: Date): string => {
@@ -76,7 +76,8 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLDivElement>(null);
     const { className, app, version } = props;
-    const { createdAt, sourceMessage, sourceCommitId, sourceAuthor, undeployVersion } = useRelease(app, version);
+    // the ReleaseCard only displays actual releases, so we can assume that it exists here:
+    const { createdAt, sourceMessage, sourceCommitId, sourceAuthor, undeployVersion } = useReleaseOrThrow(app, version);
     const openReleaseDialog = useOpenReleaseDialog(app, version);
 
     useEffect(() => {

@@ -391,16 +391,22 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest'
 };
 
 // returns the release number {$version} of {$application}
-export const useRelease = (application: string, version: number): Release =>
-    // eslint-disable-next-line no-type-assertion/no-type-assertion
-    useOverview(({ applications }) => applications[application].releases.find((r) => r.version === version)!);
+const useRelease = (application: string, version: number): Release | undefined =>
+    useOverview(({ applications }) => applications[application].releases.find((r) => r.version === version));
+
+export const useReleaseOrThrow = (application: string, version: number): Release => {
+    const release = useRelease(application, version);
+    if (!release) {
+        throw new Error('Release cannot be found for app ' + application + ' version ' + version);
+    }
+    return release;
+};
 
 export const useReleaseOptional = (application: string, env: Environment): Release | undefined => {
     const x = env.applications[application];
     return useOverview(({ applications }) => {
         const version = x ? x.version : 0;
-        // eslint-disable-next-line no-type-assertion/no-type-assertion
-        const res = applications[application].releases.find((r) => r.version === version)!;
+        const res = applications[application].releases.find((r) => r.version === version);
         if (!x) {
             return undefined;
         }
