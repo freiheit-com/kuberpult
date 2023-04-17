@@ -17,6 +17,7 @@ import { act, render } from '@testing-library/react';
 import { Spy } from 'spy4js';
 import { DisplayLock } from '../../utils/store';
 import { calcLockAge, daysToString, isOutdated, LockDisplay } from './LockDisplay';
+import { documentQuerySelectorSafe } from '../../../setupTests';
 const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
 
 describe('Test Auxiliary Functions for Lock Display', () => {
@@ -122,17 +123,6 @@ describe('Test Auxiliary Functions for Lock Display', () => {
     });
 });
 
-const querySelectorSafe = (selectors: string): HTMLElement => {
-    const result = document.querySelector(selectors);
-    if (!result) {
-        throw new Error('did not find in selector in document ' + selectors);
-    }
-    if (!(result instanceof HTMLElement)) {
-        throw new Error('did find element in selector but it is not an html element: ' + selectors);
-    }
-    return result;
-};
-
 describe('Test delete lock button', () => {
     interface dataT {
         name: string;
@@ -160,7 +150,7 @@ describe('Test delete lock button', () => {
     describe.each(data)('lock type', (testcase) => {
         it(testcase.name, () => {
             render(<LockDisplay lock={testcase.lock} />);
-            const result = querySelectorSafe('.service-action--delete');
+            const result = documentQuerySelectorSafe('.service-action--delete');
             act(() => {
                 result.click();
             });
