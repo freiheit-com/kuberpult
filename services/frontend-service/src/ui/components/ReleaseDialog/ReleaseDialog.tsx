@@ -21,8 +21,8 @@ import {
     addAction,
     useCloseReleaseDialog,
     useEnvironmentGroups,
-    useRelease,
     useReleaseOptional,
+    useReleaseOrThrow,
     useTeamFromApplication,
 } from '../../utils/store';
 import { Button } from '../button';
@@ -237,7 +237,8 @@ export const undeployTooltipExplanation =
 
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, version } = props;
-    const release = useRelease(app, version);
+    // the ReleaseDialog is only opened when there is a release, so we can assume that it exists here:
+    const release = useReleaseOrThrow(app, version);
     const team = useTeamFromApplication(app);
     const closeReleaseDialog = useCloseReleaseDialog();
     const undeployVersionTitle = release.undeployVersion

@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
 import React from 'react';
-import { useOpenReleaseDialog, useRelease } from '../../utils/store';
+import { useOpenReleaseDialog, useReleaseOrThrow } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { undeployTooltipExplanation } from '../ReleaseDialog/ReleaseDialog';
 
@@ -34,7 +34,8 @@ const getDays = (date: Date): number => {
 
 export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
     const { className, app, version } = props;
-    const { createdAt, sourceMessage, sourceAuthor, undeployVersion } = useRelease(app, version);
+    // the ReleaseCardMini only displays actual releases, so we can assume that it exists here:
+    const { createdAt, sourceMessage, sourceAuthor, undeployVersion } = useReleaseOrThrow(app, version);
     const openReleaseDialog = useOpenReleaseDialog(app, version);
     let msg = sourceAuthor;
     if (createdAt !== undefined) {
