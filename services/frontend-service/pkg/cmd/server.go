@@ -231,7 +231,7 @@ func RunServer() {
 						return
 					}
 				}
-				if strings.HasSuffix(req.URL.Path, "/home") || strings.HasSuffix(req.URL.Path, "/environments") || strings.HasSuffix(req.URL.Path, "/locks") {
+				if strings.HasPrefix(req.URL.Path, "/home") || strings.HasSuffix(req.URL.Path, "/environments") || strings.HasSuffix(req.URL.Path, "/locks") {
 					http.ServeFile(resp, req, "build/index.html")
 				} else {
 					mux.ServeHTTP(resp, req)
