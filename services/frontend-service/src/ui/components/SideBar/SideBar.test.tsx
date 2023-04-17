@@ -28,6 +28,7 @@ import {
     DisplayLock,
 } from '../../utils/store';
 import { ActionDetails, ActionTypes, getActionDetails, SideBar } from './SideBar';
+import { elementQuerySelectorSafe } from '../../../setupTests';
 
 describe('Show and Hide Sidebar', () => {
     interface dataT {
@@ -44,8 +45,7 @@ describe('Show and Hide Sidebar', () => {
         {
             name: 'Sidebar is displayed',
             expect: (container) => {
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                const result = container.querySelector('.mdc-show-button')! as HTMLElement;
+                const result = elementQuerySelectorSafe(container, '.mdc-show-button');
                 act(() => {
                     result.click();
                 });
@@ -54,7 +54,7 @@ describe('Show and Hide Sidebar', () => {
         },
     ];
 
-    const getNode = (overrides?: {}): JSX.Element | any => {
+    const getNode = (overrides?: {}): JSX.Element => {
         // given
         const defaultProps: any = {
             children: null,
@@ -145,8 +145,7 @@ describe('Sidebar shows list of actions', () => {
             updateActions(testcase.actions);
             // when
             const { container } = getWrapper({});
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
-            const result = container.querySelector('.mdc-show-button')! as HTMLElement;
+            const result = elementQuerySelectorSafe(container, '.mdc-show-button');
             act(() => {
                 result.click();
             });
@@ -209,8 +208,7 @@ describe('Sidebar test deletebutton', () => {
             updateActions(testcase.actions);
             // when
             const { container } = getWrapper({});
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
-            const result = container.querySelector('.mdc-show-button')! as HTMLElement;
+            const result = elementQuerySelectorSafe(container, '.mdc-show-button');
             act(() => {
                 result.click();
             });
