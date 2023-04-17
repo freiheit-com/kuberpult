@@ -139,6 +139,7 @@ func openOrCreate(path string, disableSqlite bool) (*git.Repository, error) {
 		if err != nil {
 			return nil, fmt.Errorf("gettting odb: %w", err)
 		}
+                // Prioriority 99 ensures that libgit prefers this backend for writing over its buildin backends.
 		err = odb.AddBackend(be, 99)
 		if err != nil {
 			return nil, fmt.Errorf("setting odb backend: %w", err)
