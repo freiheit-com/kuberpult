@@ -19,6 +19,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/cmd/server/docs"
+	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/openpgp"
 	"io"
 	"net/http"
@@ -37,13 +39,20 @@ import (
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	swaggerfiles "github.com/swaggo/files"
 )
+
+// gin-swagger middleware
+
+//import "github.com/swaggo/files" // swagger embed files
 
 var c config.ServerConfig
 
@@ -81,6 +90,24 @@ func RunServer() {
 		logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
 		logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
 
+		useSwagger := true
+		if useSwagger {
+			//r := route.SetupRouter()
+			//r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+			//r.Run(":" + os.Getenv("SERVER_PORT"))
+
+			r := gin.Default()
+			docs.SwaggerInfo.BasePath = "/api/v1"
+			//v1 := r.Group("/api/v1")
+			//{
+			//eg := v1.Group("/example")
+			//{
+			//	//eg.GET("/helloworld", Helloworld)
+			//}
+			//}
+			r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+			r.Run(":8080")
+		}
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 
 		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
