@@ -41,19 +41,3 @@ func NewOdbBackend(name string) (*git.OdbBackend, error) {
 	}
 	return git.NewOdbBackendFromC(unsafe.Pointer(result)), nil
 }
-
-func NewOdb(name string) (*git.Odb, error) {
-	odb, err := git.NewOdb()
-	if err != nil {
-		return nil, fmt.Errorf("creating odb: %w", err)
-	}
-	be, err := NewOdbBackend(name)
-	if err != nil {
-		return nil, fmt.Errorf("creating odb backend: %w", err)
-	}
-	err = odb.AddBackend(be, 0)
-	if err != nil {
-		return nil, fmt.Errorf("setting odb backend: %w", err)
-	}
-	return odb, nil
-}
