@@ -38,7 +38,7 @@ func (s Server) HandleEnvironments(w http.ResponseWriter, req *http.Request, tai
 	case "locks":
 		s.handleEnvironmentLocks(w, req, environment, tail)
 	case "releasetrain":
-		s.handleReleaseTrain(w, req, environment, tail)
+		s.HandleReleaseTrain(w, req, environment, tail)
 	case "":
 		if tail == "/" && req.Method == http.MethodPost {
 			s.handleCreateEnvironment(w, req, environment, tail)

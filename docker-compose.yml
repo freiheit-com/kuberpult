@@ -15,6 +15,7 @@ services:
       - KUBERPULT_HTTP_CD_SERVER=http://kuberpult-cd-service:8080
     ports:
       - "8081:8081"
+      - "1234:1234"
     depends_on:
       - backend
     volumes:

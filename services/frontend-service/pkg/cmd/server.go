@@ -19,8 +19,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/cmd/server/docs"
-	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/openpgp"
 	"io"
 	"net/http"
@@ -35,19 +33,17 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	_ "github.com/freiheit-com/kuberpult/services/frontend-service/cmd/server/docs"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/handler"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
-	swaggerfiles "github.com/swaggo/files"
 )
 
 // gin-swagger middleware
@@ -90,23 +86,26 @@ func RunServer() {
 		logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
 		logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
 
-		useSwagger := true
+		useSwagger := false
 		if useSwagger {
+			logger.FromContext(ctx).Info("using swagger: \n")
 			//r := route.SetupRouter()
 			//r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 			//r.Run(":" + os.Getenv("SERVER_PORT"))
 
-			r := gin.Default()
-			docs.SwaggerInfo.BasePath = "/api/v1"
+			//r := gin.Default()
+			//docs.SwaggerInfo.BasePath = "/api/v1"
 			//v1 := r.Group("/api/v1")
 			//{
-			//eg := v1.Group("/example")
-			//{
-			//	//eg.GET("/helloworld", Helloworld)
+			//	eg := v1.Group("/example")
+			//	{
+			//		eg.GET("/helloworld", handler.Server.HandleReleaseTrain)
+			//	}
 			//}
-			//}
-			r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
-			r.Run(":8080")
+			//r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+			//logger.FromContext(ctx).Info("starting swagger server: \n")
+			//r.Run(":1234")
+			//logger.FromContext(ctx).Info("done starting swagger server: \n")
 		}
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 
