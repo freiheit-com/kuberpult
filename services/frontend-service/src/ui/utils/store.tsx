@@ -257,7 +257,7 @@ export const useSearchedApplications = (applications: Application[], appNamePara
 
 // return all applications locks
 export const useFilteredApplicationLocks = (appNameParam: string | null): DisplayLock[] => {
-    const finalLocks: DisplayLock[] = [];
+    const finalLocks: DisplayLock[] = [] as DisplayLock[];
     Object.values(useEnvironments())
         .map((environment) => ({ envName: environment.name, apps: environment.applications }))
         .forEach((app) => {
