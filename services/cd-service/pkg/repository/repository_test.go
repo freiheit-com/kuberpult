@@ -723,6 +723,7 @@ func TestGc(t *testing.T) {
 			Name:               "gc disabled + sqlite",
 			GcFrequency:        0,
 			DisableSqlite:      false,
+			ExpectedGarbageMin: 0,
 			ExpectedGarbageMax: 0,
 		},
 	}
