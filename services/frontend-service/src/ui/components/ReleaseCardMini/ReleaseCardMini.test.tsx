@@ -17,6 +17,7 @@ import { ReleaseCardMini, ReleaseCardMiniProps } from './ReleaseCardMini';
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
+import { Environment, Release, UndeploySummary } from '../../../api/api';
 
 describe('Release Card Mini', () => {
     const getNode = (overrides: ReleaseCardMiniProps) => (
@@ -26,7 +27,18 @@ describe('Release Card Mini', () => {
     );
     const getWrapper = (overrides: ReleaseCardMiniProps) => render(getNode(overrides));
 
-    const data = [
+    type TestData = {
+        name: string;
+        msg: string;
+        expectedMessage: string;
+        props: {
+            app: string;
+            version: number;
+        };
+        rels: Release[];
+        environments: { [key: string]: Environment };
+    };
+    const data: TestData[] = [
         {
             name: 'A release from 2 days ago',
             props: { app: 'test1', version: 2 },
@@ -36,10 +48,14 @@ describe('Release Card Mini', () => {
                     version: 2,
                     sourceMessage: 'test-rel',
                     sourceAuthor: 'test-author',
+                    undeployVersion: false,
+                    sourceCommitId: 'commit123',
+                    prNumber: '666',
                     createdAt: new Date('2022-12-14T14:20:00'),
                 },
             ],
             expectedMessage: 'test-rel',
+            environments: {},
         },
         {
             name: 'A release from 4 days ago',
@@ -50,10 +66,14 @@ describe('Release Card Mini', () => {
                     version: 2,
                     sourceMessage: 'test-rel',
                     sourceAuthor: 'test-author',
+                    undeployVersion: false,
+                    sourceCommitId: 'commit123',
+                    prNumber: '666',
                     createdAt: new Date('2022-12-12T08:20:00'),
                 },
             ],
             expectedMessage: 'test-rel',
+            environments: {},
         },
         {
             name: 'using A release today',
@@ -65,9 +85,13 @@ describe('Release Card Mini', () => {
                     sourceMessage: 'test-rel',
                     sourceAuthor: 'test-author',
                     createdAt: new Date('2022-12-16T14:20:00'),
+                    undeployVersion: false,
+                    sourceCommitId: 'commit123',
+                    prNumber: '666',
                 },
             ],
             expectedMessage: 'test-rel',
+            environments: {},
         },
         {
             name: 'A release three days ago with an env',
@@ -79,14 +103,24 @@ describe('Release Card Mini', () => {
                     sourceMessage: 'test-rel',
                     sourceAuthor: 'test-author',
                     createdAt: new Date('2022-12-13T14:20:00'),
+                    undeployVersion: false,
+                    sourceCommitId: 'commit123',
+                    prNumber: '666',
                 },
             ],
             environments: {
                 other: {
                     name: 'other',
+                    locks: {},
+                    distanceToUpstream: 0,
+                    priority: 0,
                     applications: {
                         test2: {
                             version: 2,
+                            queuedVersion: 0,
+                            name: 'test2',
+                            locks: {},
+                            undeployVersion: false,
                         },
                     },
                 },
@@ -103,15 +137,24 @@ describe('Release Card Mini', () => {
                     sourceMessage: 'test-rel',
                     sourceAuthor: 'test-author',
                     createdAt: new Date('2022-12-13T14:20:00'),
+                    sourceCommitId: 'commit123',
+                    prNumber: '666',
                     undeployVersion: true,
                 },
             ],
             environments: {
                 other: {
                     name: 'other',
+                    locks: {},
+                    distanceToUpstream: 0,
+                    priority: 0,
                     applications: {
                         test2: {
                             version: 2,
+                            queuedVersion: 0,
+                            name: 'test2',
+                            locks: {},
+                            undeployVersion: false,
                         },
                     },
                 },
@@ -123,12 +166,19 @@ describe('Release Card Mini', () => {
     describe.each(data)(`Renders a Release Card`, (testcase) => {
         it(testcase.name, () => {
             // when
-            // eslint-disable-next-line no-type-assertion/no-type-assertion
             UpdateOverview.set({
-                // eslint-disable-next-line no-type-assertion/no-type-assertion
-                applications: { [testcase.props.app as string]: { releases: testcase.rels } },
+                applications: {
+                    [testcase.props.app]: {
+                        name: testcase.props.app,
+                        releases: testcase.rels,
+                        sourceRepoUrl: 'url',
+                        undeploySummary: UndeploySummary.Normal,
+                        team: 'no-team',
+                    },
+                },
                 environments: testcase.environments ?? {},
-            } as any);
+                environmentGroups: [],
+            });
             // Mock Date.now to always return 2022-12-16T14:20:00
             Date.now = jest.fn(() => Date.parse('2022-12-16T14:20:00'));
             const { container } = getWrapper(testcase.props);
