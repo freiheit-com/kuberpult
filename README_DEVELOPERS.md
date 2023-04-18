@@ -151,6 +151,12 @@ echo "export PKG_CONFIG_PATH=/opt/local/lib/pkgconfig" >> ~/.zshrc
 source ~/.zshrc
   ```
 
+-  libsqlite3
+
+On ubuntu: install the apt package `libsqlite3-dev`
+On mac: install the macports package `sqlite3`
+
+
 - Chart Testing:
   - install `helm`, `Yamale`, `Yamllint` as prerequisites to `ct` from https://github.com/helm/chart-testing#installation
   - then follow the instructions to install `ct`
