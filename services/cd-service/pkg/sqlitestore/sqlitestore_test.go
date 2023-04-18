@@ -21,7 +21,7 @@ import (
 	git "github.com/libgit2/git2go/v34"
 )
 
-func TestMemory(t *testing.T) {
+func TestWriteAndRead(t *testing.T) {
 	be, err := NewOdbBackend(":memory:")
 	if err != nil {
 		t.Fatal(err)
