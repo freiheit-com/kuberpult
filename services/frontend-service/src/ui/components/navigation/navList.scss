@@ -6,11 +6,12 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    gap: 150px;
+    gap: $nav-list-item-gap;
     height: 100%;
 
     .mdc-list-item {
-        height: 130px;
+        height: 100%;
+        padding: $nav-list-item-padding;
         align-items: center;
     }
 }
