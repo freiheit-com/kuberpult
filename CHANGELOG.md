@@ -8,7 +8,11 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 ## 0.4.65
 **released 2023-04-18**
+
+Note: this release contains a change that switches the underlying storage from git package files to sqlite. The change is completely transparent and should have no downsides. In case of problems, the helm chart has a new option `enableSqlite` that can be set to false to disable the new behaviour.
+
 ### Major Changes
+* [Switch default storage backend to sqlite](https://github.com/freiheit-com/kuberpult/pull/592)
 * [Fix: Allow emptying manifest of individual environments](https://github.com/freiheit-com/kuberpult/pull/650)
 * [Allow url paths starting with home to be served](https://github.com/freiheit-com/kuberpult/pull/646)
 * [Always Show the latest release on homepage](https://github.com/freiheit-com/kuberpult/pull/629)
