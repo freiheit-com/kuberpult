@@ -397,7 +397,6 @@ func TestDeployApplicationVersion(t *testing.T) {
 		Transformers     []Transformer
 		expectedError    string
 		expectedPath     string
-		shouldSucceed    bool
 		expectedFileData []byte
 	}{
 		{
@@ -423,7 +422,6 @@ func TestDeployApplicationVersion(t *testing.T) {
 			expectedError:    "",
 			expectedPath:     "environments/acceptance/applications/app1/manifests/manifests.yaml",
 			expectedFileData: []byte("acceptance"),
-			shouldSucceed:    true,
 		},
 		{
 			Name: "successfully deploy an empty manifest",
@@ -448,7 +446,6 @@ func TestDeployApplicationVersion(t *testing.T) {
 			expectedError:    "",
 			expectedPath:     "environments/acceptance/applications/app1/manifests/manifests.yaml",
 			expectedFileData: []byte(" "),
-			shouldSucceed:    true,
 		},
 	}
 	for _, tc := range tcs {
@@ -464,23 +461,12 @@ func TestDeployApplicationVersion(t *testing.T) {
 			fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath)
 			fileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
 
-			//if tc.shouldSucceed {
 			if err != nil {
 				t.Fatalf("Expected no error: %v path=%s", err, fullPath)
 			}
 			if !cmp.Equal(fileData, tc.expectedFileData) {
 				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedFileData), string(fileData))
 			}
-			//} else {
-			//	if err == nil {
-			//		t.Fatal("Expected error but got none")
-			//	} else {
-			//		actualMsg := err.Error()
-			//		if actualMsg != tc.expectedError {
-			//			t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
-			//		}
-			//	}
-			//}
 		})
 	}
 }
