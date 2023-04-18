@@ -823,6 +823,13 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		return "", err
 	}
 	manifestFilename := fs.Join(manifestsDir, "manifests.yaml")
+	// note that the manifest is empty here!
+	// but actually it's not quite empty!
+	// The function we are using here is `util.WriteFile`. And that does not allow overwriting files with empty content.
+	// We work around this unusual behavior by writing a space into the file
+	if len(manifestContent) == 0 {
+		manifestContent = []byte(" ")
+	}
 	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
 		return "", err
 	}

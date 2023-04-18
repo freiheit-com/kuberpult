@@ -391,6 +391,100 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 	}
 }
 
+func TestDeployApplicationVersion(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		Transformers     []Transformer
+		expectedError    string
+		expectedPath     string
+		shouldSucceed    bool
+		expectedFileData []byte
+	}{
+		{
+			Name: "successfully deploy a full manifest",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+			},
+			expectedError:    "",
+			expectedPath:     "environments/acceptance/applications/app1/manifests/manifests.yaml",
+			expectedFileData: []byte("acceptance"),
+			shouldSucceed:    true,
+		},
+		{
+			Name: "successfully deploy an empty manifest",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "", // empty!
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+			},
+			expectedError:    "",
+			expectedPath:     "environments/acceptance/applications/app1/manifests/manifests.yaml",
+			expectedFileData: []byte(" "),
+			shouldSucceed:    true,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			_, updatedState, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			if err != nil {
+				t.Fatalf("Expected no error when applying: %v", err)
+			}
+
+			fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath)
+			fileData, err := util.ReadFile(updatedState.Filesystem, fullPath)
+
+			//if tc.shouldSucceed {
+			if err != nil {
+				t.Fatalf("Expected no error: %v path=%s", err, fullPath)
+			}
+			if !cmp.Equal(fileData, tc.expectedFileData) {
+				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedFileData), string(fileData))
+			}
+			//} else {
+			//	if err == nil {
+			//		t.Fatal("Expected error but got none")
+			//	} else {
+			//		actualMsg := err.Error()
+			//		if actualMsg != tc.expectedError {
+			//			t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+			//		}
+			//	}
+			//}
+		})
+	}
+}
+
 func TestCreateApplicationVersionWithVersion(t *testing.T) {
 	tcs := []struct {
 		Name             string
