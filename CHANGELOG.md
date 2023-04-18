@@ -6,6 +6,30 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.65
+**released 2023-04-18**
+### Major Changes
+* [Fix: Allow emptying manifest of individual environments](https://github.com/freiheit-com/kuberpult/pull/650)
+* [Allow url paths starting with home to be served](https://github.com/freiheit-com/kuberpult/pull/646)
+* [Always Show the latest release on homepage](https://github.com/freiheit-com/kuberpult/pull/629)
+
+### Minor Changes
+* [Update module google.golang.org/api to v0.118.0](https://github.com/freiheit-com/kuberpult/pull/630)
+* [Update module k8s.io/apimachinery to v0.27.1](https://github.com/freiheit-com/kuberpult/pull/631)
+* [fix(deps): update module gopkg.in/datadog/dd-trace-go.v1 to v1.49.1](https://github.com/freiheit-com/kuberpult/pull/615)
+* [fix(deps): update module golang.org/x/crypto to v0.8.0](https://github.com/freiheit-com/kuberpult/pull/621)
+* Lots of small refactorings in order to enable [type assertions checks (633)](https://github.com/freiheit-com/kuberpult/pull/633)
+  * [645](https://github.com/freiheit-com/kuberpult/pull/645)
+  * [643](https://github.com/freiheit-com/kuberpult/pull/643)
+  * [642](https://github.com/freiheit-com/kuberpult/pull/642)
+  * [641](https://github.com/freiheit-com/kuberpult/pull/641)
+  * [640](https://github.com/freiheit-com/kuberpult/pull/640)
+  * [638](https://github.com/freiheit-com/kuberpult/pull/638)
+  * [639](https://github.com/freiheit-com/kuberpult/pull/639)
+  * [634](https://github.com/freiheit-com/kuberpult/pull/634)
+  * [637](https://github.com/freiheit-com/kuberpult/pull/637)
+
+
 ## 0.4.64
 **released 2023-04-13**
 ### Major Changes
