@@ -15,7 +15,7 @@ div.mdc-select {
     @extend .text-bold;
     width: 100%;
     min-height: 100%;
-    border-radius: 10px;
+    border-radius: $border-radius-medium;
     fieldset {
         border-color: var(--mdc-theme-primary);
     }
