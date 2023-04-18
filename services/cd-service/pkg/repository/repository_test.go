@@ -695,7 +695,7 @@ func TestGc(t *testing.T) {
 	tcs := []struct {
 		Name               string
 		GcFrequency        uint
-		DisableSqlite      bool
+		StorageBackend     StorageBackend
 		ExpectedGarbageMin uint64
 		ExpectedGarbageMax uint64
 	}{
@@ -704,7 +704,7 @@ func TestGc(t *testing.T) {
 			// we are reasonably expecting some additional files around
 			Name:               "gc disabled",
 			GcFrequency:        0,
-			DisableSqlite:      true,
+			StorageBackend:     GitBackend,
 			ExpectedGarbageMin: 907,
 			ExpectedGarbageMax: 910,
 		},
@@ -713,16 +713,15 @@ func TestGc(t *testing.T) {
 			// the number of additional files should be lower than in the case above
 			Name:               "gc enabled",
 			GcFrequency:        100,
-			DisableSqlite:      true,
+			StorageBackend:     GitBackend,
 			ExpectedGarbageMin: 9,
 			ExpectedGarbageMax: 10,
 		},
 		{
-			// 0 disables GC entirely
-			// enabling sqlite should bring the number of loose files down to 0 however
-			Name:               "gc disabled + sqlite",
-			GcFrequency:        0,
-			DisableSqlite:      false,
+			// enabling sqlite should bring the number of loose files down to 0
+			Name:               "sqlite",
+			GcFrequency:        0, // the actual number here doesn't matter. GC is not run when sqlite is in use
+			StorageBackend:     SqliteBackend,
 			ExpectedGarbageMin: 0,
 			ExpectedGarbageMax: 0,
 		},
@@ -743,10 +742,10 @@ func TestGc(t *testing.T) {
 			repo, err := New(
 				ctx,
 				RepositoryConfig{
-					URL:           "file://" + remoteDir,
-					Path:          localDir,
-					GcFrequency:   tc.GcFrequency,
-					DisableSqlite: tc.DisableSqlite,
+					URL:            "file://" + remoteDir,
+					Path:           localDir,
+					GcFrequency:    tc.GcFrequency,
+					StorageBackend: tc.StorageBackend,
 				},
 			)
 			if err != nil {

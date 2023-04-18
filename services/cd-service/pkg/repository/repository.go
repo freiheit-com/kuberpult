@@ -70,6 +70,14 @@ var (
 	ddMetrics *statsd.Client
 )
 
+type StorageBackend int
+
+const (
+	DefaultBackend StorageBackend = 0
+	GitBackend     StorageBackend = iota
+	SqliteBackend  StorageBackend = iota
+)
+
 type repository struct {
 	// Mutex gurading the writer
 	writeLock    sync.Mutex
@@ -102,8 +110,8 @@ type RepositoryConfig struct {
 	// default branch is master
 	Branch string
 	//
-	GcFrequency   uint
-	DisableSqlite bool
+	GcFrequency    uint
+	StorageBackend StorageBackend
 	// Bootstrap mode controls where configurations are read from
 	// true: read from json file at EnvironmentConfigsPath
 	// false: read from config files in manifest repo
@@ -111,7 +119,7 @@ type RepositoryConfig struct {
 	EnvironmentConfigsPath string
 }
 
-func openOrCreate(path string, disableSqlite bool) (*git.Repository, error) {
+func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
 	repo2, err := git.OpenRepositoryExtended(path, git.RepositoryOpenNoSearch, path)
 	if err != nil {
 		var gerr *git.GitError
@@ -129,7 +137,7 @@ func openOrCreate(path string, disableSqlite bool) (*git.Repository, error) {
 			return nil, err
 		}
 	}
-	if !disableSqlite {
+	if storageBackend == SqliteBackend {
 		sqlitePath := filepath.Join(path, "odb.sqlite")
 		be, err := sqlitestore.NewOdbBackend(sqlitePath)
 		if err != nil {
@@ -139,7 +147,7 @@ func openOrCreate(path string, disableSqlite bool) (*git.Repository, error) {
 		if err != nil {
 			return nil, fmt.Errorf("gettting odb: %w", err)
 		}
-                // Prioriority 99 ensures that libgit prefers this backend for writing over its buildin backends.
+		// Prioriority 99 ensures that libgit prefers this backend for writing over its buildin backends.
 		err = odb.AddBackend(be, 99)
 		if err != nil {
 			return nil, fmt.Errorf("setting odb backend: %w", err)
@@ -166,6 +174,9 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	if cfg.CommitterName == "" {
 		cfg.CommitterName = "kuberpult"
 	}
+	if cfg.StorageBackend == DefaultBackend {
+		cfg.StorageBackend = SqliteBackend
+	}
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	var err error
@@ -182,7 +193,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		}
 	}
 
-	if repo2, err := openOrCreate(cfg.Path, cfg.DisableSqlite); err != nil {
+	if repo2, err := openOrCreate(cfg.Path, cfg.StorageBackend); err != nil {
 		return nil, err
 	} else {
 		// configure remotes
@@ -685,7 +696,7 @@ func (r *repository) countObjects(ctx context.Context) (ObjectCount, error) {
 }
 
 func (r *repository) maybeGc(ctx context.Context) {
-	if !r.config.DisableSqlite || r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
+	if r.config.StorageBackend == SqliteBackend || r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
 		return
 	}
 	log := logger.FromContext(ctx)

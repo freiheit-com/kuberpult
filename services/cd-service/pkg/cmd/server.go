@@ -52,6 +52,7 @@ type Config struct {
 	EnableTracing     bool   `default:"false" split_words:"true"`
 	EnableMetrics     bool   `default:"false" split_words:"true"`
 	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true"`
+	EnableSqlite      bool   `default:"true" split_words:"true"`
 }
 
 func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
@@ -64,6 +65,14 @@ func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
 	}
 	defer file.Close()
 	return openpgp.ReadArmoredKeyRing(file)
+}
+
+func (c *Config) storageBackend() repository.StorageBackend {
+	if c.EnableSqlite {
+		return repository.SqliteBackend
+	} else {
+		return repository.GitBackend
+	}
 }
 
 func RunServer() {
@@ -134,6 +143,7 @@ func RunServer() {
 			GcFrequency:            20,
 			BootstrapMode:          c.BootstrapMode,
 			EnvironmentConfigsPath: "./environment_configs.json",
+			StorageBackend:         c.storageBackend(),
 		})
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
