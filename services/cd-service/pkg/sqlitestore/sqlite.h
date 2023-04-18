@@ -13,12 +13,6 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
+#include <git2/sys/odb_backend.h>
 
-// Main file for microservice cd-service.
-package main
-
-import "github.com/freiheit-com/kuberpult/services/cd-service/pkg/cmd"
-
-func main() {
-	cmd.RunServer()
-}
+int kp_backend_sqlite(git_odb_backend **backend_out, const char *sqlite_db, const char **err_out);

@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,6 +41,7 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/sqlitestore"
 	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -66,6 +68,14 @@ func defaultBackOffProvider() backoff.BackOff {
 
 var (
 	ddMetrics *statsd.Client
+)
+
+type StorageBackend int
+
+const (
+	DefaultBackend StorageBackend = 0
+	GitBackend     StorageBackend = iota
+	SqliteBackend  StorageBackend = iota
 )
 
 type repository struct {
@@ -100,7 +110,8 @@ type RepositoryConfig struct {
 	// default branch is master
 	Branch string
 	//
-	GcFrequency uint
+	GcFrequency    uint
+	StorageBackend StorageBackend
 	// Bootstrap mode controls where configurations are read from
 	// true: read from json file at EnvironmentConfigsPath
 	// false: read from config files in manifest repo
@@ -108,7 +119,7 @@ type RepositoryConfig struct {
 	EnvironmentConfigsPath string
 }
 
-func openOrCreate(path string) (*git.Repository, error) {
+func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
 	repo2, err := git.OpenRepositoryExtended(path, git.RepositoryOpenNoSearch, path)
 	if err != nil {
 		var gerr *git.GitError
@@ -124,6 +135,22 @@ func openOrCreate(path string) (*git.Repository, error) {
 			}
 		} else {
 			return nil, err
+		}
+	}
+	if storageBackend == SqliteBackend {
+		sqlitePath := filepath.Join(path, "odb.sqlite")
+		be, err := sqlitestore.NewOdbBackend(sqlitePath)
+		if err != nil {
+			return nil, fmt.Errorf("creating odb backend: %w", err)
+		}
+		odb, err := repo2.Odb()
+		if err != nil {
+			return nil, fmt.Errorf("gettting odb: %w", err)
+		}
+		// Prioriority 99 ensures that libgit prefers this backend for writing over its buildin backends.
+		err = odb.AddBackend(be, 99)
+		if err != nil {
+			return nil, fmt.Errorf("setting odb backend: %w", err)
 		}
 	}
 	return repo2, err
@@ -147,6 +174,9 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	if cfg.CommitterName == "" {
 		cfg.CommitterName = "kuberpult"
 	}
+	if cfg.StorageBackend == DefaultBackend {
+		cfg.StorageBackend = SqliteBackend
+	}
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	var err error
@@ -163,7 +193,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 		}
 	}
 
-	if repo2, err := openOrCreate(cfg.Path); err != nil {
+	if repo2, err := openOrCreate(cfg.Path, cfg.StorageBackend); err != nil {
 		return nil, err
 	} else {
 		// configure remotes
@@ -666,7 +696,7 @@ func (r *repository) countObjects(ctx context.Context) (ObjectCount, error) {
 }
 
 func (r *repository) maybeGc(ctx context.Context) {
-	if r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
+	if r.config.StorageBackend == SqliteBackend || r.config.GcFrequency == 0 || r.writesDone < r.config.GcFrequency {
 		return
 	}
 	log := logger.FromContext(ctx)

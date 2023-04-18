@@ -1,6 +1,6 @@
 FROM alpine:3.17
 
-RUN apk --update add --no-cache curl make go git libgit2-dev pkgconfig build-base
+RUN apk --update add --no-cache curl make go git libgit2-dev sqlite sqlite-dev pkgconfig build-base
 RUN BIN="/usr/local/bin" && \
   curl -sSL \
     "https://github.com/bufbuild/buf/releases/download/v1.7.0/buf-Linux-x86_64" \

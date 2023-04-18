@@ -693,87 +693,92 @@ func TestConfigValidity(t *testing.T) {
 
 func TestGc(t *testing.T) {
 	tcs := []struct {
-		Name          string
-		GcFrequencies []uint
-		CreateGarbage func(t *testing.T, repo *repository)
-		Test          func(t *testing.T, repos []*repository)
+		Name               string
+		GcFrequency        uint
+		StorageBackend     StorageBackend
+		ExpectedGarbageMin uint64
+		ExpectedGarbageMax uint64
 	}{
 		{
-			Name: "simple",
-			GcFrequencies: []uint{
-				// 0 disables GC entirely
-				0,
-				// we are going to perform 101 requests, that should trigger a gc
-				101,
-			},
-			CreateGarbage: func(t *testing.T, repo *repository) {
-				ctx := context.Background()
-				err := repo.Apply(ctx, &CreateEnvironment{
-					Environment: "test",
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-				for i := 0; i < 100; i++ {
-					err := repo.Apply(ctx, &CreateApplicationVersion{
-						Application: "test",
-						Manifests: map[string]string{
-							"test": fmt.Sprintf("test%d", i),
-						},
-					})
-					if err != nil {
-						t.Fatal(err)
-					}
-				}
-			},
-			Test: func(t *testing.T, repos []*repository) {
-				ctx := context.Background()
-				stats0, err := repos[0].countObjects(ctx)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if stats0.Count == 0 {
-					t.Errorf("expected object count to not be 0, but got %d", stats0.Count)
-				}
-				stats1, err := repos[1].countObjects(ctx)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if stats1.Count != 0 {
-					t.Errorf("expected object count to be 0, but got %d", stats1.Count)
-				}
-			},
+			// 0 disables GC entirely
+			// we are reasonably expecting some additional files around
+			Name:               "gc disabled",
+			GcFrequency:        0,
+			StorageBackend:     GitBackend,
+			ExpectedGarbageMin: 907,
+			ExpectedGarbageMax: 910,
+		},
+		{
+			// we are going to perform 101 requests, that should trigger a gc
+			// the number of additional files should be lower than in the case above
+			Name:               "gc enabled",
+			GcFrequency:        100,
+			StorageBackend:     GitBackend,
+			ExpectedGarbageMin: 9,
+			ExpectedGarbageMax: 10,
+		},
+		{
+			// enabling sqlite should bring the number of loose files down to 0
+			Name:               "sqlite",
+			GcFrequency:        0, // the actual number here doesn't matter. GC is not run when sqlite is in use
+			StorageBackend:     SqliteBackend,
+			ExpectedGarbageMin: 0,
+			ExpectedGarbageMax: 0,
 		},
 	}
+
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			// create a remote
-			repos := make([]*repository, len(tc.GcFrequencies))
-			for i, gcFrequency := range tc.GcFrequencies {
-				dir := t.TempDir()
-				remoteDir := path.Join(dir, "remote")
-				localDir := path.Join(dir, "local")
-				cmd := exec.Command("git", "init", "--bare", remoteDir)
-				cmd.Start()
-				cmd.Wait()
-				repo, err := New(
-					context.Background(),
-					RepositoryConfig{
-						URL:         "file://" + remoteDir,
-						Path:        localDir,
-						GcFrequency: gcFrequency,
-					},
-				)
-				if err != nil {
-					t.Fatalf("new: expected no error, got '%e'", err)
-				}
-				repoInternal := repo.(*repository)
-				tc.CreateGarbage(t, repoInternal)
-				repos[i] = repoInternal
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+			ctx := context.Background()
+			repo, err := New(
+				ctx,
+				RepositoryConfig{
+					URL:            "file://" + remoteDir,
+					Path:           localDir,
+					GcFrequency:    tc.GcFrequency,
+					StorageBackend: tc.StorageBackend,
+				},
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%e'", err)
 			}
-			tc.Test(t, repos)
+
+			err = repo.Apply(ctx, &CreateEnvironment{
+				Environment: "test",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i := 0; i < 100; i++ {
+				err := repo.Apply(ctx, &CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"test": fmt.Sprintf("test%d", i),
+					},
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			stats, err := repo.(*repository).countObjects(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if stats.Count > tc.ExpectedGarbageMax {
+				t.Errorf("expected object count to be lower than %d, but got %d", tc.ExpectedGarbageMax, stats.Count)
+			}
+			if stats.Count < tc.ExpectedGarbageMin {
+				t.Errorf("expected object count to be higher than %d, but got %d", tc.ExpectedGarbageMin, stats.Count)
+			}
 		})
 	}
 }

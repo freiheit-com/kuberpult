@@ -27,6 +27,7 @@ cd:
     requests:
       cpu: 2
       memory: 3Gi
+  enableSqlite: true
 frontend:
   image: kuberpult-frontend-service
   resources:
