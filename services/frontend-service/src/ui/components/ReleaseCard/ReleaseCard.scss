@@ -29,13 +29,18 @@
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
     }
-    .release__hash {
-        @extend .text-bold;
-    }
+}
+
+.release__hash {
+    @extend .text-bold;
+    height: $release-card-hash-height;
 }
 
 .release__details {
     padding: $release-card-tooltip-padding;
+    b {
+        @extend .text-bold;
+    }
     div {
         @extend .text-regular;
     }

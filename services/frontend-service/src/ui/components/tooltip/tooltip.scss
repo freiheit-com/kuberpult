@@ -11,14 +11,14 @@
         background: transparent;
         // add padding to allow for the Caret (the arrow)
         padding: 8px 0px 0px 0px;
-        border-radius: $release-card-tooltip-border-radius;
+        border-radius: $border-radius-medium;
 
         .mdc-tooltip__content {
             background: var(--mdc-theme-background);
             // add margin to allow for the Caret (the arrow)
             margin: 12px 0px 0px 0px;
             border: 1px solid $release-card-tooltip-border-color;
-            border-radius: $release-card-tooltip-border-radius;
+            border-radius: $border-radius-medium;
         }
 
         .mdc-tooltip__caret-surface-top {
