@@ -30,7 +30,7 @@
 
 .service__releases {
     display: flex;
-    margin: 0 0 $service-lane-margin-bottom 0;
+    margin: $service-lane-releases-margin;
 }
 
 .service-lane__diff {

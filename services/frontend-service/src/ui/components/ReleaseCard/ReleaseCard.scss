@@ -6,33 +6,36 @@
 }
 
 .release-card {
-    border-radius: 10px;
-    min-height: 136px;
-    max-height: 136px;
-    min-width: 240px;
-    max-width: 240px;
-    margin: -20px 8px 4px 8px;
+    border-radius: $border-radius-medium;
+    min-height: $release-card-height;
+    max-height: $release-card-height;
+    min-width: $release-card-width;
+    max-width: $release-card-width;
+    margin: $release-card-margin;
     color: var(--mdc-theme-on-surface);
     box-shadow: none;
 
     .release-card__description {
-        height: 100vh;
-        padding: 20px;
+        height: $release-card-height;
+        padding: $release-card-inner-padding;
     }
 }
 
 .release-card__header {
     .release__title {
-        @extend .sub-headline1;
+        @extend .text-bold;
         overflow: hidden;
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
     }
+    .release__hash {
+        @extend .text-bold;
+    }
 }
 
 .release__details {
-    padding: 12px 8px;
+    padding: $release-card-tooltip-padding;
     div {
         @extend .text-regular;
     }
@@ -42,30 +45,8 @@
     }
 }
 
-.release-environment {
-    white-space: nowrap;
-    .mdc-evolution-chip__cell {
-        @extend .sub-headline1;
-        color: $environment-label-color;
-        overflow: hidden;
-    }
-}
-.release-environment.release-environment-prod {
-    background-color: #dc0000;
-}
-.release-environment.release-environment-pre_prod {
-    background-color: #f3be00;
-}
-.release-environment.release-environment-upstream {
-    background-color: #50c241;
-}
-
 .release__environments {
-    @extend .text-bold;
     align-self: center;
     z-index: 2;
-    min-height: 42px;
-    > *:not(:last-child) {
-        margin-right: 8px;
-    }
+    min-height: $release-card-environments-min-height;
 }

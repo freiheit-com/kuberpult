@@ -60,7 +60,6 @@ $environment-add-lock-button-border: 1px solid var(--mdc-theme-primary);
 $environment-add-lock-button-border-radius: 10px;
 $environment-add-lock-button-color: var(--mdc-theme-primary);
 $environment-add-lock-button-padding-left: 1em;
-$environment-label-color: white;
 
 // Release Dialog
 $release-dialog-outer-border-radius: 15px;
@@ -70,10 +69,26 @@ $release-dialog-inner-border-radius: 10px;
 $release-dialog-label-displacement: -10px;
 $release-dialog-lock-icon-size: 24px;
 
+// Environment Chip
+$env-group-chip-margin: 4px;
+$env-chip-height: 20px;
+$env-chip-padding: 4px;
+$env-color-prod: #dc0000;
+$env-color-pre_prod: #f3be00;
+$env-color-upstream: #50c241;
+
+// Release Card
+$release-card-height: 90px;
+$release-card-width: 160px;
+$release-card-margin: -16px 4px 0 4px;
+$release-card-inner-padding: 10px;
+$release-card-environments-min-height: 26px;
+
 // Release Card Tooltip
 $release-card-tooltip-border-radius: 10px;
 $release-card-tooltip-border-color: #bababa;
 $release-card-tooltip-width: 285px;
+$release-card-tooltip-padding: 8px 4px;
 $release-card-tooltip-caret-shift-left: 55px;
 
 // Service Lane
@@ -82,7 +97,8 @@ $service-lane-header-padding: 0 10px;
 $service-lane-header-actions-margin-left: 40px;
 $service-lane-header-actions-height: 28px;
 $service-lane-header-actions-button-padding-left: 16px;
-$service-lane-margin-bottom: 16px;
+$service-lane-releases-margin: 4px 0 12px 0;
+
 // Service Lane Diff Element
 $service-lane-diff-element-border-color: #bababa;
 $service-lane-diff-element-width: 50px;
