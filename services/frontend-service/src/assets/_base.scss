@@ -43,8 +43,8 @@ body,
 .sub-headline1 {
     @extend .font;
     font-weight: 700;
-    font-size: 18px;
-    line-height: 32px;
+    font-size: 16px;
+    line-height: 28px;
 }
 
 .text-regular {
@@ -57,8 +57,8 @@ body,
 .text-bold {
     @extend .font;
     font-weight: 700;
-    font-size: 14px;
-    line-height: 24px;
+    font-size: 10px;
+    line-height: 16px;
 }
 
 .text-medium {
