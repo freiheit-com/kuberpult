@@ -76,8 +76,16 @@ $release-card-tooltip-border-color: #bababa;
 $release-card-tooltip-width: 285px;
 $release-card-tooltip-caret-shift-left: 55px;
 
+// Service Lane
+$service-lane-header-height: 40px;
+$service-lane-header-padding: 0 10px;
+$service-lane-header-actions-margin-left: 40px;
+$service-lane-header-actions-height: 28px;
+$service-lane-header-actions-button-padding-left: 16px;
+$service-lane-margin-bottom: 16px;
 // Service Lane Diff Element
 $service-lane-diff-element-border-color: #bababa;
+$service-lane-diff-element-width: 50px;
 
 // Main content padding
 $main-content-padding: ($top-app-bar-height + 0.5em) 1em 1em ($nav-bar-width + 1em);

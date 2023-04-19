@@ -2,25 +2,27 @@
     background: var(--mdc-theme-primary);
     color: var(--mdc-theme-on-primary);
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    padding: 13px 20px;
-    border-radius: 10px;
-    height: 62px;
+    padding: $service-lane-header-padding;
+    border-radius: $border-radius-medium;
+    height: $service-lane-header-height;
 
     white-space: nowrap;
     .service__name {
         overflow: hidden;
-        @extend .headline1;
+        @extend .sub-headline1;
         display: flex;
         align-items: center;
     }
     .service-action {
         border: 1px solid var(--mdc-theme-on-primary);
-        border-radius: 10px;
-        margin-left: 51px;
+        border-radius: $border-radius-medium;
+        margin-left: $service-lane-header-actions-margin-left;
+        height: $service-lane-header-actions-height;
         color: var(--mdc-theme-on-primary);
         .mdc-button__label {
-            padding-left: 1em;
+            padding-left: $service-lane-header-actions-button-padding-left;
             @extend .text-bold;
         }
     }
@@ -28,7 +30,7 @@
 
 .service__releases {
     display: flex;
-    margin: 0 -12px 34px -12px;
+    margin: 0 0 $service-lane-margin-bottom 0;
 }
 
 .service-lane__diff {
@@ -40,23 +42,20 @@
     flex-direction: row;
     align-self: center;
     justify-content: space-evenly;
-    width: 80px;
+    width: $service-lane-diff-element-width;
 
     .service-lane__diff--number {
-        @extend .sub-headline1;
+        @extend .text-bold;
         display: flex;
-        align-self: center;
+        align-items: center;
         box-sizing: border-box;
         justify-content: space-evenly;
 
         // Copied from figma
-        width: 33px;
-        height: 33px;
-        left: calc(50% - 33px / 2 - 0.5px);
-        top: calc(50% - 33px / 2);
-
+        width: 24px;
+        height: 24px;
         border: 2px solid $service-lane-diff-element-border-color;
-        border-radius: 10px;
+        border-radius: $border-radius-large;
     }
 
     .service-lane__diff--dot {
@@ -64,11 +63,9 @@
         box-sizing: border-box;
 
         // Copied from figma
-        width: 4px;
-        height: 4px;
-        left: calc(50% - 4px / 2 - 23px);
-        top: calc(50% - 4px / 2);
+        width: 3px;
+        height: 3px;
         background: $service-lane-diff-element-border-color;
-        border-radius: 10px;
+        border-radius: $border-radius-large;
     }
 }
