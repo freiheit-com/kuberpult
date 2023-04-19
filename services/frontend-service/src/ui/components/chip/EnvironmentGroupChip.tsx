@@ -62,7 +62,7 @@ export const AppLockSummary: React.FC<{
             title={'"' + app + '" has ' + numLocks + ' application ' + plural + '. Click on a tile to see details.'}>
             <div>
                 &nbsp;
-                <LocksWhite className="env-card-env-lock-icon" width="24px" height="24px" />
+                <LocksWhite className="env-card-env-lock-icon" width="16px" height="16px" />
             </div>
         </Tooltip>
     );

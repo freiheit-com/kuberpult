@@ -60,9 +60,7 @@ const DiffElement = (diff: number): JSX.Element => (
     <div className="service-lane__diff--container">
         <div className="service-lane__diff--dot" />
         <div className="service-lane__diff--dot" />
-        <div className="service-lane__diff--dot" />
         <div className="service-lane__diff--number">{diff}</div>
-        <div className="service-lane__diff--dot" />
         <div className="service-lane__diff--dot" />
         <div className="service-lane__diff--dot" />
     </div>
