@@ -1,23 +1,43 @@
 @use '@material/chips/styles';
 
 .mdc-evolution-chip {
-    border-radius: 4px;
+    height: $env-chip-height;
+    border-radius: $border-radius-small;
     .mdc-evolution-chip__action--primary {
-        padding-left: 7px;
-        padding-right: 7px;
+        padding-left: $env-chip-padding;
+        padding-right: $env-chip-padding;
     }
     .env-locks {
         display: flex;
         flex-direction: row;
         align-items: center;
-        padding-right: -7px;
+        padding-right: -$env-chip-padding;
     }
-}
-
-span.mdc-evolution-chip button.mdc-evolution-chip__action span.mdc-evolution-chip__text-label {
-    @extend .text-bold;
+    .mdc-evolution-chip__cell {
+        color: white;
+        overflow: hidden;
+    }
 }
 
 .env-group-chip-list {
     display: flex;
+    > *:not(:last-child) {
+        margin-right: $env-group-chip-margin;
+    }
+}
+
+.release-environment {
+    @extend .text-bold;
+    white-space: nowrap;
+    float: right;
+
+    &.release-environment-prod {
+        background-color: $env-color-prod;
+    }
+    &.release-environment-pre_prod {
+        background-color: $env-color-pre_prod;
+    }
+    &.release-environment-upstream {
+        background-color: $env-color-upstream;
+    }
 }

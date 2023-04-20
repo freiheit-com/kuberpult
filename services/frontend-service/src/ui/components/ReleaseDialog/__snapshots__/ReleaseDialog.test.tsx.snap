@@ -131,8 +131,8 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                           />
                           <svg
                             class="env-card-env-lock-icon"
-                            height="24px"
-                            width="24px"
+                            height="16px"
+                            width="16px"
                           >
                             Locks_White.svg
                           </svg>
@@ -363,8 +363,8 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           />
                           <svg
                             class="env-card-env-lock-icon"
-                            height="24px"
-                            width="24px"
+                            height="16px"
+                            width="16px"
                           >
                             Locks_White.svg
                           </svg>
@@ -492,8 +492,8 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           />
                           <svg
                             class="env-card-env-lock-icon"
-                            height="24px"
-                            width="24px"
+                            height="16px"
+                            width="16px"
                           >
                             Locks_White.svg
                           </svg>

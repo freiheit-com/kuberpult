@@ -3,7 +3,7 @@
     color: white;
     background-color: var(--mdc-theme-primary);
     display: flex;
-    border-radius: $sidebar-planned-actions-border-radius;
+    border-radius: $border-radius-large 0 0 0;
 
     .mdc-drawer-sidebar-header-title {
         @extend .sub-headline1;
@@ -17,7 +17,7 @@
         position: relative;
         height: auto;
         color: white;
-        border-radius: $sidebar-planned-actions-border-radius;
+        border-radius: $border-radius-large 0 0 0;
     }
 }
 
@@ -89,7 +89,7 @@
     letter-spacing: 0;
     width: 100%;
     height: $sidebar-apply-button-height;
-    border-radius: $sidebar-apply-border-radius;
+    border-radius: 0 0 0 $border-radius-large;
     @extend .sub-headline1;
 }
 

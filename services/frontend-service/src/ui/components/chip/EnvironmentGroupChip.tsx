@@ -41,7 +41,7 @@ export const EnvLock: React.FC<{
             title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}>
             <div>
                 <Button
-                    icon={<LocksWhite className="env-card-env-lock-icon" width="24px" height="24px" />}
+                    icon={<LocksWhite className="env-card-env-lock-icon" width="16px" height="16px" />}
                     className={'button-lock'}
                     onClick={deleteEnvLock}
                 />
@@ -62,7 +62,7 @@ export const AppLockSummary: React.FC<{
             title={'"' + app + '" has ' + numLocks + ' application ' + plural + '. Click on a tile to see details.'}>
             <div>
                 &nbsp;
-                <LocksWhite className="env-card-env-lock-icon" width="24px" height="24px" />
+                <LocksWhite className="env-card-env-lock-icon" width="16px" height="16px" />
             </div>
         </Tooltip>
     );
@@ -97,7 +97,7 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     ) : (
         !!Object.entries(env.locks).length && (
             <div className={classNames(className, 'env-locks')}>
-                <LocksWhite className="env-card-env-lock-icon" width="18px" height="18px" />
+                <LocksWhite className="env-card-env-lock-icon" width="12px" height="12px" />
             </div>
         )
     );

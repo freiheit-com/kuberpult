@@ -1,43 +1,41 @@
+$border-radius-small: 3px;
+$border-radius-medium: 6px;
+$border-radius-large: 8px;
+
 // Navigation variables
-$nav-bar-width: 6em;
-$nav-list-height: 40%;
-$nav-list-item-padding: 3em;
-$nav-indicator-width: 8px;
-$nav-indicator-border-radius: 0px 5px 5px 0px;
+$nav-bar-width: 4em;
+$nav-list-item-padding: 10px; // (4em - 40px)/2 - indicator width/2
+$nav-list-item-height: 130px;
+$nav-list-item-gap: 32px;
+$nav-indicator-width: 4px;
 
 //Sidebar variables
 $sidebar-width: 30em;
-$sidebar-planned-actions-button-margin: 1em;
 $sidebar-planned-actions-title-right-centering: 9em;
 $sidebar-apply-button-height: 3em;
-$sidebar-apply-button-font-weight: 1.5em;
-$sidebar-planned-actions-border-radius: 1em 0 0 0;
-$sidebar-apply-border-radius: 0 0 0 1em;
-$sidebar-display-button-border-radius: 1em 0 0 1em;
+$sidebar-show-button-height: 3.5em;
+$sidebar-show-button-width: 4em;
 $sidebar-hidden-displacement: -$sidebar-width;
 $sidebar-transition-duration-large-screen: 0.4s;
-$sidebar-apply-font-size: 1.5em;
 
 // Top App Bar
-$top-app-bar-padding: 2em 0 2em $nav-bar-width; // 2em on top and bottom each
-$top-app-bar-height: 8em; // 8em = 128px
-$top-app-bar-search-field-width: 356px;
-$top-app-bar-search-field-height: 48px;
+$top-app-bar-padding: 0.5em 0 0.5em $nav-bar-width; // 0.5em on top and bottom each
+$top-app-bar-height: 5em; // 5em = 80px
+$top-app-bar-section-gap: 61px;
+// Logo
+// 4em = 64px - Logo_width(40px) = 24px / 2 = 12px
+// top_bar_height(5em) = 80px - Logo_height(50px) = 30px / 2 = 15px
+$kp-logo-padding: 15px 12px;
 
+// Locks Page
 $locks-list-header-border-radius: 10px;
 $locks-list-header-height: 3em;
 $locks-list-header-padding: 0.5em;
-$locks-list-header-line-height: 2em;
-$locks-list-header-font-size: 1.1em;
 $locks-list-row-spacing: -0.3em 0;
 $locks-list-row-height: 3.5em;
 $locks-list-row-margin: 0.5em;
 $locks-button-delete-height: 4em;
 $locks-date-outdated-color: #ff8a00;
-$locks-row-font-size: 16px;
-$locks-header-font-size: 28px;
-$locks-subheader-font-size: 18px;
-$locks-subheader-line-height: 2em;
 $locks-list-margin: 0 0 2em 0;
 
 // Environment Page
@@ -56,19 +54,12 @@ $environment-lane-header-padding: 13px 20px;
 $environment-lane-header-border-radius: 10px;
 $environment-lane-header-height: 62px;
 $environment-lane-background-color: var(--mdc-theme-surface, #fff);
-$environment-name-font-weight: 700;
-$environment-name-font-size: 28px;
-$environment-name-line-height: 48px;
 $environment-actions-right-displacement: 30px;
 $environment-actions-bottom-displacement: 30px;
 $environment-add-lock-button-border: 1px solid var(--mdc-theme-primary);
 $environment-add-lock-button-border-radius: 10px;
 $environment-add-lock-button-color: var(--mdc-theme-primary);
 $environment-add-lock-button-padding-left: 1em;
-$environment-add-lock-button-font-weight: 700;
-$environment-add-lock-button-font-size: 14px;
-$environment-add-lock-button-line-height: 24px;
-$environment-label-color: white;
 
 // Release Dialog
 $release-dialog-outer-border-radius: 15px;
@@ -78,27 +69,42 @@ $release-dialog-inner-border-radius: 10px;
 $release-dialog-label-displacement: -10px;
 $release-dialog-lock-icon-size: 24px;
 
+// Environment Chip
+$env-group-chip-margin: 4px;
+$env-chip-height: 20px;
+$env-chip-padding: 4px;
+$env-color-prod: #dc0000;
+$env-color-pre_prod: #f3be00;
+$env-color-upstream: #50c241;
+
+// Release Card
+$release-card-height: 75px;
+$release-card-width: 160px;
+$release-card-margin: -16px 4px 0 4px;
+$release-card-inner-padding: 10px;
+$release-card-environments-min-height: 26px;
+$release-card-hash-height: 22px;
+
 // Release Card Tooltip
-$release-card-tooltip-border-radius: 10px;
 $release-card-tooltip-border-color: #bababa;
-$release-card-tooltip-width: 285px;
+$release-card-tooltip-width: 220px;
+$release-card-tooltip-padding: 8px 4px;
 $release-card-tooltip-caret-shift-left: 55px;
+
+// Service Lane
+$service-lane-header-height: 40px;
+$service-lane-header-padding: 0 10px;
+$service-lane-header-actions-margin-left: 40px;
+$service-lane-header-actions-height: 28px;
+$service-lane-header-actions-button-padding-left: 16px;
+$service-lane-releases-margin: 4px 0 12px 0;
 
 // Service Lane Diff Element
 $service-lane-diff-element-border-color: #bababa;
-
-// Logo
-// 6em = 96px - Logo_width(60px) = 36px / 2 = 18px
-// top_bar_height(8em) = 128px - Logo_height(72px) = 56px / 2 = 28px
-$kp-logo-padding: 28px 18px;
-
-// Logo font properties from figma
-$kp-logo-font-font-weight: 700;
-$kp-logo-font-font-size: 28px;
-$kp-logo-font-line-height: 93%;
+$service-lane-diff-element-width: 50px;
 
 // Main content padding
-$main-content-padding: ($top-app-bar-height + 0.5em) 2em 2em ($nav-bar-width + 2em);
+$main-content-padding: ($top-app-bar-height + 0.5em) 1em 1em ($nav-bar-width + 1em);
 
 :root {
     // Colors

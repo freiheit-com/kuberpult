@@ -1,12 +1,12 @@
 .mdc-list-item-container {
     display: flex;
-    height: 130px;
+    height: $nav-list-item-height;
 }
 
 .mdc-list-item-indicator {
     background-color: transparent;
     width: $nav-indicator-width;
-    border-radius: $nav-indicator-border-radius;
+    border-radius: 0 $border-radius-small $border-radius-small 0;
 }
 
 .mdc-list-item-indicator--activated {
