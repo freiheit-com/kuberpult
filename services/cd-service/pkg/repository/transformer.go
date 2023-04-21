@@ -875,9 +875,9 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 }
 
 func generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg map[string]string, targetGroupName string) string {
-	resp := fmt.Sprintf("Release Train commit message for environment/environment group '%s':\n\n", targetGroupName)
+	resp := fmt.Sprintf("Release Train to environment/environment group '%s':\n\n", targetGroupName)
 
-	// this to sort the env, to make sure that for the same input we always got the same output
+	// this to sort the env groups, to make sure that for the same input we always got the same output
 	envGroups := make([]string, 0, len(envDeployedMsg))
 	for env := range envDeployedMsg {
 		envGroups = append(envGroups, env)
@@ -886,7 +886,7 @@ func generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg map[string]strin
 
 	for _, env := range envGroups {
 		msg := envDeployedMsg[env]
-		resp += fmt.Sprintf("Release Train for '%s' environment:\n\n", env)
+		resp += fmt.Sprintf("Release Train to '%s' environment:\n\n", env)
 		resp += msg
 		if skippedMsg, ok := envSkippedMsg[env]; ok {
 			resp += "Skipped services:\n"
