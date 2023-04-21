@@ -21,7 +21,12 @@ import '../../assets/app-v2.scss';
 import * as React from 'react';
 import { PanicOverview, showSnackbarWarn, UpdateOverview, useReleaseDialogParams } from '../utils/store';
 import { useApi } from '../utils/GrpcApi';
-import { AzureAuthProvider, UpdateFrontendConfig, useAzureAuthSub } from '../utils/AzureAuthProvider';
+import {
+    AzureAuthProvider,
+    UpdateFrontendConfig,
+    useAzureAuthSub,
+    useFrontendConfig,
+} from '../utils/AzureAuthProvider';
 import { Snackbar } from '../components/snackbar/snackbar';
 import { mergeMap, retryWhen } from 'rxjs/operators';
 import { Observable, throwError, timer } from 'rxjs';
