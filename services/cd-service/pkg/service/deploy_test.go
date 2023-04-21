@@ -177,9 +177,9 @@ func TestReleaseTrainErrors(t *testing.T) {
 				},
 			},
 			expectedError: "",
-			expectedCommitMsg: `Release Train commit message for environment/environment group 'production':
+			expectedCommitMsg: `Release Train to environment/environment group 'production':
 
-Release Train for 'production' environment:
+Release Train to 'production' environment:
 
 The release train deployed 3 services from 'acceptance' to 'production'
 deployed version 1 of "app1" to "production"
