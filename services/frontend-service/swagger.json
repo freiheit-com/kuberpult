@@ -1,0 +1,20 @@
+{
+  "swagger": "2.0",
+  "info": {},
+  "paths": {
+    "/foobar": {
+      "post": {
+        "tags": [
+          "foobar-tag"
+        ],
+        "summary": "Foobar does some amazing stuff.",
+        "operationId": "idOfFoobarEndpoint",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/foobarResponse"
+          }
+        }
+      }
+    }
+  }
+}

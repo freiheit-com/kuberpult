@@ -33,6 +33,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	_ "github.com/freiheit-com/kuberpult/services/frontend-service/cmd/server/docs"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/handler"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"

@@ -14,6 +14,26 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
+// @title           Swagger Example API HELLO WORLD
+// @version         1.0
+// @description     This is a sample server celler server.
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.url    http://www.swagger.io/support
+// @contact.email  support@swagger.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8080
+// @BasePath  /api/v1
+
+// @securityDefinitions.basic  BasicAuth
+
+// @externalDocs.description  OpenAPI
+// @externalDocs.url          https://swagger.io/resources/open-api/
+
 package handler
 
 import (
@@ -29,7 +49,13 @@ import (
 	pgperrors "golang.org/x/crypto/openpgp/errors"
 )
 
-func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
+// swagger:route POST /foobar foobar-tag idOfFoobarEndpoint
+// Foobar does some amazing stuff.
+// responses:
+//   200: foobarResponse
+
+// HandleReleaseTrain handles incoming foobar requests
+func (s Server) HandleReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
 	if req.Method != http.MethodPut {
 		http.Error(w, fmt.Sprintf("releasetrain only accepts method PUT, got: '%s'", req.Method), http.StatusMethodNotAllowed)
 		return
