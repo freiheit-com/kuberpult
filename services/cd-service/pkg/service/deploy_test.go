@@ -177,9 +177,9 @@ func TestReleaseTrainErrors(t *testing.T) {
 				},
 			},
 			expectedError: "",
-			expectedCommitMsg: `Release Train commit message for environment/environment group 'production':
+			expectedCommitMsg: `Release Train to environment/environment group 'production':
 
-Release Train for 'production' environment:
+Release Train to 'production' environment:
 
 The release train deployed 3 services from 'acceptance' to 'production'
 deployed version 1 of "app1" to "production"
@@ -201,9 +201,9 @@ deployed version 1 of "app3" to "production"
 				},
 			},
 			expectedError: "",
-			expectedCommitMsg: `Release Train commit message for environment/environment group 'production':
+			expectedCommitMsg: `Release Train to environment/environment group 'production':
 
-Release Train for 'production' environment:
+Release Train to 'production' environment:
 
 The release train deployed 1 services from 'acceptance' to 'production' for team 'team1'
 deployed version 1 of "app1" to "production"
@@ -221,9 +221,9 @@ deployed version 1 of "app1" to "production"
 				},
 			},
 			expectedError: "",
-			expectedCommitMsg: `Release Train commit message for environment/environment group 'production':
+			expectedCommitMsg: `Release Train to environment/environment group 'production':
 
-Release Train for 'production' environment:
+Release Train to 'production' environment:
 
 The release train deployed 1 services from 'acceptance' to 'production' for team 'team2'
 deployed version 1 of "app2" to "production"
@@ -233,7 +233,7 @@ deployed version 1 of "app2" to "production"
 			shouldSucceed: true,
 		},
 		{
-			Name: "release train for team3 ( not exists )  ",
+			Name: "Release Train to team3 ( not exists )  ",
 			Transformers: []repository.Transformer{
 				&repository.ReleaseTrain{
 					Target: envProduction,
@@ -241,9 +241,9 @@ deployed version 1 of "app2" to "production"
 				},
 			},
 			expectedError: "",
-			expectedCommitMsg: `Release Train commit message for environment/environment group 'production':
+			expectedCommitMsg: `Release Train to environment/environment group 'production':
 
-Release Train for 'production' environment:
+Release Train to 'production' environment:
 
 The release train deployed 0 services from 'acceptance' to 'production' for team 'team3'
 
@@ -354,9 +354,9 @@ func TestGroupReleaseTrainErrors(t *testing.T) {
 				},
 			},
 			expectedError: "",
-			expectedCommitMsg: `Release Train commit message for environment/environment group 'prd-group':
+			expectedCommitMsg: `Release Train to environment/environment group 'prd-group':
 
-Release Train for 'production-de' environment:
+Release Train to 'production-de' environment:
 
 The release train deployed 3 services from 'acceptance-de' to 'production-de'
 deployed version 1 of "app1" to "production-de"
@@ -366,7 +366,7 @@ deployed version 1 of "app2" to "production-de"
 deployed version 1 of "app3" to "production-de"
 
 
-Release Train for 'production-pt' environment:
+Release Train to 'production-pt' environment:
 
 The release train deployed 3 services from 'acceptance-pt' to 'production-pt'
 deployed version 1 of "app1" to "production-pt"
@@ -388,15 +388,15 @@ deployed version 1 of "app3" to "production-pt"
 				},
 			},
 			expectedError: "",
-			expectedCommitMsg: `Release Train commit message for environment/environment group 'prd-group':
+			expectedCommitMsg: `Release Train to environment/environment group 'prd-group':
 
-Release Train for 'production-de' environment:
+Release Train to 'production-de' environment:
 
 The release train deployed 1 services from 'acceptance-de' to 'production-de' for team 'team1'
 deployed version 1 of "app1" to "production-de"
 
 
-Release Train for 'production-pt' environment:
+Release Train to 'production-pt' environment:
 
 The release train deployed 1 services from 'acceptance-pt' to 'production-pt' for team 'team1'
 deployed version 1 of "app1" to "production-pt"
@@ -414,15 +414,15 @@ deployed version 1 of "app1" to "production-pt"
 				},
 			},
 			expectedError: "",
-			expectedCommitMsg: `Release Train commit message for environment/environment group 'prd-group':
+			expectedCommitMsg: `Release Train to environment/environment group 'prd-group':
 
-Release Train for 'production-de' environment:
+Release Train to 'production-de' environment:
 
 The release train deployed 1 services from 'acceptance-de' to 'production-de' for team 'team2'
 deployed version 1 of "app2" to "production-de"
 
 
-Release Train for 'production-pt' environment:
+Release Train to 'production-pt' environment:
 
 The release train deployed 1 services from 'acceptance-pt' to 'production-pt' for team 'team2'
 deployed version 1 of "app2" to "production-pt"
@@ -440,13 +440,13 @@ deployed version 1 of "app2" to "production-pt"
 				},
 			},
 			expectedError: "",
-			expectedCommitMsg: `Release Train commit message for environment/environment group 'prd-group':
+			expectedCommitMsg: `Release Train to environment/environment group 'prd-group':
 
-Release Train for 'production-de' environment:
+Release Train to 'production-de' environment:
 
 The release train deployed 0 services from 'acceptance-de' to 'production-de' for team 'team3'
 
-Release Train for 'production-pt' environment:
+Release Train to 'production-pt' environment:
 
 The release train deployed 0 services from 'acceptance-pt' to 'production-pt' for team 'team3'
 
