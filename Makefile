@@ -21,7 +21,7 @@ SCRIPTS_BASE:=infrastructure/scripts/make
 CODE_REVIEWER_LOCATION?=$(HOME)/bin/codereviewr
 
 
-MAKEDIRS := services/cd-service services/frontend-service charts/kuberpult pkg/api pkg
+MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg/api pkg
 
 
 .install:
