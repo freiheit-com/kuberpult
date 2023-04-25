@@ -10,8 +10,8 @@ services:
       - "8443:8443"
     volumes:
       - ./services/cd-service/repository_remote:/repository_remote
-  status:
-    image: ${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_CD}
+  rollout:
+    image: ${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_ROLLOUT}
     container_name: kuberpult-rollout-service
     environment:
       - KUBERPULT_CDSERVER=kuberpult-cd-service:8443
