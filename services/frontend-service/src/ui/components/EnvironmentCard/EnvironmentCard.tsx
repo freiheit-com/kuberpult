@@ -37,7 +37,9 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
     return (
         <div className="environment-lane">
             <div className="environment-lane__header">
-                <div className="environment__name">{environment}</div>
+                <div className="environment__name" title={'Name of the environment'}>
+                    {environment}
+                </div>
             </div>
             <div className="environment-lane__body">
                 {locks.length !== 0 && (
@@ -79,7 +81,9 @@ export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup
         <div className="environment-group-lane">
             <div className="environment-group-lane__header-wrapper">
                 <div className="environment-group-lane__header">
-                    <div className="environment-group__name">{environmentGroup.environmentGroupName}</div>
+                    <div className="environment-group__name" title={'Name of the environment group'}>
+                        {environmentGroup.environmentGroupName}
+                    </div>
                 </div>
                 <div className="environment__actions">
                     <Button
