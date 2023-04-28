@@ -18,6 +18,7 @@ import { Button } from '../button';
 import { Locks } from '../../../images';
 import * as React from 'react';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
+import { EnvironmentGroup } from '../../../api/api';
 
 export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
     const { environment } = props;
@@ -36,23 +37,70 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
     return (
         <div className="environment-lane">
             <div className="environment-lane__header">
-                <div className="environment__name">{environment}</div>
-            </div>
-            {locks.length !== 0 && (
-                <div className="environment__locks">
-                    {locks.map((lock) => (
-                        <EnvironmentLockDisplay env={environment} lockId={lock} key={lock} />
-                    ))}
+                <div className="environment__name" title={'Name of the environment'}>
+                    {environment}
                 </div>
-            )}
-            <div className="environment__actions">
-                <Button
-                    className="environment-action service-action--prepare-undeploy"
-                    label={'Add Lock'}
-                    icon={<Locks />}
-                    onClick={addLock}
-                />
             </div>
+            <div className="environment-lane__body">
+                {locks.length !== 0 && (
+                    <div className="environment__locks">
+                        {locks.map((lock) => (
+                            <EnvironmentLockDisplay env={environment} lockId={lock} key={lock} />
+                        ))}
+                    </div>
+                )}
+                <div className="environment__actions">
+                    <Button
+                        className="environment-action service-action--prepare-undeploy test-lock-env"
+                        label={'Add Environment Lock in ' + environment}
+                        icon={<Locks />}
+                        onClick={addLock}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup }> = (props) => {
+    const { environmentGroup } = props;
+
+    const addLock = React.useCallback(() => {
+        const randBase36 = (): string => Math.random().toString(36).substring(7);
+        const randomLockId = (): string => 'ui-v2-' + randBase36();
+        environmentGroup.environments.forEach((environment) => {
+            addAction({
+                action: {
+                    $case: 'createEnvironmentLock',
+                    createEnvironmentLock: { environment: environment.name, lockId: randomLockId(), message: '' },
+                },
+            });
+        });
+    }, [environmentGroup]);
+    return (
+        <div className="environment-group-lane">
+            <div className="environment-group-lane__header-wrapper">
+                <div className="environment-group-lane__header">
+                    <div className="environment-group__name" title={'Name of the environment group'}>
+                        {environmentGroup.environmentGroupName}
+                    </div>
+                </div>
+                <div className="environment__actions">
+                    <Button
+                        className="environment-action service-action--prepare-undeploy test-lock-group"
+                        label={'Add Lock for each environment in ' + environmentGroup.environmentGroupName}
+                        icon={<Locks />}
+                        onClick={addLock}
+                    />
+                </div>
+            </div>
+            <div className="environment-group-lane__body">
+                {environmentGroup.environments.map((env) => (
+                    <EnvironmentCard environment={env.name} key={env.name} />
+                ))}
+            </div>
+            {/*I am just here so that we can avoid margin collapsing */}
+            <div className={'environment-group-lane__footer'} />
         </div>
     );
 };

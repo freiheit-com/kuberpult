@@ -13,17 +13,32 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { useEnvironmentNames } from '../../utils/store';
-import { EnvironmentCard } from '../../components/EnvironmentCard/EnvironmentCard';
+import { useEnvironmentGroups, useEnvironmentNames } from '../../utils/store';
+import { EnvironmentCard, EnvironmentGroupCard } from '../../components/EnvironmentCard/EnvironmentCard';
 
 export const EnvironmentsPage: React.FC = () => {
+    const envsGroups = useEnvironmentGroups();
     const envs = useEnvironmentNames();
-
+    // note that in all cases, envsGroups.length <= envs.length
+    // if they are equal (envsGroups.length === envs.length), then there are effectively no groups, but the cd-server still returns each env wrapped in a group
+    const useGroups = envsGroups.length !== envs.length;
+    if (useGroups) {
+        return (
+            <main className="main-content">
+                {envsGroups.map((envGroup) => (
+                    <EnvironmentGroupCard environmentGroup={envGroup} key={envGroup.environmentGroupName} />
+                ))}
+            </main>
+        );
+    }
     return (
         <main className="main-content">
-            {envs.map((env) => (
-                <EnvironmentCard environment={env} key={env} />
-            ))}
+            {/*if there are no groups, wrap everything in one group: */}
+            <div className="environment-group-lane">
+                {envs.map((env) => (
+                    <EnvironmentCard environment={env} key={env} />
+                ))}
+            </div>
         </main>
     );
 };

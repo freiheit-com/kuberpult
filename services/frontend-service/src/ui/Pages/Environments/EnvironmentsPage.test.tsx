@@ -15,30 +15,14 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
-import { EnvironmentCard } from '../../components/EnvironmentCard/EnvironmentCard';
-import { Environment, Priority } from '../../../api/api';
+import { Environment, EnvironmentGroup, Priority } from '../../../api/api';
+import React from 'react';
+import { EnvironmentsPage } from './EnvironmentsPage';
 
-const sampleEnvs: Environment[] = [
+const sampleEnvsA: Environment[] = [
     {
         name: 'foo',
-        locks: {
-            testId: {
-                message: 'test message',
-                lockId: 'testId',
-                createdBy: {
-                    name: 'TestUser',
-                    email: 'testuser@test.com',
-                },
-            },
-            anotherTestId: {
-                message: 'more test messages',
-                lockId: 'anotherTestId',
-                createdBy: {
-                    name: 'TestUser',
-                    email: 'testuser@test.com',
-                },
-            },
-        },
+        locks: {},
         applications: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
@@ -52,51 +36,98 @@ const sampleEnvs: Environment[] = [
     },
 ];
 
+const sampleEnvsB: Environment[] = [
+    {
+        name: 'fooB',
+        locks: {},
+        applications: {},
+        distanceToUpstream: 0,
+        priority: Priority.UPSTREAM,
+    },
+    {
+        name: 'moreTestB',
+        locks: {},
+        applications: {},
+        distanceToUpstream: 0,
+        priority: Priority.UPSTREAM,
+    },
+];
+
 interface dataT {
     name: string;
-    environment: string;
+    environmentGroups: EnvironmentGroup[];
     expected: number;
+    expectedEnvHeaderWrapper: number;
 }
 
 const cases: dataT[] = [
     {
-        name: 'Environment row with two locks',
-        environment: 'foo',
+        name: '1 group 1 env',
+        environmentGroups: [
+            {
+                environments: [sampleEnvsA[0]],
+                distanceToUpstream: 1,
+                environmentGroupName: 'g1',
+            },
+        ],
+        expected: 1,
+        expectedEnvHeaderWrapper: 1,
+    },
+    {
+        name: '2 group 1 env each',
+        environmentGroups: [
+            {
+                environments: [sampleEnvsA[0]],
+                distanceToUpstream: 1,
+                environmentGroupName: 'g1',
+            },
+            {
+                environments: [sampleEnvsB[0]],
+                distanceToUpstream: 1,
+                environmentGroupName: 'g1',
+            },
+        ],
+        expected: 1,
+        expectedEnvHeaderWrapper: 2,
+    },
+    {
+        name: '1 group 2 env',
+        environmentGroups: [
+            {
+                environments: sampleEnvsA,
+                distanceToUpstream: 1,
+                environmentGroupName: 'g1',
+            },
+            {
+                environments: sampleEnvsB,
+                distanceToUpstream: 1,
+                environmentGroupName: 'g2',
+            },
+        ],
         expected: 2,
-    },
-    {
-        name: 'Environment row with no locks',
-        environment: 'moreTest',
-        expected: 0,
-    },
-    {
-        name: 'None existant environment',
-        environment: 'nonExistant',
-        expected: 0,
+        expectedEnvHeaderWrapper: 4,
     },
 ];
 
 describe('Environment Lane', () => {
-    const getNode = (overrides: { environment: string }) => <EnvironmentCard {...overrides} />;
-    const getWrapper = (overrides: { environment: string }) => render(getNode(overrides));
+    const getNode = () => <EnvironmentsPage />;
+    const getWrapper = () => render(getNode());
 
     describe.each(cases)('Renders a row of environments', (testcase) => {
         it(testcase.name, () => {
             //given
             UpdateOverview.set({
                 environments: {},
-                environmentGroups: [
-                    {
-                        environments: sampleEnvs,
-                        environmentGroupName: 'group321321',
-                        distanceToUpstream: 321321,
-                    },
-                ],
+                environmentGroups: testcase.environmentGroups,
             });
+            const { container } = getWrapper();
             // when
-            const { container } = getWrapper({ environment: testcase.environment });
             // then
-            expect(container.getElementsByClassName('environment-lock-display')).toHaveLength(testcase.expected);
+            expect(container.getElementsByClassName('environment-group-lane')).toHaveLength(testcase.expected);
+            expect(container.getElementsByClassName('main-content')).toHaveLength(1);
+            expect(container.getElementsByClassName('environment-lane__header')).toHaveLength(
+                testcase.expectedEnvHeaderWrapper
+            );
         });
     });
 });
