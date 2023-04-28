@@ -95,6 +95,8 @@ export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup
                     <EnvironmentCard environment={env.name} key={env.name} />
                 ))}
             </div>
+            {/*I am just here so that we can avoid margin collapsing */}
+            <div className={'environment-group-lane__footer'} />
         </div>
     );
 };

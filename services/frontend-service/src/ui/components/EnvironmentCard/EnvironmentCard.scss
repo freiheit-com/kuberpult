@@ -3,7 +3,12 @@
     min-width: fit-content;
     max-width: calc(100vw - $sidebar-width - 100px); // full size minus the planned actions bar minus some buffer
     background-color: $environment-lane-background-color;
+    border-radius: $environment-lane-header-border-radius;
     margin-bottom: 20px;
+
+    .environment-group-lane__footer {
+        padding-bottom: 1px; // must not be 0, or margins will collapse
+    }
 
     .environment-group-lane__header-wrapper {
         display: flex;
@@ -57,7 +62,7 @@
             display: flex;
             padding-top: 10px;
             padding-bottom: 10px;
-            padding-right: 20px;
+            padding-right: 0px;
             padding-left: 0px;
         }
     }
