@@ -6,6 +6,18 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.66
+**released 2023-04-28**
+### Major Changes
+* [Fix UI scaling - HomePage](https://github.com/freiheit-com/kuberpult/pull/653)
+* [Update docker Docker tag to v23.0.4](https://github.com/freiheit-com/kuberpult/pull/655)
+* [Nicer commit message for release trains](https://github.com/freiheit-com/kuberpult/pull/656)
+* [Add button to lock an entire environment group at once](https://github.com/freiheit-com/kuberpult/pull/662)
+
+### Minor Changes
+* [Update module github.com/cenkalti/backoff/v4 to v4.2.1](https://github.com/freiheit-com/kuberpult/pull/648)
+* [Update module google.golang.org/api to v0.120.0](https://github.com/freiheit-com/kuberpult/pull/659)
+
 ## 0.4.65
 **released 2023-04-18**
 
