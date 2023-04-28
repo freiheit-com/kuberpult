@@ -635,16 +635,16 @@ func (r *repository) State() *State {
 }
 
 func (r *repository) StateAt(oid *git.Oid) (*State, error) {
-    commit, err := r.repository.LookupCommit(oid)
-		if err != nil {
-			return nil, err
-		}
-      return &State{
-	      Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
-	      Commit:                 commit,
-	      BootstrapMode:          r.config.BootstrapMode,
-	      EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-      }, nil
+	commit, err := r.repository.LookupCommit(oid)
+	if err != nil {
+		return nil, err
+	}
+	return &State{
+		Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
+		Commit:                 commit,
+		BootstrapMode:          r.config.BootstrapMode,
+		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+	}, nil
 }
 
 func (r *repository) Notify() *notify.Notify {
