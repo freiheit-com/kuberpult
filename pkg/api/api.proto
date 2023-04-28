@@ -144,12 +144,15 @@ service OverviewService {
 }
 
 message GetOverviewRequest {
+  // Retrieve the overview at a certain state of the repository. If it's empty, the latest commit will be used.
+  string git_revision = 1;
 }
 
 message GetOverviewResponse {
   map<string, Environment> environments = 1 [deprecated=true]; // use environmentGroups instead!
   map<string, Application> applications = 2;
   repeated EnvironmentGroup environmentGroups = 3;
+  string git_revision = 4;
 }
 
 message GetDeployedOverviewRequest {

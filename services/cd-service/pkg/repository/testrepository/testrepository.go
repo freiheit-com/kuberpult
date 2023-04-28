@@ -18,8 +18,10 @@ package testrepository
 
 import (
 	"context"
+
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	git "github.com/libgit2/git2go/v34"
 )
 
 func Failing(err error) repository.Repository {
@@ -45,6 +47,10 @@ func (fr *failingRepository) ApplyTransformersInternal(ctx context.Context, tran
 
 func (fr *failingRepository) State() *repository.State {
 	return &repository.State{}
+}
+
+func (fr *failingRepository) StateAt(oid *git.Oid) (*repository.State, error) {
+	return &repository.State{}, nil
 }
 
 func (fr *failingRepository) Notify() *notify.Notify {

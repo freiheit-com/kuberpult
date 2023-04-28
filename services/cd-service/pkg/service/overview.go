@@ -20,14 +20,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"sync"
 	"sync/atomic"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
+	git "github.com/libgit2/git2go/v34"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -202,16 +204,32 @@ func (o *OverviewServiceServer) getDeployedOverview(
 func (o *OverviewServiceServer) GetOverview(
 	ctx context.Context,
 	in *api.GetOverviewRequest) (*api.GetOverviewResponse, error) {
+	if in.GitRevision != "" {
+		oid, err := git.NewOid(in.GitRevision)
+		if err != nil {
+			return nil, err
+		}
+		state, err := o.Repository.StateAt(oid)
+		if err != nil {
+			return nil, err
+		}
+		return o.getOverview(ctx, state)
+	}
 	return o.getOverview(ctx, o.Repository.State())
 }
 
 func (o *OverviewServiceServer) getOverview(
 	ctx context.Context,
 	s *repository.State) (*api.GetOverviewResponse, error) {
+	var rev string
+	if s.Commit != nil {
+		rev = s.Commit.Id().String()
+	}
 	result := api.GetOverviewResponse{
 		Environments:      map[string]*api.Environment{},
 		Applications:      map[string]*api.Application{},
 		EnvironmentGroups: []*api.EnvironmentGroup{},
+		GitRevision:       rev,
 	}
 	if envs, err := s.GetEnvironmentConfigs(); err != nil {
 		return nil, httperrors.InternalError(ctx, err)
