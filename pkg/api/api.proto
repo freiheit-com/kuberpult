@@ -291,6 +291,27 @@ message Application {
 }
 
 message Actor {
-  string name = 1;
+  string name = 1
   string email = 2;
+}
+
+service RolloutService {
+  rpc StreamStatus (StreamStatusRequest) returns (stream StreamStatusResponse) {}
+}
+
+message StreamStatusRequest {}
+
+enum RolloutStatus {
+  RolloutStatusUnknown = 0; // argocd didn't report anything for this app 
+  RolloutStatusPending = 1; // argocd version != kuberpult version
+  RolloutStatusSuccesful = 2; // rolled out in argocd & argocd version == kuberpult version
+  RolloutStatusProgressing = 3; // argocd version == kuberpult version & progressing in argocd
+  RolloutStatusError = 4; // argocd version == kuberpult version & error in argocd
+}
+
+message StreamStatusResponse {
+  string environment = 1;
+  string application = 2;
+  int64  version     = 3;
+  RolloutStatus rollout_status = 4;
 }

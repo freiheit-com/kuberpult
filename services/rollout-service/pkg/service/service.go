@@ -14,10 +14,18 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-package main
+package service
 
-import "github.com/freiheit-com/kuberpult/services/rollout-service/pkg/cmd"
+import (
+	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
+	applicationClient "github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
+)
 
-func main() {
-  cmd.RunServer()
+type Service struct {
+   client applicationClient.ApplicationServiceClient
+}
+
+func (s *Service) Run() {
+   apiclient.NewClient
+
 }
