@@ -17,7 +17,6 @@ Copyright 2023 freiheit.com*/
 package auth
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -66,13 +65,11 @@ func TestValidateTokenStatic(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
-	var jwks *keyfunc.JWKS
-	var err error
-	jwks, err = JWKSInitAzure(ctx)
+	var jwks, err = JWKSInitAzureFromJson()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
