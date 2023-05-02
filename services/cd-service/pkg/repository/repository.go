@@ -249,7 +249,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			}
 
 			// check that we can build the current state
-			state, err := result.buildState()
+			state, err := result.StateAt(nil)
 			if err != nil {
 				return nil, err
 			}
@@ -393,7 +393,7 @@ func (r *repository) ProcessQueueOnce(e element) {
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error) {
-	if state, err := r.buildState(); err != nil {
+	if state, err := r.StateAt(nil); err != nil {
 		return nil, nil, &InternalError{inner: err}
 	} else {
 		commitMsg := []string{}
@@ -599,35 +599,8 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, name st
 	return nil
 }
 
-func (r *repository) buildState() (*State, error) {
-	if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
-		var gerr *git.GitError
-		if errors.As(err, &gerr) {
-			if gerr.Code == git.ErrNotFound {
-				return &State{
-					Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
-					BootstrapMode:          r.config.BootstrapMode,
-					EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-				}, nil
-			}
-		}
-		return nil, err
-	} else {
-		commit, err := obj.AsCommit()
-		if err != nil {
-			return nil, err
-		}
-		return &State{
-			Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
-			Commit:                 commit,
-			BootstrapMode:          r.config.BootstrapMode,
-			EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-		}, nil
-	}
-}
-
 func (r *repository) State() *State {
-	s, err := r.buildState()
+	s, err := r.StateAt(nil)
 	if err != nil {
 		panic(err)
 	}
@@ -635,9 +608,32 @@ func (r *repository) State() *State {
 }
 
 func (r *repository) StateAt(oid *git.Oid) (*State, error) {
-	commit, err := r.repository.LookupCommit(oid)
-	if err != nil {
-		return nil, err
+	var commit *git.Commit
+	if oid == nil {
+		if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
+			var gerr *git.GitError
+			if errors.As(err, &gerr) {
+				if gerr.Code == git.ErrNotFound {
+					return &State{
+						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
+						BootstrapMode:          r.config.BootstrapMode,
+						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+					}, nil
+				}
+			}
+			return nil, err
+		} else {
+			commit, err = obj.AsCommit()
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		var err error
+		commit, err = r.repository.LookupCommit(oid)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &State{
 		Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
