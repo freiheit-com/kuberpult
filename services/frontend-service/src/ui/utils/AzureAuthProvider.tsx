@@ -17,10 +17,10 @@ import * as React from 'react';
 import { BrowserHeaders } from 'browser-headers';
 import { Configuration, PublicClientApplication } from '@azure/msal-browser';
 import {
-    MsalProvider,
     AuthenticatedTemplate,
-    useIsAuthenticated,
+    MsalProvider,
     UnauthenticatedTemplate,
+    useIsAuthenticated,
     useMsal,
 } from '@azure/msal-react';
 import { GetFrontendConfigResponse } from '../../api/api';
@@ -39,6 +39,8 @@ export const [useFrontendConfig, UpdateFrontendConfig] = createStore<FrontendCon
     },
     configReady: false,
 });
+
+export const useKuberpultVersion = (): string => useFrontendConfig((configs) => configs.configs.kuberpultVersion);
 
 type AzureAuthSubType = {
     authHeader: grpc.Metadata & {
