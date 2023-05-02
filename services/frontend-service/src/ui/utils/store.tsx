@@ -38,7 +38,12 @@ export interface DisplayLock {
     authorEmail?: string;
 }
 
-const emptyOverview: GetOverviewResponse = { applications: {}, environments: {}, environmentGroups: [], gitRevision: "" };
+const emptyOverview: GetOverviewResponse = {
+    applications: {},
+    environments: {},
+    environmentGroups: [],
+    gitRevision: '',
+};
 const [useOverview, UpdateOverview_] = createStore(emptyOverview);
 export const UpdateOverview = UpdateOverview_; // we do not want to export "useOverview". The store.tsx should act like a facade to the data.
 
