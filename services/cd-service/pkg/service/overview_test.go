@@ -429,7 +429,7 @@ func TestOverviewService(t *testing.T) {
 	}
 }
 
-func TestOverviewService2(t *testing.T) {
+func TestOverviewServiceFromCommit(t *testing.T) {
 	type step struct {
 		Transformer repository.Transformer
 	}
