@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { addAction, useFilteredEnvironmentLockIDs } from '../../utils/store';
+import { addAction, useFilteredEnvironmentLockIDs, useLockId } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import * as React from 'react';
@@ -24,16 +24,15 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
     const { environment } = props;
     const locks = useFilteredEnvironmentLockIDs(environment);
 
+    const lockId = useLockId();
     const addLock = React.useCallback(() => {
-        const randBase36 = (): string => Math.random().toString(36).substring(7);
-        const randomLockId = (): string => 'ui-v2-' + randBase36();
         addAction({
             action: {
                 $case: 'createEnvironmentLock',
-                createEnvironmentLock: { environment: environment, lockId: randomLockId(), message: '' },
+                createEnvironmentLock: { environment: environment, lockId: lockId, message: '' },
             },
         });
-    }, [environment]);
+    }, [environment, lockId]);
     return (
         <div className="environment-lane">
             <div className="environment-lane__header">
@@ -64,19 +63,17 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
 
 export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup }> = (props) => {
     const { environmentGroup } = props;
-
+    const lockId = useLockId();
     const addLock = React.useCallback(() => {
-        const randBase36 = (): string => Math.random().toString(36).substring(7);
-        const randomLockId = (): string => 'ui-v2-' + randBase36();
         environmentGroup.environments.forEach((environment) => {
             addAction({
                 action: {
                     $case: 'createEnvironmentLock',
-                    createEnvironmentLock: { environment: environment.name, lockId: randomLockId(), message: '' },
+                    createEnvironmentLock: { environment: environment.name, lockId: lockId, message: '' },
                 },
             });
         });
-    }, [environmentGroup]);
+    }, [environmentGroup, lockId]);
     return (
         <div className="environment-group-lane">
             <div className="environment-group-lane__header-wrapper">

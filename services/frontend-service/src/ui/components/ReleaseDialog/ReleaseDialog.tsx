@@ -21,6 +21,7 @@ import {
     addAction,
     useCloseReleaseDialog,
     useEnvironmentGroups,
+    useLockId,
     useReleaseOptional,
     useReleaseOrThrow,
     useTeamFromApplication,
@@ -104,21 +105,20 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             });
         }
     }, [app, env.name, release.version]);
+    const lockId = useLockId();
     const createAppLock = useCallback(() => {
-        const randBase36 = (): string => Math.random().toString(36).substring(7);
-        const randomLockId = (): string => 'ui-v2-' + randBase36();
         addAction({
             action: {
                 $case: 'createEnvironmentApplicationLock',
                 createEnvironmentApplicationLock: {
                     environment: env.name,
                     application: app,
-                    lockId: randomLockId(),
+                    lockId: lockId,
                     message: '',
                 },
             },
         });
-    }, [app, env.name]);
+    }, [app, env.name, lockId]);
     const queueInfo =
         queuedVersion === 0 ? null : (
             <div
