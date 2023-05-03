@@ -21,12 +21,11 @@ import (
 	"fmt"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
-	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
-	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	"github.com/argoproj/gitops-engine/pkg/health"
 	argoio "github.com/argoproj/argo-cd/v2/util/io"
+
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/api"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -55,11 +54,11 @@ func RunServer() {
 		return runServer(ctx, config)
 	})
 	if err != nil {
-		panic(err)
+		fmt.Printf("error: %v %#v", err, err)
 	}
 }
 
-func getGrpcClient(ctx context.Context, config Config ) (api.DeployedVersionServiceClient, error) {
+func getGrpcClient(ctx context.Context, config Config ) (api.OverviewServiceClient, error) {
 	grpcClientOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 	}
@@ -79,7 +78,7 @@ func getGrpcClient(ctx context.Context, config Config ) (api.DeployedVersionServ
 	    return nil, fmt.Errorf("error dialing %s: %w", config.CdServer, err)
 	}
 		
-	return api.NewDeployedVersionServiceClient(con), nil
+	return api.NewOverviewServiceClient(con), nil
 }
 
 func runServer(ctx context.Context, config Config) error {
@@ -113,39 +112,10 @@ func runServer(ctx context.Context, config Config) error {
 		return fmt.Errorf("connecting to argocd app: %w", err)
 	}
 	defer argoio.Close(closer)
-	return consumeEvents(ctx, appClient)
-}
 
-func consumeEvents(ctx context.Context, appClient application.ApplicationServiceClient) error {
-	for {
-		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
-		if err != nil {
-			return err
-		}
-		for {
-			ev, err := watch.Recv()
-			if err != nil {
-				logger.FromContext(ctx).Warn("argocd.application.recv", zap.Error(err))
-				break
-			}
-
-			fmt.Printf("%s %s %s %s %s %#v\n", ev.Type, ev.Application.Name,ev.Application.Spec.Project, ev.Application.Status.Sync.Status, ev.Application.Status.Sync.Revision, ev.Application.Status.Health.Status)
-		}
+	overview, err := getGrpcClient(ctx, config)
+        if err != nil {
+	    return fmt.Errorf("connecting to cd service %q: %w", config.CdServer, err)
 	}
-}
-
-type argoEvent struct {
-  Application string
-  SyncStatusCode v1alpha1.SyncStatusCode
-  Revision string
-  HealthStatusCode health.HealthStatusCode
-}
-
-
-type argoEventProcessor struct {
-
-}
-
-func (ep *argoEventProcessor) Process(ev *argoEvent) {
-
+	return service.ConsumeEvents(ctx, appClient, overview)
 }
