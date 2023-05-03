@@ -291,7 +291,7 @@ message Application {
 }
 
 message Actor {
-  string name = 1
+  string name = 1;
   string email = 2;
 }
 
