@@ -21,7 +21,6 @@ import {
     addAction,
     useCloseReleaseDialog,
     useEnvironmentGroups,
-    useLockId,
     useReleaseOptional,
     useReleaseOrThrow,
     useTeamFromApplication,
@@ -105,7 +104,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             });
         }
     }, [app, env.name, release.version]);
-    const lockId = useLockId();
     const createAppLock = useCallback(() => {
         addAction({
             action: {
@@ -113,12 +111,12 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                 createEnvironmentApplicationLock: {
                     environment: env.name,
                     application: app,
-                    lockId: lockId,
+                    lockId: '',
                     message: '',
                 },
             },
         });
-    }, [app, env.name, lockId]);
+    }, [app, env.name]);
     const queueInfo =
         queuedVersion === 0 ? null : (
             <div

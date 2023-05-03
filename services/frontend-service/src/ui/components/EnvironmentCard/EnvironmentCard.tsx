@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { addAction, useFilteredEnvironmentLockIDs, useLockId } from '../../utils/store';
+import { addAction, useFilteredEnvironmentLockIDs } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import * as React from 'react';
@@ -24,15 +24,14 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
     const { environment } = props;
     const locks = useFilteredEnvironmentLockIDs(environment);
 
-    const lockId = useLockId();
     const addLock = React.useCallback(() => {
         addAction({
             action: {
                 $case: 'createEnvironmentLock',
-                createEnvironmentLock: { environment: environment, lockId: lockId, message: '' },
+                createEnvironmentLock: { environment: environment, lockId: '', message: '' },
             },
         });
-    }, [environment, lockId]);
+    }, [environment]);
     return (
         <div className="environment-lane">
             <div className="environment-lane__header">
@@ -63,17 +62,16 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
 
 export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup }> = (props) => {
     const { environmentGroup } = props;
-    const lockId = useLockId();
     const addLock = React.useCallback(() => {
         environmentGroup.environments.forEach((environment) => {
             addAction({
                 action: {
                     $case: 'createEnvironmentLock',
-                    createEnvironmentLock: { environment: environment.name, lockId: lockId, message: '' },
+                    createEnvironmentLock: { environment: environment.name, lockId: '', message: '' },
                 },
             });
         });
-    }, [environmentGroup, lockId]);
+    }, [environmentGroup]);
     return (
         <div className="environment-group-lane">
             <div className="environment-group-lane__header-wrapper">

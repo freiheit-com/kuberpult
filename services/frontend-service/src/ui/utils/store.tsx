@@ -55,24 +55,7 @@ export const [_, PanicOverview] = createStore({ error: '' });
 export const useApplyActions = (): Promise<Empty> => useApi.batchService().ProcessBatch({ actions: useActions() });
 
 const randBase36 = (): string => Math.random().toString(36).substring(7);
-const randomLockId = (): string => 'ui-v2-' + randBase36();
-
-/**
- * Returns the ID of a lock in the actions.
- * If there is none, creates a new lock ID.
- */
-export const useLockId = (): string =>
-    useAction(({ actions }) => {
-        for (const action of actions) {
-            if (action.action?.$case === 'createEnvironmentApplicationLock') {
-                return action.action.createEnvironmentApplicationLock.lockId;
-            }
-            if (action.action?.$case === 'createEnvironmentLock') {
-                return action.action.createEnvironmentLock.lockId;
-            }
-        }
-        return randomLockId();
-    });
+export const randomLockId = (): string => 'ui-v2-' + randBase36();
 
 export const useActions = (): BatchAction[] => useAction(({ actions }) => actions);
 

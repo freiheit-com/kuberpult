@@ -25,6 +25,7 @@ import {
     showSnackbarError,
     useAllLocks,
     DisplayLock,
+    randomLockId,
 } from '../../utils/store';
 import { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -238,6 +239,15 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
             setLockMessage('');
         }
         if (authReady) {
+            const lockId = randomLockId();
+            for (const action of actions) {
+                if (action.action?.$case === 'createEnvironmentApplicationLock') {
+                    action.action.createEnvironmentApplicationLock.lockId = lockId;
+                }
+                if (action.action?.$case === 'createEnvironmentLock') {
+                    action.action.createEnvironmentLock.lockId = lockId;
+                }
+            }
             api.batchService()
                 .ProcessBatch({ actions }, authHeader)
                 .then((result) => {
