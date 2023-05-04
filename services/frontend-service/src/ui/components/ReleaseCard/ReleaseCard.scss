@@ -1,5 +1,10 @@
 @use '@material/card/mdc-card';
 
+.mdc-tooltip__title.release__details {
+    white-space: pre-wrap;
+    font-height: 7px;
+}
+
 .release-card__container {
     display: flex;
     flex-direction: column;
