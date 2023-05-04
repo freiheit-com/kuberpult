@@ -25,12 +25,10 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
     const locks = useFilteredEnvironmentLockIDs(environment);
 
     const addLock = React.useCallback(() => {
-        const randBase36 = (): string => Math.random().toString(36).substring(7);
-        const randomLockId = (): string => 'ui-v2-' + randBase36();
         addAction({
             action: {
                 $case: 'createEnvironmentLock',
-                createEnvironmentLock: { environment: environment, lockId: randomLockId(), message: '' },
+                createEnvironmentLock: { environment: environment, lockId: '', message: '' },
             },
         });
     }, [environment]);
@@ -64,15 +62,12 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
 
 export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup }> = (props) => {
     const { environmentGroup } = props;
-
     const addLock = React.useCallback(() => {
-        const randBase36 = (): string => Math.random().toString(36).substring(7);
-        const randomLockId = (): string => 'ui-v2-' + randBase36();
         environmentGroup.environments.forEach((environment) => {
             addAction({
                 action: {
                     $case: 'createEnvironmentLock',
-                    createEnvironmentLock: { environment: environment.name, lockId: randomLockId(), message: '' },
+                    createEnvironmentLock: { environment: environment.name, lockId: '', message: '' },
                 },
             });
         });

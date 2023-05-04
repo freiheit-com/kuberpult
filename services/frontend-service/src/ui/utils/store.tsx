@@ -54,6 +54,9 @@ export const [_, PanicOverview] = createStore({ error: '' });
 
 export const useApplyActions = (): Promise<Empty> => useApi.batchService().ProcessBatch({ actions: useActions() });
 
+const randBase36 = (): string => Math.random().toString(36).substring(7);
+export const randomLockId = (): string => 'ui-v2-' + randBase36();
+
 export const useActions = (): BatchAction[] => useAction(({ actions }) => actions);
 
 export const [useSidebar, UpdateSidebar] = createStore({ shown: false });
