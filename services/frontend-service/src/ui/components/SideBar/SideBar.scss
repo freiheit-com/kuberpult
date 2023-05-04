@@ -57,6 +57,35 @@
     @extend .text-regular;
 }
 
+.mdc-drawer-sidebar-list-item-delete-all {
+    @extend .text-regular;
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    border-top: solid;
+    padding-top: 10px;
+    margin-top: 10px;
+    .no-wrap {
+        white-space: nowrap;
+    }
+    .mdc-button__label {
+        font-size: 8px;
+        font-weight: 700;
+    }
+    .mdc-button__ripple {
+        position: relative;
+    }
+    button.mdc-button {
+        color: red;
+        border-color: red;
+        border: solid;
+        border-radius: 5px;
+        padding-left: 10px;
+        padding-right: 10px;
+        height: min-content;
+    }
+}
+
 .mdc-drawer-sidebar-list-item-delete-icon {
     flex: 2;
     position: absolute;

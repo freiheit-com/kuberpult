@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { DisplayLock, sortLocks } from '../../utils/store';
+import { DisplayLock, displayLockUniqueId, sortLocks } from '../../utils/store';
 import { LockDisplay } from '../LockDisplay/LockDisplay';
 import * as React from 'react';
 import { Button } from '../button';
@@ -80,7 +80,7 @@ export const LocksTable: React.FC<{
                         <tr>
                             <td>
                                 {locks.map((lock) => (
-                                    <LockDisplay key={lock.lockId} lock={lock} />
+                                    <LockDisplay key={displayLockUniqueId(lock)} lock={lock} />
                                 ))}
                             </td>
                         </tr>

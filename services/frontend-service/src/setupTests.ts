@@ -15,6 +15,8 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import '@testing-library/jest-dom/extend-expect';
 import 'react-use-sub/test-util';
+import { Lock, Release } from './api/api';
+import { DisplayLock } from './ui/utils/store';
 
 // test utility to await all running promises
 global.nextTick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -52,3 +54,37 @@ export const getElementsByClassNameSafe = (element: HTMLElement, selectors: stri
     }
     return result;
 };
+
+export const makeRelease = (version: number): Release => ({
+    version: version,
+    sourceMessage: 'test' + version,
+    sourceAuthor: 'test',
+    sourceCommitId: 'commit' + version,
+    createdAt: new Date(2002),
+    undeployVersion: false,
+    prNumber: '666',
+});
+
+const date = new Date(2023, 6, 12);
+
+export const makeLock = (input: Partial<Lock>): Lock => ({
+    lockId: 'l1',
+    message: 'lock msg 1',
+    createdAt: date,
+    createdBy: {
+        name: 'Betty',
+        email: 'betty@example.com',
+    },
+    ...input,
+});
+
+export const makeDisplayLock = (input: Partial<DisplayLock>): DisplayLock => ({
+    lockId: 'l1',
+    message: 'lock msg 1',
+    environment: 'default-env',
+    date: date,
+    // application: 'default-app', // application should not be set here, because it cannot be overwritten with undefined
+    authorEmail: 'default@example.com',
+    authorName: 'default',
+    ...input,
+});

@@ -26,12 +26,15 @@ import {
     useAllLocks,
     DisplayLock,
     randomLockId,
+    addAction,
+    useLocksSimilarTo,
 } from '../../utils/store';
 import { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
 import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core';
 import classNames from 'classnames';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
+import * as React from 'react';
 
 export enum ActionTypes {
     Deploy,
@@ -176,11 +179,69 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
     const actionDetails = getActionDetails(action, appLocks, environmentLocks);
 
     const handleDelete = useCallback(() => deleteAction(action), [action]);
+    const similarLocks = useLocksSimilarTo(action);
+    const handleAddAll = useCallback(() => {
+        similarLocks.appLocks.forEach((displayLock: DisplayLock) => {
+            if (!displayLock.environment) {
+                throw new Error('action of type ' + ActionTypes.DeleteEnvironmentLock + ' must have environment set');
+            }
+            if (!displayLock.lockId) {
+                throw new Error('action must have lockId set');
+            }
+            if (!displayLock.application) {
+                throw new Error('action of type ' + ActionTypes.DeleteApplicationLock + ' must have application set');
+            }
+            const newAction: BatchAction = {
+                action: {
+                    $case: 'deleteEnvironmentApplicationLock',
+                    deleteEnvironmentApplicationLock: {
+                        environment: displayLock.environment,
+                        application: displayLock.application,
+                        lockId: displayLock.lockId,
+                    },
+                },
+            };
+            addAction(newAction);
+        });
+        similarLocks.environmentLocks.forEach((displayLock: DisplayLock) => {
+            if (!displayLock.environment) {
+                throw new Error('action of type ' + ActionTypes.DeleteEnvironmentLock + ' must have environment set');
+            }
+            if (!displayLock.lockId) {
+                throw new Error('action must have lockId set');
+            }
+            const newAction: BatchAction = {
+                action: {
+                    $case: 'deleteEnvironmentLock',
+                    deleteEnvironmentLock: {
+                        environment: displayLock.environment,
+                        lockId: displayLock.lockId,
+                    },
+                },
+            };
+            addAction(newAction);
+        });
+    }, [similarLocks]);
+    const deleteAllSection =
+        similarLocks.environmentLocks.length === 0 && similarLocks.appLocks.length === 0 ? null : (
+            <div className="mdc-drawer-sidebar-list-item-delete-all">
+                <div
+                    title={
+                        'Other locks are detected by Lock Id (' +
+                        actionDetails.lockId +
+                        '). This means these locks were created with the same "Apply" of the planned actions.'
+                    }>
+                    There are other similar locks.
+                </div>
+                <Button onClick={handleAddAll} label={' Delete them all! '} className={'button-lock'}></Button>
+            </div>
+        );
     return (
         <>
             <div className="mdc-drawer-sidebar-list-item-text">
                 <div className="mdc-drawer-sidebar-list-item-text-name">{actionDetails.name}</div>
                 <div className="mdc-drawer-sidebar-list-item-text-summary">{actionDetails.summary}</div>
+                {deleteAllSection}
             </div>
             <div onClick={handleDelete}>
                 <DeleteGray className="mdc-drawer-sidebar-list-item-delete-icon" />

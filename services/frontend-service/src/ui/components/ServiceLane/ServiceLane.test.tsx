@@ -27,7 +27,7 @@ import {
     UndeploySummary,
 } from '../../../api/api';
 import { MemoryRouter } from 'react-router-dom';
-import { elementQuerySelectorSafe } from '../../../setupTests';
+import { elementQuerySelectorSafe, makeRelease } from '../../../setupTests';
 
 const mock_ReleaseCard = Spy.mockReactComponents('../../components/ReleaseCard/ReleaseCard', 'ReleaseCard');
 const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
@@ -72,16 +72,6 @@ describe('Service Lane', () => {
         expect(mock_ReleaseCard.ReleaseCard.getCallArgument(2, 0)).toStrictEqual({ app: sampleApp.name, version: 2 });
         mock_ReleaseCard.ReleaseCard.wasCalled(3);
     });
-});
-
-const makeRelease = (version: number): Release => ({
-    version: version,
-    sourceMessage: 'test' + version,
-    sourceAuthor: 'test',
-    sourceCommitId: 'commit' + version,
-    createdAt: new Date(2002),
-    undeployVersion: false,
-    prNumber: '666',
 });
 
 type TestData = {
