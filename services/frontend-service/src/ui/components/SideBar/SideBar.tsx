@@ -34,7 +34,6 @@ import { useApi } from '../../utils/GrpcApi';
 import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core';
 import classNames from 'classnames';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
-import * as React from 'react';
 
 export enum ActionTypes {
     Deploy,
