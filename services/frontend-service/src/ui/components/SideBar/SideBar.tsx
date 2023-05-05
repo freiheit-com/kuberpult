@@ -182,13 +182,13 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
     const handleAddAll = useCallback(() => {
         similarLocks.appLocks.forEach((displayLock: DisplayLock) => {
             if (!displayLock.environment) {
-                throw new Error('action of type ' + ActionTypes.DeleteEnvironmentLock + ' must have environment set');
+                throw new Error('app lock must have environment set: ' + JSON.stringify(displayLock));
             }
             if (!displayLock.lockId) {
-                throw new Error('action must have lockId set');
+                throw new Error('app lock must have lock id set: ' + JSON.stringify(displayLock));
             }
             if (!displayLock.application) {
-                throw new Error('action of type ' + ActionTypes.DeleteApplicationLock + ' must have application set');
+                throw new Error('app lock must have application set: ' + JSON.stringify(displayLock));
             }
             const newAction: BatchAction = {
                 action: {
@@ -204,10 +204,10 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
         });
         similarLocks.environmentLocks.forEach((displayLock: DisplayLock) => {
             if (!displayLock.environment) {
-                throw new Error('action of type ' + ActionTypes.DeleteEnvironmentLock + ' must have environment set');
+                throw new Error('env lock must have environment set: ' + JSON.stringify(displayLock));
             }
             if (!displayLock.lockId) {
-                throw new Error('action must have lockId set');
+                throw new Error('env lock must have lock id set: ' + JSON.stringify(displayLock));
             }
             const newAction: BatchAction = {
                 action: {

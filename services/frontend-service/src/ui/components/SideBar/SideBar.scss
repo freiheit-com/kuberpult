@@ -69,8 +69,8 @@
         white-space: nowrap;
     }
     .mdc-button__label {
-        font-size: 8px;
-        font-weight: 700;
+        font-size: $small-warn-button-font-size;
+        font-weight: $small-warn-button-font-weight;
     }
     .mdc-button__ripple {
         position: relative;
@@ -79,9 +79,9 @@
         color: red;
         border-color: red;
         border: solid;
-        border-radius: 5px;
-        padding-left: 10px;
-        padding-right: 10px;
+        border-radius: $border-radius-medium;
+        padding-left: $small-warn-button-padding-left;
+        padding-right: $small-warn-button-padding-right;
         height: min-content;
     }
 }
