@@ -98,7 +98,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                 class="env-card-header"
               >
                 <div
-                  class="mdc-evolution-chip release-environment release-environment-upstream"
+                  class="mdc-evolution-chip release-environment environment-priority-upstream"
                   role="row"
                 >
                   <span
@@ -330,7 +330,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 class="env-card-header"
               >
                 <div
-                  class="mdc-evolution-chip release-environment release-environment-upstream"
+                  class="mdc-evolution-chip release-environment environment-priority-upstream"
                   role="row"
                 >
                   <span
@@ -459,7 +459,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 class="env-card-header"
               >
                 <div
-                  class="mdc-evolution-chip release-environment release-environment-upstream"
+                  class="mdc-evolution-chip release-environment environment-priority-upstream"
                   role="row"
                 >
                   <span

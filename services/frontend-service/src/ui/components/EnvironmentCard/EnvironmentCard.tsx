@@ -65,7 +65,7 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
 export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup }> = (props) => {
     const { environmentGroup } = props;
     // all envs in the same group have the same priority
-    const priorityClassName = useEnvironmentPriorityClassName(environmentGroup.environments[0].name);
+    const priorityClassName = useEnvironmentPriorityClassName(environmentGroup.environments[0]?.name);
     const addLock = React.useCallback(() => {
         environmentGroup.environments.forEach((environment) => {
             addAction({

@@ -16,7 +16,7 @@ Copyright 2023 freiheit.com*/
 import { EnvironmentChip, EnvironmentChipProps, EnvironmentGroupChip } from './EnvironmentGroupChip';
 import { fireEvent, render } from '@testing-library/react';
 import { Environment, Lock, Priority } from '../../../api/api';
-import { EnvironmentGroupExtended } from '../../utils/store';
+import { EnvironmentGroupExtended, UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
 
 const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
@@ -39,10 +39,15 @@ describe('EnvironmentChip', () => {
     );
     const getWrapper = (overloads?: Partial<EnvironmentChipProps>) => render(getNode(overloads));
     it('renders a chip', () => {
+        // given
+        UpdateOverview.set({
+            environmentGroups: [{ environments: [env], environmentGroupName: 'dontcare', distanceToUpstream: 0 }],
+        });
+        // then
         const { container } = getWrapper();
         expect(container.firstChild).toMatchInlineSnapshot(`
             <div
-              class="mdc-evolution-chip chip--test chip--test-prod"
+              class="mdc-evolution-chip chip--test environment-priority-prod"
               role="row"
             >
               <span
@@ -136,11 +141,18 @@ const envChipData: Array<TestDataEnvs> = [
 
 describe.each(envChipData)(`EnvironmentChip with envPrio Classname`, (testcase) => {
     it(`with envPrio=${testcase.env.priority}`, () => {
+        // given
+        UpdateOverview.set({
+            environmentGroups: [
+                { environments: [testcase.env], environmentGroupName: 'dontcare', distanceToUpstream: 0 },
+            ],
+        });
+        // then
         const getNode = () => <EnvironmentChip className={'chip--hello'} env={testcase.env} />;
         const getWrapper = () => render(getNode());
         const { container } = getWrapper();
         expect(container.firstChild).toHaveClass(
-            'mdc-evolution-chip chip--hello chip--hello-' + testcase.expectedClass
+            'mdc-evolution-chip chip--hello environment-priority-' + testcase.expectedClass
         );
     });
 });
