@@ -185,7 +185,7 @@ func TestArgoConection(t *testing.T) {
 			t.Parallel()
 			ctx, cancel := context.WithCancel(context.Background())
 			tc.ApplicationService.Start(cancel)
-			err := ConsumeEvents(ctx, tc.ApplicationService, nil)
+			err := ConsumeEvents(ctx, tc.ApplicationService, nil, nil)
 			if tc.ExpectedError == "" {
 				if err != nil {
 					t.Errorf("expected no error, but got %q", err)

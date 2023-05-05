@@ -25,7 +25,9 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/api"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/broadcast"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -95,7 +97,7 @@ func runServer(ctx context.Context, config Config) error {
 
 	client, err := apiclient.NewClient(&opts)
 	if err != nil {
-		return fmt.Errorf("connecting to argocd(%s): %w", opts.ServerAddr, err)
+		return fmt.Errorf("connecting to argocd %s: %w", opts.ServerAddr, err)
 	}
 	closer, versionClient, err := client.NewVersionClient()
 	if err != nil {
@@ -117,5 +119,5 @@ func runServer(ctx context.Context, config Config) error {
         if err != nil {
 	    return fmt.Errorf("connecting to cd service %q: %w", config.CdServer, err)
 	}
-	return service.ConsumeEvents(ctx, appClient, overview)
+	return service.ConsumeEvents(ctx, appClient, versions.New(overview), &broadcast.Broadcast{})
 }
