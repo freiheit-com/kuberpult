@@ -19,7 +19,7 @@
     "react-router-dom": "6",
     "react-scripts": "^5.0.1",
     "react-use-sub": "^3.0.0",
-    "rxjs": "^6.6.7"
+    "rxjs": "^7.0.0"
   },
   "scripts": {
     "preinstall": "npx only-allow pnpm",
