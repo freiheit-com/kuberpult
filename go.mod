@@ -17,7 +17,7 @@ require (
 	github.com/libgit2/git2go/v34 v34.0.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.8.0
-	google.golang.org/api v0.120.0
+	google.golang.org/api v0.121.0
 	google.golang.org/grpc v1.55.0
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.49.1
@@ -42,7 +42,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/s2a-go v0.1.2 // indirect
+	github.com/google/s2a-go v0.1.3 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
