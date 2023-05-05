@@ -129,15 +129,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                 <div key={application.name + '-' + rel} className="service-lane__diff">
                     <ReleaseCard app={application.name} version={rel} key={application.name + '-' + rel} />
                     {!!diff && (
-                        <Tooltip
-                            title={
-                                'There are ' +
-                                diff +
-                                ' releases between version ' +
-                                releases[index - 1] +
-                                ' and version ' +
-                                rel
-                            }>
+                        <Tooltip title={'There are ' + diff + ' more releases hidden. Click on History to view more'}>
                             {DiffElement(diff)}
                         </Tooltip>
                     )}
