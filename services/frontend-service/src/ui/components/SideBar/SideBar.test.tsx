@@ -454,7 +454,7 @@ describe('Action details', () => {
                 type: ActionTypes.CreateApplicationLock,
                 name: 'Create App Lock',
                 dialogTitle: 'Are you sure you want to add this application lock?',
-                summary: 'Create new environment lock for "bread" on foo',
+                summary: 'Create new application lock for "bread" on foo',
                 environment: 'foo',
                 application: 'bread',
             },

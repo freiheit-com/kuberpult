@@ -93,7 +93,7 @@ export const getActionDetails = (
                 name: 'Create App Lock',
                 dialogTitle: 'Are you sure you want to add this application lock?',
                 summary:
-                    'Create new environment lock for "' +
+                    'Create new application lock for "' +
                     action.createEnvironmentApplicationLock.application +
                     '" on ' +
                     action.createEnvironmentApplicationLock.environment,
