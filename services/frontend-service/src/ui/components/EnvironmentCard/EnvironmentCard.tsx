@@ -13,16 +13,18 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { addAction, useFilteredEnvironmentLockIDs } from '../../utils/store';
+import { addAction, useEnvironmentPriorityClassName, useFilteredEnvironmentLockIDs } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import * as React from 'react';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 import { EnvironmentGroup } from '../../../api/api';
+import classNames from 'classnames';
 
 export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
     const { environment } = props;
     const locks = useFilteredEnvironmentLockIDs(environment);
+    const priorityClassName = useEnvironmentPriorityClassName(environment);
 
     const addLock = React.useCallback(() => {
         addAction({
@@ -34,7 +36,7 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
     }, [environment]);
     return (
         <div className="environment-lane">
-            <div className="environment-lane__header">
+            <div className={classNames('environment-lane__header', priorityClassName)}>
                 <div className="environment__name" title={'Name of the environment'}>
                     {environment}
                 </div>
@@ -62,6 +64,8 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
 
 export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup }> = (props) => {
     const { environmentGroup } = props;
+    // all envs in the same group have the same priority
+    const priorityClassName = useEnvironmentPriorityClassName(environmentGroup.environments[0].name);
     const addLock = React.useCallback(() => {
         environmentGroup.environments.forEach((environment) => {
             addAction({
@@ -75,7 +79,7 @@ export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup
     return (
         <div className="environment-group-lane">
             <div className="environment-group-lane__header-wrapper">
-                <div className="environment-group-lane__header">
+                <div className={classNames('environment-group-lane__header', priorityClassName)}>
                     <div className="environment-group__name" title={'Name of the environment group'}>
                         {environmentGroup.environmentGroupName}
                     </div>

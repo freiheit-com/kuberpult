@@ -38,15 +38,6 @@ export type ReleaseDialogProps = {
 
 export type EnvSortOrder = { [index: string]: number };
 
-// do not rename!
-// these are mapped directly to css classes in chip.tsx
-export enum EnvPrio {
-    PROD,
-    PRE_PROD,
-    UPSTREAM,
-    OTHER,
-}
-
 export const AppLock: React.FC<{
     env: Environment;
     app: string;

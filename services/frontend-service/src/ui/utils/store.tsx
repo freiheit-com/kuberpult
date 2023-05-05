@@ -260,6 +260,23 @@ export const useEnvironments = (): Environment[] =>
  */
 export const useEnvironmentNames = (): string[] => useEnvironments().map((env) => env.name);
 
+// do not rename!
+// these are mapped directly to css classes in chip.tsx
+export enum EnvPrio {
+    PROD,
+    PRE_PROD,
+    UPSTREAM,
+    OTHER,
+}
+
+/**
+ * returns the classname according to the priority of an environment, used to color environments
+ */
+export const useEnvironmentPriorityClassName = (envName: string): string => {
+    const priority = useEnvironments().find((e) => e.name === envName)?.priority ?? EnvPrio.OTHER;
+    return 'environment-priority-' + String(EnvPrio[priority]).toLowerCase();
+};
+
 // returns all application names
 export const useSearchedApplications = (applications: Application[], appNameParam: string): Application[] =>
     applications
