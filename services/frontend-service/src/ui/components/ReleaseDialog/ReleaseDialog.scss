@@ -62,9 +62,9 @@
         display: flex;
         flex-direction: column;
         overflow: overlay;
-        gap: 22px;
+        gap: 12px;
         margin: 0px;
-        padding: 35px 0px;
+        padding-bottom: 20px;
         align-items: center;
         border-radius: $release-dialog-bottom-border-radius;
 
@@ -84,13 +84,14 @@
             margin-left: 20px;
             margin-right: 20px;
             border-radius: $release-dialog-inner-border-radius;
-            gap: 16px;
+            gap: 0;
 
             .env-card-header {
                 display: flex;
                 flex-direction: row;
                 justify-content: space-between;
                 .release-environment {
+                    border-radius: $border-radius-large;
                     top: $release-dialog-label-displacement;
                     left: $release-dialog-label-displacement;
                     height: 42px;
