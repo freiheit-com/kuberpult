@@ -50,7 +50,7 @@
     "eslint-plugin-prettier": "^4.2.1",
     "google-protobuf": "^3.21.0",
     "long": "^5.2.0",
-    "madge": "^4.0.0",
+    "madge": "^6.0.0",
     "prettier": "^2.2.1",
     "protobufjs": "^7.0.0",
     "react-refresh": "^0.14.0",
