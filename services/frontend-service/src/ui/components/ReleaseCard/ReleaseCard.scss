@@ -1,8 +1,11 @@
 @use '@material/card/mdc-card';
 
-.mdc-tooltip__title.release__details {
+h2.mdc-tooltip__title.release__details {
     white-space: pre-wrap;
-    font-height: 7px;
+    line-height: 12px;
+    b {
+        line-height: 12px; // we have to set the line-height on the parent and the child, otherwise it has no effect
+    }
 }
 
 .release-card__container {
