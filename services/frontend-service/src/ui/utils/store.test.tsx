@@ -178,6 +178,84 @@ const testdata: TestDataStore[] = [
             environmentLocks: [],
         },
     },
+    {
+        name: 'bug: delete-all button must appear for each entry. 2 Env Locks, 1 App lock exist. 1 Env lock, 1 app lock in cart',
+        inputAction: {
+            action: {
+                $case: 'deleteEnvironmentApplicationLock',
+                deleteEnvironmentApplicationLock: {
+                    environment: 'dev',
+                    lockId: 'l1',
+                    application: 'app1',
+                },
+            },
+        },
+        inputEnvGroups: [
+            {
+                environments: [
+                    {
+                        name: 'dev',
+                        distanceToUpstream: 0,
+                        priority: Priority.UPSTREAM,
+                        locks: {
+                            l1: makeLock({ lockId: 'l1' }),
+                        },
+                        applications: {
+                            app1: {
+                                name: 'betty',
+                                locks: {
+                                    l1: makeLock({ lockId: 'l1' }),
+                                },
+                                version: 666,
+                                undeployVersion: false,
+                                queuedVersion: 0,
+                                argoCD: undefined,
+                            },
+                        },
+                    },
+                    {
+                        name: 'dev2',
+                        distanceToUpstream: 0,
+                        priority: Priority.UPSTREAM,
+                        locks: {
+                            l1: makeLock({ lockId: 'l1' }),
+                        },
+                        applications: {},
+                    },
+                ],
+                environmentGroupName: 'group1',
+                distanceToUpstream: 0,
+            },
+        ],
+        expectedLocks: {
+            appLocks: [
+                makeDisplayLock({
+                    environment: 'dev',
+                    lockId: 'l1',
+                    application: 'betty',
+                    message: 'lock msg 1',
+                    authorName: 'Betty',
+                    authorEmail: 'betty@example.com',
+                }),
+            ],
+            environmentLocks: [
+                makeDisplayLock({
+                    environment: 'dev',
+                    lockId: 'l1',
+                    message: 'lock msg 1',
+                    authorName: 'Betty',
+                    authorEmail: 'betty@example.com',
+                }),
+                makeDisplayLock({
+                    environment: 'dev2',
+                    lockId: 'l1',
+                    message: 'lock msg 1',
+                    authorName: 'Betty',
+                    authorEmail: 'betty@example.com',
+                }),
+            ],
+        },
+    },
 ];
 
 describe.each(testdata)('Test useLocksSimilarTo', (testcase) => {
