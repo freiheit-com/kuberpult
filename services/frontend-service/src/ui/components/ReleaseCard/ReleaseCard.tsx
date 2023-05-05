@@ -95,7 +95,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
             {!!createdAt && <div className="release__metadata">{getFormattedReleaseDate(createdAt)}</div>}
         </h2>
     );
-
+    const firstLine = sourceMessage.split('\n')[0];
     return (
         <Tooltip id={app + version} content={tooltipContents}>
             <div className="release-card__container">
@@ -109,7 +109,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                         tabIndex={0}
                         onClick={openReleaseDialog}>
                         <div className="release-card__header">
-                            <div className="release__title">{undeployVersion ? 'Undeploy Version' : sourceMessage}</div>
+                            <div className="release__title">{undeployVersion ? 'Undeploy Version' : firstLine}</div>
                             {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
                         </div>
                         <div className="mdc-card__ripple" />
