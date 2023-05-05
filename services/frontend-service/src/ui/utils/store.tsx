@@ -38,6 +38,9 @@ export interface DisplayLock {
     authorEmail?: string;
 }
 
+export const displayLockUniqueId = (displayLock: DisplayLock): string =>
+    'dl-' + displayLock.lockId + '-' + displayLock.environment + '-' + displayLock.application;
+
 const emptyOverview: GetOverviewResponse = {
     applications: {},
     environments: {},
@@ -372,6 +375,80 @@ export const useAllLocks = (): AllLocks => {
         environmentLocks,
         appLocks,
     };
+};
+
+type DeleteActionData = {
+    env: string;
+    app: string | undefined;
+    lockId: string;
+};
+
+const extractDeleteActionData = (batchAction: BatchAction): DeleteActionData | undefined => {
+    if (batchAction.action?.$case === 'deleteEnvironmentApplicationLock') {
+        return {
+            env: batchAction.action.deleteEnvironmentApplicationLock.environment,
+            app: batchAction.action.deleteEnvironmentApplicationLock.application,
+            lockId: batchAction.action.deleteEnvironmentApplicationLock.lockId,
+        };
+    }
+    if (batchAction.action?.$case === 'deleteEnvironmentLock') {
+        return {
+            env: batchAction.action.deleteEnvironmentLock.environment,
+            app: undefined,
+            lockId: batchAction.action.deleteEnvironmentLock.lockId,
+        };
+    }
+    return undefined;
+};
+
+// returns all locks with the same ID
+// that are not already in the cart
+export const useLocksSimilarTo = (cartItemAction: BatchAction | undefined): AllLocks => {
+    const allLocks = useAllLocks();
+    const actions = useActions();
+
+    if (!cartItemAction) {
+        return { appLocks: [], environmentLocks: [] };
+    }
+    const data = extractDeleteActionData(cartItemAction);
+    if (!data) {
+        return {
+            appLocks: [],
+            environmentLocks: [],
+        };
+    }
+    const isInCart = (lock: DisplayLock): boolean =>
+        actions.find((cartAction: BatchAction): boolean => {
+            const data = extractDeleteActionData(cartAction);
+            if (!data) {
+                return false;
+            }
+            return lock.lockId === data.lockId && lock.application === data.app && lock.environment === data.env;
+        }) !== undefined;
+
+    const resultLocks: AllLocks = {
+        environmentLocks: [],
+        appLocks: [],
+    };
+    allLocks.environmentLocks.forEach((envLock: DisplayLock) => {
+        if (isInCart(envLock)) {
+            return;
+        }
+        // if the id is the same, but we are on a different environment:
+        if (envLock.lockId === data.lockId && envLock.environment !== data.env) {
+            resultLocks.environmentLocks.push(envLock);
+        }
+    });
+    allLocks.appLocks.forEach((appLock: DisplayLock) => {
+        if (isInCart(appLock)) {
+            return;
+        }
+        // if the id is the same, but we are on a different environment or different app:
+        if (appLock.lockId === data.lockId && (appLock.environment !== data.env || appLock.application !== data.app)) {
+            resultLocks.appLocks.push(appLock);
+        }
+    });
+    return resultLocks;
 };
 
 export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest' | 'newestToOldest'): DisplayLock[] => {
