@@ -26,52 +26,19 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
-type mockRecvReply struct {
+type mockReply struct {
 	Event *v1alpha1.ApplicationWatchEvent
-	Err   error
+	WatchErr   error
+        RecvErr    error
+        
+        ExpectedEvent *Event
 }
 
-type mockApplicationWatch struct {
-	Replies []mockRecvReply
-	current int
-	cancel  context.CancelFunc
-}
 
-// CloseSend implements application.ApplicationService_WatchClient
-func (*mockApplicationWatch) CloseSend() error {
-	panic("unimplemented")
-}
-
-// Context implements application.ApplicationService_WatchClient
-func (*mockApplicationWatch) Context() context.Context {
-	panic("unimplemented")
-}
-
-// Header implements application.ApplicationService_WatchClient
-func (*mockApplicationWatch) Header() (metadata.MD, error) {
-	panic("unimplemented")
-}
-
-// RecvMsg implements application.ApplicationService_WatchClient
-func (*mockApplicationWatch) RecvMsg(m interface{}) error {
-	panic("unimplemented")
-}
-
-// SendMsg implements application.ApplicationService_WatchClient
-func (*mockApplicationWatch) SendMsg(m interface{}) error {
-	panic("unimplemented")
-}
-
-// Trailer implements application.ApplicationService_WatchClient
-func (*mockApplicationWatch) Trailer() metadata.MD {
-	panic("unimplemented")
-}
-
-func (m *mockApplicationWatch) Recv() (*v1alpha1.ApplicationWatchEvent, error) {
+func (m *mockApplicationServiceClient) Recv() (*v1alpha1.ApplicationWatchEvent, error) {
 	if m.current >= len(m.Replies) {
 		return nil, fmt.Errorf("exhausted: %w", io.EOF)
 	}
@@ -80,24 +47,14 @@ func (m *mockApplicationWatch) Recv() (*v1alpha1.ApplicationWatchEvent, error) {
 	if m.current >= len(m.Replies) && m.cancel != nil {
 		m.cancel()
 	}
-	return reply.Event, reply.Err
-}
-
-func (m *mockApplicationWatch) Start(cancel context.CancelFunc) {
-	m.cancel = cancel
-}
-
-var _ application.ApplicationService_WatchClient = (*mockApplicationWatch)(nil)
-
-type mockApplicationReply struct {
-	Watch *mockApplicationWatch
-	Err   error
+	return reply.Event, reply.RecvErr
 }
 
 type mockApplicationServiceClient struct {
-	Replies []mockApplicationReply
+	Replies []mockReply
 	current int
 	cancel  context.CancelFunc
+	grpc.ClientStream
 }
 
 func (m *mockApplicationServiceClient) Watch(ctx context.Context, qry *application.ApplicationQuery, opts ...grpc.CallOption) (application.ApplicationService_WatchClient, error) {
@@ -105,16 +62,11 @@ func (m *mockApplicationServiceClient) Watch(ctx context.Context, qry *applicati
 		return nil, fmt.Errorf("exhausted: %w", io.EOF)
 	}
 	reply := m.Replies[m.current]
-	m.current = m.current + 1
-	if m.current >= len(m.Replies) {
-		if reply.Err != nil {
-			m.cancel()
-		}
-		if reply.Watch != nil {
-			reply.Watch.Start(m.cancel)
-		}
-	}
-	return reply.Watch, reply.Err
+        if reply.WatchErr != nil {
+	  m.current = m.current + 1
+          return nil, reply.WatchErr
+        }
+	return m, nil
 }
 
 func (m *mockApplicationServiceClient) Start(cancel context.CancelFunc) {
@@ -136,9 +88,9 @@ func TestArgoConection(t *testing.T) {
 		{
 			Name: "stops when ctx is closed on Recv call",
 			ApplicationService: &mockApplicationServiceClient{
-				Replies: []mockApplicationReply{
+				Replies: []mockReply{
 					{
-						Err: status.Error(codes.Canceled, "context cancelled"),
+						WatchErr: status.Error(codes.Canceled, "context cancelled"),
 					},
 				},
 			},
@@ -146,13 +98,9 @@ func TestArgoConection(t *testing.T) {
 		{
 			Name: "stops when ctx closes in the watch call",
 			ApplicationService: &mockApplicationServiceClient{
-				Replies: []mockApplicationReply{
+				Replies: []mockReply{
 					{
-						Watch: &mockApplicationWatch{
-							Replies: []mockRecvReply{{
-								Err: status.Error(codes.Canceled, "context cancelled"),
-							}},
-						},
+						RecvErr: status.Error(codes.Canceled, "context cancelled"),
 					},
 				},
 			},
@@ -160,20 +108,12 @@ func TestArgoConection(t *testing.T) {
 		{
 			Name: "retries when Recv fails",
 			ApplicationService: &mockApplicationServiceClient{
-				Replies: []mockApplicationReply{
+				Replies: []mockReply{
 					{
-						Watch: &mockApplicationWatch{
-							Replies: []mockRecvReply{{
-								Err: fmt.Errorf("no"),
-							}},
-						},
+						RecvErr: fmt.Errorf("no"),
 					},
 					{
-						Watch: &mockApplicationWatch{
-							Replies: []mockRecvReply{{
-								Err: status.Error(codes.Canceled, "context cancelled"),
-							}},
-						},
+						RecvErr: status.Error(codes.Canceled, "context cancelled"),
 					},
 				},
 			},
