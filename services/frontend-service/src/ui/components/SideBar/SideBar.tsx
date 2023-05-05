@@ -94,7 +94,7 @@ export const getActionDetails = (
                 name: 'Create App Lock',
                 dialogTitle: 'Are you sure you want to add this application lock?',
                 summary:
-                    'Lock "' +
+                    'Create new application lock for "' +
                     action.createEnvironmentApplicationLock.application +
                     '" on ' +
                     action.createEnvironmentApplicationLock.environment,
@@ -107,7 +107,7 @@ export const getActionDetails = (
                 name: 'Delete App Lock',
                 dialogTitle: 'Are you sure you want to delete this application lock?',
                 summary:
-                    'Unlock "' +
+                    'Delete application lock for "' +
                     action.deleteEnvironmentApplicationLock.application +
                     '" on ' +
                     action.deleteEnvironmentApplicationLock.environment +
