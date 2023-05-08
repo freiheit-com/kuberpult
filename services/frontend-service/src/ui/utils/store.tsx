@@ -264,10 +264,8 @@ export const useEnvironmentNames = (): string[] => useEnvironments().map((env) =
 /**
  * returns the classname according to the priority of an environment, used to color environments
  */
-export const useEnvironmentPriorityClassName = (envName: string): string => {
-    const priority = useEnvironments().find((e) => e.name === envName)?.priority ?? Priority.UNRECOGNIZED;
-    return 'environment-priority-' + String(Priority[priority]).toLowerCase();
-};
+export const getPriorityClassName = (environment: Environment): string =>
+    'environment-priority-' + String(Priority[environment?.priority ?? Priority.UNRECOGNIZED]).toLowerCase();
 
 // returns all application names
 export const useSearchedApplications = (applications: Application[], appNameParam: string): Application[] =>

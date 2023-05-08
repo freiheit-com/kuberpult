@@ -19,8 +19,8 @@ import React, { useCallback } from 'react';
 import {
     addAction,
     EnvironmentGroupExtended,
+    getPriorityClassName,
     useCurrentlyDeployedAtGroup,
-    useEnvironmentPriorityClassName,
 } from '../../utils/store';
 import { Tooltip } from '@material-ui/core';
 import { Button } from '../button';
@@ -83,7 +83,7 @@ export type EnvironmentChipProps = {
 
 export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     const { className, env, smallEnvChip } = props;
-    const priorityClassName = useEnvironmentPriorityClassName(env.name);
+    const priorityClassName = getPriorityClassName(env);
     const name = props.groupNameOverride ? props.groupNameOverride : env.name;
     const numberString =
         props.numberEnvsDeployed && props.numberEnvsInGroup

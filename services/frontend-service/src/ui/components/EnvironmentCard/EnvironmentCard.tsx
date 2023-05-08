@@ -13,46 +13,46 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { addAction, useEnvironmentPriorityClassName, useFilteredEnvironmentLockIDs } from '../../utils/store';
+import { addAction, getPriorityClassName, useFilteredEnvironmentLockIDs } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import * as React from 'react';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
-import { EnvironmentGroup } from '../../../api/api';
+import { Environment, EnvironmentGroup } from '../../../api/api';
 import classNames from 'classnames';
 
-export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
+export const EnvironmentCard: React.FC<{ environment: Environment }> = (props) => {
     const { environment } = props;
-    const locks = useFilteredEnvironmentLockIDs(environment);
-    const priorityClassName = useEnvironmentPriorityClassName(environment);
+    const locks = useFilteredEnvironmentLockIDs(environment.name);
+    const priorityClassName = getPriorityClassName(environment);
 
     const addLock = React.useCallback(() => {
         addAction({
             action: {
                 $case: 'createEnvironmentLock',
-                createEnvironmentLock: { environment: environment, lockId: '', message: '' },
+                createEnvironmentLock: { environment: environment.name, lockId: '', message: '' },
             },
         });
-    }, [environment]);
+    }, [environment.name]);
     return (
         <div className="environment-lane">
             <div className={classNames('environment-lane__header', priorityClassName)}>
                 <div className="environment__name" title={'Name of the environment'}>
-                    {environment}
+                    {environment.name}
                 </div>
             </div>
             <div className="environment-lane__body">
                 {locks.length !== 0 && (
                     <div className="environment__locks">
                         {locks.map((lock) => (
-                            <EnvironmentLockDisplay env={environment} lockId={lock} key={lock} />
+                            <EnvironmentLockDisplay env={environment.name} lockId={lock} key={lock} />
                         ))}
                     </div>
                 )}
                 <div className="environment__actions">
                     <Button
                         className="environment-action service-action--prepare-undeploy test-lock-env"
-                        label={'Add Environment Lock in ' + environment}
+                        label={'Add Environment Lock in ' + environment.name}
                         icon={<Locks />}
                         onClick={addLock}
                     />
@@ -65,7 +65,7 @@ export const EnvironmentCard: React.FC<{ environment: string }> = (props) => {
 export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup }> = (props) => {
     const { environmentGroup } = props;
     // all envs in the same group have the same priority
-    const priorityClassName = useEnvironmentPriorityClassName(environmentGroup.environments[0]?.name);
+    const priorityClassName = getPriorityClassName(environmentGroup.environments[0]);
     const addLock = React.useCallback(() => {
         environmentGroup.environments.forEach((environment) => {
             addAction({
@@ -95,7 +95,7 @@ export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup
             </div>
             <div className="environment-group-lane__body">
                 {environmentGroup.environments.map((env) => (
-                    <EnvironmentCard environment={env.name} key={env.name} />
+                    <EnvironmentCard environment={env} key={env.name} />
                 ))}
             </div>
             {/*I am just here so that we can avoid margin collapsing */}
