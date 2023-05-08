@@ -17,6 +17,7 @@ import classNames from 'classnames';
 import { cloneElement, useEffect, useRef } from 'react';
 import { MDCRipple } from '@material/ripple';
 import { Link, useLocation } from 'react-router-dom';
+import { useNavigateWithSearchParams } from '../../utils/store';
 
 export const NavbarIndicator = (props: { pathname: string; to: string }): JSX.Element => {
     const { pathname, to } = props;
@@ -28,16 +29,12 @@ export const NavbarIndicator = (props: { pathname: string; to: string }): JSX.El
     );
 };
 
-export const NavListItem = (props: {
-    className?: string;
-    to: string;
-    queryParams?: string;
-    icon?: JSX.Element;
-}): JSX.Element => {
+export const NavListItem = (props: { className?: string; to: string; icon?: JSX.Element }): JSX.Element => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLAnchorElement>(null);
-    const { className, to, queryParams, icon } = props;
+    const { className, to, icon } = props;
     const { pathname } = useLocation();
+    const { navURL } = useNavigateWithSearchParams(to);
 
     useEffect(() => {
         if (control.current) {
@@ -59,7 +56,7 @@ export const NavListItem = (props: {
                 aria-label={to}
                 className={allClassNames}
                 ref={control}
-                to={`${to}${queryParams ? queryParams : ''}`}
+                to={navURL}
                 tabIndex={pathname.startsWith(`/${to}`) ? 0 : -1}>
                 <div className="mdc-list-item__ripple" />
                 {icon &&
