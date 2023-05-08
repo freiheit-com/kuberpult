@@ -30,14 +30,14 @@
     @extend .text-bold;
     white-space: nowrap;
     float: right;
+}
 
-    &.release-environment-prod {
-        background-color: $env-color-prod;
-    }
-    &.release-environment-pre_prod {
-        background-color: $env-color-pre_prod;
-    }
-    &.release-environment-upstream {
-        background-color: $env-color-upstream;
-    }
+.environment-priority-prod {
+    background-color: $env-color-prod;
+}
+.environment-priority-pre_prod {
+    background-color: $env-color-pre_prod;
+}
+.environment-priority-upstream {
+    background-color: $env-color-upstream;
 }

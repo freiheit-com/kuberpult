@@ -17,7 +17,6 @@
     .environment-group-lane__header {
         position: relative;
         color: var(--mdc-theme-surface); // will be fixed in SRX-E9D7EE
-        background-color: var(--mdc-theme-secondary);
         display: flex;
         justify-content: space-between;
         padding: $environment-lane-header-padding;
@@ -44,7 +43,6 @@
         .environment-lane__header {
             position: relative;
             color: $environment-lane-header-color;
-            background-color: $environment-lane-header-background-color;
             display: flex;
             justify-content: space-between;
             padding: $environment-lane-header-padding;

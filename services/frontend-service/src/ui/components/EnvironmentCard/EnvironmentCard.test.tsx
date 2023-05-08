@@ -16,8 +16,9 @@ Copyright 2023 freiheit.com*/
 
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { EnvironmentGroup } from '../../../api/api';
+import { EnvironmentGroup, Priority } from '../../../api/api';
 import { EnvironmentGroupCard } from './EnvironmentCard';
+import { UpdateOverview } from '../../utils/store';
 
 const getNode = (group: EnvironmentGroup): JSX.Element | any => (
     <MemoryRouter>
@@ -26,12 +27,13 @@ const getNode = (group: EnvironmentGroup): JSX.Element | any => (
 );
 const getWrapper = (group: EnvironmentGroup) => render(getNode(group));
 
-describe('Test env locks', () => {
+describe('Test Environment Cards', () => {
     interface dataEnvT {
         name: string;
         group: EnvironmentGroup;
         expectedNumEnvLockButtons: number;
         expectedNumGroupsLockButtons: number;
+        expectedPriorityClassName: string;
     }
 
     const sampleEnvData: dataEnvT[] = [
@@ -44,6 +46,7 @@ describe('Test env locks', () => {
             },
             expectedNumGroupsLockButtons: 1,
             expectedNumEnvLockButtons: 0,
+            expectedPriorityClassName: 'environment-priority-unrecognized', // group priority is UNRECOGNIZED / unknown
         },
         {
             name: '1 group 1 env',
@@ -56,13 +59,14 @@ describe('Test env locks', () => {
                         distanceToUpstream: 2,
                         locks: {},
                         applications: {},
-                        priority: 43,
+                        priority: Priority.PRE_PROD,
                         config: {},
                     },
                 ],
             },
             expectedNumGroupsLockButtons: 1,
             expectedNumEnvLockButtons: 1,
+            expectedPriorityClassName: 'environment-priority-pre_prod',
         },
         {
             name: '1 group 2 env',
@@ -75,7 +79,7 @@ describe('Test env locks', () => {
                         distanceToUpstream: 2,
                         locks: {},
                         applications: {},
-                        priority: 43,
+                        priority: Priority.UPSTREAM,
                         config: {},
                     },
                     {
@@ -83,26 +87,35 @@ describe('Test env locks', () => {
                         distanceToUpstream: 2,
                         locks: {},
                         applications: {},
-                        priority: 43,
+                        priority: Priority.UPSTREAM,
                         config: {},
                     },
                 ],
             },
             expectedNumGroupsLockButtons: 1,
             expectedNumEnvLockButtons: 2,
+            expectedPriorityClassName: 'environment-priority-upstream',
         },
     ];
 
     describe.each(sampleEnvData)(`Test Lock IDs`, (testcase) => {
         it(testcase.name, () => {
             // given
-            const { container } = getWrapper(testcase.group);
+            UpdateOverview.set({
+                environmentGroups: [testcase.group],
+            });
             // when
+            const { container } = getWrapper(testcase.group);
             // then
             const lockGroupElems = container.getElementsByClassName('test-lock-group');
             expect(lockGroupElems).toHaveLength(testcase.expectedNumGroupsLockButtons);
             const lockEnvElems = container.getElementsByClassName('test-lock-env');
             expect(lockEnvElems).toHaveLength(testcase.expectedNumEnvLockButtons);
+
+            // when
+            const envGroupHeader = container.querySelector('.environment-group-lane__header');
+            // then
+            expect(envGroupHeader?.className).toContain(testcase.expectedPriorityClassName);
         });
     });
 });

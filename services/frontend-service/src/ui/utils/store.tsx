@@ -21,6 +21,7 @@ import {
     Environment,
     EnvironmentGroup,
     GetOverviewResponse,
+    Priority,
     Release,
 } from '../../api/api';
 import { useApi } from './GrpcApi';
@@ -259,6 +260,12 @@ export const useEnvironments = (): Environment[] =>
  * returns all environment names
  */
 export const useEnvironmentNames = (): string[] => useEnvironments().map((env) => env.name);
+
+/**
+ * returns the classname according to the priority of an environment, used to color environments
+ */
+export const getPriorityClassName = (environment: Environment): string =>
+    'environment-priority-' + String(Priority[environment?.priority ?? Priority.UNRECOGNIZED]).toLowerCase();
 
 // returns all application names
 export const useSearchedApplications = (applications: Application[], appNameParam: string): Application[] =>

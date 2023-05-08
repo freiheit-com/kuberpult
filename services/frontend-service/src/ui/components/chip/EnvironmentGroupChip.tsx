@@ -14,10 +14,14 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
-import { EnvPrio } from '../ReleaseDialog/ReleaseDialog';
 import { Environment, Lock } from '../../../api/api';
 import React, { useCallback } from 'react';
-import { addAction, EnvironmentGroupExtended, useCurrentlyDeployedAtGroup } from '../../utils/store';
+import {
+    addAction,
+    EnvironmentGroupExtended,
+    getPriorityClassName,
+    useCurrentlyDeployedAtGroup,
+} from '../../utils/store';
 import { Tooltip } from '@material-ui/core';
 import { Button } from '../button';
 import { LocksWhite } from '../../../images';
@@ -79,8 +83,7 @@ export type EnvironmentChipProps = {
 
 export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     const { className, env, smallEnvChip } = props;
-    const priority = env.priority;
-    const priorityClassName = className + '-' + String(EnvPrio[priority]).toLowerCase();
+    const priorityClassName = getPriorityClassName(env);
     const name = props.groupNameOverride ? props.groupNameOverride : env.name;
     const numberString =
         props.numberEnvsDeployed && props.numberEnvsInGroup
