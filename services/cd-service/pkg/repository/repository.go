@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"io"
 	"io/ioutil"
 	"os"
@@ -927,6 +928,15 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[strin
 		upstreamEnv := env.Upstream.Environment
 		if !envExists(envConfigs, upstreamEnv) {
 			logger.Warn(fmt.Sprintf("The environment '%s' has upstream '%s' configured, but the environment '%s' does not exist.", envName, upstreamEnv, upstreamEnv))
+		}
+	}
+	envGroups := mapper.MapEnvironmentsToGroups(envConfigs)
+	for _, group := range envGroups {
+		grpDist := group.Environments[0].DistanceToUpstream
+		for _, env := range group.Environments {
+			if env.DistanceToUpstream != grpDist {
+				logger.Warn(fmt.Sprintf("The environment group '%s' has multiple environments setup with different distances to upstream", group.EnvironmentGroupName))
+			}
 		}
 	}
 	return envConfigs, err
