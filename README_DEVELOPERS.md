@@ -219,3 +219,27 @@ Verify that the release draft is correct in the GitHub UI and publish it for rel
 
 - The first version of this tool was written using go-git v5. Sadly the performance was abysmal. Adding a new manifest took > 20 seconds. Therefore, we switched to libgit2, which is much faster but less ergonomic.
 
+## Running locally with 2 images
+The normal docker-compose.yml file starts 3 containers: cd-service, frontend-service, ui.
+The file `docker-compose.tpl.yml` starts 2 containers: cd-service and frontend+ui in one.
+In the helm chart, there are also only 2 containers.
+
+Pros of running 2 containers:
+* closer to the "real world", meaning the helm chart
+* You can (manually) test things like path redirects much better
+
+Cons of running 2 containers:
+* There's no UI hot-reload
+
+To run with 2 containers (you need to run this with every change):
+```shell
+# replace "sven" with any other prefix or your choice:
+docker-compose stop
+PREFIX=sven-d
+export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult 
+IMAGENAME="$IMAGE_REGISTRY"/kuberpult-cd-service:"$PREFIX"-0.4.66-23-g0d06019 make docker -C services/cd-service/
+IMAGENAME="$IMAGE_REGISTRY"/kuberpult-frontend-service:"$PREFIX"-0.4.66-23-g0d06019 make docker -C services/frontend-service/
+IMAGE_TAG_CD="$PREFIX"-0.4.66-23-g0d06019 IMAGE_TAG_FRONTEND="$PREFIX"-0.4.66-23-g0d06019 dc -f ./docker-compose.tpl.yml up -d --remove-orphans
+```
+Now open a browser to `http://localhost:8081/`.
+
