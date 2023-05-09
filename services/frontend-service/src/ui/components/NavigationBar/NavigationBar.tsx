@@ -23,9 +23,9 @@ export const NavigationBar: React.FC = () => (
         </div>
         <div className="mdc-drawer__content">
             <NavList>
-                <NavListItem to={'home'} icon={<Home />} />
-                <NavListItem to={'environments'} icon={<Environments />} />
-                <NavListItem to={'locks'} icon={<LocksWhite />} />
+                <NavListItem to={'ui/home'} icon={<Home />} />
+                <NavListItem to={'ui/environments'} icon={<Environments />} />
+                <NavListItem to={'ui/locks'} icon={<LocksWhite />} />
             </NavList>
         </div>
     </aside>

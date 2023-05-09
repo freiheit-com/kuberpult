@@ -227,11 +227,18 @@ func RunServer() {
 				*/
 				resp.Header().Set("strict-Transport-Security", "max-age=31536000; includeSubDomains;")
 				if c.AzureEnableAuth {
-					if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId, []string{"/", "/home", "/release", "/health", "/manifest.json", "/favicon.png"}, []string{"/static/js", "/static/css"}); err != nil {
+					// these are the paths and prefixes that must not have azure authentication, in order to bootstrap the html, js, etc:
+					var allowedPaths = []string{"/", "/release", "/health", "/manifest.json", "/favicon.png"}
+					var allowedPrefixes = []string{"/static/js", "/static/css", "/ui"}
+					if err := auth.HttpAuthMiddleWare(resp, req, jwks, c.AzureClientId, c.AzureTenantId, allowedPaths, allowedPrefixes); err != nil {
 						return
 					}
 				}
-				if strings.HasPrefix(req.URL.Path, "/home") || strings.HasSuffix(req.URL.Path, "/environments") || strings.HasSuffix(req.URL.Path, "/locks") {
+				/**
+				When the user requests any path under "/ui", we always return the same index.html (because it's a single page application).
+				Anything else may be another valid rest request, like /health or /release.
+				*/
+				if strings.HasPrefix(req.URL.Path, "/ui") {
 					http.ServeFile(resp, req, "build/index.html")
 				} else {
 					mux.ServeHTTP(resp, req)

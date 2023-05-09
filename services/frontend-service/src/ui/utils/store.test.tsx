@@ -294,7 +294,7 @@ describe('Test useNavigateWithSearchParams', () => {
         },
         {
             name: 'url with some search parameters',
-            currentURL: '/home/test/whaat?query1=boo&query2=bar',
+            currentURL: '/ui/home/test/whaat?query1=boo&query2=bar',
             navigationTo: 'test-random-page',
             expectedURL: 'test-random-page?query1=boo&query2=bar',
         },

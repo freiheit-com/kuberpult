@@ -21,24 +21,24 @@ import { Routes as ReactRoutes, Route, Navigate } from 'react-router-dom';
 
 const routes = [
     {
-        path: `/environments/*`,
+        path: `/ui/environments/*`,
         element: <EnvironmentsPage />,
     },
     {
-        path: `/locks/*`,
+        path: `/ui/locks/*`,
         element: <LocksPage />,
     },
     {
-        path: `/home/*`,
+        path: `/ui/home/*`,
         element: <Home />,
     },
     {
-        path: `/home/releases/:appName`,
+        path: `/ui/home/releases/:appName`,
         element: <ReleasesPage />,
     },
     {
         path: `/*`,
-        element: <Navigate replace to="/home" />,
+        element: <Navigate replace to="/ui/home" />,
     },
 ];
 
