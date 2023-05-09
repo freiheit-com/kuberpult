@@ -443,7 +443,7 @@ export const useLocksSimilarTo = (cartItemAction: BatchAction | undefined): AllL
             return;
         }
         // if the id is the same, but we are on a different environment, or it's an app lock:
-        if ((envLock.lockId === data.lockId && envLock.environment !== data.env) || data.app !== undefined) {
+        if (envLock.lockId === data.lockId && (envLock.environment !== data.env || data.app !== undefined)) {
             resultLocks.environmentLocks.push(envLock);
         }
     });
