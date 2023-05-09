@@ -27,7 +27,8 @@ import {
 import { useApi } from './GrpcApi';
 import { useCallback, useMemo } from 'react';
 import { Empty } from '../../google/protobuf/empty';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import * as React from 'react';
 
 export interface DisplayLock {
     date?: Date;
@@ -553,3 +554,17 @@ export const useReleasesForApp = (app: string): Release[] =>
 
 // Get all release versions for an app
 export const useVersionsForApp = (app: string): number[] => useReleasesForApp(app).map((rel) => rel.version);
+
+// Navigate while keeping search params, returns new navigation url, and a callback function to navigate
+export const useNavigateWithSearchParams = (to: string): { navURL: string; navCallback: () => void } => {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const queryParams = location?.search ?? '';
+    const navURL = `${to}${queryParams}`;
+    return {
+        navURL: navURL,
+        navCallback: React.useCallback(() => {
+            navigate(navURL);
+        }, [navURL, navigate]),
+    };
+};
