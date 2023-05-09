@@ -235,11 +235,12 @@ To run with 2 containers (you need to run this with every change):
 ```shell
 # replace "sven" with any other prefix or your choice:
 docker-compose stop
-PREFIX=sven-d
+PREFIX=sven-e
+VERSION=$(git describe --always --long --tags)
 export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult 
-IMAGENAME="$IMAGE_REGISTRY"/kuberpult-cd-service:"$PREFIX"-0.4.66-23-g0d06019 make docker -C services/cd-service/
-IMAGENAME="$IMAGE_REGISTRY"/kuberpult-frontend-service:"$PREFIX"-0.4.66-23-g0d06019 make docker -C services/frontend-service/
-IMAGE_TAG_CD="$PREFIX"-0.4.66-23-g0d06019 IMAGE_TAG_FRONTEND="$PREFIX"-0.4.66-23-g0d06019 dc -f ./docker-compose.tpl.yml up -d --remove-orphans
+IMAGENAME="$IMAGE_REGISTRY"/kuberpult-cd-service:"$PREFIX"-"$VERSION" make docker -C services/cd-service/
+IMAGENAME="$IMAGE_REGISTRY"/kuberpult-frontend-service:"$PREFIX"-"$VERSION" make docker -C services/frontend-service/
+IMAGE_TAG_CD="$PREFIX"-"$VERSION" IMAGE_TAG_FRONTEND="$PREFIX"-"$VERSION" dc -f ./docker-compose.tpl.yml up -d --remove-orphans
 ```
 Now open a browser to `http://localhost:8081/`.
 
