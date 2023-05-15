@@ -22,12 +22,22 @@ describe('Relative Date Calculation', () => {
 
     const data = [
         {
-            name: 'less than 1 hour ago',
-            systemTime: new Date(2001, 5, 8, 0, 1),
-            expected: '< 1 hour ago',
+            name: 'now',
+            systemTime: new Date(2001, 5, 8, 0, 0),
+            expected: 'just now',
         },
         {
-            name: 'little over 1 hour ago',
+            name: '1 minute ago',
+            systemTime: new Date(2001, 5, 8, 0, 1),
+            expected: '1 minute ago',
+        },
+        {
+            name: '5 minutes ago',
+            systemTime: new Date(2001, 5, 8, 0, 5),
+            expected: '5 minutes ago',
+        },
+        {
+            name: '1 hour ago',
             systemTime: new Date(2001, 5, 8, 1, 1),
             expected: '1 hour ago',
         },
@@ -42,9 +52,14 @@ describe('Relative Date Calculation', () => {
             expected: '1 day ago',
         },
         {
-            name: '92 days ago',
+            name: '3 days ago',
+            systemTime: new Date(2001, 5, 11, 1, 1),
+            expected: '3 days ago',
+        },
+        {
+            name: '3 months ago',
             systemTime: new Date(2001, 8, 8, 5, 1),
-            expected: '92 days ago',
+            expected: '3 months ago',
         },
     ];
 

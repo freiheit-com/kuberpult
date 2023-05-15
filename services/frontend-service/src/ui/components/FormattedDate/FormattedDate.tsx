@@ -13,31 +13,49 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import React from 'react';
+import React, { useEffect } from 'react';
 
-export const getRelativeDate = (date: Date): string => {
-    const millisecondsPerHour = 1000 * 60 * 60; // 1000ms * 60s * 60m
-    const elapsedTime = Date.now().valueOf() - date.valueOf();
-    const hoursSinceDate = Math.floor(elapsedTime / millisecondsPerHour);
+const getRelativeDate = (current: Date, target: Date | undefined): string => {
+    if (!target) return '';
+    const elapsedTime = current.valueOf() - target.valueOf();
+    const msPerMinute = 1000 * 60;
+    const msPerHour = msPerMinute * 60;
+    const msPerDay = msPerHour * 24;
+    const msPerMonth = msPerDay * 30;
+    const msPerYear = msPerDay * 365;
 
-    if (hoursSinceDate < 24) {
-        // recent date, calculate relative time in hours
-        if (hoursSinceDate === 0) {
-            return '< 1 hour ago';
-        } else if (hoursSinceDate === 1) {
-            return '1 hour ago';
-        } else {
-            return `${hoursSinceDate} hours ago`;
-        }
+    if (elapsedTime < msPerMinute) {
+        return 'just now';
+    } else if (elapsedTime < msPerHour) {
+        return Math.round(elapsedTime / msPerMinute) === 1
+            ? `1 minute ago`
+            : `${Math.round(elapsedTime / msPerMinute)} minutes ago`;
+    } else if (elapsedTime < msPerDay) {
+        return Math.round(elapsedTime / msPerHour) === 1
+            ? '1 hour ago'
+            : `${Math.round(elapsedTime / msPerHour)} hours ago`;
+    } else if (elapsedTime < msPerMonth) {
+        return Math.round(elapsedTime / msPerDay) === 1
+            ? '~ 1 day ago'
+            : `~ ${Math.round(elapsedTime / msPerDay)} days ago`;
+    } else if (elapsedTime < msPerYear) {
+        return Math.round(elapsedTime / msPerMonth) === 1
+            ? '~ 1 month ago'
+            : `~ ${Math.round(elapsedTime / msPerMonth)} months ago`;
     } else {
-        // too many hours, calculate relative time in days
-        const daysSinceDate = Math.floor(hoursSinceDate / 24);
-        if (daysSinceDate === 1) {
-            return '1 day ago';
-        } else {
-            return `${daysSinceDate} days ago`;
-        }
+        return Math.round(elapsedTime / msPerYear) === 1
+            ? '~ 1 year ago'
+            : `~ ${Math.round(elapsedTime / msPerYear)} years ago`;
     }
+};
+
+export const useRelativeDate = (createdAt: Date | undefined): string => {
+    const [relativeDate, setRelativeDate] = React.useState(getRelativeDate(new Date(), createdAt));
+    useEffect(() => {
+        const handle = setInterval(() => setRelativeDate(getRelativeDate(new Date(), createdAt)), 20000);
+        return () => clearInterval(handle);
+    }, [createdAt]);
+    return relativeDate;
 };
 
 export const FormattedDate: React.FC<{ createdAt: Date; className?: string }> = ({ createdAt, className }) => {
@@ -48,6 +66,7 @@ export const FormattedDate: React.FC<{ createdAt: Date; className?: string }> = 
     const formattedDate = `${createdAt.getFullYear()}-${twoDigit(createdAt.getMonth() + 1)}-${twoDigit(
         createdAt.getDate()
     )}`;
+    const relativeDate = useRelativeDate(createdAt);
 
     // getHours automatically gets the hours in the correct timezone. in 24h format (no timezone calculation needed)
     const formattedTime = `${createdAt.getHours()}:${createdAt.getMinutes()}`;
@@ -55,7 +74,7 @@ export const FormattedDate: React.FC<{ createdAt: Date; className?: string }> = 
     return (
         <span className={className} title={createdAt.toString()}>
             {formattedDate + ' @ ' + formattedTime + ' | '}
-            <i>{getRelativeDate(createdAt)}</i>
+            <i>{relativeDate}</i>
         </span>
     );
 };
