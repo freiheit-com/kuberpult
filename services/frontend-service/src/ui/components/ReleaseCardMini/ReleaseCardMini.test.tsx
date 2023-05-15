@@ -42,7 +42,7 @@ describe('Release Card Mini', () => {
         {
             name: 'A release from 2 days ago',
             props: { app: 'test1', version: 2 },
-            msg: 'test-author commited 2 days ago at 14:20:0',
+            msg: 'test-reltest-author | 2022-12-14 @ 14:20 | 2 days ago',
             rels: [
                 {
                     version: 2,
@@ -60,7 +60,7 @@ describe('Release Card Mini', () => {
         {
             name: 'A release from 4 days ago',
             props: { app: 'test1', version: 2 },
-            msg: 'test-author commited 4 days ago at 8:20:0',
+            msg: 'test-reltest-author | 2022-12-12 @ 8:20 | 4 days ago',
             rels: [
                 {
                     version: 2,
@@ -78,7 +78,7 @@ describe('Release Card Mini', () => {
         {
             name: 'using A release today',
             props: { app: 'test2', version: 2 },
-            msg: 'test-author commited at 14:20:0',
+            msg: 'test-reltest-author | 2022-12-16 @ 14:20 | < 1 hour ago',
             rels: [
                 {
                     version: 2,
@@ -96,7 +96,7 @@ describe('Release Card Mini', () => {
         {
             name: 'A release three days ago with an env',
             props: { app: 'test2', version: 2 },
-            msg: 'test-author commited 3 days ago at 14:20:0',
+            msg: 'test-reltest-author | 2022-12-13 @ 14:20 | 3 days ago',
             rels: [
                 {
                     version: 2,
@@ -130,7 +130,7 @@ describe('Release Card Mini', () => {
         {
             name: 'A release with undeploy version',
             props: { app: 'test2', version: 2 },
-            msg: 'test-author commited 3 days ago at 14:20:0',
+            msg: 'test-author | 2022-12-13 @ 14:20 | 3 days ago',
             rels: [
                 {
                     version: 2,

@@ -18,6 +18,7 @@ import React from 'react';
 import { useOpenReleaseDialog, useReleaseOrThrow } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { undeployTooltipExplanation } from '../ReleaseDialog/ReleaseDialog';
+import { FormattedDate } from '../FormattedDate/FormattedDate';
 
 export type ReleaseCardMiniProps = {
     className?: string;
@@ -25,30 +26,11 @@ export type ReleaseCardMiniProps = {
     app: string;
 };
 
-const getDays = (date: Date): number => {
-    const current = new Date(Date.now());
-    const diff = current.getTime() - date.getTime();
-
-    return Math.round(diff / (1000 * 3600 * 24));
-};
-
 export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
     const { className, app, version } = props;
     // the ReleaseCardMini only displays actual releases, so we can assume that it exists here:
     const { createdAt, sourceMessage, sourceAuthor, undeployVersion } = useReleaseOrThrow(app, version);
     const openReleaseDialog = useOpenReleaseDialog(app, version);
-    let msg = sourceAuthor;
-    if (createdAt !== undefined) {
-        const days = getDays(createdAt);
-        msg += ' commited ';
-
-        if (days === 0) {
-            msg += 'at ';
-        } else {
-            msg += days + ' days ago at ';
-        }
-        msg += `${createdAt.getHours()}:${createdAt.getMinutes()}:${createdAt.getSeconds()}`;
-    }
     const displayedMessage = undeployVersion ? 'Undeploy Version' : sourceMessage;
     const displayedTitle = undeployVersion ? undeployTooltipExplanation : '';
     return (
@@ -57,7 +39,10 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
                 <div className="release__details-header" title={displayedTitle}>
                     {displayedMessage}
                 </div>
-                <div className="release__details-msg">{msg}</div>
+                <div className="release__details-msg">
+                    {sourceAuthor + ' | '}
+                    {!!createdAt && <FormattedDate createdAt={createdAt} className="release__metadata-mini" />}
+                </div>
             </div>
             <div className="release__environments-mini">
                 <EnvironmentGroupChipList app={props.app} version={props.version} />
