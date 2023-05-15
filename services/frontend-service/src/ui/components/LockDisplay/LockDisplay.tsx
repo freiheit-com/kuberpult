@@ -18,7 +18,7 @@ import { Delete } from '../../../images';
 import { addAction, DisplayLock } from '../../utils/store';
 import classNames from 'classnames';
 import { useCallback } from 'react';
-import { getRelativeDate } from '../ReleaseCard/ReleaseCard';
+import { getRelativeDate } from '../FormattedDate/FormattedDate';
 
 const millisecondsPerDay = 1000 * 60 * 60 * 24;
 // lock is outdated if it's more than two days old
