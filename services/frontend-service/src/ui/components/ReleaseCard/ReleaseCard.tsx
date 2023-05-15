@@ -48,7 +48,11 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
             {!!sourceMessage && <b>{sourceMessage}</b>}
             {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
             {!!sourceAuthor && <div>{'| ' + sourceAuthor + ' |'}</div>}
-            {!!createdAt && <FormattedDate createdAt={createdAt} className="release__metadata" />}
+            {!!createdAt && (
+                <div className="release__metadata">
+                    <FormattedDate createdAt={createdAt} />
+                </div>
+            )}
         </h2>
     );
     const firstLine = sourceMessage.split('\n')[0];

@@ -53,9 +53,9 @@ export const FormattedDate: React.FC<{ createdAt: Date; className?: string }> = 
     const formattedTime = `${createdAt.getHours()}:${createdAt.getMinutes()}`;
 
     return (
-        <div className={className} title={createdAt.toString()}>
+        <span className={className} title={createdAt.toString()}>
             {formattedDate + ' @ ' + formattedTime + ' | '}
             <i>{getRelativeDate(createdAt)}</i>
-        </div>
+        </span>
     );
 };
