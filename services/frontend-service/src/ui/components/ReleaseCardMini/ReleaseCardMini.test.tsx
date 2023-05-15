@@ -18,6 +18,10 @@ import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 import { Environment, Release, UndeploySummary } from '../../../api/api';
+import { Spy } from 'spy4js';
+import { elementQuerySelectorSafe, makeRelease } from '../../../setupTests';
+
+const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
 
 describe('Release Card Mini', () => {
     const getNode = (overrides: ReleaseCardMiniProps) => (
@@ -29,87 +33,28 @@ describe('Release Card Mini', () => {
 
     type TestData = {
         name: string;
-        msg: string;
         expectedMessage: string;
         props: {
             app: string;
             version: number;
         };
         rels: Release[];
-        environments: { [key: string]: Environment };
+        environments: Environment[];
     };
     const data: TestData[] = [
         {
-            name: 'A release from 2 days ago',
-            props: { app: 'test1', version: 2 },
-            msg: 'test-reltest-author | 2022-12-14 @ 14:20 | 2 days ago',
-            rels: [
-                {
-                    version: 2,
-                    sourceMessage: 'test-rel',
-                    sourceAuthor: 'test-author',
-                    undeployVersion: false,
-                    sourceCommitId: 'commit123',
-                    prNumber: '666',
-                    createdAt: new Date('2022-12-14T14:20:00'),
-                },
-            ],
-            expectedMessage: 'test-rel',
-            environments: {},
-        },
-        {
-            name: 'A release from 4 days ago',
-            props: { app: 'test1', version: 2 },
-            msg: 'test-reltest-author | 2022-12-12 @ 8:20 | 4 days ago',
-            rels: [
-                {
-                    version: 2,
-                    sourceMessage: 'test-rel',
-                    sourceAuthor: 'test-author',
-                    undeployVersion: false,
-                    sourceCommitId: 'commit123',
-                    prNumber: '666',
-                    createdAt: new Date('2022-12-12T08:20:00'),
-                },
-            ],
-            expectedMessage: 'test-rel',
-            environments: {},
-        },
-        {
-            name: 'using A release today',
+            name: 'using A release',
             props: { app: 'test2', version: 2 },
-            msg: 'test-reltest-author | 2022-12-16 @ 14:20 | < 1 hour ago',
-            rels: [
-                {
-                    version: 2,
-                    sourceMessage: 'test-rel',
-                    sourceAuthor: 'test-author',
-                    createdAt: new Date('2022-12-16T14:20:00'),
-                    undeployVersion: false,
-                    sourceCommitId: 'commit123',
-                    prNumber: '666',
-                },
-            ],
-            expectedMessage: 'test-rel',
-            environments: {},
+            rels: [makeRelease(2)],
+            expectedMessage: 'test2',
+            environments: [],
         },
         {
             name: 'A release three days ago with an env',
             props: { app: 'test2', version: 2 },
-            msg: 'test-reltest-author | 2022-12-13 @ 14:20 | 3 days ago',
-            rels: [
+            rels: [makeRelease(2)],
+            environments: [
                 {
-                    version: 2,
-                    sourceMessage: 'test-rel',
-                    sourceAuthor: 'test-author',
-                    createdAt: new Date('2022-12-13T14:20:00'),
-                    undeployVersion: false,
-                    sourceCommitId: 'commit123',
-                    prNumber: '666',
-                },
-            ],
-            environments: {
-                other: {
                     name: 'other',
                     locks: {},
                     distanceToUpstream: 0,
@@ -124,26 +69,15 @@ describe('Release Card Mini', () => {
                         },
                     },
                 },
-            },
-            expectedMessage: 'test-rel',
+            ],
+            expectedMessage: 'test2',
         },
         {
             name: 'A release with undeploy version',
             props: { app: 'test2', version: 2 },
-            msg: 'test-author | 2022-12-13 @ 14:20 | 3 days ago',
-            rels: [
+            rels: [makeRelease(2, true)],
+            environments: [
                 {
-                    version: 2,
-                    sourceMessage: 'test-rel',
-                    sourceAuthor: 'test-author',
-                    createdAt: new Date('2022-12-13T14:20:00'),
-                    sourceCommitId: 'commit123',
-                    prNumber: '666',
-                    undeployVersion: true,
-                },
-            ],
-            environments: {
-                other: {
                     name: 'other',
                     locks: {},
                     distanceToUpstream: 0,
@@ -158,13 +92,15 @@ describe('Release Card Mini', () => {
                         },
                     },
                 },
-            },
+            ],
             expectedMessage: 'Undeploy Version',
         },
     ];
 
     describe.each(data)(`Renders a Release Card`, (testcase) => {
         it(testcase.name, () => {
+            // given
+            mock_FormattedDate.FormattedDate.returns(<div>some formatted date</div>);
             // when
             UpdateOverview.set({
                 applications: {
@@ -176,14 +112,21 @@ describe('Release Card Mini', () => {
                         team: 'no-team',
                     },
                 },
-                environments: testcase.environments ?? {},
-                environmentGroups: [],
+                environmentGroups: [
+                    {
+                        environments: testcase.environments,
+                        distanceToUpstream: 2,
+                        environmentGroupName: 'test-group',
+                    },
+                ],
             });
-            // Mock Date.now to always return 2022-12-16T14:20:00
-            Date.now = jest.fn(() => Date.parse('2022-12-16T14:20:00'));
             const { container } = getWrapper(testcase.props);
-            expect(container.querySelector('.release__details-mini')?.textContent).toContain(testcase.msg);
-            expect(container.querySelector('.env-group-chip-list-test')).not.toBeEmptyDOMElement();
+            expect(container.querySelector('.release__details-mini')?.textContent).toContain(
+                testcase.rels[0].sourceAuthor
+            );
+            expect(elementQuerySelectorSafe(container, '.env-group-chip-list-test').children.length).toBe(
+                testcase.environments.length
+            );
             expect(container.querySelector('.release__details-header')?.textContent).toBe(testcase.expectedMessage);
         });
     });
