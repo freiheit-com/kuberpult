@@ -28,7 +28,7 @@ import {
 import { Button } from '../button';
 import { Close, Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
-import { getFormattedReleaseDate } from '../ReleaseCard/ReleaseCard';
+import { FormattedDate } from '../FormattedDate/FormattedDate';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -249,9 +249,12 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                     {release?.sourceMessage}
                                 </span>
                             </div>
-                            <div className={classNames('release-dialog-createdAt', className)}>
-                                {!!release?.createdAt && getFormattedReleaseDate(release.createdAt)}
-                            </div>
+                            {!!release?.createdAt && (
+                                <FormattedDate
+                                    createdAt={release.createdAt}
+                                    className={classNames('release-dialog-createdAt', className)}
+                                />
+                            )}
                             <div className={classNames('release-dialog-author', className)}>
                                 {release?.sourceAuthor ? 'Author: ' + release?.sourceAuthor : ''}
                             </div>
