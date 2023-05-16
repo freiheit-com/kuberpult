@@ -1,4 +1,4 @@
-FROM alpine:3.17
+FROM alpine:3.18
 
 RUN apk --update add --no-cache libgit2 libgit2-dev go protoc make pkgconfig git cmake gettext
 RUN tar --version

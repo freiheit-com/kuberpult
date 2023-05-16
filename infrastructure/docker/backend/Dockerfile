@@ -1,4 +1,4 @@
-FROM alpine:3.17
+FROM alpine:3.18
 
 RUN apk --update add --no-cache curl make go git libgit2-dev sqlite sqlite-dev pkgconfig build-base
 RUN BIN="/usr/local/bin" && \
