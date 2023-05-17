@@ -23,14 +23,15 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	argoio "github.com/argoproj/argo-cd/v2/util/io"
 
+	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/api"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/broadcast"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -60,7 +61,7 @@ func RunServer() {
 	}
 }
 
-func getGrpcClient(ctx context.Context, config Config ) (api.OverviewServiceClient, error) {
+func getGrpcClient(ctx context.Context, config Config) (api.OverviewServiceClient, error) {
 	grpcClientOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 	}
@@ -77,9 +78,9 @@ func getGrpcClient(ctx context.Context, config Config ) (api.OverviewServiceClie
 
 	con, err := grpc.Dial(config.CdServer, grpcClientOpts...)
 	if err != nil {
-	    return nil, fmt.Errorf("error dialing %s: %w", config.CdServer, err)
+		return nil, fmt.Errorf("error dialing %s: %w", config.CdServer, err)
 	}
-		
+
 	return api.NewOverviewServiceClient(con), nil
 }
 
@@ -116,8 +117,44 @@ func runServer(ctx context.Context, config Config) error {
 	defer argoio.Close(closer)
 
 	overview, err := getGrpcClient(ctx, config)
-        if err != nil {
-	    return fmt.Errorf("connecting to cd service %q: %w", config.CdServer, err)
+	if err != nil {
+		return fmt.Errorf("connecting to cd service %q: %w", config.CdServer, err)
 	}
-	return service.ConsumeEvents(ctx, appClient, versions.New(overview), &broadcast.Broadcast{})
+	broadcast := service.New()
+	//	return service.ConsumeEvents(ctx, appClient, versions.New(overview), &broadcast.Broadcast{})
+	shutdownCh := make(chan struct{})
+	setup.Run(ctx, setup.ServerConfig{
+		/*		HTTP: []setup.HTTPConfig{
+				{
+					Port: "8080",
+					Register: func(mux *http.ServeMux) {
+						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
+						mux.Handle("/", handler)
+					},
+				},
+			},*/
+		Background: []setup.BackgroundTaskConfig{
+			{
+				Name: "consume events",
+				Run: func(ctx context.Context) error {
+					return service.ConsumeEvents(ctx, appClient, versions.New(overview), broadcast)
+				},
+			}},
+		GRPC: &setup.GRPCConfig{
+			Port: "8443",
+			/*			Opts: []grpc.ServerOption{
+						grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
+						grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
+					},*/
+			Register: func(srv *grpc.Server) {
+				api.RegisterRolloutServiceServer(srv, broadcast)
+				reflection.Register(srv)
+			},
+		},
+		Shutdown: func(ctx context.Context) error {
+			close(shutdownCh)
+			return nil
+		},
+	})
+	return nil
 }

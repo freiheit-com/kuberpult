@@ -301,17 +301,23 @@ service RolloutService {
 
 message StreamStatusRequest {}
 
+/*
+
+Unknown = can't tell
+Successful = everything is fine
+Progressing = waiting for something
+Error = error
+*/
 enum RolloutStatus {
-  RolloutStatusUnknown = 0; // argocd didn't report anything for this app 
-  RolloutStatusPending = 1; // argocd version != kuberpult version
-  RolloutStatusSuccesful = 2; // rolled out in argocd & argocd version == kuberpult version
-  RolloutStatusProgressing = 3; // argocd version == kuberpult version & progressing in argocd
-  RolloutStatusError = 4; // argocd version == kuberpult version & error in argocd
+  RolloutStatusUnknown = 0; // argocd didn't report anything for this app
+  RolloutStatusSuccesful = 1; // sync healthy
+  RolloutStatusProgressing = 2; // out-of-sync || 
+  RolloutStatusError = 3; // error in argocd
 }
 
 message StreamStatusResponse {
   string environment = 1;
   string application = 2;
-  int64  version     = 3;
+  uint64 version     = 3;
   RolloutStatus rollout_status = 4;
 }

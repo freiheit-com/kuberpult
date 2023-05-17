@@ -14,21 +14,23 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-package broadcast
+package service
 
-import (
-	"context"
-	"fmt"
+import "testing"
 
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
-)
+func TestBroadcast(t *testing.T) {
+	t.Parallel()
+	tcs := []struct {
+		Name string
+	}{
+		{
+			Name: "simple case",
+		},
+	}
 
-type Broadcast struct {
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+
+		})
+	}
 }
-
-// Process implements service.EventProcessor
-func (*Broadcast) Process(ctx context.Context, ev service.Event) {
-	fmt.Printf("%#v\n", ev)
-}
-
-var _ service.EventProcessor = (*Broadcast)(nil)

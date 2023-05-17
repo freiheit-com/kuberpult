@@ -165,7 +165,7 @@ func RunServer() {
 		setup.Run(ctx, setup.ServerConfig{
 			HTTP: []setup.HTTPConfig{
 				{
-					Port: "8080",
+					Port: "8081",
 					Register: func(mux *http.ServeMux) {
 						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
 						if c.EnableTracing {

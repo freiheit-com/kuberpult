@@ -81,7 +81,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 				Environment:      environment,
 				SyncStatusCode:   ev.Application.Status.Sync.Status,
 				HealthStatusCode: ev.Application.Status.Health.Status,
-				DeployedVersion:  version,
+				Version:          version,
 			})
 		}
 	}
@@ -101,5 +101,5 @@ type Event struct {
 	Application      string
 	SyncStatusCode   v1alpha1.SyncStatusCode
 	HealthStatusCode health.HealthStatusCode
-	DeployedVersion  uint64
+	Version          uint64
 }

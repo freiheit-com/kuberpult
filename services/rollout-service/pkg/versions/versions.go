@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/freiheit-com/kuberpult/services/frontend-service/api"
+	"github.com/freiheit-com/kuberpult/pkg/api"
 	"k8s.io/utils/lru"
 )
 
@@ -65,8 +65,8 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 
 func New(client api.OverviewServiceClient) VersionClient {
 	result := &versionClient{
-		cache: lru.New(20),
-    client: client,
+		cache:  lru.New(20),
+		client: client,
 	}
 	return result
 }

@@ -19,5 +19,5 @@ package main
 import "github.com/freiheit-com/kuberpult/services/rollout-service/pkg/cmd"
 
 func main() {
-  cmd.RunServer()
+	cmd.RunServer()
 }
