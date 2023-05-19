@@ -18,6 +18,9 @@ import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 import { Environment, Release, UndeploySummary } from '../../../api/api';
+import { Spy } from 'spy4js';
+
+const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
 
 describe('Release Card', () => {
     const getNode = (overrides: ReleaseCardProps) => (
@@ -169,6 +172,8 @@ describe('Release Card', () => {
 
     describe.each(data)(`Renders a Release Card`, (testcase) => {
         it(testcase.name, () => {
+            // given
+            mock_FormattedDate.FormattedDate.returns(<div>some formatted date</div>);
             // when
             UpdateOverview.set({
                 applications: {
@@ -197,11 +202,6 @@ describe('Release Card', () => {
             if (testcase.rels[0].sourceCommitId) {
                 expect(container.querySelector('.release__hash')?.textContent).toContain(
                     testcase.rels[0].sourceCommitId
-                );
-            }
-            if (testcase.rels[0].createdAt) {
-                expect(container.querySelector('.release__metadata')?.textContent).toContain(
-                    testcase.rels[0].createdAt.getFullYear().toString()
                 );
             }
             expect(container.querySelector('.env-group-chip-list-test')).not.toBeEmptyDOMElement();

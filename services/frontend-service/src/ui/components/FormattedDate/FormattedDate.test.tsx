@@ -71,8 +71,6 @@ describe('Relative Date Calculation', () => {
             const { container } = render(<FormattedDate createdAt={testReleaseDate} />);
 
             // then
-            expect(container.textContent).toContain('2001-06-08');
-            expect(container.textContent).toContain('0:0');
             expect(container.textContent).toContain(testcase.expected);
 
             // finally

@@ -18,7 +18,7 @@ import { Delete } from '../../../images';
 import { addAction, DisplayLock } from '../../utils/store';
 import classNames from 'classnames';
 import { useCallback } from 'react';
-import { useRelativeDate } from '../FormattedDate/FormattedDate';
+import { FormattedDate } from '../FormattedDate/FormattedDate';
 
 const millisecondsPerDay = 1000 * 60 * 60 * 24;
 // lock is outdated if it's more than two days old
@@ -27,7 +27,6 @@ export const isOutdated = (dateAdded: Date | undefined): boolean =>
 
 export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
     const { lock } = props;
-    const relativeDate = useRelativeDate(lock.date);
     const allClassNames = classNames('lock-display-info', {
         'date-display--outdated': isOutdated(lock.date),
         'date-display--normal': !isOutdated(lock.date),
@@ -60,11 +59,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
         <div className="lock-display">
             <div className="lock-display__table">
                 <div className="lock-display-table">
-                    {!!lock.date && (
-                        <div className={allClassNames} title={lock.date.toString()}>
-                            {relativeDate}
-                        </div>
-                    )}
+                    {!!lock.date && <FormattedDate createdAt={lock.date} className={allClassNames} />}
                     <div className="lock-display-info">{lock.environment}</div>
                     {!!lock.application && <div className="lock-display-info">{lock.application}</div>}
                     <div className="lock-display-info">{lock.lockId}</div>

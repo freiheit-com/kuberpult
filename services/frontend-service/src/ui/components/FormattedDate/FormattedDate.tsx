@@ -49,31 +49,15 @@ const getRelativeDate = (current: Date, target: Date | undefined): string => {
     }
 };
 
-export const useRelativeDate = (createdAt: Date | undefined): string => {
+export const FormattedDate: React.FC<{ createdAt: Date; className?: string }> = ({ createdAt, className }) => {
     const [relativeDate, setRelativeDate] = React.useState(getRelativeDate(new Date(), createdAt));
     useEffect(() => {
         const handle = setInterval(() => setRelativeDate(getRelativeDate(new Date(), createdAt)), 20000);
         return () => clearInterval(handle);
     }, [createdAt]);
-    return relativeDate;
-};
-
-export const FormattedDate: React.FC<{ createdAt: Date; className?: string }> = ({ createdAt, className }) => {
-    // Adds leading zero to get two digit day and month
-    const twoDigit = (num: number): string => (num < 10 ? '0' : '') + num;
-    // date format (ISO): yyyy-mm-dd, with no leading zeros, month is 0-indexed.
-    // createdAt.toISOString() can't be used because it ignores the current time zone.
-    const formattedDate = `${createdAt.getFullYear()}-${twoDigit(createdAt.getMonth() + 1)}-${twoDigit(
-        createdAt.getDate()
-    )}`;
-    const relativeDate = useRelativeDate(createdAt);
-
-    // getHours automatically gets the hours in the correct timezone. in 24h format (no timezone calculation needed)
-    const formattedTime = `${createdAt.getHours()}:${createdAt.getMinutes()}`;
 
     return (
         <span className={className} title={createdAt.toString()}>
-            {formattedDate + ' @ ' + formattedTime + ' | '}
             <i>{relativeDate}</i>
         </span>
     );
