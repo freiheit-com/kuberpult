@@ -6,6 +6,41 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.67
+**released 2023-05-19**
+### Major Changes
+* [Added git commit parameter and field to the overview service](https://github.com/freiheit-com/kuberpult/pull/663)
+* [Refactoring Test: Do not connect to remote service during test](https://github.com/freiheit-com/kuberpult/pull/666)
+* [Use same lock ID for locks in one batch](https://github.com/freiheit-com/kuberpult/pull/669)
+* [Add button to delete all similar locks](https://github.com/freiheit-com/kuberpult/pull/670)
+* [Validate environment groups and environments distance to upstream](https://github.com/freiheit-com/kuberpult/pull/683)
+* [Make all UI paths available with hard reload](https://github.com/freiheit-com/kuberpult/pull/686)
+* [Show more detailed Relative time, + refactoring](https://github.com/freiheit-com/kuberpult/pull/689)
+
+### Minor Changes
+* small bugfixes / improvements
+  * [Reduce Whitespace in ReleaseDialog](https://github.com/freiheit-com/kuberpult/pull/682)
+  * [Render kuberpult version in the html title](https://github.com/freiheit-com/kuberpult/pull/668)
+  * [Render commit message nicer](https://github.com/freiheit-com/kuberpult/pull/671)
+  * [Bugfix for deleting similar locks](https://github.com/freiheit-com/kuberpult/pull/681)
+  * [fix hidden releases tooltip showing version undefined](https://github.com/freiheit-com/kuberpult/pull/678)
+  * [Make Lock action summary consistent](https://github.com/freiheit-com/kuberpult/pull/667)
+  * [Fix environment colors on Environments Page](https://github.com/freiheit-com/kuberpult/pull/679)
+  * [Fix Navigation to History page clears search filters](https://github.com/freiheit-com/kuberpult/pull/684)
+* dependency updates
+  * [Update dependency rxjs to v7](https://github.com/freiheit-com/kuberpult/pull/649)
+  * [Update dependency @testing-library/react to v14](https://github.com/freiheit-com/kuberpult/pull/596)
+  * [Update dependency typescript to v5](https://github.com/freiheit-com/kuberpult/pull/622)
+  * [Update docker Docker tag to v23.0.6](https://github.com/freiheit-com/kuberpult/pull/687)
+  * [Update golang Docker tag to v1.20.4](https://github.com/freiheit-com/kuberpult/pull/672)
+  * [Update alpine Docker tag to v3.18](https://github.com/freiheit-com/kuberpult/pull/688)
+  * [Update dependency madge to v6](https://github.com/freiheit-com/kuberpult/pull/617)
+  * [Update dependency protobufjs to v7](https://github.com/freiheit-com/kuberpult/pull/618)
+  * [Update module google.golang.org/grpc to v1.55.0](https://github.com/freiheit-com/kuberpult/pull/674)
+  * [Update module google.golang.org/api to v0.121.0](https://github.com/freiheit-com/kuberpult/pull/673)
+  * [Update module golang.org/x/crypto to v0.9.0](https://github.com/freiheit-com/kuberpult/pull/685)
+  * [Update module gopkg.in/DataDog/dd-trace-go.v1 to v1.50.1](https://github.com/freiheit-com/kuberpult/pull/675)
+
 ## 0.4.66
 **released 2023-04-28**
 ### Major Changes
