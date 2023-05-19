@@ -49,12 +49,8 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                 test1
               </span>
             </div>
-            <div
-              class="release-dialog-createdAt"
-            >
-              <div>
-                some formatted date
-              </div>
+            <div>
+              some formatted date
             </div>
             <div
               class="release-dialog-author"
@@ -281,12 +277,8 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 the other commit message 2
               </span>
             </div>
-            <div
-              class="release-dialog-createdAt"
-            >
-              <div>
-                some formatted date
-              </div>
+            <div>
+              some formatted date
             </div>
             <div
               class="release-dialog-author"
@@ -647,12 +639,8 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
                 class="release-dialog-commitMessage"
               />
             </div>
-            <div
-              class="release-dialog-createdAt"
-            >
-              <div>
-                some formatted date
-              </div>
+            <div>
+              some formatted date
             </div>
             <div
               class="release-dialog-author"

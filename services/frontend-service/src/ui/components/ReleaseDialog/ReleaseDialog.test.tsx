@@ -21,7 +21,7 @@ import { Spy } from 'spy4js';
 import { SideBar } from '../SideBar/SideBar';
 import { MemoryRouter } from 'react-router-dom';
 
-const mock_getFormattedReleaseDate = Spy.mockModule('../ReleaseCard/ReleaseCard', 'getFormattedReleaseDate');
+const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
 
 describe('Release Dialog', () => {
     const getNode = (overrides: ReleaseDialogProps) => (
@@ -225,7 +225,7 @@ describe('Release Dialog', () => {
     describe.each(data)(`Renders the environment locks`, (testcase) => {
         it(testcase.name, () => {
             // given
-            mock_getFormattedReleaseDate.getFormattedReleaseDate.returns(<div>some formatted date</div>);
+            mock_FormattedDate.FormattedDate.returns(<div>some formatted date</div>);
             // when
             setTheStore(testcase);
             getWrapper(testcase.props);

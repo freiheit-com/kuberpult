@@ -18,29 +18,15 @@ import { Delete } from '../../../images';
 import { addAction, DisplayLock } from '../../utils/store';
 import classNames from 'classnames';
 import { useCallback } from 'react';
+import { FormattedDate } from '../FormattedDate/FormattedDate';
 
-export const daysToString = (days: number): string => {
-    if (days === -1) return '';
-    if (days === 0) return '< 1 day ago';
-    if (days === 1) return '1 day ago';
-    return `${days} days ago`;
-};
-
-export const calcLockAge = (time: Date | string | undefined): number => {
-    if (time !== undefined && typeof time !== 'string') {
-        const curTime = new Date().getTime();
-        const diffTime = curTime.valueOf() - time.valueOf();
-        const msPerDay = 1000 * 60 * 60 * 24;
-        return Math.floor(diffTime / msPerDay);
-    }
-    return -1;
-};
-
-export const isOutdated = (dateAdded: Date | string | undefined): boolean => calcLockAge(dateAdded) > 2;
+const millisecondsPerDay = 1000 * 60 * 60 * 24;
+// lock is outdated if it's more than two days old
+export const isOutdated = (dateAdded: Date | undefined): boolean =>
+    dateAdded ? (Date.now().valueOf() - dateAdded.valueOf()) / millisecondsPerDay > 2 : true;
 
 export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
     const { lock } = props;
-
     const allClassNames = classNames('lock-display-info', {
         'date-display--outdated': isOutdated(lock.date),
         'date-display--normal': !isOutdated(lock.date),
@@ -73,7 +59,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
         <div className="lock-display">
             <div className="lock-display__table">
                 <div className="lock-display-table">
-                    <div className={allClassNames}>{daysToString(calcLockAge(lock.date))}</div>
+                    {!!lock.date && <FormattedDate createdAt={lock.date} className={allClassNames} />}
                     <div className="lock-display-info">{lock.environment}</div>
                     {!!lock.application && <div className="lock-display-info">{lock.application}</div>}
                     <div className="lock-display-info">{lock.lockId}</div>
