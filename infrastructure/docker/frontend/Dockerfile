@@ -1,7 +1,7 @@
 FROM alpine:3.18
 
 RUN apk --update add --no-cache curl go make nodejs npm
-RUN npm install -g pnpm@7.30.5
+RUN npm install -g pnpm@8.5.1
 RUN BIN="/usr/local/bin" && \
   curl -sSL \
     "https://github.com/bufbuild/buf/releases/download/v1.7.0/buf-Linux-x86_64" \
