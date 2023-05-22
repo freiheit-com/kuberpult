@@ -1936,12 +1936,14 @@ spec:
 					Manifests: map[string]string{
 						"staging": "stagingmanifest",
 					},
+					Team: "team1",
 				},
 				&CreateApplicationVersion{
 					Application: "test2",
 					Manifests: map[string]string{
 						"staging": "stagingmanifest",
 					},
+					Team: "team2",
 				},
 			},
 			Test: func(t *testing.T, s *State) {
@@ -1967,6 +1969,10 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  annotations:
+    com.freiheit.kuberpult/application: test
+    com.freiheit.kuberpult/environment: staging
+    com.freiheit.kuberpult/team: team1
   name: staging-test
 spec:
   destination:
@@ -1985,6 +1991,10 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  annotations:
+    com.freiheit.kuberpult/application: test2
+    com.freiheit.kuberpult/environment: staging
+    com.freiheit.kuberpult/team: team2
   name: staging-test2
 spec:
   destination:
@@ -2056,6 +2066,9 @@ metadata:
   annotations:
     a: bar
     b: foo
+    com.freiheit.kuberpult/application: test
+    com.freiheit.kuberpult/environment: staging
+    com.freiheit.kuberpult/team: ""
   name: staging-test
 spec:
   destination:
@@ -2132,6 +2145,10 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  annotations:
+    com.freiheit.kuberpult/application: test
+    com.freiheit.kuberpult/environment: staging
+    com.freiheit.kuberpult/team: ""
   name: staging-test
 spec:
   destination:
