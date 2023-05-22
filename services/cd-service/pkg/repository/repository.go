@@ -578,9 +578,14 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, name st
 			if err != nil {
 				return err
 			}
+			team, err := state.GetApplicationTeamOwner(appName)
+			if err != nil {
+				return err
+			}
 			appData = append(appData, argocd.AppData{
 				AppName:           appName,
 				IsUndeployVersion: isUndeployVersion,
+				TeamName:          team,
 			})
 		}
 		if manifests, err := argocd.Render(r.config.URL, r.config.Branch, config, name, appData); err != nil {

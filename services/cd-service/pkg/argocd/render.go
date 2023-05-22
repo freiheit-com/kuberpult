@@ -131,15 +131,18 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 
 func RenderApp(gitUrl string, gitBranch string, applicationAnnotations map[string]string, env string, appData AppData, destination v1alpha1.ApplicationDestination, ignoreDifferences []v1alpha1.ResourceIgnoreDifferences, syncOptions v1alpha1.SyncOptions) (string, error) {
 	name := appData.AppName
-	annotations := map[string]string{
-		"com.freiheit.kuberpult/team": appData.TeamName,
-		"com.freiheit.kuberpult/application": name,
+	annotations := map[string]string{}
+	for k, v := range applicationAnnotations {
+		annotations[k] = v
 	}
+	annotations["com.freiheit.kuberpult/team"] = appData.TeamName
+	annotations["com.freiheit.kuberpult/application"] = name
+	annotations["com.freiheit.kuberpult/environment"] = env
 	app := v1alpha1.Application{
 		TypeMeta: v1alpha1.ApplicationTypeMeta,
 		ObjectMeta: v1alpha1.ObjectMeta{
 			Name:        fmt.Sprintf("%s-%s", env, name),
-			Annotations: applicationAnnotations,
+			Annotations: annotations,
 			Finalizers:  calculateFinalizers(appData.IsUndeployVersion),
 		},
 		Spec: v1alpha1.ApplicationSpec{

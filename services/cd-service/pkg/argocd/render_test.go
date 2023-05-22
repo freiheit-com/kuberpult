@@ -40,6 +40,10 @@ func TestRender(t *testing.T) {
 			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  annotations:
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: dev
+    com.freiheit.kuberpult/team: ""
   name: dev-app1
 spec:
   destination: {}
@@ -73,6 +77,10 @@ spec:
 			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  annotations:
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: dev
+    com.freiheit.kuberpult/team: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   name: dev-app1
@@ -111,6 +119,10 @@ spec:
 			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  annotations:
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: dev
+    com.freiheit.kuberpult/team: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   name: dev-app1
@@ -305,6 +317,10 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  annotations:
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: test-env
+    com.freiheit.kuberpult/team: ""
   name: test-env-app1
 spec:
   destination:
@@ -351,6 +367,10 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  annotations:
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: test-env
+    com.freiheit.kuberpult/team: ""
   name: test-env-app1
 spec:
   destination: {}
@@ -432,6 +452,55 @@ spec:
   - namespace: foo
   sourceRepos:
   - '*'
+`,
+		},
+		{
+			name: "with team name",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					Destination: config.ArgoCdDestination{
+						Namespace:            nil,
+						AppProjectNamespace:  ptr.FromString("bar1"),
+						ApplicationNamespace: nil,
+					},
+				},
+			},
+			appData: []AppData{
+				{
+					AppName:  "app1",
+					TeamName: "some-team",
+				},
+			},
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - namespace: bar1
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: test-env
+    com.freiheit.kuberpult/team: some-team
+  name: test-env-app1
+spec:
+  destination: {}
+  project: test-env
+  source:
+    path: environments/test-env/applications/app1/manifests
+    repoURL: https://git.example.com/
+    targetRevision: branch-name
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
 `,
 		},
 	}
