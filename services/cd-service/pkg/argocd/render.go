@@ -33,6 +33,7 @@ const V1Alpha1 ApiVersion = "v1alpha1"
 
 type AppData struct {
 	AppName           string
+	TeamName          string
 	IsUndeployVersion bool
 }
 
@@ -130,6 +131,10 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 
 func RenderApp(gitUrl string, gitBranch string, applicationAnnotations map[string]string, env string, appData AppData, destination v1alpha1.ApplicationDestination, ignoreDifferences []v1alpha1.ResourceIgnoreDifferences, syncOptions v1alpha1.SyncOptions) (string, error) {
 	name := appData.AppName
+	annotations := map[string]string{
+		"com.freiheit.kuberpult/team": appData.TeamName,
+		"com.freiheit.kuberpult/application": name,
+	}
 	app := v1alpha1.Application{
 		TypeMeta: v1alpha1.ApplicationTypeMeta,
 		ObjectMeta: v1alpha1.ObjectMeta{
