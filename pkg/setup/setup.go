@@ -14,11 +14,9 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-//
 // Setup implementation shared between all microservices.
 // If this file is changed it will affect _all_ microservices in the monorepo (and this
 // is deliberately so).
-//
 package setup
 
 import (
@@ -142,6 +140,7 @@ func (s *setup) listenToShutdownSignal(ctx context.Context, cancelFunc context.C
 	select {
 	case <-osSignalChannel:
 	case <-shutdownChannel:
+	case <-ctx.Done():
 	}
 
 	// cancel the context
