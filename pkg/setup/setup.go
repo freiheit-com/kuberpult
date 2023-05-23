@@ -37,7 +37,6 @@ import (
 )
 
 var (
-	shutdownChannel = make(chan bool, 1)      // Write here for a manual shutdown
 	osSignalChannel = make(chan os.Signal, 1) // System writes here when shutdown
 )
 
@@ -53,7 +52,8 @@ type shutdown struct {
 // Setup structure that holds only the shutdown callbacks for all
 // grpc and http server for endpoints, metrics, health checks, etc.
 type setup struct {
-	shutdown []shutdown
+	shutdown        []shutdown
+	shutdownChannel chan bool
 }
 
 type BasicAuth struct {
@@ -107,13 +107,13 @@ func Run(ctx context.Context, config ServerConfig) {
 
 	// Start the listening on each protocol
 	for _, cfg := range config.HTTP {
-		setupHTTP(ctx, s, cfg)
+		setupHTTP(ctx, s, cfg, cancel)
 	}
 	if config.GRPC != nil {
-		setupGRPC(ctx, s, *config.GRPC)
+		setupGRPC(ctx, s, *config.GRPC, cancel)
 	}
 	for _, task := range config.Background {
-		setupBackgroundTask(ctx, s, task)
+		setupBackgroundTask(ctx, s, task, cancel)
 	}
 
 	if config.Shutdown != nil {
@@ -139,7 +139,6 @@ func (s *setup) listenToShutdownSignal(ctx context.Context, cancelFunc context.C
 	// See also https://golang.org/ref/spec#Program_execution
 	select {
 	case <-osSignalChannel:
-	case <-shutdownChannel:
 	case <-ctx.Done():
 	}
 
@@ -163,7 +162,7 @@ func gracefulShutdown(ctx context.Context, s *setup, timeout time.Duration) {
 	}
 }
 
-func setupGRPC(ctx context.Context, s *setup, config GRPCConfig) {
+func setupGRPC(ctx context.Context, s *setup, config GRPCConfig, cancel context.CancelFunc) {
 	// Get service listening port
 	addrGRPC := ":" + config.Port
 
@@ -189,27 +188,25 @@ func setupGRPC(ctx context.Context, s *setup, config GRPCConfig) {
 		s.RegisterShutdown("GRPC shutdown handler", config.Shutdown)
 	}
 
-	go serveGRPC(ctx, grpcS, grpcL)
+	go serveGRPC(ctx, grpcS, grpcL, cancel)
 }
 
-func serveGRPC(ctx context.Context, grpcS *grpc.Server, grpcL net.Listener) {
-	defer func() {
-		shutdownChannel <- true
-	}()
+func serveGRPC(ctx context.Context, grpcS *grpc.Server, grpcL net.Listener, cancel context.CancelFunc) {
+	defer cancel()
 
 	if err := grpcS.Serve(grpcL); err != nil {
 		logger.FromContext(ctx).Error("grpc.serve.error", zap.Error(err))
 	}
 }
 
-func setupHTTP(ctx context.Context, s *setup, config HTTPConfig) {
+func setupHTTP(ctx context.Context, s *setup, config HTTPConfig, cancel context.CancelFunc) {
 	mux := http.NewServeMux()
 	config.Register(mux)
 
-	runHTTPHandler(ctx, s, mux, config.Port, config.BasicAuth, config.Shutdown)
+	runHTTPHandler(ctx, s, mux, config.Port, config.BasicAuth, config.Shutdown, cancel)
 }
 
-func runHTTPHandler(ctx context.Context, s *setup, handler http.Handler, port string, basicAuth *BasicAuth, shutdown func(context.Context) error) {
+func runHTTPHandler(ctx context.Context, s *setup, handler http.Handler, port string, basicAuth *BasicAuth, shutdown func(context.Context) error, cancel context.CancelFunc) {
 
 	if basicAuth != nil {
 		handler = NewBasicAuthHandler(basicAuth, handler)
@@ -232,18 +229,16 @@ func runHTTPHandler(ctx context.Context, s *setup, handler http.Handler, port st
 		)
 	}
 
-	go serveHTTP(ctx, httpS, port)
+	go serveHTTP(ctx, httpS, port, cancel)
 }
 
 var shutdownHTTP = func(ctx context.Context, httpS *http.Server) error {
 	return httpS.Shutdown(ctx)
 }
 
-var serveHTTP = func(ctx context.Context, httpS *http.Server, port string) {
+var serveHTTP = func(ctx context.Context, httpS *http.Server, port string, cancel context.CancelFunc) {
 	// if this function returns, the server was stopped, so stop also all the other services
-	defer func() {
-		shutdownChannel <- true
-	}()
+	defer cancel()
 
 	addr := ":" + port
 
@@ -258,7 +253,7 @@ var serveHTTP = func(ctx context.Context, httpS *http.Server, port string) {
 	}
 }
 
-func setupBackgroundTask(ctx context.Context, s *setup, config BackgroundTaskConfig) {
+func setupBackgroundTask(ctx context.Context, s *setup, config BackgroundTaskConfig, cancel context.CancelFunc) {
 
 	if config.Shutdown != nil {
 		s.RegisterShutdown(
@@ -267,13 +262,11 @@ func setupBackgroundTask(ctx context.Context, s *setup, config BackgroundTaskCon
 		)
 	}
 
-	go runBackgroundTask(ctx, config)
+	go runBackgroundTask(ctx, config, cancel)
 }
 
-func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig) {
-	defer func() {
-		shutdownChannel <- true
-	}()
+func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig, cancel context.CancelFunc) {
+	defer cancel()
 	if err := config.Run(ctx); err != nil {
 		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job", config.Name))
 	}

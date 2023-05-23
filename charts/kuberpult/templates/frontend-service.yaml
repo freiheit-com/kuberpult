@@ -93,6 +93,8 @@ spec:
           value: "{{ .Values.gke.backend_service_id }}"
         - name: KUBERPULT_GKE_PROJECT_NUMBER
           value: "{{ .Values.gke.project_number }}"
+        - name: KUBERPULT_ALLOWED_ORIGINS
+          value: "https://{{ .Values.ingress.domainName }}"
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:

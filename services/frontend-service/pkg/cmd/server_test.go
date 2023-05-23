@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,8 +29,11 @@ import (
 
 func TestServerHeader(t *testing.T) {
 	tcs := []struct {
-		Name        string
-		RequestPath string
+		Name           string
+		RequestPath    string
+		RequestMethod  string
+		RequestHeaders http.Header
+		Environment    map[string]string
 
 		ExpectedHeaders http.Header
 	}{
@@ -38,25 +42,51 @@ func TestServerHeader(t *testing.T) {
 			RequestPath: "/",
 
 			ExpectedHeaders: http.Header{
-				"Content-Type":              {"text/plain; charset=utf-8"},
+				"Content-Type": {"text/plain; charset=utf-8"}, "Content-Security-Policy": {
+					"default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoft.com; child-src 'none'",
+				},
 				"Strict-Transport-Security": {"max-age=31536000; includeSubDomains;"},
 				"X-Content-Type-Options":    {"nosniff"},
+			},
+		},
+		{
+
+			Name:          "cors",
+			RequestMethod: "OPTIONS",
+			RequestHeaders: http.Header{
+				"Origin": {"https://something.else"},
+			},
+			Environment: map[string]string{
+				"KUBERPULT_ALLOWED_ORIGINS": "https://kuberpult.fdc",
+			},
+
+			ExpectedHeaders: http.Header{
+				"Access-Control-Allow-Credentials": {"true"},
+				"Access-Control-Allow-Origin":      {"https://kuberpult.fdc"},
+				"Allow":                            {"OPTIONS, GET, HEAD"},
+				"Content-Security-Policy":          {"default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoft.com; child-src 'none'"},
+				"Strict-Transport-Security":        {"max-age=31536000; includeSubDomains;"},
 			},
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			var wg sync.WaitGroup
 			ctx, cancel := context.WithCancel(context.Background())
+			wg.Add(1)
 			go func(t *testing.T) {
+				defer wg.Done()
 				defer cancel()
 				for {
 					res, err := http.Get("http://localhost:8081/health")
 					if err != nil {
+						t.Logf("unhealthy: %q", err)
 						<-time.After(1 * time.Second)
 						continue
 					}
 					if res.StatusCode != 200 {
+						t.Logf("status: %q", res.StatusCode)
 						<-time.After(1 * time.Second)
 						continue
 					}
@@ -67,10 +97,17 @@ func TestServerHeader(t *testing.T) {
 				if err != nil {
 					panic(err)
 				}
-				res, err := http.Get(path)
+				req, err := http.NewRequest(tc.RequestMethod, path, nil)
 				if err != nil {
 					t.Fatalf("expected no error but got %q", err)
 				}
+				req.Header = tc.RequestHeaders
+				res, err := http.DefaultClient.Do(req)
+				if err != nil {
+					t.Fatalf("expected no error but got %q", err)
+				}
+				t.Logf("%v %q", res.StatusCode, err)
+				// Delete two headers that are hard to test.
 				hdrs := res.Header.Clone()
 				hdrs.Del("Content-Length")
 				hdrs.Del("Date")
@@ -79,10 +116,14 @@ func TestServerHeader(t *testing.T) {
 				}
 
 			}(t)
+			for k, v := range tc.Environment {
+				t.Setenv(k, v)
+			}
 			err := runServer(ctx)
 			if err != nil {
 				t.Fatalf("expected no error, but got %q", err)
 			}
+			wg.Wait()
 		})
 	}
 }

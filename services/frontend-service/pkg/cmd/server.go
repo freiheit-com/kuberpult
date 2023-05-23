@@ -233,6 +233,14 @@ func runServer(ctx context.Context) error {
 			31536000 seconds = 1 year.
 			*/
 			resp.Header().Set("strict-Transport-Security", "max-age=31536000; includeSubDomains;")
+			/**
+			- self is generally sufficient for most sources
+			- fonts.googleapis.com is used for font hosting
+			- fonts.gstatic.con is used for font hosting
+			- login.microsoft.com is used for azure login
+			*/
+			resp.Header().Set("Content-Security-Policy", "default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoft.com; child-src 'none'")
+
 			if c.AzureEnableAuth {
 				// these are the paths and prefixes that must not have azure authentication, in order to bootstrap the html, js, etc:
 				var allowedPaths = []string{"/", "/release", "/health", "/manifest.json", "/favicon.png"}
@@ -260,7 +268,7 @@ func runServer(ctx context.Context) error {
 			return &setup.CORSPolicy{
 				AllowMethods:     "POST",
 				AllowHeaders:     "content-type,x-grpc-web,authorization",
-				AllowOrigin:      "*",
+				AllowOrigin:      c.AllowedOrigins,
 				AllowCredentials: true,
 			}
 		},
