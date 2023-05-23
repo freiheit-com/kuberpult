@@ -237,9 +237,9 @@ func runServer(ctx context.Context) error {
 			- self is generally sufficient for most sources
 			- fonts.googleapis.com is used for font hosting
 			- fonts.gstatic.con is used for font hosting
-			- login.microsoft.com is used for azure login
+			- login.microsoftonline.com is used for azure login
 			*/
-			resp.Header().Set("Content-Security-Policy", "default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoft.com; child-src 'none'")
+			resp.Header().Set("Content-Security-Policy", "default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoftonline.com; child-src 'none'")
 
 			if c.AzureEnableAuth {
 				// these are the paths and prefixes that must not have azure authentication, in order to bootstrap the html, js, etc:

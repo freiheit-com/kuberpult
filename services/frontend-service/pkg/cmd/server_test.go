@@ -43,7 +43,7 @@ func TestServerHeader(t *testing.T) {
 
 			ExpectedHeaders: http.Header{
 				"Content-Type": {"text/plain; charset=utf-8"}, "Content-Security-Policy": {
-					"default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoft.com; child-src 'none'",
+					"default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoftonline.com; child-src 'none'",
 				},
 				"Strict-Transport-Security": {"max-age=31536000; includeSubDomains;"},
 				"X-Content-Type-Options":    {"nosniff"},
@@ -64,7 +64,7 @@ func TestServerHeader(t *testing.T) {
 				"Access-Control-Allow-Credentials": {"true"},
 				"Access-Control-Allow-Origin":      {"https://kuberpult.fdc"},
 				"Allow":                            {"OPTIONS, GET, HEAD"},
-				"Content-Security-Policy":          {"default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoft.com; child-src 'none'"},
+				"Content-Security-Policy":          {"default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoftonline.com; child-src 'none'"},
 				"Strict-Transport-Security":        {"max-age=31536000; includeSubDomains;"},
 			},
 		},
