@@ -89,6 +89,7 @@ func TestGracefulShutdown(t *testing.T) {
 		desc   string
 		port   string
 		termFn func()
+		cancel bool
 	}{
 		{
 			desc: "Cleans up on shutdown triggered by the OS",
@@ -98,11 +99,9 @@ func TestGracefulShutdown(t *testing.T) {
 			},
 		},
 		{
-			desc: "Cleans up on manually triggered shutdown",
-			port: "8282",
-			termFn: func() {
-				shutdownChannel <- true
-			},
+			desc:   "Cleans up on cancelled context",
+			port:   "8282",
+			cancel: true,
 		},
 	}
 
@@ -114,7 +113,7 @@ func TestGracefulShutdown(t *testing.T) {
 			defer func() {
 				serveHTTP = backServeHTTP
 			}()
-			serveHTTP = func(ctx context.Context, httpS *http.Server, port string) {
+			serveHTTP = func(ctx context.Context, httpS *http.Server, port string, cancel context.CancelFunc) {
 				for range fakeServer {
 				}
 			}
@@ -132,12 +131,6 @@ func TestGracefulShutdown(t *testing.T) {
 			osSignalChannel = make(chan os.Signal, 1)
 			defer func() {
 				osSignalChannel = backOsSignalChannel
-			}()
-
-			backShutdownChannel := shutdownChannel
-			shutdownChannel = make(chan bool, 1)
-			defer func() {
-				shutdownChannel = backShutdownChannel
 			}()
 
 			cleanShutdownCh := make(chan bool, 1)
@@ -158,13 +151,17 @@ func TestGracefulShutdown(t *testing.T) {
 			}
 
 			mainExited := make(chan bool, 1)
+			ctx, cancel := context.WithCancel(context.Background())
 			go func() {
-				Run(context.Background(), cfg)
+				Run(ctx, cfg)
 				mainExited <- true
 			}()
-
-			tc.termFn()
-
+			if tc.cancel {
+				cancel()
+			}
+			if tc.termFn != nil {
+				tc.termFn()
+			}
 			select {
 			case <-mainExited:
 				t.Errorf("Main goroutine finished before resource cleanup")
