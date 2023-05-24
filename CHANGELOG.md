@@ -6,6 +6,13 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.68
+**released 2023-05-24**
+### Major Changes
+* [Add annotations to ArgoCD application](https://github.com/freiheit-com/kuberpult/pull/694)
+* [Add X-Frame-Options, Referrer-Policy and Permission-Policy header](https://github.com/freiheit-com/kuberpult/pull/696)
+* [Add more secure header settings](https://github.com/freiheit-com/kuberpult/pull/695)
+
 ## 0.4.67
 **released 2023-05-19**
 ### Major Changes
