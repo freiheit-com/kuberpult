@@ -244,6 +244,10 @@ func runServer(ctx context.Context) error {
 			resp.Header().Set("Referrer-Policy", "no-referrer")
 			// We don't want to be displayed in frames
 			resp.Header().Set("X-Frame-Options", "DENY")
+			// We don't need any special browser features.
+			// This policy was generated using https://www.permissionspolicy.com/
+			// with "Disable all" for all implemented and proposed features as of may 2023.
+			resp.Header().Add("Permission-Policy", "accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=()")
 
 			if c.AzureEnableAuth {
 				// these are the paths and prefixes that must not have azure authentication, in order to bootstrap the html, js, etc:

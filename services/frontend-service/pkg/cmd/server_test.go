@@ -42,8 +42,12 @@ func TestServerHeader(t *testing.T) {
 			RequestPath: "/",
 
 			ExpectedHeaders: http.Header{
-				"Content-Type": {"text/plain; charset=utf-8"}, "Content-Security-Policy": {
+				"Content-Type": {"text/plain; charset=utf-8"},
+				"Content-Security-Policy": {
 					"default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoftonline.com; child-src 'none'",
+				},
+				"Permission-Policy": {
+					"accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=()",
 				},
 				"Referrer-Policy":           {"no-referrer"},
 				"Strict-Transport-Security": {"max-age=31536000; includeSubDomains;"},
@@ -67,9 +71,13 @@ func TestServerHeader(t *testing.T) {
 				"Access-Control-Allow-Origin":      {"https://kuberpult.fdc"},
 				"Allow":                            {"OPTIONS, GET, HEAD"},
 				"Content-Security-Policy":          {"default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoftonline.com; child-src 'none'"},
-				"Referrer-Policy":                  {"no-referrer"},
-				"Strict-Transport-Security":        {"max-age=31536000; includeSubDomains;"},
-				"X-Frame-Options":                  {"DENY"},
+
+				"Permission-Policy": {
+					"accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=()",
+				},
+				"Referrer-Policy":           {"no-referrer"},
+				"Strict-Transport-Security": {"max-age=31536000; includeSubDomains;"},
+				"X-Frame-Options":           {"DENY"},
 			},
 		},
 	}
