@@ -240,6 +240,10 @@ func runServer(ctx context.Context) error {
 			- login.microsoftonline.com is used for azure login
 			*/
 			resp.Header().Set("Content-Security-Policy", "default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoftonline.com; child-src 'none'")
+			// We are not using referrer headers.
+			resp.Header().Set("Referrer-Policy", "no-referrer")
+			// We don't want to be displayed in frames
+			resp.Header().Set("X-Frame-Options", "DENY")
 
 			if c.AzureEnableAuth {
 				// these are the paths and prefixes that must not have azure authentication, in order to bootstrap the html, js, etc:
