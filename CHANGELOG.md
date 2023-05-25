@@ -6,6 +6,11 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.69
+**released 2023-05-25**
+### Minor Changes
+* [Fix CSP](https://github.com/freiheit-com/kuberpult/pull/698)
+
 ## 0.4.68
 **released 2023-05-24**
 ### Major Changes
