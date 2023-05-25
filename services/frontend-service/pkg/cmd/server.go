@@ -236,10 +236,11 @@ func runServer(ctx context.Context) error {
 			/**
 			- self is generally sufficient for most sources
 			- fonts.googleapis.com is used for font hosting
+			- unsafe-inline is needed at the moment to make emotionjs work
 			- fonts.gstatic.con is used for font hosting
 			- login.microsoftonline.com is used for azure login
 			*/
-			resp.Header().Set("Content-Security-Policy", "default-src 'self'; style-src-elem 'self' fonts.googleapis.com; font-src fonts.gstatic.com; connect-src 'self' login.microsoftonline.com; child-src 'none'")
+			resp.Header().Set("Content-Security-Policy", "default-src 'self'; style-src-elem 'self' fonts.googleapis.com 'unsafe-inline'; font-src fonts.gstatic.com; connect-src 'self' login.microsoftonline.com; child-src 'none'")
 			// We are not using referrer headers.
 			resp.Header().Set("Referrer-Policy", "no-referrer")
 			// We don't want to be displayed in frames
