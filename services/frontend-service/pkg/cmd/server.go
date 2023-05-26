@@ -245,6 +245,8 @@ func runServer(ctx context.Context) error {
 			resp.Header().Set("Referrer-Policy", "no-referrer")
 			// We don't want to be displayed in frames
 			resp.Header().Set("X-Frame-Options", "DENY")
+			// Don't sniff content-type
+			resp.Header().Set("X-Content-Type-Options", "nosniff")
 			// We don't need any special browser features.
 			// This policy was generated using https://www.permissionspolicy.com/
 			// with "Disable all" for all implemented and proposed features as of may 2023.
