@@ -11,4 +11,4 @@ services/cd-service/environment_configs.json
 build/
 
 # used by envrc https://direnv.net/
-.envrc
+.direnv

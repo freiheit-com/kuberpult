@@ -1,0 +1,51 @@
+schema = 3
+
+[mod]
+  [mod."github.com/antihax/optional"]
+    version = "v1.0.0"
+    hash = "sha256-QGaiZUrNRq6obhRvPiG034d3EmUBCMMyKrnjROhGoMc="
+  [mod."github.com/golang/glog"]
+    version = "v1.0.0"
+    hash = "sha256-bglITqRgzi52zc6FoYYnfCvrjFWV4RVOacPCnbEBom4="
+  [mod."github.com/golang/protobuf"]
+    version = "v1.5.2"
+    hash = "sha256-IVwooaIo46iq7euSSVWTBAdKd+2DUaJ67MtBao1DpBI="
+  [mod."github.com/google/go-cmp"]
+    version = "v0.5.9"
+    hash = "sha256-lQc4O00R3QSMGs9LP8Sy7A9kj0cqV5rrUdpnGeipIyg="
+  [mod."github.com/kr/pretty"]
+    version = "v0.1.0"
+    hash = "sha256-Fx+TaNrxW0VfzonT2jnd5MU09RRz7GJZkqAtJR6/pKI="
+  [mod."github.com/rogpeppe/fastuuid"]
+    version = "v1.2.0"
+    hash = "sha256-yDnHsLw8KF4zfbJska1igIo4IbVpGDq+vH3+YV5jCgk="
+  [mod."golang.org/x/net"]
+    version = "v0.7.0"
+    hash = "sha256-LgZYZRwtMqm+soNh+esxDSeRuIDxRGb9OEfYaFJHCDI="
+  [mod."golang.org/x/oauth2"]
+    version = "v0.5.0"
+    hash = "sha256-+ns+lPELOJdb1YpIxQRBVQeSEsn0VhnKPnHg5Q0NOH4="
+  [mod."golang.org/x/sys"]
+    version = "v0.5.0"
+    hash = "sha256-0LTr3KeJ1OMQAwYUQo1513dXJtQAJn5Dq8sFkc8ps1U="
+  [mod."golang.org/x/text"]
+    version = "v0.7.0"
+    hash = "sha256-ydgUqX+t5Qke16C6d3FP/06U/N1n+rUKpLRFj4KXjwk="
+  [mod."google.golang.org/appengine"]
+    version = "v1.6.7"
+    hash = "sha256-zIxGRHiq4QBvRqkrhMGMGCaVL4iM4TtlYpAi/hrivS4="
+  [mod."google.golang.org/genproto"]
+    version = "v0.0.0-20230223222841-637eb2293923"
+    hash = "sha256-eEBzbHhUJwkfigrtus0l2mFHbLLqBcfv5j+T+Yh4+Ss="
+  [mod."google.golang.org/grpc"]
+    version = "v1.53.0"
+    hash = "sha256-LkB13k1JaQ7e4nGpCoEA9q4T8oIV0KvkFIDZmHhDr08="
+  [mod."google.golang.org/protobuf"]
+    version = "v1.28.1"
+    hash = "sha256-sTJYgvlv5is7vHNxcuigF2lNASp0QonhUgnrguhfHSU="
+  [mod."gopkg.in/check.v1"]
+    version = "v1.0.0-20180628173108-788fd7840127"
+    hash = "sha256-KsRJNTprd1UijnJusbHwQGM7Bdm45Jt/QL+cIUGNa2w="
+  [mod."gopkg.in/yaml.v3"]
+    version = "v3.0.1"
+    hash = "sha256-FqL9TKYJ0XkNwJFnq9j0VvJ5ZUU1RvH/52h/f5bkYAU="
