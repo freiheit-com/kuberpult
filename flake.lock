@@ -1,23 +1,5 @@
 {
   "nodes": {
-    "flake-utils": {
-      "inputs": {
-        "systems": "systems"
-      },
-      "locked": {
-        "lastModified": 1681202837,
-        "narHash": "sha256-H+Rh19JDwRtpVPAWp64F+rlEtxUWBAQW28eAi3SRSzg=",
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "cfacdce06f30d2b68473a46042957675eebb3401",
-        "type": "github"
-      },
-      "original": {
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "type": "github"
-      }
-    },
     "gomod2nix": {
       "inputs": {
         "nixpkgs": [
@@ -57,11 +39,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1685206731,
-        "narHash": "sha256-5I6DQRCwTp2hRnWiafLFeSX9SsWnQvxeIZZiXoNdVhA=",
+        "lastModified": 1685224000,
+        "narHash": "sha256-ejmwtUiL0fzl9H3okggL4Gj9iRn9nMJQWh46feVjiB8=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "500b40a755ac8141565baf56b52fe40fbd39bb58",
+        "rev": "3f4c658942f87c4c563c8ac568a53079e12dc024",
         "type": "github"
       },
       "original": {
@@ -72,10 +54,10 @@
     },
     "root": {
       "inputs": {
-        "flake-utils": "flake-utils",
         "gomod2nix": "gomod2nix",
         "grpc-gateway": "grpc-gateway",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "systems": "systems"
       }
     },
     "systems": {
