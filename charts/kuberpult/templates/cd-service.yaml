@@ -38,7 +38,7 @@ metadata:
     app: kuberpult-cd-service
 {{- if .Values.datadogTracing.enabled }}
     tags.datadoghq.com/service: kuberpult-cd-service
-    tags.datadoghq.com/version: {{ .Values.tag }}
+    tags.datadoghq.com/version: {{ .Values.cdTag }}
     tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
 {{- end }}
 spec:
@@ -53,9 +53,9 @@ spec:
 {{- if .Values.datadogTracing.enabled }}
         tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
         tags.datadoghq.com/service: kuberpult-cd-service
-        tags.datadoghq.com/version: {{ .Values.tag }}
+        tags.datadoghq.com/version: {{ .Values.cdTag }}
       annotations:
-        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ .Values.tag }}"}'
+        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ .Values.cdTag }}"}'
 {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
@@ -64,7 +64,7 @@ spec:
       {{- end }}
       containers:
       - name: service
-        image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ .Values.tag }}"
+        image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ .Values.cdTag }}"
         ports:
           - name: http
             containerPort: 8080

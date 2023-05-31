@@ -8,7 +8,11 @@ git:
   sourceRepoUrl: ""
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-tag: "$VERSION"
+# In MOST cases, do NOT overwrite the version tags.
+# Generally speaking, kuberpult only guarantees that running with the same version of frontend and cd service will work.
+# For testing purposes, we allow to overwrite the tags individually, to test an old frontend service with a new cd service.
+frontendTag: "$VERSION"
+cdTag: "$VERSION"
 
 log:
   # Possible values are "gcp" for a gcp-optimized format and "default" for json
