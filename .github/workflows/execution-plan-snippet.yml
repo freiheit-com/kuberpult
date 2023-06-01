@@ -27,9 +27,6 @@ jobs:
         if: inputs.trigger == 'pull-request'
         run: |
           ./infrastructure/scripts/execution-plan/plan-pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > artifacts/execution-plan.json
-      - name: TEST KIND TODO DELETE ME
-        run: |
-          kind create cluster
       - name: Plan execution main
         if: inputs.trigger == 'main' || inputs.trigger == 'tag'
         run: |
