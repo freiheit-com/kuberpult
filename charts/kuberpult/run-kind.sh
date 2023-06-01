@@ -25,9 +25,14 @@ docker pull "$frontend_imagename"
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
 
-helm uninstall kuberpult-local
 set_options='ingress.domainName=kuberpult.example.com,git.url=git.example.com,name=kuberpult-local'
 helm template ./ --set "$set_options" > tmp.tmpl
 helm install --set "$set_options" kuberpult-local ./
 
+kubectl get deployment
+kubectl get pods
 
+
+
+sleep 30s
+helm uninstall kuberpult-local || echo "could not uninstall helm chart for kuberpult"

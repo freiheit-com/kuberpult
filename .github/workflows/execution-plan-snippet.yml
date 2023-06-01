@@ -23,7 +23,6 @@ jobs:
         run: |
           gcloud auth configure-docker
       - run: mkdir -p artifacts/
-      - run: kind create cluster
       - name: Plan execution pull request
         if: inputs.trigger == 'pull-request'
         run: |
