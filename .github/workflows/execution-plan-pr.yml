@@ -11,7 +11,7 @@ jobs:
     secrets: inherit
 
   integration-tests:
-    needs: [execution-plan]
+#    needs: [execution-plan]
     uses: ./.github/workflows/integration-tests.yml
     with:
       trigger: pull-request

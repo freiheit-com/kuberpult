@@ -8,11 +8,11 @@ cd "$(dirname $0)"
 echo starting to install kind
 
 
-make all
+#make all
 
 export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-make -C ../../services/cd-service/ docker
-make -C ../../services/frontend-service/ docker
+#make -C ../../services/cd-service/ docker
+#make -C ../../services/frontend-service/ docker
 
 
 cd_imagename=$(make --no-print-directory -C ../../services/cd-service/ image-name)
