@@ -87,8 +87,9 @@ jobs:
       run: |
         curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8081/health
         curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8080/health
-    - name: Run kind
+    - name: Setup kind
       uses: helm/kind-action@v1.2.0
+    - name: Run kind
       run: |
         echo running kind
         ./charts/kuberpult/run-kind.sh
