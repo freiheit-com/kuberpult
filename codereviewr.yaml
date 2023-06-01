@@ -85,6 +85,7 @@ ignoredFiles: [
     "*/nginx.conf",
     "*/node_modules/*",
     "CODEOWNERS",
+    ".github/CODEOWNERS",
     "Jenkinsfile*",
     "Makefile*",
     "OWNERS",
