@@ -8,7 +8,6 @@ git:
   sourceRepoUrl: ""
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-tag: "$VERSION"
 
 log:
   # Possible values are "gcp" for a gcp-optimized format and "default" for json
@@ -17,6 +16,10 @@ log:
   level: "WARN"
 cd:
   image: kuberpult-cd-service
+# In MOST cases, do NOT overwrite the "tag".
+# In general, kuberpult only guarantees that running with the same version of frontend and cd service will work.
+# For testing purposes, we allow to overwrite the tags individually, to test an old frontend service with a new cd service.
+  tag: "$VERSION"
   backendConfig:
     create: false   # Add backend config for health checks on GKE only
     timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
@@ -30,6 +33,10 @@ cd:
   enableSqlite: true
 frontend:
   image: kuberpult-frontend-service
+# In MOST cases, do NOT overwrite the "tag".
+# In general, kuberpult only guarantees that running with the same version of frontend and cd service will work.
+# For testing purposes, we allow to overwrite the tags individually, to test an old frontend service with a new cd service.
+  tag: "$VERSION"
   resources:
     limits:
       cpu: 500m

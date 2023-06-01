@@ -29,6 +29,7 @@
 
 # Copyright 2023 freiheit.com
 
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -52,7 +53,7 @@ spec:
       {{- end }}
       containers:
       - name: service
-        image: "{{ .Values.hub }}/{{ .Values.frontend.image }}:{{ .Values.tag }}"
+        image: "{{ .Values.hub }}/{{ .Values.frontend.image }}:{{ .Values.frontend.tag }}"
         ports:
           - name: http
             containerPort: 8081
@@ -82,7 +83,7 @@ spec:
         - name: KUBERPULT_ARGOCD_BASE_URL
           value: {{ .Values.argocd.baseUrl | quote }}
         - name: KUBERPULT_VERSION
-          value: {{ .Values.tag | quote}}
+          value: {{ .Values.frontend.tag | quote}}
         - name: KUBERPULT_SOURCE_REPO_URL
           value: {{ .Values.git.sourceRepoUrl | quote}}
         - name: LOG_FORMAT
