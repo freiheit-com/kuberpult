@@ -7,6 +7,23 @@ set -x
 cd "$(dirname $0)"
 
 echo starting to install kind
+cleanup() {
+    echo "Cleaning stuff up..."
+    kind delete cluster
+}
+#trap cleanup INT TERM
+#cleanup
+
+cat <<EOF | kind create cluster --config=-
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 8081
+    hostPort: 8081
+    protocol: TCP
+EOF
 
 
 make all
@@ -25,11 +42,11 @@ docker pull "$frontend_imagename"
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
 
-set_options='ingress.domainName=kuberpult.example.com,git.url=git.example.com,name=kuberpult-local'
+set_options='ingress.domainName=kuberpult.example.com,git.url=git.example.com,name=kuberpult-local,VERSION=0.4.70'
 helm template ./ --set "$set_options" > tmp.tmpl
 helm install --set "$set_options" kuberpult-local ./
 
-sleep 10
+#sleep 10
 kubectl get deployment
 kubectl get pods
 sleep 10
@@ -38,8 +55,3 @@ kubectl get pods
 sleep 10
 kubectl get deployment
 kubectl get pods
-
-
-
-sleep 30s
-helm uninstall kuberpult-local || echo "could not uninstall helm chart for kuberpult"
