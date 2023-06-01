@@ -80,11 +80,13 @@ jobs:
         mkdir -p ./services/cd-service/repository_remote
         git -C ./services/cd-service/repository_remote init --bare
         git clone ./services/cd-service/repository_remote ./services/cd-service/repository_checkedout
-    - name: Setup kind
-      uses: helm/kind-action@v1.2.0
+#    - name: Setup kind
+#      uses: helm/kind-action@v1.2.0
     - name: Run kind
       run: |
+        kind create cluster
         echo running kind
+#        kubectl config set-context kind-chart-testing
         ./charts/kuberpult/run-kind.sh
     - name: Integration test kind
       run: |
