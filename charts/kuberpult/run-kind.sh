@@ -19,6 +19,9 @@ export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kub
 cd_imagename=$(make --no-print-directory -C ../../services/cd-service/ image-name)
 frontend_imagename=$(make --no-print-directory -C ../../services/frontend-service/ image-name)
 
+docker pull "$cd_imagename"
+docker pull "$frontend_imagename"
+
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
 
