@@ -9,7 +9,7 @@ cd "$(dirname $0)"
 echo starting to install kind
 
 
-#make all
+make all
 
 export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 #make -C ../../services/cd-service/ docker
