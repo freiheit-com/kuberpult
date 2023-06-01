@@ -46,6 +46,8 @@ set_options='ingress.domainName=kuberpult.example.com,git.url=git.example.com,na
 helm template ./ --set "$set_options" > tmp.tmpl
 helm install --set "$set_options" kuberpult-local ./
 
+kubectl port-forward deployment/kuberpult-frontend-service 8081:8081 &
+
 #sleep 10
 kubectl get deployment
 kubectl get pods
