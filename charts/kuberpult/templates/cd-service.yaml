@@ -29,6 +29,10 @@
 
 # Copyright 2023 freiheit.com
 
+{{- if .Values.tag }}
+{{ fail "Values.tag cannot be used anymore. If you have to overwrite the tag, use cd.tag or frontend.tag instead"}}
+{{ end -}}
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -38,7 +42,7 @@ metadata:
     app: kuberpult-cd-service
 {{- if .Values.datadogTracing.enabled }}
     tags.datadoghq.com/service: kuberpult-cd-service
-    tags.datadoghq.com/version: {{ .Values.cdTag }}
+    tags.datadoghq.com/version: {{ .Values.cd.tag }}
     tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
 {{- end }}
 spec:
@@ -53,9 +57,9 @@ spec:
 {{- if .Values.datadogTracing.enabled }}
         tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
         tags.datadoghq.com/service: kuberpult-cd-service
-        tags.datadoghq.com/version: {{ .Values.cdTag }}
+        tags.datadoghq.com/version: {{ .Values.cd.tag }}
       annotations:
-        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ .Values.cdTag }}"}'
+        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-cd-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ .Values.cd.tag }}"}'
 {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
@@ -64,7 +68,7 @@ spec:
       {{- end }}
       containers:
       - name: service
-        image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ .Values.cdTag }}"
+        image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ .Values.cd.tag }}"
         ports:
           - name: http
             containerPort: 8080
