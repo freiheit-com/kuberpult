@@ -39,6 +39,8 @@ else
 $(error "$(IMAGENAME) doesn't end with $(VERSION). Please set the correct version.")
 endif
 
+image-name:
+	@echo "$(IMAGENAME)"
 
 proto:
 	make -C../../pkg/api all
