@@ -66,9 +66,13 @@ echo installing ssh...
 echo installing kuberpult...
 
 export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-WITH_DOCKER=true make -C ../../services/cd-service/ docker
-make -C ../../services/frontend-service/ docker
 
+LOCAL_EXECUTION=false
+if "$LOCAL_EXECUTION"
+then
+  WITH_DOCKER=true make -C ../../services/cd-service/ docker
+  make -C ../../services/frontend-service/ docker
+fi
 
 cd_imagename=$(make --no-print-directory -C ../../services/cd-service/ image-name)
 frontend_imagename=$(make --no-print-directory -C ../../services/frontend-service/ image-name)
