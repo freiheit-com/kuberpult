@@ -85,17 +85,17 @@ imagePullSecrets: []
 
 gke:
   # The backend service id and project number are used to verify IAP tokens.
-  # 
+  #
   # The backend service id can only be obtained _after_ everything is installed.
   # Use this bash script to obtain it (after login to gcloud and select the correct project):
-  # 
+  #
   # ```
   # gcloud compute backend-services describe --global $(gcloud compute backend-services list | grep "kuberpult-frontend-service-80" | cut -d" " -f1) | yq .id
   # ```
   backend_service_id: ""
-  # 
+  #
   # Use this bash script to obtain the project number:
-  # 
+  #
   # ```
   # gcloud projects list --filter="$(gcloud config get-value project)" --format="value(PROJECT_NUMBER)"
   # ```
