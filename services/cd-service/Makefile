@@ -96,13 +96,11 @@ clean:
 
 .PHONY: test-dependancies
 test-dependancies:
-	echo SKIPPING TEST TODO
-#	make -C ../../pkg test
-#	make -C ../../pkg/api test
+	make -C ../../pkg test
+	make -C ../../pkg/api test
 
 test: $(GO_FILES) test-dependancies | proto
-	echo SKIPPING TEST TODO
-#	$(GO) test  ./...
+	$(GO) test  ./...
 
 docker: bin/main
 	docker build -t $(IMAGENAME) .
