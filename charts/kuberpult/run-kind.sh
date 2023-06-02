@@ -60,6 +60,8 @@ EOF
 
 export GIT_NAMESPACE=git
 
+LOCAL_EXECUTION=${LOCAL_EXECUTION:-false}
+
 make all
 
 echo installing ssh...
@@ -69,8 +71,7 @@ echo installing kuberpult...
 
 export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
-echo "LOCAL: $LOCAL_EXECUTION"
-LOCAL_EXECUTION=${LOCAL_EXECUTION:-false}
+#echo "LOCAL: $LOCAL_EXECUTION"
 if "$LOCAL_EXECUTION"
 then
   WITH_DOCKER=true make -C ../../services/cd-service/ docker
@@ -85,8 +86,11 @@ echo version is "$VERSION"
 echo frontend_imagename is "$frontend_imagename"
 
 
-docker pull "$cd_imagename"
-docker pull "$frontend_imagename"
+if ! "$LOCAL_EXECUTION"
+then
+  docker pull "$cd_imagename"
+  docker pull "$frontend_imagename"
+fi
 
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
