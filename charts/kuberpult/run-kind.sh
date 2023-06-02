@@ -12,42 +12,22 @@ cd "$(dirname $0)"
 
 #(make -C ../../services/cd-service/)
 
+# prefix every call to "echo" with the name of the script:
+function print() {
+  /bin/echo "$0:" "$@"
+}
 
-echo starting to install kind
 cleanup() {
-    echo "Cleaning stuff up..."
-    helm uninstall kuberpult-local || echo kuberpult was not installed
-    kind delete cluster
+    print "Cleaning stuff up..."
+    helm uninstall kuberpult-local || print kuberpult was not installed
+    kind delete cluster || print kind cluster was not deleted
 }
 #trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
-#trap cleanup INT TERM
+trap cleanup INT TERM
 cleanup
 
-
-# works
-#        command:
-#        - ls
-#        - /template/
-
-#original:
-#        command:
-#        - git
-#        - init
-#        - "--bare"
-#        - "/git/repos/manifests"
-#
-#
-#        command:
-#        - /bin/sh
-#        - "-c"
-#        - pwd
-#        - echo hello
-#        - ls -l /template
-#        - git init "--bare" "/git/repos/manifests"
-#        - ls -l /template
-#
-
-kind create cluster --config=- <<EOF || echo cluster exists
+print 'creating kind cluster with a hostpath to share testdata...'
+kind create cluster --config=- <<EOF || print cluster exists
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
@@ -56,54 +36,62 @@ nodes:
    - hostPath: $(pwd)/../../infrastructure/scripts/create-testdata/
      containerPath: /create-testdata
 EOF
-#kind create cluster || echo cluster already exists
 
 export GIT_NAMESPACE=git
 
 LOCAL_EXECUTION=${LOCAL_EXECUTION:-false}
+print "LOCAL: $LOCAL_EXECUTION"
 
+
+print 'ensuring that the helm chart is build...'
 make all
 
-echo installing ssh...
+print installing ssh...
 ./setup-cluster-ssh.sh
 
-echo installing kuberpult...
+print installing kuberpult...
 
 export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
-#echo "LOCAL: $LOCAL_EXECUTION"
 if "$LOCAL_EXECUTION"
 then
+  print 'building cd service...'
   WITH_DOCKER=true make -C ../../services/cd-service/ docker
+
+  print 'building frontend service...'
   make -C ../../services/frontend-service/ docker
+else
+  print 'not building cd or frontend service...'
 fi
 
 cd_imagename=$(make --no-print-directory -C ../../services/cd-service/ image-name)
 frontend_imagename=$(make --no-print-directory -C ../../services/frontend-service/ image-name)
 VERSION=$(make --no-print-directory -C ../../services/cd-service/ version)
 
-echo version is "$VERSION"
-echo frontend_imagename is "$frontend_imagename"
-
 
 if ! "$LOCAL_EXECUTION"
 then
+  print 'pulling cd service...'
   docker pull "$cd_imagename"
+  print 'pulling frontend service...'
   docker pull "$frontend_imagename"
+else
+  print 'not pulling cd or frontend service...'
 fi
 
+print 'loading docker images into kind...'
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
 
+print 'installing kuberpult helm chart...'
 
-# ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
 set_options='ingress.domainName=kuberpult.example.com,git.url=git.example.com,name=kuberpult-local,VERSION='"$VERSION"',git.url=ssh://git@server.'"${GIT_NAMESPACE}"'.svc.cluster.local/git/repos/manifests'
 ssh_options=",ssh.identity=$(cat ../../services/cd-service/client),ssh.known_hosts=$(cat ../../services/cd-service/known_hosts),"
 
-echo "set options version: $set_options"
-
 helm template ./ --set "$set_options""$ssh_options" > tmp.tmpl
 helm install --set "$set_options""$ssh_options" kuberpult-local ./
+
+print 'checking for pods and waiting for portforwarding to be ready...'
 
 kubectl get deployment
 kubectl get pods
@@ -111,22 +99,28 @@ kubectl get pods
 until kubectl wait --for=condition=ready pod -l app=kuberpult-frontend-service --timeout=30s
 do
   sleep 3s
-  echo ...
+  print ...
 done
-echo frontend service is up
+print frontend service is up
 
 kubectl port-forward deployment/kuberpult-frontend-service 8081:8081 &
 
-echo "waiting until the port forward works..."
+print "waiting until the port forward works..."
 until curl localhost:8081
 do
   sleep 1s
-  echo ...
+  print ...
 done
 
-echo "connection to frontend service successful"
+print "connection to frontend service successful"
 
 kubectl get deployment
 kubectl get pods
 
-sleep 1h
+if "$LOCAL_EXECUTION"
+then
+  echo "sleeping for 1h to allow debugging"
+  sleep 1h
+else
+  echo "done. Kind cluster is up and kuberpults frontend service is running."
+fi
