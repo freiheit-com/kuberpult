@@ -77,11 +77,6 @@ func (store *certificateStore) CertificateCheckCallback(ctx context.Context) fun
 	logger := logger.FromContext(ctx)
 	return func(cert *git.Certificate, valid bool, hostname string) error {
 		if cert.Kind == git.CertificateHostkey {
-			for k := range store.sha256Hashes {
-				logger.Error(fmt.Sprintf("DEBUG SU FOUND STORE HASH KEY: '%s'", k))
-				//keys[i] = k
-				//i++
-			}
 			if hsh, ok := store.sha256Hashes[hostname]; ok {
 				if bytes.Compare(hsh, cert.Hostkey.HashSHA256[:]) == 0 {
 					return nil

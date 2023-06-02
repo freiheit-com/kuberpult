@@ -2,7 +2,7 @@
 
 set -eu
 set -o pipefail
-set -x
+#set -x
 
 # This script assumes that the docker images have already been built
 
@@ -14,24 +14,47 @@ cd "$(dirname $0)"
 echo starting to install kind
 cleanup() {
     echo "Cleaning stuff up..."
-    helm uninstall kuberpult-local
+    helm uninstall kuberpult-local || echo kuberpult was not installed
     kind delete cluster
 }
 #trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 #trap cleanup INT TERM
 cleanup
 
-#cat <<EOF | kind create cluster --config=-
-#kind: Cluster
-#apiVersion: kind.x-k8s.io/v1alpha4
-#nodes:
-#- role: control-plane
-#  extraPortMappings:
-#  - containerPort: 8081
-#    hostPort: 8081
-#    protocol: TCP
-#EOF
-kind create cluster || echo cluster already exists
+
+# works
+#        command:
+#        - ls
+#        - /template/
+
+#original:
+#        command:
+#        - git
+#        - init
+#        - "--bare"
+#        - "/git/repos/manifests"
+#
+#
+#        command:
+#        - /bin/sh
+#        - "-c"
+#        - pwd
+#        - echo hello
+#        - ls -l /template
+#        - git init "--bare" "/git/repos/manifests"
+#        - ls -l /template
+#
+
+kind create cluster --config=- <<EOF || echo cluster exists
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraMounts:
+   - hostPath: $(pwd)/../../infrastructure/scripts/create-testdata/
+     containerPath: /create-testdata
+EOF
+#kind create cluster || echo cluster already exists
 
 export GIT_NAMESPACE=git
 
@@ -51,6 +74,10 @@ cd_imagename=$(make --no-print-directory -C ../../services/cd-service/ image-nam
 frontend_imagename=$(make --no-print-directory -C ../../services/frontend-service/ image-name)
 VERSION=$(make --no-print-directory -C ../../services/cd-service/ version)
 
+echo version is "$VERSION"
+echo frontend_imagename is "$frontend_imagename"
+
+
 #docker pull "$cd_imagename"
 #docker pull "$frontend_imagename"
 
@@ -61,6 +88,8 @@ kind load docker-image "$frontend_imagename"
 # ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
 set_options='ingress.domainName=kuberpult.example.com,git.url=git.example.com,name=kuberpult-local,VERSION='"$VERSION"',git.url=ssh://git@server.'"${GIT_NAMESPACE}"'.svc.cluster.local/git/repos/manifests'
 ssh_options=",ssh.identity=$(cat ../../services/cd-service/client),ssh.known_hosts=$(cat ../../services/cd-service/known_hosts),"
+
+echo "set options version: $set_options"
 
 helm template ./ --set "$set_options""$ssh_options" > tmp.tmpl
 helm install --set "$set_options""$ssh_options" kuberpult-local ./
