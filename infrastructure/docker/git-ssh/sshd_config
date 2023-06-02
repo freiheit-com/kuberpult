@@ -1,0 +1,18 @@
+# HostKeys for protocol version 2
+HostKey /git/keys-host/ssh_host_rsa_key
+HostKey /git/keys-host/ssh_host_dsa_key
+HostKey /git/keys-host/ssh_host_ecdsa_key
+HostKey /git/keys-host/ssh_host_ed25519_key
+
+# Authentication:
+
+PermitRootLogin no
+
+PubkeyAuthentication yes
+
+# The default is to check both .ssh/authorized_keys and .ssh/authorized_keys2
+# but this is overridden so installations will only check .ssh/authorized_keys
+AuthorizedKeysFile	.ssh/authorized_keys
+
+# To disable tunneled clear text passwords, change to no here!
+PasswordAuthentication no
