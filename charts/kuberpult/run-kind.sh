@@ -4,7 +4,9 @@ set -eu
 set -o pipefail
 #set -x
 
-# This script assumes that the docker images have already been built
+# This script assumes that the docker images have already been built.
+# To run/debug/develop this locally, you probably want to run like this:
+# make clean; LOCAL_EXECUTION=true ./run-kind.sh
 
 cd "$(dirname $0)"
 
@@ -67,7 +69,8 @@ echo installing kuberpult...
 
 export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
-LOCAL_EXECUTION=false
+echo "LOCAL: $LOCAL_EXECUTION"
+LOCAL_EXECUTION=${LOCAL_EXECUTION:-false}
 if "$LOCAL_EXECUTION"
 then
   WITH_DOCKER=true make -C ../../services/cd-service/ docker
@@ -82,8 +85,8 @@ echo version is "$VERSION"
 echo frontend_imagename is "$frontend_imagename"
 
 
-#docker pull "$cd_imagename"
-#docker pull "$frontend_imagename"
+docker pull "$cd_imagename"
+docker pull "$frontend_imagename"
 
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
