@@ -11,19 +11,21 @@ cleanup() {
     echo "Cleaning stuff up..."
     kind delete cluster
 }
+trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 #trap cleanup INT TERM
-#cleanup
+cleanup
 
-cat <<EOF | kind create cluster --config=-
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-nodes:
-- role: control-plane
-  extraPortMappings:
-  - containerPort: 8081
-    hostPort: 8081
-    protocol: TCP
-EOF
+#cat <<EOF | kind create cluster --config=-
+#kind: Cluster
+#apiVersion: kind.x-k8s.io/v1alpha4
+#nodes:
+#- role: control-plane
+#  extraPortMappings:
+#  - containerPort: 8081
+#    hostPort: 8081
+#    protocol: TCP
+#EOF
+kind create cluster
 
 
 make all
@@ -46,14 +48,26 @@ set_options='ingress.domainName=kuberpult.example.com,git.url=git.example.com,na
 helm template ./ --set "$set_options" > tmp.tmpl
 helm install --set "$set_options" kuberpult-local ./
 
+kubectl get deployment
+kubectl get pods
+
+until kubectl wait --for=condition=ready pod -l app=kuberpult-frontend-service --timeout=30s
+do
+  sleep 3s
+  echo ...
+done
+echo frontend service is up
+
 kubectl port-forward deployment/kuberpult-frontend-service 8081:8081 &
 
-#sleep 10
-kubectl get deployment
-kubectl get pods
-sleep 10
-kubectl get deployment
-kubectl get pods
-sleep 10
+echo "waiting until the port forward works..."
+until curl localhost:8081
+do
+  sleep 1s
+  echo ...
+done
+
+echo "connection to frontend service successful"
+
 kubectl get deployment
 kubectl get pods

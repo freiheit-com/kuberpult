@@ -86,6 +86,7 @@ jobs:
         ./charts/kuberpult/run-kind.sh
     - name: Integration test kind
       run: |
+        echo "testing in next step (kind)"
         curl localhost:8081 -v # should return html
     - name: Run docker compose
       run: |
