@@ -4,14 +4,20 @@ set -eu
 set -o pipefail
 set -x
 
+# This script assumes that the docker images have already been built
+
 cd "$(dirname $0)"
+
+#(make -C ../../services/cd-service/)
+
 
 echo starting to install kind
 cleanup() {
     echo "Cleaning stuff up..."
+    helm uninstall kuberpult-local
     kind delete cluster
 }
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+#trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 #trap cleanup INT TERM
 cleanup
 
@@ -25,28 +31,39 @@ cleanup
 #    hostPort: 8081
 #    protocol: TCP
 #EOF
-kind create cluster
+kind create cluster || echo cluster already exists
 
+export GIT_NAMESPACE=git
 
 make all
 
+echo installing ssh...
+./setup-cluster-ssh.sh
+
+echo installing kuberpult...
+
 export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-#make -C ../../services/cd-service/ docker
-#make -C ../../services/frontend-service/ docker
+WITH_DOCKER=true make -C ../../services/cd-service/ docker
+make -C ../../services/frontend-service/ docker
 
 
 cd_imagename=$(make --no-print-directory -C ../../services/cd-service/ image-name)
 frontend_imagename=$(make --no-print-directory -C ../../services/frontend-service/ image-name)
+VERSION=$(make --no-print-directory -C ../../services/cd-service/ version)
 
-docker pull "$cd_imagename"
-docker pull "$frontend_imagename"
+#docker pull "$cd_imagename"
+#docker pull "$frontend_imagename"
 
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
 
-set_options='ingress.domainName=kuberpult.example.com,git.url=git.example.com,name=kuberpult-local,VERSION=0.4.70'
-helm template ./ --set "$set_options" > tmp.tmpl
-helm install --set "$set_options" kuberpult-local ./
+
+# ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
+set_options='ingress.domainName=kuberpult.example.com,git.url=git.example.com,name=kuberpult-local,VERSION='"$VERSION"',git.url=ssh://git@server.'"${GIT_NAMESPACE}"'.svc.cluster.local/git/repos/manifests'
+ssh_options=",ssh.identity=$(cat ../../services/cd-service/client),ssh.known_hosts=$(cat ../../services/cd-service/known_hosts),"
+
+helm template ./ --set "$set_options""$ssh_options" > tmp.tmpl
+helm install --set "$set_options""$ssh_options" kuberpult-local ./
 
 kubectl get deployment
 kubectl get pods
@@ -71,3 +88,5 @@ echo "connection to frontend service successful"
 
 kubectl get deployment
 kubectl get pods
+
+sleep 1h

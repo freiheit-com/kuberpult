@@ -42,6 +42,9 @@ endif
 image-name:
 	@echo "$(IMAGENAME)"
 
+version:
+	@echo "$(VERSION)"
+
 proto:
 	make -C../../pkg/api all
 
