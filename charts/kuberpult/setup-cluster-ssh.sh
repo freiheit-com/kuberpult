@@ -120,7 +120,7 @@ spec:
         imagePullPolicy: Never
         name: "git-init"
         command: ["/bin/sh","-c"]
-        args: ["ls -l /template/; git config --global user.email 'team.sre.permanent+kuberpult-initial-commiter@freiheit.com'; git config --global user.name 'Initial Kuberpult Commiter'; git init --bare /git/repos/manifests"]
+        args: ["ls -l /template/; git init --bare /git/repos/manifests"]
         volumeMounts:
         - mountPath: /git/repos
           name: repos

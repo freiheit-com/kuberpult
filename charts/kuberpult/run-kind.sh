@@ -80,6 +80,7 @@ portForwardAndWait "git" "server" "2222" "22"
 
 rm emptyfile -f
 print "cloning..."
+git config --global user.email 'team.sre.permanent+kuberpult-initial-commiter@freiheit.com'; git config --global user.name 'Initial Kuberpult Commiter';
 GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../services/cd-service/client' git clone ssh://git@localhost:2222/git/repos/manifests
 
 cd manifests
