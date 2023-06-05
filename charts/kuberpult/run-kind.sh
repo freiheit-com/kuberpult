@@ -2,6 +2,7 @@
 
 set -eu
 set -o pipefail
+set -x
 
 # This script assumes that the docker images have already been built.
 # To run/debug/develop this locally, you probably want to run like this:
