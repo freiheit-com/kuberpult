@@ -24,6 +24,5 @@ version: $VERSION
 appVersion: "$VERSION"
 
 maintainers:
- - name: medo-freiheit
- - name: mouhsen-ibrahim
+ - name: hannesg
  - name: sven-urbanski-freiheit-com

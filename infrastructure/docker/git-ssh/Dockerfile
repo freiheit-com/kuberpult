@@ -1,6 +1,6 @@
-FROM alpine:edge
+FROM alpine:3.18
 
-LABEL maintainer="sixarms1leg"
+LABEL maintainer="hannesg,sven-urbanski-freiheit-com"
 LABEL name="git-ssh"
 LABEL description="Git over SSH with UID/GID handling"
 

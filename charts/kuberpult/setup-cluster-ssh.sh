@@ -24,6 +24,7 @@ host_pub="$(cat "${scratch}/host.pub")"
 cp "${scratch}/client" ../../services/cd-service/client
 cat <<EOF > ../../services/cd-service/known_hosts
 server.${GIT_NAMESPACE}.svc.cluster.local ${host_pub}
+localhost ${host_pub}
 EOF
 
 echo printing known_hosts
@@ -119,7 +120,7 @@ spec:
         imagePullPolicy: Never
         name: "git-init"
         command: ["/bin/sh","-c"]
-        args: ["ls -l /template/; git config --global user.email 'team.sre.permanent+kuberpult-initial-commiter@freiheit.com'; git config --global user.name 'Initial Kuberpult Commiter'; git init --bare /git/repos/manifests; git clone /git/repos/manifests; cd manifests; cp /template/testdata_template/environments -r .; git add environments; git commit -m add-initial-environments; git push origin master"]
+        args: ["ls -l /template/; git config --global user.email 'team.sre.permanent+kuberpult-initial-commiter@freiheit.com'; git config --global user.name 'Initial Kuberpult Commiter'; git init --bare /git/repos/manifests"]
         volumeMounts:
         - mountPath: /git/repos
           name: repos
