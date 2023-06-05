@@ -87,8 +87,7 @@ test-ts: src/api/api.ts
 	pnpm test -- --watchAll=false
 
 lint-scss: deps
-	echo SKIPPING lint scss TODO
-#	pnpm lint-scss
+	pnpm lint-scss
 
 docker: bin/main | dist
 	docker build -t $(IMAGENAME) .
