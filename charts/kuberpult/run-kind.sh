@@ -106,20 +106,18 @@ else
   print 'not building cd or frontend service...'
 fi
 
-cd_imagename=${IMAGE_TAG_CD:-$(make --no-print-directory -C ../../services/cd-service/ image-name)}
 
-#cd_imagename=$(make --no-print-directory -C ../../services/cd-service/ image-name)
-frontend_imagename=${IMAGE_TAG_FRONTEND:-$(make --no-print-directory -C ../../services/frontend-service/ image-name)}
-arr=(${cd_imagename//:/ })
-cd_imagename_tag=${arr[1]}
-arr=(${frontend_imagename//:/ })
-frontend_imagename_tag=${arr[1]}
 VERSION=$(make --no-print-directory -C ../../services/cd-service/ version)
+IMAGE_TAG_FRONTEND=${IMAGE_TAG_FRONTEND:-$VERSION}
+IMAGE_TAG_CD=${IMAGE_TAG_CD:-$VERSION}
+
+cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_CD}"
+frontend_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_FRONTEND}"
 
 print "cd image: $cd_imagename"
-print "cd image tag: $cd_imagename_tag"
+print "cd image tag: $IMAGE_TAG_CD"
 print "frontend image: $frontend_imagename"
-print "frontend image tag: $frontend_imagename_tag"
+print "frontend image tag: $IMAGE_TAG_FRONTEND"
 
 if ! "$LOCAL_EXECUTION"
 then
@@ -139,7 +137,7 @@ kind load docker-image "$frontend_imagename"
 
 print 'installing kuberpult helm chart...'
 
-set_options='ingress.domainName=kuberpult.example.com,name=kuberpult-local,VERSION='"$VERSION"',cd.tag='"$cd_imagename_tag",frontend.tag="$frontend_imagename_tag"',git.url=ssh://git@server.'"${GIT_NAMESPACE}"'.svc.cluster.local/git/repos/manifests'
+set_options='ingress.domainName=kuberpult.example.com,name=kuberpult-local,VERSION='"$VERSION"',cd.tag='"$IMAGE_TAG_CD",frontend.tag="$IMAGE_TAG_FRONTEND"',git.url=ssh://git@server.'"${GIT_NAMESPACE}"'.svc.cluster.local/git/repos/manifests'
 ssh_options=",ssh.identity=$(cat ../../services/cd-service/client),ssh.known_hosts=$(cat ../../services/cd-service/known_hosts),"
 
 helm template ./ --set "$set_options""$ssh_options" > tmp.tmpl
