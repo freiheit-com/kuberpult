@@ -37,13 +37,9 @@ export GIT_NAMESPACE=git
 LOCAL_EXECUTION=${LOCAL_EXECUTION:-false}
 print "LOCAL_EXECUTION: $LOCAL_EXECUTION"
 
-if "$LOCAL_EXECUTION"
-then
-  print 'ensuring that the helm chart is build...'
-  make all
-else
-  print 'helm chart must already exist.'
-fi
+print 'ensuring that the helm chart is build...'
+# it was already build, but we are in another workflow now, so we have to rebuild it
+make all
 
 print installing ssh...
 ./setup-cluster-ssh.sh
