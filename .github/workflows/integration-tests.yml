@@ -88,6 +88,11 @@ jobs:
       run: |
         echo "testing in next step (kind)"
         curl localhost:8081 -v # should return html
+    - name: Stop kind
+      run: |
+        echo stopping kind ...
+        killall kubectl
+        echo kind stopped
     - name: Run docker compose
       run: |
         docker compose -f ./docker-compose.tpl.yml up -d
