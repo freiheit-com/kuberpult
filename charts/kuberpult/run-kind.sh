@@ -2,7 +2,6 @@
 
 set -eu
 set -o pipefail
-set -x
 
 # This script assumes that the docker images have already been built.
 # To run/debug/develop this locally, you probably want to run like this:
@@ -47,7 +46,7 @@ print installing ssh...
 function waitForDeployment() {
   ns="$1"
   label="$2"
-  print "waiting for $ns/$label"
+  print "waitForDeployment: $ns/$label"
   until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
   do
     sleep 3s
@@ -61,19 +60,19 @@ function portForwardAndWait() {
   portHere="$3"
   portThere="$4"
   ports="$portHere:$portThere"
-  print "waiting for $ns/$deployment $ports"
-  kubectl -n "$ns" port-forward deployment/"$deployment" "$ports" &
-  print "waiting until the port forward works..."
+  print "portForwardAndWait for $ns/$deployment $ports"
+  kubectl -n "$ns" port-forward "$deployment" "$ports" &
+  print "portForwardAndWait: waiting until the port forward works..."
   until nc -vz localhost "$portHere"
   do
-    sleep 1s
+    sleep 2s
     print ...
   done
 }
 
 print "setting up manifest repo"
 waitForDeployment "git" "app.kubernetes.io/name=server"
-portForwardAndWait "git" "server" "2222" "22"
+portForwardAndWait "git" "deployment/server" "2222" "22"
 
 rm emptyfile -f
 print "cloning..."
@@ -201,7 +200,7 @@ waitForDeployment "default" "app=kuberpult-frontend-service"
 portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
 
 waitForDeployment "default" "app=kuberpult-frontend-service"
-portForwardAndWait "default" "kuberpult-frontend-service" "8081" "8081"
+portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
 print "connection to frontend service successful"
 
 kubectl get deployment
