@@ -37,19 +37,6 @@ docker pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/git
 
 kind load docker-image europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/git-ssh:1.1.1
 
-#apiVersion: v1
-#kind: ConfigMap
-#metadata:
-#  labels:
-#    app.kubernetes.io/name: argocd-ssh-known-hosts-cm
-#    app.kubernetes.io/part-of: argocd
-#  name: argocd-ssh-known-hosts-cm
-#  namespace: ${ARGO_NAMESPACE}
-#data:
-#  ssh_known_hosts: |
-#    server.${GIT_NAMESPACE}.svc.cluster.local ${host_pub}
-#---
-
 kubectl apply -f - <<EOF
 ---
 apiVersion: v1

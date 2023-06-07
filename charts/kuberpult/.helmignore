@@ -24,5 +24,4 @@
 # Old releases
 *.tgz
 run-kind.sh
-run-argo.sh
 setup-cluster.ssh.sh

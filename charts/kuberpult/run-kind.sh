@@ -139,6 +139,58 @@ ssh_options=",ssh.identity=$(cat ../../services/cd-service/client),ssh.known_hos
 helm template ./ --set "$set_options""$ssh_options" > tmp.tmpl
 helm install --set "$set_options""$ssh_options" kuberpult-local ./
 
+
+print "starting argoCd..."
+
+helm repo add argo-cd https://argoproj.github.io/argo-helm
+
+export GIT_NAMESPACE=git
+export ARGO_NAMESPACE=default
+
+ssh_options="configs.ssh.knownHosts=$(cat ../../services/cd-service/known_hosts)"
+
+helm uninstall argocd || echo "did not uninstall argo"
+helm install argocd argo-cd/argo-cd --set "$ssh_options"
+
+print applying app...
+
+kubectl apply -f - <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - name: "dest1"
+    namespace: '*'
+    server: https://kubernetes.default.svc
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: ${ARGO_NAMESPACE}
+spec:
+  destination:
+    namespace: ${ARGO_NAMESPACE}
+    server: https://kubernetes.default.svc
+  project: test-env
+  source:
+    path: ./argocd/v1alpha1
+    repoURL: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
+    targetRevision: HEAD
+  syncPolicy:
+    automated: {}
+EOF
+
+waitForDeployment "default" "app.kubernetes.io/name=argocd-server"
+portForwardAndWait "default" service/argocd-server 8080 443
+print "admin password:"
+kubectl -n default get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+
 print 'checking for pods and waiting for portforwarding to be ready...'
 
 kubectl get deployment
