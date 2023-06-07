@@ -2,10 +2,9 @@
 
 set -eu
 set -o pipefail
-#set -x
 
 
-cd $(dirname "$0")
+cd "$(dirname "$0")"
 
 ARGO_NAMESPACE=argocd
 #GIT_NAMESPACE=git # required to be set outside
@@ -164,23 +163,3 @@ spec:
       restartPolicy: Always
 EOF
 echo "done setting up ssh"
-
-
-#apiVersion: argoproj.io/v1alpha1
-#kind: Application
-#metadata:
-#  name: root
-#  namespace: ${ARGO_NAMESPACE}
-#spec:
-#  destination:
-#    namespace: ${ARGO_NAMESPACE}
-#    server: https://kubernetes.default.svc
-#  project: default
-#  source:
-#    path: ./argocd/v1alpha1
-#    repoURL: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
-#    targetRevision: HEAD
-#  syncPolicy:
-#    automated: {}
-
-echo done setting up ssh
