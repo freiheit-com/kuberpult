@@ -1,0 +1,16 @@
+version: '3'
+services:
+  git-ssh:
+    image: git-ssh:latest
+    container_name: git-ssh
+    build: ./
+    ports:
+      - "${GITSSH_PORT}:22"
+    volumes:
+      - ${GITSSH_BASE_PATH}/git-ssh/keys-host/:/git/keys-host/
+      - ${GITSSH_BASE_PATH}/git-ssh/keys/:/git/keys/:ro
+      - ${GITSSH_BASE_PATH}/git-ssh/repos/:/git/repos/
+    environment:
+      - PUID=${GITSSH_UID}
+      - PGID=${GITSSH_GID}
+    restart: unless-stopped

@@ -1,0 +1,32 @@
+#!/bin/sh
+
+PROGNAME="Git-SSH server"
+PREPOS=/git/repos
+PCLONEURL="ssh://git@<SERVER>:<PORT>/git/repos/<REPO_NAME>.git"
+EXIT_CODE=128
+
+printf '%s\n' "~~~ Welcome to ${PROGNAME}! ~~~"
+printf '\n'
+printf '%s\n' "$(git --version | tr 'git' 'Git')"
+printf '\n'
+printf '%s\n' "You have successfully authenticated but"
+printf '%s\n' "interactive shell access is not provided."
+printf '\n'
+printf '%s\n' "The following Git repositories are available:"
+
+for REPO in ${PREPOS}/*.git
+do
+    printf '%s\n' "  * $(basename ${REPO%.git})"
+    printf '%s\n' "\
+      $(git --git-dir=${REPO} log --all -1 --pretty=format:"%h %s
+      --%an, %as")"
+done
+
+printf '\n'
+printf '%s\n' "To clone, use the following URL:"
+printf '%s\n' "${PCLONEURL}"
+printf '\n'
+printf '%s\n' "~~~ Bye! ~~~"
+printf '\n'
+
+exit ${EXIT_CODE}

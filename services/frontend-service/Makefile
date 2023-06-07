@@ -30,6 +30,9 @@ IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-frontend-service:${VERSION}
 
 GARBAGE := *.sentinel
 
+image-name:
+	@echo "$(IMAGENAME)"
+
 proto:
 	$(MAKE) -C../../pkg/api all
 

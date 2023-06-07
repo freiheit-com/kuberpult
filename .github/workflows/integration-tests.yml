@@ -80,10 +80,23 @@ jobs:
         mkdir -p ./services/cd-service/repository_remote
         git -C ./services/cd-service/repository_remote init --bare
         git clone ./services/cd-service/repository_remote ./services/cd-service/repository_checkedout
+    - name: Run kind
+      run: |
+        echo running kind
+        ./charts/kuberpult/run-kind.sh
+    - name: Integration test kind
+      run: |
+        echo "testing in next step (kind)"
+        curl localhost:8081 -v # should return html
+    - name: Stop kind
+      run: |
+        echo stopping kind ...
+        killall kubectl
+        echo kind stopped
     - name: Run docker compose
       run: |
         docker compose -f ./docker-compose.tpl.yml up -d
-    - name: Integration test
+    - name: Integration test docker-compose
       run: |
         curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8081/health
         curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8080/health
