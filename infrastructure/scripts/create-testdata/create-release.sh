@@ -60,14 +60,24 @@ manifests=()
 for env in development development2 staging fakeprod-de fakeprod-ca
 do
   file=$(mktemp "${TMPDIR:-/tmp}/$env.XXXXXX")
-  echo "---" > ${file}
+cat <<EOF > "${file}"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dummy-config-map
+  namespace: "$env"
+data:
+  key: value
+---
+EOF
   echo "wrote file ${file}"
   manifests+=("--form" "manifests[${env}]=@${file}")
 done
 echo commit id: ${commit_id}
 
 
-curl http://localhost:8081/release \
+curl http://localhost:8082/release \
   --form-string "application=$name" \
   --form-string "source_commit_id=${commit_id}" \
   --form-string "source_author=${author}" \

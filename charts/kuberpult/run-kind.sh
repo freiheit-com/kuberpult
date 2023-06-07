@@ -144,6 +144,10 @@ print 'checking for pods and waiting for portforwarding to be ready...'
 kubectl get deployment
 kubectl get pods
 
+print "port forwarding to cd service..."
+waitForDeployment "default" "app=kuberpult-frontend-service"
+portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
+
 waitForDeployment "default" "app=kuberpult-frontend-service"
 portForwardAndWait "default" "kuberpult-frontend-service" "8081" "8081"
 print "connection to frontend service successful"
