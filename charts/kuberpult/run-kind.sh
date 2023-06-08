@@ -2,7 +2,7 @@
 
 set -eu
 set -o pipefail
-
+set -x
 # This script assumes that the docker images have already been built.
 # To run/debug/develop this locally, you probably want to run like this:
 # rm -rf ./manifests/; make clean; LOCAL_EXECUTION=true ./run-kind.sh
@@ -62,10 +62,14 @@ function portForwardAndWait() {
   ports="$portHere:$portThere"
   print "portForwardAndWait for $ns/$deployment $ports"
   kubectl -n "$ns" port-forward "$deployment" "$ports" &
-  print "portForwardAndWait: waiting until the port forward works..."
+  print "portForwardAndWait: waiting until the port forward works..."2
   until nc -vz localhost "$portHere"
   do
-    sleep 2s
+    sleep 3s
+    print "logs:"
+    kubectl -n "$ns" logs "$deployment"
+    print "describe:"
+    kubectl -n "$ns" describe "$deployment"
     print ...
   done
 }
@@ -197,6 +201,18 @@ kubectl get pods
 
 print "port forwarding to cd service..."
 waitForDeployment "default" "app=kuberpult-frontend-service"
+
+echo aaaaaaaaaaaaaaaaaaaaaaaaaa
+echo aaaaaaaaaaaaaaaaaaaaaaaaaa
+echo aaaaaaaaaaaaaaaaaaaaaaaaaa
+echo aaaaaaaaaaaaaaaaaaaaaaaaaa
+echo aaaaaaaaaaaaaaaaaaaaaaaaaa
+echo aaaaaaaaaaaaaaaaaaaaaaaaaa
+echo aaaaaaaaaaaaaaaaaaaaaaaaaa
+echo aaaaaaaaaaaaaaaaaaaaaaaaaa
+echo aaaaaaaaaaaaaaaaaaaaaaaaaa
+
+
 portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
 
 waitForDeployment "default" "app=kuberpult-frontend-service"
