@@ -138,9 +138,7 @@ message GetFrontendConfigResponse {
 
 service OverviewService {
   rpc GetOverview (GetOverviewRequest) returns (GetOverviewResponse) {}
-  rpc GetDeployedOverview (GetDeployedOverviewRequest) returns (GetDeployedOverviewResponse) {}
   rpc StreamOverview (GetOverviewRequest) returns (stream GetOverviewResponse) {}
-  rpc StreamDeployedOverview (GetDeployedOverviewRequest) returns (stream GetDeployedOverviewResponse) {}
 }
 
 message GetOverviewRequest {
@@ -153,14 +151,6 @@ message GetOverviewResponse {
   map<string, Application> applications = 2;
   repeated EnvironmentGroup environmentGroups = 3;
   string git_revision = 4;
-}
-
-message GetDeployedOverviewRequest {
-}
-
-message GetDeployedOverviewResponse {
-  map<string, Environment> environments = 1;
-  map<string, Application> applications = 2;
 }
 
 message EnvironmentGroup {

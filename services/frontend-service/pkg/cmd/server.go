@@ -426,30 +426,6 @@ func (p *GrpcProxy) StreamOverview(
 	}
 }
 
-func (p *GrpcProxy) GetDeployedOverview(
-	ctx context.Context,
-	in *api.GetDeployedOverviewRequest) (*api.GetDeployedOverviewResponse, error) {
-	return p.OverviewClient.GetDeployedOverview(ctx, in)
-}
-
-func (p *GrpcProxy) StreamDeployedOverview(
-	in *api.GetDeployedOverviewRequest,
-	stream api.OverviewService_StreamDeployedOverviewServer) error {
-	if resp, err := p.OverviewClient.StreamDeployedOverview(stream.Context(), in); err != nil {
-		return err
-	} else {
-		for {
-			if item, err := resp.Recv(); err != nil {
-				return err
-			} else {
-				if err := stream.Send(item); err != nil {
-					return err
-				}
-			}
-		}
-	}
-}
-
 func (p *GrpcProxy) Deploy(
 	ctx context.Context,
 	in *api.DeployRequest) (*emptypb.Empty, error) {

@@ -43,21 +43,6 @@ func (m *mockOverviewService_StreamOverviewServer) Context() context.Context {
 	return m.Ctx
 }
 
-type mockOverviewService_StreamDeployedOverviewServer struct {
-	grpc.ServerStream
-	Results chan *api.GetDeployedOverviewResponse
-	Ctx     context.Context
-}
-
-func (m *mockOverviewService_StreamDeployedOverviewServer) Send(msg *api.GetDeployedOverviewResponse) error {
-	m.Results <- msg
-	return nil
-}
-
-func (m *mockOverviewService_StreamDeployedOverviewServer) Context() context.Context {
-	return m.Ctx
-}
-
 func TestOverviewService(t *testing.T) {
 	tcs := []struct {
 		Name  string
