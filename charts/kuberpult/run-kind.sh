@@ -68,8 +68,10 @@ function portForwardAndWait() {
     sleep 3s
     print "logs:"
     kubectl -n "$ns" logs "$deployment"
-    print "describe:"
+    print "describe deployment:"
     kubectl -n "$ns" describe "$deployment"
+    print "describe pod:"
+    kubectl -n "$ns" describe pod -l app=kuberpult-cd-service || echo "could not describe pod"
     print ...
   done
 }
@@ -227,5 +229,5 @@ then
   echo "sleeping for 1h to allow debugging"
   sleep 1h
 else
-  echo "done. Kind cluster is up and kuberpults frontend service is running."
+  echo "done. Kind cluster is up and kuberpult and argoCd are running."
 fi
