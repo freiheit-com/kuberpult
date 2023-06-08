@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
+	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -167,6 +168,9 @@ func RunServer() {
 					Port: "8080",
 					Register: func(mux *http.ServeMux) {
 						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
+						if c.EnableTracing {
+							handler = httptrace.WrapHandler(handler, "cd-service", "/")
+						}
 						mux.Handle("/", handler)
 					},
 				},
