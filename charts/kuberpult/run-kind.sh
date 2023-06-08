@@ -2,7 +2,7 @@
 
 set -eu
 set -o pipefail
-set -x
+
 # This script assumes that the docker images have already been built.
 # To run/debug/develop this locally, you probably want to run like this:
 # rm -rf ./manifests/; make clean; LOCAL_EXECUTION=true ./run-kind.sh
@@ -138,7 +138,7 @@ kind load docker-image "$frontend_imagename"
 
 print 'installing kuberpult helm chart...'
 
-set_options='ingress.domainName=kuberpult.example.com,name=kuberpult-local,VERSION='"$VERSION"',cd.tag='"$IMAGE_TAG_CD",frontend.tag="$IMAGE_TAG_FRONTEND"',git.url=ssh://git@server.'"${GIT_NAMESPACE}"'.svc.cluster.local/git/repos/manifests'
+set_options='cd.resources.limits.memory=200Mi,cd.resources.requests.memory=200Mi,cd.resources.limits.cpu=0.1,cd.resources.requests.cpu=0.1,ingress.domainName=kuberpult.example.com,name=kuberpult-local,VERSION='"$VERSION"',cd.tag='"$IMAGE_TAG_CD",frontend.tag="$IMAGE_TAG_FRONTEND"',git.url=ssh://git@server.'"${GIT_NAMESPACE}"'.svc.cluster.local/git/repos/manifests'
 ssh_options=",ssh.identity=$(cat ../../services/cd-service/client),ssh.known_hosts=$(cat ../../services/cd-service/known_hosts),"
 
 helm template ./ --set "$set_options""$ssh_options" > tmp.tmpl
@@ -203,18 +203,6 @@ kubectl get pods
 
 print "port forwarding to cd service..."
 waitForDeployment "default" "app=kuberpult-frontend-service"
-
-echo aaaaaaaaaaaaaaaaaaaaaaaaaa
-echo aaaaaaaaaaaaaaaaaaaaaaaaaa
-echo aaaaaaaaaaaaaaaaaaaaaaaaaa
-echo aaaaaaaaaaaaaaaaaaaaaaaaaa
-echo aaaaaaaaaaaaaaaaaaaaaaaaaa
-echo aaaaaaaaaaaaaaaaaaaaaaaaaa
-echo aaaaaaaaaaaaaaaaaaaaaaaaaa
-echo aaaaaaaaaaaaaaaaaaaaaaaaaa
-echo aaaaaaaaaaaaaaaaaaaaaaaaaa
-
-
 portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
 
 waitForDeployment "default" "app=kuberpult-frontend-service"
