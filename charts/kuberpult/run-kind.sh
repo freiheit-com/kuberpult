@@ -149,7 +149,7 @@ export ARGO_NAMESPACE=default
 ssh_options="configs.ssh.knownHosts=$(cat ../../services/cd-service/known_hosts)"
 
 helm uninstall argocd || echo "did not uninstall argo"
-helm install argocd argo-cd/argo-cd --set "$ssh_options"
+helm install argocd argo-cd/argo-cd --set "$ssh_options" --version 5.36.0
 
 print applying app...
 
