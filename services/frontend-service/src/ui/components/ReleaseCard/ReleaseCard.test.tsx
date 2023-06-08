@@ -185,7 +185,6 @@ describe('Release Card', () => {
                         team: 'no-team',
                     },
                 },
-                environments: testcase.environments ?? {},
                 environmentGroups: [],
             });
             const { container } = getWrapper(testcase.props);

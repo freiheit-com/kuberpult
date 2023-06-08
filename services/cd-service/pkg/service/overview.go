@@ -69,7 +69,6 @@ func (o *OverviewServiceServer) getOverview(
 		rev = s.Commit.Id().String()
 	}
 	result := api.GetOverviewResponse{
-		Environments:      map[string]*api.Environment{},
 		Applications:      map[string]*api.Application{},
 		EnvironmentGroups: []*api.EnvironmentGroup{},
 		GitRevision:       rev,
@@ -169,9 +168,7 @@ func (o *OverviewServiceServer) getOverview(
 					env.Applications[appName] = &app
 				}
 			}
-			result.Environments[envName] = &env
 			envInGroup.Applications = env.Applications
-
 		}
 	}
 	if apps, err := s.GetApplications(); err != nil {

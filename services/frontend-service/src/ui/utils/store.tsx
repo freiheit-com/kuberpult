@@ -45,7 +45,6 @@ export const displayLockUniqueId = (displayLock: DisplayLock): string =>
 
 const emptyOverview: GetOverviewResponse = {
     applications: {},
-    environments: {},
     environmentGroups: [],
     gitRevision: '',
 };

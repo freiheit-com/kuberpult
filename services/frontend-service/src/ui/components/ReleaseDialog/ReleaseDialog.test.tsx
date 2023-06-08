@@ -185,7 +185,6 @@ describe('Release Dialog', () => {
                     undeploySummary: UndeploySummary.Normal,
                 },
             },
-            environments: asMap,
             environmentGroups: [
                 {
                     environmentGroupName: 'dev',

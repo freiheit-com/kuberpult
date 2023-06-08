@@ -59,7 +59,6 @@ describe('Service Lane', () => {
             undeploySummary: UndeploySummary.Normal,
         };
         UpdateOverview.set({
-            environments: {},
             applications: {
                 test2: sampleApp,
             },
@@ -242,7 +241,6 @@ describe('Service Lane Diff', () => {
     describe.each(data)('Service Lane diff number', (testcase) => {
         it(testcase.name, () => {
             UpdateOverview.set({
-                environments: {},
                 applications: {
                     test2: {
                         releases: testcase.releases,

@@ -555,25 +555,6 @@ describe('Action details', () => {
 
     describe.each(data)('Test getActionDetails function', (testcase) => {
         it(testcase.name, () => {
-            UpdateOverview.set({
-                environments: {
-                    foo: {
-                        name: 'foo',
-                        distanceToUpstream: 0,
-                        locks: { testLock: { lockId: 'ui-v2-1337', message: 'bar' } },
-                        priority: 0,
-                        applications: {
-                            bar: {
-                                name: 'bar',
-                                locks: { testLock: { lockId: 'ui-v2-1337', message: 'bar' } },
-                                queuedVersion: 0,
-                                undeployVersion: false,
-                                version: 0,
-                            },
-                        },
-                    },
-                },
-            });
             const envLocks = testcase.envLocks || [];
             const appLocks = testcase.appLocks || [];
             const obtainedDetails = renderHook(() => getActionDetails(testcase.action, appLocks, envLocks)).result
