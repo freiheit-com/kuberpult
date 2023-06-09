@@ -260,6 +260,9 @@ func runServer(ctx context.Context) error {
 					return
 				}
 			}
+			req.Header.Set("username", "José")      // TODO DELETE ME, non-ascii test
+			req.Header.Set("email", "José@José.de") // TODO DELETE ME, non-ascii test
+
 			/**
 			When the user requests any path under "/ui", we always return the same index.html (because it's a single page application).
 			Anything else may be another valid rest request, like /health or /release.
