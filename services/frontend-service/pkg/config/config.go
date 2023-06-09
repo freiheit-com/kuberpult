@@ -31,7 +31,7 @@ type ServerConfig struct {
 	AzureRedirectUrl    string `default:"" split_words:"true"`
 	Version             string `default:""`
 	SourceRepoUrl       string `default:"" split_words:"true"`
-	AllowedOrigins      string `default:"*" split_words:"true"`
+	AllowedOrigins      string `default:"localhost:*" split_words:"true"`
 }
 
 type FrontendConfig struct {
