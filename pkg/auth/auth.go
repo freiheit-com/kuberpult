@@ -18,7 +18,13 @@ package auth
 
 import (
 	"context"
+	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 	"google.golang.org/grpc/metadata"
+	"unicode"
 )
 
 type ctxMarker struct{}
@@ -28,6 +34,10 @@ var (
 	DefaultUser  = &User{
 		Email: "local.user@freiheit.com",
 		Name:  "defaultUser",
+	}
+	SpecialUser = &User{
+		Email: "mynamééé.user@freiheit.com",
+		Name:  "mynamééé",
 	}
 )
 
@@ -48,6 +58,8 @@ func Extract(ctx context.Context) *User {
 			}
 		}
 	}
+	logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: %s", u.Name))
+
 	return u
 }
 
@@ -61,6 +73,21 @@ func ToContext(ctx context.Context, u *User) context.Context {
 	if u.Name == "" {
 		u.Name = u.Email
 	}
+	logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 1: Found user.Name: %s", u.Name))
+	logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 1: Found user.Email: %s", u.Email))
+	//re := regexp.MustCompile("[[:^ascii:]]")
+
+	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+	result, _, _ := transform.String(t, "žůžo")
+	fmt.Println(result)
+
+	//u.Name = re.ReplaceAllLiteralString(u.Name, "")
+	//u.Email = re.ReplaceAllLiteralString(u.Email, "")
+	u.Name, _, _ = transform.String(t, u.Name)
+	u.Email, _, _ = transform.String(t, u.Email)
+	logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 2: Replaced user.Name: %s", u.Name))
+	logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 2: Replaced user.Email: %s", u.Email))
+
 	ctx = metadata.AppendToOutgoingContext(ctx, "author-email", u.Email, "author-username", u.Name)
 	return context.WithValue(ctx, ctxMarkerKey, u)
 }

@@ -38,7 +38,6 @@ import (
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
-	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
@@ -252,6 +251,8 @@ func runServer(ctx context.Context) error {
 			// with "Disable all" for all implemented and proposed features as of may 2023.
 			resp.Header().Add("Permission-Policy", "accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=()")
 
+			logger.FromContext(ctx).Warn(fmt.Sprintf("splitHandler: setting header"))
+
 			if c.AzureEnableAuth {
 				// these are the paths and prefixes that must not have azure authentication, in order to bootstrap the html, js, etc:
 				var allowedPaths = []string{"/", "/release", "/health", "/manifest.json", "/favicon.png"}
@@ -260,8 +261,6 @@ func runServer(ctx context.Context) error {
 					return
 				}
 			}
-			req.Header.Set("username", "José")      // TODO DELETE ME, non-ascii test
-			req.Header.Set("email", "José@José.de") // TODO DELETE ME, non-ascii test
 
 			/**
 			When the user requests any path under "/ui", we always return the same index.html (because it's a single page application).
@@ -307,33 +306,40 @@ type Auth struct {
 }
 
 func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.User {
-	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
-	if iapJWT == "" {
-		// not using iap (local), default user
-		logger.FromContext(ctx).Info("iap.jwt header was not found or doesn't exist")
-		return auth.DefaultUser
-	}
-
-	if c.GKEProjectNumber == "" || c.GKEBackendServiceID == "" {
-		// environment variables not set up correctly
-		logger.FromContext(ctx).Info("iap.jke environment variables are not set up correctly")
-		return auth.DefaultUser
-	}
-
-	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
-	payload, err := idtoken.Validate(ctx, iapJWT, aud)
-	if err != nil {
-		logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
-		return auth.DefaultUser
-	}
-
-	// here, we can use People api later to get the full name
-
-	// get the authenticated email
-	u := &auth.User{
-		Email: payload.Claims["email"].(string),
-	}
-	return u
+	//iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
+	////req.Header.Set("username", "mynamééé")
+	////req.Header.Set("email", "mynamééé@mynamééé.com")
+	//req.Header.Set("username", "myname")
+	//req.Header.Set("email", "myname@example.com")
+	logger.FromContext(ctx).Warn(fmt.Sprintf("getRequestAuthorFromGoogleIAP: returning special users, as if it was in the jwt"))
+	return auth.SpecialUser
+	//
+	//if iapJWT == "" {
+	//	// not using iap (local), default user
+	//	logger.FromContext(ctx).Info("iap.jwt header was not found or doesn't exist")
+	//	return auth.DefaultUser
+	//}
+	//
+	//if c.GKEProjectNumber == "" || c.GKEBackendServiceID == "" {
+	//	// environment variables not set up correctly
+	//	logger.FromContext(ctx).Info("iap.jke environment variables are not set up correctly")
+	//	return auth.DefaultUser
+	//}
+	//
+	//aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
+	//payload, err := idtoken.Validate(ctx, iapJWT, aud)
+	//if err != nil {
+	//	logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
+	//	return auth.DefaultUser
+	//}
+	//
+	//// here, we can use People api later to get the full name
+	//
+	//// get the authenticated email
+	//u := &auth.User{
+	//	Email: payload.Claims["email"].(string),
+	//}
+	//return u
 }
 
 func getRequestAuthorFromAzure(r *http.Request) *auth.User {
