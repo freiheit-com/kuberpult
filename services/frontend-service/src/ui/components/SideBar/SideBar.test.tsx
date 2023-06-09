@@ -23,7 +23,6 @@ import {
     useActions,
     updateActions,
     deleteAllActions,
-    UpdateOverview,
     appendAction,
     DisplayLock,
 } from '../../utils/store';
