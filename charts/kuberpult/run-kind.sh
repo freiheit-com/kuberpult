@@ -113,9 +113,12 @@ else
   print 'not building cd or frontend service...'
 fi
 
-
+print version...
 VERSION=$(make --no-print-directory -C ../../services/cd-service/ version)
+print "version is ${VERSION}"
+print "IMAGE_TAG_FRONTEND is ${IMAGE_TAG_FRONTEND}"
 IMAGE_TAG_FRONTEND=${IMAGE_TAG_FRONTEND:-$VERSION}
+print "IMAGE_TAG_FRONTEND is now ${IMAGE_TAG_FRONTEND}"
 IMAGE_TAG_CD=${IMAGE_TAG_CD:-$VERSION}
 
 cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_CD}"
@@ -144,7 +147,7 @@ kind load docker-image "$frontend_imagename"
 
 print 'installing kuberpult helm chart...'
 
-set_options='cd.resources.limits.memory=200Mi,cd.resources.requests.memory=200Mi,cd.resources.limits.cpu=0.1,cd.resources.requests.cpu=0.1,ingress.domainName=kuberpult.example.com,name=kuberpult-local,VERSION='"$VERSION"',cd.tag='"$IMAGE_TAG_CD",frontend.tag="$IMAGE_TAG_FRONTEND"',git.url=ssh://git@server.'"${GIT_NAMESPACE}"'.svc.cluster.local/git/repos/manifests'
+set_options='cd.resources.limits.memory=200Mi,cd.resources.requests.memory=200Mi,cd.resources.limits.cpu=0.05,cd.resources.requests.cpu=0.05,frontend.resources.limits.cpu=0.05,frontend.resources.requests.cpu=0.05,ingress.domainName=kuberpult.example.com,name=kuberpult-local,VERSION='"$VERSION"',cd.tag='"$IMAGE_TAG_CD",frontend.tag="$IMAGE_TAG_FRONTEND"',git.url=ssh://git@server.'"${GIT_NAMESPACE}"'.svc.cluster.local/git/repos/manifests'
 ssh_options=",ssh.identity=$(cat ../../services/cd-service/client),ssh.known_hosts=$(cat ../../services/cd-service/known_hosts),"
 
 helm template ./ --set "$set_options""$ssh_options" > tmp.tmpl
