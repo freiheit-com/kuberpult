@@ -147,7 +147,6 @@ message GetOverviewRequest {
 }
 
 message GetOverviewResponse {
-  map<string, Environment> environments = 1 [deprecated=true]; // use environmentGroups instead!
   map<string, Application> applications = 2;
   repeated EnvironmentGroup environmentGroups = 3;
   string git_revision = 4;

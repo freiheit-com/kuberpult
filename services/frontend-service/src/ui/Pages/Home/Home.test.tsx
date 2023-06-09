@@ -44,7 +44,6 @@ describe('App', () => {
             app3: buildTestApp('3'),
         };
         UpdateOverview.set({
-            environments: {},
             applications: sampleApps,
         });
         getWrapper();
@@ -164,7 +163,7 @@ describe('Get teams from application list (useTeamNames)', () => {
     describe.each(data)(`Renders an Application Card`, (testcase) => {
         it(testcase.name, () => {
             // given
-            UpdateOverview.set({ applications: testcase.applications, environments: {} });
+            UpdateOverview.set({ applications: testcase.applications });
             // when
             const teamNames = renderHook(() => useTeamNames()).result.current;
             expect(teamNames).toStrictEqual(testcase.expectedTeams);
@@ -305,7 +304,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
     describe.each(data)(`Renders an Application Card`, (testcase) => {
         it(testcase.name, () => {
             // given
-            UpdateOverview.set({ applications: testcase.applications, environments: {} });
+            UpdateOverview.set({ applications: testcase.applications });
             // when
             const numOfTeams = renderHook(() => useFilteredApps(testcase.selectedTeams)).result.current.length;
             expect(numOfTeams).toStrictEqual(testcase.expectedNumOfTeams);

@@ -266,7 +266,6 @@ describe('Test env locks', () => {
         it(testcase.name, () => {
             // given
             UpdateOverview.set({
-                environments: {},
                 applications: {},
                 environmentGroups: [
                     {

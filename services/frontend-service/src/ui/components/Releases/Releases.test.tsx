@@ -108,7 +108,6 @@ describe('Release Dialog', () => {
                         team: 'no-team',
                     },
                 },
-                environments: {},
             });
             render(
                 <MemoryRouter>

@@ -117,7 +117,6 @@ describe('Environment Lane', () => {
         it(testcase.name, () => {
             //given
             UpdateOverview.set({
-                environments: {},
                 environmentGroups: testcase.environmentGroups,
             });
             const { container } = getWrapper();
