@@ -376,31 +376,31 @@ func TestOverviewService(t *testing.T) {
 				if overview1 == nil {
 					t.Fatal("overview is nil")
 				}
-				//v1 := overview1.GetEnvironments()["development"].GetApplications()["test"].Version
-				//
-				//// Update a version and see that the version changed
-				//err := svc.Repository.Apply(ctx, &repository.DeployApplicationVersion{
-				//	Application: "test",
-				//	Environment: "development",
-				//	Version:     2,
-				//})
-				//if err != nil {
-				//	t.Fatal(err)
-				//}
-				//
-				//// Check that the second overview is different
-				//overview2 := <-ch
-				//if overview2 == nil {
-				//	t.Fatal("overview is nil")
-				//}
-				//v2 := overview2.Environments["development"].Applications["test"].Version
-				//if v1 == v2 {
-				//	t.Fatalf("Versions are not different: %q vs %q", v1, v2)
-				//}
-				//
-				//if overview1.GitRevision == overview2.GitRevision {
-				//	t.Errorf("Git Revisions are not different: %q", overview1.GitRevision)
-				//}
+				v1 := overview1.GetEnvironmentGroups()[0].GetEnvironments()[0].GetApplications()["test"].Version
+
+				// Update a version and see that the version changed
+				err := svc.Repository.Apply(ctx, &repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "development",
+					Version:     2,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				// Check that the second overview is different
+				overview2 := <-ch
+				if overview2 == nil {
+					t.Fatal("overview is nil")
+				}
+				v2 := overview2.EnvironmentGroups[0].Environments[0].Applications["test"].Version
+				if v1 == v2 {
+					t.Fatalf("Versions are not different: %q vs %q", v1, v2)
+				}
+
+				if overview1.GitRevision == overview2.GitRevision {
+					t.Errorf("Git Revisions are not different: %q", overview1.GitRevision)
+				}
 
 				cancel()
 				wg.Wait()
