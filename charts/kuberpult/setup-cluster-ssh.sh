@@ -6,7 +6,7 @@ set -o pipefail
 
 cd "$(dirname "$0")"
 
-ARGO_NAMESPACE=argocd
+ARGO_NAMESPACE=default
 #GIT_NAMESPACE=git # required to be set outside
 
 scratch=$(mktemp -d)
@@ -36,25 +36,14 @@ kubectl create namespace "argocd" || echo "already exists"
 docker pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/git-ssh:1.1.1
 
 kind load docker-image europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/git-ssh:1.1.1
+
 kubectl apply -f - <<EOF
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    app.kubernetes.io/name: argocd-ssh-known-hosts-cm
-    app.kubernetes.io/part-of: argocd
-  name: argocd-ssh-known-hosts-cm
-  namespace: ${ARGO_NAMESPACE}
-data:
-  ssh_known_hosts: |
-    server.${GIT_NAMESPACE}.svc.cluster.local ${host_pub}
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: my-private-ssh-repo
-  namespace: argocd
+  namespace: default
   labels:
     argocd.argoproj.io/secret-type: repository
   namespace: ${ARGO_NAMESPACE}

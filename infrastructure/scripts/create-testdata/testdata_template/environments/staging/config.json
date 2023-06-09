@@ -1,7 +1,7 @@
 {
   "argocd": {
     "destination": {
-      "server": "",
+      "server": "https://kubernetes.default.svc",
       "namespace": "*"
     },
     "applicationAnnotations": {
