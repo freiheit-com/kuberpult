@@ -49,7 +49,13 @@ function waitForDeployment() {
   print "waitForDeployment: $ns/$label"
   until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
   do
-    sleep 3s
+    sleep 4s
+    print "logs:"
+    kubectl -n "$ns" logs -l "$label" || echo "could not get logs for $label"
+    print "describe pod:"
+    kubectl -n "$ns" describe pod -l "$label"
+#    print "describe pod:"
+#    kubectl -n "$ns" describe pod -l app=kuberpult-cd-service || echo "could not describe pod"
     print ...
   done
 }
