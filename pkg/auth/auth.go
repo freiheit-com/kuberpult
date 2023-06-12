@@ -67,7 +67,7 @@ func Extract(ctx context.Context) *User {
 		// check if User is in Metadata
 		md, _ := metadata.FromIncomingContext(ctx)
 		originalEmailArr := md.Get("author-email")
-		if originalEmailArr == nil || len(originalEmailArr) == 0 {
+		if len(originalEmailArr) == 0 {
 			return MakeDefaultUser()
 		} else {
 			originalEmail := originalEmailArr[0]
@@ -77,7 +77,7 @@ func Extract(ctx context.Context) *User {
 				return MakeDefaultUser()
 			}
 			originalNameArr := md.Get("author-username")
-			if originalNameArr == nil || len(originalNameArr) == 0 {
+			if len(originalNameArr) == 0 {
 				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: username undefined but mail defined %s", userMail))
 				return MakeDefaultUser()
 			}
