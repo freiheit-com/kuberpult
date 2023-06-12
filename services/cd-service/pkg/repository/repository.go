@@ -574,7 +574,6 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, name st
 		appData := []argocd.AppData{}
 		sort.Strings(apps)
 		for _, appName := range apps {
-			isUndeployVersion, err := state.IsLatestUndeployVersion(appName)
 			if err != nil {
 				return err
 			}
@@ -583,9 +582,8 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, name st
 				return err
 			}
 			appData = append(appData, argocd.AppData{
-				AppName:           appName,
-				IsUndeployVersion: isUndeployVersion,
-				TeamName:          team,
+				AppName:  appName,
+				TeamName: team,
 			})
 		}
 		if manifests, err := argocd.Render(r.config.URL, r.config.Branch, config, name, appData); err != nil {
@@ -1022,25 +1020,6 @@ type Release struct {
 	SourceCommitId  string
 	SourceMessage   string
 	CreatedAt       time.Time
-}
-
-func (s *State) IsLatestUndeployVersion(application string) (bool, error) {
-	version, err := GetLastRelease(s.Filesystem, application)
-	if err != nil {
-		return false, err
-	}
-	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
-	_, err = s.Filesystem.Stat(base)
-	if err != nil {
-		return false, wrapFileError(err, base, "could not call stat")
-	}
-	if _, err := readFile(s.Filesystem, s.Filesystem.Join(base, "undeploy")); err != nil {
-		if !os.IsNotExist(err) {
-			return false, err
-		}
-		return false, nil
-	}
-	return true, nil
 }
 
 func (s *State) IsUndeployVersion(application string, version uint64) (bool, error) {

@@ -32,9 +32,8 @@ type ApiVersion string
 const V1Alpha1 ApiVersion = "v1alpha1"
 
 type AppData struct {
-	AppName           string
-	TeamName          string
-	IsUndeployVersion bool
+	AppName  string
+	TeamName string
 }
 
 var ApiVersions []ApiVersion = []ApiVersion{V1Alpha1}
@@ -143,7 +142,7 @@ func RenderApp(gitUrl string, gitBranch string, applicationAnnotations map[strin
 		ObjectMeta: v1alpha1.ObjectMeta{
 			Name:        fmt.Sprintf("%s-%s", env, name),
 			Annotations: annotations,
-			Finalizers:  calculateFinalizers(appData.IsUndeployVersion),
+			Finalizers:  calculateFinalizers(),
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Project: env,
@@ -157,9 +156,8 @@ func RenderApp(gitUrl string, gitBranch string, applicationAnnotations map[strin
 				Automated: &v1alpha1.SyncPolicyAutomated{
 					Prune:    true,
 					SelfHeal: true,
-					// In general, empty manifests are an indication of an error.
-					// But in the undeployVersion, we need to allow empty manifests
-					AllowEmpty: appData.IsUndeployVersion,
+					// We always allow empty, because it makes it easier to delete apps/environments
+					AllowEmpty: true,
 				},
 				SyncOptions: syncOptions,
 			},
@@ -173,10 +171,8 @@ func RenderApp(gitUrl string, gitBranch string, applicationAnnotations map[strin
 	}
 }
 
-func calculateFinalizers(isUndeployVersion bool) []string {
+func calculateFinalizers() []string {
 	finalizers := []string{}
-	if isUndeployVersion {
-		finalizers = append(finalizers, "resources-finalizer.argocd.argoproj.io")
-	}
+	finalizers = append(finalizers, "resources-finalizer.argocd.argoproj.io")
 	return finalizers
 }
