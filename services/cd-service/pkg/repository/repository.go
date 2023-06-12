@@ -440,6 +440,8 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		When:  time.Now(),
 	}
 
+	logger.FromContext(ctx).Warn(fmt.Sprintf("ApplyTransformers: get user %s %s", author.Name, author.Email))
+
 	var rev *git.Oid
 	if state.Commit != nil {
 		rev = state.Commit.Id()

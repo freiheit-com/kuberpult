@@ -18,6 +18,7 @@ package auth
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"golang.org/x/text/runes"
@@ -29,17 +30,37 @@ import (
 
 type ctxMarker struct{}
 
+const (
+	defaultEmail = "local.user@freiheit.com"
+	defaultName  = "defaultUser"
+)
+
 var (
 	ctxMarkerKey = &ctxMarker{}
-	DefaultUser  = &User{
-		Email: "local.user@freiheit.com",
-		Name:  "defaultUser",
+)
+
+func MakeDefaultUser() *User {
+	return &User{
+		Email: defaultEmail,
+		Name:  defaultName,
 	}
-	SpecialUser = &User{
+}
+
+func MakeSpecialUser() *User {
+	return &User{
 		Email: "mynamééé.user@freiheit.com",
 		Name:  "mynamééé",
 	}
-)
+}
+
+func encode64(s string) string {
+	return base64.StdEncoding.EncodeToString([]byte(s))
+}
+
+func decode64(s string) (string, error) {
+	b, err := base64.StdEncoding.DecodeString(s)
+	return string(b), err
+}
 
 // Extract takes the User from middleware.
 // It always returns a User
@@ -50,11 +71,22 @@ func Extract(ctx context.Context) *User {
 		// check if User is in Metadata
 		md, _ := metadata.FromIncomingContext(ctx)
 		if md.Get("author-email") == nil {
-			u = DefaultUser
+			return MakeDefaultUser()
 		} else {
+			userMail, err := decode64(md.Get("author-email")[0])
+			if err != nil {
+				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: non-base64 in author-email %s", md.Get("author-email")[0]))
+				return MakeDefaultUser()
+			}
+			userName, err := decode64(md.Get("author-username")[0])
+			if err != nil {
+				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: non-base64 in author-username %s", md.Get("author-username")[0]))
+				return MakeDefaultUser()
+			}
+			logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: oiginal %s. Decoded: %s", md.Get("author-email")[0], userMail))
 			u = &User{
-				Email: md.Get("author-email")[0],
-				Name:  md.Get("author-username")[0],
+				Email: userMail,
+				Name:  userName,
 			}
 		}
 	}
@@ -67,27 +99,34 @@ func Extract(ctx context.Context) *User {
 // Returning the new context that has been created.
 func ToContext(ctx context.Context, u *User) context.Context {
 	if u == nil || u.Email == "" {
-		u = DefaultUser
+		u = MakeDefaultUser()
 	}
 	// if no username was specified, use email as username
 	if u.Name == "" {
 		u.Name = u.Email
 	}
-	logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 1: Found user.Name: %s", u.Name))
-	logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 1: Found user.Email: %s", u.Email))
-	//re := regexp.MustCompile("[[:^ascii:]]")
+	var newMethod = true
+	if newMethod {
+		logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 1: Found user.Name: %s", u.Name))
+		logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 1: Found user.Email: %s", u.Email))
+		//re := regexp.MustCompile("[[:^ascii:]]")
 
-	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
-	result, _, _ := transform.String(t, "žůžo")
-	fmt.Println(result)
+		t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+		result, _, _ := transform.String(t, "žůžo")
+		fmt.Println(result)
 
-	//u.Name = re.ReplaceAllLiteralString(u.Name, "")
-	//u.Email = re.ReplaceAllLiteralString(u.Email, "")
-	u.Name, _, _ = transform.String(t, u.Name)
-	u.Email, _, _ = transform.String(t, u.Email)
-	logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 2: Replaced user.Name: %s", u.Name))
-	logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 2: Replaced user.Email: %s", u.Email))
-
+		//u.Name = re.ReplaceAllLiteralString(u.Name, "")
+		//u.Email = re.ReplaceAllLiteralString(u.Email, "")
+		if false {
+			u.Name, _, _ = transform.String(t, u.Name)
+			u.Email, _, _ = transform.String(t, u.Email)
+		} else {
+			u.Name = encode64(u.Name)
+			u.Email = encode64(u.Email)
+		}
+		logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 2: Replaced user.Name: %s", u.Name))
+		logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 2: Replaced user.Email: %s", u.Email))
+	}
 	ctx = metadata.AppendToOutgoingContext(ctx, "author-email", u.Email, "author-username", u.Name)
 	return context.WithValue(ctx, ctxMarkerKey, u)
 }

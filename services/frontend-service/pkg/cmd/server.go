@@ -311,8 +311,9 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.U
 	////req.Header.Set("email", "mynamééé@mynamééé.com")
 	//req.Header.Set("username", "myname")
 	//req.Header.Set("email", "myname@example.com")
-	logger.FromContext(ctx).Warn(fmt.Sprintf("getRequestAuthorFromGoogleIAP: returning special users, as if it was in the jwt"))
-	return auth.SpecialUser
+	logger.FromContext(ctx).Warn(fmt.Sprintf("getRequestAuthorFromGoogleIAP: returning special users, as if it was in the jwt %v", auth.MakeSpecialUser()))
+	return auth.MakeSpecialUser()
+	//return auth.DefaultUser
 	//
 	//if iapJWT == "" {
 	//	// not using iap (local), default user
@@ -346,7 +347,7 @@ func getRequestAuthorFromAzure(r *http.Request) *auth.User {
 	username := r.Header.Get("username")
 	email := r.Header.Get("email")
 	if username == "" || email == "" {
-		return auth.DefaultUser
+		return auth.MakeDefaultUser()
 	}
 
 	u := &auth.User{

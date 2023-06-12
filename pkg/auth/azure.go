@@ -118,7 +118,7 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid authorization token provided")
 	}
 
-	u := DefaultUser
+	u := MakeDefaultUser()
 	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
 		u = &User{
 			Email: claims["email"].(string),
