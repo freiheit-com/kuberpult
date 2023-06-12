@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"golang.org/x/crypto/openpgp"
-	"google.golang.org/api/idtoken"
 	"io"
 	"net/http"
 	"os"
@@ -39,6 +38,7 @@ import (
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
+	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
@@ -252,8 +252,6 @@ func runServer(ctx context.Context) error {
 			// with "Disable all" for all implemented and proposed features as of may 2023.
 			resp.Header().Add("Permission-Policy", "accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=()")
 
-			logger.FromContext(ctx).Warn(fmt.Sprintf("splitHandler: setting header"))
-
 			if c.AzureEnableAuth {
 				// these are the paths and prefixes that must not have azure authentication, in order to bootstrap the html, js, etc:
 				var allowedPaths = []string{"/", "/release", "/health", "/manifest.json", "/favicon.png"}
@@ -262,7 +260,6 @@ func runServer(ctx context.Context) error {
 					return
 				}
 			}
-
 			/**
 			When the user requests any path under "/ui", we always return the same index.html (because it's a single page application).
 			Anything else may be another valid rest request, like /health or /release.

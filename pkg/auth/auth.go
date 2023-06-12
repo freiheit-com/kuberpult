@@ -21,11 +21,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"golang.org/x/text/runes"
-	"golang.org/x/text/transform"
-	"golang.org/x/text/unicode/norm"
 	"google.golang.org/grpc/metadata"
-	"unicode"
 )
 
 type ctxMarker struct{}
@@ -112,28 +108,9 @@ func ToContext(ctx context.Context, u *User) context.Context {
 	if u.Name == "" {
 		u.Name = u.Email
 	}
-	var newMethod = true
-	if newMethod {
-		logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 1: Found user.Name: %s", u.Name))
-		logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 1: Found user.Email: %s", u.Email))
-		//re := regexp.MustCompile("[[:^ascii:]]")
 
-		t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
-		result, _, _ := transform.String(t, "žůžo")
-		fmt.Println(result)
-
-		//u.Name = re.ReplaceAllLiteralString(u.Name, "")
-		//u.Email = re.ReplaceAllLiteralString(u.Email, "")
-		if false {
-			u.Name, _, _ = transform.String(t, u.Name)
-			u.Email, _, _ = transform.String(t, u.Email)
-		} else {
-			u.Name = encode64(u.Name)
-			u.Email = encode64(u.Email)
-		}
-		logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 2: Replaced user.Name: %s", u.Name))
-		logger.FromContext(ctx).Warn(fmt.Sprintf("ToContext 2: Replaced user.Email: %s", u.Email))
-	}
+	u.Name = encode64(u.Name)
+	u.Email = encode64(u.Email)
 	ctx = metadata.AppendToOutgoingContext(ctx, "author-email", u.Email, "author-username", u.Name)
 	return context.WithValue(ctx, ctxMarkerKey, u)
 }

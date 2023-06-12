@@ -117,7 +117,6 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid authorization token provided")
 	}
-
 	u := MakeDefaultUser()
 	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
 		u = &User{
@@ -198,12 +197,10 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 		}
 	}
 	claims, err := ValidateToken(token, jwks, clientId, tenantId)
-
 	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
 		req.Header.Set("username", claims["name"].(string))
 		req.Header.Set("email", claims["email"].(string))
 	}
-
 	if err != nil {
 		resp.WriteHeader(http.StatusUnauthorized)
 		resp.Write([]byte("Invalid authorization header provided"))
