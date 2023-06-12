@@ -18,7 +18,6 @@ package auth
 
 import (
 	"context"
-	"reflect"
 	"testing"
 )
 
@@ -50,6 +49,16 @@ func TestAuthContextFunctions(t *testing.T) {
 			},
 		},
 		{
+			Name: "Email is not specified",
+			Author: &User{
+				Name: "my name",
+			},
+			ExpectedUser: &User{
+				Email: "local.user@freiheit.com",
+				Name:  "defaultUser",
+			},
+		},
+		{
 			Name:   "User is not specified",
 			Author: nil,
 			ExpectedUser: &User{
@@ -65,8 +74,11 @@ func TestAuthContextFunctions(t *testing.T) {
 			t.Parallel()
 			ctx := ToContext(context.Background(), tc.Author)
 			u := Extract(ctx)
-			if !reflect.DeepEqual(u, tc.ExpectedUser) {
-				t.Fatalf("Unexpected User was extracted from context.\nexpected: %#v \nrecieved: %#v \n", tc.ExpectedUser, u)
+			if u.Email != tc.ExpectedUser.Email {
+				t.Fatalf("Unexpected Email was extracted from context.\nexpected: %#v \nrecieved: %#v \n", tc.ExpectedUser.Email, u.Email)
+			}
+			if u.Name != tc.ExpectedUser.Name {
+				t.Fatalf("Unexpected Name was extracted from context.\nexpected: %#v \nrecieved: %#v \n", tc.ExpectedUser.Name, u.Name)
 			}
 		})
 	}
