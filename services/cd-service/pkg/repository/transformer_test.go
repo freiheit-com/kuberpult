@@ -2668,3 +2668,135 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteEnvFromApp(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		expectedError     string
+		expectedCommitMsg string
+		shouldSucceed     bool
+	}{
+		{
+			Name: "Delete non-existent application",
+			Transformers: []Transformer{
+				&DeleteEnvFromApp{
+					Application: "app1",
+					Environment: "env1",
+				},
+			},
+			expectedError:     "DeleteEnvFromApp app 'app1' on env 'env1': No entries in app directory. Cannot delete an empty app. Directory: environments/env1/applications/app1",
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+		{
+			Name: "Success",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:   envProduction,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+				&DeleteEnvFromApp{
+					Application: "app1",
+					Environment: envProduction,
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "Environment 'production' was removed from application 'app1' successfully.",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "fail to provide app name",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:   envProduction,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+				&DeleteEnvFromApp{
+					Environment: envProduction,
+				},
+			},
+			expectedError:     "rpc error: code = InvalidArgument desc = error: DeleteEnvFromApp app '' on env 'production': Need to provide the application",
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+		{
+			Name: "fail to provide env name",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:   envProduction,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+				&DeleteEnvFromApp{
+					Application: "app1",
+				},
+			},
+			expectedError:     "rpc error: code = InvalidArgument desc = error: DeleteEnvFromApp app 'app1' on env '': Need to provide the environment",
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			commitMsg, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			// note that we only check the LAST error here:
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				actualMsg := commitMsg[len(commitMsg)-1]
+				if actualMsg != tc.expectedCommitMsg {
+					t.Fatalf("expected a different message.\nExpected: %q\nGot %q", tc.expectedCommitMsg, actualMsg)
+				}
+			} else {
+				if err == nil {
+					t.Fatalf("Expected an error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
+				}
+			}
+		})
+	}
+}
