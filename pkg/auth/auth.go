@@ -62,30 +62,29 @@ func Extract(ctx context.Context) *User {
 		originalEmailArr := md.Get("author-email")
 		if len(originalEmailArr) == 0 {
 			return MakeDefaultUser()
-		} else {
-			originalEmail := originalEmailArr[0]
-			userMail, err := decode64(originalEmail)
-			if err != nil {
-				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: non-base64 in author-email %s", originalEmail))
-				return MakeDefaultUser()
-			}
-			originalNameArr := md.Get("author-username")
-			if len(originalNameArr) == 0 {
-				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: username undefined but mail defined %s", userMail))
-				return MakeDefaultUser()
-			}
-			originalName := originalNameArr[0]
-			userName, err := decode64(originalNameArr[0])
-			if err != nil {
-				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: non-base64 in author-username %s", userName))
-				return MakeDefaultUser()
-			}
-			logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original mail %s. Decoded: %s", originalEmail, userMail))
-			logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original name %s. Decoded: %s", originalName, userName))
-			u = &User{
-				Email: userMail,
-				Name:  userName,
-			}
+		}
+		originalEmail := originalEmailArr[0]
+		userMail, err := decode64(originalEmail)
+		if err != nil {
+			logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: non-base64 in author-email %s", originalEmail))
+			return MakeDefaultUser()
+		}
+		originalNameArr := md.Get("author-username")
+		if len(originalNameArr) == 0 {
+			logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: username undefined but mail defined %s", userMail))
+			return MakeDefaultUser()
+		}
+		originalName := originalNameArr[0]
+		userName, err := decode64(originalName)
+		if err != nil {
+			logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: non-base64 in author-username %s", userName))
+			return MakeDefaultUser()
+		}
+		logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original mail %s. Decoded: %s", originalEmail, userMail))
+		logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original name %s. Decoded: %s", originalName, userName))
+		u = &User{
+			Email: userMail,
+			Name:  userName,
 		}
 	}
 	return u
@@ -94,19 +93,21 @@ func Extract(ctx context.Context) *User {
 // ToContext adds the User to the context for extraction later.
 // Returning the new context that has been created.
 func ToContext(ctx context.Context, u *User) context.Context {
-	var username = MakeDefaultUser().Name
-	var email = MakeDefaultUser().Email
+	var userAdapted = &User{
+		Email: MakeDefaultUser().Email,
+		Name:  MakeDefaultUser().Name,
+	}
 	if u != nil && u.Email != "" {
-		email = u.Email
+		userAdapted.Email = u.Email
 		// if no username was specified, use email as username
 		if u.Name == "" {
-			username = email
+			userAdapted.Name = u.Email
 		} else {
-			username = u.Name
+			userAdapted.Name = u.Name
 		}
 	}
-	ctx = metadata.AppendToOutgoingContext(ctx, "author-email", encode64(email), "author-username", encode64(username))
-	return context.WithValue(ctx, ctxMarkerKey, u)
+	ctx = metadata.AppendToOutgoingContext(ctx, "author-email", encode64(userAdapted.Email), "author-username", encode64(userAdapted.Name))
+	return context.WithValue(ctx, ctxMarkerKey, userAdapted)
 }
 
 type User struct {
