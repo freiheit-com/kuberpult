@@ -42,13 +42,6 @@ func MakeDefaultUser() *User {
 	}
 }
 
-func MakeSpecialUser() *User {
-	return &User{
-		Email: "mynamééé.user@freiheit.com",
-		Name:  "mynamééé",
-	}
-}
-
 func encode64(s string) string {
 	return base64.StdEncoding.EncodeToString([]byte(s))
 }
