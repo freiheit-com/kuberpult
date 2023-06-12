@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"golang.org/x/crypto/openpgp"
+	"google.golang.org/api/idtoken"
 	"io"
 	"net/http"
 	"os"
@@ -306,41 +307,34 @@ type Auth struct {
 }
 
 func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.User {
-	//iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
-	////req.Header.Set("username", "mynamééé")
-	////req.Header.Set("email", "mynamééé@mynamééé.com")
-	//req.Header.Set("username", "myname")
-	//req.Header.Set("email", "myname@example.com")
-	logger.FromContext(ctx).Warn(fmt.Sprintf("getRequestAuthorFromGoogleIAP: returning special users, as if it was in the jwt %v", auth.MakeSpecialUser()))
-	return auth.MakeSpecialUser()
-	//return auth.DefaultUser
-	//
-	//if iapJWT == "" {
-	//	// not using iap (local), default user
-	//	logger.FromContext(ctx).Info("iap.jwt header was not found or doesn't exist")
-	//	return auth.DefaultUser
-	//}
-	//
-	//if c.GKEProjectNumber == "" || c.GKEBackendServiceID == "" {
-	//	// environment variables not set up correctly
-	//	logger.FromContext(ctx).Info("iap.jke environment variables are not set up correctly")
-	//	return auth.DefaultUser
-	//}
-	//
-	//aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
-	//payload, err := idtoken.Validate(ctx, iapJWT, aud)
-	//if err != nil {
-	//	logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
-	//	return auth.DefaultUser
-	//}
-	//
-	//// here, we can use People api later to get the full name
-	//
-	//// get the authenticated email
-	//u := &auth.User{
-	//	Email: payload.Claims["email"].(string),
-	//}
-	//return u
+	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
+
+	if iapJWT == "" {
+		// not using iap (local), default user
+		logger.FromContext(ctx).Info("iap.jwt header was not found or doesn't exist")
+		return auth.MakeDefaultUser()
+	}
+
+	if c.GKEProjectNumber == "" || c.GKEBackendServiceID == "" {
+		// environment variables not set up correctly
+		logger.FromContext(ctx).Info("iap.jke environment variables are not set up correctly")
+		return auth.MakeDefaultUser()
+	}
+
+	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
+	payload, err := idtoken.Validate(ctx, iapJWT, aud)
+	if err != nil {
+		logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
+		return auth.MakeDefaultUser()
+	}
+
+	// here, we can use People api later to get the full name
+
+	// get the authenticated email
+	u := &auth.User{
+		Email: payload.Claims["email"].(string),
+	}
+	return u
 }
 
 func getRequestAuthorFromAzure(r *http.Request) *auth.User {

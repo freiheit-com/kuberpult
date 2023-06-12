@@ -70,28 +70,35 @@ func Extract(ctx context.Context) *User {
 	if !ok {
 		// check if User is in Metadata
 		md, _ := metadata.FromIncomingContext(ctx)
-		if md.Get("author-email") == nil {
+		originalEmailArr := md.Get("author-email")
+		if originalEmailArr == nil || len(originalEmailArr) == 0 {
 			return MakeDefaultUser()
 		} else {
-			userMail, err := decode64(md.Get("author-email")[0])
+			originalEmail := originalEmailArr[0]
+			userMail, err := decode64(originalEmail)
 			if err != nil {
-				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: non-base64 in author-email %s", md.Get("author-email")[0]))
+				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: non-base64 in author-email %s", originalEmail))
 				return MakeDefaultUser()
 			}
-			userName, err := decode64(md.Get("author-username")[0])
-			if err != nil {
-				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: non-base64 in author-username %s", md.Get("author-username")[0]))
+			originalNameArr := md.Get("author-username")
+			if originalNameArr == nil || len(originalNameArr) == 0 {
+				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: username undefined but mail defined %s", userMail))
 				return MakeDefaultUser()
 			}
-			logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: oiginal %s. Decoded: %s", md.Get("author-email")[0], userMail))
+			originalName := originalNameArr[0]
+			userName, err := decode64(originalNameArr[0])
+			if err != nil {
+				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: bbbbb non-base64 in author-username %s", userName))
+				return MakeDefaultUser()
+			}
+			logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original mail %s. Decoded: %s", originalEmail, userMail))
+			logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original name %s. Decoded: %s", originalName, userName))
 			u = &User{
 				Email: userMail,
 				Name:  userName,
 			}
 		}
 	}
-	logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: %s", u.Name))
-
 	return u
 }
 
