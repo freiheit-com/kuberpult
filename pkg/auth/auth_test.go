@@ -18,7 +18,7 @@ package auth
 
 import (
 	"context"
-	"reflect"
+	"encoding/base64"
 	"testing"
 )
 
@@ -50,6 +50,16 @@ func TestAuthContextFunctions(t *testing.T) {
 			},
 		},
 		{
+			Name: "Email is not specified",
+			Author: &User{
+				Name: "my name",
+			},
+			ExpectedUser: &User{
+				Email: "local.user@freiheit.com",
+				Name:  "defaultUser",
+			},
+		},
+		{
 			Name:   "User is not specified",
 			Author: nil,
 			ExpectedUser: &User{
@@ -65,8 +75,25 @@ func TestAuthContextFunctions(t *testing.T) {
 			t.Parallel()
 			ctx := ToContext(context.Background(), tc.Author)
 			u := Extract(ctx)
-			if !reflect.DeepEqual(u, tc.ExpectedUser) {
-				t.Fatalf("Unexpected User was extracted from context.\nexpected: %#v \nrecieved: %#v \n", tc.ExpectedUser, u)
+			decodedEmail, err := base64.StdEncoding.DecodeString(u.Email)
+			if err != nil {
+				t.Fatalf("Unexpected error in decoding string: %s \n", u.Email)
+				return
+			}
+			decodedName, err := base64.StdEncoding.DecodeString(u.Name)
+			if err != nil {
+				t.Fatalf("Unexpected error in decoding string: %s \n", u.Name)
+				return
+			}
+			uDecoded := &User{
+				Email: string(decodedEmail),
+				Name:  string(decodedName),
+			}
+			if uDecoded.Email != tc.ExpectedUser.Email {
+				t.Fatalf("Unexpected Email was extracted from context.\nexpected: %#v \nrecieved: %#v \n", tc.ExpectedUser.Email, uDecoded.Email)
+			}
+			if uDecoded.Name != tc.ExpectedUser.Name {
+				t.Fatalf("Unexpected Name was extracted from context.\nexpected: %#v \nrecieved: %#v \n", tc.ExpectedUser.Name, uDecoded.Name)
 			}
 		})
 	}
