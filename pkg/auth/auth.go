@@ -77,7 +77,7 @@ func Extract(ctx context.Context) *User {
 			originalName := originalNameArr[0]
 			userName, err := decode64(originalNameArr[0])
 			if err != nil {
-				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: bbbbb non-base64 in author-username %s", userName))
+				logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: non-base64 in author-username %s", userName))
 				return MakeDefaultUser()
 			}
 			logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original mail %s. Decoded: %s", originalEmail, userMail))
