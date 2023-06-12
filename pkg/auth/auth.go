@@ -94,17 +94,18 @@ func Extract(ctx context.Context) *User {
 // ToContext adds the User to the context for extraction later.
 // Returning the new context that has been created.
 func ToContext(ctx context.Context, u *User) context.Context {
-	if u == nil || u.Email == "" {
-		u = MakeDefaultUser()
+	var username = MakeDefaultUser().Name
+	var email = MakeDefaultUser().Email
+	if u != nil && u.Email != "" {
+		email = u.Email
+		// if no username was specified, use email as username
+		if u.Name == "" {
+			username = email
+		} else {
+			username = u.Name
+		}
 	}
-	// if no username was specified, use email as username
-	if u.Name == "" {
-		u.Name = u.Email
-	}
-
-	u.Name = encode64(u.Name)
-	u.Email = encode64(u.Email)
-	ctx = metadata.AppendToOutgoingContext(ctx, "author-email", u.Email, "author-username", u.Name)
+	ctx = metadata.AppendToOutgoingContext(ctx, "author-email", encode64(email), "author-username", encode64(username))
 	return context.WithValue(ctx, ctxMarkerKey, u)
 }
 
