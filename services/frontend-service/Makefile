@@ -43,6 +43,7 @@ GARBAGE += bin/main
 
 export KUBERPULT_CDSERVER?=localhost:8443
 export KUBERPULT_HTTP_CD_SERVER?=http://localhost:8080
+export KUBERPULT_ALLOWED_ORIGINS?="localhost:*"
 run: bin/main
 	./bin/main
 
