@@ -35,10 +35,10 @@ GARBAGE := *.sentinel
 image-name:
 	@echo "$(IMAGENAME)"
 
-$(PKG_GO_FILES):
+proto:
 	$(MAKE) -C../../pkg/api all
 
-bin/main: $(ALL_GO_FILES)
+bin/main: $(ALL_GO_FILES) | proto
 	mkdir -p bin
 	$(GO) build -o bin/main ./cmd/server/
 GARBAGE += bin/main
@@ -81,7 +81,7 @@ test-dependencies:
 
 test: test-go lint-scss test-ts test-dependencies
 
-test-go: $(ALL_GO_FILES)
+test-go: $(ALL_GO_FILES) | proto
 	$(GO) test ./...
 
 test-ts: src/api/api.ts

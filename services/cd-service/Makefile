@@ -47,7 +47,7 @@ image-name:
 version:
 	@echo "$(VERSION)"
 
-$(PKG_GO_FILES):
+proto:
 	make -C../../pkg/api all
 
 bin/:
@@ -80,7 +80,7 @@ run: build
 	KUBERPULT_GIT_URL="./repository_remote" KUBERPULT_GIT_BRANCH=master ./bin/main
 endif
 
-bin/main: bin/ $(ALL_GO_FILES)
+bin/main: bin/ $(ALL_GO_FILES) | proto
 ifeq ($(COMPILE_WITH_DOCKER),true)
 # for "libgit reasons", we need the option to build in docker.
 	@echo "building within docker (dmake)"
@@ -101,7 +101,7 @@ test-dependancies:
 	make -C ../../pkg test
 	make -C ../../pkg/api test
 
-test: $(ALL_GO_FILES) test-dependancies
+test: $(ALL_GO_FILES) test-dependancies | proto
 	$(GO) test  ./...
 
 docker: bin/main
