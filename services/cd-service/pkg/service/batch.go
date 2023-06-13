@@ -119,13 +119,7 @@ func (d *BatchServer) ProcessBatch(
 	}
 	err := d.Repository.Apply(ctx, transformers...)
 	if err != nil {
-		statusErr, ok := status.FromError(err)
-		if ok && statusErr != nil {
-			// if it is a status error, we return to the caller without change:
-			return nil, err
-		}
-		// otherwise, we use InternalError to print the error and return just a generic error message to the caller:
-		return nil, httperrors.InternalError(ctx, fmt.Errorf("could not apply transformer: %w", err))
+		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }

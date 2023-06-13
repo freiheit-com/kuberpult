@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"google.golang.org/grpc/codes"
@@ -68,11 +67,11 @@ func (d *DeployServiceServer) Deploy(
 			}
 			stat, sErr := status.New(codes.FailedPrecondition, "locked").WithDetails(detail)
 			if sErr != nil {
-				return nil, httperrors.InternalError(ctx, sErr)
+				return nil, sErr
 			}
 			return nil, stat.Err()
 		}
-		return nil, httperrors.InternalError(ctx, err)
+		return nil, err
 	}
 
 	return &emptypb.Empty{}, nil

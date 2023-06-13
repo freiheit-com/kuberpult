@@ -1333,8 +1333,9 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			ErrorTest: func(t *testing.T, err error) {
-				if err != ErrReleaseAlreadyExist {
-					t.Errorf("expected %q, got %q", ErrReleaseAlreadyExist, err)
+				exp := "rpc error: code = InvalidArgument desc = error: release already exists 42"
+				if err.Error() != exp {
+					t.Errorf("expected %q, got %q", exp, err.Error())
 				}
 			},
 		}, {
@@ -2195,7 +2196,7 @@ spec:
 				&CreateEnvironment{Environment: "production", Config: c1},
 			},
 			ErrorTest: func(t *testing.T, err error) {
-				expectedError := "Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead."
+				expectedError := "rpc error: code = InvalidArgument desc = error: Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead."
 				if err.Error() != expectedError {
 					t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
 				}

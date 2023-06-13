@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -37,7 +36,7 @@ func (l *LockServiceServer) CreateEnvironmentLock(
 		Message:     in.Message,
 	})
 	if err != nil {
-		return nil, httperrors.InternalError(ctx, err)
+		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -50,7 +49,7 @@ func (l *LockServiceServer) DeleteEnvironmentLock(
 		LockId:      in.LockId,
 	})
 	if err != nil {
-		return nil, httperrors.InternalError(ctx, err)
+		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -65,7 +64,7 @@ func (l *LockServiceServer) CreateEnvironmentApplicationLock(
 		Message:     in.Message,
 	})
 	if err != nil {
-		return nil, httperrors.InternalError(ctx, err)
+		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -79,7 +78,7 @@ func (l *LockServiceServer) DeleteEnvironmentApplicationLock(
 		LockId:      in.LockId,
 	})
 	if err != nil {
-		return nil, httperrors.InternalError(ctx, err)
+		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }

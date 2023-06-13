@@ -192,7 +192,7 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 
 func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
-	version, err := c.calculateVersion(fs)
+	version, err := c.calculateVersion(ctx, fs)
 	if err != nil {
 		return "", err
 	}
@@ -291,7 +291,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), nil
 }
 
-func (c *CreateApplicationVersion) calculateVersion(bfs billy.Filesystem) (uint64, error) {
+func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, bfs billy.Filesystem) (uint64, error) {
 	if c.Version == 0 {
 		lastRelease, err := GetLastRelease(bfs, c.Application)
 		if err != nil {
@@ -307,7 +307,8 @@ func (c *CreateApplicationVersion) calculateVersion(bfs billy.Filesystem) (uint6
 				return 0, err
 			}
 		} else {
-			return 0, ErrReleaseAlreadyExist
+			//return 0, fmt.Errorf("release already exists")
+			return 0, httperrors.InvalidArgumentError(ctx, fmt.Errorf("release already exists %d", c.Version))
 		}
 		// TODO: check GC here
 		return c.Version, nil
@@ -787,7 +788,7 @@ func (c *CreateEnvironment) Transform(ctx context.Context, state *State) (string
 	// Creation of environment is possible, but configuring it is not if running in bootstrap mode.
 	// Configuration needs to be done by modifying config map in source repo
 	if state.BootstrapMode && c.Config != (config.EnvironmentConfig{}) {
-		return "", fmt.Errorf("Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead.")
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead."))
 	}
 	if err := fs.MkdirAll(envDir, 0777); err != nil {
 		return "", err
