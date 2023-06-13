@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"io"
 	"io/fs"
 	"os"
@@ -332,6 +333,11 @@ type CreateUndeployApplicationVersion struct {
 
 func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
+
+	if !valid.ApplicationName(c.Application) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot create undeploy version: invalid application: '%s'", c.Application))
+	}
+
 	lastRelease, err := GetLastRelease(fs, c.Application)
 	if err != nil {
 		return "", err
@@ -406,6 +412,11 @@ type UndeployApplication struct {
 
 func (u *UndeployApplication) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
+
+	if !valid.ApplicationName(u.Application) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot create undeploy version: invalid application: '%s'", u.Application))
+	}
+
 	lastRelease, err := GetLastRelease(fs, u.Application)
 	if err != nil {
 		return "", err
@@ -587,6 +598,14 @@ type CreateEnvironmentLock struct {
 
 func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
+
+	if !valid.EnvironmentName(c.Environment) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot %s environment lock: invalid environment: '%s'", "create", c.Environment))
+	}
+	if !valid.LockId(c.LockId) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot %s environment lock: invalid lock id: '%s'", "create", c.LockId))
+	}
+
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
 		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
@@ -645,6 +664,14 @@ type DeleteEnvironmentLock struct {
 
 func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
+
+	if !valid.EnvironmentName(c.Environment) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot delete environment lock: invalid environment: '%s'", c.Environment))
+	}
+	if !valid.LockId(c.LockId) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot delete environment lock: invalid lock id: '%s'", c.LockId))
+	}
+
 	lockDir := fs.Join("environments", c.Environment, "locks", c.LockId)
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
@@ -682,6 +709,17 @@ type CreateEnvironmentApplicationLock struct {
 func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
 	fs := state.Filesystem
+
+	if !valid.EnvironmentName(c.Environment) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot create environment application lock: invalid environment: '%s'", c.Environment))
+	}
+	if !valid.ApplicationName(c.Application) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot create environment application lock: invalid application: '%s'", c.Application))
+	}
+	if !valid.LockId(c.LockId) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot create environment application lock: invalid lock id: '%s'", c.LockId))
+	}
+
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
 		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
@@ -711,6 +749,17 @@ type DeleteEnvironmentApplicationLock struct {
 
 func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
+
+	if !valid.EnvironmentName(c.Environment) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot delete environment application lock: invalid environment: '%s'", c.Environment))
+	}
+	if !valid.ApplicationName(c.Application) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot delete environment application lock: invalid application: '%s'", c.Application))
+	}
+	if !valid.LockId(c.LockId) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot delete environment application lock: invalid lock id: '%s'", c.LockId))
+	}
+
 	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
@@ -793,6 +842,13 @@ type DeployApplicationVersion struct {
 
 func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
 	fs := state.Filesystem
+	if !valid.EnvironmentName(c.Environment) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot deploy environment application lock: invalid environment: '%s'", c.Environment))
+	}
+	if !valid.ApplicationName(c.Environment) {
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("cannot deploy environment application lock: invalid application: '%s'", c.Application))
+	}
+
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
 	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
@@ -942,7 +998,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 	var envGroupConfigs = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
 
 	if len(envGroupConfigs) == 0 {
-		return "", httperrors.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName))
+		return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName))
 	}
 
 	// this to sort the env, to make sure that for the same input we always got the same output
@@ -997,7 +1053,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		} else {
 			apps, err = state.GetEnvironmentApplications(upstreamEnvName)
 			if err != nil {
-				return "", httperrors.PublicError(ctx, fmt.Errorf("upstream environment (%q) does not have applications: %w", upstreamEnvName, err))
+				return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("upstream environment (%q) does not have applications: %w", upstreamEnvName, err))
 			}
 		}
 		sort.Strings(apps)
@@ -1015,18 +1071,18 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 			}
 			currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(envName, appName)
 			if err != nil {
-				return "", httperrors.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, envName, err))
+				return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, envName, err))
 			}
 			var versionToDeploy uint64
 			if upstreamLatest {
 				versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
 				if err != nil {
-					return "", httperrors.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err))
+					return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err))
 				}
 			} else {
 				upstreamVersion, err := state.GetEnvironmentApplicationVersion(upstreamEnvName, appName)
 				if err != nil {
-					return "", httperrors.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err))
+					return "", httperrors.InvalidArgumentError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err))
 				}
 				if upstreamVersion == nil {
 					envSkippedMsg[envName] += fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)

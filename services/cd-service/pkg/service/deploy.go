@@ -36,9 +36,6 @@ func (d *DeployServiceServer) Deploy(
 	ctx context.Context,
 	in *api.DeployRequest,
 ) (*emptypb.Empty, error) {
-	if err := ValidateDeployment(in.Environment, in.Application); err != nil {
-		return nil, err
-	}
 	b := in.LockBehavior
 	if in.IgnoreAllLocks {
 		// the UI currently sets this to true,
