@@ -28,52 +28,13 @@ import (
 
 func TestRender(t *testing.T) {
 	tcs := []struct {
-		Name              string
-		IsUndeployVersion bool
-		Destination       v1alpha1.ApplicationDestination
-		ExpectedResult    string
+		Name           string
+		Destination    v1alpha1.ApplicationDestination
+		ExpectedResult string
 	}{
 		{
-			Name:              "deploy",
-			IsUndeployVersion: false,
-			Destination:       v1alpha1.ApplicationDestination{},
-			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  annotations:
-    com.freiheit.kuberpult/application: app1
-    com.freiheit.kuberpult/environment: dev
-    com.freiheit.kuberpult/team: ""
-  name: dev-app1
-spec:
-  destination: {}
-  ignoreDifferences:
-  - group: a.b
-    jqPathExpressions:
-    - c
-    - d
-    kind: bar
-    managedFieldsManagers:
-    - e
-    - f
-    name: foo
-  project: dev
-  source:
-    path: environments/dev/applications/app1/manifests
-    repoURL: example.com/github
-    targetRevision: main
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-    - ApplyOutOfSyncOnly=true
-`,
-		},
-		{
-			Name:              "undeploy",
-			IsUndeployVersion: true,
-			Destination:       v1alpha1.ApplicationDestination{},
+			Name:        "deploy",
+			Destination: v1alpha1.ApplicationDestination{},
 			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -111,8 +72,46 @@ spec:
 `,
 		},
 		{
-			Name:              "namespace test",
-			IsUndeployVersion: true,
+			Name:        "undeploy",
+			Destination: v1alpha1.ApplicationDestination{},
+			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: dev
+    com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  name: dev-app1
+spec:
+  destination: {}
+  ignoreDifferences:
+  - group: a.b
+    jqPathExpressions:
+    - c
+    - d
+    kind: bar
+    managedFieldsManagers:
+    - e
+    - f
+    name: foo
+  project: dev
+  source:
+    path: environments/dev/applications/app1/manifests
+    repoURL: example.com/github
+    targetRevision: main
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
+`,
+		},
+		{
+			Name: "namespace test",
 			Destination: v1alpha1.ApplicationDestination{
 				Namespace: "foo",
 			},
@@ -174,8 +173,7 @@ spec:
 				gitBranch   = "main"
 				env         = "dev"
 				appData     = AppData{
-					AppName:           "app1",
-					IsUndeployVersion: tc.IsUndeployVersion,
+					AppName: "app1",
 				}
 				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
@@ -299,8 +297,7 @@ spec:
 			},
 			appData: []AppData{
 				{
-					AppName:           "app1",
-					IsUndeployVersion: false,
+					AppName: "app1",
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -321,6 +318,8 @@ metadata:
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
     com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
   name: test-env-app1
 spec:
   destination:
@@ -332,6 +331,7 @@ spec:
     targetRevision: branch-name
   syncPolicy:
     automated:
+      allowEmpty: true
       prune: true
       selfHeal: true
 `,
@@ -349,8 +349,7 @@ spec:
 			},
 			appData: []AppData{
 				{
-					AppName:           "app1",
-					IsUndeployVersion: false,
+					AppName: "app1",
 				},
 			},
 			want: `apiVersion: argoproj.io/v1alpha1
@@ -371,6 +370,8 @@ metadata:
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
     com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
   name: test-env-app1
 spec:
   destination: {}
@@ -381,6 +382,7 @@ spec:
     targetRevision: branch-name
   syncPolicy:
     automated:
+      allowEmpty: true
       prune: true
       selfHeal: true
 `,
@@ -489,6 +491,8 @@ metadata:
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
     com.freiheit.kuberpult/team: some-team
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
   name: test-env-app1
 spec:
   destination: {}
@@ -499,6 +503,7 @@ spec:
     targetRevision: branch-name
   syncPolicy:
     automated:
+      allowEmpty: true
       prune: true
       selfHeal: true
 `,

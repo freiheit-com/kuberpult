@@ -1973,6 +1973,8 @@ metadata:
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: staging
     com.freiheit.kuberpult/team: team1
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
   name: staging-test
 spec:
   destination:
@@ -1985,6 +1987,7 @@ spec:
     targetRevision: master
   syncPolicy:
     automated:
+      allowEmpty: true
       prune: true
       selfHeal: true
 ---
@@ -1995,6 +1998,8 @@ metadata:
     com.freiheit.kuberpult/application: test2
     com.freiheit.kuberpult/environment: staging
     com.freiheit.kuberpult/team: team2
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
   name: staging-test2
 spec:
   destination:
@@ -2007,6 +2012,7 @@ spec:
     targetRevision: master
   syncPolicy:
     automated:
+      allowEmpty: true
       prune: true
       selfHeal: true
 `, repoURL, repoURL)
@@ -2069,6 +2075,8 @@ metadata:
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: staging
     com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
   name: staging-test
 spec:
   destination:
@@ -2081,6 +2089,7 @@ spec:
     targetRevision: master
   syncPolicy:
     automated:
+      allowEmpty: true
       prune: true
       selfHeal: true
 `, repoURL)
@@ -2149,6 +2158,8 @@ metadata:
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: staging
     com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
   name: staging-test
 spec:
   destination:
@@ -2168,6 +2179,7 @@ spec:
     targetRevision: master
   syncPolicy:
     automated:
+      allowEmpty: true
       prune: true
       selfHeal: true
 `, repoURL)
