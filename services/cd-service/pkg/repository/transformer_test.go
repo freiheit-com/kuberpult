@@ -2734,7 +2734,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 				},
 			},
 			expectedError:     "",
-			expectedCommitMsg: "Environment 'production' was removed from application 'app1' successfully.",
+			expectedCommitMsg: "Attempted to remove environment 'production' from application 'app1' but it did not exist.",
 			shouldSucceed:     true,
 		},
 		{
