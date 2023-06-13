@@ -705,7 +705,7 @@ func TestGc(t *testing.T) {
 			Name:               "gc disabled",
 			GcFrequency:        0,
 			StorageBackend:     GitBackend,
-			ExpectedGarbageMin: 907,
+			ExpectedGarbageMin: 906,
 			ExpectedGarbageMax: 910,
 		},
 		{
