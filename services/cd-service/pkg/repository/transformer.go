@@ -492,9 +492,11 @@ func (u *DeleteEnvFromApp) Transform(ctx context.Context, state *State) (string,
 	if err != nil {
 		return "", wrapFileError(err, envAppDir, thisSprintf("Could not open application directory. Does the app exist?"))
 	}
+
+	var successMsg = fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application)
 	if entries == nil {
-		// app was never deployed on this env, so that's an error!
-		return "", fmt.Errorf(thisSprintf("No entries in app directory. Cannot delete an empty app. Directory: %s", envAppDir))
+		// app was never deployed on this env, so that's unusual - but for idempotency we treat it just like a success case:
+		return successMsg, nil
 	}
 
 	err = fs.Remove(envAppDir)
@@ -502,7 +504,7 @@ func (u *DeleteEnvFromApp) Transform(ctx context.Context, state *State) (string,
 		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app.'"))
 	}
 
-	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil
+	return successMsg, nil
 }
 
 type CleanupOldApplicationVersions struct {
