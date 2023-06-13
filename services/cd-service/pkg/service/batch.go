@@ -165,8 +165,14 @@ func (d *BatchServer) processAction(
 			Version:       act.Version,
 			LockBehaviour: b,
 		}, nil
+	case *api.BatchAction_DeleteEnvFromApp:
+		act := action.DeleteEnvFromApp
+		return &repository.DeleteEnvFromApp{
+			Environment: act.Environment,
+			Application: act.Application,
+		}, nil
 	}
-	return nil, status.Error(codes.InvalidArgument, "cannot process action: invalid action type")
+	return nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")
 }
 
 func (d *BatchServer) ProcessBatch(

@@ -154,8 +154,6 @@ func (t TransformerFunc) Transform(ctx context.Context, state *State) (string, e
 	return (t)(ctx, state)
 }
 
-var _ Transformer = TransformerFunc(func(_ context.Context, _ *State) (string, error) { return "", nil })
-
 type CreateApplicationVersion struct {
 	Version        uint64
 	Application    string
@@ -468,6 +466,44 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 		}
 	}
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
+}
+
+type DeleteEnvFromApp struct {
+	Application string
+	Environment string
+}
+
+func (u *DeleteEnvFromApp) Transform(ctx context.Context, state *State) (string, error) {
+	fs := state.Filesystem
+	thisSprintf := func(format string, a ...any) string {
+		return fmt.Sprintf("DeleteEnvFromApp app '%s' on env '%s': %s", u.Application, u.Environment, fmt.Sprintf(format, a...))
+	}
+
+	if u.Application == "" {
+		return "", fmt.Errorf(thisSprintf("Need to provide the application"))
+	}
+
+	if u.Environment == "" {
+		return "", fmt.Errorf(thisSprintf("Need to provide the environment"))
+	}
+
+	envAppDir := environmentApplicationDirectory(fs, u.Environment, u.Application)
+	entries, err := fs.ReadDir(envAppDir)
+	if err != nil {
+		return "", wrapFileError(err, envAppDir, thisSprintf("Could not open application directory. Does the app exist?"))
+	}
+
+	if entries == nil {
+		// app was never deployed on this env, so that's unusual - but for idempotency we treat it just like a success case:
+		return fmt.Sprintf("Attempted to remove environment '%v' from application '%v' but it did not exist.", u.Environment, u.Application), nil
+	}
+
+	err = fs.Remove(envAppDir)
+	if err != nil {
+		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app.'"))
+	}
+
+	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil
 }
 
 type CleanupOldApplicationVersions struct {
