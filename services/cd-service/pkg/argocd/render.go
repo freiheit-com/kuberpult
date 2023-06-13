@@ -172,7 +172,7 @@ func RenderApp(gitUrl string, gitBranch string, applicationAnnotations map[strin
 }
 
 func calculateFinalizers() []string {
-	finalizers := []string{}
-	finalizers = append(finalizers, "resources-finalizer.argocd.argoproj.io")
-	return finalizers
+	return []string{
+		"resources-finalizer.argocd.argoproj.io",
+	}
 }
