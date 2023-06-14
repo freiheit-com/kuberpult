@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/services/frontend-service/api"
+	"github.com/freiheit-com/kuberpult/pkg/api"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -37,22 +37,12 @@ type mockOverviewClient struct {
 	Responses map[string]*api.GetOverviewResponse
 }
 
-// GetDeployedOverview implements api.OverviewServiceClient
-func (*mockOverviewClient) GetDeployedOverview(ctx context.Context, in *api.GetDeployedOverviewRequest, opts ...grpc.CallOption) (*api.GetDeployedOverviewResponse, error) {
-	panic("unimplemented")
-}
-
 // GetOverview implements api.OverviewServiceClient
 func (m *mockOverviewClient) GetOverview(ctx context.Context, in *api.GetOverviewRequest, opts ...grpc.CallOption) (*api.GetOverviewResponse, error) {
 	if resp := m.Responses[in.GitRevision]; resp != nil {
 		return resp, nil
 	}
 	return nil, status.Error(codes.Unknown, "no")
-}
-
-// StreamDeployedOverview implements api.OverviewServiceClient
-func (*mockOverviewClient) StreamDeployedOverview(ctx context.Context, in *api.GetDeployedOverviewRequest, opts ...grpc.CallOption) (api.OverviewService_StreamDeployedOverviewClient, error) {
-	panic("unimplemented")
 }
 
 // StreamOverview implements api.OverviewServiceClient
