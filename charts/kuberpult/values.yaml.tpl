@@ -47,6 +47,17 @@ frontend:
 rollout:
   enabled: false
   image: kuberpult-rollout-service
+# In MOST cases, do NOT overwrite the "tag".
+# In general, kuberpult only guarantees that running with the same version of frontend and cd service will work.
+# For testing purposes, we allow to overwrite the tags individually, to test an old frontend service with a new cd service.
+  tag: "$VERSION"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 250Mi
+    requests:
+      cpu: 500m
+      memory: 250Mi
 
 ingress:
   create: true

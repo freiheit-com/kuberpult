@@ -116,13 +116,16 @@ fi
 print version...
 VERSION=$(make --no-print-directory -C ../../services/cd-service/ version)
 print "version is ${VERSION}"
-print "IMAGE_TAG_FRONTEND is ${IMAGE_TAG_FRONTEND}"
 IMAGE_TAG_FRONTEND=${IMAGE_TAG_FRONTEND:-$VERSION}
 print "IMAGE_TAG_FRONTEND is now ${IMAGE_TAG_FRONTEND}"
 IMAGE_TAG_CD=${IMAGE_TAG_CD:-$VERSION}
+print "IMAGE_TAG_CD is now ${IMAGE_TAG_CD}"
+IMAGE_TAG_ROLLOUT=${IMAGE_TAG_ROLLOUT:-$VERSION}
+print "IMAGE_TAG_ROLLOUT is now ${IMAGE_TAG_ROLLOUT}"
 
 cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_CD}"
 frontend_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_FRONTEND}"
+rollout_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_ROLLOUT}"
 
 print "cd image: $cd_imagename"
 print "cd image tag: $IMAGE_TAG_CD"
@@ -135,6 +138,8 @@ then
   docker pull "$cd_imagename"
   print 'pulling frontend service...'
   docker pull "$frontend_imagename"
+  print 'pulling rollout service...'
+  docker pull "$rollout_imagename"
 else
   print 'not pulling cd or frontend service...'
 fi
@@ -144,15 +149,51 @@ print "$cd_imagename"
 print "$frontend_imagename"
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
+kind load docker-image "$rollout_imagename"
 
 print 'installing kuberpult helm chart...'
 
-set_options='cd.resources.limits.memory=200Mi,cd.resources.requests.memory=200Mi,cd.resources.limits.cpu=0.05,cd.resources.requests.cpu=0.05,frontend.resources.limits.cpu=0.05,frontend.resources.requests.cpu=0.05,ingress.domainName=kuberpult.example.com,name=kuberpult-local,VERSION='"$VERSION"',cd.tag='"$IMAGE_TAG_CD",frontend.tag="$IMAGE_TAG_FRONTEND"',git.url=ssh://git@server.'"${GIT_NAMESPACE}"'.svc.cluster.local/git/repos/manifests'
-ssh_options=",ssh.identity=$(cat ../../services/cd-service/client),ssh.known_hosts=$(cat ../../services/cd-service/known_hosts),"
+cat <<VALUES > vals.yaml
+cd:
+  resources:
+    limits:
+      memory: 200Mi
+      cpu: 0.05
+    requests:
+      memory: 200Mi
+      cpu: 0.05
+  tag: "${IMAGE_TAG_CD}"
+frontend:
+  resources:
+    limits:
+      memory: 200Mi
+      cpu: 0.05
+    requests:
+      memory: 200Mi
+      cpu: 0.05
+  tag: "${IMAGE_TAG_FRONTEND}"
+rollout:
+  enabled: true
+  resources:
+    limits:
+      memory: 200Mi
+      cpu: 0.05
+    requests:
+      memory: 200Mi
+      cpu: 0.05
+  tag: "${IMAGE_TAG_ROLLOUT}"
+ingress:
+  domainName: kuberpult.example.com
+git:
+  url: "ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests"
+ssh:
+  identity: "$(cat ../../services/cd-service/client)"
+  known_hosts: "$(cat ../../services/cd-service/known_hosts)"
+VALUES
 
-helm template ./ --set "$set_options""$ssh_options" > tmp.tmpl
-helm install --set "$set_options""$ssh_options" kuberpult-local ./
+helm template ./ --values vals.yaml > tmp.tmpl
 
+helm install --values vals.yaml kuberpult-local ./
 
 print "starting argoCd..."
 
@@ -203,7 +244,8 @@ EOF
 waitForDeployment "default" "app.kubernetes.io/name=argocd-server"
 portForwardAndWait "default" service/argocd-server 8080 443
 print "admin password:"
-kubectl -n default get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+argocd_adminpw=$(kubectl -n default get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+echo "$argocd_adminpw"
 
 print 'checking for pods and waiting for portforwarding to be ready...'
 

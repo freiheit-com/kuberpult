@@ -51,7 +51,6 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
 			if status.Code(err) == codes.Canceled {
-
 				// context is cancelled -> we are shutting down
 				return nil
 			}
