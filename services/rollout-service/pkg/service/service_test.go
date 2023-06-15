@@ -213,9 +213,9 @@ func TestArgoConection(t *testing.T) {
 						},
 					},
 					ExpectedEvent: &Event{
-						Application:     "bar",
-						Environment:     "foo",
-						DeployedVersion: 42,
+						Application: "bar",
+						Environment: "foo",
+						Version:     42,
 					},
 				},
 				{
