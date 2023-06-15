@@ -123,6 +123,8 @@ ignoredFiles: [
     ".env",
     ".go-version",
     "services/cd-service/gitconfig",
+    "nix/",
+    "flake.nix"
   ] #ignored file extensions
 testFiles: ["_test.go", "_test.dart"]
 languagesConfig:
