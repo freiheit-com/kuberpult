@@ -129,11 +129,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: kuberpult-cd-service
-  {{- if .Values.cd.backendConfig.create }}
-  annotations:
-    cloud.google.com/backend-config: '{"default": "kuberpult-cd-service"}'
-  {{- end }}
+  name: kuberpult-rollout-service
 spec:
   ports:
   - name: http
@@ -143,7 +139,7 @@ spec:
     port: 8443
     targetPort: grpc
   selector:
-    app: kuberpult-cd-service
+    app: kuberpult-rollout-service
   type: NodePort
 ---
 apiVersion: v1
