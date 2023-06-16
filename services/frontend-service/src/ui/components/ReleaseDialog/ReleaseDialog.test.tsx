@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { EnvironmentListItem, ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { fireEvent, render } from '@testing-library/react';
-import { UpdateOverview, UpdateSidebar } from '../../utils/store';
+import { UpdateAction, UpdateOverview, UpdateSidebar } from '../../utils/store';
 import { Environment, Priority, Release, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
 import { SideBar } from '../SideBar/SideBar';
@@ -264,6 +264,7 @@ describe('Release Dialog', () => {
         });
         it('Test using deploy button click simulation', () => {
             UpdateSidebar.set({ shown: false });
+            UpdateAction.set({ actions: [] });
             setTheStore(testcase);
 
             render(
@@ -280,6 +281,7 @@ describe('Release Dialog', () => {
         });
         it('Test using add lock button click simulation', () => {
             UpdateSidebar.set({ shown: false });
+            UpdateAction.set({ actions: [] });
             setTheStore(testcase);
 
             getWrapper(testcase.props);
