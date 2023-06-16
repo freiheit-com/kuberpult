@@ -46,7 +46,7 @@ type EventProcessor interface {
 	Process(ctx context.Context, ev Event)
 }
 
-func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, version versions.VersionClient, sink EventProcessor) error {
+func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, version versions.VersionClient, sink EventProcessor, ready func()) error {
 	for {
 		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
@@ -56,6 +56,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 			}
 			return fmt.Errorf("watching applications: %w", err)
 		}
+		ready()
 		for {
 			ev, err := watch.Recv()
 			if err != nil {
@@ -72,7 +73,6 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 			}
 			version, err := version.GetVersion(ctx, ev.Application.Status.Sync.Revision, environment, application)
 			if err != nil {
-
 				logger.FromContext(ctx).Warn("version.getversion", zap.String("revision", ev.Application.Status.Sync.Revision), zap.Error(err))
 			}
 			sink.Process(ctx, Event{

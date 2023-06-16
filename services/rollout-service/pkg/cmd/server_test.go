@@ -16,4 +16,34 @@ Copyright 2023 freiheit.com*/
 
 package cmd
 
+import (
+	"context"
+	"testing"
+)
 
+func TestService(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		ExpectedError string
+	}{
+		{
+			Name:          "simple case",
+			ExpectedError: "connecting to argocd : Argo CD server address unspecified",
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			err := runServer(ctx, Config{})
+			if err != nil {
+				if err.Error() != tc.ExpectedError {
+					t.Errorf("expected error %q but got %q", tc.ExpectedError, err)
+				}
+			} else if tc.ExpectedError != "" {
+				t.Errorf("expected error %q but got <nil>", tc.ExpectedError)
+			}
+		})
+	}
+}

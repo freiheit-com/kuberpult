@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	argoio "github.com/argoproj/argo-cd/v2/util/io"
@@ -121,23 +122,28 @@ func runServer(ctx context.Context, config Config) error {
 		return fmt.Errorf("connecting to cd service %q: %w", config.CdServer, err)
 	}
 	broadcast := service.New()
-	//	return service.ConsumeEvents(ctx, appClient, versions.New(overview), &broadcast.Broadcast{})
 	shutdownCh := make(chan struct{})
+	ready := false
 	setup.Run(ctx, setup.ServerConfig{
-		/*		HTTP: []setup.HTTPConfig{
-				{
-					Port: "8080",
-					Register: func(mux *http.ServeMux) {
-						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
-						mux.Handle("/", handler)
-					},
+		HTTP: []setup.HTTPConfig{
+			{
+				Port: "8080",
+				Register: func(mux *http.ServeMux) {
+					mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						if ready {
+							w.WriteHeader(200)
+						} else {
+							w.WriteHeader(500)
+						}
+					}))
 				},
-			},*/
+			},
+		},
 		Background: []setup.BackgroundTaskConfig{
 			{
 				Name: "consume events",
 				Run: func(ctx context.Context) error {
-					return service.ConsumeEvents(ctx, appClient, versions.New(overview), broadcast)
+					return service.ConsumeEvents(ctx, appClient, versions.New(overview), broadcast, func() { ready = true })
 				},
 			}},
 		GRPC: &setup.GRPCConfig{
