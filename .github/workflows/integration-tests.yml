@@ -99,6 +99,13 @@ jobs:
         mkdir -p ./services/cd-service/repository_remote
         git -C ./services/cd-service/repository_remote init --bare
         git clone ./services/cd-service/repository_remote ./services/cd-service/repository_checkedout
+    - name: Setup argocd cli
+      run: |
+        mkdir -p "$HOME/.local/bin"
+        curl -sSL -o "$HOME/.local/bin/argocd" https://github.com/argoproj/argo-cd/releases/download/v2.7.5/argocd-linux-amd64
+        echo "a7680140ddb9011c3d282eaff5f5a856be18e8653ff9f0c7047a318f640753be $HOME/.local/bin/argocd" | sha256sum -c -
+        chmod +x "$HOME/.local/bin/argocd"
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
     - name: Run kind
       run: |
         echo running kind
