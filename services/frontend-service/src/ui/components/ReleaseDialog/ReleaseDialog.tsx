@@ -108,7 +108,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             });
         }
         createAppLock();
-    }, [app, env.name, release.version]);
+    }, [app, env.name, release.version, createAppLock]);
     const queueInfo =
         queuedVersion === 0 ? null : (
             <div
