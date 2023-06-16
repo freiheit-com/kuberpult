@@ -106,6 +106,7 @@ describe('Release Dialog', () => {
                         sourceRepoUrl: 'url',
                         undeploySummary: UndeploySummary.Normal,
                         team: 'no-team',
+                        warnings: [],
                     },
                 },
             });

@@ -19,6 +19,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"os"
 	"regexp"
@@ -164,7 +166,6 @@ func (o *OverviewServiceServer) getOverview(
 							}
 						}
 					}
-
 					env.Applications[appName] = &app
 				}
 			}
@@ -214,10 +215,75 @@ func (o *OverviewServiceServer) getOverview(
 				app.SourceRepoUrl = url
 			}
 			app.UndeploySummary = deriveUndeploySummary(appName, result.EnvironmentGroups)
+			app.Warnings = CalculateWarnings(ctx, app.Name, result.EnvironmentGroups)
 			result.Applications[appName] = &app
 		}
 	}
 	return &result, nil
+}
+
+/*
+CalculateWarnings returns warnings for the User to be displayed in the UI.
+For really unusual configurations, these will be logged and not returned.
+*/
+func CalculateWarnings(ctx context.Context, appName string, groups []*api.EnvironmentGroup) []*api.Warning {
+	result := make([]*api.Warning, 0)
+	log := logger.FromContext(ctx)
+	for e := 0; e < len(groups); e++ {
+		group := groups[e]
+		for i := 0; i < len(groups[e].Environments); i++ {
+			env := group.Environments[i]
+			if env.Config.Upstream == nil || env.Config.Upstream.Environment == nil {
+				// if the env has no upstream, there's nothing to warn about
+				continue
+			}
+			upstreamEnvName := env.Config.GetUpstream().Environment
+			upstreamEnv := getEnvironmentByName(groups, *upstreamEnvName)
+			if upstreamEnv == nil {
+				// this is already checked on startup and therefore shouldn't happen here:
+				log.Warn(fmt.Sprintf("environment '%s' has upstream '%s' configured, which does not exist", env.Name, *upstreamEnvName))
+				continue
+			}
+
+			appInEnv := env.Applications[appName]
+			if appInEnv == nil {
+				// appName is not deployed here, ignore it
+				continue
+			}
+			versionInEnv := appInEnv.Version
+			appInUpstreamEnv := upstreamEnv.Applications[appName]
+			if appInUpstreamEnv == nil {
+				// appName is not deployed upstream... that's unusual!
+				var warning = api.Warning{
+					WarningType: &api.Warning_UpstreamNotDeployed{
+						UpstreamNotDeployed: &api.UpstreamNotDeployed{
+							UpstreamEnvironment: *upstreamEnvName,
+							ThisVersion:         versionInEnv,
+							ThisEnvironment:     env.Name,
+						},
+					},
+				}
+				result = append(result, &warning)
+				continue
+			}
+			versionInUpstreamEnv := appInUpstreamEnv.Version
+
+			if versionInEnv > versionInUpstreamEnv && len(appInEnv.Locks) == 0 {
+				var warning = api.Warning{
+					WarningType: &api.Warning_UnusualDeploymentOrder{
+						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+							UpstreamVersion:     versionInUpstreamEnv,
+							UpstreamEnvironment: *upstreamEnvName,
+							ThisVersion:         versionInEnv,
+							ThisEnvironment:     env.Name,
+						},
+					},
+				}
+				result = append(result, &warning)
+			}
+		}
+	}
+	return result
 }
 
 func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.UndeploySummary {
@@ -257,6 +323,17 @@ func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn str
 				if currentEnv.Name == envNameToReturn {
 					return currentEnv
 				}
+			}
+		}
+	}
+	return nil
+}
+
+func getEnvironmentByName(groups []*api.EnvironmentGroup, envNameToReturn string) *api.Environment {
+	for _, currentGroup := range groups {
+		for _, currentEnv := range currentGroup.Environments {
+			if currentEnv.Name == envNameToReturn {
+				return currentEnv
 			}
 		}
 	}

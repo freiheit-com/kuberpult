@@ -30,12 +30,13 @@ describe('App', () => {
     );
     const getWrapper = () => render(getNode());
     it('Renders full app', () => {
-        const buildTestApp = (suffix: string) => ({
+        const buildTestApp = (suffix: string): Application => ({
             name: `test${suffix}`,
             releases: [],
             sourceRepoUrl: `http://test${suffix}.com`,
             team: `team${suffix}`,
             undeploySummary: UndeploySummary.Normal,
+            warnings: [],
         });
         // when
         const sampleApps = {
@@ -72,6 +73,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     sourceRepoUrl: 'http://foo.com',
                     team: 'dummy',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 bar: {
                     name: 'bar',
@@ -79,6 +81,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     sourceRepoUrl: 'http://bar.com',
                     team: 'test',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 example: {
                     name: 'example',
@@ -86,6 +89,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     sourceRepoUrl: 'http://example.com',
                     team: 'test2',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 team: {
                     name: 'team',
@@ -93,6 +97,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     sourceRepoUrl: 'http://team.com',
                     team: 'foo',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
             },
             expectedTeams: ['dummy', 'foo', 'test', 'test2'],
@@ -106,6 +111,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     sourceRepoUrl: 'http://foo.com',
                     team: 'dummy',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 bar: {
                     name: 'bar',
@@ -113,6 +119,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     sourceRepoUrl: 'http://bar.com',
                     team: 'dummy',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 team: {
                     name: 'team',
@@ -120,6 +127,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     sourceRepoUrl: 'http://team.com',
                     team: 'foo',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
             },
             expectedTeams: ['dummy', 'foo'],
@@ -133,6 +141,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     sourceRepoUrl: 'http://foo.com',
                     team: '',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 bar: {
                     name: 'bar',
@@ -140,6 +149,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     sourceRepoUrl: 'http://bar.com',
                     team: 'test',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 example: {
                     name: 'example',
@@ -147,6 +157,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     sourceRepoUrl: 'http://example.com',
                     team: '',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 team: {
                     name: 'team',
@@ -154,6 +165,7 @@ describe('Get teams from application list (useTeamNames)', () => {
                     sourceRepoUrl: 'http://team.com',
                     team: 'foo',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
             },
             expectedTeams: ['<No Team>', 'foo', 'test'],
@@ -190,6 +202,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://foo.com',
                     team: 'dummy',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 bar: {
                     name: 'bar',
@@ -197,6 +210,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://bar.com',
                     team: 'test',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 example: {
                     name: 'example',
@@ -204,6 +218,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://example.com',
                     team: 'test2',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 team: {
                     name: 'team',
@@ -211,6 +226,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://team.com',
                     team: 'foo',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
             },
             expectedNumOfTeams: 2,
@@ -225,6 +241,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://foo.com',
                     team: 'dummy',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 bar: {
                     name: 'bar',
@@ -232,6 +249,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://bar.com',
                     team: 'dummy',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 team: {
                     name: 'team',
@@ -239,6 +257,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://team.com',
                     team: 'foo',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
             },
             expectedNumOfTeams: 2,
@@ -253,6 +272,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://foo.com',
                     team: '',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 bar: {
                     name: 'bar',
@@ -260,6 +280,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://bar.com',
                     team: 'test',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 example: {
                     name: 'example',
@@ -267,6 +288,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://example.com',
                     team: '',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 team: {
                     name: 'team',
@@ -274,6 +296,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://team.com',
                     team: 'foo',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
             },
             expectedNumOfTeams: 4,
@@ -288,6 +311,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://foo.com',
                     team: 'dummy',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
                 bar: {
                     name: 'bar',
@@ -295,6 +319,7 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
                     sourceRepoUrl: 'http://bar.com',
                     team: 'test',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
             },
             expectedNumOfTeams: 0,

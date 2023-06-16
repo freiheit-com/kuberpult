@@ -112,6 +112,8 @@ $service-lane-diff-element-width: 50px;
 // Main content padding
 $main-content-padding: ($top-app-bar-height + 0.5em) 1em 1em ($nav-bar-width + 1em);
 
+$warning-color: #e0d541;
+
 :root {
     // Colors
     --mdc-theme-primary: #2d70d6;

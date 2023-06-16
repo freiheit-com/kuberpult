@@ -183,6 +183,7 @@ describe('Release Dialog', () => {
                     team: testcase.teamName,
                     sourceRepoUrl: 'url',
                     undeploySummary: UndeploySummary.Normal,
+                    warnings: [],
                 },
             },
             environmentGroups: [

@@ -43,6 +43,163 @@ func (m *mockOverviewService_StreamOverviewServer) Context() context.Context {
 	return m.Ctx
 }
 
+func makeApps(apps ...*api.Environment_Application) map[string]*api.Environment_Application {
+	var result map[string]*api.Environment_Application = map[string]*api.Environment_Application{}
+	for i := 0; i < len(apps); i++ {
+		app := apps[i]
+		result[app.Name] = app
+	}
+	return result
+}
+
+func makeEnv(envName string, groupName string, upstream *api.EnvironmentConfig_Upstream, apps map[string]*api.Environment_Application) *api.Environment {
+	return &api.Environment{
+		Name: envName,
+		Config: &api.EnvironmentConfig{
+			Upstream:         upstream,
+			EnvironmentGroup: &groupName,
+		},
+		Locks:              map[string]*api.Lock{},
+		Applications:       apps,
+		DistanceToUpstream: 0,
+		Priority:           api.Priority_UPSTREAM, // we are 1 away from prod, hence pre-prod
+	}
+}
+
+func makeApp(appName string, version uint64) *api.Environment_Application {
+	return &api.Environment_Application{
+		Name:            appName,
+		Version:         version,
+		Locks:           nil,
+		QueuedVersion:   0,
+		UndeployVersion: false,
+		ArgoCD:          nil,
+	}
+}
+func makeEnvGroup(envGroupName string, environments []*api.Environment) *api.EnvironmentGroup {
+	return &api.EnvironmentGroup{
+		EnvironmentGroupName: envGroupName,
+		Environments:         environments,
+		DistanceToUpstream:   0,
+	}
+}
+
+func makeUpstreamLatest() *api.EnvironmentConfig_Upstream {
+	f := true
+	return &api.EnvironmentConfig_Upstream{
+		Latest: &f,
+	}
+}
+
+func makeUpstreamEnv(upstream string) *api.EnvironmentConfig_Upstream {
+	return &api.EnvironmentConfig_Upstream{
+		Environment: &upstream,
+	}
+}
+
+func TestCalculateWarnings(t *testing.T) {
+	var dev = "dev"
+	tcs := []struct {
+		Name             string
+		AppName          string
+		Groups           []*api.EnvironmentGroup
+		ExpectedWarnings []*api.Warning
+	}{
+		{
+			Name:    "no envs - no warning",
+			AppName: "foo",
+			Groups: []*api.EnvironmentGroup{
+				makeEnvGroup(dev, []*api.Environment{
+					makeEnv("dev-de", dev, makeUpstreamLatest(), nil),
+				})},
+			ExpectedWarnings: []*api.Warning{},
+		},
+		{
+			Name:    "app deployed in higher version on upstream should warn",
+			AppName: "foo",
+			Groups: []*api.EnvironmentGroup{
+				makeEnvGroup(dev, []*api.Environment{
+					makeEnv("prod", dev, makeUpstreamEnv("dev"),
+						makeApps(makeApp("foo", 2))),
+				}),
+				makeEnvGroup(dev, []*api.Environment{
+					makeEnv("dev", dev, makeUpstreamLatest(),
+						makeApps(makeApp("foo", 1))),
+				}),
+			},
+			ExpectedWarnings: []*api.Warning{
+				{
+					WarningType: &api.Warning_UnusualDeploymentOrder{
+						UnusualDeploymentOrder: &api.UnusualDeploymentOrder{
+							UpstreamVersion:     1,
+							UpstreamEnvironment: "dev",
+							ThisVersion:         2,
+							ThisEnvironment:     "prod",
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:    "app deployed in same version on upstream should not warn",
+			AppName: "foo",
+			Groups: []*api.EnvironmentGroup{
+				makeEnvGroup(dev, []*api.Environment{
+					makeEnv("prod", dev, makeUpstreamEnv("dev"),
+						makeApps(makeApp("foo", 2))),
+				}),
+				makeEnvGroup(dev, []*api.Environment{
+					makeEnv("dev", dev, makeUpstreamLatest(),
+						makeApps(makeApp("foo", 2))),
+				}),
+			},
+			ExpectedWarnings: []*api.Warning{},
+		},
+		{
+			Name:    "app deployed in no version on upstream should warn",
+			AppName: "foo",
+			Groups: []*api.EnvironmentGroup{
+				makeEnvGroup(dev, []*api.Environment{
+					makeEnv("prod", dev, makeUpstreamEnv("dev"),
+						makeApps(makeApp("foo", 1))),
+				}),
+				makeEnvGroup(dev, []*api.Environment{
+					makeEnv("dev", dev, makeUpstreamLatest(),
+						makeApps()),
+				}),
+			},
+			ExpectedWarnings: []*api.Warning{
+				{
+					WarningType: &api.Warning_UpstreamNotDeployed{
+						UpstreamNotDeployed: &api.UpstreamNotDeployed{
+							UpstreamEnvironment: "dev",
+							ThisVersion:         1,
+							ThisEnvironment:     "prod",
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			actualWarnings := CalculateWarnings(context.Background(), tc.AppName, tc.Groups)
+			if len(actualWarnings) != len(tc.ExpectedWarnings) {
+				t.Errorf("Different number of warnings. got: %s\nwant: %s", actualWarnings, tc.ExpectedWarnings)
+			}
+			for i := 0; i < len(actualWarnings); i++ {
+				actualWarning := actualWarnings[i]
+				expectedWarning := tc.ExpectedWarnings[i]
+				if diff := cmp.Diff(actualWarning.String(), expectedWarning.String()); diff != "" {
+					t.Errorf("Different warning at index [%d]:\ngot:  %s\nwant: %s", i, actualWarning, expectedWarning)
+				}
+			}
+		})
+	}
+
+}
+
 func TestOverviewService(t *testing.T) {
 	var dev = "dev"
 	tcs := []struct {

@@ -28,13 +28,14 @@ import { Application, UndeploySummary } from '../../../api/api';
 import { Tooltip } from '@material-ui/core';
 import * as React from 'react';
 import { AppLockSummary } from '../chip/EnvironmentGroupChip';
+import { WarningBoxes } from './Warnings';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
 const numberOfDisplayedReleasesOnHome = 6;
 
 const getReleasesToDisplay = (deployedReleases: number[], allReleases: number[]): number[] => {
-    // all deployed releases are important, latest release is also important
+    // all deployed releases are important and the latest release is also important
     const importantReleases = deployedReleases.includes(allReleases[0])
         ? deployedReleases
         : [allReleases[0], ...deployedReleases];
@@ -164,6 +165,9 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                         onClick={navCallback}
                     />
                 </div>
+            </div>
+            <div className="service__warnings">
+                <WarningBoxes application={application} />
             </div>
             <div className="service__releases">{releases_lane}</div>
         </div>
