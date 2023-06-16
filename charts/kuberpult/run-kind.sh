@@ -100,6 +100,74 @@ print "pushing environments to manifest repo..."
 GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../../services/cd-service/client' git push origin master
 cd -
 
+print "starting argoCd..."
+
+helm repo add argo-cd https://argoproj.github.io/argo-helm
+
+export GIT_NAMESPACE=git
+export ARGO_NAMESPACE=default
+
+helm uninstall argocd || echo "did not uninstall argo"
+cat <<YAML > argocd-values.yml
+configs:
+  ssh:
+    knownHosts: "$(cat ../../services/cd-service/known_hosts)"
+  cm:
+    accounts.kuberpult: apiKey
+  rbac:
+    policy.csv: |
+      p, role:kuberpult, applications, get, */*, allow
+      g, kuberpult, role:kuberpult
+
+YAML
+helm install argocd argo-cd/argo-cd --values argocd-values.yml --version 5.36.0
+
+print applying app...
+
+kubectl apply -f - <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - name: "dest1"
+    namespace: '*'
+    server: https://kubernetes.default.svc
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: ${ARGO_NAMESPACE}
+spec:
+  destination:
+    namespace: ${ARGO_NAMESPACE}
+    server: https://kubernetes.default.svc
+  project: test-env
+  source:
+    path: ./argocd/v1alpha1
+    repoURL: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
+    targetRevision: HEAD
+  syncPolicy:
+    automated: {}
+EOF
+
+waitForDeployment "default" "app.kubernetes.io/name=argocd-server"
+portForwardAndWait "default" service/argocd-server 8080 443
+print "admin password:"
+argocd_adminpw=$(kubectl -n default get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+echo "$argocd_adminpw"
+
+argocd login --port-forward --username admin --password "$argocd_adminpw"
+
+token=$(argocd account generate-token --port-forward --account kuberpult)
+
+echo "argocd token: $token"
+
 export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
 if "$LOCAL_EXECUTION"
@@ -109,8 +177,11 @@ then
 
   print 'building frontend service...'
   make -C ../../services/frontend-service/ docker
+
+  print 'building rollout service...'
+  make -C ../../services/rollout-service/ docker
 else
-  print 'not building cd or frontend service...'
+  print 'not building services...'
 fi
 
 print version...
@@ -189,64 +260,13 @@ git:
 ssh:
   identity: "$(cat ../../services/cd-service/client)"
   known_hosts: "$(cat ../../services/cd-service/known_hosts)"
+argocd:
+  token: "$token"
 VALUES
 
 helm template ./ --values vals.yaml > tmp.tmpl
 
 helm install --values vals.yaml kuberpult-local ./
-
-print "starting argoCd..."
-
-helm repo add argo-cd https://argoproj.github.io/argo-helm
-
-export GIT_NAMESPACE=git
-export ARGO_NAMESPACE=default
-
-ssh_options="configs.ssh.knownHosts=$(cat ../../services/cd-service/known_hosts)"
-
-helm uninstall argocd || echo "did not uninstall argo"
-helm install argocd argo-cd/argo-cd --set "$ssh_options" --version 5.36.0
-
-print applying app...
-
-kubectl apply -f - <<EOF
-apiVersion: argoproj.io/v1alpha1
-kind: AppProject
-metadata:
-  name: test-env
-spec:
-  description: test-env
-  destinations:
-  - name: "dest1"
-    namespace: '*'
-    server: https://kubernetes.default.svc
-  sourceRepos:
-  - '*'
----
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: root
-  namespace: ${ARGO_NAMESPACE}
-spec:
-  destination:
-    namespace: ${ARGO_NAMESPACE}
-    server: https://kubernetes.default.svc
-  project: test-env
-  source:
-    path: ./argocd/v1alpha1
-    repoURL: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
-    targetRevision: HEAD
-  syncPolicy:
-    automated: {}
-EOF
-
-waitForDeployment "default" "app.kubernetes.io/name=argocd-server"
-portForwardAndWait "default" service/argocd-server 8080 443
-print "admin password:"
-argocd_adminpw=$(kubectl -n default get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
-echo "$argocd_adminpw"
-
 print 'checking for pods and waiting for portforwarding to be ready...'
 
 kubectl get deployment
