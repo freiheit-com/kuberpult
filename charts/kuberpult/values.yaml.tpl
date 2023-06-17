@@ -91,6 +91,8 @@ argocd:
   #    g, kuberpult, role:kuberpult
   #
   token: ""
+  # Argocd server url. If argocd is running in the same cluster, use the service name of the api server.
+  server: ""
 
 datadogTracing:
   enabled: false

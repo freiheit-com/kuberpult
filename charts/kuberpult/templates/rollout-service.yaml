@@ -76,6 +76,8 @@ spec:
             cpu: "{{ .Values.rollout.resources.requests.cpu }}"
             memory: "{{ .Values.rollout.resources.requests.memory }}"
         env:
+        - name: KUBERPULT_CDSERVER
+          value: kuberpult-cd-service:8443
         - name: KUBERPULT_ARGOCD_SERVER
           value: {{ .Values.argocd.server | quote }}
         - name: LOG_FORMAT

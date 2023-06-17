@@ -129,6 +129,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: test-env
+  namespace: ${ARGO_NAMESPACE}
 spec:
   description: test-env
   destinations:
@@ -262,6 +263,7 @@ ssh:
   known_hosts: "$(cat ../../services/cd-service/known_hosts)"
 argocd:
   token: "$token"
+  server: "argocd-server.${ARGO_NAMESPACE}.svc.cluster.local"
 VALUES
 
 helm template ./ --values vals.yaml > tmp.tmpl
