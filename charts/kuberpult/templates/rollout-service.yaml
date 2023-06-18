@@ -116,9 +116,8 @@ spec:
         - name: KUBERPULT_DOGSTATSD_ADDR
           value: "{{ .Values.dogstatsdMetrics.address }}"
 {{- end }}
-
         volumeMounts:
-{{- /* We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115 */ -}}
+        # We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115
         - name: tmp
           mountPath: /tmp
           readOnly: false
