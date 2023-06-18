@@ -97,6 +97,7 @@ func runServer(ctx context.Context, config Config) error {
 	opts.Insecure = config.ArgocdInsecure
 	opts.AuthToken = config.ArgocdToken
 
+	logger.FromContext(ctx).Info("argocd.connecting", zap.String("argocd.addr", opts.ServerAddr))
 	client, err := apiclient.NewClient(&opts)
 	if err != nil {
 		return fmt.Errorf("connecting to argocd %s: %w", opts.ServerAddr, err)

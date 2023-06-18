@@ -93,6 +93,8 @@ argocd:
   token: ""
   # Argocd server url. If argocd is running in the same cluster, use the service name of the api server.
   server: ""
+  # Disables tls verification. This is useful when running in the same cluster as argocd and using a self-signed certificate.
+  insecure: false
 
 datadogTracing:
   enabled: false

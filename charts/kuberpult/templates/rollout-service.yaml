@@ -80,6 +80,8 @@ spec:
           value: kuberpult-cd-service:8443
         - name: KUBERPULT_ARGOCD_SERVER
           value: {{ .Values.argocd.server | quote }}
+        - name: KUBERPULT_ARGOCD_INSECURE
+          value: {{ .Values.argocd.insecure | quote }}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
@@ -116,12 +118,18 @@ spec:
 {{- end }}
 
         volumeMounts:
+{{- /* We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115 */-}}
+        - name: tmp
+          mountPath: /tmp
+          readOnly: false
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: dsdsocket
           mountPath: {{ .Values.dogstatsdMetrics.hostSocketPath }}
           readOnly: true
 {{- end }}
       volumes:
+      - name: tmp
+        emptyDir: {}
 {{- if .Values.dogstatsdMetrics.enabled }}
       - name: dsdsocket
         hostPath:

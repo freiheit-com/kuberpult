@@ -88,14 +88,13 @@ portForwardAndWait "git" "deployment/server" "2222" "22"
 
 rm emptyfile -f
 print "cloning..."
-git config --global user.email 'team.sre.permanent+kuberpult-initial-commiter@freiheit.com'; git config --global user.name 'Initial Kuberpult Commiter';
 GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../services/cd-service/client' git clone ssh://git@localhost:2222/git/repos/manifests
 
 cd manifests
 pwd
 cp ../../../infrastructure/scripts/create-testdata/testdata_template/environments -r .
 git add environments
-git commit -m "add initial environments from template"
+GIT_AUTHOR_NAME='Initial Kuberpult Commiter' GIT_COMMITTER_NAME='Initial Kuberpult Commiter' GIT_AUTHOR_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com'  GIT_COMMITTER_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com' git commit -m "add initial environments from template"
 print "pushing environments to manifest repo..."
 GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../../services/cd-service/client' git push origin master
 cd -
@@ -111,7 +110,8 @@ helm uninstall argocd || echo "did not uninstall argo"
 cat <<YAML > argocd-values.yml
 configs:
   ssh:
-    knownHosts: "$(cat ../../services/cd-service/known_hosts)"
+    knownHosts: |
+$(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
   cm:
     accounts.kuberpult: apiKey
   rbac:
@@ -173,11 +173,11 @@ export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kub
 
 if "$LOCAL_EXECUTION"
 then
-  print 'building cd service...'
-  WITH_DOCKER=true make -C ../../services/cd-service/ docker
+  #print 'building cd service...'
+  #WITH_DOCKER=true make -C ../../services/cd-service/ docker
 
-  print 'building frontend service...'
-  make -C ../../services/frontend-service/ docker
+  #print 'building frontend service...'
+  #make -C ../../services/frontend-service/ docker
 
   print 'building rollout service...'
   make -C ../../services/rollout-service/ docker
@@ -197,7 +197,7 @@ print "IMAGE_TAG_ROLLOUT is now ${IMAGE_TAG_ROLLOUT}"
 
 cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_CD}"
 frontend_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_FRONTEND}"
-rollout_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_ROLLOUT}"
+rollout_imagename="${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_ROLLOUT}"
 
 print "cd image: $cd_imagename"
 print "cd image tag: $IMAGE_TAG_CD"
@@ -256,14 +256,19 @@ rollout:
   tag: "${IMAGE_TAG_ROLLOUT}"
 ingress:
   domainName: kuberpult.example.com
+log:
+  level: INFO
 git:
   url: "ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests"
 ssh:
-  identity: "$(cat ../../services/cd-service/client)"
-  known_hosts: "$(cat ../../services/cd-service/known_hosts)"
+  identity: |
+$(sed -e "s/^/    /" <../../services/cd-service/client)
+  known_hosts: |
+$(sed -e "s/^/    /" <../../services/cd-service/known_hosts)
 argocd:
   token: "$token"
   server: "argocd-server.${ARGO_NAMESPACE}.svc.cluster.local"
+  insecure: true
 VALUES
 
 helm template ./ --values vals.yaml > tmp.tmpl
