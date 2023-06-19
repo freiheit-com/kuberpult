@@ -97,7 +97,20 @@ EOF
 echo fixing go files...
 for go_file in $go_files
 do
-    fix_file $go_file
+    fix_file "$go_file"
+done
+
+# Read all scss files
+css_files=$(find . -type f -name '*.scss')
+
+echo fixing css files...
+for css_file in $css_files
+do
+    if [[ $css_file =~ .*node_modules.* ]];
+    then
+        continue
+    fi
+    fix_file "$css_file"
 done
 
 # Read all ts files
@@ -110,7 +123,7 @@ do
     then
         continue
     fi
-    fix_file $ts_file
+    fix_file "$ts_file"
 done
 
 # Read all tsx files
@@ -122,7 +135,7 @@ do
     then
         continue
     fi
-    fix_file $tsx_file
+    fix_file "$tsx_file"
 done
 
 # Read all yaml files
@@ -142,7 +155,7 @@ c_files=$(find . -type f -name '*.[ch]')
 echo fixing c files...
 for c_file in $c_files
 do
-    fix_file $c_file
+    fix_file "$c_file"
 done
 
 
@@ -155,7 +168,7 @@ do
     then
         continue
     fi
-    fix_file_yaml_make $make_file
+    fix_file_yaml_make "$make_file"
 done
 
 exit $RET_CODE
