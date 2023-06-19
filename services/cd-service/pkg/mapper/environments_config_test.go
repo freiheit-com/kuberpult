@@ -32,7 +32,7 @@ func makeUpstreamLatest() *api.EnvironmentConfig_Upstream {
 	}
 }
 
-func MakeUpstreamEnvironment(env string) *api.EnvironmentConfig_Upstream {
+func makeUpstreamEnvironment(env string) *api.EnvironmentConfig_Upstream {
 	return &api.EnvironmentConfig_Upstream{
 		Environment: &env,
 	}
@@ -122,7 +122,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
-						makeEnv(nameStagingDe, nameStagingDe, MakeUpstreamEnvironment(nameDevDe), 1, api.Priority_PROD),
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PROD),
 					},
 					DistanceToUpstream: 1,
 				},
@@ -150,14 +150,14 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameDevDe,
 					Environments: []*api.Environment{
-						makeEnv(nameDevDe, nameDevDe, MakeUpstreamEnvironment(nameStagingDe), 667, api.Priority_PRE_PROD),
+						makeEnv(nameDevDe, nameDevDe, makeUpstreamEnvironment(nameStagingDe), 667, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 667,
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
-						makeEnv(nameStagingDe, nameStagingDe, MakeUpstreamEnvironment(nameDevDe), 668, api.Priority_PROD),
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 668, api.Priority_PROD),
 					},
 					DistanceToUpstream: 668,
 				},
@@ -192,7 +192,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
-						makeEnv(nameStagingDe, nameStagingDe, MakeUpstreamEnvironment(nameWhoKnows), 667, api.Priority_PROD),
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameWhoKnows), 667, api.Priority_PROD),
 					},
 					DistanceToUpstream: 667,
 				},
@@ -231,14 +231,14 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
-						makeEnv(nameStagingDe, nameStagingDe, MakeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 1,
 				},
 				{
 					EnvironmentGroupName: nameProdDe,
 					Environments: []*api.Environment{
-						makeEnv(nameProdDe, nameProdDe, MakeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PROD),
+						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PROD),
 					},
 					DistanceToUpstream: 2,
 				},
@@ -279,21 +279,21 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
-						makeEnv(nameStagingDe, nameStagingDe, MakeUpstreamEnvironment(nameDevDe), 1, api.Priority_OTHER),
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_OTHER),
 					},
 					DistanceToUpstream: 1,
 				},
 				{
 					EnvironmentGroupName: nameProdDe,
 					Environments: []*api.Environment{
-						makeEnv(nameProdDe, nameProdDe, MakeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PRE_PROD),
+						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 2,
 				},
 				{
 					EnvironmentGroupName: nameWhoKnowsDe,
 					Environments: []*api.Environment{
-						makeEnv(nameWhoKnowsDe, nameWhoKnowsDe, MakeUpstreamEnvironment(nameProdDe), 3, api.Priority_PROD),
+						makeEnv(nameWhoKnowsDe, nameWhoKnowsDe, makeUpstreamEnvironment(nameProdDe), 3, api.Priority_PROD),
 					},
 					DistanceToUpstream: 3,
 				},
@@ -352,16 +352,16 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameStaging,
 					Environments: []*api.Environment{
-						makeEnv(nameStagingDe, nameStaging, MakeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
-						makeEnv(nameStagingFr, nameStaging, MakeUpstreamEnvironment(nameDevFr), 1, api.Priority_PRE_PROD),
+						makeEnv(nameStagingDe, nameStaging, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
+						makeEnv(nameStagingFr, nameStaging, makeUpstreamEnvironment(nameDevFr), 1, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 1,
 				},
 				{
 					EnvironmentGroupName: nameProd,
 					Environments: []*api.Environment{
-						makeEnv(nameProdDe, nameProd, MakeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PROD),
-						makeEnv(nameProdFr, nameProd, MakeUpstreamEnvironment(nameStagingFr), 2, api.Priority_PROD),
+						makeEnv(nameProdDe, nameProd, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PROD),
+						makeEnv(nameProdFr, nameProd, makeUpstreamEnvironment(nameStagingFr), 2, api.Priority_PROD),
 					},
 					DistanceToUpstream: 2,
 				},
