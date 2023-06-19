@@ -19,8 +19,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"os"
 	"regexp"
@@ -228,7 +226,6 @@ For really unusual configurations, these will be logged and not returned.
 */
 func CalculateWarnings(ctx context.Context, appName string, groups []*api.EnvironmentGroup) []*api.Warning {
 	result := make([]*api.Warning, 0)
-	log := logger.FromContext(ctx)
 	for e := 0; e < len(groups); e++ {
 		group := groups[e]
 		for i := 0; i < len(groups[e].Environments); i++ {
@@ -240,8 +237,7 @@ func CalculateWarnings(ctx context.Context, appName string, groups []*api.Enviro
 			upstreamEnvName := env.Config.GetUpstream().Environment
 			upstreamEnv := getEnvironmentByName(groups, *upstreamEnvName)
 			if upstreamEnv == nil {
-				// this is already checked on startup and therefore shouldn't happen here:
-				log.Warn(fmt.Sprintf("environment '%s' has upstream '%s' configured, which does not exist", env.Name, *upstreamEnvName))
+				// this is already checked on startup and therefore shouldn't happen here
 				continue
 			}
 
