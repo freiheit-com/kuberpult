@@ -598,7 +598,7 @@ func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (st
 				return "", err
 			} else {
 				GaugeEnvLockMetric(fs, c.Environment)
-				return fmt.Sprintf("created lock %q on environment %q", c.LockId, c.Environment), nil
+				return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
 			}
 		}
 	}
@@ -668,7 +668,7 @@ func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (st
 			}
 		}
 		GaugeEnvLockMetric(fs, c.Environment)
-		return fmt.Sprintf("unlocked environment %q%s", c.Environment, additionalMessageFromDeployment), nil
+		return fmt.Sprintf("Deleted lock %q on environment %q%s", c.LockId, c.Environment, additionalMessageFromDeployment), nil
 	}
 }
 
@@ -697,7 +697,7 @@ func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state 
 				return "", err
 			} else {
 				GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
-				return fmt.Sprintf("created lock %q on environment %q for application %q", c.LockId, c.Environment, c.Application), nil
+				return fmt.Sprintf("Created lock %q on environment %q for application %q", c.LockId, c.Environment, c.Application), nil
 			}
 		}
 	}
@@ -723,7 +723,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state 
 			return "", err
 		}
 		GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
-		return fmt.Sprintf("unlocked application %q in environment %q%q", c.Application, c.Environment, queueMessage), nil
+		return fmt.Sprintf("Deleted lock %q on environment %q for application %q%s", c.LockId, c.Environment, c.Application, queueMessage), nil
 	}
 }
 
