@@ -23,6 +23,7 @@ import {
     GetOverviewResponse,
     Priority,
     Release,
+    Warning,
 } from '../../api/api';
 import { useApi } from './GrpcApi';
 import { useCallback, useMemo } from 'react';
@@ -239,6 +240,10 @@ export const useTeamNames = (): string[] =>
 
 export const useTeamFromApplication = (app: string): string =>
     useOverview(({ applications }) => applications[app]?.team?.trim() || '');
+
+// returns warnings from all apps
+export const useAllWarnings = (): Warning[] =>
+    useOverview(({ applications }) => Object.values(applications).flatMap((app) => app.warnings));
 
 // returns applications filtered by dropdown and sorted by team name and then by app name
 export const useFilteredApps = (teams: string[]): Application[] =>

@@ -23,7 +23,9 @@ import { ShowBarWhite } from '../../../images';
 import { useSearchParams } from 'react-router-dom';
 import { Dropdown } from '../dropdown/dropdown';
 import classNames from 'classnames';
-import { UpdateSidebar, useSidebarShown } from '../../utils/store';
+import { UpdateSidebar, useAllWarnings, useSidebarShown } from '../../utils/store';
+import { useKuberpultVersion } from '../../utils/AzureAuthProvider';
+import { Warning } from '../../../api/api';
 
 export const TopAppBar: React.FC = () => {
     const control = useRef<HTMLDivElement>(null);
@@ -41,12 +43,23 @@ export const TopAppBar: React.FC = () => {
         return (): void => MDComponent.current?.destroy();
     }, []);
 
+    const version = useKuberpultVersion();
+
+    const allWarnings: Warning[] = useAllWarnings();
+    const renderedWarnings =
+        allWarnings.length === 0 ? (
+            ''
+        ) : (
+            <div className="service-lane__warning">There are {allWarnings.length} warnings total.</div>
+        );
+
     return (
         <div className="mdc-top-app-bar" ref={control}>
             <div className="mdc-top-app-bar__row">
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-                    <span className="mdc-top-app-bar__title">Kuberpult</span>
+                    <span className="mdc-top-app-bar__title">Kuberpult v{version}</span>
                 </div>
+                <div className="mdc-top-app-bar__section">{renderedWarnings}</div>
                 <div className="mdc-top-app-bar__section">
                     <Textfield
                         className={'top-app-bar-search-field'}

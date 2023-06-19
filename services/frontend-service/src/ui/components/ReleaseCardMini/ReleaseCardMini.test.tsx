@@ -110,6 +110,7 @@ describe('Release Card Mini', () => {
                         sourceRepoUrl: 'url',
                         undeploySummary: UndeploySummary.Normal,
                         team: 'no-team',
+                        warnings: [],
                     },
                 },
                 environmentGroups: [

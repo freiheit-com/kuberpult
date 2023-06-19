@@ -183,6 +183,7 @@ describe('Release Card', () => {
                         sourceRepoUrl: 'url',
                         undeploySummary: UndeploySummary.Normal,
                         team: 'no-team',
+                        warnings: [],
                     },
                 },
                 environmentGroups: [],

@@ -57,6 +57,7 @@ describe('Service Lane', () => {
             sourceRepoUrl: 'http://test2.com',
             team: 'example',
             undeploySummary: UndeploySummary.Normal,
+            warnings: [],
         };
         UpdateOverview.set({
             applications: {
@@ -248,6 +249,7 @@ describe('Service Lane Diff', () => {
                         team: '',
                         sourceRepoUrl: '',
                         undeploySummary: UndeploySummary.Mixed,
+                        warnings: [],
                     },
                 },
                 environmentGroups: [
@@ -264,6 +266,7 @@ describe('Service Lane Diff', () => {
                 releases: [],
                 sourceRepoUrl: 'http://test2.com',
                 team: 'example',
+                warnings: [],
             };
             const { container } = getWrapper({ application: sampleApp });
 
@@ -340,6 +343,7 @@ describe('Service Lane Important Releases', () => {
                 team: 'test2',
                 sourceRepoUrl: 'test2',
                 undeploySummary: UndeploySummary.Mixed,
+                warnings: [],
             };
             UpdateOverview.set({
                 applications: {
@@ -413,6 +417,7 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
                 sourceRepoUrl: 'http://test2.com',
                 team: 'example',
                 undeploySummary: UndeploySummary.Normal,
+                warnings: [],
             },
             envs: [
                 {
@@ -439,6 +444,7 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
                 sourceRepoUrl: 'http://test2.com',
                 team: 'example',
                 undeploySummary: UndeploySummary.Undeploy,
+                warnings: [],
             },
             envs: [
                 {
@@ -536,6 +542,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                 sourceRepoUrl: 'http://test2.com',
                 team: 'example',
                 undeploySummary: UndeploySummary.Normal,
+                warnings: [],
             },
             envs: [
                 {
@@ -561,6 +568,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                 sourceRepoUrl: 'http://test2.com',
                 team: 'example',
                 undeploySummary: UndeploySummary.Normal,
+                warnings: [],
             },
             envs: [
                 {
@@ -583,6 +591,7 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
                 sourceRepoUrl: 'http://test2.com',
                 team: 'example',
                 undeploySummary: UndeploySummary.Normal,
+                warnings: [],
             },
             envs: [
                 {

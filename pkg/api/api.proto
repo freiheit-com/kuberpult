@@ -229,6 +229,26 @@ message CreateEnvironmentRequest {
   EnvironmentConfig config = 2;
 }
 
+message Warning {
+  oneof warningType {
+    UnusualDeploymentOrder unusual_deployment_order = 1;
+    UpstreamNotDeployed upstream_not_deployed = 2;
+  }
+}
+
+message UnusualDeploymentOrder {
+  uint64 upstreamVersion = 1;
+  string upstreamEnvironment = 2;
+  uint64 thisVersion = 3;
+  string thisEnvironment = 4;
+}
+
+message UpstreamNotDeployed {
+  string upstreamEnvironment = 2;
+  uint64 thisVersion = 3;
+  string thisEnvironment = 4;
+}
+
 
 message Environment {
 
@@ -288,6 +308,7 @@ message Application {
   string sourceRepoUrl= 3;
   string team = 4;
   UndeploySummary undeploySummary = 5;
+  repeated Warning warnings = 8;
 }
 
 message Actor {
