@@ -100,7 +100,7 @@ jobs:
       id: integrationTests
       continue-on-error: true
       run: |
-        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8082/health
+        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8081/health
         curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8080/health
     - name: Print container logs
       if: steps.integrationTests.outcome == 'failure'
@@ -109,4 +109,6 @@ jobs:
         docker logs kuberpult-cd-service
         echo "Frontend logs"
         docker logs kuberpult-frontend-service
+
+        # We need to exit with error code because "continue-on-errors" bypasses the error and the build is considered successful
         exit 1
