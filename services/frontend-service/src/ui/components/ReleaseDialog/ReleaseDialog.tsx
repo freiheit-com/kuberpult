@@ -79,6 +79,19 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     queuedVersion,
     className,
 }) => {
+    const createAppLock = useCallback(() => {
+        addAction({
+            action: {
+                $case: 'createEnvironmentApplicationLock',
+                createEnvironmentApplicationLock: {
+                    environment: env.name,
+                    application: app,
+                    lockId: '',
+                    message: '',
+                },
+            },
+        });
+    }, [app, env.name]);
     const deploy = useCallback(() => {
         if (release.version) {
             addAction({
@@ -94,20 +107,8 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                 },
             });
         }
-    }, [app, env.name, release.version]);
-    const createAppLock = useCallback(() => {
-        addAction({
-            action: {
-                $case: 'createEnvironmentApplicationLock',
-                createEnvironmentApplicationLock: {
-                    environment: env.name,
-                    application: app,
-                    lockId: '',
-                    message: '',
-                },
-            },
-        });
-    }, [app, env.name]);
+        createAppLock();
+    }, [app, env.name, release.version, createAppLock]);
     const queueInfo =
         queuedVersion === 0 ? null : (
             <div
@@ -181,12 +182,17 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             onClick={createAppLock}
                             icon={<Locks className="icon" />}
                         />
-                        <Button
-                            disabled={application && application.version === release.version}
-                            className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
-                            onClick={deploy}
-                            label="Deploy"
-                        />
+                        <div
+                            title={
+                                'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, you can remove it from the "planned actions".'
+                            }>
+                            <Button
+                                disabled={application && application.version === release.version}
+                                className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
+                                onClick={deploy}
+                                label="Deploy & Lock"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>

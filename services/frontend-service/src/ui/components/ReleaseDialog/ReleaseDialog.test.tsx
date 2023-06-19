@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { EnvironmentListItem, ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { fireEvent, render } from '@testing-library/react';
-import { UpdateOverview, UpdateSidebar } from '../../utils/store';
+import { UpdateAction, UpdateOverview, UpdateSidebar } from '../../utils/store';
 import { Environment, Priority, Release, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
 import { SideBar } from '../SideBar/SideBar';
@@ -264,6 +264,7 @@ describe('Release Dialog', () => {
         });
         it('Test using deploy button click simulation', () => {
             UpdateSidebar.set({ shown: false });
+            UpdateAction.set({ actions: [] });
             setTheStore(testcase);
 
             render(
@@ -277,9 +278,35 @@ describe('Release Dialog', () => {
             const result = querySelectorSafe('.env-card-deploy-btn');
             fireEvent.click(result);
             expect(UpdateSidebar.get().shown).toBeTruthy();
+            expect(UpdateAction.get().actions).toEqual([
+                {
+                    action: {
+                        $case: 'deploy',
+                        deploy: {
+                            application: 'test1',
+                            environment: 'prod',
+                            ignoreAllLocks: false,
+                            lockBehavior: 2,
+                            version: 3,
+                        },
+                    },
+                },
+                {
+                    action: {
+                        $case: 'createEnvironmentApplicationLock',
+                        createEnvironmentApplicationLock: {
+                            application: 'test1',
+                            environment: 'prod',
+                            lockId: '',
+                            message: '',
+                        },
+                    },
+                },
+            ]);
         });
         it('Test using add lock button click simulation', () => {
             UpdateSidebar.set({ shown: false });
+            UpdateAction.set({ actions: [] });
             setTheStore(testcase);
 
             getWrapper(testcase.props);
@@ -295,6 +322,19 @@ describe('Release Dialog', () => {
             const result = querySelectorSafe('.env-card-add-lock-btn');
             fireEvent.click(result);
             expect(UpdateSidebar.get().shown).toBeTruthy();
+            expect(UpdateAction.get().actions).toEqual([
+                {
+                    action: {
+                        $case: 'createEnvironmentApplicationLock',
+                        createEnvironmentApplicationLock: {
+                            application: 'test1',
+                            environment: 'prod',
+                            lockId: '',
+                            message: '',
+                        },
+                    },
+                },
+            ]);
         });
     });
 });
