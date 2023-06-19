@@ -100,7 +100,7 @@ jobs:
       id: integrationTests
       continue-on-error: true
       run: |
-        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8081/health
+        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8082/health
         curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8080/health
     - name: Print container logs
       if: steps.integrationTests.outcome == 'failure'
