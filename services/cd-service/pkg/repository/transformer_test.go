@@ -2832,3 +2832,109 @@ func TestDeleteEnvFromApp(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteLocks(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		expectedError     string
+		expectedCommitMsg string
+		shouldSucceed     bool
+	}{
+		{
+			Name: "Success delete env lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&DeleteEnvironmentLock{
+					Environment: envProduction,
+					LockId:      "l123",
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "Deleted lock \"l123\" on environment \"production\"",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "Success delete app lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&DeleteEnvironmentApplicationLock{
+					Environment: envProduction,
+					Application: "app1",
+					LockId:      "l123",
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "Deleted lock \"l123\" on environment \"production\" for application \"app1\"",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "Success create env lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironmentLock{
+					Environment: envProduction,
+					LockId:      "l123",
+					Message:     "my lock",
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "Created lock \"l123\" on environment \"production\"",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "Success create app lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: envProduction,
+					Application: "app1",
+					LockId:      "l123",
+					Message:     "my lock",
+				},
+			},
+			expectedError:     "",
+			expectedCommitMsg: "Created lock \"l123\" on environment \"production\" for application \"app1\"",
+			shouldSucceed:     true,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			commitMsg, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			// note that we only check the LAST error here:
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				actualMsg := commitMsg[len(commitMsg)-1]
+				if actualMsg != tc.expectedCommitMsg {
+					t.Fatalf("expected a different message.\nExpected: %q\nGot %q", tc.expectedCommitMsg, actualMsg)
+				}
+			} else {
+				if err == nil {
+					t.Fatalf("Expected an error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
+				}
+			}
+		})
+	}
+}
