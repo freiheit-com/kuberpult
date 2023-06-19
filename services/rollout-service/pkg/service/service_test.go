@@ -170,7 +170,8 @@ func TestArgoConection(t *testing.T) {
 						Type: "ADDED",
 						Application: v1alpha1.Application{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "foo",
+								Name:        "foo",
+								Annotations: map[string]string{},
 							},
 							Spec: v1alpha1.ApplicationSpec{
 								Project: "",
@@ -207,7 +208,11 @@ func TestArgoConection(t *testing.T) {
 						Type: "ADDED",
 						Application: v1alpha1.Application{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "foo-bar",
+								Name: "doesntmatter",
+								Annotations: map[string]string{
+									"com.freiheit.kuberpult/environment": "foo",
+									"com.freiheit.kuberpult/application": "bar",
+								},
 							},
 							Spec: v1alpha1.ApplicationSpec{
 								Project: "foo",

@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -67,7 +66,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 				logger.FromContext(ctx).Warn("argocd.application.recv", zap.Error(err))
 				break
 			}
-			environment, application := parseName(ev.Application.Name, ev.Application.Spec.Project)
+			environment, application := getEnvironmentAndName(ev.Application.Annotations)
 			if application == "" {
 				continue
 			}
@@ -86,13 +85,8 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 	}
 }
 
-// We currently exploit that the project is always the environment and the application is env + app joined by "-"
-func parseName(appName, project string) (string, string) {
-	prefix := project + "-"
-	if strings.HasPrefix(appName, prefix) {
-		return project, strings.TrimPrefix(appName, prefix)
-	}
-	return "", ""
+func getEnvironmentAndName(annotations map[string]string) (string, string) {
+	return annotations["com.freiheit.kuberpult/environment"], annotations["com.freiheit.kuberpult/application"]
 }
 
 type Event struct {
