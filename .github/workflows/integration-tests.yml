@@ -95,12 +95,12 @@ jobs:
         echo kind stopped
     - name: Run docker compose
       run: |
-        docker-compose -f ./docker-compose.tpl.yml up
+        docker-compose -f ./docker-compose.tpl.yml up -d
     - name: Integration test docker-compose
       id: integrationTests
       continue-on-error: true
       run: |
-        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8081/health
+        curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8082/health
         curl --retry 3 --retry-max-time 20 --retry-all-errors http://localhost:8080/health
     - name: Print container logs
       if: steps.integrationTests.outcome == 'failure'
@@ -109,4 +109,4 @@ jobs:
         docker logs kuberpult-cd-service
         echo "Frontend logs"
         docker logs kuberpult-frontend-service
-        
+        exit 1
