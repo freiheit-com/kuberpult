@@ -6,6 +6,31 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.72
+**released 2023-06-19**
+### Breaking Changes
+none
+### Major Changes
+* [Encode username and mail with base64](https://github.com/freiheit-com/kuberpult/pull/721)
+* [Render warnings for unusual deployment situations](https://github.com/freiheit-com/kuberpult/pull/731)
+* [Also lock when deploying manually](https://github.com/freiheit-com/kuberpult/pull/732)
+### Minor Changes
+* [Add documentation for how to obtain the gke config](https://github.com/freiheit-com/kuberpult/pull/711)
+* [Run kind in CI with kuberpult & git server & environments as test data ](https://github.com/freiheit-com/kuberpult/pull/708)
+* [Use team name for codeowners](https://github.com/freiheit-com/kuberpult/pull/713)
+* [Remove unused endpoints Get/StreamDeployedOverview ](https://github.com/freiheit-com/kuberpult/pull/713)
+* [Enable tracing for release endpoint](https://github.com/freiheit-com/kuberpult/pull/717)
+* [Removed unused Field "environments"](https://github.com/freiheit-com/kuberpult/pull/716)
+* [Run ArgoCd in Kind for integration tests](https://github.com/freiheit-com/kuberpult/pull/714)
+* [Allow Origin * by default](https://github.com/freiheit-com/kuberpult/pull/720)
+* [Update golang Docker tag to v1.20.5](https://github.com/freiheit-com/kuberpult/pull/718)
+* [Allow easier app removal](https://github.com/freiheit-com/kuberpult/pull/722)
+* [Delete Environment from App in backend](https://github.com/freiheit-com/kuberpult/pull/723)
+* [fix release train script](https://github.com/freiheit-com/kuberpult/pull/726)
+* [Build services when go files in /pkg were changed](https://github.com/freiheit-com/kuberpult/pull/724)
+* [Update module google.golang.org/api to v0.127.0](https://github.com/freiheit-com/kuberpult/pull/700)
+* [Update module gopkg.in/DataDog/dd-trace-go.v1 to v1.51.0](https://github.com/freiheit-com/kuberpult/pull/701)
+
 ## 0.4.71
 **released 2023-05-31**
 ### Breaking Changes
