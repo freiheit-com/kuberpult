@@ -27,6 +27,8 @@ import (
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	git "github.com/libgit2/git2go/v34"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -54,6 +56,12 @@ func (o *OverviewServiceServer) GetOverview(
 		}
 		state, err := o.Repository.StateAt(oid)
 		if err != nil {
+			var gerr *git.GitError
+			if errors.As(err, &gerr) {
+				if gerr.Code == git.ErrNotFound {
+					return nil, status.Error(codes.NotFound, "not found")
+				}
+			}
 			return nil, err
 		}
 		return o.getOverview(ctx, state)

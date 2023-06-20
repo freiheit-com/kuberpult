@@ -245,16 +245,6 @@ spec:
     requestPath: /health
   timeoutSec: {{ .Values.cd.backendConfig.timeoutSec }}
 {{- end }}
-
-{{- if .Values.argocd.enabled }}
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kuberpult-argocd
-type: Opaque
-data:
-  KUBERPULT_ARGO_CD_PASS: {{ .Values.argocd.password | b64enc }}
-{{- end }}
 {{- if .Values.environment_configs.bootstrap_mode }}
 ---
 apiVersion: v1

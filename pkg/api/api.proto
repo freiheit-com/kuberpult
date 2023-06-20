@@ -315,3 +315,30 @@ message Actor {
   string name = 1;
   string email = 2;
 }
+
+service RolloutService {
+  rpc StreamStatus (StreamStatusRequest) returns (stream StreamStatusResponse) {}
+}
+
+message StreamStatusRequest {}
+
+/*
+
+Unknown = can't tell
+Successful = everything is fine
+Progressing = waiting for something
+Error = error
+*/
+enum RolloutStatus {
+  RolloutStatusUnknown = 0; // argocd didn't report anything for this app
+  RolloutStatusSuccesful = 1; // sync healthy
+  RolloutStatusProgressing = 2; // out-of-sync || 
+  RolloutStatusError = 3; // error in argocd
+}
+
+message StreamStatusResponse {
+  string environment = 1;
+  string application = 2;
+  uint64 version     = 3;
+  RolloutStatus rollout_status = 4;
+}
