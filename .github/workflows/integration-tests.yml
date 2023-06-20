@@ -85,6 +85,8 @@ jobs:
         echo running kind
         ./charts/kuberpult/run-kind.sh
     - name: Integration test kind
+      id: kindIntegrationTests
+      continue-on-error: true
       run: |
         echo "testing in next step (kind)"
         curl localhost:8081 -v # should return html
@@ -93,6 +95,15 @@ jobs:
         echo stopping kind ...
         killall kubectl
         echo kind stopped
+    - name: Print Kind logs
+      if: steps.kindIntegrationTests.outcome == 'failure'
+      run: |
+        echo "CD logs"
+        kubectl logs deployment/kuberpult-cd-service
+        echo "Frontend logs"
+        kubectl logs deployment/kuberpult-frontend-service
+        # We need to exit with error code because "continue-on-errors" bypasses the error and the build is considered successful
+        exit 1   
     - name: Run docker compose
       run: |
         docker-compose -f ./docker-compose.tpl.yml up -d
