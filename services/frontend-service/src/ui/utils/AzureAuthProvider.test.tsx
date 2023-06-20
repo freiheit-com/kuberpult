@@ -85,7 +85,7 @@ describe('AuthProvider', () => {
                     <AuthenticatedTemplate>Authenticated</AuthenticatedTemplate>
                 </MsalProvider>
             );
-            await act(async () => await global.nextTick());
+            await act(async (): Promise<void> => await global.nextTick());
             await waitFor(() => expect(handleRedirectSpy).toHaveBeenCalledTimes(1));
             expect(screen.getByText('Authenticated')).toBeInTheDocument();
         });
