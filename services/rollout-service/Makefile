@@ -24,7 +24,8 @@ export CGO_ENABLED=0
 GO := go
 
 GO_FILES := $(shell find . -type f -name '*.go')
-
+PKG_GO_FILES := $(shell find ../../pkg/ -type f -name '*.go')
+ALL_GO_FILES := $(GO_FILES) $(PKG_GO_FILES)
 
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-rollout-service:${VERSION}
 
@@ -33,7 +34,7 @@ GARBAGE := *.sentinel
 proto:
 	$(MAKE) -C../../pkg/api all
 
-bin/main: $(GO_FILES) | proto
+bin/main: $(ALL_GO_FILES) | proto
 	mkdir -p bin
 	$(GO) build -o bin/main ./cmd/server/
 GARBAGE += bin/main
