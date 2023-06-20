@@ -211,8 +211,8 @@ kubectl get deployment
 kubectl get pods
 
 print "port forwarding to cd service..."
-waitForDeployment "default" "app=kuberpult-frontend-service"
-portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
+waitForDeployment "default" "app=kuberpult-cd-service"
+portForwardAndWait "default" "deployment/kuberpult-cd-service" 8082 8080
 
 waitForDeployment "default" "app=kuberpult-frontend-service"
 portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
