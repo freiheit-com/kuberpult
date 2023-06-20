@@ -115,7 +115,7 @@ jobs:
       continue-on-error: true
       run: |
         echo "testing in next step (kind)"
-        curl localhost:8083 -v # should return html
+        curl localhost:8081 -v # should return html
     - name: Stop kind
       run: |
         echo stopping kind ...
