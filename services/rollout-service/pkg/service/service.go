@@ -56,6 +56,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 			return fmt.Errorf("watching applications: %w", err)
 		}
 		ready()
+	recv:
 		for {
 			ev, err := watch.Recv()
 			if err != nil {
@@ -70,17 +71,33 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 			if application == "" {
 				continue
 			}
-			version, err := version.GetVersion(ctx, ev.Application.Status.Sync.Revision, environment, application)
-			if err != nil {
-				logger.FromContext(ctx).Warn("version.getversion", zap.String("revision", ev.Application.Status.Sync.Revision), zap.Error(err))
+			switch ev.Type {
+			case "ADDED", "MODIFIED":
+				version, err := version.GetVersion(ctx, ev.Application.Status.Sync.Revision, environment, application)
+				if err != nil {
+					logger.FromContext(ctx).Warn("version.getversion", zap.String("revision", ev.Application.Status.Sync.Revision), zap.Error(err))
+				}
+				sink.Process(ctx, Event{
+					Application:      application,
+					Environment:      environment,
+					SyncStatusCode:   ev.Application.Status.Sync.Status,
+					HealthStatusCode: ev.Application.Status.Health.Status,
+					Version:          version,
+				})
+			case "DELETED":
+				sink.Process(ctx, Event{
+					Application:      application,
+					Environment:      environment,
+					SyncStatusCode:   ev.Application.Status.Sync.Status,
+					HealthStatusCode: ev.Application.Status.Health.Status,
+					Version:          0,
+				})
+				continue recv
+			case "BOOKMARK":
+				// ignore this event
+			default:
+				logger.FromContext(ctx).Warn("argocd.application.unknown_type", zap.String("event.type", string(ev.Type)))
 			}
-			sink.Process(ctx, Event{
-				Application:      application,
-				Environment:      environment,
-				SyncStatusCode:   ev.Application.Status.Sync.Status,
-				HealthStatusCode: ev.Application.Status.Health.Status,
-				Version:          version,
-			})
 		}
 	}
 }

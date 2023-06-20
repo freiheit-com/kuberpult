@@ -235,6 +235,49 @@ func TestArgoConection(t *testing.T) {
 			},
 			ExpectedReady: true,
 		},
+		{
+			Name: "doesnt generate events for deleted ",
+			Versions: []version{
+				{
+					Revision:        "1234",
+					Environment:     "foo",
+					Application:     "bar",
+					DeployedVersion: 42,
+				},
+			},
+			Steps: []step{
+				{
+					Event: &v1alpha1.ApplicationWatchEvent{
+						Type: "DELETED",
+						Application: v1alpha1.Application{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "doesntmatter",
+								Annotations: map[string]string{
+									"com.freiheit.kuberpult/environment": "foo",
+									"com.freiheit.kuberpult/application": "bar",
+								},
+							},
+							Spec: v1alpha1.ApplicationSpec{
+								Project: "foo",
+							},
+							Status: v1alpha1.ApplicationStatus{
+								Sync:   v1alpha1.SyncStatus{Revision: "1234"},
+								Health: v1alpha1.HealthStatus{},
+							},
+						},
+					},
+					ExpectedEvent: &Event{
+						Application: "bar",
+						Environment: "foo",
+						Version:     0,
+					},
+				},
+				{
+					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+				},
+			},
+			ExpectedReady: true,
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
