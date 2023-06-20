@@ -31,6 +31,8 @@ import (
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
+
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -86,9 +88,23 @@ func getGrpcClient(ctx context.Context, config Config) (api.OverviewServiceClien
 }
 
 func runServer(ctx context.Context, config Config) error {
+	grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
+	grpcStreamInterceptors := []grpc.StreamServerInterceptor{
+		grpc_zap.StreamServerInterceptor(grpcServerLogger),
+	}
+	grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
+		grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+	}
+
 	if config.EnableTracing {
 		tracer.Start()
 		defer tracer.Stop()
+		grpcStreamInterceptors = append(grpcStreamInterceptors,
+			grpctrace.StreamServerInterceptor(grpctrace.WithServiceName("rollout-service")),
+		)
+		grpcUnaryInterceptors = append(grpcUnaryInterceptors,
+			grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName("rollout-service")),
+		)
 	}
 
 	var opts apiclient.ClientOptions
@@ -149,10 +165,10 @@ func runServer(ctx context.Context, config Config) error {
 			}},
 		GRPC: &setup.GRPCConfig{
 			Port: "8443",
-			/*			Opts: []grpc.ServerOption{
-						grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
-						grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
-					},*/
+			Opts: []grpc.ServerOption{
+				grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
+				grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
+			},
 			Register: func(srv *grpc.Server) {
 				api.RegisterRolloutServiceServer(srv, broadcast)
 				reflection.Register(srv)
