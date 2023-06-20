@@ -27,13 +27,13 @@ cd ../..
 - This repository is bare, to populate it, fill it with data as described in `README.md` or https://github.com/freiheit-com/kuberpult/pull/95
 - the value of environment variables are defaulted to `KUBERPULT_GIT_URL=./repository_remote` and `KUBERPULT_GIT_BRANCH=master`
 - run the following command to start all the services required.
+```bash
+make kuberpult
+```
 
 For details on how to fill the repo, see the
 [Readme for testdata](infrastructure/scripts/create-testdata/Readme.md)
 
-```bash
-make kuberpult
-```
 - the `cd-service` is available at `localhost:8080`. And Kuberpult ui is available at `localhost:3000`
 
 ## GRCP Calls (with docker-compose setup)
