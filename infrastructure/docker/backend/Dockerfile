@@ -1,18 +1,25 @@
 FROM alpine:3.18
 
-RUN apk --update add --no-cache curl make go git libgit2-dev sqlite sqlite-dev pkgconfig build-base
-RUN BIN="/usr/local/bin" && \
-  curl -sSL \
-    "https://github.com/bufbuild/buf/releases/download/v1.7.0/buf-Linux-x86_64" \
-    -o "${BIN}/buf" && \
-  chmod +x "${BIN}/buf"
+ARG UID=1000
+ARG ARCH=x86_64
+ARG OS=Linux
 
-RUN echo 'ab8f1808a9add5e0578d9f0b45bc3b9e01d7f4192023328b1041614cf792076f  /usr/local/bin/buf' | sha256sum -c
+ARG BUF_VERSION=v1.21.0
+ARG BUF_BIN_PATH=/usr/local/bin
+
+RUN apk --update add --no-cache curl make go git libgit2-dev sqlite sqlite-dev pkgconfig build-base
+RUN curl -sSL \
+    "https://github.com/bufbuild/buf/releases/download/${BUF_VERSION}/buf-${OS}-${ARCH}" \
+    -o "${BUF_BIN_PATH}/buf" && \
+  chmod +x "${BUF_BIN_PATH}/buf"
+
+RUN SHA=$(curl -sL https://github.com/bufbuild/buf/releases/download/${BUF_VERSION}/sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
+  echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
 
 EXPOSE 8080
 EXPOSE 8443
 
-RUN adduser --disabled-password --gecos "" --home "/kp" --uid 1000 kp
+RUN adduser --disabled-password --gecos "" --home "/kp" --uid ${UID} kp
 
 RUN chown -R kp:kp /kp
 
