@@ -1,0 +1,6 @@
+---
+metadata:
+  builder: kuberpult-builder
+spec:
+  dependsOn:
+  - ../../pkg

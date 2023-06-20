@@ -46,6 +46,16 @@ jobs:
           exit 1
         fi
 
+        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(make version) > /dev/null; then
+          echo "IMAGE_TAG_ROLLOUT=$(make version)" >> $GITHUB_ENV
+        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(git describe --always --long --tags main); then
+          echo "IMAGE_TAG_ROLLOUT=$(git describe --always --long --tags main)" >> $GITHUB_ENV
+        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(git describe --tags --abbrev=0 main); then
+          echo "IMAGE_TAG_ROLLOUT=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
+        else
+          echo "No valid images found in the registry for the rollout service"
+          exit 1
+        fi
     - name: Setup main environment
       if: inputs.trigger == 'main'
       run: |
@@ -68,6 +78,14 @@ jobs:
           exit 1
         fi
 
+        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(make version) > /dev/null; then
+          echo "IMAGE_TAG_ROLLOUT=$(make version)" >> $GITHUB_ENV
+        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(git describe --tags --abbrev=0 main); then
+          echo "IMAGE_TAG_ROLLOUT=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
+        else
+          echo "No valid images found in the registry for the rollout service"
+          exit 1
+        fi
     - name: Print environment
       run: |
         echo Using registry: $IMAGE_REGISTRY
@@ -75,11 +93,19 @@ jobs:
         echo main tag: $(git describe --always --long --tags main)
         echo Using tag for cd service: $IMAGE_TAG_CD
         echo Using tag for frontend service: $IMAGE_TAG_FRONTEND
+        echo Using tag for rollout service: $IMAGE_TAG_ROLLOUT
     - name: Create bare repository # Needed for cd-service to start
       run: |
         mkdir -p ./services/cd-service/repository_remote
         git -C ./services/cd-service/repository_remote init --bare
         git clone ./services/cd-service/repository_remote ./services/cd-service/repository_checkedout
+    - name: Setup argocd cli
+      run: |
+        mkdir -p "$HOME/.local/bin"
+        curl -sSL -o "$HOME/.local/bin/argocd" https://github.com/argoproj/argo-cd/releases/download/v2.7.5/argocd-linux-amd64
+        echo "a7680140ddb9011c3d282eaff5f5a856be18e8653ff9f0c7047a318f640753be $HOME/.local/bin/argocd" | sha256sum -c -
+        chmod +x "$HOME/.local/bin/argocd"
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
     - name: Run kind
       run: |
         echo running kind
