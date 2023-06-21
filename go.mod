@@ -18,7 +18,7 @@ require (
 	github.com/libgit2/git2go/v34 v34.0.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.10.0
-	google.golang.org/api v0.127.0
+	google.golang.org/api v0.128.0
 	google.golang.org/grpc v1.56.0
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.51.0
