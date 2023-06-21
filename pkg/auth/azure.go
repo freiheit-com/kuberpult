@@ -26,8 +26,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MicahParks/keyfunc"
-	jwt "github.com/golang-jwt/jwt/v4"
+	"github.com/MicahParks/keyfunc/v2"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
