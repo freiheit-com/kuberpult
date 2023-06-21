@@ -42,7 +42,7 @@ describe('Test Auxiliary Functions for Lock Display', () => {
 
         describe.each(cases)(`Tests each isOutdated`, (testcase) => {
             beforeAll(() => {
-                jest.useFakeTimers('modern');
+                jest.useFakeTimers();
                 jest.setSystemTime(new Date(2022, 1, 1));
             });
 
