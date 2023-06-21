@@ -23,7 +23,7 @@ CODE_REVIEWER_LOCATION?=$(HOME)/bin/codereviewr
 
 MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg/api pkg
 
-export UID := $(shell id -u)
+export USER_UID := $(shell id -u)
 export ARCH := $(shell uname -m)
 export OS := $(shell uname)
 

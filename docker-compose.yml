@@ -3,7 +3,7 @@ services:
     build: 
       context: infrastructure/docker/backend
       args:
-        - UID=$UID
+        - UID=$USER_UID
         - ARCH=$ARCH
         - OS=$OS
     container_name: kuberpult-cd-service
@@ -16,7 +16,7 @@ services:
     build:
       context: infrastructure/docker/frontend
       args:
-        - UID=$UID
+        - UID=$USER_UID
         - ARCH=$ARCH
         - OS=$OS
     container_name: kuberpult-frontend-service
@@ -33,7 +33,7 @@ services:
     build:
       context: infrastructure/docker/ui
       args:
-        - UID=$UID
+        - UID=$USER_UID
         - ARCH=$ARCH
         - OS=$OS
     container_name: kuberpult-ui
