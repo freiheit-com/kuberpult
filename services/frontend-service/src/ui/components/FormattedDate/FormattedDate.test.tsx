@@ -66,7 +66,7 @@ describe('Relative Date Calculation', () => {
     describe.each(data)('calculates the right date and time', (testcase) => {
         it(testcase.name, () => {
             // given
-            jest.useFakeTimers('modern'); // fake time is now "0"
+            jest.useFakeTimers(); // fake time is now "0"
             jest.setSystemTime(testcase.systemTime.valueOf()); // time is now at the exact moment when release was created
             const { container } = render(<FormattedDate createdAt={testReleaseDate} />);
 
