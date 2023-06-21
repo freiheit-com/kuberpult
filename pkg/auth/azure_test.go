@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/MicahParks/keyfunc"
-	jwt "github.com/golang-jwt/jwt/v4"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 )
 
