@@ -192,7 +192,6 @@ func (d *BatchServer) ProcessBatch(
 	}
 	err := d.Repository.Apply(ctx, transformers...)
 	if err != nil {
-		//return nil, httperrors.InternalError(ctx, fmt.Errorf("could not apply transformer: %w", err))
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
