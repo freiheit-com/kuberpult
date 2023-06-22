@@ -13,7 +13,7 @@
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 # Copyright 2023 freiheit.com
-SHELL := bash
+SHELL := sh
 
 include ./Makefile.variables
 MAKEFLAGS += --no-builtin-rules
