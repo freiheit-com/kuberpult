@@ -39,7 +39,7 @@ func TeamName(name string) bool {
 	return len(name) < 21 && teamNameRx.MatchString(name)
 }
 
-// Lock names must be valid file names
+// LockId returns true if the Lock name is a valid file name
 func LockId(lockId string) bool {
 	return len(lockId) < 100 && len(lockId) > 1 && lockId != ".." && lockId != "." && !strings.ContainsAny(lockId, "/")
 }

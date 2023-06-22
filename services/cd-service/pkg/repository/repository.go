@@ -23,7 +23,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
+	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
 	"os"
@@ -515,12 +517,23 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		r.maybeGc(ctx)
 	}()
 	eCh := r.applyDeferred(ctx, transformers...)
+	var result error = nil
 	select {
 	case err := <-eCh:
-		return err
+		result = err
 	case <-ctx.Done():
-		return ctx.Err()
+		result = ctx.Err()
 	}
+	if result == nil {
+		return nil
+	}
+	statusErr, ok := status.FromError(result)
+	if ok && statusErr != nil {
+		// if it is a status error, we return to the caller without change:
+		return result
+	}
+	// otherwise, we use InternalError to print the error and return just a generic error message to the caller:
+	return httperrors.InternalError(ctx, result)
 }
 
 func (r *repository) applyDeferred(ctx context.Context, transformers ...Transformer) <-chan error {

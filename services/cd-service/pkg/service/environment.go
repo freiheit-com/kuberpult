@@ -20,7 +20,6 @@ import (
 	"context"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -60,7 +59,7 @@ func (e *EnvironmentServiceServer) CreateEnvironment(
 		},
 	})
 	if err != nil {
-		return nil, httperrors.InternalError(ctx, err)
+		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }

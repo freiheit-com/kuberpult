@@ -94,8 +94,8 @@ func TestDeployService(t *testing.T) {
 				},
 				&repository.CreateEnvironmentLock{
 					Environment: "production",
-					LockId:      "a",
-					Message:     "b",
+					LockId:      "aa",
+					Message:     "bb",
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
@@ -106,7 +106,7 @@ func TestDeployService(t *testing.T) {
 				&repository.CreateEnvironmentApplicationLock{
 					Environment: "production",
 					Application: "test",
-					LockId:      "c",
+					LockId:      "cc",
 				},
 			},
 			Test: func(t *testing.T, svc *DeployServiceServer) {
@@ -131,10 +131,10 @@ func TestDeployService(t *testing.T) {
 					t.Fatalf("error is a status error, but has no details: %s", err.Error())
 				}
 				lockErr := details[0].(*api.LockedError)
-				if _, ok := lockErr.EnvironmentLocks["a"]; !ok {
+				if _, ok := lockErr.EnvironmentLocks["aa"]; !ok {
 					t.Errorf("lockErr doesn't contain the environment lock")
 				}
-				if _, ok := lockErr.EnvironmentApplicationLocks["c"]; !ok {
+				if _, ok := lockErr.EnvironmentApplicationLocks["cc"]; !ok {
 					t.Errorf("lockErr doesn't contain the application environment lock")
 				}
 			},
