@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"google.golang.org/grpc/codes"
@@ -193,7 +192,8 @@ func (d *BatchServer) ProcessBatch(
 	}
 	err := d.Repository.Apply(ctx, transformers...)
 	if err != nil {
-		return nil, httperrors.InternalError(ctx, fmt.Errorf("could not apply transformer: %w", err))
+		//return nil, httperrors.InternalError(ctx, fmt.Errorf("could not apply transformer: %w", err))
+		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }

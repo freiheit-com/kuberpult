@@ -32,6 +32,6 @@ func InternalError(ctx context.Context, err error) error {
 
 func PublicError(ctx context.Context, err error) error {
 	logger := logger.FromContext(ctx)
-	logger.Error("grpc.internal", zap.Error(err))
+	logger.Error("grpc.public", zap.Error(err))
 	return status.Error(codes.InvalidArgument, "error: "+err.Error())
 }

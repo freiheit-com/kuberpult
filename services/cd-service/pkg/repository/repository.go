@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"io"
 	"io/ioutil"
@@ -278,7 +279,7 @@ func (r *repository) ProcessQueue(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case e := <-r.queue.elements:
-			r.ProcessQueueOnce(e)
+			r.ProcessQueueOnce(ctx, e)
 		}
 	}
 }
@@ -328,7 +329,8 @@ func (r *repository) drainQueue() []element {
 	}
 }
 
-func (r *repository) ProcessQueueOnce(e element) {
+func (r *repository) ProcessQueueOnce(ctx context.Context, e element) {
+	logger := logger.FromContext(ctx)
 	var err error = panicError
 	elements := []element{e}
 	defer func() {
@@ -347,10 +349,17 @@ func (r *repository) ProcessQueueOnce(e element) {
 	// Try to fetch more items from the queue in order to push more things together
 	elements = append(elements, r.drainQueue()...)
 
+	var pushCallbackSuccess = false
+	var pushUpdate = func(refname string, status string) error {
+		logger.Warn(fmt.Sprintf("SU DEBUG updated refname: '%s' with status '%s'", refname, status))
+		pushCallbackSuccess = refname == fmt.Sprintf("refs/heads/%s", r.config.Branch) && status == ""
+		return nil
+	}
 	pushOptions := git.PushOptions{
 		RemoteCallbacks: git.RemoteCallbacks{
-			CredentialsCallback:      r.credentials.CredentialsCallback(e.ctx),
-			CertificateCheckCallback: r.certificates.CertificateCheckCallback(e.ctx),
+			CredentialsCallback:         r.credentials.CredentialsCallback(e.ctx),
+			CertificateCheckCallback:    r.certificates.CertificateCheckCallback(e.ctx),
+			PushUpdateReferenceCallback: pushUpdate,
 		},
 	}
 	pushAction := func() error {
@@ -386,10 +395,14 @@ func (r *repository) ProcessQueueOnce(e element) {
 				err = &InternalError{inner: pushErr}
 			}
 		} else {
-			err = &InternalError{inner: err}
+			logger.Error(fmt.Sprintf("error while pushing: %s", err))
+			err = httperrors.PublicError(ctx, errors.New(fmt.Sprintf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch)))
+		}
+	} else {
+		if !pushCallbackSuccess {
+			err = fmt.Errorf("failed to push, checked via callback - this indicates that branch protection is enabled in '%s' on branch  '%s'", r.config.URL, r.config.Branch)
 		}
 	}
-	err = nil
 	r.notify.Notify()
 }
 
