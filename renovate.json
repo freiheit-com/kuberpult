@@ -1,7 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base"
+    "config:base",
+    ":dependencyDashboard"
   ],
   "platform": "github",
   "endpoint": "https://github.com/freiheit-com/kuberpult",
