@@ -350,9 +350,8 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element) {
 	elements = append(elements, r.drainQueue()...)
 
 	var pushCallbackSuccess = false
-	var pushUpdate = func(refname string, status string) error {
-		logger.Warn(fmt.Sprintf("SU DEBUG updated refname: '%s' with status '%s'", refname, status))
-		pushCallbackSuccess = refname == fmt.Sprintf("refs/heads/%s", r.config.Branch) && status == ""
+	var pushUpdate = func(refName string, status string) error {
+		pushCallbackSuccess = refName == fmt.Sprintf("refs/heads/%s", r.config.Branch) && status == ""
 		return nil
 	}
 	pushOptions := git.PushOptions{
