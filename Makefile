@@ -90,4 +90,4 @@ cleanup-main:
 	@echo "Nothing to do"
 
 kuberpult:
-	docker compose up --build
+	docker-compose up --build
