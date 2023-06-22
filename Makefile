@@ -13,6 +13,7 @@
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 # Copyright 2023 freiheit.com
+SHELL := sh
 
 include ./Makefile.variables
 MAKEFLAGS += --no-builtin-rules
@@ -23,6 +24,7 @@ CODE_REVIEWER_LOCATION?=$(HOME)/bin/codereviewr
 
 MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg/api pkg
 
+export USER_UID := $(shell id -u)
 
 .install:
 	touch .install
@@ -87,3 +89,6 @@ cleanup-pr:
 .PHONY: cleanup-main
 cleanup-main:
 	@echo "Nothing to do"
+
+kuberpult:
+	docker-compose up --build

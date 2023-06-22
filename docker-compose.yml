@@ -1,6 +1,9 @@
 services:
   backend:
-    build: infrastructure/docker/backend
+    build: 
+      context: infrastructure/docker/backend
+      args:
+        - UID=$USER_UID
     container_name: kuberpult-cd-service
     ports:
       - "8080:8080"
@@ -8,7 +11,10 @@ services:
     volumes:
       - .:/kp/kuberpult
   frontend:
-    build: infrastructure/docker/frontend
+    build:
+      context: infrastructure/docker/frontend
+      args:
+        - UID=$USER_UID
     container_name: kuberpult-frontend-service
     environment:
       - KUBERPULT_CDSERVER=kuberpult-cd-service:8443
@@ -20,7 +26,10 @@ services:
     volumes:
       - .:/kp/kuberpult
   ui:
-    build: infrastructure/docker/ui
+    build:
+      context: infrastructure/docker/ui
+      args:
+        - UID=$USER_UID
     container_name: kuberpult-ui
     ports:
       - "3000:3000"
