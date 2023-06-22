@@ -4,8 +4,6 @@ services:
       context: infrastructure/docker/backend
       args:
         - UID=$USER_UID
-        - ARCH=$ARCH
-        - OS=$OS
     container_name: kuberpult-cd-service
     ports:
       - "8080:8080"
@@ -17,8 +15,6 @@ services:
       context: infrastructure/docker/frontend
       args:
         - UID=$USER_UID
-        - ARCH=$ARCH
-        - OS=$OS
     container_name: kuberpult-frontend-service
     environment:
       - KUBERPULT_CDSERVER=kuberpult-cd-service:8443
@@ -34,8 +30,6 @@ services:
       context: infrastructure/docker/ui
       args:
         - UID=$USER_UID
-        - ARCH=$ARCH
-        - OS=$OS
     container_name: kuberpult-ui
     ports:
       - "3000:3000"
