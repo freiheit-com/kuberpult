@@ -1473,7 +1473,6 @@ func TestProcessQueueOnce(t *testing.T) {
 
 			// create a remote
 			dir := t.TempDir()
-			t.Logf("tmp dir: %s", dir)
 			remoteDir := path.Join(dir, "remote")
 			localDir := path.Join(dir, "local")
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
@@ -1491,8 +1490,6 @@ func TestProcessQueueOnce(t *testing.T) {
 			}
 			repoInternal := repo.(*repository)
 			repoInternal.ProcessQueueOnce(context.Background(), tc.Element, tc.PushUpdateFunc, tc.PushActionFunc)
-
-			t.Logf("after processQueueOnce")
 
 			result := tc.Element.result
 			actualError = <-result

@@ -77,7 +77,9 @@ run: docker
 	docker run --rm -e KUBERPULT_GIT_URL="/repository_remote" -e KUBERPULT_GIT_BRANCH=master -p 8080:8080 -p 8443:8443 -v $(shell pwd)/repository_remote:/repository_remote $(IMAGENAME)
 else
 run: build
-	KUBERPULT_GIT_URL="./repository_remote" KUBERPULT_GIT_BRANCH=master ./bin/main
+	#KUBERPULT_GIT_URL="./repository_remote" KUBERPULT_GIT_BRANCH=master ./bin/main
+#	KUBERPULT_GIT_URL="git@github.com:sven-urbanski-freiheit-com/manifest-test.git" KUBERPULT_GIT_BRANCH="main" KUBERPULT_GIT_SSH_KEY="../../private.key" KUBERPULT_GIT_SSH_KNOWN_HOSTS=../../known_hosts_github  ./bin/main
+	KUBERPULT_GIT_URL="git@github.com:freiheit-com/fdc-standard-setup-dev-env-manifest.git" KUBERPULT_GIT_BRANCH="main" KUBERPULT_GIT_SSH_KEY="../../private.key" KUBERPULT_GIT_SSH_KNOWN_HOSTS=../../known_hosts_github  ./bin/main
 endif
 
 bin/main: bin/ $(ALL_GO_FILES) | proto
