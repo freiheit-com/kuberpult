@@ -420,7 +420,6 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 		}
 	}
 	r.notify.Notify()
-	logger.Error(fmt.Sprintf("SU DEBUG after notify"))
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error) {
