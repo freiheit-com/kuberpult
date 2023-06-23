@@ -393,9 +393,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	}
 
 	// Try pushing once
-	logger.Error(fmt.Sprintf("SU DEBUG before push"))
 	err = r.Push(e.ctx, pushAction(pushOptions, r))
-	logger.Error(fmt.Sprintf("SU DEBUG after push, error=%v", err))
 	if err != nil {
 		gerr := err.(*git.GitError)
 		// If it doesn't work because the branch diverged, try reset and apply again.
