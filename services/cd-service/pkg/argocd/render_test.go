@@ -44,6 +44,8 @@ metadata:
     com.freiheit.kuberpult/team: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
   name: dev-app1
 spec:
   destination: {}
@@ -83,6 +85,8 @@ metadata:
     com.freiheit.kuberpult/team: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
   name: dev-app1
 spec:
   destination: {}
@@ -124,6 +128,8 @@ metadata:
     com.freiheit.kuberpult/team: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
   name: dev-app1
 spec:
   destination:
@@ -320,6 +326,8 @@ metadata:
     com.freiheit.kuberpult/team: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
   name: test-env-app1
 spec:
   destination:
@@ -372,6 +380,8 @@ metadata:
     com.freiheit.kuberpult/team: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
   name: test-env-app1
 spec:
   destination: {}
@@ -493,6 +503,8 @@ metadata:
     com.freiheit.kuberpult/team: some-team
   finalizers:
   - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: some-team
   name: test-env-app1
 spec:
   destination: {}

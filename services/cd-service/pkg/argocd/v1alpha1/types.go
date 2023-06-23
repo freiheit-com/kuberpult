@@ -26,6 +26,7 @@ type SyncOptions []string
 type ObjectMeta struct {
 	Name        string            `json:"name"`
 	Annotations map[string]string `json:"annotations,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
 	Finalizers  []string          `json:"finalizers,omitempty"`
 }
 
