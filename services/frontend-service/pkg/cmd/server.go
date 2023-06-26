@@ -26,6 +26,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
+
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
@@ -41,6 +44,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -166,24 +171,34 @@ func runServer(ctx context.Context) error {
 		grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
 		grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 	)
-	con, err := grpc.Dial(c.CdServer, grpcClientOpts...)
+	cdCon, err := grpc.Dial(c.CdServer, grpcClientOpts...)
 	if err != nil {
 		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
+	}
+	var rolloutClient api.RolloutServiceClient = nil
+	if c.RolloutServer != "" {
+		rolloutCon, err := grpc.Dial(c.RolloutServer, grpcClientOpts...)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.RolloutServer))
+		}
+		rolloutClient = api.NewRolloutServiceClient(rolloutCon)
 	}
 
 	batchClient := api.NewBatchServiceClient(con)
 	deployClient := api.NewDeployServiceClient(con)
 	environmentClient := api.NewEnvironmentServiceClient(con)
 	gproxy := &GrpcProxy{
-		OverviewClient:    api.NewOverviewServiceClient(con),
-		DeployClient:      deployClient,
-		BatchClient:       batchClient,
-		EnvironmentClient: environmentClient,
+		OverviewClient:       api.NewOverviewServiceClient(con),
+		DeployClient:         deployClient,
+		BatchClient:          batchClient,
+		EnvironmentClient:    environmentClient,
+		RolloutServiceClient: rolloutClient,
 	}
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
 	api.RegisterDeployServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
 	api.RegisterEnvironmentServiceServer(gsrv, gproxy)
+	api.RegisterRolloutServiceServer(gsrv, gproxy)
 
 	frontendConfigService := &service.FrontendConfigServiceServer{
 		Config: config.FrontendConfig{
@@ -394,10 +409,11 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // An alternative to the more generic methods proposed in
 // https://github.com/grpc/grpc-go/issues/2297
 type GrpcProxy struct {
-	OverviewClient    api.OverviewServiceClient
-	DeployClient      api.DeployServiceClient
-	BatchClient       api.BatchServiceClient
-	EnvironmentClient api.EnvironmentServiceClient
+	OverviewClient       api.OverviewServiceClient
+	DeployClient         api.DeployServiceClient
+	BatchClient          api.BatchServiceClient
+	EnvironmentClient    api.EnvironmentServiceClient
+	RolloutServiceClient api.RolloutServiceClient
 }
 
 func (p *GrpcProxy) ProcessBatch(
@@ -446,4 +462,23 @@ func (p *GrpcProxy) CreateEnvironment(
 	ctx context.Context,
 	in *api.CreateEnvironmentRequest) (*emptypb.Empty, error) {
 	return p.EnvironmentClient.CreateEnvironment(ctx, in)
+}
+
+func (p *GrpcProxy) StreamStatus(in *api.StreamStatusRequest, stream api.RolloutService_StreamStatusServer) error {
+	if p.RolloutServiceClient == nil {
+		return status.Error(codes.Unimplemented, "rollout status not implemented")
+	}
+	if resp, err := p.RolloutServiceClient.StreamStatus(stream.Context(), in); err != nil {
+		return err
+	} else {
+		for {
+			if item, err := resp.Recv(); err != nil {
+				return err
+			} else {
+				if err := stream.Send(item); err != nil {
+					return err
+				}
+			}
+		}
+	}
 }

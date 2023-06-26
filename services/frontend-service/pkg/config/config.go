@@ -18,6 +18,7 @@ package config
 
 type ServerConfig struct {
 	CdServer            string `default:"kuberpult-cd-service:8443"`
+	RolloutServer       string `default:""`
 	HttpCdServer        string `default:"http://kuberpult-cd-service:80" split_words:"true"`
 	GKEProjectNumber    string `default:"" split_words:"true"`
 	GKEBackendServiceID string `default:"" split_words:"true"`
