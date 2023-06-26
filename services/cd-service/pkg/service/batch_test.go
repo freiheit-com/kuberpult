@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"google.golang.org/grpc/status"
 	"os/exec"
@@ -205,6 +206,69 @@ func TestBatchServiceWorks(t *testing.T) {
 				}
 			}
 
+		})
+	}
+}
+
+type ErrorTransformer struct{}
+
+func (p *ErrorTransformer) Transform(ctx context.Context, state *repository.State) (string, error) {
+	return "error", errors.New("i am the transformer error")
+}
+
+func TestBatchServiceErrors(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Batch         []*api.BatchAction
+		Setup         []repository.Transformer
+		ExpectedError string
+	}{
+		{
+			// tests that in ProcessBatch, transformer errors are returned without wrapping them in a
+			// not so helpful "internal error"
+			Name:  "forwards transformers error to caller: cannot open manifest",
+			Setup: []repository.Transformer{},
+			Batch: []*api.BatchAction{
+				{
+					Action: &api.BatchAction_Deploy{
+						Deploy: &api.DeployRequest{
+							Environment:  "dev",
+							Application:  "myapp",
+							Version:      666,
+							LockBehavior: 0,
+						},
+					},
+				}},
+			ExpectedError: "could not open manifest 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(context.Background(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+			svc := &BatchServer{
+				Repository: repo,
+			}
+			_, err = svc.ProcessBatch(
+				context.Background(),
+				&api.BatchRequest{
+					Actions: tc.Batch,
+				},
+			)
+			if err == nil {
+				t.Fatal("Expected an error but got nil")
+			}
+			if err.Error() != tc.ExpectedError {
+				t.Errorf("want:\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, err.Error())
+			}
 		})
 	}
 }
