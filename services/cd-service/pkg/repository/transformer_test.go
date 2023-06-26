@@ -1975,6 +1975,8 @@ metadata:
     com.freiheit.kuberpult/team: team1
   finalizers:
   - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: team1
   name: staging-test
 spec:
   destination:
@@ -2000,6 +2002,8 @@ metadata:
     com.freiheit.kuberpult/team: team2
   finalizers:
   - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: team2
   name: staging-test2
 spec:
   destination:
@@ -2077,6 +2081,8 @@ metadata:
     com.freiheit.kuberpult/team: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
   name: staging-test
 spec:
   destination:
@@ -2160,6 +2166,8 @@ metadata:
     com.freiheit.kuberpult/team: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
   name: staging-test
 spec:
   destination:
