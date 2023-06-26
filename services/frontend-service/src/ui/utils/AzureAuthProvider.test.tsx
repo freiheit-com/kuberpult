@@ -51,7 +51,8 @@ describe('AuthProvider', () => {
         localAccountId: '',
         environment: '',
         tenantId,
-        username: '',
+        username: 'mail@example.com',
+        name: 'test person',
     };
     const msalConfig: Configuration = {
         auth: {
@@ -134,6 +135,8 @@ describe('AuthProvider', () => {
             expect(screen.queryByText('Token Acquired')).toBeInTheDocument();
             await waitFor(async () => expect(acquireTokenSilentSpy).toHaveBeenCalledTimes(1));
             await waitFor(() => expect(AzureAuthSub.get().authHeader.get('authorization')).toContain('unique-token'));
+            await waitFor(() => expect(AzureAuthSub.get().authHeader.get('email')).toContain('mail@example.com'));
+            await waitFor(() => expect(AzureAuthSub.get().authHeader.get('username')).toContain('test person'));
         });
     });
 
