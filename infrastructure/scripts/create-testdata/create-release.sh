@@ -77,7 +77,7 @@ done
 echo commit id: ${commit_id}
 
 
-curl http://localhost:8082/release \
+curl http://localhost:8080/release \
   --form-string "application=$name" \
   --form-string "source_commit_id=${commit_id}" \
   --form-string "source_author=${author}" \
