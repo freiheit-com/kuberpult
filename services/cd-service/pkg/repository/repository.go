@@ -581,6 +581,9 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 }
 
 func (r *repository) afterTransform(ctx context.Context, state State) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
+	defer span.Finish()
+
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return err
