@@ -6,6 +6,41 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.73
+**released 2023-06-27**
+### Breaking Changes
+none
+### Major Changes
+* [Unify commit messages for unlocking](https://github.com/freiheit-com/kuberpult/pull/736)
+* [Add team label to argo app](https://github.com/freiheit-com/kuberpult/pull/757)
+* [Do not ignore git push errors](https://github.com/freiheit-com/kuberpult/pull/747)
+* [Append email and username and pass it along to the batchservice](https://github.com/freiheit-com/kuberpult/pull/759)
+* [Adding username/email as datadog tags to span](https://github.com/freiheit-com/kuberpult/pull/760)
+
+### Minor Changes
+* [Add rollout service base](https://github.com/freiheit-com/kuberpult/pull/660)
+* [Add license to scss files](https://github.com/freiheit-com/kuberpult/pull/734)
+* [Print container logs if integration tests fail](https://github.com/freiheit-com/kuberpult/pull/737)
+* [Update module google.golang.org/grpc to v1.56.0 ](https://github.com/freiheit-com/kuberpult/pull/730)
+* [Update module golang.org/x/crypto to v0.10.0](https://github.com/freiheit-com/kuberpult/pull/728)
+* [Update module google.golang.org/api to v0.128.0 ](https://github.com/freiheit-com/kuberpult/pull/729)
+* [Prepare for upgrade to node 18](https://github.com/freiheit-com/kuberpult/pull/741)
+* [Update Node.js to v18 ](https://github.com/freiheit-com/kuberpult/pull/632)
+* [Update dependency typescript to v5.1.3](https://github.com/freiheit-com/kuberpult/pull/709)
+* [Adapt jest.useFakeTimers for jest upgrade ](https://github.com/freiheit-com/kuberpult/pull/743)
+* [Update module github.com/MicahParks/keyfunc to v2 and jwt to v5](https://github.com/freiheit-com/kuberpult/pull/744)
+* [Update dependency @types/jest to v29](https://github.com/freiheit-com/kuberpult/pull/616)
+* [Add dashboard to renovate](https://github.com/freiheit-com/kuberpult/pull/745)
+* [Add broadcast implementation and tests ](https://github.com/freiheit-com/kuberpult/pull/746)
+* [Allow kuberpult to run on different machines and architectures](https://github.com/freiheit-com/kuberpult/pull/742)
+* [Update module github.com/argoproj/argo-cd/v2 to v2.7.6](https://github.com/freiheit-com/kuberpult/pull/752)
+* [Update module github.com/argoproj/gitops-engine to v0.7.3](https://github.com/freiheit-com/kuberpult/pull/749)
+* [Revert "Update module github.com/argoproj/gitops-engine to v0.7.3"](https://github.com/freiheit-com/kuberpult/pull/763)
+* [Update module google.golang.org/grpc to v1.56.1](https://github.com/freiheit-com/kuberpult/pull/750)
+* [Update module gopkg.in/DataDog/dd-trace-go.v1 to v1.52.0](https://github.com/freiheit-com/kuberpult/pull/753)
+* [fix port in create-release for local setup](https://github.com/freiheit-com/kuberpult/pull/762)
+
+
 ## 0.4.72
 **released 2023-06-19**
 ### Breaking Changes
