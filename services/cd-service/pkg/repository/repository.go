@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"io"
 	"io/ioutil"
@@ -278,7 +279,7 @@ func (r *repository) ProcessQueue(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case e := <-r.queue.elements:
-			r.ProcessQueueOnce(e)
+			r.ProcessQueueOnce(ctx, e, DefaultPushUpdate, DefaultPushActionCallback)
 		}
 	}
 }
@@ -328,7 +329,32 @@ func (r *repository) drainQueue() []element {
 	}
 }
 
-func (r *repository) ProcessQueueOnce(e element) {
+// DefaultPushUpdate is public for testing reasons only.
+// It returns always nil
+// success is set to true if the push was successful
+func DefaultPushUpdate(branch string, success *bool) git.PushUpdateReferenceCallback {
+	return func(refName string, status string) error {
+		var expectedRefName = fmt.Sprintf("refs/heads/%s", branch)
+		// if we were successful the status is empty and the ref contains our branch:
+		*success = refName == expectedRefName && status == ""
+		return nil
+	}
+}
+
+type PushActionFunc func() error
+type PushActionCallbackFunc func(git.PushOptions, *repository) PushActionFunc
+
+// DefaultPushActionCallback is public for testing reasons only.
+func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushActionFunc {
+	return func() error {
+		return r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
+	}
+}
+
+type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
+
+func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
+	logger := logger.FromContext(ctx)
 	var err error = panicError
 	elements := []element{e}
 	defer func() {
@@ -347,14 +373,13 @@ func (r *repository) ProcessQueueOnce(e element) {
 	// Try to fetch more items from the queue in order to push more things together
 	elements = append(elements, r.drainQueue()...)
 
+	var pushSuccess = true
 	pushOptions := git.PushOptions{
 		RemoteCallbacks: git.RemoteCallbacks{
-			CredentialsCallback:      r.credentials.CredentialsCallback(e.ctx),
-			CertificateCheckCallback: r.certificates.CertificateCheckCallback(e.ctx),
+			CredentialsCallback:         r.credentials.CredentialsCallback(e.ctx),
+			CertificateCheckCallback:    r.certificates.CertificateCheckCallback(e.ctx),
+			PushUpdateReferenceCallback: callback(r.config.Branch, &pushSuccess),
 		},
-	}
-	pushAction := func() error {
-		return r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
 	}
 
 	// Apply the items
@@ -368,7 +393,7 @@ func (r *repository) ProcessQueueOnce(e element) {
 	}
 
 	// Try pushing once
-	err = r.Push(e.ctx, pushAction)
+	err = r.Push(e.ctx, pushAction(pushOptions, r))
 	if err != nil {
 		gerr := err.(*git.GitError)
 		// If it doesn't work because the branch diverged, try reset and apply again.
@@ -382,14 +407,18 @@ func (r *repository) ProcessQueueOnce(e element) {
 			if err != nil || len(elements) == 0 {
 				return
 			}
-			if pushErr := r.Push(e.ctx, pushAction); pushErr != nil {
+			if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
 				err = &InternalError{inner: pushErr}
 			}
 		} else {
-			err = &InternalError{inner: err}
+			logger.Error(fmt.Sprintf("error while pushing: %s", err))
+			err = httperrors.PublicError(ctx, errors.New(fmt.Sprintf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch)))
+		}
+	} else {
+		if !pushSuccess {
+			err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
 		}
 	}
-	err = nil
 	r.notify.Notify()
 }
 
@@ -527,6 +556,7 @@ func (r *repository) applyDeferred(ctx context.Context, transformers ...Transfor
 	return r.queue.add(ctx, transformers)
 }
 
+// Push returns an 'error' for typing reasons, really it is always a git.GitError
 func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 
 	span, ctx := tracer.StartSpanFromContext(ctx, "Apply")

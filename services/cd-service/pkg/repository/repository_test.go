@@ -872,6 +872,12 @@ func (s *SlowTransformer) Transform(ctx context.Context, state *State) (string, 
 	return "ok", nil
 }
 
+type EmptyTransformer struct{}
+
+func (p *EmptyTransformer) Transform(ctx context.Context, state *State) (string, error) {
+	return "nothing happened", nil
+}
+
 type PanicTransformer struct{}
 
 func (p *PanicTransformer) Transform(ctx context.Context, state *State) (string, error) {
@@ -1354,5 +1360,152 @@ func BenchmarkApplyQueue(t *testing.B) {
 	releases, _ := repo.State().Releases("foo")
 	if !cmp.Equal(expectedReleases, convertToSet(releases)) {
 		t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(expectedReleases, convertToSet(releases)))
+	}
+}
+
+func TestPushUpdate(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		InputBranch     string
+		InputRefName    string
+		InputStatus     string
+		ExpectedSuccess bool
+	}{
+		{
+			Name:            "Should succeed",
+			InputBranch:     "main",
+			InputRefName:    "refs/heads/main",
+			InputStatus:     "",
+			ExpectedSuccess: true,
+		},
+		{
+			Name:            "Should fail because wrong branch",
+			InputBranch:     "main",
+			InputRefName:    "refs/heads/master",
+			InputStatus:     "",
+			ExpectedSuccess: false,
+		},
+		{
+			Name:            "Should fail because status not empty",
+			InputBranch:     "master",
+			InputRefName:    "refs/heads/master",
+			InputStatus:     "i am the status, stopping this from working",
+			ExpectedSuccess: false,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			var success = false
+			actualError := DefaultPushUpdate(tc.InputBranch, &success)(tc.InputRefName, tc.InputStatus)
+			if success != tc.ExpectedSuccess {
+				t.Fatal(fmt.Sprintf("expected sucess=%t but got %t", tc.ExpectedSuccess, success))
+			}
+			if actualError != nil {
+				t.Fatal(fmt.Sprintf("expected no error but got %s but got none", actualError))
+			}
+		})
+	}
+}
+
+func TestProcessQueueOnce(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		Element        element
+		PushUpdateFunc PushUpdateFunc
+		PushActionFunc PushActionCallbackFunc
+		ExpectedError  error
+	}{
+		{
+			Name:           "success",
+			PushUpdateFunc: DefaultPushUpdate,
+			PushActionFunc: DefaultPushActionCallback,
+			Element: element{
+				ctx: context.Background(),
+				transformers: []Transformer{
+					&EmptyTransformer{},
+				},
+				result: make(chan error, 1),
+			},
+			ExpectedError: nil,
+		},
+		{
+			Name: "failure because DefaultPushUpdate is wrong (branch protection)",
+			PushUpdateFunc: func(s string, success *bool) git.PushUpdateReferenceCallback {
+				*success = false
+				return nil
+			},
+			PushActionFunc: DefaultPushActionCallback,
+			Element: element{
+				ctx: context.Background(),
+				transformers: []Transformer{
+					&EmptyTransformer{},
+				},
+				result: make(chan error, 1),
+			},
+			ExpectedError: errors.New("failed to push - this indicates that branch protection is enabled in 'file://$DIR/remote' on branch 'master'"),
+		},
+		{
+			Name: "failure because error is returned in push (ssh key has read only access)",
+			PushUpdateFunc: func(s string, success *bool) git.PushUpdateReferenceCallback {
+				return nil
+			},
+			PushActionFunc: func(options git.PushOptions, r *repository) PushActionFunc {
+				return func() error {
+					return git.MakeGitError(1)
+				}
+			},
+			Element: element{
+				ctx: context.Background(),
+				transformers: []Transformer{
+					&EmptyTransformer{},
+				},
+				result: make(chan error, 1),
+			},
+			ExpectedError: errors.New("rpc error: code = InvalidArgument desc = error: could not push to manifest repository 'file://$DIR/remote' on branch 'master' - this indicates that the ssh key does not have write access"),
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+			repo, actualError := New(
+				context.Background(),
+				RepositoryConfig{
+					URL:  "file://" + remoteDir,
+					Path: localDir,
+				},
+			)
+			if actualError != nil {
+				t.Fatalf("new: expected no error, got '%e'", actualError)
+			}
+			repoInternal := repo.(*repository)
+			repoInternal.ProcessQueueOnce(context.Background(), tc.Element, tc.PushUpdateFunc, tc.PushActionFunc)
+
+			result := tc.Element.result
+			actualError = <-result
+			if tc.ExpectedError == nil && actualError == nil {
+				return
+			}
+			if tc.ExpectedError == nil && actualError != nil {
+				t.Fatalf("result error is not:\n\"%v\"\nbut got:\n\"%v\"", nil, actualError.Error())
+			}
+			if tc.ExpectedError != nil && actualError == nil {
+				t.Fatalf("result error is not:\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, nil)
+			}
+			expectedError := strings.ReplaceAll(tc.ExpectedError.Error(), "$DIR", dir)
+			if actualError.Error() != expectedError {
+				t.Errorf("result error is not:\n\"%v\"\nbut got:\n\"%v\"", expectedError, actualError.Error())
+			}
+		})
 	}
 }
