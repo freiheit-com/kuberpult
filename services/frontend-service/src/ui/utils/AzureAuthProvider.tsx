@@ -82,18 +82,28 @@ export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children
             ...loginRequest,
             account: accounts[0],
         };
+        const email: string = accounts[0]?.username || ''; // yes, the email is in the "username" field
+        const username: string = accounts[0]?.name || '';
         instance
             .acquireTokenSilent(request)
             .then((response) => {
                 AzureAuthSub.set({
-                    authHeader: new BrowserHeaders({ Authorization: response.idToken }),
+                    authHeader: new BrowserHeaders({
+                        Authorization: response.idToken,
+                        email: email, // use same key here as in server.go function getRequestAuthorFromAzure: r.Header.Get("email")
+                        username: username, // use same key here too
+                    }),
                     authReady: true,
                 });
             })
             .catch(() => {
                 instance.acquireTokenPopup(request).then((response) => {
                     AzureAuthSub.set({
-                        authHeader: new BrowserHeaders({ Authorization: response.idToken }),
+                        authHeader: new BrowserHeaders({
+                            Authorization: response.idToken,
+                            email: email, // use same key here as in server.go function getRequestAuthorFromAzure: r.Header.Get("email")
+                            username: username, // use same key here too
+                        }),
                         authReady: true,
                     });
                 });
