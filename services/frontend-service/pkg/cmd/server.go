@@ -351,7 +351,7 @@ func getRequestAuthorFromAzure(r *http.Request) *auth.User {
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger.Wrap(r.Context(), func(ctx context.Context) error {
-		span, _ := tracer.SpanFromContext(ctx)
+		span, ctx := tracer.StartSpanFromContext(ctx, "ServeHTTP")
 		defer span.Finish()
 		var u *auth.User = nil
 		var source = ""
@@ -362,7 +362,6 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			u = getRequestAuthorFromGoogleIAP(ctx, r)
 			source = "iap"
 		}
-		//span, ctx := tracer.StartSpanFromContext(ctx, "ServeHTTP")
 		if u != nil {
 			span.SetTag("current-user-name", u.Name)
 			span.SetTag("current-user-email", u.Email)
