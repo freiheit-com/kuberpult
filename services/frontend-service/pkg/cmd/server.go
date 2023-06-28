@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
 	"golang.org/x/crypto/openpgp"
 	"io"
 	"net/http"
@@ -125,7 +126,7 @@ func runServer(ctx context.Context) error {
 			req interface{},
 			info *grpc.UnaryServerInfo,
 			handler grpc.UnaryHandler) (interface{}, error) {
-			return auth.UnaryInterceptor(ctx, req, info, handler, jwks, c.AzureClientId, c.AzureTenantId)
+			return interceptors.UnaryInterceptor(ctx, req, info, handler, jwks, c.AzureClientId, c.AzureTenantId)
 		}
 		var AzureStreamInterceptor = func(
 			srv interface{},
@@ -133,7 +134,7 @@ func runServer(ctx context.Context) error {
 			info *grpc.StreamServerInfo,
 			handler grpc.StreamHandler,
 		) error {
-			return auth.StreamInterceptor(srv, stream, info, handler, jwks, c.AzureClientId, c.AzureTenantId)
+			return interceptors.StreamInterceptor(srv, stream, info, handler, jwks, c.AzureClientId, c.AzureTenantId)
 		}
 		grpcUnaryInterceptors = append(grpcUnaryInterceptors, AzureUnaryInterceptor)
 		grpcStreamInterceptors = append(grpcStreamInterceptors, AzureStreamInterceptor)
