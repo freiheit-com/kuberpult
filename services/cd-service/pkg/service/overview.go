@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"regexp"
 	"sync"
@@ -120,9 +119,9 @@ func (o *OverviewServiceServer) getOverview(
 			} else {
 				for _, appName := range apps {
 					app := api.Environment_Application{
-						Name:               appName,
-						Locks:              map[string]*api.Lock{},
-						DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{},
+						Name:         appName,
+						Locks:        map[string]*api.Lock{},
+						Environments: map[string]*api.Environment_Application_Environment{},
 					}
 					var version *uint64
 					if version, err = s.GetEnvironmentApplicationVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -175,13 +174,22 @@ func (o *OverviewServiceServer) getOverview(
 							}
 						}
 					}
-					deployAuthor, deployTime, err := s.GetDeploymentMetaData(envName, appName)
-					if err != nil {
+					if appEnvs, err := s.GetAppsEnvs(envName, appName); err != nil {
 						return nil, err
+					} else {
+						for _, appEnvName := range appEnvs {
+							deployAuthor, deployTime, err := s.GetDeploymentMetaData(appEnvName, appName)
+							if err != nil {
+								return nil, err
+							}
+							app.Environments[appEnvName] = &api.Environment_Application_Environment{
+								DeploymentMetaData: &api.Environment_Application_Environment_DeploymentMetaData{
+									DeployAuthor: deployAuthor,
+									DeployTime:   deployTime,
+								},
+							}
+						}
 					}
-					app.DeploymentMetaData.DeployAuthor = deployAuthor
-					app.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", deployTime.Unix())
-
 					env.Applications[appName] = &app
 				}
 			}

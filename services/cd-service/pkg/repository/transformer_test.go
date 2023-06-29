@@ -393,15 +393,12 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 
 func TestDeployApplicationVersion(t *testing.T) {
 	tcs := []struct {
-		Name                   string
-		Transformers           []Transformer
-		expectedError          string
-		expectedPath           string
-		expectedFileData       []byte
-		expectedDeployedByPath string
-		expectedDeployedByData []byte
-		expectedDeployedAtPath string
-		expectedDeployedAtData []byte
+		Name                           string
+		Transformers                   []Transformer
+		expectedError                  string
+		expectedPath                   string
+		expectedFileData               []byte
+		expectedDeploymentMetadataPath string
 	}{
 		{
 			Name: "successfully deploy a full manifest",
@@ -423,13 +420,10 @@ func TestDeployApplicationVersion(t *testing.T) {
 					LockBehaviour: api.LockBehavior_Fail,
 				},
 			},
-			expectedError:          "",
-			expectedPath:           "environments/acceptance/applications/app1/manifests/manifests.yaml",
-			expectedFileData:       []byte("acceptance"),
-			expectedDeployedByPath: "environments/acceptance/applications/app1/deployed_by",
-			expectedDeployedByData: []byte("defaultUser"),
-			expectedDeployedAtPath: "environments/acceptance/applications/app1/deployed_at_utc",
-			expectedDeployedAtData: []byte(timeNowOld.UTC().String()),
+			expectedError:                  "",
+			expectedPath:                   "environments/acceptance/applications/app1/manifests/manifests.yaml",
+			expectedFileData:               []byte("acceptance"),
+			expectedDeploymentMetadataPath: "applications/app1/releases/1/environments/acceptance/deployment_metadata.yaml",
 		},
 		{
 			Name: "successfully deploy an empty manifest",
@@ -451,13 +445,10 @@ func TestDeployApplicationVersion(t *testing.T) {
 					LockBehaviour: api.LockBehavior_Fail,
 				},
 			},
-			expectedError:          "",
-			expectedPath:           "environments/acceptance/applications/app1/manifests/manifests.yaml",
-			expectedFileData:       []byte(" "),
-			expectedDeployedByPath: "environments/acceptance/applications/app1/deployed_by",
-			expectedDeployedByData: []byte("defaultUser"),
-			expectedDeployedAtPath: "environments/acceptance/applications/app1/deployed_at_utc",
-			expectedDeployedAtData: []byte(timeNowOld.UTC().String()),
+			expectedError:                  "",
+			expectedPath:                   "environments/acceptance/applications/app1/manifests/manifests.yaml",
+			expectedFileData:               []byte(" "),
+			expectedDeploymentMetadataPath: "applications/app1/releases/1/environments/acceptance/deployment_metadata.yaml",
 		},
 	}
 	for _, tc := range tcs {
@@ -481,24 +472,10 @@ func TestDeployApplicationVersion(t *testing.T) {
 				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedFileData), string(fileData))
 			}
 
-			fullDeployedByPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedDeployedByPath)
-			deployedByData, err := util.ReadFile(updatedState.Filesystem, fullDeployedByPath)
-
+			fullPathDeploymentData := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedDeploymentMetadataPath)
+			_, err = util.ReadFile(updatedState.Filesystem, fullPathDeploymentData)
 			if err != nil {
-				t.Fatalf("Expected no error: %v path=%s", err, fullDeployedByPath)
-			}
-			if !cmp.Equal(deployedByData, tc.expectedDeployedByData) {
-				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedDeployedByData), string(deployedByData))
-			}
-
-			fullDeployedAtPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedDeployedAtPath)
-			DeployedAtData, err := util.ReadFile(updatedState.Filesystem, fullDeployedAtPath)
-
-			if err != nil {
-				t.Fatalf("Expected no error: %v path=%s", err, fullDeployedAtPath)
-			}
-			if !cmp.Equal(DeployedAtData, tc.expectedDeployedAtData) {
-				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedDeployedAtData), string(DeployedAtData))
+				t.Fatalf("Expected no error: %v path=%s", err, fullPathDeploymentData)
 			}
 		})
 	}
