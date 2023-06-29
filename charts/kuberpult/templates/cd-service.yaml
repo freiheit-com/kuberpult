@@ -46,7 +46,14 @@ metadata:
     tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
 {{- end }}
 spec:
-  replicas: 1 # to avoid merge issues with the manifests repository
+  # Generally, it is possible to have multiple instances of the cd-service.
+  # However, most time is spent in a `git push`, which cannot be parallelized much.
+  # Having multiple instances works when there are only few requests/sec,
+  # but it may get inefficient if there are many, since kuberpult then needs
+  # to `pull` and `push` more often due to possible conflicts.
+  # Therefore, we only allow 1 instance of the cd-service.
+  # If you temporarily need 2, that will also work.
+  replicas: 1
   selector:
     matchLabels:
       app: kuberpult-cd-service
