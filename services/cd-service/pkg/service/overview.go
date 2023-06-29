@@ -118,8 +118,9 @@ func (o *OverviewServiceServer) getOverview(
 			} else {
 				for _, appName := range apps {
 					app := api.Environment_Application{
-						Name:  appName,
-						Locks: map[string]*api.Lock{},
+						Name:         appName,
+						Locks:        map[string]*api.Lock{},
+						Environments: map[string]*api.Environment_Application_Environment{},
 					}
 					var version *uint64
 					if version, err = s.GetEnvironmentApplicationVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -169,6 +170,22 @@ func (o *OverviewServiceServer) getOverview(
 						} else {
 							app.ArgoCD = &api.Environment_Application_ArgoCD{
 								SyncWindows: syncWindows,
+							}
+						}
+					}
+					if appEnvs, err := s.GetAppsEnvs(envName, appName); err != nil {
+						return nil, err
+					} else {
+						for _, appEnvName := range appEnvs {
+							deployAuthor, deployTime, err := s.GetDeploymentMetaData(appEnvName, appName)
+							if err != nil {
+								return nil, err
+							}
+							app.Environments[appEnvName] = &api.Environment_Application_Environment{
+								DeploymentMetaData: &api.Environment_Application_Environment_DeploymentMetaData{
+									DeployAuthor: deployAuthor,
+									DeployTime:   deployTime,
+								},
 							}
 						}
 					}

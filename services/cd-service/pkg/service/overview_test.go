@@ -389,6 +389,10 @@ func TestOverviewService(t *testing.T) {
 					}
 				}
 
+				if dev.Applications["test"].Environments["development"].GetDeploymentMetaData().DeployAuthor != "defaultUser" {
+					t.Errorf("development environment deployment did not create deploymentMetaData")
+				}
+
 				// Check staging
 				stageGroup := resp.EnvironmentGroups[1]
 				if stageGroup.EnvironmentGroupName != "staging" {

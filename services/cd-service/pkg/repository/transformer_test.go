@@ -393,11 +393,12 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 
 func TestDeployApplicationVersion(t *testing.T) {
 	tcs := []struct {
-		Name             string
-		Transformers     []Transformer
-		expectedError    string
-		expectedPath     string
-		expectedFileData []byte
+		Name                           string
+		Transformers                   []Transformer
+		expectedError                  string
+		expectedPath                   string
+		expectedFileData               []byte
+		expectedDeploymentMetadataPath string
 	}{
 		{
 			Name: "successfully deploy a full manifest",
@@ -419,9 +420,10 @@ func TestDeployApplicationVersion(t *testing.T) {
 					LockBehaviour: api.LockBehavior_Fail,
 				},
 			},
-			expectedError:    "",
-			expectedPath:     "environments/acceptance/applications/app1/manifests/manifests.yaml",
-			expectedFileData: []byte("acceptance"),
+			expectedError:                  "",
+			expectedPath:                   "environments/acceptance/applications/app1/manifests/manifests.yaml",
+			expectedFileData:               []byte("acceptance"),
+			expectedDeploymentMetadataPath: "applications/app1/releases/1/environments/acceptance/deployment_metadata.yaml",
 		},
 		{
 			Name: "successfully deploy an empty manifest",
@@ -443,9 +445,10 @@ func TestDeployApplicationVersion(t *testing.T) {
 					LockBehaviour: api.LockBehavior_Fail,
 				},
 			},
-			expectedError:    "",
-			expectedPath:     "environments/acceptance/applications/app1/manifests/manifests.yaml",
-			expectedFileData: []byte(" "),
+			expectedError:                  "",
+			expectedPath:                   "environments/acceptance/applications/app1/manifests/manifests.yaml",
+			expectedFileData:               []byte(" "),
+			expectedDeploymentMetadataPath: "applications/app1/releases/1/environments/acceptance/deployment_metadata.yaml",
 		},
 	}
 	for _, tc := range tcs {
@@ -466,6 +469,12 @@ func TestDeployApplicationVersion(t *testing.T) {
 			}
 			if !cmp.Equal(fileData, tc.expectedFileData) {
 				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedFileData), string(fileData))
+			}
+
+			fullPathDeploymentData := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedDeploymentMetadataPath)
+			_, err = util.ReadFile(updatedState.Filesystem, fullPathDeploymentData)
+			if err != nil {
+				t.Fatalf("Expected no error: %v path=%s", err, fullPathDeploymentData)
 			}
 		})
 	}

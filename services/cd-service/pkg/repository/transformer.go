@@ -869,10 +869,36 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
 		return "", err
 	}
+
+	deployInfo := auth.Extract(ctx).Name + "; " + time.Now().UTC().String() + "\n"
+	deploymentFilename := fs.Join(releaseDir, "environments", c.Environment, "deployment_metadata.yaml")
+
+	_, err := os.Stat(deploymentFilename)
+	if os.IsNotExist(err) {
+		if err := util.WriteFile(fs, deploymentFilename, []byte(deployInfo), 0666); err != nil {
+			return "", err
+		}
+	} else if err != nil {
+		return "", err
+	} else {
+		file, err := os.OpenFile(deploymentFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+		if err != nil {
+			return "", err
+		}
+		_, err = file.Write([]byte(deployInfo))
+		if err != nil {
+			return "", err
+		}
+		err = file.Close()
+		if err != nil {
+			return "", err
+		}
+	}
+
 	s := State{
 		Filesystem: fs,
 	}
-	err := s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
+	err = s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
 	if err != nil {
 		return "", err
 	}
