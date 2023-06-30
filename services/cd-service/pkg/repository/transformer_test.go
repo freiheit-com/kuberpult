@@ -481,24 +481,24 @@ func TestDeployApplicationVersion(t *testing.T) {
 				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedFileData), string(fileData))
 			}
 
-			fullPathDeployedByPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedDeployedByPath)
-			fullPathDeployedByData, err := util.ReadFile(updatedState.Filesystem, fullPathDeployedByPath)
+			fullDeployedByPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedDeployedByPath)
+			deployedByData, err := util.ReadFile(updatedState.Filesystem, fullDeployedByPath)
 
 			if err != nil {
-				t.Fatalf("Expected no error: %v path=%s", err, fullPathDeployedByPath)
+				t.Fatalf("Expected no error: %v path=%s", err, fullDeployedByPath)
 			}
-			if !cmp.Equal(fullPathDeployedByData, tc.expectedDeployedByData) {
-				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedDeployedByData), string(fullPathDeployedByData))
+			if !cmp.Equal(deployedByData, tc.expectedDeployedByData) {
+				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedDeployedByData), string(deployedByData))
 			}
 
-			fullPathDeployedAtPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedDeployedAtPath)
-			fullPathDeployedAtData, err := util.ReadFile(updatedState.Filesystem, fullPathDeployedAtPath)
+			fullDeployedAtPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedDeployedAtPath)
+			DeployedAtData, err := util.ReadFile(updatedState.Filesystem, fullDeployedAtPath)
 
 			if err != nil {
-				t.Fatalf("Expected no error: %v path=%s", err, fullPathDeployedAtPath)
+				t.Fatalf("Expected no error: %v path=%s", err, fullDeployedAtPath)
 			}
-			if !cmp.Equal(fullPathDeployedAtData, tc.expectedDeployedAtData) {
-				t.Fatalf("2Expected '%v', got '%v'", string(tc.expectedDeployedAtData), string(fullPathDeployedAtData))
+			if !cmp.Equal(DeployedAtData, tc.expectedDeployedAtData) {
+				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedDeployedAtData), string(DeployedAtData))
 			}
 		})
 	}

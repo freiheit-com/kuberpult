@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"io"
 	"io/ioutil"
 	"os"
@@ -33,9 +35,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	backoff "github.com/cenkalti/backoff/v4"
@@ -905,23 +904,22 @@ func (s *State) GetDeploymentMetaData(environment, application string) (string, 
 			return "", time.Time{}, err
 		}
 	}
-	deployedBy := string(author)
 
 	time_utc, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_at_utc"))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return deployedBy, time.Time{}, nil
+			return string(author), time.Time{}, nil
 		} else {
 			return "", time.Time{}, err
 		}
 	}
-	deployedAt, err := time.Parse("2006-01-02 15:04:05 -0700 MST", strings.TrimSpace(string(time_utc)))
 
+	deployedAt, err := time.Parse("2006-01-02 15:04:05 -0700 MST", strings.TrimSpace(string(time_utc)))
 	if err != nil {
 		return "", time.Time{}, err
 	}
 
-	return deployedBy, deployedAt, nil
+	return string(author), deployedAt, nil
 }
 
 func (s *State) GetQueuedVersion(environment string, application string) (*uint64, error) {
