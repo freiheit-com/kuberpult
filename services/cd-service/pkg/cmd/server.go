@@ -169,7 +169,7 @@ func RunServer() {
 					Register: func(mux *http.ServeMux) {
 						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
 						if c.EnableTracing {
-							handler = httptrace.WrapHandler(handler, "cd-service", "/")
+							handler = httptrace.WrapHandler(handler, "kuberpult-cd-service", "/")
 						}
 						mux.Handle("/", handler)
 					},

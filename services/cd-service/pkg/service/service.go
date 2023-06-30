@@ -20,16 +20,22 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	xpath "github.com/freiheit-com/kuberpult/pkg/path"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
-	"golang.org/x/crypto/openpgp"
-	pgperrors "golang.org/x/crypto/openpgp/errors"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"reflect"
 	"regexp"
 	"strconv"
+
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	xpath "github.com/freiheit-com/kuberpult/pkg/path"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
+	"go.uber.org/zap"
+	"golang.org/x/crypto/openpgp"
+	pgperrors "golang.org/x/crypto/openpgp/errors"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (
@@ -184,7 +190,12 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 	}
 
 	if err := s.Repository.Apply(r.Context(), &tf); err != nil {
-		if _, ok := err.(*repository.InternalError); ok {
+		if ierr, ok := err.(*repository.InternalError); ok {
+			if span, ok := tracer.SpanFromContext(r.Context()); ok {
+				span.SetTag(ext.ErrorType, fmt.Sprintf("%s", reflect.TypeOf(ierr)))
+				span.SetTag(ext.ErrorMsg, fmt.Sprintf("%s", ierr))
+			}
+			logger.FromContext(r.Context()).Error("http.handle", zap.Error(ierr))
 			w.WriteHeader(500)
 			fmt.Fprintf(w, "internal: %s", err)
 			return
@@ -193,6 +204,11 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 			fmt.Fprintf(w, "not updated")
 			return
 		} else {
+			if span, ok := tracer.SpanFromContext(r.Context()); ok {
+				span.SetTag(ext.ErrorType, fmt.Sprintf("%s", reflect.TypeOf(err)))
+				span.SetTag(ext.ErrorMsg, fmt.Sprintf("%s", err))
+			}
+			logger.FromContext(r.Context()).Error("http.handle", zap.Error(err))
 			w.WriteHeader(400)
 			fmt.Fprintf(w, "internal: %s", err)
 			return
