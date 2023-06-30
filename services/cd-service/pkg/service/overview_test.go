@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
@@ -389,7 +390,7 @@ func TestOverviewService(t *testing.T) {
 					}
 				}
 
-				if dev.Applications["test"].Environments["development"].GetDeploymentMetaData().DeployAuthor != "defaultUser" {
+				if dev.Applications["test"].GetDeploymentMetaData().DeployAuthor != auth.DefaultName {
 					t.Errorf("development environment deployment did not create deploymentMetaData")
 				}
 

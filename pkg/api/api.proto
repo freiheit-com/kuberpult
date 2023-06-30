@@ -253,13 +253,6 @@ message UpstreamNotDeployed {
 message Environment {
 
   message Application {
-    message Environment {
-      message DeploymentMetaData {
-        string deployAuthor = 1;
-        string deployTime = 2;
-      }
-      DeploymentMetaData deploymentMetaData = 1;
-    }
     message ArgoCD {
       message SyncWindow {
         string kind = 1; // "allow" or "deny"
@@ -267,6 +260,10 @@ message Environment {
         string duration = 3; // duration the window is open (or closed)
       }
       repeated SyncWindow syncWindows = 1;
+    }
+    message DeploymentMetaData {
+      string deployAuthor = 1;
+      string deployTime = 2;
     }
 
     string name = 1;
@@ -280,7 +277,7 @@ message Environment {
     // google.protobuf.Timestamp deploy_date = 5; // This is never used
     bool undeployVersion = 6;
     ArgoCD argoCD = 7;
-    map<string, Environment> environments = 8;
+    DeploymentMetaData deploymentMetaData = 8;
   }
 
   string name = 1;

@@ -23,8 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"io"
 	"io/ioutil"
 	"os"
@@ -35,6 +33,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	backoff "github.com/cenkalti/backoff/v4"
@@ -812,11 +813,6 @@ type Lock struct {
 	CreatedAt time.Time
 }
 
-type DeploymentMetaData struct {
-	DeployAuthor string
-	DeployTime   string
-}
-
 func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
 	lock := &Lock{}
 
@@ -899,23 +895,33 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 	}
 }
 
-func (s *State) GetDeploymentMetaData(environment, application string) (deployAuthor, deployTime string, err error) {
-	base := s.Filesystem.Join("environments", environment, "applications", application, "version", "environments", environment)
-	logs, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployment_metadata.yaml"))
+func (s *State) GetDeploymentMetaData(environment, application string) (string, string, error) {
+	base := s.Filesystem.Join("environments", environment, "applications", application)
+	author, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_by"))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "defaultUser", "", nil
+			return auth.DefaultName, "", nil
 		} else {
 			return "", "", err
 		}
 	}
-	readLines := strings.Split(string(logs), "\n")
-	// avoid that file ends in newline
-	results := strings.Split(readLines[len(readLines)-2], "; ")
-	if len(results) != 2 {
-		return "defaultUser", "", nil
+	deployedBy := string(author)
+
+	time_utc, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_at_utc"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return deployedBy, "", nil
+		} else {
+			return "", "", err
+		}
 	}
-	return results[0], results[1], nil
+	// _, err = time.Parse("2006-01-02 15:04:05 -0700 MST", strings.TrimSpace(string(time_utc)))
+
+	if err != nil {
+		return "", "", err
+	}
+
+	return deployedBy, string(time_utc), nil
 }
 
 func (s *State) GetQueuedVersion(environment string, application string) (*uint64, error) {
@@ -1042,11 +1048,6 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 
 func (s *State) GetEnvironmentApplications(environment string) ([]string, error) {
 	appDir := s.Filesystem.Join("environments", environment, "applications")
-	return names(s.Filesystem, appDir)
-}
-
-func (s *State) GetAppsEnvs(environment, appName string) ([]string, error) {
-	appDir := s.Filesystem.Join("environments", environment, "applications", appName, "version", "environments")
 	return names(s.Filesystem, appDir)
 }
 
