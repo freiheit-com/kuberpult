@@ -263,7 +263,9 @@ message Environment {
     }
     message DeploymentMetaData {
       string deployAuthor = 1;
-      uint64 deployTime = 2;
+      // we use a string here, because the UI cannot handle int64 as a type.
+      // the string contains the unix timestamps in seconds (utc)
+      string deployTime = 2;
     }
 
     string name = 1;
