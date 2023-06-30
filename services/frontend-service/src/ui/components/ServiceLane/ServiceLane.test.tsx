@@ -96,7 +96,6 @@ const data: TestDataDiff[] = [
                         locks: {},
                         queuedVersion: 0,
                         undeployVersion: false,
-                        environments: {},
                     },
                 },
                 distanceToUpstream: 0,
@@ -112,7 +111,6 @@ const data: TestDataDiff[] = [
                         locks: {},
                         queuedVersion: 0,
                         undeployVersion: false,
-                        environments: {},
                     },
                 },
                 distanceToUpstream: 0,
@@ -135,7 +133,6 @@ const data: TestDataDiff[] = [
                         locks: {},
                         queuedVersion: 0,
                         undeployVersion: false,
-                        environments: {},
                     },
                 },
                 distanceToUpstream: 0,
@@ -151,7 +148,6 @@ const data: TestDataDiff[] = [
                         locks: {},
                         queuedVersion: 0,
                         undeployVersion: false,
-                        environments: {},
                     },
                 },
                 distanceToUpstream: 0,
@@ -174,7 +170,6 @@ const data: TestDataDiff[] = [
                         locks: {},
                         queuedVersion: 0,
                         undeployVersion: false,
-                        environments: {},
                     },
                 },
                 locks: {},
@@ -190,7 +185,6 @@ const data: TestDataDiff[] = [
                         locks: {},
                         queuedVersion: 0,
                         undeployVersion: false,
-                        environments: {},
                     },
                 },
                 locks: {},
@@ -213,7 +207,6 @@ const data: TestDataDiff[] = [
                         locks: {},
                         queuedVersion: 0,
                         undeployVersion: false,
-                        environments: {},
                     },
                 },
                 distanceToUpstream: 0,
@@ -229,7 +222,6 @@ const data: TestDataDiff[] = [
                         locks: {},
                         queuedVersion: 0,
                         undeployVersion: false,
-                        environments: {},
                     },
                 },
                 distanceToUpstream: 0,
@@ -369,7 +361,6 @@ describe('Service Lane Important Releases', () => {
                                         locks: {},
                                         undeployVersion: false,
                                         queuedVersion: 0,
-                                        environments: {},
                                     },
                                 },
                                 distanceToUpstream: 0,
@@ -531,7 +522,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
         locks: {
             l1: { message: 'test lock', lockId: '321' },
         },
-        environments: {},
     };
     const appWith2Locks: Environment_Application = {
         name: 'test1',
@@ -542,7 +532,6 @@ const dataAppLockSummary: TestDataAppLockSummary[] = (() => {
             l1: { message: 'test lock', lockId: '321' },
             l2: { message: 'test lock', lockId: '321' },
         },
-        environments: {},
     };
     const result: TestDataAppLockSummary[] = [
         {
