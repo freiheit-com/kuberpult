@@ -895,14 +895,14 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 	}
 }
 
-func (s *State) GetDeploymentMetaData(environment, application string) (string, string, error) {
+func (s *State) GetDeploymentMetaData(environment, application string) (string, time.Time, error) {
 	base := s.Filesystem.Join("environments", environment, "applications", application)
 	author, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_by"))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return auth.DefaultName, "", nil
+			return auth.DefaultName, time.Time{}, nil
 		} else {
-			return "", "", err
+			return "", time.Time{}, err
 		}
 	}
 	deployedBy := string(author)
@@ -910,18 +910,18 @@ func (s *State) GetDeploymentMetaData(environment, application string) (string, 
 	time_utc, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_at_utc"))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return deployedBy, "", nil
+			return deployedBy, time.Time{}, nil
 		} else {
-			return "", "", err
+			return "", time.Time{}, err
 		}
 	}
-	// _, err = time.Parse("2006-01-02 15:04:05 -0700 MST", strings.TrimSpace(string(time_utc)))
+	deployedAt, err := time.Parse("2006-01-02 15:04:05 -0700 MST", strings.TrimSpace(string(time_utc)))
 
 	if err != nil {
-		return "", "", err
+		return "", time.Time{}, err
 	}
 
-	return deployedBy, string(time_utc), nil
+	return deployedBy, deployedAt, nil
 }
 
 func (s *State) GetQueuedVersion(environment string, application string) (*uint64, error) {

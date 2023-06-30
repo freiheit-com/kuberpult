@@ -19,11 +19,12 @@ package service
 import (
 	"context"
 	"errors"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"os"
 	"regexp"
 	"sync"
 	"sync/atomic"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	git "github.com/libgit2/git2go/v34"
@@ -178,7 +179,7 @@ func (o *OverviewServiceServer) getOverview(
 						return nil, err
 					}
 					app.DeploymentMetaData.DeployAuthor = deployAuthor
-					app.DeploymentMetaData.DeployTime = deployTime
+					app.DeploymentMetaData.DeployTime = uint64(deployTime.Unix())
 
 					env.Applications[appName] = &app
 				}
