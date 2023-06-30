@@ -179,7 +179,7 @@ func (o *OverviewServiceServer) getOverview(
 						return nil, err
 					}
 					app.DeploymentMetaData.DeployAuthor = deployAuthor
-					app.DeploymentMetaData.DeployTime = deployTime
+					app.DeploymentMetaData.DeployTime = uint64(deployTime.Unix())
 
 					env.Applications[appName] = &app
 				}

@@ -263,7 +263,7 @@ message Environment {
     }
     message DeploymentMetaData {
       string deployAuthor = 1;
-      string deployTime = 2;
+      uint64 deployTime = 2;
     }
 
     string name = 1;
