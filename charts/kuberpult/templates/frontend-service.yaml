@@ -46,6 +46,13 @@ spec:
     metadata:
       labels:
         app: kuberpult-frontend-service
+{{- if .Values.datadogTracing.enabled }}
+        tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
+        tags.datadoghq.com/service: kuberpult-frontend-service
+        tags.datadoghq.com/version: {{ .Values.frontend.tag }}
+      annotations:
+        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ .Values.frontend.tag }}"}'
+{{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
