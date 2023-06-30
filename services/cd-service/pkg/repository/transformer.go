@@ -21,14 +21,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"io"
 	"io/fs"
 	"os"
 	"sort"
 	"strconv"
 	"time"
-
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 

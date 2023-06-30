@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"regexp"
 	"sync"
@@ -179,7 +180,7 @@ func (o *OverviewServiceServer) getOverview(
 						return nil, err
 					}
 					app.DeploymentMetaData.DeployAuthor = deployAuthor
-					app.DeploymentMetaData.DeployTime = uint64(deployTime.Unix())
+					app.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", deployTime.Unix())
 
 					env.Applications[appName] = &app
 				}
