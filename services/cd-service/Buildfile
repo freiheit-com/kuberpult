@@ -10,3 +10,5 @@ spec:
   dependsOn:
   - ../../charts/kuberpult
   - ../../pkg
+  - ../../go.mod
+  - ../../go.sum
