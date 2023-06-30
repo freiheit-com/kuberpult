@@ -51,19 +51,6 @@ If you're using kuberpult's helm chart, generally you don't have to worry about 
 To use the helm chart, you can use [this url](https://github.com/freiheit-com/kuberpult/releases/download/0.4.55/kuberpult-0.4.55.tgz) (replace both versions with the current version!).
 You can see all releases on the [Releases page on GitHub](https://github.com/freiheit-com/kuberpult/releases)
 
-## Current Version and Queued Version
-
-Every app has a current version on every env (including `nil` for no version).
-If a deployment starts while the app/env is locked,
-instead of changing the current version, the `queued_version` will be set.
-When the lock is deleted and a new version is deployed after deleting the lock, the queued version will be deployed.
-
-There is currently no visualization for the queue in the ui,
-so it can only be seen in the manifest repo as "queued_version" symlink next to "version".
-
-The queue has a length of 0 or 1.
-Attempting to put a version into the full queue, will overwrite it instead ("last deployment wins").
-
 ## Release train Overview
 
 ### What is that?
