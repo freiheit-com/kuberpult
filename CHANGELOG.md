@@ -6,6 +6,22 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.74
+**released 2023-07-03**
+### Breaking Changes
+none
+### Major Changes
+none
+### Minor Changes
+* [Explain replicas=1 of cd-service](https://github.com/freiheit-com/kuberpult/pull/766)
+* [Added correct datadog annotations to frontend service](https://github.com/freiheit-com/kuberpult/pull/773)
+* [Added error messages and error logs to the release endpoint](https://github.com/freiheit-com/kuberpult/pull/774)
+* [Remove outdated Readme section about queues](https://github.com/freiheit-com/kuberpult/pull/775)
+* [testdata: use correct port to call frontend service](https://github.com/freiheit-com/kuberpult/pull/776)
+* [build all services if go.mod changed](https://github.com/freiheit-com/kuberpult/pull/778)
+* [Refactoring: Move interceptors to frontend](https://github.com/freiheit-com/kuberpult/pull/779)
+
+
 ## 0.4.73
 **released 2023-06-27**
 ### Breaking Changes
