@@ -296,7 +296,13 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             icon={<Close />}
                         />
                     </div>
-                    <EnvironmentList app={app} className={className} release={release} version={version} />
+                    <EnvironmentList
+                        app={app}
+                        className={className}
+                        release={release}
+                        version={version}
+                        // deployedAtGroup={deployedAtGroup}
+                    />
                 </Dialog>
             </div>
         ) : (
