@@ -138,7 +138,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         }
         return otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage;
     };
-    const getDeploymentAuthor = (): string => {
+    const getDeploymentMetadata = (): string => {
         if (!application) {
             return ``;
         }
@@ -148,12 +148,13 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         if (application.deploymentMetaData === null) {
             return '';
         }
-        var deployedUNIX = application.deploymentMetaData?.deployTime ?? '';
+        const deployedBy = application.deploymentMetaData?.deployAuthor ?? 'unknown';
+        const deployedUNIX = application.deploymentMetaData?.deployTime ?? '';
         if (deployedUNIX === '') {
-            return 'Deployed by: ' + application.deploymentMetaData?.deployAuthor;
+            return 'Deployed by: ' + deployedBy;
         }
-        var deployedDate = new Date(+deployedUNIX * 1000);
-        const returnString = 'Deployed by: ' + application.deploymentMetaData?.deployAuthor + ' on ' + deployedDate;
+        const deployedDate = new Date(+deployedUNIX * 1000);
+        const returnString = 'Deployed by ' + deployedBy + ' on ' + deployedDate;
         return returnString;
     };
     return (
@@ -191,7 +192,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                         {getCommitString()}
                     </div>
                     {queueInfo}
-                    <div className={classNames('env-card-data', className)}>{getDeploymentAuthor()}</div>
+                    <div className={classNames('env-card-data', className)}>{getDeploymentMetadata()}</div>
                 </div>
                 <div className="content-right">
                     <div className="env-card-buttons">

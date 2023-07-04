@@ -82,6 +82,46 @@ describe('Release Dialog', () => {
             teamName: '',
         },
         {
+            name: 'normal release with deploymentMetadata set',
+            props: {
+                app: 'test1',
+                version: 2,
+            },
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test1',
+                    sourceAuthor: 'test',
+                    sourceCommitId: 'commit',
+                    createdAt: new Date(2002),
+                    undeployVersion: false,
+                    prNumber: '#1337',
+                },
+            ],
+            envs: [
+                {
+                    name: 'prod',
+                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
+                    applications: {
+                        test1: {
+                            name: 'test1',
+                            version: 2,
+                            locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                            deploymentMetaData: { deployAuthor: 'test', deployTime: '1688467491' },
+                        },
+                    },
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                },
+            ],
+            expect_message: true,
+            expect_queues: 0,
+            data_length: 2,
+            teamName: '',
+        },
+        {
             name: 'two envs release',
             props: {
                 app: 'test1',

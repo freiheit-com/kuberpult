@@ -176,7 +176,244 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                   <div
                     class="env-card-data"
                   >
-                    Deployed by: undefined
+                    Deployed by: unknown
+                  </div>
+                </div>
+                <div
+                  class="content-right"
+                >
+                  <div
+                    class="env-card-buttons"
+                  >
+                    <button
+                      aria-label="Add lock"
+                      class="mdc-button env-card-add-lock-btn"
+                    >
+                      <div
+                        class="mdc-button__ripple"
+                      />
+                      <svg
+                        class="icon"
+                      >
+                        Locks.svg
+                      </svg>
+                      <span
+                        class="mdc-button__label"
+                      >
+                        Add lock
+                      </span>
+                    </button>
+                    <div
+                      title="When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, you can remove it from the \\"planned actions\\"."
+                    >
+                      <button
+                        aria-label="Deploy & Lock"
+                        class="mdc-button env-card-deploy-btn mdc-button--unelevated"
+                        disabled=""
+                      >
+                        <div
+                          class="mdc-button__ripple"
+                        />
+                        <span
+                          class="mdc-button__label"
+                        >
+                          Deploy & Lock
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div
+      data-test="sentinelEnd"
+      tabindex="0"
+    />
+  </div>
+</body>
+`;
+
+exports[`Release Dialog Renders the environment locks normal release with deploymentMetadata set 1`] = `
+<body
+  style="padding-right: 0px; overflow: hidden;"
+>
+  <div
+    aria-hidden="true"
+  >
+    <div>
+      <div />
+    </div>
+  </div>
+  <div
+    class="MuiModal-root MuiDialog-root release-dialog css-zw3mfo-MuiModal-root-MuiDialog-root"
+    role="presentation"
+  >
+    <div
+      aria-hidden="true"
+      class="MuiBackdrop-root css-yiavyu-MuiBackdrop-root-MuiDialog-backdrop"
+      style="opacity: 1; webkit-transition: opacity 225ms cubic-bezier(0.4, 0, 0.2, 1) 0ms; transition: opacity 225ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;"
+    />
+    <div
+      data-test="sentinelStart"
+      tabindex="0"
+    />
+    <div
+      class="MuiDialog-container MuiDialog-scrollPaper css-hz1bth-MuiDialog-container"
+      role="presentation"
+      style="opacity: 1; webkit-transition: opacity 225ms cubic-bezier(0.4, 0, 0.2, 1) 0ms; transition: opacity 225ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;"
+      tabindex="-1"
+    >
+      <div
+        class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation24 MuiDialog-paper MuiDialog-paperScrollPaper MuiDialog-paperWidthMd MuiDialog-paperFullWidth css-142erj9-MuiPaper-root-MuiDialog-paper"
+        role="dialog"
+      >
+        <div
+          class="release-dialog-app-bar"
+        >
+          <div
+            class="release-dialog-app-bar-data"
+          >
+            <div
+              class="release-dialog-message"
+            >
+              <span
+                class="release-dialog-commitMessage"
+              >
+                test1
+              </span>
+            </div>
+            <div>
+              some formatted date
+            </div>
+            <div
+              class="release-dialog-author"
+            >
+              Author: test
+            </div>
+            <div
+              class="release-dialog-app"
+            >
+              App: test1 
+            </div>
+          </div>
+          <span
+            class="release-dialog-commitId"
+            title="Commit Hash of the source repository."
+          >
+            commit
+          </span>
+          <button
+            aria-label=""
+            class="mdc-button release-dialog-close"
+          >
+            <div
+              class="mdc-button__ripple"
+            />
+            <svg>
+              Close.svg
+            </svg>
+          </button>
+        </div>
+        <div
+          class="release-env-group-list"
+        >
+          <ul
+            class="release-env-list"
+          >
+            <li
+              class="env-card"
+            >
+              <div
+                class="env-card-header"
+              >
+                <div
+                  class="mdc-evolution-chip release-environment environment-priority-upstream"
+                  role="row"
+                >
+                  <span
+                    class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
+                    role="gridcell"
+                  >
+                    <span
+                      class="mdc-evolution-chip__text-name"
+                    >
+                      prod
+                    </span>
+                     
+                    <span
+                      class="mdc-evolution-chip__text-numbers"
+                    />
+                    <div
+                      class="release-environment env-locks"
+                    >
+                      <div
+                        aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
+                        class=""
+                        data-mui-internal-clone-element="true"
+                      >
+                        <button
+                          aria-label=""
+                          class="mdc-button button-lock"
+                        >
+                          <div
+                            class="mdc-button__ripple"
+                          />
+                          <svg
+                            class="env-card-env-lock-icon"
+                            height="16px"
+                            width="16px"
+                          >
+                            Locks_White.svg
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </span>
+                </div>
+                <div
+                  class="env-card-app-locks"
+                >
+                  <div
+                    aria-label="Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                    class=""
+                    data-mui-internal-clone-element="true"
+                  >
+                    <button
+                      aria-label=""
+                      class="mdc-button button-lock"
+                    >
+                      <div
+                        class="mdc-button__ripple"
+                      />
+                      <svg
+                        class="env-card-app-lock"
+                      >
+                        Locks.svg
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div
+                class="content-area"
+              >
+                <div
+                  class="content-left"
+                >
+                  <div
+                    class="env-card-data"
+                    title="Shows the version that is currently deployed on prod. "
+                  >
+                    commit: test1
+                  </div>
+                  <div
+                    class="env-card-data"
+                  >
+                    Deployed by test on Tue Jul 04 2023 10:44:51 GMT+0000 (Coordinated Universal Time)
                   </div>
                 </div>
                 <div
@@ -413,7 +650,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                   <div
                     class="env-card-data"
                   >
-                    Deployed by: undefined
+                    Deployed by: unknown
                   </div>
                 </div>
                 <div
