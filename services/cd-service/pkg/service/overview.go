@@ -180,8 +180,11 @@ func (o *OverviewServiceServer) getOverview(
 						return nil, err
 					}
 					app.DeploymentMetaData.DeployAuthor = deployAuthor
-					app.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", deployTime.Unix())
-
+					if deployTime.IsZero() {
+						app.DeploymentMetaData.DeployTime = ""
+					} else {
+						app.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", deployTime.Unix())
+					}
 					env.Applications[appName] = &app
 				}
 			}

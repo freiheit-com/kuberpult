@@ -393,15 +393,17 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 
 func TestDeployApplicationVersion(t *testing.T) {
 	tcs := []struct {
-		Name                   string
-		Transformers           []Transformer
-		expectedError          string
-		expectedPath           string
-		expectedFileData       []byte
-		expectedDeployedByPath string
-		expectedDeployedByData []byte
-		expectedDeployedAtPath string
-		expectedDeployedAtData []byte
+		Name                        string
+		Transformers                []Transformer
+		expectedError               string
+		expectedPath                string
+		expectedFileData            []byte
+		expectedDeployedByPath      string
+		expectedDeployedByData      []byte
+		expectedDeployedByEmailPath string
+		expectedDeployedByEmailData []byte
+		expectedDeployedAtPath      string
+		expectedDeployedAtData      []byte
 	}{
 		{
 			Name: "successfully deploy a full manifest",
@@ -423,13 +425,15 @@ func TestDeployApplicationVersion(t *testing.T) {
 					LockBehaviour: api.LockBehavior_Fail,
 				},
 			},
-			expectedError:          "",
-			expectedPath:           "environments/acceptance/applications/app1/manifests/manifests.yaml",
-			expectedFileData:       []byte("acceptance"),
-			expectedDeployedByPath: "environments/acceptance/applications/app1/deployed_by",
-			expectedDeployedByData: []byte("defaultUser"),
-			expectedDeployedAtPath: "environments/acceptance/applications/app1/deployed_at_utc",
-			expectedDeployedAtData: []byte(timeNowOld.UTC().String()),
+			expectedError:               "",
+			expectedPath:                "environments/acceptance/applications/app1/manifests/manifests.yaml",
+			expectedFileData:            []byte("acceptance"),
+			expectedDeployedByPath:      "environments/acceptance/applications/app1/deployed_by",
+			expectedDeployedByData:      []byte("defaultUser"),
+			expectedDeployedAtPath:      "environments/acceptance/applications/app1/deployed_at_utc",
+			expectedDeployedAtData:      []byte(timeNowOld.UTC().String()),
+			expectedDeployedByEmailPath: "environments/acceptance/applications/app1/deployed_by_email",
+			expectedDeployedByEmailData: []byte("local.user@freiheit.com"),
 		},
 		{
 			Name: "successfully deploy an empty manifest",
@@ -451,13 +455,15 @@ func TestDeployApplicationVersion(t *testing.T) {
 					LockBehaviour: api.LockBehavior_Fail,
 				},
 			},
-			expectedError:          "",
-			expectedPath:           "environments/acceptance/applications/app1/manifests/manifests.yaml",
-			expectedFileData:       []byte(" "),
-			expectedDeployedByPath: "environments/acceptance/applications/app1/deployed_by",
-			expectedDeployedByData: []byte("defaultUser"),
-			expectedDeployedAtPath: "environments/acceptance/applications/app1/deployed_at_utc",
-			expectedDeployedAtData: []byte(timeNowOld.UTC().String()),
+			expectedError:               "",
+			expectedPath:                "environments/acceptance/applications/app1/manifests/manifests.yaml",
+			expectedFileData:            []byte(" "),
+			expectedDeployedByPath:      "environments/acceptance/applications/app1/deployed_by",
+			expectedDeployedByData:      []byte("defaultUser"),
+			expectedDeployedAtPath:      "environments/acceptance/applications/app1/deployed_at_utc",
+			expectedDeployedAtData:      []byte(timeNowOld.UTC().String()),
+			expectedDeployedByEmailPath: "environments/acceptance/applications/app1/deployed_by_email",
+			expectedDeployedByEmailData: []byte("local.user@freiheit.com"),
 		},
 	}
 	for _, tc := range tcs {
@@ -489,6 +495,16 @@ func TestDeployApplicationVersion(t *testing.T) {
 			}
 			if !cmp.Equal(deployedByData, tc.expectedDeployedByData) {
 				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedDeployedByData), string(deployedByData))
+			}
+
+			fullDeployedByEmailPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedDeployedByEmailPath)
+			deployedByEmailData, err := util.ReadFile(updatedState.Filesystem, fullDeployedByEmailPath)
+
+			if err != nil {
+				t.Fatalf("Expected no error: %v path=%s", err, fullDeployedByEmailPath)
+			}
+			if !cmp.Equal(deployedByEmailData, tc.expectedDeployedByEmailData) {
+				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedDeployedByEmailData), string(deployedByEmailData))
 			}
 
 			fullDeployedAtPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedDeployedAtPath)
