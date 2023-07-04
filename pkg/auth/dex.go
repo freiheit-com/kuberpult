@@ -108,7 +108,8 @@ func (a *DexAppClient) registerDexHandlers() {
 func NewDexReverseProxy(serverAddr string) func(writer http.ResponseWriter, request *http.Request) {
 	target, err := url.Parse(serverAddr)
 	if err != nil {
-		logger.FromContext(context.Background()).Fatal(fmt.Sprintf("Could not parse server URL with error: %s", err))
+		logger.FromContext(context.Background()).Error(fmt.Sprintf("Could not parse server URL with error: %s", err))
+		return nil
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
@@ -122,7 +123,7 @@ func NewDexReverseProxy(serverAddr string) func(writer http.ResponseWriter, requ
 			if err != nil {
 				return err
 			}
-			logger.FromContext(context.Background()).Fatal(fmt.Sprintf("Could not parse server URL with error: %s", string(body)))
+			logger.FromContext(context.Background()).Error(fmt.Sprintf("Could not parse server URL with error: %s", string(body)))
 			resp.Body = io.NopCloser(bytes.NewReader(make([]byte, 0)))
 			return nil
 		}
