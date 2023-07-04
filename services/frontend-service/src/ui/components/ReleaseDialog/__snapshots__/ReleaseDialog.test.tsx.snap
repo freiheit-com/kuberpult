@@ -176,7 +176,10 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                   <div
                     class="env-card-data"
                   >
-                    Deployed by unknown
+                    <div>
+                      Deployed by unknown
+                    </div>
+                    <div />
                   </div>
                 </div>
                 <div
@@ -413,7 +416,14 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                   <div
                     class="env-card-data"
                   >
-                    Deployed by test on Tue Jul 04 2023 10:44:51 GMT+0000 (Coordinated Universal Time)
+                    <div>
+                      Deployed by test 
+                    </div>
+                    <div>
+                      <div>
+                        some formatted date
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div
@@ -650,7 +660,10 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                   <div
                     class="env-card-data"
                   >
-                    Deployed by unknown
+                    <div>
+                      Deployed by unknown
+                    </div>
+                    <div />
                   </div>
                 </div>
                 <div
@@ -795,7 +808,10 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                   </div>
                   <div
                     class="env-card-data"
-                  />
+                  >
+                    <div />
+                    <div />
+                  </div>
                 </div>
                 <div
                   class="content-right"
