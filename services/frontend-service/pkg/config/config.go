@@ -32,6 +32,8 @@ type ServerConfig struct {
 	Version             string `default:""`
 	SourceRepoUrl       string `default:"" split_words:"true"`
 	AllowedOrigins      string `default:"" split_words:"true"`
+	GitAuthorName       string `default:"" split_words:"true"`
+	GitAuthorEmail      string `default:"" split_words:"true"`
 }
 
 type FrontendConfig struct {

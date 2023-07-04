@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
 	"io"
 	"os/exec"
 	"path"
@@ -286,7 +287,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -366,7 +367,7 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _ := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			_, updatedState, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 
 			fileData, err := util.ReadFile(updatedState.Filesystem, updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath))
 
@@ -429,11 +430,11 @@ func TestDeployApplicationVersion(t *testing.T) {
 			expectedPath:                "environments/acceptance/applications/app1/manifests/manifests.yaml",
 			expectedFileData:            []byte("acceptance"),
 			expectedDeployedByPath:      "environments/acceptance/applications/app1/deployed_by",
-			expectedDeployedByData:      []byte("defaultUser"),
+			expectedDeployedByData:      []byte("test tester"),
 			expectedDeployedAtPath:      "environments/acceptance/applications/app1/deployed_at_utc",
 			expectedDeployedAtData:      []byte(timeNowOld.UTC().String()),
 			expectedDeployedByEmailPath: "environments/acceptance/applications/app1/deployed_by_email",
-			expectedDeployedByEmailData: []byte("local.user@freiheit.com"),
+			expectedDeployedByEmailData: []byte("testmail@example.com"),
 		},
 		{
 			Name: "successfully deploy an empty manifest",
@@ -459,17 +460,17 @@ func TestDeployApplicationVersion(t *testing.T) {
 			expectedPath:                "environments/acceptance/applications/app1/manifests/manifests.yaml",
 			expectedFileData:            []byte(" "),
 			expectedDeployedByPath:      "environments/acceptance/applications/app1/deployed_by",
-			expectedDeployedByData:      []byte("defaultUser"),
+			expectedDeployedByData:      []byte("test tester"),
 			expectedDeployedAtPath:      "environments/acceptance/applications/app1/deployed_at_utc",
 			expectedDeployedAtData:      []byte(timeNowOld.UTC().String()),
 			expectedDeployedByEmailPath: "environments/acceptance/applications/app1/deployed_by_email",
-			expectedDeployedByEmailData: []byte("local.user@freiheit.com"),
+			expectedDeployedByEmailData: []byte("testmail@example.com"),
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			ctxWithTime := withTimeNow(context.Background(), timeNowOld)
+			ctxWithTime := withTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
 			repo := setupRepositoryTest(t)
 			_, updatedState, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
@@ -583,7 +584,7 @@ func TestCreateApplicationVersionWithVersion(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _ := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			_, updatedState, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 
 			fileData, err := util.ReadFile(updatedState.Filesystem, updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath))
 
@@ -684,7 +685,7 @@ func TestUndeployErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -758,7 +759,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -1086,14 +1087,14 @@ func TestTransformer(t *testing.T) {
 					"manual": {
 						Message: "don't",
 						CreatedBy: Actor{
-							Name:  "defaultUser",
-							Email: "local.user@freiheit.com",
+							Name:  "test tester",
+							Email: "testmail@example.com",
 						},
 						CreatedAt: timeNowOld,
 					},
 				}
 				if !reflect.DeepEqual(locks, expected) {
-					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
+					t.Fatalf("mismatched locks. expected:\n%#v\nactual:\n%#v", expected, locks)
 				}
 			},
 		},
@@ -1123,14 +1124,14 @@ func TestTransformer(t *testing.T) {
 					"manual": {
 						Message: "don't",
 						CreatedBy: Actor{
-							Name:  "defaultUser",
-							Email: "local.user@freiheit.com",
+							Name:  "test tester",
+							Email: "testmail@example.com",
 						},
 						CreatedAt: timeNowOld,
 					},
 				}
 				if !reflect.DeepEqual(locks, expected) {
-					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
+					t.Fatalf("mismatched locks. expected:\n%#v\n, actual:\n%#v", expected, locks)
 				}
 			},
 		},
@@ -1158,8 +1159,8 @@ func TestTransformer(t *testing.T) {
 					"manual": {
 						Message: "just don't",
 						CreatedBy: Actor{
-							Name:  "defaultUser",
-							Email: "local.user@freiheit.com",
+							Name:  "test tester",
+							Email: "testmail@example.com",
 						},
 						CreatedAt: timeNowOld,
 					},
@@ -2280,7 +2281,7 @@ spec:
 			cmd.Start()
 			cmd.Wait()
 			repo, err := New(
-				context.Background(),
+				testutil.MakeTestContext(),
 				RepositoryConfig{
 					URL:            remoteDir,
 					Path:           localDir,
@@ -2294,7 +2295,7 @@ spec:
 			}
 
 			for i, tf := range tc.Transformers {
-				ctxWithTime := withTimeNow(context.Background(), timeNowOld)
+				ctxWithTime := withTimeNow(testutil.MakeTestContext(), timeNowOld)
 				err = repo.Apply(ctxWithTime, tf)
 				if err != nil {
 					if tc.ErrorTest != nil && i == len(tc.Transformers)-1 {
@@ -2467,7 +2468,7 @@ func setupRepositoryTest(t *testing.T) Repository {
 	cmd.Start()
 	cmd.Wait()
 	repo, err := New(
-		context.Background(),
+		testutil.MakeTestContext(),
 		RepositoryConfig{
 			URL:            remoteDir,
 			Path:           localDir,
@@ -2527,13 +2528,13 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			repo := setupRepositoryTest(t)
-			err := repo.Apply(context.Background(), &CreateEnvironment{
+			err := repo.Apply(testutil.MakeTestContext(), &CreateEnvironment{
 				Environment: "dev",
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = repo.Apply(context.Background(), &injectErr{
+			err = repo.Apply(testutil.MakeTestContext(), &injectErr{
 				Transformer: &DeleteEnvironmentLock{
 					Environment: "dev",
 					LockId:      "foo",
@@ -2589,13 +2590,13 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			repo := setupRepositoryTest(t)
-			err := repo.Apply(context.Background(), &CreateEnvironment{
+			err := repo.Apply(testutil.MakeTestContext(), &CreateEnvironment{
 				Environment: "dev",
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = repo.Apply(context.Background(), &injectErr{
+			err = repo.Apply(testutil.MakeTestContext(), &injectErr{
 				Transformer: &DeleteEnvironmentApplicationLock{
 					Environment: "dev",
 					Application: "bar",
@@ -2712,7 +2713,7 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			_, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 
 			if err != nil {
 				t.Fatalf("Got an unexpected error: %v", err)
@@ -2866,7 +2867,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -2972,7 +2973,7 @@ func TestDeleteLocks(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(context.Background(), tc.Transformers...)
+			commitMsg, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {

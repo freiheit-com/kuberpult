@@ -45,7 +45,11 @@ When the services are running with `docker-compose`, start evans like this:
 
 `evans --host localhost --port 8443  -r`
 
-`api.v1@localhost:8443> service DeployService`
+```
+header author-name=YXV0aG9y
+header author-email=YXV0aG9yQGF1dGhvcg==
+service DeployService
+```
 
 ```
 api.v1.DeployService@localhost:8443> call Deploy
@@ -56,6 +60,15 @@ ignoreAllLocks (TYPE_BOOL) => false
 ✔ Queue
 {}
 ```
+
+
+#### Why the author headers?
+
+With a recent change, the cd-service now always expect author headers to be set, both in grpc and http endpoints.
+`/release` is the exception to that, but it logs a warning, when there is no author.
+(And of course `/health` is another exception).
+The frontend-service is now the only point that knows about default-author (see helm chart `git.author.name` & `git.author.email`).
+The frontend-service can be called with headers, then those will be used. If none are found, we use the default headers from the helm chart.
 
 ### Test that setup was done correctly
 

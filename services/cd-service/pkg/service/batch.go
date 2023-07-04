@@ -18,8 +18,11 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"google.golang.org/grpc/codes"
@@ -178,6 +181,11 @@ func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
 ) (*emptypb.Empty, error) {
+	user, err := auth.ReadUserFromGrpcContext(ctx)
+	if err != nil {
+		return nil, httperrors.AuthError(ctx, errors.New(fmt.Sprintf("batch requires user to be provided %v", err)))
+	}
+	ctx = auth.WriteUserToContext(ctx, *user)
 	if len(in.GetActions()) > maxBatchActions {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions))
 	}
@@ -190,7 +198,7 @@ func (d *BatchServer) ProcessBatch(
 		}
 		transformers = append(transformers, transformer)
 	}
-	err := d.Repository.Apply(ctx, transformers...)
+	err = d.Repository.Apply(ctx, transformers...)
 	if err != nil {
 		return nil, err
 	}

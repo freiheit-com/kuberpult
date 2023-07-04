@@ -13,18 +13,24 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
+
 package interceptors
 
 import (
 	"context"
+	"fmt"
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
+// authorize returns an error when the authentication failed
+// Note that it may return (nil,nil) if the authentication was ok, but had no userdata.
+// Never returns the default user
 func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantId string) (*auth.User, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -41,7 +47,8 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid authorization token provided")
 	}
-	u := auth.MakeDefaultUser()
+	// here, everything is valid, but we way still have empty strings, so we use the defaultUser here
+	var u *auth.User = nil
 	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
 		u = &auth.User{
 			Email: claims["email"].(string),
@@ -52,26 +59,29 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 	return u, nil
 }
 
-func UnaryInterceptor(ctx context.Context,
+func UnaryAuthInterceptor(ctx context.Context,
 	req interface{},
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 	jwks *keyfunc.JWKS,
 	clientId string,
-	tenantId string) (interface{}, error) {
+	tenantId string,
+	defaultUser auth.User) (interface{}, error) {
 	if info.FullMethod != "/api.v1.FrontendConfigService/GetConfig" {
 		userData, err := authorize(ctx, jwks, clientId, tenantId)
 		if err != nil {
 			return nil, err
 		}
-		ctx = auth.ToContext(ctx, userData)
+		combinedUser := auth.GetUserOrDefault(userData, defaultUser)
+		logger.FromContext(ctx).Warn(fmt.Sprintf("auth interceptor: user: %s %s", combinedUser.Name, combinedUser.Email))
+		ctx = auth.WriteUserToContext(ctx, combinedUser)
+		ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
 	}
 	h, err := handler(ctx, req)
 	return h, err
-
 }
 
-func StreamInterceptor(
+func StreamAuthInterceptor(
 	srv interface{},
 	stream grpc.ServerStream,
 	info *grpc.StreamServerInfo,

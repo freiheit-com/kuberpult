@@ -19,84 +19,133 @@ package auth
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"google.golang.org/grpc/metadata"
+	"net/http"
 )
 
 type ctxMarker struct{}
-
-const (
-	defaultEmail = "local.user@freiheit.com"
-	DefaultName  = "defaultUser"
-)
 
 var (
 	ctxMarkerKey = &ctxMarker{}
 )
 
-func MakeDefaultUser() *User {
-	return &User{
-		Email: defaultEmail,
-		Name:  DefaultName,
-	}
-}
+/*
+The frontend-service now defines the default author for git commits.
+The frontend-service also allows overwriting the default values, see function `getRequestAuthorFromGoogleIAP`.
+The cd-service generally expects these headers, either in the grpc context or the http headers.
+*/
+const (
+	HeaderUserName  = "author-name"
+	HeaderUserEmail = "author-email"
+)
 
-func encode64(s string) string {
+func Encode64(s string) string {
 	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
-func decode64(s string) (string, error) {
+func Decode64(s string) (string, error) {
 	b, err := base64.StdEncoding.DecodeString(s)
 	return string(b), err
 }
 
-// Extract takes the User from middleware.
-// It always returns a User
-func Extract(ctx context.Context) *User {
-	// check if User is in go Context
+// ReadUserFromContext returns a user from the ctx or an error if none was found, or it is invalid
+func ReadUserFromContext(ctx context.Context) (*User, error) {
 	u, ok := ctx.Value(ctxMarkerKey).(*User)
-	if !ok {
-		// check if User is in Metadata
-		md, _ := metadata.FromIncomingContext(ctx)
-		originalEmailArr := md.Get("author-email")
-		if len(originalEmailArr) == 0 {
-			return MakeDefaultUser()
-		}
-		originalEmail := originalEmailArr[0]
-		userMail, err := decode64(originalEmail)
-		if err != nil {
-			logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: non-base64 in author-email %s", originalEmail))
-			return MakeDefaultUser()
-		}
-		originalNameArr := md.Get("author-username")
-		if len(originalNameArr) == 0 {
-			logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: username undefined but mail defined %s", userMail))
-			return MakeDefaultUser()
-		}
-		originalName := originalNameArr[0]
-		userName, err := decode64(originalName)
-		if err != nil {
-			logger.FromContext(ctx).Warn(fmt.Sprintf("Extract: non-base64 in author-username %s", userName))
-			return MakeDefaultUser()
-		}
-		logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original mail %s. Decoded: %s", originalEmail, userMail))
-		logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original name %s. Decoded: %s", originalName, userName))
-		u = &User{
-			Email: userMail,
-			Name:  userName,
-		}
+	if !ok || u == nil {
+		return nil, httperrors.InternalError(ctx, errors.New("could not read user from context"))
 	}
-	return u
+	return u, nil
 }
 
-// ToContext adds the User to the context for extraction later.
+// WriteUserToContext should be used in both frontend-service and cd-service.
+// WriteUserToContext adds the User to the context for extraction later.
+// The user must not be nil.
 // Returning the new context that has been created.
-func ToContext(ctx context.Context, u *User) context.Context {
-	var userAdapted = &User{
-		Email: MakeDefaultUser().Email,
-		Name:  MakeDefaultUser().Name,
+func WriteUserToContext(ctx context.Context, u User) context.Context {
+	return context.WithValue(ctx, ctxMarkerKey, &u)
+}
+
+func WriteUserToGrpcContext(ctx context.Context, u User) context.Context {
+	return metadata.AppendToOutgoingContext(ctx, HeaderUserEmail, Encode64(u.Email), HeaderUserName, Encode64(u.Name))
+}
+
+// ReadUserFromGrpcContext should only be used in the cd-service.
+// ReadUserFromGrpcContext takes the User from middleware (context).
+// It returns a User or an error if the user is not found.
+func ReadUserFromGrpcContext(ctx context.Context) (*User, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, httperrors.AuthError(ctx, errors.New("could not retrieve metadata context with git author in grpc context"))
+	}
+	originalEmailArr := md.Get(HeaderUserEmail)
+	if len(originalEmailArr) == 0 {
+		return nil, httperrors.AuthError(ctx, errors.New("did not find author-email in grpc context"))
+	}
+	originalEmail := originalEmailArr[0]
+	userMail, err := Decode64(originalEmail)
+	if err != nil {
+		return nil, httperrors.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-email in grpc context %s", originalEmail))
+	}
+	originalNameArr := md.Get(HeaderUserName)
+	if len(originalNameArr) == 0 {
+		return nil, httperrors.AuthError(ctx, fmt.Errorf("extract: username undefined but mail defined in grpc context %s", userMail))
+	}
+	originalName := originalNameArr[0]
+	userName, err := Decode64(originalName)
+	if err != nil {
+		return nil, httperrors.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-username in grpc context %s", userName))
+	}
+	logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original mail %s. Decoded: %s", originalEmail, userMail))
+	logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original name %s. Decoded: %s", originalName, userName))
+	u := &User{
+		Email: userMail,
+		Name:  userName,
+	}
+	if u.Email == "" || u.Name == "" {
+		return nil, httperrors.AuthError(ctx, errors.New("email and name in grpc context cannot both be empty"))
+	}
+	return u, nil
+}
+
+// ReadUserFromHttpHeader should only be used in the cd-service.
+// ReadUserFromHttpHeader takes the User from the http request.
+// It returns a User or an error if the user is not found.
+func ReadUserFromHttpHeader(ctx context.Context, r *http.Request) (*User, error) {
+	headerEmail, err := Decode64(r.Header.Get(HeaderUserEmail))
+	if err != nil {
+		return nil, httperrors.AuthError(ctx, errors.New("ExtractUserHttp: invalid data in email"))
+	}
+	headerName, err := Decode64(r.Header.Get(HeaderUserName))
+	if err != nil {
+		return nil, httperrors.AuthError(ctx, errors.New("ExtractUserHttp: invalid data in name"))
+	}
+
+	if headerName != "" && headerEmail != "" {
+		return &User{
+			Email: headerEmail,
+			Name:  headerName,
+		}, nil
+	}
+	return nil, httperrors.AuthError(ctx, errors.New("ExtractUserHttp: did not find data in headers"))
+}
+
+// WriteUserToHttpHeader should only be used in the frontend-service
+// WriteUserToHttpHeader writes the user into http headers
+// it is used for requests like /release which are delegated from frontend-service to cd-service
+func WriteUserToHttpHeader(r *http.Request, user User) {
+	r.Header.Set(HeaderUserName, Encode64(user.Name))
+	r.Header.Set(HeaderUserEmail, Encode64(user.Email))
+}
+
+func GetUserOrDefault(u *User, defaultUser User) User {
+	var userAdapted = User{
+		Email: defaultUser.Email,
+		Name:  defaultUser.Name,
 	}
 	if u != nil && u.Email != "" {
 		userAdapted.Email = u.Email
@@ -107,8 +156,7 @@ func ToContext(ctx context.Context, u *User) context.Context {
 			userAdapted.Name = u.Name
 		}
 	}
-	ctx = metadata.AppendToOutgoingContext(ctx, "author-email", encode64(userAdapted.Email), "author-username", encode64(userAdapted.Name))
-	return context.WithValue(ctx, ctxMarkerKey, userAdapted)
+	return userAdapted
 }
 
 type User struct {

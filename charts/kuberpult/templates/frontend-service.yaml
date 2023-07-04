@@ -83,6 +83,10 @@ spec:
             cpu: "{{ .Values.frontend.resources.requests.cpu }}"
             memory: "{{ .Values.frontend.resources.requests.memory }}"
         env:
+        - name: KUBERPULT_GIT_AUTHOR_NAME
+          value: {{ .Values.git.author.name | quote }}
+        - name: KUBERPULT_GIT_AUTHOR_EMAIL
+          value: {{ .Values.git.author.email | quote }}
         - name: KUBERPULT_CDSERVER
           value: kuberpult-cd-service:8443
         - name: KUBERPULT_HTTP_CD_SERVER

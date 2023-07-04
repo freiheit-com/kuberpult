@@ -18,11 +18,13 @@ package cmd
 
 import (
 	"context"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
 	"net/http"
 	"os"
 	"sync"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
@@ -31,7 +33,6 @@ import (
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
-	"github.com/ProtonMail/go-crypto/openpgp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
@@ -104,6 +105,7 @@ func RunServer() {
 		}
 		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
 			grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+			interceptors.UnaryUserContextInterceptor,
 		}
 
 		if c.EnableTracing {

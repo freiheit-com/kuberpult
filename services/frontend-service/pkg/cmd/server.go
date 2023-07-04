@@ -75,6 +75,13 @@ func runServer(ctx context.Context) error {
 		logger.FromContext(ctx).Fatal("config.parse", zap.Error(err))
 		return err
 	}
+	logger.FromContext(ctx).Warn(fmt.Sprintf("config: \n%v", c))
+	if c.GitAuthorEmail == "" {
+		logger.FromContext(ctx).Fatal("DefaultGitAuthorEmail must not be empty")
+	}
+	if c.GitAuthorName == "" {
+		logger.FromContext(ctx).Fatal("DefaultGitAuthorName must not be empty")
+	}
 
 	var jwks *keyfunc.JWKS = nil
 	if c.AzureEnableAuth {
@@ -121,12 +128,17 @@ func runServer(ctx context.Context) error {
 		)
 	}
 
+	var defaultUser = auth.User{
+		Email: c.GitAuthorEmail,
+		Name:  c.GitAuthorName,
+	}
+
 	if c.AzureEnableAuth {
 		var AzureUnaryInterceptor = func(ctx context.Context,
 			req interface{},
 			info *grpc.UnaryServerInfo,
 			handler grpc.UnaryHandler) (interface{}, error) {
-			return interceptors.UnaryInterceptor(ctx, req, info, handler, jwks, c.AzureClientId, c.AzureTenantId)
+			return interceptors.UnaryAuthInterceptor(ctx, req, info, handler, jwks, c.AzureClientId, c.AzureTenantId, defaultUser)
 		}
 		var AzureStreamInterceptor = func(
 			srv interface{},
@@ -134,7 +146,7 @@ func runServer(ctx context.Context) error {
 			info *grpc.StreamServerInfo,
 			handler grpc.StreamHandler,
 		) error {
-			return interceptors.StreamInterceptor(srv, stream, info, handler, jwks, c.AzureClientId, c.AzureTenantId)
+			return interceptors.StreamAuthInterceptor(srv, stream, info, handler, jwks, c.AzureClientId, c.AzureTenantId)
 		}
 		grpcUnaryInterceptors = append(grpcUnaryInterceptors, AzureUnaryInterceptor)
 		grpcStreamInterceptors = append(grpcStreamInterceptors, AzureStreamInterceptor)
@@ -273,7 +285,8 @@ func runServer(ctx context.Context) error {
 		}
 	})
 	authHandler := &Auth{
-		HttpServer: splitGrpcHandler,
+		HttpServer:  splitGrpcHandler,
+		DefaultUser: defaultUser,
 	}
 	corsHandler := &setup.CORSMiddleware{
 		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
@@ -301,7 +314,8 @@ func runServer(ctx context.Context) error {
 }
 
 type Auth struct {
-	HttpServer http.Handler
+	HttpServer  http.Handler
+	DefaultUser auth.User
 }
 
 func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.User {
@@ -310,20 +324,20 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.U
 	if iapJWT == "" {
 		// not using iap (local), default user
 		logger.FromContext(ctx).Info("iap.jwt header was not found or doesn't exist")
-		return auth.MakeDefaultUser()
+		return nil
 	}
 
 	if c.GKEProjectNumber == "" || c.GKEBackendServiceID == "" {
 		// environment variables not set up correctly
 		logger.FromContext(ctx).Info("iap.jke environment variables are not set up correctly")
-		return auth.MakeDefaultUser()
+		return nil
 	}
 
 	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
 	payload, err := idtoken.Validate(ctx, iapJWT, aud)
 	if err != nil {
 		logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
-		return auth.MakeDefaultUser()
+		return nil
 	}
 
 	// here, we can use People api later to get the full name
@@ -339,7 +353,7 @@ func getRequestAuthorFromAzure(r *http.Request) *auth.User {
 	username := r.Header.Get("username")
 	email := r.Header.Get("email")
 	if username == "" || email == "" {
-		return auth.MakeDefaultUser()
+		return nil
 	}
 
 	u := &auth.User{
@@ -368,7 +382,12 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			span.SetTag("current-user-email", u.Email)
 			span.SetTag("current-user-source", source)
 		}
-		p.HttpServer.ServeHTTP(w, r.WithContext(auth.ToContext(ctx, u)))
+		combinedUser := auth.GetUserOrDefault(u, p.DefaultUser)
+
+		auth.WriteUserToHttpHeader(r, combinedUser)
+		ctx = auth.WriteUserToContext(ctx, combinedUser)
+		ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
+		p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
 		return nil
 	})
 }
