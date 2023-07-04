@@ -77,17 +77,13 @@ func TestNewDexReverseProxy(t *testing.T) {
 		wantStatusCode int
 	}{
 		{
-			Name: "Dex reverse proxy is working as expected on success",
-			mockDexServer: httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-				rw.WriteHeader(http.StatusOK)
-			})),
+			Name:           "Dex reverse proxy is working as expected on success",
+			mockDexServer:  makeNewMockServer(http.StatusOK),
 			wantStatusCode: http.StatusOK,
 		},
 		{
-			Name: "Dex reverse proxy is working as expected on error",
-			mockDexServer: httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-				rw.WriteHeader(http.StatusInternalServerError)
-			})),
+			Name:           "Dex reverse proxy is working as expected on error",
+			mockDexServer:  makeNewMockServer(http.StatusInternalServerError),
 			wantStatusCode: http.StatusInternalServerError,
 		},
 	}
@@ -277,6 +273,13 @@ func TestVerifyToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Helper function to make a new mock server.
+func makeNewMockServer(status int) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.WriteHeader(status)
+	}))
 }
 
 // Creates a signed JWT token with the repective claims.
