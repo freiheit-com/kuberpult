@@ -6,6 +6,14 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.75
+**released 2023-07-04**
+### Breaking Changes
+none
+### Major Changes
+* [Replaced x/go-crypto with ProtonMail/go-crypto](https://github.com/freiheit-com/kuberpult/pull/781) This should fix a few pgp related issues.
+
+
 ## 0.4.74
 **released 2023-07-03**
 ### Breaking Changes
