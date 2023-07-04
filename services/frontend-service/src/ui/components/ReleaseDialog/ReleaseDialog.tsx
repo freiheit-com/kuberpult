@@ -302,7 +302,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         className={className}
                         release={release}
                         version={version}
-                    // deployedAtGroup={deployedAtGroup}
+                        // deployedAtGroup={deployedAtGroup}
                     />
                 </Dialog>
             </div>
