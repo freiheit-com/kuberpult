@@ -173,6 +173,9 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                   >
                     commit: test1
                   </div>
+                  <div
+                    class="env-card-data"
+                  />
                 </div>
                 <div
                   class="content-right"
@@ -405,6 +408,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                   >
                     cafe: the other commit message 2
                   </div>
+                  <div
+                    class="env-card-data"
+                  />
                 </div>
                 <div
                   class="content-right"
@@ -546,6 +552,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     666
                      was not deployed, because of a lock.
                   </div>
+                  <div
+                    class="env-card-data"
+                  />
                 </div>
                 <div
                   class="content-right"

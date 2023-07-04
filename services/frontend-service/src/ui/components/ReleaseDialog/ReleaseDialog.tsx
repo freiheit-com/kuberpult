@@ -138,6 +138,24 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         }
         return otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage;
     };
+    const getDeploymentAuthor = (): string => {
+        if (!application) {
+            return ``;
+        }
+        if (!(application && application.version === release.version)) {
+            return '';
+        }
+        if (application.deploymentMetaData === null) {
+            return '';
+        }
+        var deployedUNIX = application.deploymentMetaData?.deployTime ?? '';
+        if (deployedUNIX === '') {
+            return 'Deployed by: ' + application.deploymentMetaData?.deployAuthor;
+        }
+        var deployedDate = new Date(+deployedUNIX * 1000);
+        const returnString = 'Deployed by: ' + application.deploymentMetaData?.deployAuthor + ' on ' + deployedDate;
+        return returnString;
+    };
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -173,6 +191,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                         {getCommitString()}
                     </div>
                     {queueInfo}
+                    <div className={classNames('env-card-data', className)}>{getDeploymentAuthor()}</div>
                 </div>
                 <div className="content-right">
                     <div className="env-card-buttons">
@@ -277,13 +296,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             icon={<Close />}
                         />
                     </div>
-                    <EnvironmentList
-                        app={app}
-                        className={className}
-                        release={release}
-                        version={version}
-                        // deployedAtGroup={deployedAtGroup}
-                    />
+                    <EnvironmentList app={app} className={className} release={release} version={version} />
                 </Dialog>
             </div>
         ) : (

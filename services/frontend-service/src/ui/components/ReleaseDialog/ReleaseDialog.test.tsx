@@ -78,7 +78,7 @@ describe('Release Dialog', () => {
             ],
             expect_message: true,
             expect_queues: 0,
-            data_length: 1,
+            data_length: 2,
             teamName: '',
         },
         {
@@ -142,7 +142,7 @@ describe('Release Dialog', () => {
 
             expect_message: true,
             expect_queues: 1,
-            data_length: 3,
+            data_length: 5,
             teamName: 'test me team',
         },
         {
