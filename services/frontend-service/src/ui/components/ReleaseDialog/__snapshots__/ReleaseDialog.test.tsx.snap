@@ -175,7 +175,9 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                   </div>
                   <div
                     class="env-card-data"
-                  />
+                  >
+                    Deployed by: undefined
+                  </div>
                 </div>
                 <div
                   class="content-right"
@@ -410,7 +412,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                   </div>
                   <div
                     class="env-card-data"
-                  />
+                  >
+                    Deployed by: undefined
+                  </div>
                 </div>
                 <div
                   class="content-right"
