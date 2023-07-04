@@ -244,7 +244,7 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 }
 
 // Verifies if the user is authenticated.
-func (a *DexAppClient) verifyToken(r *http.Request) error {
+func (a *DexAppClient) verifyToken(ctx context.Context, r *http.Request) error {
 	// Get the token cookie from the request
 	cookie, err := r.Cookie(dexOAUTHTokenName)
 	if err != nil {
@@ -253,23 +253,24 @@ func (a *DexAppClient) verifyToken(r *http.Request) error {
 	tokenString := cookie.Value
 
 	// Validates token audience.
-	idToken, err := a.validateToken(context.Background(), tokenString, a.ClientID)
+	idToken, err := a.validateToken(ctx, tokenString, a.ClientID)
 	if err != nil {
 		return fmt.Errorf("failed to verify token: %s", err)
 	}
-
 	// Extract token claims and verify the token is not expired.
 	var claims jwt.MapClaims
 	err = idToken.Claims(&claims)
 	if err != nil {
 		return fmt.Errorf("could not parse token claims")
 	}
+
+	// Check if the token has expired
 	expirationTime := claims["exp"].(float64)
 	expiration := time.Unix(int64(expirationTime), 0)
 	if expiration.Before(time.Now()) {
 		return fmt.Errorf("the token has expired")
 	}
 
-	// Token is valid and not expired, continue processing.
+	// Token is valid and not expired, continue processing
 	return nil
 }
