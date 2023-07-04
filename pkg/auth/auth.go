@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"google.golang.org/grpc/metadata"
 )
@@ -28,7 +29,7 @@ type ctxMarker struct{}
 
 const (
 	defaultEmail = "local.user@freiheit.com"
-	defaultName  = "defaultUser"
+	DefaultName  = "defaultUser"
 )
 
 var (
@@ -38,7 +39,7 @@ var (
 func MakeDefaultUser() *User {
 	return &User{
 		Email: defaultEmail,
-		Name:  defaultName,
+		Name:  DefaultName,
 	}
 }
 

@@ -21,13 +21,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"io"
 	"io/fs"
 	"os"
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 
@@ -869,6 +870,18 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
 		return "", err
 	}
+
+	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by"), []byte(auth.Extract(ctx).Name), 0666); err != nil {
+		return "", err
+	}
+	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by_email"), []byte(auth.Extract(ctx).Email), 0666); err != nil {
+		return "", err
+	}
+
+	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_at_utc"), []byte(getTimeNow(ctx).UTC().String()), 0666); err != nil {
+		return "", err
+	}
+
 	s := State{
 		Filesystem: fs,
 	}

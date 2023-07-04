@@ -261,6 +261,12 @@ message Environment {
       }
       repeated SyncWindow syncWindows = 1;
     }
+    message DeploymentMetaData {
+      string deployAuthor = 1;
+      // we use a string here, because the UI cannot handle int64 as a type.
+      // the string contains the unix timestamps in seconds (utc)
+      string deployTime = 2;
+    }
 
     string name = 1;
     // version=0 means "nothing is deployed"
@@ -273,6 +279,7 @@ message Environment {
     // google.protobuf.Timestamp deploy_date = 5; // This is never used
     bool undeployVersion = 6;
     ArgoCD argoCD = 7;
+    DeploymentMetaData deploymentMetaData = 8;
   }
 
   string name = 1;

@@ -19,11 +19,13 @@ package service
 import (
 	"context"
 	"errors"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
+	"fmt"
 	"os"
 	"regexp"
 	"sync"
 	"sync/atomic"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	git "github.com/libgit2/git2go/v34"
@@ -118,8 +120,9 @@ func (o *OverviewServiceServer) getOverview(
 			} else {
 				for _, appName := range apps {
 					app := api.Environment_Application{
-						Name:  appName,
-						Locks: map[string]*api.Lock{},
+						Name:               appName,
+						Locks:              map[string]*api.Lock{},
+						DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{},
 					}
 					var version *uint64
 					if version, err = s.GetEnvironmentApplicationVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -171,6 +174,16 @@ func (o *OverviewServiceServer) getOverview(
 								SyncWindows: syncWindows,
 							}
 						}
+					}
+					deployAuthor, deployTime, err := s.GetDeploymentMetaData(envName, appName)
+					if err != nil {
+						return nil, err
+					}
+					app.DeploymentMetaData.DeployAuthor = deployAuthor
+					if deployTime.IsZero() {
+						app.DeploymentMetaData.DeployTime = ""
+					} else {
+						app.DeploymentMetaData.DeployTime = fmt.Sprintf("%d", deployTime.Unix())
 					}
 					env.Applications[appName] = &app
 				}
