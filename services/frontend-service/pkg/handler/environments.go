@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/ProtonMail/go-crypto/openpgp"
+	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	"github.com/freiheit-com/kuberpult/pkg/api"
-	"golang.org/x/crypto/openpgp"
-	pgperrors "golang.org/x/crypto/openpgp/errors"
 	"net/http"
 )
 
@@ -59,7 +59,7 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 	}
 
 	if signature, ok := form.Value["signature"]; ok {
-		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader([]byte(config[0])), bytes.NewReader([]byte(signature[0]))); err != nil {
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, bytes.NewReader([]byte(config[0])), bytes.NewReader([]byte(signature[0])), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(http.StatusInternalServerError)
 				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)

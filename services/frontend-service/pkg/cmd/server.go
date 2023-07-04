@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
-	"golang.org/x/crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp"
 	"io"
 	"net/http"
 	"os"

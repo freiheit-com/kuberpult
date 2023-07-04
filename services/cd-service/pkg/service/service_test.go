@@ -30,7 +30,7 @@ import (
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"golang.org/x/crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp"
 )
 
 func TestServeHttp(t *testing.T) {
