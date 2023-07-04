@@ -17,7 +17,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Dex App Client
+// Dex App Client.
 type DexAppClient struct {
 	// The Dex issuer URL. Needs to be match the dex issuer helm config.
 	IssuerURL string
@@ -96,7 +96,7 @@ func (s DexRewriteURLRoundTripper) RoundTrip(r *http.Request) (*http.Response, e
 
 // Registers dex handlers for login
 func (a *DexAppClient) registerDexHandlers() {
-	// Handles the login callback to redirect to dex page.
+	// Handles calls to the Dex server. Calls are redirected internally using a reverse proxy.
 	http.HandleFunc(issuerPATH+"/", NewDexReverseProxy(dexServiceURL))
 	// Handles the login callback to redirect to dex page.
 	http.HandleFunc(loginPATH, a.handleDexLogin)
@@ -108,13 +108,13 @@ func (a *DexAppClient) registerDexHandlers() {
 func NewDexReverseProxy(serverAddr string) func(writer http.ResponseWriter, request *http.Request) {
 	target, err := url.Parse(serverAddr)
 	if err != nil {
-		logger.FromContext(context.Background()).Warn(fmt.Sprintf("Could not parse server URL with error: %s", err))
+		logger.FromContext(context.Background()).Fatal(fmt.Sprintf("Could not parse server URL with error: %s", err))
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.ModifyResponse = func(resp *http.Response) error {
 		if resp.StatusCode == http.StatusInternalServerError {
-			_, err := io.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
@@ -122,6 +122,7 @@ func NewDexReverseProxy(serverAddr string) func(writer http.ResponseWriter, requ
 			if err != nil {
 				return err
 			}
+			logger.FromContext(context.Background()).Fatal(fmt.Sprintf("Could not parse server URL with error: %s", string(body)))
 			resp.Body = io.NopCloser(bytes.NewReader(make([]byte, 0)))
 			return nil
 		}
@@ -239,9 +240,4 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 		Scopes:       scopes,
 		RedirectURL:  a.RedirectURI,
 	}, nil
-}
-
-// TODO(BB): Verifies if the token has the cookie and validates it.
-func (a *DexAppClient) verifyToken(r *http.Request) error {
-	return nil
 }

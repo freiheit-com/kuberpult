@@ -49,7 +49,7 @@ func TestNewDexAppClient(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			a, err := NewDexAppClient(tc.clientID, tc.clientSecret, tc.baseURL, tc.scopes)
 			if (err != nil) != tc.wantErr {
-				t.Errorf("build dependency map error = %v, wantErr %v", err, tc.wantErr)
+				t.Errorf("creating new dex client error = %v, wantErr %v", err, tc.wantErr)
 			}
 			if diff := cmp.Diff(a, tc.wantClientApp, cmpopts.IgnoreFields(DexRewriteURLRoundTripper{}, "T")); diff != "" {
 				t.Errorf("got %v, want %v, diff (-want +got) %s", a, tc.wantClientApp, diff)
@@ -62,7 +62,6 @@ func TestNewDexReverseProxy(t *testing.T) {
 	testCases := []struct {
 		Name           string
 		mockDexServer  *httptest.Server
-		wantErr        bool
 		wantStatusCode int
 	}{
 		{
@@ -71,7 +70,6 @@ func TestNewDexReverseProxy(t *testing.T) {
 				rw.WriteHeader(http.StatusOK)
 			})),
 			wantStatusCode: http.StatusOK,
-			wantErr:        false,
 		},
 		{
 			Name: "Dex reverse proxy is working as expected on error",
@@ -79,7 +77,6 @@ func TestNewDexReverseProxy(t *testing.T) {
 				rw.WriteHeader(http.StatusInternalServerError)
 			})),
 			wantStatusCode: http.StatusInternalServerError,
-			wantErr:        false,
 		},
 	}
 	for _, tc := range testCases {
@@ -90,8 +87,8 @@ func TestNewDexReverseProxy(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(NewDexReverseProxy(mockDexServer.URL)))
 			defer server.Close()
 			resp, err := http.Get(server.URL)
-			if (err != nil) != tc.wantErr {
-				t.Errorf("build dependency map error = %v, wantErr %v", err, tc.wantErr)
+			if err != nil {
+				t.Errorf("could not create HTTP request: %s", err)
 			}
 			if diff := cmp.Diff(resp.StatusCode, tc.wantStatusCode); diff != "" {
 				t.Errorf("got %v, want %v, diff (-want +got) %s", resp.StatusCode, tc.wantStatusCode, diff)
