@@ -151,7 +151,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         const deployedBy = application.deploymentMetaData?.deployAuthor ?? 'unknown';
         const deployedUNIX = application.deploymentMetaData?.deployTime ?? '';
         if (deployedUNIX === '') {
-            return 'Deployed by: ' + deployedBy;
+            return 'Deployed by ' + deployedBy;
         }
         const deployedDate = new Date(+deployedUNIX * 1000);
         const returnString = 'Deployed by ' + deployedBy + ' on ' + deployedDate;
@@ -302,7 +302,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         className={className}
                         release={release}
                         version={version}
-                        // deployedAtGroup={deployedAtGroup}
+                    // deployedAtGroup={deployedAtGroup}
                     />
                 </Dialog>
             </div>
