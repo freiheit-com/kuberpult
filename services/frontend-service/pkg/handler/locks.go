@@ -21,10 +21,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ProtonMail/go-crypto/openpgp"
+	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
-	"golang.org/x/crypto/openpgp"
-	pgperrors "golang.org/x/crypto/openpgp/errors"
 	"io"
 	"net/http"
 	"strings"
@@ -82,7 +82,7 @@ func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), strings.NewReader(signature)); err != nil {
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), strings.NewReader(signature), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(500)
 				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
@@ -127,7 +127,7 @@ func (s Server) handleDeleteEnvironmentLock(w http.ResponseWriter, req *http.Req
 			return
 		}
 
-		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), bytes.NewReader(signature)); err != nil {
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), bytes.NewReader(signature), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(500)
 				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)

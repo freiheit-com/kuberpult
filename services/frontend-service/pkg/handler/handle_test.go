@@ -28,7 +28,7 @@ import (
 	"strings"
 	"testing"
 
-	"golang.org/x/crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/google/go-cmp/cmp"

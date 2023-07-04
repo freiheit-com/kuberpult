@@ -18,7 +18,7 @@ package handler
 
 import (
 	"fmt"
-	"golang.org/x/crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp"
 	"net/http"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"

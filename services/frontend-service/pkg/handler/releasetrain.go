@@ -24,9 +24,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
+	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	"github.com/freiheit-com/kuberpult/pkg/api"
-	"golang.org/x/crypto/openpgp"
-	pgperrors "golang.org/x/crypto/openpgp/errors"
 )
 
 func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
@@ -60,7 +60,7 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, tar
 			return
 		}
 
-		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(target), bytes.NewReader(signature)); err != nil {
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(target), bytes.NewReader(signature), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(500)
 				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
