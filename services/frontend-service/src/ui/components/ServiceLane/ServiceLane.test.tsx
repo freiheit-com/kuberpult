@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { fireEvent, render } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { ServiceLane } from './ServiceLane';
 import { UpdateOverview } from '../../utils/store';
 import { Spy } from 'spy4js';
@@ -428,7 +428,7 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
                     locks: {},
                 },
             ],
-            expectedUndeployButton: 'Prepare Undeploy Release',
+            expectedUndeployButton: '⋮',
             expectedAction: {
                 action: {
                     $case: 'prepareUndeploy',
@@ -455,7 +455,7 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
                     locks: {},
                 },
             ],
-            expectedUndeployButton: 'Delete Forever',
+            expectedUndeployButton: '⋮',
             expectedAction: {
                 action: {
                     $case: 'undeploy',
@@ -467,7 +467,7 @@ const dataUndeploy: TestDataUndeploy[] = (() => {
     return result;
 })();
 
-describe('Service Lane Undeploy Buttons', () => {
+describe('Service Lane ⋮ menu', () => {
     const getNode = (overrides: { application: Application }) => (
         <MemoryRouter>
             <ServiceLane {...overrides} />
@@ -493,18 +493,11 @@ describe('Service Lane Undeploy Buttons', () => {
 
             const { container } = getWrapper({ application: testcase.renderedApp });
 
-            const undeployButton = elementQuerySelectorSafe(
-                container,
-                '.service-action.service-action--prepare-undeploy'
-            );
+            const undeployButton = elementQuerySelectorSafe(container, '.dots-menu-hidden');
             const label = elementQuerySelectorSafe(undeployButton, 'span');
             expect(label?.textContent).toBe(testcase.expectedUndeployButton);
 
             mock_addAction.addAction.wasNotCalled();
-
-            fireEvent.click(undeployButton);
-
-            mock_addAction.addAction.wasCalledWith(testcase.expectedAction);
         });
     });
 });

@@ -22,13 +22,13 @@ import {
     useVersionsForApp,
 } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
-import { Button } from '../button';
 import { DeleteWhite, HistoryWhite } from '../../../images';
 import { Application, UndeploySummary } from '../../../api/api';
 import { Tooltip } from '@material-ui/core';
 import * as React from 'react';
 import { AppLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
+import { DotsMenu, DotsMenuButton } from './DotsMenu';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -135,14 +135,24 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
             );
         });
 
-    const undeployButton = prepareUndeployOrUndeployText ? (
-        <Button
-            className="service-action service-action--prepare-undeploy mdc-button--unelevated"
-            label={prepareUndeployOrUndeployText}
-            icon={<DeleteWhite />}
-            onClick={prepareUndeployOrUndeploy}
-        />
-    ) : null;
+    const buttons: DotsMenuButton[] = [
+        {
+            label: 'View History',
+            icon: <HistoryWhite />,
+            onClick: (): void => {
+                navCallback();
+            },
+        },
+    ];
+    if (prepareUndeployOrUndeployText) {
+        buttons.push({
+            label: prepareUndeployOrUndeployText,
+            onClick: prepareUndeployOrUndeploy,
+            icon: <DeleteWhite />,
+        });
+    }
+
+    const dotsMenu = <DotsMenu buttons={buttons} />;
 
     const appLocks = useFilteredApplicationLocks(application.name);
     return (
@@ -156,15 +166,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                         </div>
                     )}
                 </div>
-                <div className="service__actions">
-                    {undeployButton}
-                    <Button
-                        className="service-action service-action--history mdc-button--unelevated"
-                        label={'View history'}
-                        icon={<HistoryWhite />}
-                        onClick={navCallback}
-                    />
-                </div>
+                <div className="service__actions">{dotsMenu}</div>
             </div>
             <div className="service__warnings">
                 <WarningBoxes application={application} />

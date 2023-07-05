@@ -16,17 +16,19 @@ Copyright 2023 freiheit.com*/
 import { useRef, useEffect, cloneElement } from 'react';
 import classNames from 'classnames';
 import { MDCRipple } from '@material/ripple';
+import * as React from 'react';
 
 export const Button = (props: {
+    id?: string;
     disabled?: boolean;
     className?: string;
     label?: string;
     icon?: JSX.Element;
-    onClick?: () => void;
+    onClick?: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
 }): JSX.Element => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLButtonElement>(null);
-    const { disabled, className, label, icon, onClick } = props;
+    const { id, disabled, className, label, icon, onClick } = props;
 
     useEffect(() => {
         if (control.current) {
@@ -37,6 +39,7 @@ export const Button = (props: {
 
     return (
         <button
+            id={id}
             disabled={disabled}
             className={classNames('mdc-button', className)}
             onClick={onClick}
