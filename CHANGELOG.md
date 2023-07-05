@@ -6,6 +6,31 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.76
+**released 2023-07-04**
+
+### Breaking Changes
+no actual *breaking* changes, but we do now recommend setting the git author in the helm chart (values "git.author.name" and "git.author.email")
+and whenever you call the "/release" endpoint in the cd-service (most of our users have a script called publish.sh which does just that).
+See [this script](https://github.com/freiheit-com/kuberpult/blob/main/infrastructure/scripts/create-testdata/create-release.sh#L81) for an example.
+See [this PR](https://github.com/freiheit-com/kuberpult/pull/765) for details.
+
+If you do not care what string appears as git author in the manifest repo when kuberpult creates commits, you don't have to change anything.
+
+### Major Changes
+* [Display person who triggered deployment](https://github.com/freiheit-com/kuberpult/pull/784)
+* [Make git author configurable in helm chart & refactor context usage](https://github.com/freiheit-com/kuberpult/pull/765)
+
+### Minor Changes
+* [Store person who triggered deployment](https://github.com/freiheit-com/kuberpult/pull/767)
+* [Adds DEX methods to Auth Package ](https://github.com/freiheit-com/kuberpult/pull/782)
+* [Update module google.golang.org/protobuf to v1.31.0](https://github.com/freiheit-com/kuberpult/pull/772)
+* [Update alpine Docker tag to v3.18](https://github.com/freiheit-com/kuberpult/pull/751)
+* [Update k8s.io/utils digest to 9f67429](https://github.com/freiheit-com/kuberpult/pull/748)
+* [Update dependency typescript to v5.1.6](https://github.com/freiheit-com/kuberpult/pull/769)
+
+
+
 ## 0.4.75
 **released 2023-07-04**
 ### Breaking Changes
