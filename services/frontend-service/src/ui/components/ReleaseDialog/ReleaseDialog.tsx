@@ -138,6 +138,29 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         }
         return otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage;
     };
+    const getDeploymentMetadata = (): [String, JSX.Element] => {
+        if (!application) {
+            return ['', <></>];
+        }
+        if (!(application && application.version === release.version)) {
+            return ['', <></>];
+        }
+        if (application.deploymentMetaData === null) {
+            return ['', <></>];
+        }
+        const deployedBy = application.deploymentMetaData?.deployAuthor ?? 'unknown';
+        const deployedUNIX = application.deploymentMetaData?.deployTime ?? '';
+        if (deployedUNIX === '') {
+            return ['Deployed by ' + deployedBy, <></>];
+        }
+        const deployedDate = new Date(+deployedUNIX * 1000);
+        const returnString = 'Deployed by ' + deployedBy + ' ';
+        const time = (
+            <FormattedDate createdAt={deployedDate} className={classNames('release-dialog-createdAt', className)} />
+        );
+
+        return [returnString, time];
+    };
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -173,6 +196,11 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                         {getCommitString()}
                     </div>
                     {queueInfo}
+                    <div className={classNames('env-card-data', className)}>
+                        {getDeploymentMetadata().flatMap((metadata, i) => (
+                            <div key={i}>{metadata}</div>
+                        ))}
+                    </div>
                 </div>
                 <div className="content-right">
                     <div className="env-card-buttons">
