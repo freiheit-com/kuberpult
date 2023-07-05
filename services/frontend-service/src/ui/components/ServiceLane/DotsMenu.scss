@@ -1,0 +1,45 @@
+/*This file is part of kuberpult.
+
+Kuberpult is free software: you can redistribute it and/or modify
+it under the terms of the Expat(MIT) License as published by
+the Free Software Foundation.
+
+Kuberpult is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+MIT License for more details.
+
+You should have received a copy of the MIT License
+along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+Copyright 2023 freiheit.com*/
+
+.dots-menu {
+    background-color: grey;
+    z-index: 1000;
+    border: 5px solid var(--mdc-theme-primary);
+    border-radius: 5px;
+    box-shadow: rgba(0, 0, 0, 0.2) 0px 5px 5px -3px, rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+        rgba(0, 0, 0, 0.12) 0px 3px 14px 2px;
+    position: relative;
+
+    .list {
+        padding-inline-start: 0px;
+        margin-block-start: 0px;
+        margin-block-end: 0px;
+
+        .item:not(:first-child) {
+            border-top: 1px solid;
+            border-color: white;
+        }
+        .item {
+            list-style-type: none;
+            padding: 0px;
+        }
+    }
+
+    button {
+        width: 100%;
+        border-radius: 0px;
+    }
+}
