@@ -186,7 +186,7 @@ func TestGrpcForwardHeader(t *testing.T) {
 				//
 				path, err := url.JoinPath("http://localhost:8081/", tc.RequestPath)
 				if err != nil {
-					panic(err)
+					t.Fatalf(err)
 				}
 				body, err := proto.Marshal(tc.Body)
 				req, err := http.NewRequest("POST", path, bytes.NewReader(body))
