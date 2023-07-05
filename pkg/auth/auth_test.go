@@ -21,49 +21,49 @@ import (
 	"testing"
 )
 
-func TestAuthContextFunctions(t *testing.T) {
+func TestToFromContext(t *testing.T) {
 	tcs := []struct {
 		Name         string
-		Author       *User
-		ExpectedUser *User
+		Author       User
+		ExpectedUser User
 	}{
 		{
 			Name: "User is fully specified",
-			Author: &User{
+			Author: User{
 				Email: "new@test.com",
 				Name:  "New",
 			},
-			ExpectedUser: &User{
+			ExpectedUser: User{
 				Email: "new@test.com",
 				Name:  "New",
 			},
 		},
 		{
 			Name: "Name is not specified",
-			Author: &User{
+			Author: User{
 				Email: "new@test.com",
 			},
-			ExpectedUser: &User{
+			ExpectedUser: User{
 				Email: "new@test.com",
-				Name:  "new@test.com",
+				Name:  "",
 			},
 		},
 		{
 			Name: "Email is not specified",
-			Author: &User{
+			Author: User{
 				Name: "my name",
 			},
-			ExpectedUser: &User{
-				Email: "local.user@freiheit.com",
-				Name:  "defaultUser",
+			ExpectedUser: User{
+				Email: "",
+				Name:  "my name",
 			},
 		},
 		{
 			Name:   "User is not specified",
-			Author: nil,
-			ExpectedUser: &User{
-				Email: "local.user@freiheit.com",
-				Name:  "defaultUser",
+			Author: User{},
+			ExpectedUser: User{
+				Email: "",
+				Name:  "",
 			},
 		},
 	}
@@ -72,8 +72,11 @@ func TestAuthContextFunctions(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctx := ToContext(context.Background(), tc.Author)
-			u := Extract(ctx)
+			ctx := WriteUserToContext(context.Background(), tc.Author)
+			u, err := ReadUserFromContext(ctx)
+			if err != nil {
+				t.Fatalf("Unexpected error: %#v \n", err)
+			}
 			if u.Email != tc.ExpectedUser.Email {
 				t.Fatalf("Unexpected Email was extracted from context.\nexpected: %#v \nrecieved: %#v \n", tc.ExpectedUser.Email, u.Email)
 			}
@@ -82,5 +85,4 @@ func TestAuthContextFunctions(t *testing.T) {
 			}
 		})
 	}
-
 }

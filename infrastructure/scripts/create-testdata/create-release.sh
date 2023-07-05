@@ -44,14 +44,14 @@ echo ${msgs[$index]}" "$commit_id > "${commit_message_file}"
 
 ls ${commit_message_file}
 
-release_version=()
+release_version=''
 case "${RELEASE_VERSION:-}" in
 	'') echo "No RELEASE_VERSION set. Using non-idempotent versioning scheme";;
 	*[!0-9]*) echo "Please set the env variable RELEASE_VERSION to a number"; exit 1;;
-	*) release_version=(--form-string "version=${RELEASE_VERSION:-}");;
+	*) release_version='--form-string '"version=${RELEASE_VERSION:-}";;
 esac
 
-echo "release version:" "${release_version[@]}"
+echo "release version:" "${release_version}"
 
 configuration=()
 configuration+=("--form" "team=${applicationOwnerTeam}")
@@ -77,11 +77,13 @@ done
 echo commit id: ${commit_id}
 
 
-curl http://localhost:8081/release \
+curl http://localhost:8080/release \
+  -H "author-email:dW5kZWZpbmVkLXVzZXJAZXhhbXBsZS5jb20=" \
+  -H "author-name:dW5kZWZpbmVkLXVzZXI=" \
   --form-string "application=$name" \
   --form-string "source_commit_id=${commit_id}" \
   --form-string "source_author=${author}" \
-  "${release_version[@]}" \
+  ${release_version} \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \
   "${manifests[@]}"

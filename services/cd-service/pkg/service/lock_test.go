@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -76,7 +77,7 @@ func TestLockingService(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			logs := testlogger.Wrap(context.Background(), func(ctx context.Context) {
+			logs := testlogger.Wrap(testutil.MakeTestContext(), func(ctx context.Context) {
 				repo, err := setupRepositoryTest(t)
 				if err != nil {
 					t.Fatal(err)
@@ -144,7 +145,7 @@ func TestInvalidCreateEnvironmentLockArguments(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			logs := testlogger.Wrap(context.Background(), func(ctx context.Context) {
+			logs := testlogger.Wrap(testutil.MakeTestContext(), func(ctx context.Context) {
 				svc := &LockServiceServer{}
 				_, err := svc.CreateEnvironmentLock(
 					ctx,
@@ -221,7 +222,7 @@ func TestInvalidCreateEnvironmentApplicationLockArguments(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			logs := testlogger.Wrap(context.Background(), func(ctx context.Context) {
+			logs := testlogger.Wrap(testutil.MakeTestContext(), func(ctx context.Context) {
 				svc := &LockServiceServer{}
 				_, err := svc.CreateEnvironmentApplicationLock(
 					ctx,
@@ -280,7 +281,7 @@ func TestErrorLock(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			logs := testlogger.Wrap(context.Background(), func(ctx context.Context) {
+			logs := testlogger.Wrap(testutil.MakeTestContext(), func(ctx context.Context) {
 				svc := &LockServiceServer{
 					Repository: testrepository.Failing(testerror),
 				}

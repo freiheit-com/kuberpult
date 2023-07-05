@@ -18,11 +18,12 @@ package service
 
 import (
 	"context"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
 	"sync"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
@@ -185,7 +186,7 @@ func TestCalculateWarnings(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			actualWarnings := CalculateWarnings(context.Background(), tc.AppName, tc.Groups)
+			actualWarnings := CalculateWarnings(testutil.MakeTestContext(), tc.AppName, tc.Groups)
 			if len(actualWarnings) != len(tc.ExpectedWarnings) {
 				t.Errorf("Different number of warnings. got: %s\nwant: %s", actualWarnings, tc.ExpectedWarnings)
 			}
@@ -297,7 +298,11 @@ func TestOverviewService(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, svc *OverviewServiceServer) {
-				resp, err := svc.GetOverview(context.Background(), &api.GetOverviewRequest{})
+				var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
+					Email: "test-email@example.com",
+					Name:  "overview tester",
+				})
+				resp, err := svc.GetOverview(ctx, &api.GetOverviewRequest{})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -390,8 +395,9 @@ func TestOverviewService(t *testing.T) {
 					}
 				}
 
-				if dev.Applications["test"].GetDeploymentMetaData().DeployAuthor != auth.DefaultName {
-					t.Errorf("development environment deployment did not create deploymentMetaData")
+				got := dev.Applications["test"].GetDeploymentMetaData().DeployAuthor
+				if got != "test tester" {
+					t.Errorf("development environment deployment did not create deploymentMetaData, got %s", got)
 				}
 
 				// Check staging
@@ -517,7 +523,7 @@ func TestOverviewService(t *testing.T) {
 				},
 			},
 			Test: func(t *testing.T, svc *OverviewServiceServer) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(testutil.MakeTestContext())
 				ch := make(chan *api.GetOverviewResponse)
 				stream := mockOverviewService_StreamOverviewServer{
 					Results: ch,
@@ -578,7 +584,7 @@ func TestOverviewService(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(context.Background(), tr); err != nil {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -719,7 +725,7 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 				Shutdown:   shutdown,
 			}
 
-			ov, err := svc.GetOverview(context.Background(), &api.GetOverviewRequest{})
+			ov, err := svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
 			if err != nil {
 				t.Errorf("expected no error, got %s", err)
 			}
@@ -728,10 +734,10 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 			}
 			revisions := map[string]*api.GetOverviewResponse{}
 			for _, tr := range tc.Steps {
-				if err := repo.Apply(context.Background(), tr.Transformer); err != nil {
+				if err := repo.Apply(testutil.MakeTestContext(), tr.Transformer); err != nil {
 					t.Fatal(err)
 				}
-				ov, err = svc.GetOverview(context.Background(), &api.GetOverviewRequest{})
+				ov, err = svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
 				if err != nil {
 					t.Errorf("expected no error, got %s", err)
 				}
@@ -744,7 +750,7 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 				revisions[ov.GitRevision] = ov
 			}
 			for rev := range revisions {
-				ov, err = svc.GetOverview(context.Background(), &api.GetOverviewRequest{GitRevision: rev})
+				ov, err = svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{GitRevision: rev})
 				if err != nil {
 					t.Errorf("expected no error, got %s", err)
 				}

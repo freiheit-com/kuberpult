@@ -25,7 +25,9 @@ Many parallel requests can happen in a CI with many microservices that all call 
 This queue does not improve the latency, because each request still waits for the push to finish.
 */
 
-import "context"
+import (
+	"context"
+)
 
 type queue struct {
 	elements chan element

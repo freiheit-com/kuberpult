@@ -18,8 +18,9 @@ package service
 
 import (
 	"bytes"
-	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -290,7 +291,7 @@ func TestServeHttp(t *testing.T) {
 			cmd.Start()
 			cmd.Wait()
 			repo, err := repository.New(
-				context.Background(),
+				testutil.MakeTestContext(),
 				repository.RepositoryConfig{
 					URL:            remoteDir,
 					Path:           localDir,
@@ -302,7 +303,7 @@ func TestServeHttp(t *testing.T) {
 				t.Fatal(err)
 			}
 			if tc.Setup != nil {
-				err := repo.Apply(context.Background(), tc.Setup...)
+				err := repo.Apply(testutil.MakeTestContext(), tc.Setup...)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -339,6 +340,7 @@ func TestServeHttp(t *testing.T) {
 					}
 				}
 			}
+
 			for k, v := range tc.Manifests {
 				if w, err := body.CreateFormFile("manifests["+k+"]", "doesntmatter"); err != nil {
 					t.Fatal(err)
@@ -375,7 +377,15 @@ func TestServeHttp(t *testing.T) {
 			}
 			body.Close()
 
-			if resp, err := http.Post(srv.URL+"/release", "multipart/form-data; boundary="+body.Boundary(), &buf); err != nil {
+			request, err := http.NewRequest("POST", srv.URL+"/release", &buf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request.Header.Set(auth.HeaderUserEmail, auth.Encode64("local.user@freiheit.com"))
+			request.Header.Set(auth.HeaderUserName, auth.Encode64("defaultUser"))
+			request.Header.Set("content-type", "multipart/form-data; boundary="+body.Boundary())
+			resp, err := http.DefaultClient.Do(request)
+			if err != nil {
 				t.Fatal(err)
 			} else {
 				if resp.StatusCode != tc.ExpectedStatus {
@@ -436,7 +446,7 @@ func TestServeHttpEmptyBody(t *testing.T) {
 			cmd.Start()
 			cmd.Wait()
 			repo, err := repository.New(
-				context.Background(),
+				testutil.MakeTestContext(),
 				repository.RepositoryConfig{
 					URL:            remoteDir,
 					Path:           localDir,

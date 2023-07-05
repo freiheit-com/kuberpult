@@ -17,7 +17,7 @@ Copyright 2023 freiheit.com*/
 package service
 
 import (
-	"context"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"testing"
 
@@ -62,7 +62,7 @@ func TestDeployService(t *testing.T) {
 			},
 			Test: func(t *testing.T, svc *DeployServiceServer) {
 				_, err := svc.Deploy(
-					context.Background(),
+					testutil.MakeTestContext(),
 					&api.DeployRequest{
 						Environment: "production",
 						Application: "test",
@@ -111,7 +111,7 @@ func TestDeployService(t *testing.T) {
 			},
 			Test: func(t *testing.T, svc *DeployServiceServer) {
 				_, err := svc.Deploy(
-					context.Background(),
+					testutil.MakeTestContext(),
 					&api.DeployRequest{
 						Environment:  "production",
 						Application:  "test",
@@ -148,7 +148,7 @@ func TestDeployService(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(context.Background(), tr); err != nil {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -260,7 +260,7 @@ The release train deployed 0 services from 'acceptance' to 'production' for team
 				t.Fatal(err)
 			}
 
-			ctx := context.Background()
+			ctx := testutil.MakeTestContext()
 			initTransformers := []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: envAcceptance,
@@ -463,7 +463,7 @@ The release train deployed 0 services from 'acceptance-pt' to 'production-pt' fo
 				t.Fatal(err)
 			}
 
-			ctx := context.Background()
+			ctx := testutil.MakeTestContext()
 			initTransformers := []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: envAcceptancePT,
@@ -580,7 +580,7 @@ func TestReleaseTrain(t *testing.T) {
 			},
 			Test: func(t *testing.T, svc *DeployServiceServer) {
 				resp, err := svc.ReleaseTrain(
-					context.Background(),
+					testutil.MakeTestContext(),
 					&api.ReleaseTrainRequest{
 						Target: "acceptance",
 						Team:   "team",
@@ -613,7 +613,7 @@ func TestReleaseTrain(t *testing.T) {
 			},
 			Test: func(t *testing.T, svc *DeployServiceServer) {
 				resp, err := svc.ReleaseTrain(
-					context.Background(),
+					testutil.MakeTestContext(),
 					&api.ReleaseTrainRequest{
 						Target: "acceptance",
 						Team:   "team",
@@ -639,7 +639,7 @@ func TestReleaseTrain(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(context.Background(), tr); err != nil {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
 					t.Fatal(err)
 				}
 			}

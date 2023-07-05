@@ -6,6 +6,9 @@ git:
   url:  # git@github.com/.../...
   branch: "master"
   sourceRepoUrl: ""
+  author:
+    name: local.user@example.com
+    email: defaultUser
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 

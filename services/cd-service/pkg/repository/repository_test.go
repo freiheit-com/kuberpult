@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -50,7 +51,7 @@ func TestNew(t *testing.T) {
 			Setup: func(t *testing.T, remoteDir, localDir string) {
 				// run the initialization code once
 				_, err := New(
-					context.Background(),
+					testutil.MakeTestContext(),
 					RepositoryConfig{
 						URL:  "file://" + remoteDir,
 						Path: localDir,
@@ -76,7 +77,7 @@ func TestNew(t *testing.T) {
 			Setup: func(t *testing.T, remoteDir, localDir string) {
 				// run the initialization code once
 				repo, err := New(
-					context.Background(),
+					testutil.MakeTestContext(),
 					RepositoryConfig{
 						URL:  remoteDir,
 						Path: localDir,
@@ -85,7 +86,7 @@ func TestNew(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				err = repo.Apply(context.Background(), &CreateApplicationVersion{
+				err = repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
 					Application: "foo",
 					Manifests: map[string]string{
 						"development": "foo",
@@ -111,7 +112,7 @@ func TestNew(t *testing.T) {
 			Setup: func(t *testing.T, remoteDir, localDir string) {
 				// run the initialization code once
 				repo, err := New(
-					context.Background(),
+					testutil.MakeTestContext(),
 					RepositoryConfig{
 						URL:  remoteDir,
 						Path: t.TempDir(),
@@ -120,7 +121,7 @@ func TestNew(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				err = repo.Apply(context.Background(), &CreateApplicationVersion{
+				err = repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
 					Application: "foo",
 					Manifests: map[string]string{
 						"development": "foo",
@@ -146,7 +147,7 @@ func TestNew(t *testing.T) {
 			Branch: "not-master",
 			Setup:  func(t *testing.T, remoteDir, localDir string) {},
 			Test: func(t *testing.T, repo Repository, remoteDir string) {
-				err := repo.Apply(context.Background(), &CreateApplicationVersion{
+				err := repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
 					Application: "foo",
 					Manifests: map[string]string{
 						"development": "foo",
@@ -220,7 +221,7 @@ func TestNew(t *testing.T) {
 					}
 					t.Fatal(err)
 				}
-				err = repo.Apply(context.Background(), &CreateApplicationVersion{
+				err = repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
 					Application: "foo",
 					Manifests: map[string]string{
 						"development": "foo",
@@ -266,7 +267,7 @@ func TestNew(t *testing.T) {
 			cmd.Wait()
 			tc.Setup(t, remoteDir, localDir)
 			repo, err := New(
-				context.Background(),
+				testutil.MakeTestContext(),
 				RepositoryConfig{
 					URL:    "file://" + remoteDir,
 					Path:   localDir,
@@ -312,7 +313,7 @@ func TestBootstrapModeNew(t *testing.T) {
 
 			if tc.PreInitialize {
 				_, err := New(
-					context.Background(),
+					testutil.MakeTestContext(),
 					RepositoryConfig{
 						URL:  "file://" + remoteDir,
 						Path: localDir,
@@ -326,7 +327,7 @@ func TestBootstrapModeNew(t *testing.T) {
 			environmentConfigsPath := filepath.Join(remoteDir, "..", "environment_configs.json")
 
 			repo, err := New(
-				context.Background(),
+				testutil.MakeTestContext(),
 				RepositoryConfig{
 					URL:                    "file://" + remoteDir,
 					Path:                   localDir,
@@ -373,7 +374,7 @@ func TestBootstrapModeReadConfig(t *testing.T) {
 			}
 
 			repo, err := New(
-				context.Background(),
+				testutil.MakeTestContext(),
 				RepositoryConfig{
 					URL:                    "file://" + remoteDir,
 					Path:                   localDir,
@@ -438,7 +439,7 @@ func TestBootstrapError(t *testing.T) {
 			}
 
 			_, err := New(
-				context.Background(),
+				testutil.MakeTestContext(),
 				RepositoryConfig{
 					URL:                    "file://" + remoteDir,
 					Path:                   localDir,
@@ -546,7 +547,7 @@ func TestConfigReload(t *testing.T) {
 		}
 
 		repo, err := New(
-			context.Background(),
+			testutil.MakeTestContext(),
 			RepositoryConfig{
 				URL:  remoteDir,
 				Path: t.TempDir(),
@@ -562,7 +563,7 @@ func TestConfigReload(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err := repo.Apply(context.Background(), &CreateApplicationVersion{
+			err := repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
 				Application: "foo",
 				Manifests: map[string]string{
 					"development": "foo",
@@ -670,7 +671,7 @@ func TestConfigValidity(t *testing.T) {
 			}
 
 			_, err = New(
-				context.Background(),
+				testutil.MakeTestContext(),
 				RepositoryConfig{
 					URL:  remoteDir,
 					Path: t.TempDir(),
@@ -738,7 +739,7 @@ func TestGc(t *testing.T) {
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
 			cmd.Start()
 			cmd.Wait()
-			ctx := context.Background()
+			ctx := testutil.MakeTestContext()
 			repo, err := New(
 				ctx,
 				RepositoryConfig{
@@ -832,7 +833,7 @@ func TestRetrySsh(t *testing.T) {
 			repo.backOffProvider = func() backoff.BackOff {
 				return backoff.WithMaxRetries(&backoff.ZeroBackOff{}, 5)
 			}
-			resp := repo.Push(context.Background(), func() error {
+			resp := repo.Push(testutil.MakeTestContext(), func() error {
 				counter++
 				if counter > tc.NumOfFailures {
 					return nil
@@ -968,7 +969,7 @@ func TestApplyQueuePanic(t *testing.T) {
 			cmd.Start()
 			cmd.Wait()
 			repo, err := New(
-				context.Background(),
+				testutil.MakeTestContext(),
 				RepositoryConfig{
 					URL:  "file://" + remoteDir,
 					Path: localDir,
@@ -982,13 +983,13 @@ func TestApplyQueuePanic(t *testing.T) {
 			finished := make(chan struct{})
 			started := make(chan struct{}, 1)
 			go func() {
-				repo.Apply(context.Background(), &SlowTransformer{finished, started})
+				repo.Apply(testutil.MakeTestContext(), &SlowTransformer{finished, started})
 			}()
 			<-started
 			// The worker go routine is now blocked. We can move some items into the queue now.
 			results := make([]<-chan error, len(tc.Actions))
 			for i, action := range tc.Actions {
-				results[i] = repoInternal.applyDeferred(context.Background(), action.Transformer)
+				results[i] = repoInternal.applyDeferred(testutil.MakeTestContext(), action.Transformer)
 			}
 			defer func() {
 				if r := recover(); r == nil {
@@ -1001,7 +1002,7 @@ func TestApplyQueuePanic(t *testing.T) {
 					}
 				}
 			}()
-			repoInternal.ProcessQueue(context.Background())
+			repoInternal.ProcessQueue(testutil.MakeTestContext())
 		})
 	}
 }
@@ -1193,7 +1194,7 @@ func TestApplyQueue(t *testing.T) {
 			cmd.Start()
 			cmd.Wait()
 			repo, err := New(
-				context.Background(),
+				testutil.MakeTestContext(),
 				RepositoryConfig{
 					URL:  "file://" + remoteDir,
 					Path: localDir,
@@ -1207,13 +1208,13 @@ func TestApplyQueue(t *testing.T) {
 			finished := make(chan struct{})
 			started := make(chan struct{}, 1)
 			go func() {
-				repo.Apply(context.Background(), &SlowTransformer{finished, started})
+				repo.Apply(testutil.MakeTestContext(), &SlowTransformer{finished, started})
 			}()
 			<-started
 			// The worker go routine is now blocked. We can move some items into the queue now.
 			results := make([]<-chan error, len(tc.Actions))
 			for i, action := range tc.Actions {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(testutil.MakeTestContext())
 				if action.CancelBeforeAdd {
 					cancel()
 				}
@@ -1325,7 +1326,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 	createGitWithCommit(remoteDir, localDir, t)
 
 	repo, err := New(
-		context.Background(),
+		testutil.MakeTestContext(),
 		RepositoryConfig{
 			URL:  "file://" + remoteDir,
 			Path: localDir,
@@ -1340,12 +1341,12 @@ func BenchmarkApplyQueue(t *testing.B) {
 	expectedResults := make([]error, t.N)
 	expectedReleases := make(map[int]bool, t.N)
 	tf, _ := getTransformer(0)
-	repoInternal.Apply(context.Background(), tf)
+	repoInternal.Apply(testutil.MakeTestContext(), tf)
 
 	t.StartTimer()
 	for i := 0; i < t.N; i++ {
 		tf, expectedResult := getTransformer(i)
-		results[i] = repoInternal.applyDeferred(context.Background(), tf)
+		results[i] = repoInternal.applyDeferred(testutil.MakeTestContext(), tf)
 		expectedResults[i] = expectedResult
 		if expectedResult == nil {
 			expectedReleases[i+1] = true
@@ -1422,7 +1423,7 @@ func TestProcessQueueOnce(t *testing.T) {
 			PushUpdateFunc: DefaultPushUpdate,
 			PushActionFunc: DefaultPushActionCallback,
 			Element: element{
-				ctx: context.Background(),
+				ctx: testutil.MakeTestContext(),
 				transformers: []Transformer{
 					&EmptyTransformer{},
 				},
@@ -1438,7 +1439,7 @@ func TestProcessQueueOnce(t *testing.T) {
 			},
 			PushActionFunc: DefaultPushActionCallback,
 			Element: element{
-				ctx: context.Background(),
+				ctx: testutil.MakeTestContext(),
 				transformers: []Transformer{
 					&EmptyTransformer{},
 				},
@@ -1457,7 +1458,7 @@ func TestProcessQueueOnce(t *testing.T) {
 				}
 			},
 			Element: element{
-				ctx: context.Background(),
+				ctx: testutil.MakeTestContext(),
 				transformers: []Transformer{
 					&EmptyTransformer{},
 				},
@@ -1479,7 +1480,7 @@ func TestProcessQueueOnce(t *testing.T) {
 			cmd.Start()
 			cmd.Wait()
 			repo, actualError := New(
-				context.Background(),
+				testutil.MakeTestContext(),
 				RepositoryConfig{
 					URL:  "file://" + remoteDir,
 					Path: localDir,
@@ -1489,7 +1490,7 @@ func TestProcessQueueOnce(t *testing.T) {
 				t.Fatalf("new: expected no error, got '%e'", actualError)
 			}
 			repoInternal := repo.(*repository)
-			repoInternal.ProcessQueueOnce(context.Background(), tc.Element, tc.PushUpdateFunc, tc.PushActionFunc)
+			repoInternal.ProcessQueueOnce(testutil.MakeTestContext(), tc.Element, tc.PushUpdateFunc, tc.PushActionFunc)
 
 			result := tc.Element.result
 			actualError = <-result

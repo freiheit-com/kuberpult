@@ -611,6 +611,11 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string
 		return err
 	}
 
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	// create lock dir
 	newLockDir := fs.Join(locksDir, lockId)
 	if err := fs.MkdirAll(newLockDir, 0777); err != nil {
@@ -623,12 +628,12 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string
 	}
 
 	// write email
-	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_by_email"), []byte(auth.Extract(ctx).Email), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_by_email"), []byte(user.Email), 0666); err != nil {
 		return err
 	}
 
 	// write name
-	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_by_name"), []byte(auth.Extract(ctx).Name), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_by_name"), []byte(user.Name), 0666); err != nil {
 		return err
 	}
 
@@ -871,10 +876,15 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		return "", err
 	}
 
-	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by"), []byte(auth.Extract(ctx).Name), 0666); err != nil {
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
 		return "", err
 	}
-	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by_email"), []byte(auth.Extract(ctx).Email), 0666); err != nil {
+
+	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by"), []byte(user.Name), 0666); err != nil {
+		return "", err
+	}
+	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by_email"), []byte(user.Email), 0666); err != nil {
 		return "", err
 	}
 
@@ -885,7 +895,7 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 	s := State{
 		Filesystem: fs,
 	}
-	err := s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
+	err = s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
 	if err != nil {
 		return "", err
 	}

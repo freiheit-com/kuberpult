@@ -424,7 +424,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error) {
 	if state, err := r.StateAt(nil); err != nil {
-		return nil, nil, &InternalError{inner: err}
+		return nil, nil, httperrors.InternalError(ctx, fmt.Errorf("%s: %w", "failure in StateAt", err))
 	} else {
 		commitMsg := []string{}
 		ctxWithTime := withTimeNow(ctx, time.Now())
@@ -450,7 +450,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		return err
 	}
 	if err := r.afterTransform(ctx, *state); err != nil {
-		return &InternalError{inner: err}
+		return httperrors.InternalError(ctx, fmt.Errorf("%s: %w", "failure in afterTransform", err))
 	}
 
 	treeId, err := state.Filesystem.(*fs.TreeBuilderFS).Insert()
@@ -463,9 +463,14 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		When:  time.Now(),
 	}
 
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	author := &git.Signature{
-		Name:  auth.Extract(ctx).Name,
-		Email: auth.Extract(ctx).Email,
+		Name:  user.Name,
+		Email: user.Email,
 		When:  time.Now(),
 	}
 
@@ -482,7 +487,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		treeId,
 		rev,
 	); err != nil {
-		return &InternalError{inner: err}
+		return httperrors.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err))
 	}
 	return nil
 }
@@ -894,12 +899,13 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 	}
 }
 
-func (s *State) GetDeploymentMetaData(environment, application string) (string, time.Time, error) {
+func (s *State) GetDeploymentMetaData(ctx context.Context, environment, application string) (string, time.Time, error) {
 	base := s.Filesystem.Join("environments", environment, "applications", application)
 	author, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_by"))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return auth.DefaultName, time.Time{}, nil
+			// for backwards compatibility, we do not return an error here
+			return "", time.Time{}, nil
 		} else {
 			return "", time.Time{}, err
 		}

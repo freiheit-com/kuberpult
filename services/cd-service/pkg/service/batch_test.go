@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
 	"google.golang.org/grpc/status"
 	"os/exec"
 	"path"
@@ -140,7 +141,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(context.Background(), tr); err != nil {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -148,7 +149,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				Repository: repo,
 			}
 			_, err = svc.ProcessBatch(
-				context.Background(),
+				testutil.MakeTestContext(),
 				&api.BatchRequest{
 					Actions: tc.Batch,
 				},
@@ -250,7 +251,7 @@ func TestBatchServiceErrors(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(context.Background(), tr); err != nil {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -258,7 +259,7 @@ func TestBatchServiceErrors(t *testing.T) {
 				Repository: repo,
 			}
 			_, err = svc.ProcessBatch(
-				context.Background(),
+				testutil.MakeTestContext(),
 				&api.BatchRequest{
 					Actions: tc.Batch,
 				},
@@ -323,7 +324,7 @@ func TestBatchServiceLimit(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(context.Background(), tr); err != nil {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -331,7 +332,7 @@ func TestBatchServiceLimit(t *testing.T) {
 				Repository: repo,
 			}
 			_, err = svc.ProcessBatch(
-				context.Background(),
+				testutil.MakeTestContext(),
 				&api.BatchRequest{
 					Actions: tc.Batch,
 				},
@@ -376,7 +377,7 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 	cmd.Start()
 	cmd.Wait()
 	repo, err := repository.New(
-		context.Background(),
+		testutil.MakeTestContext(),
 		repository.RepositoryConfig{
 			URL:            remoteDir,
 			Path:           localDir,

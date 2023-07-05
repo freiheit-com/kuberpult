@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -74,6 +76,17 @@ func (s *Service) ServeHTTPHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user, err := auth.ReadUserFromHttpHeader(ctx, r)
+	if err != nil {
+		user = &auth.User{
+			Email: "empty",
+			Name:  "empty",
+		}
+		logger.FromContext(ctx).Warn(fmt.Sprintf("release endpoint was called without user headers - set the http headers '%s' and '%s' to the desired git commit author and make sure they are base-64 encoded - %v", auth.HeaderUserName, auth.HeaderUserEmail, err))
+	}
+	ctx = auth.WriteUserToContext(ctx, *user)
+
 	tf := repository.CreateApplicationVersion{
 		Manifests: map[string]string{},
 	}
@@ -189,7 +202,7 @@ func (s *Service) ServeHTTPRelease(tail string, w http.ResponseWriter, r *http.R
 		}
 	}
 
-	if err := s.Repository.Apply(r.Context(), &tf); err != nil {
+	if err := s.Repository.Apply(ctx, &tf); err != nil {
 		if ierr, ok := err.(*repository.InternalError); ok {
 			if span, ok := tracer.SpanFromContext(r.Context()); ok {
 				span.SetTag(ext.ErrorType, fmt.Sprintf("%s", reflect.TypeOf(ierr)))

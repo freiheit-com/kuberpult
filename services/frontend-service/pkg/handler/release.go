@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -28,6 +29,15 @@ func (s Server) HandleRelease(w http.ResponseWriter, req *http.Request, tail str
 		http.Error(w, fmt.Sprintf("Release does not accept additional path arguments, got: %s", tail), http.StatusNotFound)
 		return
 	}
+	// we just always use the default user here:
+	user := &auth.User{
+		Email: s.Config.GitAuthorEmail,
+		Name:  s.Config.GitAuthorName,
+	}
+	auth.WriteUserToHttpHeader(req, *user)
+
+	//this is http in both!!
+	//	author gets lost because we are not writing to the context (I assume)
 	url, err := url.Parse(s.Config.HttpCdServer + "/release")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -35,3 +35,7 @@ func PublicError(ctx context.Context, err error) error {
 	logger.Error("grpc.public", zap.Error(err))
 	return status.Error(codes.InvalidArgument, "error: "+err.Error())
 }
+
+func AuthError(ctx context.Context, err error) error {
+	return status.Error(codes.Unauthenticated, "error: "+err.Error())
+}
