@@ -43,6 +43,7 @@ export enum ActionTypes {
     DeleteEnvironmentLock,
     CreateApplicationLock,
     DeleteApplicationLock,
+    DeleteEnvFromApp,
     UNKNOWN,
 }
 
@@ -51,7 +52,7 @@ export type ActionDetails = {
     name: string;
     summary: string;
     dialogTitle: string;
-    description?: string;
+    tooltip: string;
 
     // action details optional
     environment?: string;
@@ -73,6 +74,8 @@ export const getActionDetails = (
                 name: 'Create Env Lock',
                 dialogTitle: 'Are you sure you want to add this environment lock?',
                 summary: 'Create new environment lock on ' + action.createEnvironmentLock.environment,
+                tooltip:
+                    'An environment lock will prevent automated process from changing the deployed version - note that kuberpult users can still deploy despite locks.',
                 environment: action.createEnvironmentLock.environment,
             };
         case 'deleteEnvironmentLock':
@@ -86,6 +89,7 @@ export const getActionDetails = (
                     ' with the message: "' +
                     envLocks.find((lock) => lock.lockId === action.deleteEnvironmentLock.lockId)?.message +
                     '"',
+                tooltip: 'This will only remove the lock, it will not automatically deploy anything.',
                 environment: action.deleteEnvironmentLock.environment,
                 lockId: action.deleteEnvironmentLock.lockId,
                 lockMessage: envLocks.find((lock) => lock.lockId === action.deleteEnvironmentLock.lockId)?.message,
@@ -100,6 +104,8 @@ export const getActionDetails = (
                     action.createEnvironmentApplicationLock.application +
                     '" on ' +
                     action.createEnvironmentApplicationLock.environment,
+                tooltip:
+                    'An app lock will prevent automated process from changing the deployed version - note that kuberpult users can still deploy despite locks.',
                 environment: action.createEnvironmentApplicationLock.environment,
                 application: action.createEnvironmentApplicationLock.application,
             };
@@ -116,6 +122,7 @@ export const getActionDetails = (
                     ' with the message: "' +
                     appLocks.find((lock) => lock.lockId === action.deleteEnvironmentApplicationLock.lockId)?.message +
                     '"',
+                tooltip: 'This will only remove the lock, it will not automatically deploy anything.',
                 environment: action.deleteEnvironmentApplicationLock.environment,
                 application: action.deleteEnvironmentApplicationLock.application,
                 lockId: action.deleteEnvironmentApplicationLock.lockId,
@@ -134,6 +141,7 @@ export const getActionDetails = (
                     action.deploy.application +
                     '" to ' +
                     action.deploy.environment,
+                tooltip: '',
                 environment: action.deploy.environment,
                 application: action.deploy.application,
                 version: action.deploy.version,
@@ -143,7 +151,7 @@ export const getActionDetails = (
                 type: ActionTypes.PrepareUndeploy,
                 name: 'Prepare Undeploy',
                 dialogTitle: 'Are you sure you want to start undeploy?',
-                description:
+                tooltip:
                     'The new version will go through the same cycle as any other versions' +
                     ' (e.g. development->staging->production). ' +
                     'The behavior is similar to any other version that is created normally.',
@@ -155,9 +163,23 @@ export const getActionDetails = (
                 type: ActionTypes.Undeploy,
                 name: 'Undeploy',
                 dialogTitle: 'Are you sure you want to undeploy this application?',
-                description: 'This application will be deleted permanently',
+                tooltip: 'This application will be deleted permanently',
                 summary: 'Undeploy and delete Application "' + action.undeploy.application + '"',
                 application: action.undeploy.application,
+            };
+        case 'deleteEnvFromApp':
+            return {
+                type: ActionTypes.DeleteEnvFromApp,
+                name: 'Delete an Environment from App',
+                dialogTitle: 'Are you sure you want to delete environments from this application?',
+                tooltip: 'These environments will be deleted permanently from this application',
+                summary:
+                    'Delete environment "' +
+                    action.deleteEnvFromApp.environment +
+                    '" from application "' +
+                    action.deleteEnvFromApp.application +
+                    '"',
+                application: action.deleteEnvFromApp.application,
             };
         default:
             return {
@@ -165,6 +187,7 @@ export const getActionDetails = (
                 name: 'invalid',
                 dialogTitle: 'invalid',
                 summary: 'invalid',
+                tooltip: 'invalid',
             };
     }
 };
@@ -237,7 +260,7 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
         );
     return (
         <>
-            <div className="mdc-drawer-sidebar-list-item-text">
+            <div className="mdc-drawer-sidebar-list-item-text" title={actionDetails.tooltip}>
                 <div className="mdc-drawer-sidebar-list-item-text-name">{actionDetails.name}</div>
                 <div className="mdc-drawer-sidebar-list-item-text-summary">{actionDetails.summary}</div>
                 {deleteAllSection}

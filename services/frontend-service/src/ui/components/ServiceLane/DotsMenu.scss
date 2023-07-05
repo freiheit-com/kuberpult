@@ -15,6 +15,19 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 
 .dots-menu {
+    button {
+        width: 100%;
+        border-radius: 0px;
+        .mdc-button-__label {
+            font-size: x-large;
+        }
+        svg {
+            margin-right: 10px;
+        }
+    }
+}
+
+.dots-menu-open {
     background-color: grey;
     z-index: 1000;
     border: 5px solid var(--mdc-theme-primary);
@@ -37,9 +50,12 @@ Copyright 2023 freiheit.com*/
             padding: 0px;
         }
     }
+}
 
+.dots-menu-hidden {
     button {
-        width: 100%;
-        border-radius: 0px;
+        .mdc-button__label {
+            font-size: x-large;
+        }
     }
 }

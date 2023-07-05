@@ -18,9 +18,7 @@ package interceptors
 
 import (
 	"context"
-	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"google.golang.org/grpc"
 )
 
@@ -31,7 +29,6 @@ func UnaryUserContextInterceptor(ctx context.Context,
 	req interface{},
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler) (interface{}, error) {
-	logger.FromContext(ctx).Warn(fmt.Sprintf("UnaryUserContextInterceptor start "))
 
 	user, err := auth.ReadUserFromGrpcContext(ctx)
 	if err != nil {
