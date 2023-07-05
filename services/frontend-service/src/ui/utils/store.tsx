@@ -300,7 +300,7 @@ export const useFilteredApplicationLocks = (appNameParam: string | null): Displa
                     );
                 });
         });
-    const filteredLocks = finalLocks.filter((val) => searchCustomFilter(appNameParam, val.application));
+    const filteredLocks = finalLocks.filter((val) => appNameParam === val.application);
     return sortLocks(filteredLocks, 'newestToOldest');
 };
 
