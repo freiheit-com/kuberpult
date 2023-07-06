@@ -94,11 +94,16 @@ func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Reques
 		}
 	}
 
-	_, err := s.LockClient.CreateEnvironmentLock(req.Context(), &api.CreateEnvironmentLockRequest{
-		Environment: environment,
-		LockId:      lockID,
-		Message:     body.Message,
-	})
+	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
+		{Action: &api.BatchAction_CreateEnvironmentLock{
+			CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
+				Environment: environment,
+				LockId:      lockID,
+				Message:     body.Message,
+			},
+		}},
+	}})
+
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)
 		return
@@ -138,11 +143,15 @@ func (s Server) handleDeleteEnvironmentLock(w http.ResponseWriter, req *http.Req
 			return
 		}
 	}
+	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
+		{Action: &api.BatchAction_DeleteEnvironmentLock{
+			DeleteEnvironmentLock: &api.DeleteEnvironmentLockRequest{
+				Environment: environment,
+				LockId:      lockID,
+			},
+		}},
+	}})
 
-	_, err := s.LockClient.DeleteEnvironmentLock(req.Context(), &api.DeleteEnvironmentLockRequest{
-		Environment: environment,
-		LockId:      lockID,
-	})
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)
 		return

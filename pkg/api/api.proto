@@ -7,13 +7,6 @@ import "google/protobuf/timestamp.proto";
 
 package api.v1;
 
-service LockService {
-  rpc CreateEnvironmentLock (CreateEnvironmentLockRequest) returns (google.protobuf.Empty) {}
-  rpc DeleteEnvironmentLock (DeleteEnvironmentLockRequest) returns (google.protobuf.Empty) {}
-  rpc CreateEnvironmentApplicationLock (CreateEnvironmentApplicationLockRequest) returns (google.protobuf.Empty) {}
-  rpc DeleteEnvironmentApplicationLock (DeleteEnvironmentApplicationLockRequest) returns (google.protobuf.Empty) {}
-}
-
 service BatchService {
   rpc ProcessBatch (BatchRequest) returns (google.protobuf.Empty) {}
 }

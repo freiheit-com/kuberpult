@@ -28,7 +28,7 @@ import (
 
 type Server struct {
 	DeployClient      api.DeployServiceClient
-	LockClient        api.LockServiceClient
+	BatchClient       api.BatchServiceClient
 	EnvironmentClient api.EnvironmentServiceClient
 	Config            config.ServerConfig
 	KeyRing           openpgp.KeyRing

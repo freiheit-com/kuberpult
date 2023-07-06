@@ -19,8 +19,8 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
 	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
 	"io"
 	"net/http"
 	"os"
@@ -171,17 +171,15 @@ func runServer(ctx context.Context) error {
 		logger.FromContext(ctx).Fatal("grpc.dial.error", zap.Error(err), zap.String("addr", c.CdServer))
 	}
 
-	lockClient := api.NewLockServiceClient(con)
+	batchClient := api.NewBatchServiceClient(con)
 	deployClient := api.NewDeployServiceClient(con)
 	environmentClient := api.NewEnvironmentServiceClient(con)
 	gproxy := &GrpcProxy{
-		LockClient:        lockClient,
 		OverviewClient:    api.NewOverviewServiceClient(con),
 		DeployClient:      deployClient,
-		BatchClient:       api.NewBatchServiceClient(con),
+		BatchClient:       batchClient,
 		EnvironmentClient: environmentClient,
 	}
-	api.RegisterLockServiceServer(gsrv, gproxy)
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
 	api.RegisterDeployServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
@@ -209,7 +207,7 @@ func runServer(ctx context.Context) error {
 	grpcWebServer := grpcweb.WrapServer(gsrv)
 	httpHandler := handler.Server{
 		DeployClient:      deployClient,
-		LockClient:        lockClient,
+		BatchClient:       batchClient,
 		EnvironmentClient: environmentClient,
 		Config:            c,
 		KeyRing:           pgpKeyRing,
@@ -396,7 +394,6 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // An alternative to the more generic methods proposed in
 // https://github.com/grpc/grpc-go/issues/2297
 type GrpcProxy struct {
-	LockClient        api.LockServiceClient
 	OverviewClient    api.OverviewServiceClient
 	DeployClient      api.DeployServiceClient
 	BatchClient       api.BatchServiceClient
@@ -407,30 +404,6 @@ func (p *GrpcProxy) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest) (*emptypb.Empty, error) {
 	return p.BatchClient.ProcessBatch(ctx, in)
-}
-
-func (p *GrpcProxy) CreateEnvironmentLock(
-	ctx context.Context,
-	in *api.CreateEnvironmentLockRequest) (*emptypb.Empty, error) {
-	return p.LockClient.CreateEnvironmentLock(ctx, in)
-}
-
-func (p *GrpcProxy) DeleteEnvironmentLock(
-	ctx context.Context,
-	in *api.DeleteEnvironmentLockRequest) (*emptypb.Empty, error) {
-	return p.LockClient.DeleteEnvironmentLock(ctx, in)
-}
-
-func (p *GrpcProxy) CreateEnvironmentApplicationLock(
-	ctx context.Context,
-	in *api.CreateEnvironmentApplicationLockRequest) (*emptypb.Empty, error) {
-	return p.LockClient.CreateEnvironmentApplicationLock(ctx, in)
-}
-
-func (p *GrpcProxy) DeleteEnvironmentApplicationLock(
-	ctx context.Context,
-	in *api.DeleteEnvironmentApplicationLockRequest) (*emptypb.Empty, error) {
-	return p.LockClient.DeleteEnvironmentApplicationLock(ctx, in)
 }
 
 func (p *GrpcProxy) GetOverview(
