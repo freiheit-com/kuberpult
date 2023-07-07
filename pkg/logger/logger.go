@@ -14,7 +14,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-//
 // Log implementation for all microservices in the project.
 // Log functions can be called through the convenience interfaces
 // logger.Debugf(), logger.Errorf(), logger.Panicf()
@@ -41,6 +40,16 @@ func FromContext(ctx context.Context) *zap.Logger {
 
 func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
 	return ctxzap.ToContext(ctx, logger)
+}
+
+/*
+WrapPlain can be used to get logs in tests.
+*/
+func WrapPlain(ctx context.Context, inner func(ctx context.Context)) {
+	_ = Wrap(ctx, func(ctx context.Context) error {
+		inner(ctx)
+		return nil
+	})
 }
 
 func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {

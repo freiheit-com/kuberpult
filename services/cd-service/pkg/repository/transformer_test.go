@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
 	"io"
 	"os/exec"
@@ -286,27 +287,29 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
-			// note that we only check the LAST error here:
-			if tc.shouldSucceed {
-				if err != nil {
-					t.Fatalf("Expected no error: %v", err)
-				}
-				actualMsg := commitMsg[len(commitMsg)-1]
-				if actualMsg != tc.expectedCommitMsg {
-					t.Fatalf("expected a different message.\nExpected: %q\nGot %q", tc.expectedCommitMsg, actualMsg)
-				}
-			} else {
-				if err == nil {
-					t.Fatalf("Expected an error but got none")
+			logger.WrapPlain(testutil.MakeTestContext(), func(ctx context.Context) {
+				repo := setupRepositoryTest(t)
+				commitMsg, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+				// note that we only check the LAST error here:
+				if tc.shouldSucceed {
+					if err != nil {
+						t.Fatalf("Expected no error: %v", err)
+					}
+					actualMsg := commitMsg[len(commitMsg)-1]
+					if actualMsg != tc.expectedCommitMsg {
+						t.Fatalf("expected a different message.\nExpected: %q\nGot %q", tc.expectedCommitMsg, actualMsg)
+					}
 				} else {
-					actualMsg := err.Error()
-					if actualMsg != tc.expectedError {
-						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					if err == nil {
+						t.Fatalf("Expected an error but got none")
+					} else {
+						actualMsg := err.Error()
+						if actualMsg != tc.expectedError {
+							t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+						}
 					}
 				}
-			}
+			})
 		})
 	}
 }
