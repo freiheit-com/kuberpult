@@ -472,12 +472,13 @@ func (p *GrpcProxy) StreamStatus(in *api.StreamStatusRequest, stream api.Rollout
 		return err
 	} else {
 		for {
-			if item, err := resp.Recv(); err != nil {
+			item, err := resp.Recv()
+			if err != nil {
 				return err
-			} else {
-				if err := stream.Send(item); err != nil {
-					return err
-				}
+			}
+			err = stream.Send(item)
+			if err != nil {
+				return err
 			}
 		}
 	}
