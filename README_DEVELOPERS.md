@@ -108,6 +108,24 @@ cd services/cd-service
 go test ./... -v
 ```
 
+## Logging in go tests
+If you want to see the logs of your *source* in the *test*, then wrap it with this function:
+`logger.WrapPlain`. For example:
+```go
+for _, tc := range tcs {
+    tc := tc
+    t.Run(tc.Name, func(t *testing.T) {
+        t.Parallel()
+        logger.WrapPlain(testutil.MakeTestContext(), func(ctx context.Context) {
+            // ... test code
+        }
+    }
+}
+```
+
+This will only get you *WARN* logs - which is usually enough. To get *INFO* logs as well, set the environment variable
+`LOG_LEVEL=INFO` before starting the tests.
+
 # Installation outside of docker
 
 ## Podman and podman-compose
