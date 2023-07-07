@@ -17,14 +17,18 @@ Copyright 2023 freiheit.com*/
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"net/url"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestServerHeader(t *testing.T) {
@@ -128,6 +132,78 @@ func TestServerHeader(t *testing.T) {
 					t.Errorf("expected no diff for headers but got %s", cmp.Diff(tc.ExpectedHeaders, hdrs))
 				}
 
+			}(t)
+			for k, v := range tc.Environment {
+				t.Setenv(k, v)
+			}
+			err := runServer(ctx)
+			if err != nil {
+				t.Fatalf("expected no error, but got %q", err)
+			}
+			wg.Wait()
+		})
+	}
+}
+
+func TestGrpcForwardHeader(t *testing.T) {
+	tcs := []struct {
+		Name        string
+		Environment map[string]string
+
+		RequestPath string
+		Body        proto.Message
+
+		ExpectedHttpStatusCode int
+	}{
+		{
+			Name:                   "rollout server unimplemented",
+			RequestPath:            "/api.v1.RolloutService/StreamStatus",
+			Body:                   &api.StreamStatusRequest{},
+			ExpectedHttpStatusCode: 200,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			var wg sync.WaitGroup
+			ctx, cancel := context.WithCancel(context.Background())
+			wg.Add(1)
+			go func(t *testing.T) {
+				defer wg.Done()
+				defer cancel()
+				for {
+					res, err := http.Get("http://localhost:8081/health")
+					if err != nil {
+						t.Logf("unhealthy: %q", err)
+						<-time.After(1 * time.Second)
+						continue
+					}
+					if res.StatusCode != 200 {
+						t.Logf("status: %q", res.StatusCode)
+						<-time.After(1 * time.Second)
+						continue
+					}
+					break
+				}
+				path, err := url.JoinPath("http://localhost:8081/", tc.RequestPath)
+				if err != nil {
+					t.Fatalf("error joining url: %s", err)
+				}
+				body, err := proto.Marshal(tc.Body)
+				req, err := http.NewRequest("POST", path, bytes.NewReader(body))
+				if err != nil {
+					t.Fatalf("expected no error but got %q", err)
+				}
+				req.Header.Add("Content-Type", "application/grpc-web")
+				res, err := http.DefaultClient.Do(req)
+				if err != nil {
+					t.Fatalf("expected no error but got %q", err)
+				}
+				_, _ = io.ReadAll(res.Body)
+				if tc.ExpectedHttpStatusCode != res.StatusCode {
+					t.Errorf("unexpected http status code, expected %d, got %d", tc.ExpectedHttpStatusCode, res.StatusCode)
+				}
+				// TODO(HVG): test the grpc status
 			}(t)
 			for k, v := range tc.Environment {
 				t.Setenv(k, v)
