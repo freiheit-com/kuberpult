@@ -18,16 +18,18 @@ package cmd
 
 import (
 	"context"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
 	"net/http"
 	"os"
 	"sync"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
@@ -113,10 +115,10 @@ func RunServer() {
 			defer tracer.Stop()
 
 			grpcStreamInterceptors = append(grpcStreamInterceptors,
-				grpctrace.StreamServerInterceptor(grpctrace.WithServiceName("cd-service")),
+				grpctrace.StreamServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-cd-service"))),
 			)
 			grpcUnaryInterceptors = append(grpcUnaryInterceptors,
-				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName("cd-service")),
+				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-cd-service"))),
 			)
 		}
 
