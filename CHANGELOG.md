@@ -6,6 +6,26 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.77
+**released 2023-07-07**
+
+### Breaking Changes
+none
+
+### Major Changes
+* [Hide Buttons behind a "..." menu in service lane](https://github.com/freiheit-com/kuberpult/pull/786)
+* [Bugfix: Display locks only for the correct application](https://github.com/freiheit-com/kuberpult/pull/787)
+* [UI: Delete environments from an app](https://github.com/freiheit-com/kuberpult/pull/788)
+
+### Minor Changes
+* [Update module k8s.io/component-helpers to v0.27.3](https://github.com/freiheit-com/kuberpult/pull/754)
+* [Remove outdated LockService](https://github.com/freiheit-com/kuberpult/pull/789)
+* [Add github pipeline badges to readme](https://github.com/freiheit-com/kuberpult/pull/797)
+* [Removed renovate autorebase](https://github.com/freiheit-com/kuberpult/pull/798)
+* [Add forwarder for rollout status to frontend service](https://github.com/freiheit-com/kuberpult/pull/758)
+* [Use correct service names in all services](https://github.com/freiheit-com/kuberpult/pull/799)
+
+
 ## 0.4.76
 **released 2023-07-04**
 
