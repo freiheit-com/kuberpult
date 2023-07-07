@@ -35,9 +35,7 @@
     "gomodUpdateImportPaths",
     "gomodTidy"
   ],
-  "rebaseWhen": "behind-base-branch",
   "schedule": [
-    "before 12pm on Tuesday",
-    "before 12pm on Friday"
+    "before 10am"
   ]
 }
