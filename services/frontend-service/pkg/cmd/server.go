@@ -19,12 +19,13 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/ProtonMail/go-crypto/openpgp"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
 
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
@@ -34,6 +35,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/handler"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
@@ -114,18 +116,18 @@ func runServer(ctx context.Context) error {
 		defer tracer.Stop()
 
 		grpcStreamInterceptors = append(grpcStreamInterceptors,
-			grpctrace.StreamServerInterceptor(grpctrace.WithServiceName("frontend-service")),
+			grpctrace.StreamServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-frontend-service"))),
 		)
 		grpcUnaryInterceptors = append(grpcUnaryInterceptors,
-			grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName("frontend-service")),
+			grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-frontend-service"))),
 		)
 
 		grpcClientOpts = append(grpcClientOpts,
 			grpc.WithStreamInterceptor(
-				grpctrace.StreamClientInterceptor(grpctrace.WithServiceName("frontend-service")),
+				grpctrace.StreamClientInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-frontend-service"))),
 			),
 			grpc.WithUnaryInterceptor(
-				grpctrace.UnaryClientInterceptor(grpctrace.WithServiceName("frontend-service")),
+				grpctrace.UnaryClientInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-frontend-service"))),
 			),
 		)
 	}

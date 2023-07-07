@@ -27,6 +27,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/kelseyhightower/envconfig"
@@ -71,10 +72,10 @@ func getGrpcClient(ctx context.Context, config Config) (api.OverviewServiceClien
 	if config.EnableTracing {
 		grpcClientOpts = append(grpcClientOpts,
 			grpc.WithStreamInterceptor(
-				grpctrace.StreamClientInterceptor(grpctrace.WithServiceName("rollout-service")),
+				grpctrace.StreamClientInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-rollout-service"))),
 			),
 			grpc.WithUnaryInterceptor(
-				grpctrace.UnaryClientInterceptor(grpctrace.WithServiceName("rollout-service")),
+				grpctrace.UnaryClientInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-rollout-service"))),
 			),
 		)
 	}
