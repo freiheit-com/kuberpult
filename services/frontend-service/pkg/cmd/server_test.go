@@ -150,14 +150,16 @@ func TestGrpcForwardHeader(t *testing.T) {
 		Name        string
 		Environment map[string]string
 
-		ExpectedHeaders http.Header
-		RequestPath     string
-		Body            proto.Message
+		RequestPath string
+		Body        proto.Message
+
+		ExpectedHttpStatusCode int
 	}{
 		{
-			Name:        "rollout server unimplemented",
-			RequestPath: "/api.v1.RolloutService/StreamStatus",
-			Body:        &api.StreamStatusRequest{},
+			Name:                   "rollout server unimplemented",
+			RequestPath:            "/api.v1.RolloutService/StreamStatus",
+			Body:                   &api.StreamStatusRequest{},
+			ExpectedHttpStatusCode: 200,
 		},
 	}
 	for _, tc := range tcs {
@@ -183,10 +185,9 @@ func TestGrpcForwardHeader(t *testing.T) {
 					}
 					break
 				}
-				//
 				path, err := url.JoinPath("http://localhost:8081/", tc.RequestPath)
 				if err != nil {
-					t.Fatalf(err)
+					t.Fatalf("error joining url: %s", err)
 				}
 				body, err := proto.Marshal(tc.Body)
 				req, err := http.NewRequest("POST", path, bytes.NewReader(body))
@@ -199,7 +200,10 @@ func TestGrpcForwardHeader(t *testing.T) {
 					t.Fatalf("expected no error but got %q", err)
 				}
 				_, _ = io.ReadAll(res.Body)
-				t.Logf("%v %q %#v %#v", res.StatusCode, err, res.Header, res.Trailer)
+				if tc.ExpectedHttpStatusCode != res.StatusCode {
+					t.Errorf("unexpected http status code, expected %d, got %d", tc.ExpectedHttpStatusCode, res.StatusCode)
+				}
+				// TODO(HVG): test the grpc status
 			}(t)
 			for k, v := range tc.Environment {
 				t.Setenv(k, v)
