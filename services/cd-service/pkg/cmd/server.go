@@ -184,9 +184,6 @@ func RunServer() {
 					grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 				},
 				Register: func(srv *grpc.Server) {
-					api.RegisterLockServiceServer(srv, &service.LockServiceServer{
-						Repository: repo,
-					})
 					api.RegisterDeployServiceServer(srv, &service.DeployServiceServer{
 						Repository: repo,
 					})

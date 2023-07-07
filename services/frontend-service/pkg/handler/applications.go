@@ -75,12 +75,16 @@ func (s Server) handlePutApplicationLock(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	_, err := s.LockClient.CreateEnvironmentApplicationLock(req.Context(), &api.CreateEnvironmentApplicationLockRequest{
-		Environment: environment,
-		Application: application,
-		LockId:      lockID,
-		Message:     body.Message,
-	})
+	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
+		{Action: &api.BatchAction_CreateEnvironmentApplicationLock{
+			CreateEnvironmentApplicationLock: &api.CreateEnvironmentApplicationLockRequest{
+				Environment: environment,
+				Application: application,
+				LockId:      lockID,
+				Message:     body.Message,
+			},
+		}},
+	}})
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)
 		return
@@ -90,11 +94,16 @@ func (s Server) handlePutApplicationLock(w http.ResponseWriter, req *http.Reques
 }
 
 func (s Server) handleDeleteApplicationLock(w http.ResponseWriter, req *http.Request, environment, application, lockID string) {
-	_, err := s.LockClient.DeleteEnvironmentApplicationLock(req.Context(), &api.DeleteEnvironmentApplicationLockRequest{
-		Environment: environment,
-		Application: application,
-		LockId:      lockID,
-	})
+	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
+		{Action: &api.BatchAction_DeleteEnvironmentApplicationLock{
+			DeleteEnvironmentApplicationLock: &api.DeleteEnvironmentApplicationLockRequest{
+				Environment: environment,
+				Application: application,
+				LockId:      lockID,
+			},
+		}},
+	}})
+
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)
 		return

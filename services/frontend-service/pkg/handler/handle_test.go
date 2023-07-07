@@ -79,20 +79,20 @@ func TestServer_Handle(t *testing.T) {
 	})
 
 	tests := []struct {
-		name                                            string
-		req                                             *http.Request
-		KeyRing                                         openpgp.KeyRing
-		signature                                       string
-		AzureAuthEnabled                                bool
-		expectedResp                                    *http.Response
-		expectedBody                                    string
-		expectedDeployRequest                           *api.DeployRequest
-		expectedReleaseTrainRequest                     *api.ReleaseTrainRequest
-		expectedCreateEnvironmentRequest                *api.CreateEnvironmentRequest
-		expectedCreateEnvironmentLockRequest            *api.CreateEnvironmentLockRequest
-		expectedDeleteEnvironmentLockRequest            *api.DeleteEnvironmentLockRequest
-		expectedCreateEnvironmentApplicationLockRequest *api.CreateEnvironmentApplicationLockRequest
-		expectedDeleteEnvironmentApplicationLockRequest *api.DeleteEnvironmentApplicationLockRequest
+		name                             string
+		req                              *http.Request
+		KeyRing                          openpgp.KeyRing
+		signature                        string
+		AzureAuthEnabled                 bool
+		expectedResp                     *http.Response
+		expectedBody                     string
+		expectedDeployRequest            *api.DeployRequest
+		expectedReleaseTrainRequest      *api.ReleaseTrainRequest
+		expectedCreateEnvironmentRequest *api.CreateEnvironmentRequest
+		expectedBatchRequest             *api.BatchRequest
+		//expectedDeleteEnvironmentLockRequest            *api.DeleteEnvironmentLockRequest
+		//expectedCreateEnvironmentApplicationLockRequest *api.CreateEnvironmentApplicationLockRequest
+		//expectedDeleteEnvironmentApplicationLockRequest *api.DeleteEnvironmentApplicationLockRequest
 	}{
 		{
 			name: "wrongly routed",
@@ -429,10 +429,18 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusOK,
 			},
 			expectedBody: "",
-			expectedCreateEnvironmentLockRequest: &api.CreateEnvironmentLockRequest{
-				Environment: "development",
-				LockId:      "test",
-				Message:     "test message",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironmentLock{
+							CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
+								Environment: "development",
+								LockId:      "test",
+								Message:     "test message",
+							},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -453,10 +461,18 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusOK,
 			},
 			expectedBody: "",
-			expectedCreateEnvironmentLockRequest: &api.CreateEnvironmentLockRequest{
-				Environment: "development",
-				LockId:      "test",
-				Message:     "test message",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironmentLock{
+							CreateEnvironmentLock: &api.CreateEnvironmentLockRequest{
+								Environment: "development",
+								LockId:      "test",
+								Message:     "test message",
+							},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -580,9 +596,17 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusOK,
 			},
 			expectedBody: "",
-			expectedDeleteEnvironmentLockRequest: &api.DeleteEnvironmentLockRequest{
-				Environment: "development",
-				LockId:      "test",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_DeleteEnvironmentLock{
+							DeleteEnvironmentLock: &api.DeleteEnvironmentLockRequest{
+								Environment: "development",
+								LockId:      "test",
+							},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -653,11 +677,19 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusOK,
 			},
 			expectedBody: "",
-			expectedCreateEnvironmentApplicationLockRequest: &api.CreateEnvironmentApplicationLockRequest{
-				Environment: "development",
-				Application: "service",
-				LockId:      "test",
-				Message:     "test message",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironmentApplicationLock{
+							CreateEnvironmentApplicationLock: &api.CreateEnvironmentApplicationLockRequest{
+								Environment: "development",
+								Application: "service",
+								LockId:      "test",
+								Message:     "test message",
+							},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -711,10 +743,18 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusOK,
 			},
 			expectedBody: "",
-			expectedDeleteEnvironmentApplicationLockRequest: &api.DeleteEnvironmentApplicationLockRequest{
-				Environment: "development",
-				Application: "service",
-				LockId:      "test",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_DeleteEnvironmentApplicationLock{
+							DeleteEnvironmentApplicationLock: &api.DeleteEnvironmentApplicationLockRequest{
+								Environment: "development",
+								Application: "service",
+								LockId:      "test",
+							},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -760,12 +800,12 @@ func TestServer_Handle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			deployClient := &mockDeployClient{}
-			lockClient := &mockLockClient{}
+			batchClient := &mockBatchClient{}
 			environmentClient := &mockEnvironmentClient{}
 			s := Server{
 				DeployClient:      deployClient,
 				EnvironmentClient: environmentClient,
-				LockClient:        lockClient,
+				BatchClient:       batchClient,
 				KeyRing:           tt.KeyRing,
 				AzureAuth:         tt.AzureAuthEnabled,
 			}
@@ -793,17 +833,8 @@ func TestServer_Handle(t *testing.T) {
 			if d := cmp.Diff(tt.expectedCreateEnvironmentRequest, environmentClient.createEnvironmentRequest, protocmp.Transform()); d != "" {
 				t.Errorf("create environment request mismatch: %s", d)
 			}
-			if d := cmp.Diff(tt.expectedCreateEnvironmentLockRequest, lockClient.createEnvironmentLockRequest, protocmp.Transform()); d != "" {
+			if d := cmp.Diff(tt.expectedBatchRequest, batchClient.batchRequest, protocmp.Transform()); d != "" {
 				t.Errorf("create environment lock request mismatch: %s", d)
-			}
-			if d := cmp.Diff(tt.expectedDeleteEnvironmentLockRequest, lockClient.deleteEnvironmentLockRequest, protocmp.Transform()); d != "" {
-				t.Errorf("delete environment lock request mismatch: %s", d)
-			}
-			if d := cmp.Diff(tt.expectedCreateEnvironmentApplicationLockRequest, lockClient.createEnvironmentApplicationLockRequest, protocmp.Transform()); d != "" {
-				t.Errorf("create environment application lock request mismatch: %s", d)
-			}
-			if d := cmp.Diff(tt.expectedDeleteEnvironmentApplicationLockRequest, lockClient.deleteEnvironmentApplicationLockRequest, protocmp.Transform()); d != "" {
-				t.Errorf("delete environment application lock request mismatch: %s", d)
 			}
 		})
 	}
@@ -833,29 +864,11 @@ func (m *mockDeployClient) ReleaseTrain(_ context.Context, in *api.ReleaseTrainR
 	return &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team}, nil
 }
 
-type mockLockClient struct {
-	createEnvironmentLockRequest            *api.CreateEnvironmentLockRequest
-	deleteEnvironmentLockRequest            *api.DeleteEnvironmentLockRequest
-	createEnvironmentApplicationLockRequest *api.CreateEnvironmentApplicationLockRequest
-	deleteEnvironmentApplicationLockRequest *api.DeleteEnvironmentApplicationLockRequest
+type mockBatchClient struct {
+	batchRequest *api.BatchRequest
 }
 
-func (m *mockLockClient) CreateEnvironmentLock(_ context.Context, in *api.CreateEnvironmentLockRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
-	m.createEnvironmentLockRequest = in
-	return &emptypb.Empty{}, nil
-}
-
-func (m *mockLockClient) DeleteEnvironmentLock(_ context.Context, in *api.DeleteEnvironmentLockRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
-	m.deleteEnvironmentLockRequest = in
-	return &emptypb.Empty{}, nil
-}
-
-func (m *mockLockClient) CreateEnvironmentApplicationLock(_ context.Context, in *api.CreateEnvironmentApplicationLockRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
-	m.createEnvironmentApplicationLockRequest = in
-	return &emptypb.Empty{}, nil
-}
-
-func (m *mockLockClient) DeleteEnvironmentApplicationLock(_ context.Context, in *api.DeleteEnvironmentApplicationLockRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
-	m.deleteEnvironmentApplicationLockRequest = in
+func (m *mockBatchClient) ProcessBatch(_ context.Context, in *api.BatchRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.batchRequest = in
 	return &emptypb.Empty{}, nil
 }
