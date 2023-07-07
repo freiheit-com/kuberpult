@@ -143,9 +143,11 @@ spec:
         - name: KUBERPULT_AZURE_REDIRECT_URL
           value: "https://{{ .Values.ingress.domainName }}"
 {{- end }}
-{{- if .Values.rollout.enabled }}
         - name: KUBERPULT_ROLLOUTSERVER
-          value: kuberpult-rollout-service:8443
+{{- if .Values.rollout.enabled }}
+          value: "kuberpult-rollout-service:8443"
+{{- else }}
+          value: ""
 {{- end }}
         volumeMounts:
 {{- if .Values.pgp.keyRing }}
