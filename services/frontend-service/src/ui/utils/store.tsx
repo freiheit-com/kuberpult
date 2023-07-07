@@ -552,6 +552,31 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
     }, [environmentGroups, application, version]);
 };
 
+/**
+ * returns the environments where an application is currently deployed
+ */
+export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroupExtended[] => {
+    const environmentGroups: EnvironmentGroup[] = useEnvironmentGroups();
+    return useMemo(() => {
+        const envGroups: EnvironmentGroupExtended[] = [];
+        environmentGroups.forEach((group: EnvironmentGroup) => {
+            const envs = group.environments.filter((env) => env.applications[application]);
+            if (envs.length > 0) {
+                // we need to make a copy of the group here, because we want to remove some envs.
+                // but that should not have any effect on the group saved in the store.
+                const groupCopy: EnvironmentGroupExtended = {
+                    environmentGroupName: group.environmentGroupName,
+                    environments: envs,
+                    distanceToUpstream: group.distanceToUpstream,
+                    numberOfEnvsInGroup: group.environments.length,
+                };
+                envGroups.push(groupCopy);
+            }
+        });
+        return envGroups;
+    }, [environmentGroups, application]);
+};
+
 // Get all releases for an app
 export const useReleasesForApp = (app: string): Release[] =>
     useOverview(({ applications }) => applications[app]?.releases?.sort((a, b) => b.version - a.version));

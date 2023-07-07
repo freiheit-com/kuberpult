@@ -407,6 +407,8 @@ describe('Action details', () => {
                 type: ActionTypes.CreateEnvironmentLock,
                 name: 'Create Env Lock',
                 dialogTitle: 'Are you sure you want to add this environment lock?',
+                tooltip:
+                    'An environment lock will prevent automated process from changing the deployed version - note that kuberpult users can still deploy despite locks.',
                 summary: 'Create new environment lock on foo',
                 environment: 'foo',
             },
@@ -431,6 +433,7 @@ describe('Action details', () => {
                 name: 'Delete Env Lock',
                 dialogTitle: 'Are you sure you want to delete this environment lock?',
                 summary: 'Delete environment lock on foo with the message: "bar"',
+                tooltip: 'This will only remove the lock, it will not automatically deploy anything.',
                 environment: 'foo',
                 lockId: 'ui-v2-1337',
                 lockMessage: 'bar',
@@ -454,6 +457,8 @@ describe('Action details', () => {
                 name: 'Create App Lock',
                 dialogTitle: 'Are you sure you want to add this application lock?',
                 summary: 'Create new application lock for "bread" on foo',
+                tooltip:
+                    'An app lock will prevent automated process from changing the deployed version - note that kuberpult users can still deploy despite locks.',
                 environment: 'foo',
                 application: 'bread',
             },
@@ -479,6 +484,7 @@ describe('Action details', () => {
                 name: 'Delete App Lock',
                 dialogTitle: 'Are you sure you want to delete this application lock?',
                 summary: 'Delete application lock for "bar" on foo with the message: "bar"',
+                tooltip: 'This will only remove the lock, it will not automatically deploy anything.',
                 environment: 'foo',
                 application: 'bar',
                 lockId: 'ui-v2-1337',
@@ -504,6 +510,7 @@ describe('Action details', () => {
                 name: 'Deploy',
                 dialogTitle: 'Please be aware:',
                 summary: 'Deploy version 1337 of "bread" to foo',
+                tooltip: '',
                 environment: 'foo',
                 application: 'bread',
                 version: 1337,
@@ -523,7 +530,7 @@ describe('Action details', () => {
                 type: ActionTypes.PrepareUndeploy,
                 name: 'Prepare Undeploy',
                 dialogTitle: 'Are you sure you want to start undeploy?',
-                description:
+                tooltip:
                     'The new version will go through the same cycle as any other versions' +
                     ' (e.g. development->staging->production). ' +
                     'The behavior is similar to any other version that is created normally.',
@@ -545,8 +552,28 @@ describe('Action details', () => {
                 type: ActionTypes.Undeploy,
                 name: 'Undeploy',
                 dialogTitle: 'Are you sure you want to undeploy this application?',
-                description: 'This application will be deleted permanently',
+                tooltip: 'This application will be deleted permanently',
                 summary: 'Undeploy and delete Application "foo"',
+                application: 'foo',
+            },
+        },
+        {
+            name: 'test delete env from app action',
+            action: {
+                action: {
+                    $case: 'deleteEnvFromApp',
+                    deleteEnvFromApp: {
+                        environment: 'dev',
+                        application: 'foo',
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.DeleteEnvFromApp,
+                name: 'Delete an Environment from App',
+                dialogTitle: 'Are you sure you want to delete environments from this application?',
+                tooltip: 'These environments will be deleted permanently from this application',
+                summary: 'Delete environment "dev" from application "foo"',
                 application: 'foo',
             },
         },

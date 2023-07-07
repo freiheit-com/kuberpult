@@ -15,7 +15,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import {
     addAction,
+    EnvironmentGroupExtended,
     showSnackbarError,
+    showSnackbarWarn,
+    useCurrentlyExistsAtGroup,
     useDeployedReleases,
     useFilteredApplicationLocks,
     useNavigateWithSearchParams,
@@ -23,12 +26,14 @@ import {
 } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { DeleteWhite, HistoryWhite } from '../../../images';
-import { Application, UndeploySummary } from '../../../api/api';
+import { Application, Environment, UndeploySummary } from '../../../api/api';
 import { Tooltip } from '@material-ui/core';
 import * as React from 'react';
 import { AppLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
 import { DotsMenu, DotsMenuButton } from './DotsMenu';
+import { useCallback, useState } from 'react';
+import { EnvSelectionDialog } from './EnvSelectionDialog';
 
 // number of releases on home. based on design
 // we could update this dynamically based on viewport width
@@ -135,12 +140,47 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
             );
         });
 
+    const envs: Environment[] = useCurrentlyExistsAtGroup(application.name).flatMap(
+        (envGroup: EnvironmentGroupExtended) => envGroup.environments
+    );
+
+    const [showEnvSelectionDialog, setShowEnvSelectionDialog] = useState(false);
+
+    const handleClose = useCallback(() => {
+        setShowEnvSelectionDialog(false);
+    }, []);
+    const confirmEnvAppDelete = useCallback(
+        (selectedEnvs: string[]) => {
+            if (selectedEnvs.length === envs.length) {
+                showSnackbarWarn("If you want to delete all environments, use 'prepare undeploy'");
+                setShowEnvSelectionDialog(false);
+                return;
+            }
+            selectedEnvs.forEach((env) => {
+                addAction({
+                    action: {
+                        $case: 'deleteEnvFromApp',
+                        deleteEnvFromApp: { application: application.name, environment: env },
+                    },
+                });
+            });
+            setShowEnvSelectionDialog(false);
+        },
+        [application.name, envs]
+    );
     const buttons: DotsMenuButton[] = [
         {
             label: 'View History',
             icon: <HistoryWhite />,
             onClick: (): void => {
                 navCallback();
+            },
+        },
+        {
+            label: 'Remove environment from app',
+            icon: <DeleteWhite />,
+            onClick: (): void => {
+                setShowEnvSelectionDialog(true);
             },
         },
     ];
@@ -153,10 +193,19 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     }
 
     const dotsMenu = <DotsMenu buttons={buttons} />;
-
     const appLocks = useFilteredApplicationLocks(application.name);
+    const dialog = (
+        <EnvSelectionDialog
+            environments={envs.map((e) => e.name)}
+            open={showEnvSelectionDialog}
+            onSubmit={confirmEnvAppDelete}
+            onCancel={handleClose}
+        />
+    );
+
     return (
         <div className="service-lane">
+            {dialog}
             <div className="service-lane__header">
                 <div className="service__name">
                     {(application.team ? application.team + ' | ' : '<No Team> | ') + application.name}

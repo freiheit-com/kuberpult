@@ -29,10 +29,10 @@ export type DotsMenuProps = {
 
 export const DotsMenu: React.FC<DotsMenuProps> = (props) => {
     const [open, setOpen] = useState(false);
-    const myOpen = React.useCallback(() => {
+    const openMenu = React.useCallback(() => {
         setOpen(true);
     }, []);
-    const myClose = React.useCallback(() => {
+    const closeMenu = React.useCallback(() => {
         setOpen(false);
     }, []);
     const memoizedOnClick = React.useCallback(
@@ -46,14 +46,14 @@ export const DotsMenu: React.FC<DotsMenuProps> = (props) => {
 
     if (!open) {
         return (
-            <div className={'dots-menu-hidden'}>
-                <Button className="mdc-button--unelevated" label={'⋮'} onClick={myOpen} />
+            <div className={'dots-menu dots-menu-hidden'}>
+                <Button className="mdc-button--unelevated" label={'⋮'} onClick={openMenu} />
             </div>
         );
     }
 
     return (
-        <div className={'dots-menu'} onMouseLeave={myClose}>
+        <div className={'dots-menu dots-menu-open'} onMouseLeave={closeMenu}>
             <ul className={'list'}>
                 {props.buttons.map((button, index) => (
                     <li className={'item'} key={'button-menu-' + String(index)}>

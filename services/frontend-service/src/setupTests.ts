@@ -37,7 +37,7 @@ export const documentQuerySelectorSafe = (selectors: string): HTMLElement => {
 export const elementQuerySelectorSafe = (element: HTMLElement, selectors: string): HTMLElement => {
     const result = element.querySelector(selectors);
     if (!result) {
-        throw new Error('elementQuerySelectorSafe: did not find in selector in document ' + selectors);
+        throw new Error('elementQuerySelectorSafe: did not find in selector in element ' + selectors);
     }
     if (!(result instanceof HTMLElement)) {
         throw new Error(
