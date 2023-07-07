@@ -26,9 +26,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ProtonMail/go-crypto/openpgp"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
-
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
@@ -184,11 +181,11 @@ func runServer(ctx context.Context) error {
 		rolloutClient = api.NewRolloutServiceClient(rolloutCon)
 	}
 
-	batchClient := api.NewBatchServiceClient(con)
-	deployClient := api.NewDeployServiceClient(con)
-	environmentClient := api.NewEnvironmentServiceClient(con)
+	batchClient := api.NewBatchServiceClient(cdCon)
+	deployClient := api.NewDeployServiceClient(cdCon)
+	environmentClient := api.NewEnvironmentServiceClient(cdCon)
 	gproxy := &GrpcProxy{
-		OverviewClient:       api.NewOverviewServiceClient(con),
+		OverviewClient:       api.NewOverviewServiceClient(cdCon),
 		DeployClient:         deployClient,
 		BatchClient:          batchClient,
 		EnvironmentClient:    environmentClient,
