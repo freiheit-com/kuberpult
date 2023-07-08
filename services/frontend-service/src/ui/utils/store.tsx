@@ -25,6 +25,7 @@ import {
     Priority,
     Release,
     Warning,
+    StreamStatusResponse,
 } from '../../api/api';
 import { useApi } from './GrpcApi';
 import { useCallback, useMemo } from 'react';
@@ -622,3 +623,36 @@ export const useConfigReady = (): boolean => useFrontendConfig(({ configReady })
 export const useKuberpultVersion = (): string => useFrontendConfig((configs) => configs.configs.kuberpultVersion);
 export const useArgoCdBaseUrl = (): string | undefined =>
     useFrontendConfig((configs) => configs.configs.argoCd?.baseUrl);
+
+export type RolloutStatusApplication = {
+    [environment: string]: StreamStatusResponse;
+};
+
+export type RolloutStatusStore = {
+    [environment: string]: RolloutStatusApplication;
+};
+
+const [useEntireRolloutStatus, rolloutStatus] = createStore<RolloutStatusStore>({});
+
+export const useRolloutStatus = (application: string): RolloutStatusApplication =>
+    useEntireRolloutStatus((data: RolloutStatusStore): RolloutStatusApplication => data[application] ?? {});
+
+export const UpdateRolloutStatus = (ev: StreamStatusResponse): void => {
+    rolloutStatus.set((data: RolloutStatusStore) => {
+        let app = data[ev.application];
+        if (!app) {
+            app = data[ev.application] = {};
+        }
+        app[ev.environment] = ev;
+    });
+};
+
+export const FlushRolloutStatus = (): void => {
+    rolloutStatus.set((data: RolloutStatusStore) => {
+        const result: RolloutStatusStore = {};
+        Object.keys(data).forEach(function (key) {
+            result[key] = {};
+        });
+        return result;
+    });
+};

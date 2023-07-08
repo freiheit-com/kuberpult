@@ -20,10 +20,12 @@ import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
 import {
+    FlushRolloutStatus,
     PanicOverview,
     showSnackbarWarn,
     UpdateFrontendConfig,
     UpdateOverview,
+    UpdateRolloutStatus,
     useKuberpultVersion,
     useReleaseDialogParams,
 } from '../utils/store';
@@ -90,6 +92,25 @@ export const App: React.FC = () => {
                     (error) => {
                         PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) });
                         showSnackbarWarn('Connection Error: Refresh the page');
+                    }
+                );
+            return (): void => subscription.unsubscribe();
+        }
+    }, [api, authHeader, authReady]);
+
+    React.useEffect(() => {
+        if (authReady) {
+            const subscription = api
+                .rolloutService()
+                .StreamStatus({}, authHeader)
+                .pipe(retryWhen(retryStrategy(8)))
+                .subscribe(
+                    (result) => {
+                        UpdateRolloutStatus(result);
+                    },
+                    (error) => {
+                        PanicOverview.set({ error: JSON.stringify({ msg: 'error in rolloutstatus', error }) });
+                        FlushRolloutStatus();
                     }
                 );
             return (): void => subscription.unsubscribe();
