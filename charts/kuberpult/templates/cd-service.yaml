@@ -194,6 +194,11 @@ spec:
             path: environment_configs.json
           name: environment-configs
 {{- end }}
+{{- if .Values.dex.enabled }}
+      - name: kuberpult-rbac
+        configMap:
+          name: kuberpult-rbac
+{{- end }}
 {{- if .Values.dogstatsdMetrics.enabled }}
       - name: dsdsocket
         hostPath:
@@ -260,4 +265,13 @@ metadata:
   name: environment-configs
 data:
   environment_configs.json: {{ required ".Values.environment_configs.environment_configs_json is required when .Values.environment_configs.bootstrap is true" .Values.environment_configs.environment_configs_json | quote }}
+{{- end }}
+{{- if .Values.dex.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kuberpult-rbac
+data:
+  policy: {{ .Values.dex.policy | toJson }}
 {{- end }}
