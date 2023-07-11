@@ -146,6 +146,12 @@ spec:
 {{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH
           value: "{{ .Values.auth.azureAuth.enabled }}"
+        - name: KUBERPULT_DEX_ENABLE
+          value: "{{ .Values.dex.enabled }}" 
+ {{- if .Values.dex.enabled }}
+        - name: KUBERPULT_DEX_RBAC_POLICY
+          value: /kuberpult-rbac/policy.csv
+{{- end }}
 {{- if .Values.environment_configs.bootstrap_mode }}
         - name: KUBERPULT_BOOTSTRAP_MODE
           value: "{{ .Values.environment_configs.bootstrap_mode }}"
@@ -161,6 +167,10 @@ spec:
         - name: keyring
           mountPath: /keyring
 {{- end }}
+{{- if .Values.dex.enabled }}
+        - name: kuberpult-rbac
+          mountPath: /kuberpult-rbac/policy.csv
+{{- end }} 
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: dsdsocket
           mountPath: {{ .Values.dogstatsdMetrics.hostSocketPath }}
@@ -273,5 +283,5 @@ kind: ConfigMap
 metadata:
   name: kuberpult-rbac
 data:
-  policy: {{ .Values.dex.policy | toJson }}
+  policy.csv: {{ .Values.dex.policy_csv | quote}}
 {{- end }}
