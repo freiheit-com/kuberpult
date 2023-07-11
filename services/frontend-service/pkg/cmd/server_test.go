@@ -48,7 +48,8 @@ func TestServerHeader(t *testing.T) {
 			RequestPath: "/",
 
 			ExpectedHeaders: http.Header{
-				"Content-Type": {"text/plain; charset=utf-8"},
+				"Accept-Ranges": {"bytes"},
+				"Content-Type":  {"text/html; charset=utf-8"},
 				"Content-Security-Policy": {
 					"default-src 'self'; style-src-elem 'self' fonts.googleapis.com 'unsafe-inline'; font-src fonts.gstatic.com; connect-src 'self' login.microsoftonline.com; child-src 'none'",
 				},
@@ -73,9 +74,10 @@ func TestServerHeader(t *testing.T) {
 			},
 
 			ExpectedHeaders: http.Header{
+				"Accept-Ranges":                    {"bytes"},
 				"Access-Control-Allow-Credentials": {"true"},
 				"Access-Control-Allow-Origin":      {"https://kuberpult.fdc"},
-				"Allow":                            {"OPTIONS, GET, HEAD"},
+				"Content-Type":                     {"text/html; charset=utf-8"},
 				"Content-Security-Policy":          {"default-src 'self'; style-src-elem 'self' fonts.googleapis.com 'unsafe-inline'; font-src fonts.gstatic.com; connect-src 'self' login.microsoftonline.com; child-src 'none'"},
 
 				"Permission-Policy": {
@@ -85,6 +87,26 @@ func TestServerHeader(t *testing.T) {
 				"Strict-Transport-Security": {"max-age=31536000; includeSubDomains;"},
 				"X-Content-Type-Options":    {"nosniff"},
 				"X-Frame-Options":           {"DENY"},
+			},
+		},
+		{
+
+			Name:          "cors preflight",
+			RequestMethod: "OPTIONS",
+			RequestHeaders: http.Header{
+				"Origin":                        {"https://something.else"},
+				"Access-Control-Request-Method": {"POST"},
+			},
+			Environment: map[string]string{
+				"KUBERPULT_ALLOWED_ORIGINS": "https://kuberpult.fdc",
+			},
+
+			ExpectedHeaders: http.Header{
+				"Access-Control-Allow-Credentials": {"true"},
+				"Access-Control-Allow-Headers":     {"content-type,x-grpc-web,authorization"},
+				"Access-Control-Allow-Methods":     {"POST"},
+				"Access-Control-Allow-Origin":      {"https://kuberpult.fdc"},
+				"Access-Control-Max-Age":           {"0"},
 			},
 		},
 	}
@@ -126,10 +148,13 @@ func TestServerHeader(t *testing.T) {
 					t.Fatalf("expected no error but got %q", err)
 				}
 				t.Logf("%v %q", res.StatusCode, err)
-				// Delete two headers that are hard to test.
+				// Delete three headers that are hard to test.
 				hdrs := res.Header.Clone()
 				hdrs.Del("Content-Length")
 				hdrs.Del("Date")
+				hdrs.Del("Last-Modified")
+				body, _ := io.ReadAll(res.Body)
+				t.Logf("body: %q", body)
 				if !cmp.Equal(tc.ExpectedHeaders, hdrs) {
 					t.Errorf("expected no diff for headers but got %s", cmp.Diff(tc.ExpectedHeaders, hdrs))
 				}
@@ -143,7 +168,7 @@ func TestServerHeader(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = os.WriteFile(filepath.Join(td, "build", "index.html"), ([]byte)("<html></html>"), 0755)
+			err = os.WriteFile(filepath.Join(td, "build", "index.html"), ([]byte)(`<!doctype html><html lang="en"></html>`), 0755)
 			if err != nil {
 				t.Fatal(err)
 			}
