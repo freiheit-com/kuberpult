@@ -16,11 +16,11 @@
 
 version: v1
 plugins:
-  - remote: buf.build/protocolbuffers/plugins/go:v1.28.0-1
+  - plugin: buf.build/protocolbuffers/go:v1.28.1
     out: .
     opt:
       - paths=source_relative
-  - remote: buf.build/grpc/plugins/go:v1.2.0-1
+  - plugin: buf.build/grpc/go:v1.3.0
     out: .
     opt:
       - require_unimplemented_servers=false

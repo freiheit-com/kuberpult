@@ -14,12 +14,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-//
 // Middleware for handling CORS (cross origin requests)
 // Warning: CORS requests needs to be whitelisted on ist.io ingress configuration
 // Technically this middleware shouldn't be necessary but currently the ingress
 // proxy forwards the CORS preflight request to the pod
-//
 package setup
 
 import (
