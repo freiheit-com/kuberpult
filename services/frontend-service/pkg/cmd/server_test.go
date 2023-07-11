@@ -22,6 +22,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -136,7 +138,20 @@ func TestServerHeader(t *testing.T) {
 			for k, v := range tc.Environment {
 				t.Setenv(k, v)
 			}
-			err := runServer(ctx)
+			td := t.TempDir()
+			err := os.Mkdir(filepath.Join(td, "build"), 0755)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = os.WriteFile(filepath.Join(td, "build", "index.html"), ([]byte)("<html></html>"), 0755)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = os.Chdir(td)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = runServer(ctx)
 			if err != nil {
 				t.Fatalf("expected no error, but got %q", err)
 			}
