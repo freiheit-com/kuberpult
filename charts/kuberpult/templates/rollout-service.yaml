@@ -116,6 +116,11 @@ spec:
         - name: KUBERPULT_DOGSTATSD_ADDR
           value: "{{ .Values.dogstatsdMetrics.address }}"
 {{- end }}
+        - name: KUBERPULT_ARGOCD_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-rollout-service
+              key: KUBERPULT_ARGOCD_TOKEN
         volumeMounts:
         # We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115
         - name: tmp
@@ -154,7 +159,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: kuberpult-cd-service
+  name: kuberpult-rollout-service
 type: Opaque
 data:
   KUBERPULT_ARGOCD_TOKEN: {{ .Values.argocd.token | b64enc }}
