@@ -21,8 +21,16 @@ import (
 	"fmt"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"k8s.io/utils/lru"
 )
+
+// This is a the user that the rollout service uses to query the versions.
+// It is not written to the repository.
+var RolloutServiceUser auth.User = auth.User{
+	Email: "kuberpult-rollout-service@local",
+	Name:  "kuberpult-rollout-service",
+}
 
 type VersionClient interface {
 	GetVersion(ctx context.Context, revision, environment, application string) (uint64, error)
@@ -39,6 +47,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 	entry, ok := v.cache.Get(revision)
 	if !ok {
 		var err error
+		ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
 		overview, err = v.client.GetOverview(ctx, &api.GetOverviewRequest{
 			GitRevision: revision,
 		})
