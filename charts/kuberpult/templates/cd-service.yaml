@@ -144,6 +144,10 @@ spec:
         - name: KUBERPULT_PGP_KEY_RING
           value: /keyring/keyring.gpg
 {{- end }}
+{{- if .Values.dex.enabled }}
+        - name: KUBERPULT_DEX_RBAC_POLICY
+          value: /kuberpult-rbac/policy.csv
+{{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH
           value: "{{ .Values.auth.azureAuth.enabled }}"
         - name: KUBERPULT_DEX_ENABLE
