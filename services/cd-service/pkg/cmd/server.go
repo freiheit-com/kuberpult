@@ -17,9 +17,11 @@ Copyright 2023 freiheit.com*/
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
@@ -27,6 +29,7 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
@@ -61,9 +64,25 @@ type Config struct {
 	EnableSqlite      bool   `default:"true" split_words:"true"`
 }
 
-// TODO (BB): Read and parse RBAC rules
-func (c *Config) readRbacPolicy() (string, error) {
-	return c.DexRbacPolicy, nil
+func (c *Config) readRbacPolicy() (policy map[string]*auth.Permission, err error) {
+	file, err := os.Open("policy.csv")
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	policy = map[string]*auth.Permission{}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		// Trim spaces from policy
+		line := strings.ReplaceAll(scanner.Text(), " ", "")
+		p, err := auth.ValidateRbacPermission(line, auth.InitRbacConfig())
+		if err != nil {
+			return nil, err
+		}
+		policy[line] = p
+	}
+	return policy, nil
 }
 
 func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
@@ -106,12 +125,14 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("azure.auth.error: pgpKeyRing is required to authenticate manifests when \"KUBERPULT_AZURE_ENABLE_AUTH\" is true")
 		}
 
-		dexRbacPolicy, err := c.readRbacPolicy()
-		if err != nil {
-			logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
-		}
-		if c.DexEnable && dexRbacPolicy == "" {
-			logger.FromContext(ctx).Fatal("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLE\" is true")
+		if c.DexEnable {
+			dexRbacPolicy, err := c.readRbacPolicy()
+			if err != nil {
+				logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
+			}
+			if len(dexRbacPolicy) == 0 {
+				logger.FromContext(ctx).Fatal("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLE\" is true")
+			}
 		}
 
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
