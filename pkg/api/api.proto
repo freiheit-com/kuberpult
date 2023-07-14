@@ -52,11 +52,6 @@ message DeleteEnvironmentApplicationLockRequest {
   string lock_id = 3;
 }
 
-service DeployService {
-  rpc Deploy (DeployRequest) returns (google.protobuf.Empty) {}
-  rpc ReleaseTrain (ReleaseTrainRequest) returns (ReleaseTrainResponse) {}
-}
-
 enum LockBehavior {
   Record = 0;
   Fail = 1;
@@ -165,10 +160,6 @@ enum Priority {
   OTHER = 3;
 }
 
-service EnvironmentService {
-  rpc CreateEnvironment (CreateEnvironmentRequest) returns (google.protobuf.Empty) {}
-}
-
 message EnvironmentConfig {
   message Upstream {
     optional string  environment = 1;
@@ -241,7 +232,6 @@ message UpstreamNotDeployed {
   uint64 thisVersion = 3;
   string thisEnvironment = 4;
 }
-
 
 message Environment {
 

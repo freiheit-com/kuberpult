@@ -100,5 +100,3 @@ func (d *DeployServiceServer) ReleaseTrain(
 	}
 	return &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team}, nil
 }
-
-var _ api.DeployServiceServer = (*DeployServiceServer)(nil)

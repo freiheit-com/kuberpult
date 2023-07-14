@@ -201,17 +201,9 @@ func RunServer() {
 					grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
 				},
 				Register: func(srv *grpc.Server) {
-					api.RegisterDeployServiceServer(srv, &service.DeployServiceServer{
-						Repository: repo,
-					})
 					api.RegisterBatchServiceServer(srv, &service.BatchServer{
 						Repository: repo,
 					})
-
-					envSrv := &service.EnvironmentServiceServer{
-						Repository: repo,
-					}
-					api.RegisterEnvironmentServiceServer(srv, envSrv)
 
 					overviewSrv := &service.OverviewServiceServer{
 						Repository: repo,
