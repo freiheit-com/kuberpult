@@ -154,7 +154,7 @@ auth:
     tenantId: ""
 
 dex:
-  enabled: true
+  enabled: false
   # Defines the rbac policy when using Dex.
   # The permissions are added using the following format (p, <ROLE>, <APPLICATION>, <ACTION>, <ENV>, <PERMISSION>), example:
   # p, Developer, deployment, *, dev:development-d2, allow
