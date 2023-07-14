@@ -108,7 +108,7 @@ func RunServer() {
 
 		dexRbacPolicy, err := c.readRbacPolicy()
 		if err != nil {
-			logger.FromContext(ctx).Fatal("pgp.read.error", zap.Error(err))
+			logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
 		}
 		if c.DexEnable && dexRbacPolicy == "" {
 			logger.FromContext(ctx).Fatal("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLE\" is true")
