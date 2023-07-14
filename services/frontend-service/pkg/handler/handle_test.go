@@ -35,7 +35,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestServer_Handle(t *testing.T) {
@@ -79,20 +78,15 @@ func TestServer_Handle(t *testing.T) {
 	})
 
 	tests := []struct {
-		name                             string
-		req                              *http.Request
-		KeyRing                          openpgp.KeyRing
-		signature                        string
-		AzureAuthEnabled                 bool
-		expectedResp                     *http.Response
-		expectedBody                     string
-		expectedDeployRequest            *api.DeployRequest
-		expectedReleaseTrainRequest      *api.ReleaseTrainRequest
-		expectedCreateEnvironmentRequest *api.CreateEnvironmentRequest
-		expectedBatchRequest             *api.BatchRequest
-		//expectedDeleteEnvironmentLockRequest            *api.DeleteEnvironmentLockRequest
-		//expectedCreateEnvironmentApplicationLockRequest *api.CreateEnvironmentApplicationLockRequest
-		//expectedDeleteEnvironmentApplicationLockRequest *api.DeleteEnvironmentApplicationLockRequest
+		name                 string
+		req                  *http.Request
+		KeyRing              openpgp.KeyRing
+		signature            string
+		AzureAuthEnabled     bool
+		batchResponse        *api.BatchResponse
+		expectedResp         *http.Response
+		expectedBody         string
+		expectedBatchRequest *api.BatchRequest
 	}{
 		{
 			name: "wrongly routed",
@@ -128,11 +122,30 @@ func TestServer_Handle(t *testing.T) {
 					Path: "/environments/development/releasetrain",
 				},
 			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainResponse{
+								Target: "development",
+							},
+						},
+					},
+				},
+			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
 			},
-			expectedBody:                "{\"target\":\"development\"}",
-			expectedReleaseTrainRequest: &api.ReleaseTrainRequest{Target: "development"},
+			expectedBody: "{\"target\":\"development\"}",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainRequest{Target: "development"},
+						},
+					},
+				},
+			},
 		},
 		{
 			name: "release train but wrong method",
@@ -171,11 +184,30 @@ func TestServer_Handle(t *testing.T) {
 				},
 				Body: io.NopCloser(strings.NewReader(exampleSignature)),
 			},
+			batchResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainResponse{
+								Target: "development",
+							},
+						},
+					},
+				},
+			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusOK,
 			},
-			expectedBody:                "{\"target\":\"development\"}",
-			expectedReleaseTrainRequest: &api.ReleaseTrainRequest{Target: "development"},
+			expectedBody: "{\"target\":\"development\"}",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainRequest{Target: "development"},
+						},
+					},
+				},
+			},
 		},
 		{
 			name:             "release train - Azure enabled - missing signature",
@@ -228,14 +260,22 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusOK,
 			},
 			expectedBody: "",
-			expectedCreateEnvironmentRequest: &api.CreateEnvironmentRequest{
-				Environment: "stg",
-				Config: &api.EnvironmentConfig{
-					Upstream: &api.EnvironmentConfig_Upstream{
-						Environment: &exampleEnvironment,
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironment{
+							CreateEnvironment: &api.CreateEnvironmentRequest{
+								Environment: "stg",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Environment: &exampleEnvironment,
+									},
+									Argocd:           nil,
+									EnvironmentGroup: nil,
+								},
+							},
+						},
 					},
-					Argocd:           nil,
-					EnvironmentGroup: nil,
 				},
 			},
 		},
@@ -274,24 +314,32 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusOK,
 			},
 			expectedBody: "",
-			expectedCreateEnvironmentRequest: &api.CreateEnvironmentRequest{
-				Environment: "stg",
-				Config: &api.EnvironmentConfig{
-					Upstream: &api.EnvironmentConfig_Upstream{
-						Latest: &latestFlag,
-					},
-					Argocd: &api.EnvironmentConfig_ArgoCD{
-						SyncWindows: nil,
-						Destination: &api.EnvironmentConfig_ArgoCD_Destination{
-							Server:    "https://intwawiplatform-dev-aks-a17d3d29.privatelink.westeurope.azmk8s.io:443",
-							Namespace: &starFlag,
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironment{
+							CreateEnvironment: &api.CreateEnvironmentRequest{
+								Environment: "stg",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: &latestFlag,
+									},
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										SyncWindows: nil,
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+											Server:    "https://intwawiplatform-dev-aks-a17d3d29.privatelink.westeurope.azmk8s.io:443",
+											Namespace: &starFlag,
+										},
+										AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
+										ApplicationAnnotations: nil,
+										IgnoreDifferences:      nil,
+										SyncOptions:            nil,
+									},
+									EnvironmentGroup: &starFlag,
+								},
+							},
 						},
-						AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
-						ApplicationAnnotations: nil,
-						IgnoreDifferences:      nil,
-						SyncOptions:            nil,
 					},
-					EnvironmentGroup: &starFlag,
 				},
 			},
 		},
@@ -341,14 +389,22 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusOK,
 			},
 			expectedBody: "",
-			expectedCreateEnvironmentRequest: &api.CreateEnvironmentRequest{
-				Environment: "stg",
-				Config: &api.EnvironmentConfig{
-					Upstream: &api.EnvironmentConfig_Upstream{
-						Environment: &exampleEnvironment,
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironment{
+							CreateEnvironment: &api.CreateEnvironmentRequest{
+								Environment: "stg",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Environment: &exampleEnvironment,
+									},
+									Argocd:           nil,
+									EnvironmentGroup: nil,
+								},
+							},
+						},
 					},
-					Argocd:           nil,
-					EnvironmentGroup: nil,
 				},
 			},
 		},
@@ -799,15 +855,11 @@ func TestServer_Handle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			deployClient := &mockDeployClient{}
-			batchClient := &mockBatchClient{}
-			environmentClient := &mockEnvironmentClient{}
+			batchClient := &mockBatchClient{batchResponse: tt.batchResponse}
 			s := Server{
-				DeployClient:      deployClient,
-				EnvironmentClient: environmentClient,
-				BatchClient:       batchClient,
-				KeyRing:           tt.KeyRing,
-				AzureAuth:         tt.AzureAuthEnabled,
+				BatchClient: batchClient,
+				KeyRing:     tt.KeyRing,
+				AzureAuth:   tt.AzureAuthEnabled,
 			}
 
 			w := httptest.NewRecorder()
@@ -824,51 +876,19 @@ func TestServer_Handle(t *testing.T) {
 			if d := cmp.Diff(tt.expectedBody, string(body)); d != "" {
 				t.Errorf("response body mismatch: %s", d)
 			}
-			if d := cmp.Diff(tt.expectedDeployRequest, deployClient.deployRequest, protocmp.Transform()); d != "" {
-				t.Errorf("deploy request mismatch: %s", d)
-			}
-			if d := cmp.Diff(tt.expectedReleaseTrainRequest, deployClient.releaseTrainRequest, protocmp.Transform()); d != "" {
-				t.Errorf("release train request mismatch: %s", d)
-			}
-			if d := cmp.Diff(tt.expectedCreateEnvironmentRequest, environmentClient.createEnvironmentRequest, protocmp.Transform()); d != "" {
-				t.Errorf("create environment request mismatch: %s", d)
-			}
 			if d := cmp.Diff(tt.expectedBatchRequest, batchClient.batchRequest, protocmp.Transform()); d != "" {
-				t.Errorf("create environment lock request mismatch: %s", d)
+				t.Errorf("create batch request mismatch: %s", d)
 			}
 		})
 	}
 }
 
-type mockEnvironmentClient struct {
-	createEnvironmentRequest *api.CreateEnvironmentRequest
-}
-
-func (m *mockEnvironmentClient) CreateEnvironment(_ context.Context, in *api.CreateEnvironmentRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
-	m.createEnvironmentRequest = in
-	return &emptypb.Empty{}, nil
-}
-
-type mockDeployClient struct {
-	deployRequest       *api.DeployRequest
-	releaseTrainRequest *api.ReleaseTrainRequest
-}
-
-func (m *mockDeployClient) Deploy(_ context.Context, in *api.DeployRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
-	m.deployRequest = in
-	return &emptypb.Empty{}, nil
-}
-
-func (m *mockDeployClient) ReleaseTrain(_ context.Context, in *api.ReleaseTrainRequest, _ ...grpc.CallOption) (*api.ReleaseTrainResponse, error) {
-	m.releaseTrainRequest = in
-	return &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team}, nil
-}
-
 type mockBatchClient struct {
-	batchRequest *api.BatchRequest
+	batchRequest  *api.BatchRequest
+	batchResponse *api.BatchResponse
 }
 
-func (m *mockBatchClient) ProcessBatch(_ context.Context, in *api.BatchRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+func (m *mockBatchClient) ProcessBatch(_ context.Context, in *api.BatchRequest, _ ...grpc.CallOption) (*api.BatchResponse, error) {
 	m.batchRequest = in
-	return &emptypb.Empty{}, nil
+	return m.batchResponse, nil
 }

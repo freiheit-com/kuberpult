@@ -75,10 +75,15 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	_, err = s.EnvironmentClient.CreateEnvironment(req.Context(), &api.CreateEnvironmentRequest{
-		Environment: environment,
-		Config:      &envConfig,
-	})
+	_, err = s.BatchClient.ProcessBatch(req.Context(),
+		&api.BatchRequest{Actions: []*api.BatchAction{
+			{Action: &api.BatchAction_CreateEnvironment{
+				CreateEnvironment: &api.CreateEnvironmentRequest{
+					Environment: environment,
+					Config:      &envConfig,
+				}}},
+		},
+		})
 
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)

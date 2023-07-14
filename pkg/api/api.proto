@@ -8,7 +8,7 @@ import "google/protobuf/timestamp.proto";
 package api.v1;
 
 service BatchService {
-  rpc ProcessBatch (BatchRequest) returns (google.protobuf.Empty) {}
+  rpc ProcessBatch (BatchRequest) returns (BatchResponse) {}
 }
 
 message BatchRequest {
@@ -25,6 +25,18 @@ message BatchAction {
     PrepareUndeployRequest prepare_undeploy = 6;
     UndeployRequest undeploy = 7;
     DeleteEnvironmentFromAppRequest delete_env_from_app = 8;
+    CreateEnvironmentRequest create_environment = 9;
+    ReleaseTrainRequest release_train = 10;
+  }
+}
+
+message BatchResponse {
+  repeated BatchResult results = 1;
+}
+
+message BatchResult {
+  oneof result {
+    ReleaseTrainResponse release_train = 10;
   }
 }
 

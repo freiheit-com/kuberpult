@@ -20,11 +20,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
-	"google.golang.org/grpc/status"
 	"os/exec"
 	"path"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -148,7 +151,7 @@ func TestBatchServiceWorks(t *testing.T) {
 			svc := &BatchServer{
 				Repository: repo,
 			}
-			_, err = svc.ProcessBatch(
+			resp, err := svc.ProcessBatch(
 				testutil.MakeTestContext(),
 				&api.BatchRequest{
 					Actions: tc.Batch,
@@ -157,6 +160,10 @@ func TestBatchServiceWorks(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
+			if len(resp.Results) != len(tc.Batch) {
+				t.Errorf("got wrong number of batch results, expected %d but got %d", len(tc.Batch), len(resp.Results))
+			}
+
 			// check deployment version
 			{
 				version, err := svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
@@ -389,4 +396,119 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 		t.Fatal(err)
 	}
 	return repo, nil
+}
+
+func TestReleaseTrain(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		Setup            []repository.Transformer
+		Request          *api.BatchRequest
+		ExpectedResponse *api.BatchResponse
+		Test             func(t *testing.T, svc *DeployServiceServer)
+	}{
+		{
+			Name: "Get Upstream env and TargetEnv",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "production"}},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"acceptance": "manifest",
+					},
+				},
+			},
+			Request: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainRequest{
+								Target: "acceptance",
+
+								Team: "team",
+							},
+						},
+					},
+				},
+			},
+			ExpectedResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainResponse{
+								Target: "acceptance",
+								Team:   "team",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Get Upstream (latest) and TargetEnv",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"acceptance": "manifest",
+					},
+				},
+			},
+			Request: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainRequest{
+								Target: "acceptance",
+
+								Team: "team",
+							},
+						},
+					},
+				},
+			},
+			ExpectedResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainResponse{
+								Target: "acceptance",
+								Team:   "team",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+			svc := &BatchServer{
+				Repository: repo,
+			}
+			resp, err := svc.ProcessBatch(
+				testutil.MakeTestContext(),
+				tc.Request,
+			)
+			if d := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); d != "" {
+				t.Errorf("batch response mismatch: %s", d)
+			}
+		})
+	}
 }
