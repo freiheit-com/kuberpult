@@ -19,7 +19,6 @@ package cmd
 import (
 	"bufio"
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -68,7 +67,7 @@ type Config struct {
 func (c *Config) readRbacPolicy() (policy map[string]*auth.Permission, err error) {
 	file, err := os.Open("policy.csv")
 	if err != nil {
-		log.Fatal("Error opening file")
+		return nil, err
 	}
 	defer file.Close()
 
@@ -126,12 +125,14 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("azure.auth.error: pgpKeyRing is required to authenticate manifests when \"KUBERPULT_AZURE_ENABLE_AUTH\" is true")
 		}
 
-		dexRbacPolicy, err := c.readRbacPolicy()
-		if err != nil {
-			logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
-		}
-		if c.DexEnable && len(dexRbacPolicy) == 0 {
-			logger.FromContext(ctx).Fatal("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLE\" is true")
+		if c.DexEnable {
+			dexRbacPolicy, err := c.readRbacPolicy()
+			if err != nil {
+				logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
+			}
+			if len(dexRbacPolicy) == 0 {
+				logger.FromContext(ctx).Fatal("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLE\" is true")
+			}
 		}
 
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
