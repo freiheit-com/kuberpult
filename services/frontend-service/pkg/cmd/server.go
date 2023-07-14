@@ -184,19 +184,13 @@ func runServer(ctx context.Context) error {
 	}
 
 	batchClient := api.NewBatchServiceClient(cdCon)
-	deployClient := api.NewDeployServiceClient(cdCon)
-	environmentClient := api.NewEnvironmentServiceClient(cdCon)
 	gproxy := &GrpcProxy{
 		OverviewClient:       api.NewOverviewServiceClient(cdCon),
-		DeployClient:         deployClient,
 		BatchClient:          batchClient,
-		EnvironmentClient:    environmentClient,
 		RolloutServiceClient: rolloutClient,
 	}
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
-	api.RegisterDeployServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
-	api.RegisterEnvironmentServiceServer(gsrv, gproxy)
 	api.RegisterRolloutServiceServer(gsrv, gproxy)
 
 	frontendConfigService := &service.FrontendConfigServiceServer{
@@ -220,12 +214,10 @@ func runServer(ctx context.Context) error {
 
 	grpcWebServer := grpcweb.WrapServer(gsrv)
 	httpHandler := handler.Server{
-		DeployClient:      deployClient,
-		BatchClient:       batchClient,
-		EnvironmentClient: environmentClient,
-		Config:            c,
-		KeyRing:           pgpKeyRing,
-		AzureAuth:         c.AzureEnableAuth,
+		BatchClient: batchClient,
+		Config:      c,
+		KeyRing:     pgpKeyRing,
+		AzureAuth:   c.AzureEnableAuth,
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/environments/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -409,9 +401,7 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // https://github.com/grpc/grpc-go/issues/2297
 type GrpcProxy struct {
 	OverviewClient       api.OverviewServiceClient
-	DeployClient         api.DeployServiceClient
 	BatchClient          api.BatchServiceClient
-	EnvironmentClient    api.EnvironmentServiceClient
 	RolloutServiceClient api.RolloutServiceClient
 }
 
@@ -443,24 +433,6 @@ func (p *GrpcProxy) StreamOverview(
 			}
 		}
 	}
-}
-
-func (p *GrpcProxy) Deploy(
-	ctx context.Context,
-	in *api.DeployRequest) (*emptypb.Empty, error) {
-	return p.DeployClient.Deploy(ctx, in)
-}
-
-func (p *GrpcProxy) ReleaseTrain(
-	ctx context.Context,
-	in *api.ReleaseTrainRequest) (*api.ReleaseTrainResponse, error) {
-	return p.DeployClient.ReleaseTrain(ctx, in)
-}
-
-func (p *GrpcProxy) CreateEnvironment(
-	ctx context.Context,
-	in *api.CreateEnvironmentRequest) (*emptypb.Empty, error) {
-	return p.EnvironmentClient.CreateEnvironment(ctx, in)
 }
 
 func (p *GrpcProxy) StreamStatus(in *api.StreamStatusRequest, stream api.RolloutService_StreamStatusServer) error {
