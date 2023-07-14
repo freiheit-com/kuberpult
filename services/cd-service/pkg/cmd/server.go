@@ -53,10 +53,17 @@ type Config struct {
 	GitSshKnownHosts  string `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
 	PgpKeyRing        string `split_words:"true"`
 	AzureEnableAuth   bool   `default:"false" split_words:"true"`
+	DexEnable         bool   `default:"false" split_words:"true"`
+	DexRbacPolicy     string `split_words:"true"`
 	EnableTracing     bool   `default:"false" split_words:"true"`
 	EnableMetrics     bool   `default:"false" split_words:"true"`
 	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true"`
 	EnableSqlite      bool   `default:"true" split_words:"true"`
+}
+
+// TODO (BB): Read and parse RBAC rules
+func (c *Config) readRbacPolicy() (string, error) {
+	return c.DexRbacPolicy, nil
 }
 
 func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
@@ -97,6 +104,14 @@ func RunServer() {
 		}
 		if c.AzureEnableAuth && pgpKeyRing == nil {
 			logger.FromContext(ctx).Fatal("azure.auth.error: pgpKeyRing is required to authenticate manifests when \"KUBERPULT_AZURE_ENABLE_AUTH\" is true")
+		}
+
+		dexRbacPolicy, err := c.readRbacPolicy()
+		if err != nil {
+			logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
+		}
+		if c.DexEnable && dexRbacPolicy == "" {
+			logger.FromContext(ctx).Fatal("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLE\" is true")
 		}
 
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")

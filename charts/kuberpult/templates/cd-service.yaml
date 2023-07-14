@@ -144,8 +144,14 @@ spec:
         - name: KUBERPULT_PGP_KEY_RING
           value: /keyring/keyring.gpg
 {{- end }}
+{{- if .Values.dex.enabled }}
+        - name: KUBERPULT_DEX_RBAC_POLICY
+          value: /kuberpult-rbac/policy.csv
+{{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH
           value: "{{ .Values.auth.azureAuth.enabled }}"
+        - name: KUBERPULT_DEX_ENABLE
+          value: "{{ .Values.dex.enabled }}"
 {{- if .Values.environment_configs.bootstrap_mode }}
         - name: KUBERPULT_BOOTSTRAP_MODE
           value: "{{ .Values.environment_configs.bootstrap_mode }}"
@@ -161,6 +167,10 @@ spec:
         - name: keyring
           mountPath: /keyring
 {{- end }}
+{{- if .Values.dex.enabled }}
+        - name: kuberpult-rbac
+          mountPath: /kuberpult-rbac
+{{- end }} 
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: dsdsocket
           mountPath: {{ .Values.dogstatsdMetrics.hostSocketPath }}
@@ -193,6 +203,11 @@ spec:
           - key: environment_configs.json
             path: environment_configs.json
           name: environment-configs
+{{- end }}
+{{- if .Values.dex.enabled }}
+      - name: kuberpult-rbac
+        configMap:
+          name: kuberpult-rbac
 {{- end }}
 {{- if .Values.dogstatsdMetrics.enabled }}
       - name: dsdsocket
@@ -260,4 +275,13 @@ metadata:
   name: environment-configs
 data:
   environment_configs.json: {{ required ".Values.environment_configs.environment_configs_json is required when .Values.environment_configs.bootstrap is true" .Values.environment_configs.environment_configs_json | quote }}
+{{- end }}
+{{- if .Values.dex.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kuberpult-rbac
+data:
+  policy.csv: {{ .Values.dex.policy_csv | quote}}
 {{- end }}

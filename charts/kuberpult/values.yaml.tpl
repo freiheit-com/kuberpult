@@ -152,3 +152,11 @@ auth:
     cloudInstance: "https://login.microsoftonline.com/"
     clientId: ""
     tenantId: ""
+
+dex:
+  enabled: true
+  # Defines the rbac policy when using Dex.
+  # The permissions are added using the following format (p, <ROLE>, <APPLICATION>, <ACTION>, <ENV>, <PERMISSION>), example:
+  # p, Developer, deployment, *, dev:development-d2, allow
+  # The policy will be available on the kuberpult-rbac config map.
+  policy_csv: ""
