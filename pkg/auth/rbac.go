@@ -20,20 +20,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 )
 
 // Inits the RBAC Config struct
-func initRbacConfig(configs map[string]config.EnvironmentConfig) RBACconfig {
-	allowedEnvs := []string{}
-	for env, config := range configs {
-		group := *config.EnvironmentGroup
-		allowedEnvs = append(allowedEnvs, group+":"+env)
-	}
+func InitRbacConfig() RBACconfig {
 	return RBACconfig{
 		allowedApp:     []string{"EnvironmentLock", "EnvironmentApplicationLock", "Deploy", "Undeploy", "EnvironmentFromApplication"},
 		allowedActions: []string{"Create", "Delete"},
-		allowedEnvs:    allowedEnvs,
 	}
 }
 
@@ -41,7 +35,6 @@ func initRbacConfig(configs map[string]config.EnvironmentConfig) RBACconfig {
 type RBACconfig struct {
 	allowedApp     []string
 	allowedActions []string
-	allowedEnvs    []string
 }
 
 func (c *RBACconfig) validateApp(app string) error {
@@ -69,23 +62,38 @@ func (c *RBACconfig) validateAction(action string) error {
 }
 
 func (c *RBACconfig) validateEnvs(env string) error {
-	for _, e := range c.allowedEnvs {
-		if e == env {
-			return nil
+	e := strings.Split(env, ":")
+	// Invalid format
+	if len(e) > 2 || env == "" {
+		return fmt.Errorf("invalid environment %s", env)
+	}
+	// Validate <ENVIRONMENT_GROUP:ENVIRONMENT>
+	if len(e) == 2 {
+		if !valid.EnvironmentName(e[0]) {
+			return fmt.Errorf("invalid environment group %s", env)
+		}
+		if !valid.EnvironmentName(e[1]) {
+			return fmt.Errorf("invalid environment %s", env)
 		}
 	}
-	return fmt.Errorf("invalid environment %s", env)
+	// Validate <ENVIRONMENT>
+	if len(e) == 1 {
+		if !valid.EnvironmentName(e[0]) {
+			return fmt.Errorf("invalid environment %s", env)
+		}
+	}
+	return nil
 }
 
 // Struct to store an RBAC permission.
-type permission struct {
+type Permission struct {
 	Role        string
 	Application string
 	Environment string
 	Action      string
 }
 
-func validateRbacPermission(line string, cfg RBACconfig) (p *permission, err error) {
+func ValidateRbacPermission(line string, cfg RBACconfig) (p *Permission, err error) {
 	// Verifies if all fields are specified
 	c := strings.Split(line, ",")
 	if len(c) != 6 {
@@ -101,12 +109,12 @@ func validateRbacPermission(line string, cfg RBACconfig) (p *permission, err err
 	if err != nil {
 		return nil, err
 	}
-	// Validate the environments
+	// Validate the environment names
 	err = cfg.validateEnvs(c[4])
 	if err != nil {
 		return nil, err
 	}
-	return &permission{
+	return &Permission{
 		Role:        c[1],
 		Application: c[2],
 		Action:      c[3],
