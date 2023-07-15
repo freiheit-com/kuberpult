@@ -20,8 +20,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
@@ -188,6 +190,36 @@ func (d *BatchServer) processAction(
 					ReleaseTrain: &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team},
 				},
 			}, nil
+	case *api.BatchAction_CreateEnvironment:
+		in := action.CreateEnvironment
+		conf := in.Config
+		if conf == nil {
+			conf = &api.EnvironmentConfig{}
+		}
+		var argocd *config.EnvironmentConfigArgoCd
+		if conf.Argocd != nil {
+			syncWindows := transformSyncWindowsToConfig(conf.Argocd.SyncWindows)
+			clusterResourceWhitelist := transformClusterResourceWhitelistToConfig(conf.Argocd.AccessList)
+			ignoreDifferences := transformIgnoreDifferencesToConfig(conf.Argocd.IgnoreDifferences)
+			argocd = &config.EnvironmentConfigArgoCd{
+				Destination:              transformDestination(conf.Argocd.Destination),
+				SyncWindows:              syncWindows,
+				ClusterResourceWhitelist: clusterResourceWhitelist,
+				ApplicationAnnotations:   conf.Argocd.ApplicationAnnotations,
+				IgnoreDifferences:        ignoreDifferences,
+				SyncOptions:              conf.Argocd.SyncOptions,
+			}
+		}
+		upstream := transformUpstreamToConfig(conf.Upstream)
+		transformer := &repository.CreateEnvironment{
+			Environment: in.Environment,
+			Config: config.EnvironmentConfig{
+				Upstream:         upstream,
+				ArgoCd:           argocd,
+				EnvironmentGroup: conf.EnvironmentGroup,
+			},
+		}
+		return transformer, nil, nil
 	}
 	return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")
 }

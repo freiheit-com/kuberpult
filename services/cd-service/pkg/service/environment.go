@@ -17,53 +17,9 @@ Copyright 2023 freiheit.com*/
 package service
 
 import (
-	"context"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-type EnvironmentServiceServer struct {
-	Repository repository.Repository
-}
-
-func (e *EnvironmentServiceServer) CreateEnvironment(
-	ctx context.Context,
-	in *api.CreateEnvironmentRequest) (*emptypb.Empty, error) {
-
-	upstream := transformUpstreamToConfig(in.Config.Upstream)
-	syncWindows := transformSyncWindowsToConfig(in.Config.Argocd.SyncWindows)
-	clusterResourceWhitelist := transformClusterResourceWhitelistToConfig(in.Config.Argocd.AccessList)
-	ignoreDifferences := transformIgnoreDifferencesToConfig(in.Config.Argocd.IgnoreDifferences)
-
-	err := e.Repository.Apply(ctx, &repository.CreateEnvironment{
-		Environment: in.Environment,
-		Config: config.EnvironmentConfig{
-			Upstream: upstream,
-			ArgoCd: &config.EnvironmentConfigArgoCd{
-				Destination: config.ArgoCdDestination{
-					Name:                 in.Config.Argocd.Destination.Name,
-					Server:               in.Config.Argocd.Destination.Server,
-					Namespace:            in.Config.Argocd.Destination.Namespace,
-					AppProjectNamespace:  in.Config.Argocd.Destination.AppProjectNamespace,
-					ApplicationNamespace: in.Config.Argocd.Destination.ApplicationNamespace,
-				},
-				SyncWindows:              syncWindows,
-				ClusterResourceWhitelist: clusterResourceWhitelist,
-				ApplicationAnnotations:   in.Config.Argocd.ApplicationAnnotations,
-				IgnoreDifferences:        ignoreDifferences,
-				SyncOptions:              in.Config.Argocd.SyncOptions,
-			},
-			EnvironmentGroup: in.Config.EnvironmentGroup,
-		},
-	})
-	if err != nil {
-		return nil, httperrors.InternalError(ctx, err)
-	}
-	return &emptypb.Empty{}, nil
-}
 
 func transformUpstreamToConfig(upstream *api.EnvironmentConfig_Upstream) *config.EnvironmentConfigUpstream {
 	if upstream == nil {
@@ -120,4 +76,17 @@ func transformIgnoreDifferencesToConfig(ignoreDifferences []*api.EnvironmentConf
 		})
 	}
 	return transformedIgnoreDifferences
+}
+
+func transformDestination(in *api.EnvironmentConfig_ArgoCD_Destination) config.ArgoCdDestination {
+	if in == nil {
+		return config.ArgoCdDestination{}
+	}
+	return config.ArgoCdDestination{
+		Name:                 in.Name,
+		Server:               in.Server,
+		Namespace:            in.Namespace,
+		AppProjectNamespace:  in.AppProjectNamespace,
+		ApplicationNamespace: in.ApplicationNamespace,
+	}
 }
