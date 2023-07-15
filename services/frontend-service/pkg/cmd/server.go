@@ -45,7 +45,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
@@ -407,7 +406,7 @@ type GrpcProxy struct {
 
 func (p *GrpcProxy) ProcessBatch(
 	ctx context.Context,
-	in *api.BatchRequest) (*emptypb.Empty, error) {
+	in *api.BatchRequest) (*api.BatchResponse, error) {
 	return p.BatchClient.ProcessBatch(ctx, in)
 }
 
