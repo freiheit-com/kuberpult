@@ -69,8 +69,7 @@ func TestValidateRbacPermission(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			cfg := InitRbacConfig()
-			permission, err := ValidateRbacPermission(tc.Permission, cfg)
+			permission, err := ValidateRbacPermission(tc.Permission)
 			if err != nil {
 				if diff := cmp.Diff(err.Error(), tc.WantError); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)

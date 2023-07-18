@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	jwtV5 "github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/lestrrat-go/jwx/jwa"
@@ -161,9 +162,9 @@ func TestValidateToken(t *testing.T) {
 	// Dex app client configuration variables.
 	clientID := "test-client"
 	clientSecret := "test-client"
-	issuerURL := "https://www.test.com"
+	hostURL := "https://www.test.com"
 	scopes := []string{"scope1", "scope2"}
-	appDex, _ := NewDexAppClient(clientID, clientSecret, issuerURL, scopes)
+	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, scopes)
 
 	testCases := []struct {
 		Name            string
@@ -189,7 +190,7 @@ func TestValidateToken(t *testing.T) {
 		keySet, jwkPrivateKey, _ := getJWKeySet()
 		t.Run(tc.Name, func(t *testing.T) {
 			// Mocks the OIDC server to retrieve the provider.
-			oidcServer := MockOIDCTestServer(tc.dexApp.IssuerURL, keySet)
+			oidcServer := MockOIDCTestServer(appDex.IssuerURL, keySet)
 			defer oidcServer.Close()
 
 			// Disable the TLS check to allow the test to run.
@@ -202,11 +203,11 @@ func TestValidateToken(t *testing.T) {
 					},
 				},
 			}
-			claims := map[string]string{jwt.AudienceKey: tc.dexApp.ClientID, jwt.IssuerKey: tc.dexApp.IssuerURL}
+			claims := jwtV5.MapClaims{jwt.AudienceKey: tc.dexApp.ClientID, jwt.IssuerKey: tc.dexApp.IssuerURL}
 			token, _ := GetSignedJwt(jwkPrivateKey, claims)
 
 			ctx := oidc.ClientContext(context.Background(), httpClient)
-			_, err := tc.dexApp.validateToken(ctx, string(token), tc.allowedAudience)
+			_, err := ValidateOIDCToken(ctx, appDex.IssuerURL, string(token), tc.allowedAudience)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("creating new dex client error = %v, wantErr %v", err, tc.wantErr)
 			}
@@ -224,46 +225,39 @@ func TestVerifyToken(t *testing.T) {
 	scopes := []string{"scope1", "scope2"}
 	appDex, _ := NewDexAppClient(clientID, clientSecret, hostURL, scopes)
 
-	keySet, jwkPrivateKey, _ := getJWKeySet()
-	claims := map[string]string{jwt.AudienceKey: clientID, jwt.IssuerKey: appDex.IssuerURL}
-	idToken, _ := GetSignedJwt(jwkPrivateKey, claims)
-
-	claims = map[string]string{jwt.AudienceKey: clientID, jwt.IssuerKey: appDex.IssuerURL, jwt.ExpirationKey: fmt.Sprint(time.Now().Add(-1 * time.Hour).Unix())}
-	idTokenExpired, _ := GetSignedJwt(jwkPrivateKey, claims)
-
 	testCases := []struct {
-		Name    string
-		cookie  *http.Cookie
-		wantErr bool
+		Name     string
+		claims   jwtV5.MapClaims
+		wantErr  string
+		wantUser string
 	}{
 		{
 			Name: "Token Verifier works as expected with the correct token value",
-			cookie: &http.Cookie{
-				Name:  dexOAUTHTokenName,
-				Value: string(idToken),
-			},
-			wantErr: false,
+			claims: jwtV5.MapClaims{
+				jwt.AudienceKey: clientID,
+				jwt.IssuerKey:   appDex.IssuerURL,
+				"name":          "User",
+				"email":         "user@mail.com",
+				"groups":        []string{"Developer"}},
+			wantUser: "Developer,",
 		},
 		{
-			Name: "Token Verifier works as expected with the wrong token value",
-			cookie: &http.Cookie{
-				Name:  dexOAUTHTokenName,
-				Value: "random-value-token",
-			},
-			wantErr: true,
-		},
-		{
-			Name: "Token Verifier works as expected with the expired token",
-			cookie: &http.Cookie{
-				Name:  dexOAUTHTokenName,
-				Value: string(idTokenExpired),
-			},
-			wantErr: true,
+			Name: "Token Verifier works as expected with no name",
+			claims: jwtV5.MapClaims{
+				jwt.AudienceKey: clientID,
+				jwt.IssuerKey:   appDex.IssuerURL,
+				"name":          "",
+				"email":         "user@mail.com",
+				"groups":        []string{}},
+			wantErr: "failed to verify token: no group defined",
 		},
 	}
 	for _, tc := range testCases {
 		// Create a key set, private key and public key.
 		t.Run(tc.Name, func(t *testing.T) {
+			keySet, jwkPrivateKey, _ := getJWKeySet()
+			idToken, _ := GetSignedJwt(jwkPrivateKey, tc.claims)
+
 			// Mocks the OIDC server to retrieve the provider.
 			oidcServer := MockOIDCTestServer(appDex.IssuerURL, keySet)
 			defer oidcServer.Close()
@@ -280,12 +274,22 @@ func TestVerifyToken(t *testing.T) {
 			}
 
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
-			req.AddCookie(tc.cookie)
+			cookie := &http.Cookie{
+				Name:  dexOAUTHTokenName,
+				Value: string(idToken),
+			}
+			req.AddCookie(cookie)
 
 			ctx := oidc.ClientContext(context.Background(), httpClient)
-			err := appDex.verifyToken(ctx, req)
-			if (err != nil) != tc.wantErr {
-				t.Errorf("creating new dex client error = %v, wantErr %v", err, tc.wantErr)
+			u, err := VerifyToken(ctx, req, appDex.ClientID, hostURL)
+			if err != nil {
+				if diff := cmp.Diff(tc.wantErr, err.Error()); diff != "" {
+					t.Errorf("Error mismatch (-want +got):\n%s", diff)
+				}
+			} else {
+				if diff := cmp.Diff(u, tc.wantUser); diff != "" {
+					t.Errorf("got %v, want %v, diff (-want +got) %s", u, tc.wantUser, diff)
+				}
 			}
 		})
 	}
@@ -298,8 +302,8 @@ func makeNewMockServer(status int) *httptest.Server {
 	}))
 }
 
-// Creates a signed JWT token with the repective claims.
-func GetSignedJwt(signingKey any, claims map[string]string) ([]byte, error) {
+// Creates a signed JWT token with the respective claims.
+func GetSignedJwt(signingKey any, claims jwtV5.MapClaims) ([]byte, error) {
 	token := jwt.New()
 	_ = token.Set(jwt.ExpirationKey, time.Now().Add(time.Hour*24).Unix())
 

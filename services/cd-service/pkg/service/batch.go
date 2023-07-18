@@ -33,6 +33,7 @@ import (
 
 type BatchServer struct {
 	Repository repository.Repository
+	RBACConfig auth.RBACConfig
 }
 
 const maxBatchActions int = 100
@@ -228,7 +229,7 @@ func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
 ) (*api.BatchResponse, error) {
-	user, err := auth.ReadUserFromGrpcContext(ctx)
+	user, err := auth.ReadUserFromGrpcContext(ctx, d.RBACConfig.DexEnabled)
 	if err != nil {
 		return nil, httperrors.AuthError(ctx, errors.New(fmt.Sprintf("batch requires user to be provided %v", err)))
 	}

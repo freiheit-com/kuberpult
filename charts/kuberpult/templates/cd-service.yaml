@@ -150,7 +150,7 @@ spec:
 {{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH
           value: "{{ .Values.auth.azureAuth.enabled }}"
-        - name: KUBERPULT_DEX_ENABLE
+        - name: KUBERPULT_DEX_ENABLED
           value: "{{ .Values.dex.enabled }}"
 {{- if .Values.environment_configs.bootstrap_mode }}
         - name: KUBERPULT_BOOTSTRAP_MODE

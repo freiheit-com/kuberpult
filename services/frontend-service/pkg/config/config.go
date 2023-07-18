@@ -30,6 +30,10 @@ type ServerConfig struct {
 	AzureClientId       string `default:"" split_words:"true"`
 	AzureTenantId       string `default:"" split_words:"true"`
 	AzureRedirectUrl    string `default:"" split_words:"true"`
+	DexEnabled          bool   `default:"false" split_words:"true"`
+	DexClientId         string `default:"" split_words:"true"`
+	DexClientSecret     string `default:"" split_words:"true"`
+	DexBaseURL          string `default:"" split_words:"true"`
 	Version             string `default:""`
 	SourceRepoUrl       string `default:"" split_words:"true"`
 	AllowedOrigins      string `default:"" split_words:"true"`

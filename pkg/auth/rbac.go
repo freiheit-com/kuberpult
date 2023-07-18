@@ -23,25 +23,34 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 )
 
+// All static rbac information that is required to check authentication of a given user.
+type RBACConfig struct {
+	// Indicates if Dex is enabled.
+	DexEnabled bool
+	// The RBAC policy. In later stories mapping for policies will be integrated here
+	// Policy map[string]*Permission
+}
+
 // Inits the RBAC Config struct
-func InitRbacConfig() RBACconfig {
-	return RBACconfig{
-		allowedApp:     []string{"EnvironmentLock", "EnvironmentApplicationLock", "Deploy", "Undeploy", "EnvironmentFromApplication"},
+func initPolicyConfig() policyConfig {
+	return policyConfig{
+		allowedApps:    []string{"EnvironmentLock", "EnvironmentApplicationLock", "Deploy", "Undeploy", "EnvironmentFromApplication"},
 		allowedActions: []string{"Create", "Delete"},
 	}
 }
 
-// Stores the RBAC allowed Applications and Actions
-type RBACconfig struct {
-	allowedApp     []string
+// Stores the RBAC Policy allowed Applications and Actions.
+// Only used for policy validation.
+type policyConfig struct {
+	allowedApps    []string
 	allowedActions []string
 }
 
-func (c *RBACconfig) validateApp(app string) error {
+func (c *policyConfig) validateApp(app string) error {
 	if app == "" {
 		return fmt.Errorf("empty application value")
 	}
-	for _, a := range c.allowedApp {
+	for _, a := range c.allowedApps {
 		if a == app {
 			return nil
 		}
@@ -49,7 +58,7 @@ func (c *RBACconfig) validateApp(app string) error {
 	return fmt.Errorf("invalid application %s", app)
 }
 
-func (c *RBACconfig) validateAction(action string) error {
+func (c *policyConfig) validateAction(action string) error {
 	if action == "*" {
 		return nil
 	}
@@ -61,25 +70,25 @@ func (c *RBACconfig) validateAction(action string) error {
 	return fmt.Errorf("invalid action %s", action)
 }
 
-func (c *RBACconfig) validateEnvs(env string) error {
-	e := strings.Split(env, ":")
+func (c *policyConfig) validateEnvs(envs string) error {
+	e := strings.Split(envs, ":")
 	// Invalid format
-	if len(e) > 2 || env == "" {
-		return fmt.Errorf("invalid environment %s", env)
+	if len(e) > 2 || envs == "" {
+		return fmt.Errorf("invalid environment %s", envs)
 	}
 	// Validate <ENVIRONMENT_GROUP:ENVIRONMENT>
 	if len(e) == 2 {
 		if !valid.EnvironmentName(e[0]) {
-			return fmt.Errorf("invalid environment group %s", env)
+			return fmt.Errorf("invalid environment group %s", envs)
 		}
 		if !valid.EnvironmentName(e[1]) {
-			return fmt.Errorf("invalid environment %s", env)
+			return fmt.Errorf("invalid environment %s", envs)
 		}
 	}
 	// Validate <ENVIRONMENT>
 	if len(e) == 1 {
 		if !valid.EnvironmentName(e[0]) {
-			return fmt.Errorf("invalid environment %s", env)
+			return fmt.Errorf("invalid environment %s", envs)
 		}
 	}
 	return nil
@@ -93,7 +102,8 @@ type Permission struct {
 	Action      string
 }
 
-func ValidateRbacPermission(line string, cfg RBACconfig) (p *Permission, err error) {
+func ValidateRbacPermission(line string) (p *Permission, err error) {
+	cfg := initPolicyConfig()
 	// Verifies if all fields are specified
 	c := strings.Split(line, ",")
 	if len(c) != 6 {
