@@ -22,7 +22,7 @@ We use it for requirements like this:
 * After running some test on development, roll out to staging.
 * Once a day we trigger a release train that deploys everything to production - using the versions of staging as source.
 * Sometimes we want to prevent certain deployments, either of single services, or of entire clusters.
-* We never want to deploy (on production) between 9am and 11am as these are peak business hours.
+* We never want to deploy (to production) between 9am and 11am as these are peak business hours.
 
 ## API
 Kuberpult has an API that is intended to be used in CI/CD (GitHub Actions, Azure Pipelines, etc) to release new versions of one (or more) microservices.
@@ -54,6 +54,21 @@ If you're using kuberpult's helm chart, generally you don't have to worry about 
 
 To use the helm chart, you can use [this url](https://github.com/freiheit-com/kuberpult/releases/download/0.4.55/kuberpult-0.4.55.tgz) (replace both versions with the current version!).
 You can see all releases on the [Releases page on GitHub](https://github.com/freiheit-com/kuberpult/releases)
+
+## Releasing a new version
+In order to let kuberpult know about a change in your service, you need to invoke its `/release` http endpoint.
+An example for this can be found [here](https://github.com/freiheit-com/kuberpult/blob/main/infrastructure/scripts/create-testdata/create-release.sh#L80).
+* `manifests` the (kubernetes) manifests that belong to this service. Need to be unique for each version. You can achieve this by adding the git commit id to the docker image tag of your kubernetes Deployment.
+* `application` name of the microservice. Must be the same name over all releases, otherwise kuberpult assumes this is a separate microservice.
+* `source_commit_id` git commit hash, we recommend to use the first 12 characters (but can be shorter/longer if needed).
+* `source_author` git author of the new change.
+* `source_message` git commit message of the new change.
+* `author-email` and `author-name` are base64 encoded http headers. They define the `git author` that pushes to the manifest repository.
+* `version` (optional, but recommended) If not set, kuberpult will just use `last release number + 1`. It is recommended to set this to a unique number, for example the number of commits in your git main branch. This way, if you have parallel executions of `/release` for the same service, kuberpult will sort them in the right order.
+* `team` (optional) team name of the microservice. Used to filter more easily for relevant services in kuberpult's UI and also written as label to the ArgoCd app to allow filtering in the ArgoCd UI.
+
+Caveats:
+* Note that the `/release` endpoint can be rather slow. This is because it involves running `git push` to a real repository, which in itself is a slow operation. Usually this takes about 1 second, but it highly depends on your Git Hosting Provider. This applies to all endpoints that have to write to the git repo (which is most of the endpoints).
 
 ## Release train Overview
 
