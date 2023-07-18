@@ -68,7 +68,7 @@ An example for this can be found [here](https://github.com/freiheit-com/kuberpul
 * `team` (optional) team name of the microservice. Used to filter more easily for relevant services in kuberpult's UI and also written as label to the ArgoCd app to allow filtering in the ArgoCd UI.
 
 Caveats:
-* Note that the `/release` endpoint can be rather slow. This is because it involves running `git push` to a real repository, which in itself is a slow operation. Usually this takes about 1 second, but it highly depends on your Git Hosting Provider.
+* Note that the `/release` endpoint can be rather slow. This is because it involves running `git push` to a real repository, which in itself is a slow operation. Usually this takes about 1 second, but it highly depends on your Git Hosting Provider. This applies to all endpoints that have to write to the git repo (which is most of the endpoints).
 
 ## Release train Overview
 
