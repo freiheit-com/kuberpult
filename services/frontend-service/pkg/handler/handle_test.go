@@ -298,7 +298,7 @@ func TestServer_Handle(t *testing.T) {
     "applicationAnnotations": {},
     "destination": {
       "namespace": "*",
-      "server": "https://intwawiplatform-dev-aks-a17d3d29.privatelink.westeurope.azmk8s.io:443"
+      "server": "https://example.com:443"
     }
   },
   "upstream": {
@@ -327,7 +327,7 @@ func TestServer_Handle(t *testing.T) {
 									Argocd: &api.EnvironmentConfig_ArgoCD{
 										SyncWindows: nil,
 										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
-											Server:    "https://intwawiplatform-dev-aks-a17d3d29.privatelink.westeurope.azmk8s.io:443",
+											Server:    "https://example.com:443",
 											Namespace: &starFlag,
 										},
 										AccessList:             []*api.EnvironmentConfig_ArgoCD_AccessEntry{},
