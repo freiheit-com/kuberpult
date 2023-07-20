@@ -22,7 +22,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -85,20 +84,5 @@ func (d *DeployServiceServer) ReleaseTrain(
 	ctx context.Context,
 	in *api.ReleaseTrainRequest,
 ) (*api.ReleaseTrainResponse, error) {
-	if !valid.EnvironmentName(in.Target) {
-		return nil, status.Error(codes.InvalidArgument, "invalid environment")
-	}
-	if in.Team != "" && !valid.TeamName(in.Team) {
-		return nil, status.Error(codes.InvalidArgument, "invalid Team name")
-	}
-	err := d.Repository.Apply(ctx, &repository.ReleaseTrain{
-		Target: in.Target,
-		Team:   in.Team,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team}, nil
+	return nil, nil
 }
-
-var _ api.DeployServiceServer = (*DeployServiceServer)(nil)

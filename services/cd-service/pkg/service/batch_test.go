@@ -20,13 +20,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
-	"google.golang.org/grpc/status"
 	"os/exec"
 	"path"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
+
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
@@ -148,7 +152,7 @@ func TestBatchServiceWorks(t *testing.T) {
 			svc := &BatchServer{
 				Repository: repo,
 			}
-			_, err = svc.ProcessBatch(
+			resp, err := svc.ProcessBatch(
 				testutil.MakeTestContext(),
 				&api.BatchRequest{
 					Actions: tc.Batch,
@@ -157,6 +161,10 @@ func TestBatchServiceWorks(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
+			if len(resp.Results) != len(tc.Batch) {
+				t.Errorf("got wrong number of batch results, expected %d but got %d", len(tc.Batch), len(resp.Results))
+			}
+
 			// check deployment version
 			{
 				version, err := svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
@@ -389,4 +397,368 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 		t.Fatal(err)
 	}
 	return repo, nil
+}
+
+func TestReleaseTrain(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		Setup            []repository.Transformer
+		Request          *api.BatchRequest
+		ExpectedResponse *api.BatchResponse
+	}{
+		{
+			Name: "Get Upstream env and TargetEnv",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "production"}},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"acceptance": "manifest",
+					},
+				},
+			},
+			Request: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainRequest{
+								Target: "acceptance",
+
+								Team: "team",
+							},
+						},
+					},
+				},
+			},
+			ExpectedResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainResponse{
+								Target: "acceptance",
+								Team:   "team",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Get Upstream (latest) and TargetEnv",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"acceptance": "manifest",
+					},
+				},
+			},
+			Request: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainRequest{
+								Target: "acceptance",
+
+								Team: "team",
+							},
+						},
+					},
+				},
+			},
+			ExpectedResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_ReleaseTrain{
+							ReleaseTrain: &api.ReleaseTrainResponse{
+								Target: "acceptance",
+								Team:   "team",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+			svc := &BatchServer{
+				Repository: repo,
+			}
+			resp, err := svc.ProcessBatch(
+				testutil.MakeTestContext(),
+				tc.Request,
+			)
+			if err != nil {
+				t.Errorf("unexpected error: %q", err)
+			}
+			if d := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); d != "" {
+				t.Errorf("batch response mismatch: %s", d)
+			}
+		})
+	}
+}
+
+func TestCreateEnvironmentTrain(t *testing.T) {
+	tcs := []struct {
+		Name                 string
+		Setup                []repository.Transformer
+		Request              *api.BatchRequest
+		ExpectedResponse     *api.BatchResponse
+		ExpectedEnvironments map[string]config.EnvironmentConfig
+	}{
+		{
+			Name:  "Minimal test case",
+			Setup: []repository.Transformer{},
+			Request: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironment{
+							CreateEnvironment: &api.CreateEnvironmentRequest{
+								Environment: "env",
+							},
+						},
+					},
+				},
+			},
+			ExpectedResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					nil,
+				},
+			},
+			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+				"env": config.EnvironmentConfig{},
+			},
+		},
+		{
+			Name:  "With upstream latest",
+			Setup: []repository.Transformer{},
+			Request: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironment{
+							CreateEnvironment: &api.CreateEnvironmentRequest{
+								Environment: "env",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Latest: ptr.Bool(true),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ExpectedResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					nil,
+				},
+			},
+			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+				"env": config.EnvironmentConfig{
+					Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+				},
+			},
+		},
+		{
+			Name:  "With upstream env",
+			Setup: []repository.Transformer{},
+			Request: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironment{
+							CreateEnvironment: &api.CreateEnvironmentRequest{
+								Environment: "env",
+								Config: &api.EnvironmentConfig{
+									Upstream: &api.EnvironmentConfig_Upstream{
+										Environment: ptr.FromString("other-env"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ExpectedResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					nil,
+				},
+			},
+			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+				"env": config.EnvironmentConfig{
+					Upstream: &config.EnvironmentConfigUpstream{Environment: "other-env"},
+				},
+			},
+		},
+		{
+			Name:  "With minimal argocd config",
+			Setup: []repository.Transformer{},
+			Request: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironment{
+							CreateEnvironment: &api.CreateEnvironmentRequest{
+								Environment: "env",
+								Config: &api.EnvironmentConfig{
+									Argocd: &api.EnvironmentConfig_ArgoCD{},
+								},
+							},
+						},
+					},
+				},
+			},
+			ExpectedResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					nil,
+				},
+			},
+			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+				"env": config.EnvironmentConfig{
+					ArgoCd: &config.EnvironmentConfigArgoCd{},
+				},
+			},
+		},
+		{
+			Name:  "With full argocd config",
+			Setup: []repository.Transformer{},
+			Request: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironment{
+							CreateEnvironment: &api.CreateEnvironmentRequest{
+								Environment: "env",
+								Config: &api.EnvironmentConfig{
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+											Name:                 "name",
+											Server:               "server",
+											Namespace:            ptr.FromString("namespace"),
+											AppProjectNamespace:  ptr.FromString("app-project-namespace"),
+											ApplicationNamespace: ptr.FromString("app-namespace"),
+										},
+										SyncWindows: []*api.EnvironmentConfig_ArgoCD_SyncWindows{
+											&api.EnvironmentConfig_ArgoCD_SyncWindows{
+												Schedule:     "schedule",
+												Duration:     "duration",
+												Kind:         "kind",
+												Applications: []string{"applications"},
+											},
+										},
+										AccessList: []*api.EnvironmentConfig_ArgoCD_AccessEntry{
+											&api.EnvironmentConfig_ArgoCD_AccessEntry{
+												Group: "group",
+												Kind:  "kind",
+											},
+										},
+										SyncOptions: []string{"sync-option"},
+										IgnoreDifferences: []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences{
+											{
+												Group:                 "group",
+												Kind:                  "kind",
+												Name:                  "name",
+												Namespace:             "namespace",
+												JsonPointers:          []string{"/json"},
+												JqPathExpressions:     []string{".jq"},
+												ManagedFieldsManagers: []string{"manager"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			ExpectedResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					nil,
+				},
+			},
+			ExpectedEnvironments: map[string]config.EnvironmentConfig{
+				"env": config.EnvironmentConfig{
+					ArgoCd: &config.EnvironmentConfigArgoCd{
+						Destination: config.ArgoCdDestination{
+							Name:                 "name",
+							Server:               "server",
+							Namespace:            ptr.FromString("namespace"),
+							AppProjectNamespace:  ptr.FromString("app-project-namespace"),
+							ApplicationNamespace: ptr.FromString("app-namespace"),
+						},
+						SyncWindows: []config.ArgoCdSyncWindow{
+							{
+								Schedule: "schedule",
+								Duration: "duration",
+								Kind:     "kind",
+								Apps:     []string{"applications"},
+							},
+						},
+						ClusterResourceWhitelist: []config.AccessEntry{{Group: "group", Kind: "kind"}},
+						SyncOptions:              []string{"sync-option"},
+						IgnoreDifferences: []config.ArgoCdIgnoreDifference{
+							{
+								Group:                 "group",
+								Kind:                  "kind",
+								Name:                  "name",
+								Namespace:             "namespace",
+								JSONPointers:          []string{"/json"},
+								JqPathExpressions:     []string{".jq"},
+								ManagedFieldsManagers: []string{"manager"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+			svc := &BatchServer{
+				Repository: repo,
+			}
+			resp, err := svc.ProcessBatch(
+				testutil.MakeTestContext(),
+				tc.Request,
+			)
+			if err != nil {
+				t.Errorf("unexpected error: %q", err)
+			}
+			if d := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); d != "" {
+				t.Errorf("batch response mismatch: %s", d)
+			}
+			envs, err := repo.State().GetEnvironmentConfigs()
+			if err != nil {
+				t.Errorf("unexpected error: %q", err)
+			}
+			if d := cmp.Diff(tc.ExpectedEnvironments, envs); d != "" {
+				t.Errorf("batch response mismatch: %s", d)
+			}
+		})
+	}
 }

@@ -20,14 +20,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type BatchServer struct {
@@ -92,68 +93,68 @@ func ValidateApplication(
 
 func (d *BatchServer) processAction(
 	batchAction *api.BatchAction,
-) (repository.Transformer, error) {
+) (repository.Transformer, *api.BatchResult, error) {
 	switch action := batchAction.Action.(type) {
 	case *api.BatchAction_CreateEnvironmentLock:
 		act := action.CreateEnvironmentLock
 		if err := ValidateEnvironmentLock("create", act.Environment, act.LockId); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentLock{
 			Environment: act.Environment,
 			LockId:      act.LockId,
 			Message:     act.Message,
-		}, nil
+		}, nil, nil
 	case *api.BatchAction_DeleteEnvironmentLock:
 		act := action.DeleteEnvironmentLock
 		if err := ValidateEnvironmentLock("delete", act.Environment, act.LockId); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentLock{
 			Environment: act.Environment,
 			LockId:      act.LockId,
-		}, nil
+		}, nil, nil
 	case *api.BatchAction_CreateEnvironmentApplicationLock:
 		act := action.CreateEnvironmentApplicationLock
 		if err := ValidateEnvironmentApplicationLock("create", act.Environment, act.Application, act.LockId); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentApplicationLock{
 			Environment: act.Environment,
 			Application: act.Application,
 			LockId:      act.LockId,
 			Message:     act.Message,
-		}, nil
+		}, nil, nil
 	case *api.BatchAction_DeleteEnvironmentApplicationLock:
 		act := action.DeleteEnvironmentApplicationLock
 		if err := ValidateEnvironmentApplicationLock("delete", act.Environment, act.Application, act.LockId); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentApplicationLock{
 			Environment: act.Environment,
 			Application: act.Application,
 			LockId:      act.LockId,
-		}, nil
+		}, nil, nil
 	case *api.BatchAction_PrepareUndeploy:
 		act := action.PrepareUndeploy
 		if err := ValidateApplication(act.Application); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		return &repository.CreateUndeployApplicationVersion{
 			Application: act.Application,
-		}, nil
+		}, nil, nil
 	case *api.BatchAction_Undeploy:
 		act := action.Undeploy
 		if err := ValidateApplication(act.Application); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		return &repository.UndeployApplication{
 			Application: act.Application,
-		}, nil
+		}, nil, nil
 	case *api.BatchAction_Deploy:
 		act := action.Deploy
 		if err := ValidateDeployment(act.Environment, act.Application); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		b := act.LockBehavior
 		if act.IgnoreAllLocks {
@@ -166,21 +167,67 @@ func (d *BatchServer) processAction(
 			Application:   act.Application,
 			Version:       act.Version,
 			LockBehaviour: b,
-		}, nil
+		}, nil, nil
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp
 		return &repository.DeleteEnvFromApp{
 			Environment: act.Environment,
 			Application: act.Application,
-		}, nil
+		}, nil, nil
+	case *api.BatchAction_ReleaseTrain:
+		in := action.ReleaseTrain
+		if !valid.EnvironmentName(in.Target) {
+			return nil, nil, status.Error(codes.InvalidArgument, "invalid environment")
+		}
+		if in.Team != "" && !valid.TeamName(in.Team) {
+			return nil, nil, status.Error(codes.InvalidArgument, "invalid Team name")
+		}
+		return &repository.ReleaseTrain{
+				Target: in.Target,
+				Team:   in.Team,
+			}, &api.BatchResult{
+				Result: &api.BatchResult_ReleaseTrain{
+					ReleaseTrain: &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team},
+				},
+			}, nil
+	case *api.BatchAction_CreateEnvironment:
+		in := action.CreateEnvironment
+		conf := in.Config
+		if conf == nil {
+			conf = &api.EnvironmentConfig{}
+		}
+		var argocd *config.EnvironmentConfigArgoCd
+		if conf.Argocd != nil {
+			syncWindows := transformSyncWindowsToConfig(conf.Argocd.SyncWindows)
+			clusterResourceWhitelist := transformClusterResourceWhitelistToConfig(conf.Argocd.AccessList)
+			ignoreDifferences := transformIgnoreDifferencesToConfig(conf.Argocd.IgnoreDifferences)
+			argocd = &config.EnvironmentConfigArgoCd{
+				Destination:              transformDestination(conf.Argocd.Destination),
+				SyncWindows:              syncWindows,
+				ClusterResourceWhitelist: clusterResourceWhitelist,
+				ApplicationAnnotations:   conf.Argocd.ApplicationAnnotations,
+				IgnoreDifferences:        ignoreDifferences,
+				SyncOptions:              conf.Argocd.SyncOptions,
+			}
+		}
+		upstream := transformUpstreamToConfig(conf.Upstream)
+		transformer := &repository.CreateEnvironment{
+			Environment: in.Environment,
+			Config: config.EnvironmentConfig{
+				Upstream:         upstream,
+				ArgoCd:           argocd,
+				EnvironmentGroup: conf.EnvironmentGroup,
+			},
+		}
+		return transformer, nil, nil
 	}
-	return nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")
+	return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")
 }
 
 func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
-) (*emptypb.Empty, error) {
+) (*api.BatchResponse, error) {
 	user, err := auth.ReadUserFromGrpcContext(ctx)
 	if err != nil {
 		return nil, httperrors.AuthError(ctx, errors.New(fmt.Sprintf("batch requires user to be provided %v", err)))
@@ -189,20 +236,24 @@ func (d *BatchServer) ProcessBatch(
 	if len(in.GetActions()) > maxBatchActions {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions))
 	}
+
+	results := make([]*api.BatchResult, len(in.GetActions()))
 	transformers := make([]repository.Transformer, 0, maxBatchActions)
-	for _, batchAction := range in.GetActions() {
-		transformer, err := d.processAction(batchAction)
+	for i, batchAction := range in.GetActions() {
+		transformer, result, err := d.processAction(batchAction)
 		if err != nil {
 			// Validation error
 			return nil, err
 		}
 		transformers = append(transformers, transformer)
+		results[i] = result
 	}
+
 	err = d.Repository.Apply(ctx, transformers...)
 	if err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+	return &api.BatchResponse{Results: results}, nil
 }
 
 var _ api.BatchServiceServer = (*BatchServer)(nil)

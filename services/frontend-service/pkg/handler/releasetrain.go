@@ -71,15 +71,20 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, tar
 			return
 		}
 	}
-	response, err := s.DeployClient.ReleaseTrain(req.Context(), &api.ReleaseTrainRequest{
-		Target: target,
-		Team:   teamParam,
-	})
+	response, err := s.BatchClient.ProcessBatch(req.Context(),
+		&api.BatchRequest{Actions: []*api.BatchAction{
+			{Action: &api.BatchAction_ReleaseTrain{
+				ReleaseTrain: &api.ReleaseTrainRequest{
+					Target: target,
+					Team:   teamParam,
+				}}},
+		},
+		})
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)
 		return
 	}
-	json, err := json.Marshal(response)
+	json, err := json.Marshal(response.Results[0].GetReleaseTrain())
 	if err != nil {
 		return
 	}
