@@ -6,6 +6,24 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.78
+**released 2023-07-21**
+
+### Breaking Changes
+none
+
+### Major Changes
+none
+
+### Minor Changes
+* [Move functionality from DeploymentService and EnvironmentService to BatchService](https://github.com/freiheit-com/kuberpult/pull/807)
+* [Update README.md with notes about /release endpoint](https://github.com/freiheit-com/kuberpult/pull/810)
+* [Add RBAC policy parser methods](https://github.com/freiheit-com/kuberpult/pull/806)
+* [Add Dex RBAC Config Map](https://github.com/freiheit-com/kuberpult/pull/801)
+* [Add a dummy user to the rollout service](https://github.com/freiheit-com/kuberpult/pull/805)
+* [Add missing argocd token secret](https://github.com/freiheit-com/kuberpult/pull/803)
+* [Fix buf build](https://github.com/freiheit-com/kuberpult/pull/804)
+
 ## 0.4.77
 **released 2023-07-07**
 
