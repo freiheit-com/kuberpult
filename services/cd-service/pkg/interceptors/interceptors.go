@@ -18,6 +18,7 @@ package interceptors
 
 import (
 	"context"
+
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"google.golang.org/grpc"
 )
@@ -28,9 +29,10 @@ import (
 func UnaryUserContextInterceptor(ctx context.Context,
 	req interface{},
 	info *grpc.UnaryServerInfo,
-	handler grpc.UnaryHandler) (interface{}, error) {
+	handler grpc.UnaryHandler,
+	dexEnabled bool) (interface{}, error) {
 
-	user, err := auth.ReadUserFromGrpcContext(ctx)
+	user, err := auth.ReadUserFromGrpcContext(ctx, dexEnabled)
 	if err != nil {
 		return nil, err
 	}

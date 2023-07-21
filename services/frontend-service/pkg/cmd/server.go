@@ -221,10 +221,16 @@ func runServer(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.Handle("/environments/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
+		if c.DexEnabled {
+			interceptors.DexLoginInterceptor(w, req, httpHandler, c.DexClientId, c.DexClientSecret)
+		}
 		httpHandler.Handle(w, req)
 	}))
 	mux.Handle("/release", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
+		if c.DexEnabled {
+			interceptors.DexLoginInterceptor(w, req, httpHandler, c.DexClientId, c.DexClientSecret)
+		}
 		httpHandler.Handle(w, req)
 	}))
 	mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

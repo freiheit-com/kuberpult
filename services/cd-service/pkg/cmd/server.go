@@ -56,7 +56,7 @@ type Config struct {
 	GitSshKnownHosts  string `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
 	PgpKeyRing        string `split_words:"true"`
 	AzureEnableAuth   bool   `default:"false" split_words:"true"`
-	DexEnable         bool   `default:"false" split_words:"true"`
+	DexEnabled        bool   `default:"false" split_words:"true"`
 	DexRbacPolicy     string `split_words:"true"`
 	EnableTracing     bool   `default:"false" split_words:"true"`
 	EnableMetrics     bool   `default:"false" split_words:"true"`
@@ -76,7 +76,7 @@ func (c *Config) readRbacPolicy() (policy map[string]*auth.Permission, err error
 	for scanner.Scan() {
 		// Trim spaces from policy
 		line := strings.ReplaceAll(scanner.Text(), " ", "")
-		p, err := auth.ValidateRbacPermission(line, auth.InitRbacConfig())
+		p, err := auth.ValidateRbacPermission(line)
 		if err != nil {
 			return nil, err
 		}
@@ -125,25 +125,33 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("azure.auth.error: pgpKeyRing is required to authenticate manifests when \"KUBERPULT_AZURE_ENABLE_AUTH\" is true")
 		}
 
-		if c.DexEnable {
+		if c.DexEnabled {
 			dexRbacPolicy, err := c.readRbacPolicy()
 			if err != nil {
 				logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
 			}
 			if len(dexRbacPolicy) == 0 {
-				logger.FromContext(ctx).Fatal("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLE\" is true")
+				logger.FromContext(ctx).Fatal("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLED\" is true")
 			}
 		}
 
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 		httpServerLogger := logger.FromContext(ctx).Named("http_server")
 
+		// Unary interceptor. Only parses the Role information if Dex is enabled.
+		unaryUserContextInterceptor := func(ctx context.Context,
+			req interface{},
+			info *grpc.UnaryServerInfo,
+			handler grpc.UnaryHandler) (interface{}, error) {
+			return interceptors.UnaryUserContextInterceptor(ctx, req, info, handler, c.DexEnabled)
+		}
+
 		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
 			grpc_zap.StreamServerInterceptor(grpcServerLogger),
 		}
 		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
 			grpc_zap.UnaryServerInterceptor(grpcServerLogger),
-			interceptors.UnaryUserContextInterceptor,
+			unaryUserContextInterceptor,
 		}
 
 		if c.EnableTracing {
@@ -224,6 +232,9 @@ func RunServer() {
 				Register: func(srv *grpc.Server) {
 					api.RegisterBatchServiceServer(srv, &service.BatchServer{
 						Repository: repo,
+						RBACConfig: auth.RBACConfig{
+							DexEnabled: c.DexEnabled,
+						},
 					})
 
 					overviewSrv := &service.OverviewServiceServer{

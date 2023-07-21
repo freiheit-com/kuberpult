@@ -19,9 +19,12 @@ package interceptors
 import (
 	"context"
 	"fmt"
+	"net/http"
+
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/handler"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -96,4 +99,25 @@ func StreamAuthInterceptor(
 		return err
 	}
 	return handler(srv, stream)
+}
+
+// DexLoginInterceptor intercepts HTTP calls to the frontend service.
+// DexLoginInterceptor must only be used if dex is enabled.
+// If the user us not logged in, it redirected the calls to the Dex login page.
+// If the user is already logged in, proceeds with the request.
+func DexLoginInterceptor(
+	w http.ResponseWriter,
+	req *http.Request,
+	httpHandler handler.Server,
+	clientID, baseURL string,
+) {
+	role, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
+	if err != nil {
+		// If user is not authenticated redirect to the login page.
+		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
+	}
+	auth.WriteUserRoleToHttpHeader(req, role)
+	httpCtx := auth.WriteUserRoleToGrpcContext(req.Context(), role)
+	req = req.WithContext(httpCtx)
+	httpHandler.Handle(w, req)
 }

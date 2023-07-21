@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -32,6 +33,12 @@ import (
 	jwt "github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 )
+
+// Extracted information from JWT/Cookie.
+type DexAuthContext struct {
+	// The user role extracted from the Cookie.
+	Role string
+}
 
 // Dex App Client.
 type DexAppClient struct {
@@ -59,7 +66,7 @@ const (
 	// Dex callback path. Needs to be match the dex staticClients.redirectURIs helm config.
 	callbackPATH = "/callback"
 	// Kuberpult login path.
-	loginPATH = "/login"
+	LoginPATH = "/login"
 	// Dex OAUTH token name.
 	dexOAUTHTokenName = "kuberpult.oauth"
 	// Default value for the number of days the token is valid for.
@@ -115,7 +122,7 @@ func (a *DexAppClient) registerDexHandlers() {
 	// Handles calls to the Dex server. Calls are redirected internally using a reverse proxy.
 	http.HandleFunc(issuerPATH+"/", NewDexReverseProxy(dexServiceURL))
 	// Handles the login callback to redirect to dex page.
-	http.HandleFunc(loginPATH, a.handleDexLogin)
+	http.HandleFunc(LoginPATH, a.handleDexLogin)
 	// Call back to the current app once the login is finished
 	http.HandleFunc(callbackPATH, a.handleCallback)
 }
@@ -199,7 +206,7 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idToken, err := a.validateToken(ctx, idTokenRAW, a.ClientID)
+	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID)
 	if err != nil {
 		http.Error(w, "failed to verify the token", http.StatusInternalServerError)
 		return
@@ -226,8 +233,8 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.BaseURL, http.StatusSeeOther)
 }
 
-func (a *DexAppClient) validateToken(ctx context.Context, rawToken string, allowedAudience string) (token *oidc.IDToken, err error) {
-	p, err := oidc.NewProvider(ctx, a.IssuerURL)
+func ValidateOIDCToken(ctx context.Context, issuerURL, rawToken string, allowedAudience string) (token *oidc.IDToken, err error) {
+	p, err := oidc.NewProvider(ctx, issuerURL)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +244,7 @@ func (a *DexAppClient) validateToken(ctx context.Context, rawToken string, allow
 	verifier := p.Verifier(&config)
 	idToken, err := verifier.Verify(ctx, rawToken)
 	if err != nil {
-		return nil, fmt.Errorf("the token could not be verified, audience %s is not allowed with err: %s", allowedAudience, err)
+		return nil, err
 	}
 
 	return idToken, nil
@@ -260,33 +267,38 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 }
 
 // Verifies if the user is authenticated.
-func (a *DexAppClient) verifyToken(ctx context.Context, r *http.Request) error {
+func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string) (group string, err error) {
 	// Get the token cookie from the request
 	cookie, err := r.Cookie(dexOAUTHTokenName)
 	if err != nil {
-		return fmt.Errorf("%s token not found", dexOAUTHTokenName)
+		return "", fmt.Errorf("%s token not found", dexOAUTHTokenName)
 	}
 	tokenString := cookie.Value
 
-	// Validates token audience.
-	idToken, err := a.validateToken(ctx, tokenString, a.ClientID)
+	// Validates token audience and expiring date.
+	idToken, err := ValidateOIDCToken(ctx, baseURL+issuerPATH, tokenString, clientID)
 	if err != nil {
-		return fmt.Errorf("failed to verify token: %s", err)
+		return "", fmt.Errorf("failed to verify token: %s", err)
 	}
 	// Extract token claims and verify the token is not expired.
-	var claims jwt.MapClaims
+	claims := jwt.MapClaims{
+		"groups": []string{},
+	}
 	err = idToken.Claims(&claims)
 	if err != nil {
-		return fmt.Errorf("could not parse token claims")
+		return "", fmt.Errorf("could not parse token claims")
 	}
 
-	// Check if the token has expired
-	expirationTime := claims["exp"].(float64)
-	expiration := time.Unix(int64(expirationTime), 0)
-	if expiration.Before(time.Now()) {
-		return fmt.Errorf("the token has expired")
+	// Convert the `groups` claim to an comma separated group string.
+	var groups string
+	if len(claims["groups"].([]interface{})) == 0 {
+		return "", fmt.Errorf("failed to verify token: no group defined")
+	}
+	for _, group := range claims["groups"].([]interface{}) {
+		groupName := strings.Trim(group.(string), "\"")
+		groups = groupName + "," + groups
 	}
 
-	// Token is valid and not expired, continue processing
-	return nil
+	// Returns the user object with the token information
+	return groups, nil
 }

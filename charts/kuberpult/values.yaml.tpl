@@ -160,3 +160,6 @@ dex:
   # p, Developer, deployment, *, dev:development-d2, allow
   # The policy will be available on the kuberpult-rbac config map.
   policy_csv: ""
+  clientId: ""
+  clientSecret: ""
+  baseURL: ""
