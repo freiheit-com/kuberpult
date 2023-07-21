@@ -60,6 +60,7 @@ manifests=()
 for env in development development2 staging fakeprod-de fakeprod-ca
 do
   file=$(mktemp "${TMPDIR:-/tmp}/$env.XXXXXX")
+  signatureFile=$(mktemp "${TMPDIR:-/tmp}/$env.XXXXXX")
 cat <<EOF > "${file}"
 ---
 apiVersion: v1
@@ -73,19 +74,26 @@ data:
 EOF
   echo "wrote file ${file}"
   manifests+=("--form" "manifests[${env}]=@${file}")
+  gpg  --keyring trustedkeys-kuberpult.gpg --local-user kuberpult-kind@example.com --detach --sign --armor < "${file}" > "${signatureFile}"
+  manifests+=("--form" "signatures[${env}]=@${signatureFile}")
 done
-echo commit id: ${commit_id}
+echo commit id: "${commit_id}"
 
+FRONTEND_PORT=8081 # see docker-compose.yml
 
-curl http://localhost:8080/release \
-  -H "author-email:dW5kZWZpbmVkLXVzZXJAZXhhbXBsZS5jb20=" \
-  -H "author-name:dW5kZWZpbmVkLXVzZXI=" \
+EMAIL=$(echo -n "script-user@example.com" | base64 -w 0)
+AUTHOR=$(echo -n "script-user" | base64 -w 0)
+
+curl http://localhost:${FRONTEND_PORT}/release \
+  -H "author-email:${EMAIL}" \
+  -H "author-name:${AUTHOR}=" \
   --form-string "application=$name" \
   --form-string "source_commit_id=${commit_id}" \
   --form-string "source_author=${author}" \
   ${release_version} \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \
-  "${manifests[@]}"
+  "${manifests[@]}" -v
 
+echo # curl sometimes does not print a trailing \n
 

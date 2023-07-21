@@ -20,12 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"io"
 	"os/exec"
 	"path"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -1383,7 +1384,7 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			ErrorTest: func(t *testing.T, err error) {
-				if err != ErrReleaseAlreadyExist {
+				if err == nil || (!strings.Contains(err.Error(), ErrReleaseAlreadyExist.Error())) {
 					t.Errorf("expected %q, got %q", ErrReleaseAlreadyExist, err)
 				}
 			},

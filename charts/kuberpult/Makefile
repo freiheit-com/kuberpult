@@ -54,7 +54,6 @@ endif
 
 test-helm: $(TGZ_FILE)
 	helm lint $(TGZ_FILE) --set git.url=test --set ingress.domainName=kuberpult.example.com
-	helm lint $(TGZ_FILE) --set git.url=test --set ingress.domainName=kuberpult.example.com --set ingress.exposeReleaseEndpoint=true
 
 test-ci: test-helm
 

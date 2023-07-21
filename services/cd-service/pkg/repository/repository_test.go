@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"io/fs"
 	"os"
 	"os/exec"
