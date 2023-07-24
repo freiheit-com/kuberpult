@@ -82,10 +82,31 @@ func WriteUserRoleToGrpcContext(ctx context.Context, userRole string) context.Co
 	return metadata.AppendToOutgoingContext(ctx, HeaderUserRole, Encode64(userRole))
 }
 
+type GrpcContextReader interface {
+	ReadUserFromGrpcContext(ctx context.Context, dexEnabled bool) (*User, error)
+}
+
+type DexGrpcContextReader struct {
+}
+
+type DummyGrpcContextReader struct {
+}
+
+func (x *DummyGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context, dexEnabled bool) (*User, error) {
+	user := &User{
+		Email: "dummyMail@example.com",
+		Name:  "userName",
+		DexAuthContext: &DexAuthContext{
+			Role: "Developer",
+		},
+	}
+	return user, nil
+}
+
 // ReadUserFromGrpcContext should only be used in the cd-service.
 // ReadUserFromGrpcContext takes the User from middleware (context).
 // It returns a User or an error if the user is not found.
-func ReadUserFromGrpcContext(ctx context.Context, dexEnabled bool) (*User, error) {
+func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context, dexEnabled bool) (*User, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, httperrors.AuthError(ctx, errors.New("could not retrieve metadata context with git author in grpc context"))

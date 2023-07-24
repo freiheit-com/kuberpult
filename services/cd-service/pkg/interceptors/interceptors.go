@@ -30,9 +30,10 @@ func UnaryUserContextInterceptor(ctx context.Context,
 	req interface{},
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
-	dexEnabled bool) (interface{}, error) {
+	dexEnabled bool,
+	reader auth.GrpcContextReader) (interface{}, error) {
 
-	user, err := auth.ReadUserFromGrpcContext(ctx, dexEnabled)
+	user, err := reader.ReadUserFromGrpcContext(ctx, dexEnabled)
 	if err != nil {
 		return nil, err
 	}

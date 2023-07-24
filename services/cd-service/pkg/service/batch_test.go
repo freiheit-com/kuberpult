@@ -20,17 +20,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -106,9 +110,12 @@ func getNBatchActions(N int) []*api.BatchAction {
 
 func TestBatchServiceWorks(t *testing.T) {
 	tcs := []struct {
-		Name  string
-		Batch []*api.BatchAction
-		Setup []repository.Transformer
+		Name          string
+		Batch         []*api.BatchAction
+		Setup         []repository.Transformer
+		context       context.Context
+		svc           *BatchServer
+		expectedError string
 	}{
 		{
 			Name: "5 sample actions",
@@ -135,7 +142,60 @@ func TestBatchServiceWorks(t *testing.T) {
 					Message:     "AppLock",
 				},
 			},
-			Batch: getBatchActions(),
+			Batch:   getBatchActions(),
+			context: testutil.MakeTestContext(),
+			svc:     &BatchServer{},
+		},
+		{
+			Name: "testing Dex setup without permissions",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "production",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
+					},
+				},
+				&repository.CreateEnvironmentLock{
+					Environment: "production",
+					LockId:      "1234",
+					Message:     "EnvLock",
+				},
+			},
+			Batch:         getBatchActions(),
+			context:       testutil.MakeTestContextDexEnabled(),
+			svc:           &BatchServer{RBACConfig: auth.RBACConfig{DexEnabled: true}},
+			expectedError: status.Errorf(codes.PermissionDenied, "user does not have permissions to create an environment lock with the permissions: p,developer,EnvironmentLock,Create,production:production,allow").Error(),
+		},
+		{
+			Name: "testing Dex setup with permissions",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "production",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
+					},
+				},
+				&repository.CreateEnvironmentLock{
+					Environment: "production",
+					LockId:      "1234",
+					Message:     "EnvLock",
+				},
+			},
+			Batch:   getBatchActions(),
+			context: testutil.MakeTestContextDexEnabled(),
+			svc: &BatchServer{
+				RBACConfig: auth.RBACConfig{
+					DexEnabled: true,
+					Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentLock,Create,production:production,allow": {Role: "Developer"}}}},
 		},
 	}
 	for _, tc := range tcs {
@@ -146,29 +206,30 @@ func TestBatchServiceWorks(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+				if err := repo.Apply(tc.context, tr); err != nil {
 					t.Fatal(err)
 				}
 			}
-			svc := &BatchServer{
-				Repository: repo,
-			}
-			resp, err := svc.ProcessBatch(
-				testutil.MakeTestContext(),
+			tc.svc.Repository = repo
+			resp, err := tc.svc.ProcessBatch(
+				tc.context,
 				&api.BatchRequest{
 					Actions: tc.Batch,
 				},
 			)
+			if err != nil && err.Error() == tc.expectedError {
+				return
+			}
 			if err != nil {
 				t.Fatal(err.Error())
 			}
+
 			if len(resp.Results) != len(tc.Batch) {
 				t.Errorf("got wrong number of batch results, expected %d but got %d", len(tc.Batch), len(resp.Results))
 			}
-
 			// check deployment version
 			{
-				version, err := svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
+				version, err := tc.svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -181,7 +242,7 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			// check that the envlock was created/deleted
 			{
-				envLocks, err := svc.Repository.State().GetEnvironmentLocks("production")
+				envLocks, err := tc.svc.Repository.State().GetEnvironmentLocks("production")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -199,7 +260,7 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			// check that the applock was created/deleted
 			{
-				appLocks, err := svc.Repository.State().GetEnvironmentApplicationLocks("production", "test")
+				appLocks, err := tc.svc.Repository.State().GetEnvironmentApplicationLocks("production", "test")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -409,10 +470,11 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 	repo, err := repository.New(
 		testutil.MakeTestContext(),
 		repository.RepositoryConfig{
-			URL:            remoteDir,
-			Path:           localDir,
-			CommitterEmail: "kuberpult@freiheit.com",
-			CommitterName:  "kuberpult",
+			URL:                    remoteDir,
+			Path:                   localDir,
+			CommitterEmail:         "kuberpult@freiheit.com",
+			CommitterName:          "kuberpult",
+			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
 		},
 	)
 	if err != nil {

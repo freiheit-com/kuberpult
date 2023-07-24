@@ -61,6 +61,7 @@ type Config struct {
 	EnableMetrics     bool   `default:"false" split_words:"true"`
 	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true"`
 	EnableSqlite      bool   `default:"true" split_words:"true"`
+	DexMock           bool   `default:"false" split_words:"true"`
 }
 
 func (c *Config) readRbacPolicy() (policy map[string]*auth.Permission, err error) {
@@ -104,8 +105,18 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
 		}
 
+		var reader auth.GrpcContextReader
+		if c.DexMock {
+			if !c.DexEnabled {
+				logger.FromContext(ctx).Fatal("dexEnabled must be true if dexMock is true")
+			}
+			reader = &auth.DummyGrpcContextReader{}
+		} else {
+			reader = &auth.DexGrpcContextReader{}
+		}
+		dexRbacPolicy := map[string]*auth.Permission{}
 		if c.DexEnabled {
-			dexRbacPolicy, err := c.readRbacPolicy()
+			dexRbacPolicy, err = c.readRbacPolicy()
 			if err != nil {
 				logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
 			}
@@ -122,7 +133,7 @@ func RunServer() {
 			req interface{},
 			info *grpc.UnaryServerInfo,
 			handler grpc.UnaryHandler) (interface{}, error) {
-			return interceptors.UnaryUserContextInterceptor(ctx, req, info, handler, c.DexEnabled)
+			return interceptors.UnaryUserContextInterceptor(ctx, req, info, handler, c.DexEnabled, reader)
 		}
 
 		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
@@ -212,6 +223,7 @@ func RunServer() {
 						Repository: repo,
 						RBACConfig: auth.RBACConfig{
 							DexEnabled: c.DexEnabled,
+							Policy:     dexRbacPolicy,
 						},
 					})
 

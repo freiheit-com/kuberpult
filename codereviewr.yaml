@@ -123,6 +123,7 @@ ignoredFiles: [
     ".env",
     ".go-version",
     "services/cd-service/gitconfig",
+    "*.csv"
   ] #ignored file extensions
 testFiles: ["_test.go", "_test.dart"]
 languagesConfig:

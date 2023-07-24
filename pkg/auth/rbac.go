@@ -27,8 +27,8 @@ import (
 type RBACConfig struct {
 	// Indicates if Dex is enabled.
 	DexEnabled bool
-	// The RBAC policy. In later stories mapping for policies will be integrated here
-	// Policy map[string]*Permission
+	// The RBAC policy. Key is for example "p,Developer,EnvironmentLock,Create,production,allow"
+	Policy map[string]*Permission
 }
 
 // Inits the RBAC Config struct

@@ -23,6 +23,8 @@ MAKEFLAGS += --no-builtin-rules
 export CGO_ENABLED=1
 
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:$(VERSION)
+export KUBERPULT_DEX_MOCK=false
+export KUBERPULT_DEX_ENABLED=false
 
 ifeq ($(WITH_DOCKER),)
 COMPILE_WITH_DOCKER := false
