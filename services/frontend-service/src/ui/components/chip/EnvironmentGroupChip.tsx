@@ -14,45 +14,11 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
-import { Environment, Lock } from '../../../api/api';
-import React, { useCallback } from 'react';
-import {
-    addAction,
-    EnvironmentGroupExtended,
-    getPriorityClassName,
-    useCurrentlyDeployedAtGroup,
-} from '../../utils/store';
-import { Tooltip } from '@material-ui/core';
-import { Button } from '../button';
+import { Environment } from '../../../api/api';
+import React from 'react';
+import { EnvironmentGroupExtended, getPriorityClassName, useCurrentlyDeployedAtGroup } from '../../utils/store';
 import { LocksWhite } from '../../../images';
-
-export const EnvLock: React.FC<{
-    env: string;
-    lock: Lock;
-}> = ({ env, lock }) => {
-    const deleteEnvLock = useCallback(() => {
-        addAction({
-            action: {
-                $case: 'deleteEnvironmentLock',
-                deleteEnvironmentLock: { environment: env, lockId: lock.lockId },
-            },
-        });
-    }, [env, lock.lockId]);
-    return (
-        <Tooltip
-            key={lock.lockId}
-            arrow
-            title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}>
-            <div>
-                <Button
-                    icon={<LocksWhite className="env-card-env-lock-icon" width="16px" height="16px" />}
-                    className={'button-lock'}
-                    onClick={deleteEnvLock}
-                />
-            </div>
-        </Tooltip>
-    );
-};
+import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 
 export const AppLockSummary: React.FC<{
     app: string;
@@ -60,15 +26,14 @@ export const AppLockSummary: React.FC<{
 }> = ({ app, numLocks }) => {
     const plural = numLocks === 1 ? 'lock' : 'locks';
     return (
-        <Tooltip
+        <div
             key={'app-lock-hint-' + app}
-            arrow
             title={'"' + app + '" has ' + numLocks + ' application ' + plural + '. Click on a tile to see details.'}>
             <div>
                 &nbsp;
                 <LocksWhite className="env-card-env-lock-icon" width="16px" height="16px" />
             </div>
-        </Tooltip>
+        </div>
     );
 };
 
@@ -94,7 +59,7 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     const locks = !smallEnvChip ? (
         <div className={classNames(className, 'env-locks')}>
             {Object.values(env.locks).map((lock) => (
-                <EnvLock env={env.name} lock={lock} key={lock.lockId} />
+                <EnvironmentLockDisplay env={env.name} lockId={lock.lockId} bigLockIcon={false} />
             ))}
         </div>
     ) : (

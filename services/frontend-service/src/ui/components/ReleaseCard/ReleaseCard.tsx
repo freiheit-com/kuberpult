@@ -16,8 +16,7 @@ Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
 import { Button } from '../button';
 import { Tooltip } from '../tooltip/tooltip';
-import React, { useEffect, useRef } from 'react';
-import { MDCRipple } from '@material/ripple';
+import React, { useEffect } from 'react';
 import { useOpenReleaseDialog, useReleaseOrThrow } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
@@ -29,35 +28,37 @@ export type ReleaseCardProps = {
 };
 
 export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
-    const MDComponent = useRef<MDCRipple>();
-    const control = useRef<HTMLDivElement>(null);
     const { className, app, version } = props;
     // the ReleaseCard only displays actual releases, so we can assume that it exists here:
     const { createdAt, sourceMessage, sourceCommitId, sourceAuthor, undeployVersion } = useReleaseOrThrow(app, version);
     const openReleaseDialog = useOpenReleaseDialog(app, version);
 
-    useEffect(() => {
-        if (control.current) {
-            MDComponent.current = new MDCRipple(control.current);
-        }
-        return (): void => MDComponent.current?.destroy();
-    }, []);
+    useEffect(() => {}, []);
 
     const tooltipContents = (
-        <h2 className="mdc-tooltip__title release__details">
+        <div className="mdc-tooltip__title_ release__details">
             {!!sourceMessage && <b>{sourceMessage}</b>}
-            {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
-            {!!sourceAuthor && <div>{'| ' + sourceAuthor + ' |'}</div>}
-            {!!createdAt && (
-                <div className="release__metadata">
-                    <FormattedDate createdAt={createdAt} />
+            {!!sourceCommitId && (
+                <div className={'release__hash--container'}>
+                    <Button className="release__hash" label={'' + sourceCommitId} />
                 </div>
             )}
-        </h2>
+            {!!sourceAuthor && (
+                <div>
+                    <span>Author:</span> {sourceAuthor}
+                </div>
+            )}
+            {!!createdAt && (
+                <div className="release__metadata">
+                    <span>Created </span>
+                    <FormattedDate className={'date'} createdAt={createdAt} />
+                </div>
+            )}
+        </div>
     );
     const firstLine = sourceMessage.split('\n')[0];
     return (
-        <Tooltip id={app + version} content={tooltipContents}>
+        <Tooltip id={app + version} tooltipContent={tooltipContents}>
             <div className="release-card__container">
                 <div className="release__environments">
                     <EnvironmentGroupChipList app={props.app} version={props.version} smallEnvChip />
@@ -65,7 +66,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                 <div className={classNames('mdc-card release-card', className)}>
                     <div
                         className="mdc-card__primary-action release-card__description"
-                        ref={control}
+                        // ref={control}
                         tabIndex={0}
                         onClick={openReleaseDialog}>
                         <div className="release-card__header">

@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { Dialog, Tooltip } from '@material-ui/core';
+import { Dialog } from '@material-ui/core';
 import classNames from 'classnames';
 import React, { useCallback } from 'react';
 import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
@@ -36,8 +36,6 @@ export type ReleaseDialogProps = {
     version: number;
 };
 
-export type EnvSortOrder = { [index: string]: number };
-
 export const AppLock: React.FC<{
     env: Environment;
     app: string;
@@ -52,15 +50,11 @@ export const AppLock: React.FC<{
         });
     }, [app, env.name, lock.lockId]);
     return (
-        <Tooltip
-            key={lock.lockId}
-            arrow
-            title={'Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}
+        <div
+            title={'App Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}
             onClick={deleteAppLock}>
-            <div>
-                <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} />
-            </div>
-        </Tooltip>
+            <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} />
+        </div>
     );
 };
 

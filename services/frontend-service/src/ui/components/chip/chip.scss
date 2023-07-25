@@ -45,6 +45,9 @@ Copyright 2023 freiheit.com*/
     @extend .text-bold;
     white-space: nowrap;
     float: right;
+    .tooltip {
+        font-weight: 400;
+    }
 }
 
 .environment-priority-prod {

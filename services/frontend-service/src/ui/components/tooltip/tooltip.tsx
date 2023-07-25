@@ -13,42 +13,23 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { useEffect, useRef } from 'react';
-import { MDCTooltip } from '@material/tooltip';
+import { Tooltip as TooltipReact } from 'react-tooltip';
 
-export const Tooltip = (props: { children: JSX.Element; content: JSX.Element; id: string }): JSX.Element => {
-    const MDComponent = useRef<MDCTooltip>();
-    const control = useRef<HTMLDivElement>(null);
-    const { children, content, id } = props;
+export const Tooltip = (props: { children: JSX.Element; tooltipContent: JSX.Element; id: string }): JSX.Element => {
+    const { children, tooltipContent, id } = props;
+    const delayHide = 50; // for debugging the css, increase this to 1000000
 
-    useEffect(() => {
-        if (control.current) {
-            MDComponent.current = new MDCTooltip(control.current);
-        }
-        return (): void => MDComponent.current?.destroy();
-    }, []);
-
+    // The React tooltip really wants us to use a href, but also we don't want to do anything on click:
+    // eslint-disable-next-line no-script-url
+    const href = 'javascript:void(0);';
     return (
-        <div className="mdc-tooltip-wrapper--rich">
-            <div
-                data-tooltip-id={'tt-' + id}
-                className="mdc-tooltip__container"
-                aria-haspopup="dialog"
-                aria-expanded="false">
+        <div className={'tooltip-container'}>
+            <a href={href} id={'tooltip' + id} data-tooltip-place="bottom" data-tooltip-delay-hide={delayHide}>
                 {children}
-            </div>
-            <div
-                id={'tt-' + id}
-                ref={control}
-                className="mdc-tooltip mdc-tooltip--rich"
-                aria-hidden="true"
-                tabIndex={-1}
-                role="dialog">
-                <div className="mdc-tooltip__surface mdc-tooltip__surface-animation">
-                    <div className="mdc-tooltip__caret-surface-top" />
-                    <div className="mdc-tooltip__content">{content}</div>
-                </div>
-            </div>
+            </a>
+            <TooltipReact className={'tooltip'} anchorSelect={'#tooltip' + id} border={'solid 2px lightgray'}>
+                {tooltipContent}
+            </TooltipReact>
         </div>
     );
 };

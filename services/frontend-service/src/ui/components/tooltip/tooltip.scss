@@ -13,9 +13,30 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-@use '@material/tooltip/styles';
+@use '../../../../node_modules/@material/tooltip/styles';
 
-.mdc-tooltip.mdc-tooltip--rich {
+.tooltip-container {
+    a {
+        text-decoration: none;
+    }
+    .tooltip {
+        z-index: 1000;
+        background-color: white;
+        color: black;
+        font-size: 14px;
+        border-radius: 8px;
+        .release__hash--container {
+            padding: 2px 0px 0px 0px;
+
+            .release__hash {
+                padding: 0;
+            }
+        }
+    }
+}
+
+.mdc-tooltip.mdc-tooltip--rich2 {
+    position: relative;
     // !important to overwrite the default styling of the Tooltip.
     // The `mdc-tooltip--rich` is restricted to be placed on one of the 4 corners of a component
     // https://github.com/material-components/material-components-web/blob/066d9439b7f1bf11426153573560b35462a3b9d5/packages/mdc-tooltip/README.md?plain=1#L281-L286

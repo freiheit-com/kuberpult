@@ -114,25 +114,30 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                       class="release-environment env-locks"
                     >
                       <div
-                        aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
-                        class=""
-                        data-mui-internal-clone-element="true"
+                        class="tooltip-container"
                       >
-                        <button
-                          aria-label=""
-                          class="mdc-button button-lock"
+                        <a
+                          data-tooltip-delay-hide="50"
+                          data-tooltip-place="bottom"
+                          href="javascript:void(0);"
+                          id="tooltipenv-group-chip-id-ui-envlock"
                         >
-                          <div
-                            class="mdc-button__ripple"
-                          />
-                          <svg
-                            class="env-card-env-lock-icon"
-                            height="16px"
-                            width="16px"
-                          >
-                            Locks_White.svg
-                          </svg>
-                        </button>
+                          <div>
+                            <button
+                              aria-label=""
+                              class="mdc-button button-lock"
+                            >
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <svg
+                                class="env-card-env-lock-icon fixed-size"
+                              >
+                                Locks_White.svg
+                              </svg>
+                            </button>
+                          </div>
+                        </a>
                       </div>
                     </div>
                   </span>
@@ -141,9 +146,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                   class="env-card-app-locks"
                 >
                   <div
-                    aria-label="Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
-                    class=""
-                    data-mui-internal-clone-element="true"
+                    title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
                   >
                     <button
                       aria-label=""
@@ -354,25 +357,30 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                       class="release-environment env-locks"
                     >
                       <div
-                        aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
-                        class=""
-                        data-mui-internal-clone-element="true"
+                        class="tooltip-container"
                       >
-                        <button
-                          aria-label=""
-                          class="mdc-button button-lock"
+                        <a
+                          data-tooltip-delay-hide="50"
+                          data-tooltip-place="bottom"
+                          href="javascript:void(0);"
+                          id="tooltipenv-group-chip-id-ui-envlock"
                         >
-                          <div
-                            class="mdc-button__ripple"
-                          />
-                          <svg
-                            class="env-card-env-lock-icon"
-                            height="16px"
-                            width="16px"
-                          >
-                            Locks_White.svg
-                          </svg>
-                        </button>
+                          <div>
+                            <button
+                              aria-label=""
+                              class="mdc-button button-lock"
+                            >
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <svg
+                                class="env-card-env-lock-icon fixed-size"
+                              >
+                                Locks_White.svg
+                              </svg>
+                            </button>
+                          </div>
+                        </a>
                       </div>
                     </div>
                   </span>
@@ -381,9 +389,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                   class="env-card-app-locks"
                 >
                   <div
-                    aria-label="Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
-                    class=""
-                    data-mui-internal-clone-element="true"
+                    title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
                   >
                     <button
                       aria-label=""
@@ -598,25 +604,30 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                       class="release-environment env-locks"
                     >
                       <div
-                        aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
-                        class=""
-                        data-mui-internal-clone-element="true"
+                        class="tooltip-container"
                       >
-                        <button
-                          aria-label=""
-                          class="mdc-button button-lock"
+                        <a
+                          data-tooltip-delay-hide="50"
+                          data-tooltip-place="bottom"
+                          href="javascript:void(0);"
+                          id="tooltipenv-group-chip-id-ui-envlock"
                         >
-                          <div
-                            class="mdc-button__ripple"
-                          />
-                          <svg
-                            class="env-card-env-lock-icon"
-                            height="16px"
-                            width="16px"
-                          >
-                            Locks_White.svg
-                          </svg>
-                        </button>
+                          <div>
+                            <button
+                              aria-label=""
+                              class="mdc-button button-lock"
+                            >
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <svg
+                                class="env-card-env-lock-icon fixed-size"
+                              >
+                                Locks_White.svg
+                              </svg>
+                            </button>
+                          </div>
+                        </a>
                       </div>
                     </div>
                   </span>
@@ -625,9 +636,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                   class="env-card-app-locks"
                 >
                   <div
-                    aria-label="Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
-                    class=""
-                    data-mui-internal-clone-element="true"
+                    title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
                   >
                     <button
                       aria-label=""
@@ -739,25 +748,30 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                       class="release-environment env-locks"
                     >
                       <div
-                        aria-label="Lock Message: \\"envLock\\" | ID: \\"ui-envlock\\"  | Click to unlock. "
-                        class=""
-                        data-mui-internal-clone-element="true"
+                        class="tooltip-container"
                       >
-                        <button
-                          aria-label=""
-                          class="mdc-button button-lock"
+                        <a
+                          data-tooltip-delay-hide="50"
+                          data-tooltip-place="bottom"
+                          href="javascript:void(0);"
+                          id="tooltipenv-group-chip-id-ui-envlock"
                         >
-                          <div
-                            class="mdc-button__ripple"
-                          />
-                          <svg
-                            class="env-card-env-lock-icon"
-                            height="16px"
-                            width="16px"
-                          >
-                            Locks_White.svg
-                          </svg>
-                        </button>
+                          <div>
+                            <button
+                              aria-label=""
+                              class="mdc-button button-lock"
+                            >
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <svg
+                                class="env-card-env-lock-icon fixed-size"
+                              >
+                                Locks_White.svg
+                              </svg>
+                            </button>
+                          </div>
+                        </a>
                       </div>
                     </div>
                   </span>
@@ -766,9 +780,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                   class="env-card-app-locks"
                 >
                   <div
-                    aria-label="Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
-                    class=""
-                    data-mui-internal-clone-element="true"
+                    title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
                   >
                     <button
                       aria-label=""
