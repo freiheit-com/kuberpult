@@ -143,7 +143,7 @@ func RunServer() {
 			req interface{},
 			info *grpc.UnaryServerInfo,
 			handler grpc.UnaryHandler) (interface{}, error) {
-			return interceptors.UnaryUserContextInterceptor(ctx, req, info, handler, c.DexEnabled)
+			return interceptors.UnaryUserContextInterceptor(ctx, req, info, handler, c.DexEnabled, auth.DexGrpcContextReader{})
 		}
 
 		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
@@ -235,6 +235,7 @@ func RunServer() {
 						RBACConfig: auth.RBACConfig{
 							DexEnabled: c.DexEnabled,
 						},
+						Reader: auth.DummyGrpcContextReader{}
 					})
 
 					overviewSrv := &service.OverviewServiceServer{
