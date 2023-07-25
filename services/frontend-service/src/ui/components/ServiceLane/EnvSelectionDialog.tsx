@@ -17,6 +17,7 @@ import { Dialog, DialogActions, DialogTitle } from '@material-ui/core';
 import * as React from 'react';
 import { Button } from '../button';
 import { useState } from 'react';
+import { Checkbox } from '../dropdown/checkbox';
 
 export type EnvSelectionDialogProps = {
     environments: string[];
@@ -62,15 +63,13 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
                     const enabled = selectedEnvs.includes(env);
                     return (
                         <div key={env}>
-                            <Button
-                                className={
-                                    'test-button-env-selection env-' + env + ' ' + (enabled ? 'enabled' : 'disabled')
-                                }
-                                id={String(index)}
+                            <Checkbox
+                                enabled={enabled}
                                 onClick={addTeam}
-                                label={enabled ? '☑' : '☐'}
+                                id={String(index)}
+                                label={env}
+                                classes={'env' + env}
                             />
-                            {env}
                         </div>
                     );
                 })}
