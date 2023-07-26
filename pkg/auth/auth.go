@@ -138,17 +138,20 @@ func ReadUserFromGrpcContext(ctx context.Context, dexEnabled bool) (*User, error
 // ReadUserFromHttpHeader takes the User from the http request.
 // It returns a User or an error if the user is not found.
 func ReadUserFromHttpHeader(ctx context.Context, r *http.Request) (*User, error) {
-	headerEmail, err := Decode64(r.Header.Get(HeaderUserEmail))
+	headerEmail64 := r.Header.Get(HeaderUserEmail)
+	headerEmail, err := Decode64(headerEmail64)
 	if err != nil {
-		return nil, httperrors.AuthError(ctx, errors.New("ExtractUserHttp: invalid data in email"))
+		return nil, httperrors.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data in email: '%s'", headerEmail64))
 	}
-	headerName, err := Decode64(r.Header.Get(HeaderUserName))
+	headerName64 := r.Header.Get(HeaderUserName)
+	headerName, err := Decode64(headerEmail64)
 	if err != nil {
-		return nil, httperrors.AuthError(ctx, errors.New("ExtractUserHttp: invalid data in name"))
+		return nil, httperrors.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data in name: '%s'", headerName64))
 	}
-	headerRole, err := Decode64(r.Header.Get(HeaderUserRole))
+	headerRole64 := r.Header.Get(HeaderUserRole)
+	headerRole, err := Decode64(headerRole64)
 	if err != nil {
-		return nil, httperrors.AuthError(ctx, errors.New("ExtractUserHttp: invalid data in role"))
+		return nil, httperrors.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data in role: '%s'", headerRole64))
 	}
 
 	if headerName != "" && headerEmail != "" {
@@ -191,6 +194,11 @@ func GetUserOrDefault(u *User, defaultUser User) User {
 		} else {
 			userAdapted.Name = u.Name
 		}
+	}
+	if u != nil && u.DexAuthContext != nil {
+		userAdapted.DexAuthContext = u.DexAuthContext
+	} else {
+		userAdapted.DexAuthContext = defaultUser.DexAuthContext
 	}
 	return userAdapted
 }

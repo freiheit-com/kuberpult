@@ -99,7 +99,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
-			expectedBody: "unknown group ''\n",
+			expectedBody: "unknown endpoint ''\n",
 		},
 		{
 			name: "env but missing env",

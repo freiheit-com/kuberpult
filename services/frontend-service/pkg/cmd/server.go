@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"io"
 	"net/http"
 	"os"
@@ -296,6 +297,7 @@ func runServer(ctx context.Context) error {
 	authHandler := &Auth{
 		HttpServer:  splitGrpcHandler,
 		DefaultUser: defaultUser,
+		KeyRing:     pgpKeyRing,
 	}
 	corsHandler := &setup.CORSMiddleware{
 		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
@@ -325,6 +327,8 @@ func runServer(ctx context.Context) error {
 type Auth struct {
 	HttpServer  http.Handler
 	DefaultUser auth.User
+	// KeyRing is as of now required because we do not have technical users yet. So we protect public endpoints by requiring a signature
+	KeyRing openpgp.KeyRing
 }
 
 func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.User {
@@ -377,21 +381,24 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger.Wrap(r.Context(), func(ctx context.Context) error {
 		span, ctx := tracer.StartSpanFromContext(ctx, "ServeHTTP")
 		defer span.Finish()
-		var u *auth.User = nil
+		var user *auth.User = nil
 		var source = ""
 		if c.AzureEnableAuth {
-			u = getRequestAuthorFromAzure(r)
+			user = getRequestAuthorFromAzure(r)
 			source = "azure"
 		} else {
-			u = getRequestAuthorFromGoogleIAP(ctx, r)
+			user = getRequestAuthorFromGoogleIAP(ctx, r)
 			source = "iap"
 		}
-		if u != nil {
-			span.SetTag("current-user-name", u.Name)
-			span.SetTag("current-user-email", u.Email)
+		if user == nil {
+			user, _ = auth.ReadUserFromHttpHeader(ctx, r)
+		}
+		if user != nil {
+			span.SetTag("current-user-name", user.Name)
+			span.SetTag("current-user-email", user.Email)
 			span.SetTag("current-user-source", source)
 		}
-		combinedUser := auth.GetUserOrDefault(u, p.DefaultUser)
+		combinedUser := auth.GetUserOrDefault(user, p.DefaultUser)
 
 		auth.WriteUserToHttpHeader(r, combinedUser)
 		ctx = auth.WriteUserToContext(ctx, combinedUser)
@@ -413,6 +420,13 @@ type GrpcProxy struct {
 func (p *GrpcProxy) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest) (*api.BatchResponse, error) {
+	for i := range in.Actions {
+		batchAction := in.GetActions()[i]
+		switch batchAction.Action.(type) {
+		case *api.BatchAction_CreateRelease:
+			return nil, httperrors.PublicError(ctx, fmt.Errorf("action create-release is only supported via http in the frontend-service"))
+		}
+	}
 	return p.BatchClient.ProcessBatch(ctx, in)
 }
 

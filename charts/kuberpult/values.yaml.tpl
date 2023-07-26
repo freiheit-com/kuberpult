@@ -66,7 +66,6 @@ ingress:
   create: true
   annotations: {}
   domainName: null
-  exposeReleaseEndpoint: false
   iap:
     enabled: false
     secretName: null

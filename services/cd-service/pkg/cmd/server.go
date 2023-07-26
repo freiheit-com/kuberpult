@@ -27,7 +27,6 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -85,18 +84,6 @@ func (c *Config) readRbacPolicy() (policy map[string]*auth.Permission, err error
 	return policy, nil
 }
 
-func (c *Config) readPgpKeyRing() (openpgp.KeyRing, error) {
-	if c.PgpKeyRing == "" {
-		return nil, nil
-	}
-	file, err := os.Open(c.PgpKeyRing)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	return openpgp.ReadArmoredKeyRing(file)
-}
-
 func (c *Config) storageBackend() repository.StorageBackend {
 	if c.EnableSqlite {
 		return repository.SqliteBackend
@@ -115,14 +102,6 @@ func RunServer() {
 		err := envconfig.Process("kuberpult", &c)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
-		}
-
-		pgpKeyRing, err := c.readPgpKeyRing()
-		if err != nil {
-			logger.FromContext(ctx).Fatal("pgp.read.error", zap.Error(err))
-		}
-		if c.AzureEnableAuth && pgpKeyRing == nil {
-			logger.FromContext(ctx).Fatal("azure.auth.error: pgpKeyRing is required to authenticate manifests when \"KUBERPULT_AZURE_ENABLE_AUTH\" is true")
 		}
 
 		if c.DexEnabled {
@@ -200,7 +179,6 @@ func RunServer() {
 
 		repositoryService := &service.Service{
 			Repository: repo,
-			KeyRing:    pgpKeyRing,
 		}
 
 		span.Finish()

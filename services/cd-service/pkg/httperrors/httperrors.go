@@ -39,3 +39,8 @@ func PublicError(ctx context.Context, err error) error {
 func AuthError(ctx context.Context, err error) error {
 	return status.Error(codes.Unauthenticated, "error: "+err.Error())
 }
+
+// AlreadyExistsError in http this is actually not an error, but a 200 (as opposed to a 201)
+func AlreadyExistsError(err error) error {
+	return status.Error(codes.AlreadyExists, "error: "+err.Error())
+}

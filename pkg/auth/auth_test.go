@@ -86,3 +86,68 @@ func TestToFromContext(t *testing.T) {
 		})
 	}
 }
+func TestGetUserOrDefault(t *testing.T) {
+	tcs := []struct {
+		Name         string
+		OptionalUser *User
+		DefaultUser  User
+		ExpectedUser User
+	}{
+		{
+			Name: "User is fully specified",
+			OptionalUser: &User{
+				Email: "a1",
+				Name:  "a2",
+			},
+			DefaultUser: User{
+				Email: "d1",
+				Name:  "d2",
+			},
+			ExpectedUser: User{
+				Email: "a1",
+				Name:  "a2",
+			},
+		},
+		{
+			Name: "User name empty",
+			OptionalUser: &User{
+				Email: "a1",
+				Name:  "",
+			},
+			DefaultUser: User{
+				Email: "d1",
+				Name:  "d2",
+			},
+			ExpectedUser: User{
+				Email: "a1",
+				Name:  "a1",
+			},
+		},
+		{
+			Name:         "User is empty",
+			OptionalUser: nil,
+			DefaultUser: User{
+				Email: "d1",
+				Name:  "d2",
+			},
+			ExpectedUser: User{
+				Email: "d1",
+				Name:  "d2",
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			actualUser := GetUserOrDefault(tc.OptionalUser, tc.DefaultUser)
+			if actualUser.Email != tc.ExpectedUser.Email {
+				t.Fatalf("Unexpected Email was extracted from context.\nexpected: %#v \nrecieved: %#v \n", tc.ExpectedUser.Email, actualUser.Email)
+			}
+			if actualUser.Name != tc.ExpectedUser.Name {
+				t.Fatalf("Unexpected Email was extracted from context.\nexpected: %#v \nrecieved: %#v \n", tc.ExpectedUser.Name, actualUser.Name)
+			}
+		})
+	}
+}

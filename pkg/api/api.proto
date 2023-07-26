@@ -27,6 +27,7 @@ message BatchAction {
     DeleteEnvironmentFromAppRequest delete_env_from_app = 8;
     CreateEnvironmentRequest create_environment = 9;
     ReleaseTrainRequest release_train = 10;
+    CreateReleaseRequest create_release = 11;
   }
 }
 
@@ -37,6 +38,7 @@ message BatchResponse {
 message BatchResult {
   oneof result {
     ReleaseTrainResponse release_train = 10;
+    CreateReleaseResponse create_release_response = 11;
   }
 }
 
@@ -62,6 +64,23 @@ message DeleteEnvironmentApplicationLockRequest {
   string environment = 1;
   string application = 2;
   string lock_id = 3;
+}
+
+
+message CreateReleaseRequest {
+  string environment = 1;
+  string application = 2;
+  string team = 3;
+  // env->yaml
+  map<string, string> manifests = 4;
+  uint64 version = 5;
+  string sourceCommitId = 6;
+  string sourceAuthor = 7;
+  string sourceMessage = 8;
+  string sourceRepoUrl = 9;
+}
+
+message CreateReleaseResponse {
 }
 
 enum LockBehavior {

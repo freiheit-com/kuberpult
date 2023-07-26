@@ -21,10 +21,17 @@ import (
 	"strings"
 )
 
+const (
+	MaxAppNameLen  = 39
+	AppNameRegExp  = `\A[a-z0-9]+(?:-[a-z0-9]+)*\z`
+	TeamNameRegExp = AppNameRegExp
+	EnvNameRegExp  = AppNameRegExp
+)
+
 var (
-	applicationNameRx = regexp.MustCompile(`\A[a-z0-9]+(?:-[a-z0-9]+)*\z`)
-	teamNameRx        = regexp.MustCompile(`\A[a-z0-9]+(?:-[a-z0-9]+)*\z`)
-	envNameRx         = regexp.MustCompile(`\A[a-z0-9]+(?:-[a-z0-9]+)*\z`)
+	applicationNameRx = regexp.MustCompile(AppNameRegExp)
+	teamNameRx        = regexp.MustCompile(TeamNameRegExp)
+	envNameRx         = regexp.MustCompile(EnvNameRegExp)
 )
 
 // {application}-{environment} should be a valid dns name
@@ -32,7 +39,7 @@ func EnvironmentName(env string) bool {
 	return len(env) < 21 && envNameRx.MatchString(env)
 }
 func ApplicationName(name string) bool {
-	return len(name) < 40 && applicationNameRx.MatchString(name)
+	return len(name) <= MaxAppNameLen && applicationNameRx.MatchString(name)
 }
 
 func TeamName(name string) bool {

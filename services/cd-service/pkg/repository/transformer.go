@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"io"
 	"io/fs"
 	"os"
@@ -196,6 +197,9 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	if err != nil {
 		return "", err
 	}
+	if !valid.ApplicationName(c.Application) {
+		return "", httperrors.PublicError(ctx, fmt.Errorf("invalid application name: '%s' - must match regexp '%s' and <= %d characters", c.Application, valid.AppNameRegExp, valid.MaxAppNameLen))
+	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
 	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
@@ -280,7 +284,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
-					continue // locked error are expected
+					continue // LockedErrors are expected
 				} else {
 					return "", err
 				}
@@ -307,7 +311,7 @@ func (c *CreateApplicationVersion) calculateVersion(bfs billy.Filesystem) (uint6
 				return 0, err
 			}
 		} else {
-			return 0, ErrReleaseAlreadyExist
+			return 0, httperrors.AlreadyExistsError(ErrReleaseAlreadyExist)
 		}
 		// TODO: check GC here
 		return c.Version, nil

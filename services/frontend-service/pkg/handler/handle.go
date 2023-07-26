@@ -41,6 +41,6 @@ func (s Server) Handle(w http.ResponseWriter, req *http.Request) {
 	case "release":
 		s.HandleRelease(w, req, tail)
 	default:
-		http.Error(w, fmt.Sprintf("unknown group '%s'", group), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
 	}
 }

@@ -32,6 +32,7 @@ nodes:
 EOF
 
 export GIT_NAMESPACE=git
+export ARGO_NAMESPACE=default
 
 LOCAL_EXECUTION=${LOCAL_EXECUTION:-false}
 print "LOCAL_EXECUTION: $LOCAL_EXECUTION"
@@ -82,6 +83,25 @@ function portForwardAndWait() {
   done
 }
 
+GPG="gpg --keyring trustedkeys-kuberpult.gpg"
+gpgFile=~/.gnupg/trustedkeys-kuberpult.gpg
+if test -f "$gpgFile"
+then
+  echo warning: file already exists: "$gpgFile"
+  if "$LOCAL_EXECUTION"
+  then
+    echo "is it ok to delete the file? Press enter twice to delete"
+    read
+    read
+    rm "$gpgFile"
+  else
+    echo "this file should not exist on the ci"
+    exit 1
+  fi
+fi
+$GPG --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
+$GPG --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
+
 print "setting up manifest repo"
 waitForDeployment "git" "app.kubernetes.io/name=server"
 portForwardAndWait "git" "deployment/server" "2222" "22"
@@ -99,12 +119,68 @@ print "pushing environments to manifest repo..."
 GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../../services/cd-service/client' git push origin master
 cd -
 
+
+export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
+
+if "$LOCAL_EXECUTION"
+then
+  print 'building cd service...'
+  WITH_DOCKER=true make -C ../../services/cd-service/ docker
+
+  print 'building frontend service...'
+  make -C ../../services/frontend-service/ docker
+
+  print 'building rollout service...'
+  make -C ../../services/rollout-service/ docker
+else
+  print 'not building services...'
+fi
+
+print version...
+VERSION=$(make --no-print-directory -C ../../services/cd-service/ version)
+print "version is ${VERSION}"
+IMAGE_TAG_FRONTEND=${IMAGE_TAG_FRONTEND:-$VERSION}
+print "IMAGE_TAG_FRONTEND is now ${IMAGE_TAG_FRONTEND}"
+IMAGE_TAG_CD=${IMAGE_TAG_CD:-$VERSION}
+print "IMAGE_TAG_CD is now ${IMAGE_TAG_CD}"
+IMAGE_TAG_ROLLOUT=${IMAGE_TAG_ROLLOUT:-$VERSION}
+print "IMAGE_TAG_ROLLOUT is now ${IMAGE_TAG_ROLLOUT}"
+
+cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_CD}"
+frontend_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_FRONTEND}"
+rollout_imagename="${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_ROLLOUT}"
+
+print "cd image: $cd_imagename"
+print "cd image tag: $IMAGE_TAG_CD"
+print "frontend image: $frontend_imagename"
+print "frontend image tag: $IMAGE_TAG_FRONTEND"
+
+if ! "$LOCAL_EXECUTION"
+then
+  print 'pulling cd service...'
+  docker pull "$cd_imagename"
+  print 'pulling frontend service...'
+  docker pull "$frontend_imagename"
+  print 'pulling rollout service...'
+  docker pull "$rollout_imagename"
+else
+  print 'not pulling cd or frontend service...'
+fi
+
+print 'loading docker images into kind...'
+print "$cd_imagename"
+print "$frontend_imagename"
+kind load docker-image "$cd_imagename"
+kind load docker-image "$frontend_imagename"
+kind load docker-image "$rollout_imagename"
+
+
+## argoCd
+
 print "starting argoCd..."
 
 helm repo add argo-cd https://argoproj.github.io/argo-helm
 
-export GIT_NAMESPACE=git
-export ARGO_NAMESPACE=default
 
 helm uninstall argocd || echo "did not uninstall argo"
 cat <<YAML > argocd-values.yml
@@ -169,60 +245,8 @@ token=$(argocd account generate-token --port-forward --account kuberpult)
 
 echo "argocd token: $token"
 
-export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
-if "$LOCAL_EXECUTION"
-then
-  print 'building cd service...'
-  WITH_DOCKER=true make -C ../../services/cd-service/ docker
-
-  print 'building frontend service...'
-  make -C ../../services/frontend-service/ docker
-
-  print 'building rollout service...'
-  make -C ../../services/rollout-service/ docker
-else
-  print 'not building services...'
-fi
-
-print version...
-VERSION=$(make --no-print-directory -C ../../services/cd-service/ version)
-print "version is ${VERSION}"
-IMAGE_TAG_FRONTEND=${IMAGE_TAG_FRONTEND:-$VERSION}
-print "IMAGE_TAG_FRONTEND is now ${IMAGE_TAG_FRONTEND}"
-IMAGE_TAG_CD=${IMAGE_TAG_CD:-$VERSION}
-print "IMAGE_TAG_CD is now ${IMAGE_TAG_CD}"
-IMAGE_TAG_ROLLOUT=${IMAGE_TAG_ROLLOUT:-$VERSION}
-print "IMAGE_TAG_ROLLOUT is now ${IMAGE_TAG_ROLLOUT}"
-
-cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_CD}"
-frontend_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_FRONTEND}"
-rollout_imagename="${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_ROLLOUT}"
-
-print "cd image: $cd_imagename"
-print "cd image tag: $IMAGE_TAG_CD"
-print "frontend image: $frontend_imagename"
-print "frontend image tag: $IMAGE_TAG_FRONTEND"
-
-if ! "$LOCAL_EXECUTION"
-then
-  print 'pulling cd service...'
-  docker pull "$cd_imagename"
-  print 'pulling frontend service...'
-  docker pull "$frontend_imagename"
-  print 'pulling rollout service...'
-  docker pull "$rollout_imagename"
-else
-  print 'not pulling cd or frontend service...'
-fi
-
-print 'loading docker images into kind...'
-print "$cd_imagename"
-print "$frontend_imagename"
-kind load docker-image "$cd_imagename"
-kind load docker-image "$frontend_imagename"
-kind load docker-image "$rollout_imagename"
-
+## kuberpult
 print 'installing kuberpult helm chart...'
 
 cat <<VALUES > vals.yaml
@@ -269,6 +293,9 @@ argocd:
   token: "$token"
   server: "argocd-server.${ARGO_NAMESPACE}.svc.cluster.local"
   insecure: true
+pgp:
+  keyRing: |
+$(sed -e "s/^/    /" <./kuberpult-keyring.gpg)
 VALUES
 
 helm template ./ --values vals.yaml > tmp.tmpl
@@ -288,6 +315,9 @@ portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "808
 print "connection to frontend service successful"
 
 waitForDeployment "default" "app=kuberpult-rollout-service"
+
+
+
 
 kubectl get deployment
 kubectl get pods

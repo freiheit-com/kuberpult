@@ -14,7 +14,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-//
 // Log implementation for all microservices in the project.
 // Log functions can be called through the convenience interfaces
 // logger.Debugf(), logger.Errorf(), logger.Panicf()
@@ -52,7 +51,7 @@ func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
 		err    error
 	)
 	if envLevel != "" {
-		level.Set(envLevel)
+		level.Set("INFO")
 	}
 	options := []zap.Option{zap.IncreaseLevel(level)}
 	switch format {

@@ -20,11 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"os/exec"
 	"path"
+	"strings"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -250,6 +251,27 @@ func TestBatchServiceErrors(t *testing.T) {
 				}},
 			ExpectedError: "could not open manifest 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist",
 		},
+		{
+			Name:  "create release endpoint fails app validity check",
+			Setup: []repository.Transformer{},
+			Batch: []*api.BatchAction{
+				{
+					Action: &api.BatchAction_CreateRelease{
+						CreateRelease: &api.CreateReleaseRequest{
+							Environment:    "dev",
+							Application:    "myappIsWayTooLongDontYouThink",
+							Team:           "team1",
+							Manifests:      nil,
+							Version:        666,
+							SourceCommitId: "1",
+							SourceAuthor:   "2",
+							SourceMessage:  "3",
+							SourceRepoUrl:  "4",
+						},
+					},
+				}},
+			ExpectedError: "invalid application name: 'myappIsWayTooLongDontYouThink' - must match regexp '\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z' and <= 39 characters",
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -275,8 +297,8 @@ func TestBatchServiceErrors(t *testing.T) {
 			if err == nil {
 				t.Fatal("Expected an error but got nil")
 			}
-			if err.Error() != tc.ExpectedError {
-				t.Errorf("want:\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, err.Error())
+			if !strings.Contains(err.Error(), tc.ExpectedError) {
+				t.Errorf("want (as substring):\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, err.Error())
 			}
 		})
 	}

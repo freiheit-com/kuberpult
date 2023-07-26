@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -189,6 +188,22 @@ func (d *BatchServer) processAction(
 			}, &api.BatchResult{
 				Result: &api.BatchResult_ReleaseTrain{
 					ReleaseTrain: &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team},
+				},
+			}, nil
+	case *api.BatchAction_CreateRelease:
+		in := action.CreateRelease
+		return &repository.CreateApplicationVersion{
+				Version:        in.Version,
+				Application:    in.Application,
+				Manifests:      in.Manifests,
+				SourceCommitId: in.SourceCommitId,
+				SourceAuthor:   in.SourceAuthor,
+				SourceMessage:  in.SourceMessage,
+				SourceRepoUrl:  in.SourceRepoUrl,
+				Team:           in.Team,
+			}, &api.BatchResult{
+				Result: &api.BatchResult_CreateReleaseResponse{
+					CreateReleaseResponse: &api.CreateReleaseResponse{},
 				},
 			}, nil
 	case *api.BatchAction_CreateEnvironment:
