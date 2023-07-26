@@ -34,7 +34,7 @@ const dataSelection: TestDataSelection[] = [
         name: 'renders 2 item list',
         input: { environments: ['dev', 'staging'], open: true, onSubmit: mySubmitSpy, onCancel: myCancelSpy },
         expectedNumItems: 2,
-        clickOnButton: 'dev',
+        clickOnButton: '0',
         expectedNumSelectedAfterClick: 1,
         expectedNumDeselectedAfterClick: 1,
     },
@@ -42,7 +42,7 @@ const dataSelection: TestDataSelection[] = [
         name: 'renders 3 item list',
         input: { environments: ['dev', 'staging', 'prod'], open: true, onSubmit: mySubmitSpy, onCancel: myCancelSpy },
         expectedNumItems: 3,
-        clickOnButton: 'staging',
+        clickOnButton: '1',
         expectedNumSelectedAfterClick: 1,
         expectedNumDeselectedAfterClick: 2,
     },
@@ -103,17 +103,17 @@ describe('EnvSelectionDialog Rendering', () => {
 
             getWrapper(testcase.input);
 
-            expect(document.querySelectorAll('.envs-dropdown-select .test-button-env-selection').length).toEqual(
+            expect(document.querySelectorAll('.envs-dropdown-select .test-button-checkbox').length).toEqual(
                 testcase.expectedNumItems
             );
-            const result = documentQuerySelectorSafe('.env-' + testcase.clickOnButton);
+            const result = documentQuerySelectorSafe('.id-' + testcase.clickOnButton);
             act(() => {
                 result.click();
             });
-            expect(document.querySelectorAll('.test-button-env-selection.enabled').length).toEqual(
+            expect(document.querySelectorAll('.test-button-checkbox.enabled').length).toEqual(
                 testcase.expectedNumSelectedAfterClick
             );
-            expect(document.querySelectorAll('.test-button-env-selection.disabled').length).toEqual(
+            expect(document.querySelectorAll('.test-button-checkbox.disabled').length).toEqual(
                 testcase.expectedNumDeselectedAfterClick
             );
         });

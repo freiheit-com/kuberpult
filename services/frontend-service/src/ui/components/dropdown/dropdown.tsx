@@ -13,11 +13,13 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { Checkbox, FormControl, InputLabel, MenuItem, Select } from '@material-ui/core';
+import { FormControl, InputLabel, MenuItem, Select } from '@material-ui/core';
 import classNames from 'classnames';
 import { useCallback, useRef } from 'react';
 import { useTeamNames } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
+import { Checkbox } from './checkbox';
+import * as React from 'react';
 
 export type DropdownProps = {
     className?: string;
@@ -60,8 +62,7 @@ export const DropdownSelect: React.FC<{
                 </MenuItem>
                 {teams.map((team: string) => (
                     <MenuItem key={team} value={team}>
-                        <Checkbox checked={selectedTeams?.includes(team)}></Checkbox>
-                        {team}
+                        <Checkbox id={team} enabled={selectedTeams?.includes(team)} label={team} />
                     </MenuItem>
                 ))}
             </Select>
