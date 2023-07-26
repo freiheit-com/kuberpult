@@ -6,6 +6,35 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.79
+**released 2023-07-26**
+
+### Breaking Changes
+
+If you are directly calling the /release endpoint in the cd-service, then this is a breaking change for you.
+
+#### What you need to do
+If you use the helm variable `ingress.exposeReleaseEndpoint`, you need to remove it, before using the helm chart.
+This variable was necessary to open a connection directly to the cd-service - bypassing the frontend-service.
+The frontend-service itself does not require this. The helm chart now returns an error, if the variable is set at all.
+
+#### Explanation
+The `/release` endpoint was moved from the cd-service to the frontend-service.
+Some very specific http error codes for `/release` also changed.
+We now return the http code 500 less often, and replaced it with 400, for example when the signature does not match.
+Apart from the status codes in very specific situations, the endpoint works as before.
+
+For more details see the Pull Request [Replaced /release http endpoint in cd-service with grpc](https://github.com/freiheit-com/kuberpult/pull/814).
+
+### Major Changes
+none
+
+### Minor Changes
+* [Read Dex ClientID, ClientSecret and BaseURL from config map ](https://github.com/freiheit-com/kuberpult/pull/808)
+* [Refactor checkbox to reduce material-ui usage](https://github.com/freiheit-com/kuberpult/pull/817)
+* [Fix log level](https://github.com/freiheit-com/kuberpult/pull/819)
+
+
 ## 0.4.78
 **released 2023-07-21**
 
