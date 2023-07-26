@@ -51,7 +51,7 @@ func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
 		err    error
 	)
 	if envLevel != "" {
-		level.Set("INFO")
+		level.Set(envLevel)
 	}
 	options := []zap.Option{zap.IncreaseLevel(level)}
 	switch format {
