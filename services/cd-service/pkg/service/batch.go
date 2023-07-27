@@ -23,7 +23,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"google.golang.org/grpc/codes"
@@ -263,7 +263,7 @@ func (d *BatchServer) ProcessBatch(
 ) (*api.BatchResponse, error) {
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return nil, httperrors.AuthError(ctx, errors.New(fmt.Sprintf("batch requires user to be provided %v", err)))
+		return nil, grpc.AuthError(ctx, errors.New(fmt.Sprintf("batch requires user to be provided %v", err)))
 	}
 	ctx = auth.WriteUserToContext(ctx, *user)
 	if len(in.GetActions()) > maxBatchActions {

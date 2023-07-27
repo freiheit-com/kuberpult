@@ -22,7 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"google.golang.org/grpc/metadata"
 	"net/http"
 )
@@ -57,7 +57,7 @@ func Decode64(s string) (string, error) {
 func ReadUserFromContext(ctx context.Context) (*User, error) {
 	u, ok := ctx.Value(ctxMarkerKey).(*User)
 	if !ok || u == nil {
-		return nil, httperrors.InternalError(ctx, errors.New("could not read user from context"))
+		return nil, grpc.InternalError(ctx, errors.New("could not read user from context"))
 	}
 	return u, nil
 }
@@ -109,25 +109,25 @@ func (x *DummyGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*
 func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*User, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil, httperrors.AuthError(ctx, errors.New("could not retrieve metadata context with git author in grpc context"))
+		return nil, grpc.AuthError(ctx, errors.New("could not retrieve metadata context with git author in grpc context"))
 	}
 	originalEmailArr := md.Get(HeaderUserEmail)
 	if len(originalEmailArr) == 0 {
-		return nil, httperrors.AuthError(ctx, errors.New("did not find author-email in grpc context"))
+		return nil, grpc.AuthError(ctx, errors.New("did not find author-email in grpc context"))
 	}
 	originalEmail := originalEmailArr[0]
 	userMail, err := Decode64(originalEmail)
 	if err != nil {
-		return nil, httperrors.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-email in grpc context %s", originalEmail))
+		return nil, grpc.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-email in grpc context %s", originalEmail))
 	}
 	originalNameArr := md.Get(HeaderUserName)
 	if len(originalNameArr) == 0 {
-		return nil, httperrors.AuthError(ctx, fmt.Errorf("extract: username undefined but mail defined in grpc context %s", userMail))
+		return nil, grpc.AuthError(ctx, fmt.Errorf("extract: username undefined but mail defined in grpc context %s", userMail))
 	}
 	originalName := originalNameArr[0]
 	userName, err := Decode64(originalName)
 	if err != nil {
-		return nil, httperrors.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-username in grpc context %s", userName))
+		return nil, grpc.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-username in grpc context %s", userName))
 	}
 	logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original mail %s. Decoded: %s", originalEmail, userMail))
 	logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original name %s. Decoded: %s", originalName, userName))
@@ -136,17 +136,17 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 		Name:  userName,
 	}
 	if u.Email == "" || u.Name == "" {
-		return nil, httperrors.AuthError(ctx, errors.New("email and name in grpc context cannot both be empty"))
+		return nil, grpc.AuthError(ctx, errors.New("email and name in grpc context cannot both be empty"))
 	}
 	// RBAC Role of the user. only mandatory if DEX is enabled.
 	if x.DexEnabled {
 		rolesInHeader := md.Get(HeaderUserRole)
 		if len(rolesInHeader) == 0 {
-			return nil, httperrors.AuthError(ctx, fmt.Errorf("extract: role undefined but dex is enabled"))
+			return nil, grpc.AuthError(ctx, fmt.Errorf("extract: role undefined but dex is enabled"))
 		}
 		userRole, err := Decode64(rolesInHeader[0])
 		if err != nil {
-			return nil, httperrors.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-role in grpc context %s", userRole))
+			return nil, grpc.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-role in grpc context %s", userRole))
 		}
 		u.DexAuthContext = &DexAuthContext{
 			Role: userRole,
@@ -162,17 +162,17 @@ func ReadUserFromHttpHeader(ctx context.Context, r *http.Request) (*User, error)
 	headerEmail64 := r.Header.Get(HeaderUserEmail)
 	headerEmail, err := Decode64(headerEmail64)
 	if err != nil {
-		return nil, httperrors.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data in email: '%s'", headerEmail64))
+		return nil, grpc.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data in email: '%s'", headerEmail64))
 	}
 	headerName64 := r.Header.Get(HeaderUserName)
 	headerName, err := Decode64(headerEmail64)
 	if err != nil {
-		return nil, httperrors.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data in name: '%s'", headerName64))
+		return nil, grpc.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data in name: '%s'", headerName64))
 	}
 	headerRole64 := r.Header.Get(HeaderUserRole)
 	headerRole, err := Decode64(headerRole64)
 	if err != nil {
-		return nil, httperrors.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data in role: '%s'", headerRole64))
+		return nil, grpc.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data in role: '%s'", headerRole64))
 	}
 
 	if headerName != "" && headerEmail != "" {
@@ -184,7 +184,7 @@ func ReadUserFromHttpHeader(ctx context.Context, r *http.Request) (*User, error)
 			},
 		}, nil
 	}
-	return nil, httperrors.AuthError(ctx, errors.New("ExtractUserHttp: did not find data in headers"))
+	return nil, grpc.AuthError(ctx, errors.New("ExtractUserHttp: did not find data in headers"))
 }
 
 // WriteUserToHttpHeader should only be used in the frontend-service

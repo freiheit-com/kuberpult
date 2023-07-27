@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"io"
 	"io/ioutil"
@@ -412,7 +412,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 			}
 		} else {
 			logger.Error(fmt.Sprintf("error while pushing: %s", err))
-			err = httperrors.PublicError(ctx, errors.New(fmt.Sprintf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch)))
+			err = grpc.PublicError(ctx, errors.New(fmt.Sprintf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch)))
 		}
 	} else {
 		if !pushSuccess {
@@ -424,7 +424,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error) {
 	if state, err := r.StateAt(nil); err != nil {
-		return nil, nil, httperrors.InternalError(ctx, fmt.Errorf("%s: %w", "failure in StateAt", err))
+		return nil, nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in StateAt", err))
 	} else {
 		commitMsg := []string{}
 		ctxWithTime := withTimeNow(ctx, time.Now())
@@ -450,7 +450,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		return err
 	}
 	if err := r.afterTransform(ctx, *state); err != nil {
-		return httperrors.InternalError(ctx, fmt.Errorf("%s: %w", "failure in afterTransform", err))
+		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in afterTransform", err))
 	}
 
 	treeId, err := state.Filesystem.(*fs.TreeBuilderFS).Insert()
@@ -487,7 +487,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		treeId,
 		rev,
 	); err != nil {
-		return httperrors.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err))
+		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err))
 	}
 	return nil
 }
