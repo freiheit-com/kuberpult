@@ -33,6 +33,7 @@ import (
 type BatchServer struct {
 	Repository repository.Repository
 	RBACConfig auth.RBACConfig
+	Reader     auth.GrpcContextReader
 }
 
 const maxBatchActions int = 100
