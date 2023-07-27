@@ -27,7 +27,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	git "github.com/libgit2/git2go/v34"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -84,7 +84,7 @@ func (o *OverviewServiceServer) getOverview(
 		GitRevision:       rev,
 	}
 	if envs, err := s.GetEnvironmentConfigs(); err != nil {
-		return nil, httperrors.InternalError(ctx, err)
+		return nil, grpc.InternalError(ctx, err)
 	} else {
 		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
 		for envName, config := range envs {

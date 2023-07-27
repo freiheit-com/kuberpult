@@ -19,7 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
+	grpcerrors "github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"io"
 	"net/http"
 	"os"
@@ -424,7 +424,7 @@ func (p *GrpcProxy) ProcessBatch(
 		batchAction := in.GetActions()[i]
 		switch batchAction.Action.(type) {
 		case *api.BatchAction_CreateRelease:
-			return nil, httperrors.PublicError(ctx, fmt.Errorf("action create-release is only supported via http in the frontend-service"))
+			return nil, grpcerrors.PublicError(ctx, fmt.Errorf("action create-release is only supported via http in the frontend-service"))
 		}
 	}
 	return p.BatchClient.ProcessBatch(ctx, in)
