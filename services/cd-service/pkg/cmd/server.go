@@ -17,11 +17,8 @@ Copyright 2023 freiheit.com*/
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"net/http"
-	"os"
-	"strings"
 	"sync"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
@@ -62,27 +59,7 @@ type Config struct {
 	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true"`
 	EnableSqlite      bool   `default:"true" split_words:"true"`
 	DexMock           bool   `default:"false" split_words:"true"`
-}
-
-func (c *Config) readRbacPolicy() (policy map[string]*auth.Permission, err error) {
-	file, err := os.Open("policy.csv")
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	policy = map[string]*auth.Permission{}
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		// Trim spaces from policy
-		line := strings.ReplaceAll(scanner.Text(), " ", "")
-		p, err := auth.ValidateRbacPermission(line)
-		if err != nil {
-			return nil, err
-		}
-		policy[line] = p
-	}
-	return policy, nil
+	DexMockRole       string `default:"Developer" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -110,19 +87,16 @@ func RunServer() {
 			if !c.DexEnabled {
 				logger.FromContext(ctx).Fatal("dexEnabled must be true if dexMock is true")
 			}
-			reader = &auth.DummyGrpcContextReader{}
+			//if c.DexMockRole = nil {
+			//	logger.FromContext(ctx).Fatal("dexMockRole must be set to a role (e.g 'DEVELOPER'")
+			//}
+			reader = &auth.DummyGrpcContextReader{Role: c.DexMockRole}
 		} else {
-			reader = &auth.DexGrpcContextReader{}
+			reader = &auth.DexGrpcContextReader{DexEnabled: c.DexEnabled}
 		}
-		dexRbacPolicy := map[string]*auth.Permission{}
-		if c.DexEnabled {
-			dexRbacPolicy, err = c.readRbacPolicy()
-			if err != nil {
-				logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
-			}
-			if len(dexRbacPolicy) == 0 {
-				logger.FromContext(ctx).Fatal("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLED\" is true")
-			}
+		dexRbacPolicy, err := auth.ReadRbacPolicy(c.DexEnabled)
+		if err != nil {
+			logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
 		}
 
 		grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
@@ -133,7 +107,7 @@ func RunServer() {
 			req interface{},
 			info *grpc.UnaryServerInfo,
 			handler grpc.UnaryHandler) (interface{}, error) {
-			return interceptors.UnaryUserContextInterceptor(ctx, req, info, handler, c.DexEnabled, reader)
+			return interceptors.UnaryUserContextInterceptor(ctx, req, info, handler, reader)
 		}
 
 		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
