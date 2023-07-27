@@ -91,12 +91,44 @@ func ValidateApplication(
 	return nil
 }
 
+func (d *BatchServer) checkUserPermissions(user *auth.User, env, application, action string) error {
+	if !d.RBACConfig.DexEnabled {
+		return nil
+	}
+
+	environmentString := env
+	if env != "*" {
+		groups, err := d.Repository.State().GetEnvironmentConfigs()
+		if err != nil {
+			return err
+		}
+		group := env
+		temp := groups[env].EnvironmentGroup
+		if temp != nil {
+			group = *temp
+		}
+		environmentString = fmt.Sprintf("%s:%s", environmentString, group)
+	}
+
+	permissionsWanted := fmt.Sprintf("p,%s,%s,%s,%s,allow", user.DexAuthContext.Role, application, action, environmentString)
+	_, permissionsExist := d.RBACConfig.Policy[permissionsWanted]
+	if !permissionsExist {
+		return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions to create an environment lock with the permissions: %s", permissionsWanted))
+	}
+
+	return nil
+}
+
 func (d *BatchServer) processAction(
-	batchAction *api.BatchAction,
+	batchAction *api.BatchAction, user *auth.User,
 ) (repository.Transformer, *api.BatchResult, error) {
 	switch action := batchAction.Action.(type) {
 	case *api.BatchAction_CreateEnvironmentLock:
 		act := action.CreateEnvironmentLock
+		err := d.checkUserPermissions(user, act.Environment, "EnvironmentLock", "Create")
+		if err != nil {
+			return nil, nil, err
+		}
 		if err := ValidateEnvironmentLock("create", act.Environment, act.LockId); err != nil {
 			return nil, nil, err
 		}
@@ -244,7 +276,7 @@ func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
 ) (*api.BatchResponse, error) {
-	user, err := auth.ReadUserFromGrpcContext(ctx, d.RBACConfig.DexEnabled)
+	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
 		return nil, httperrors.AuthError(ctx, errors.New(fmt.Sprintf("batch requires user to be provided %v", err)))
 	}
@@ -256,7 +288,7 @@ func (d *BatchServer) ProcessBatch(
 	results := make([]*api.BatchResult, len(in.GetActions()))
 	transformers := make([]repository.Transformer, 0, maxBatchActions)
 	for i, batchAction := range in.GetActions() {
-		transformer, result, err := d.processAction(batchAction)
+		transformer, result, err := d.processAction(batchAction, user)
 		if err != nil {
 			// Validation error
 			return nil, err
