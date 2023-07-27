@@ -879,6 +879,11 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
 		return "", err
 	}
+	// .argocd-allow-concurrency is a special file. It signals that rendering this manifests has no side-effects and avoids holding
+	// a global lock.
+	if err := util.WriteFile(fs, fs.Join(manifestsDir, ".argocd-allow-concurrency"), []byte("# This file allows argocd to process the app in parallel."), 0666); err != nil {
+		return "", err
+	}
 
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
