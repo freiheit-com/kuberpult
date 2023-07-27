@@ -17,7 +17,12 @@ Copyright 2023 freiheit.com*/
 package auth
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"os"
 	"strings"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
@@ -130,4 +135,45 @@ func ValidateRbacPermission(line string) (p *Permission, err error) {
 		Action:      c[3],
 		Environment: c[4],
 	}, nil
+}
+
+func ReadRbacPolicy(dexEnabled bool) (policy map[string]*Permission, err error) {
+	if !dexEnabled {
+		return nil, nil
+	}
+
+	file, err := os.Open("policy.csv")
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	policy = map[string]*Permission{}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		// Trim spaces from policy
+		line := strings.ReplaceAll(scanner.Text(), " ", "")
+		p, err := ValidateRbacPermission(line)
+		if err != nil {
+			return nil, err
+		}
+		policy[line] = p
+	}
+	if len(policy) == 0 {
+		return nil, errors.New("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLED\" is true")
+	}
+	return policy, nil
+}
+
+func CheckUserPermissions(rbacConfig *RBACConfig, user *User, env, envGroup, application, action string) error {
+	if !rbacConfig.DexEnabled {
+		return nil
+	}
+	permissionsWanted := fmt.Sprintf("p,%s,%s,%s,%s:%s,allow", user.DexAuthContext.Role, application, action, env, envGroup)
+	_, permissionsExist := rbacConfig.Policy[permissionsWanted]
+	if !permissionsExist {
+		return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions to create an environment lock with the permissions: %s", permissionsWanted))
+	}
+
+	return nil
 }

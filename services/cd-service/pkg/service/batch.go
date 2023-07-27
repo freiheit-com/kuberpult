@@ -92,31 +92,16 @@ func ValidateApplication(
 }
 
 func (d *BatchServer) checkUserPermissions(user *auth.User, env, application, action string) error {
-	if !d.RBACConfig.DexEnabled {
-		return nil
+	groups, err := d.Repository.State().GetEnvironmentConfigs()
+	if err != nil {
+		return err
 	}
-
-	environmentString := env
-	if env != "*" {
-		groups, err := d.Repository.State().GetEnvironmentConfigs()
-		if err != nil {
-			return err
-		}
-		group := env
-		temp := groups[env].EnvironmentGroup
-		if temp != nil {
-			group = *temp
-		}
-		environmentString = fmt.Sprintf("%s:%s", environmentString, group)
+	group := env
+	temp := groups[env].EnvironmentGroup
+	if temp != nil {
+		group = *temp
 	}
-
-	permissionsWanted := fmt.Sprintf("p,%s,%s,%s,%s,allow", user.DexAuthContext.Role, application, action, environmentString)
-	_, permissionsExist := d.RBACConfig.Policy[permissionsWanted]
-	if !permissionsExist {
-		return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions to create an environment lock with the permissions: %s", permissionsWanted))
-	}
-
-	return nil
+	return auth.CheckUserPermissions(&d.RBACConfig, user, env, group, application, action)
 }
 
 func (d *BatchServer) processAction(

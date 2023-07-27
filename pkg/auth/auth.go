@@ -21,12 +21,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-
-	"net/http"
-
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/httperrors"
 	"google.golang.org/grpc/metadata"
+	"net/http"
 )
 
 type ctxMarker struct{}
@@ -83,21 +81,23 @@ func WriteUserRoleToGrpcContext(ctx context.Context, userRole string) context.Co
 }
 
 type GrpcContextReader interface {
-	ReadUserFromGrpcContext(ctx context.Context, dexEnabled bool) (*User, error)
+	ReadUserFromGrpcContext(ctx context.Context) (*User, error)
 }
 
 type DexGrpcContextReader struct {
+	DexEnabled bool
 }
 
 type DummyGrpcContextReader struct {
+	Role string
 }
 
-func (x *DummyGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context, dexEnabled bool) (*User, error) {
+func (x *DummyGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*User, error) {
 	user := &User{
 		Email: "dummyMail@example.com",
 		Name:  "userName",
 		DexAuthContext: &DexAuthContext{
-			Role: "Developer",
+			Role: x.Role,
 		},
 	}
 	return user, nil
@@ -106,7 +106,7 @@ func (x *DummyGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context, de
 // ReadUserFromGrpcContext should only be used in the cd-service.
 // ReadUserFromGrpcContext takes the User from middleware (context).
 // It returns a User or an error if the user is not found.
-func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context, dexEnabled bool) (*User, error) {
+func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*User, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, httperrors.AuthError(ctx, errors.New("could not retrieve metadata context with git author in grpc context"))
@@ -139,7 +139,7 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context, dexE
 		return nil, httperrors.AuthError(ctx, errors.New("email and name in grpc context cannot both be empty"))
 	}
 	// RBAC Role of the user. only mandatory if DEX is enabled.
-	if dexEnabled {
+	if x.DexEnabled {
 		rolesInHeader := md.Get(HeaderUserRole)
 		if len(rolesInHeader) == 0 {
 			return nil, httperrors.AuthError(ctx, fmt.Errorf("extract: role undefined but dex is enabled"))
