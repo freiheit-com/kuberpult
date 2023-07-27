@@ -18,6 +18,11 @@ If you use the helm variable `ingress.exposeReleaseEndpoint`, you need to remove
 This variable was necessary to open a connection directly to the cd-service - bypassing the frontend-service.
 The frontend-service itself does not require this. The helm chart now returns an error, if the variable is set at all.
 
+#### IAP specifics
+Additionally, if you are using google IAP (ingress.iap.enabled=true in the helm chart),
+you need to now provide an IAP token when invoking the `/release` endpoint.
+To get a token, you can find an example script in [Google's documentation](https://cloud.google.com/iap/docs/authentication-howto#bash).
+
 #### Explanation
 The `/release` endpoint was moved from the cd-service to the frontend-service.
 Some very specific http error codes for `/release` also changed.
