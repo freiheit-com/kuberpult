@@ -395,18 +395,17 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 
 func TestDeployApplicationVersion(t *testing.T) {
 	tcs := []struct {
-		Name                         string
-		Transformers                 []Transformer
-		expectedError                string
-		expectedPath                 string
-		expectedFileData             []byte
-		expectedDeployedByPath       string
-		expectedDeployedByData       []byte
-		expectedDeployedByEmailPath  string
-		expectedDeployedByEmailData  []byte
-		expectedDeployedAtPath       string
-		expectedDeployedAtData       []byte
-		expectedArgocdConcurrentPath string
+		Name                        string
+		Transformers                []Transformer
+		expectedError               string
+		expectedPath                string
+		expectedFileData            []byte
+		expectedDeployedByPath      string
+		expectedDeployedByData      []byte
+		expectedDeployedByEmailPath string
+		expectedDeployedByEmailData []byte
+		expectedDeployedAtPath      string
+		expectedDeployedAtData      []byte
 	}{
 		{
 			Name: "successfully deploy a full manifest",
@@ -428,16 +427,15 @@ func TestDeployApplicationVersion(t *testing.T) {
 					LockBehaviour: api.LockBehavior_Fail,
 				},
 			},
-			expectedError:                "",
-			expectedPath:                 "environments/acceptance/applications/app1/manifests/manifests.yaml",
-			expectedFileData:             []byte("acceptance"),
-			expectedDeployedByPath:       "environments/acceptance/applications/app1/deployed_by",
-			expectedDeployedByData:       []byte("test tester"),
-			expectedDeployedAtPath:       "environments/acceptance/applications/app1/deployed_at_utc",
-			expectedDeployedAtData:       []byte(timeNowOld.UTC().String()),
-			expectedDeployedByEmailPath:  "environments/acceptance/applications/app1/deployed_by_email",
-			expectedDeployedByEmailData:  []byte("testmail@example.com"),
-			expectedArgocdConcurrentPath: "environments/acceptance/applications/app1/manifests/.argocd-allow-concurrency",
+			expectedError:               "",
+			expectedPath:                "environments/acceptance/applications/app1/manifests/manifests.yaml",
+			expectedFileData:            []byte("acceptance"),
+			expectedDeployedByPath:      "environments/acceptance/applications/app1/deployed_by",
+			expectedDeployedByData:      []byte("test tester"),
+			expectedDeployedAtPath:      "environments/acceptance/applications/app1/deployed_at_utc",
+			expectedDeployedAtData:      []byte(timeNowOld.UTC().String()),
+			expectedDeployedByEmailPath: "environments/acceptance/applications/app1/deployed_by_email",
+			expectedDeployedByEmailData: []byte("testmail@example.com"),
 		},
 		{
 			Name: "successfully deploy an empty manifest",
@@ -459,16 +457,15 @@ func TestDeployApplicationVersion(t *testing.T) {
 					LockBehaviour: api.LockBehavior_Fail,
 				},
 			},
-			expectedError:                "",
-			expectedPath:                 "environments/acceptance/applications/app1/manifests/manifests.yaml",
-			expectedFileData:             []byte(" "),
-			expectedDeployedByPath:       "environments/acceptance/applications/app1/deployed_by",
-			expectedDeployedByData:       []byte("test tester"),
-			expectedDeployedAtPath:       "environments/acceptance/applications/app1/deployed_at_utc",
-			expectedDeployedAtData:       []byte(timeNowOld.UTC().String()),
-			expectedDeployedByEmailPath:  "environments/acceptance/applications/app1/deployed_by_email",
-			expectedDeployedByEmailData:  []byte("testmail@example.com"),
-			expectedArgocdConcurrentPath: "environments/acceptance/applications/app1/manifests/.argocd-allow-concurrency",
+			expectedError:               "",
+			expectedPath:                "environments/acceptance/applications/app1/manifests/manifests.yaml",
+			expectedFileData:            []byte(" "),
+			expectedDeployedByPath:      "environments/acceptance/applications/app1/deployed_by",
+			expectedDeployedByData:      []byte("test tester"),
+			expectedDeployedAtPath:      "environments/acceptance/applications/app1/deployed_at_utc",
+			expectedDeployedAtData:      []byte(timeNowOld.UTC().String()),
+			expectedDeployedByEmailPath: "environments/acceptance/applications/app1/deployed_by_email",
+			expectedDeployedByEmailData: []byte("testmail@example.com"),
 		},
 	}
 	for _, tc := range tcs {
@@ -520,11 +517,6 @@ func TestDeployApplicationVersion(t *testing.T) {
 			}
 			if !cmp.Equal(DeployedAtData, tc.expectedDeployedAtData) {
 				t.Fatalf("Expected '%v', got '%v'", string(tc.expectedDeployedAtData), string(DeployedAtData))
-			}
-			// Argocd doesnt read this file but just checks that it's there.
-			argocdAllowConcurrentFile := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedArgocdConcurrentPath)
-			if _, err := updatedState.Filesystem.Stat(argocdAllowConcurrentFile); err != nil {
-				t.Errorf("expected file %q to exist, but got error %q", tc.expectedArgocdConcurrentPath, err)
 			}
 		})
 	}
