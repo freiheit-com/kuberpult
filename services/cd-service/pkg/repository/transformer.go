@@ -591,10 +591,10 @@ type Authentication struct {
 }
 
 type CreateEnvironmentLock struct {
-	Authentication // embed
-	Environment    string
-	LockId         string
-	Message        string
+	Authentication
+	Environment string
+	LockId      string
+	Message     string
 }
 
 func (s *State) checkUserPermissions(ctx context.Context, env, application, action string, RBACConfig auth.RBACConfig) error {
