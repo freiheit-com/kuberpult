@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -91,36 +92,20 @@ func ValidateApplication(
 	return nil
 }
 
-func (d *BatchServer) checkUserPermissions(user *auth.User, env, application, action string) error {
-	groups, err := d.Repository.State().GetEnvironmentConfigs()
-	if err != nil {
-		return err
-	}
-	group := env
-	temp := groups[env].EnvironmentGroup
-	if temp != nil {
-		group = *temp
-	}
-	return auth.CheckUserPermissions(&d.RBACConfig, user, env, group, application, action)
-}
-
 func (d *BatchServer) processAction(
-	batchAction *api.BatchAction, user *auth.User,
+	batchAction *api.BatchAction,
 ) (repository.Transformer, *api.BatchResult, error) {
 	switch action := batchAction.Action.(type) {
 	case *api.BatchAction_CreateEnvironmentLock:
 		act := action.CreateEnvironmentLock
-		err := d.checkUserPermissions(user, act.Environment, "EnvironmentLock", "Create")
-		if err != nil {
-			return nil, nil, err
-		}
 		if err := ValidateEnvironmentLock("create", act.Environment, act.LockId); err != nil {
 			return nil, nil, err
 		}
 		return &repository.CreateEnvironmentLock{
-			Environment: act.Environment,
-			LockId:      act.LockId,
-			Message:     act.Message,
+			Environment:    act.Environment,
+			LockId:         act.LockId,
+			Message:        act.Message,
+			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvironmentLock:
 		act := action.DeleteEnvironmentLock
@@ -273,7 +258,7 @@ func (d *BatchServer) ProcessBatch(
 	results := make([]*api.BatchResult, len(in.GetActions()))
 	transformers := make([]repository.Transformer, 0, maxBatchActions)
 	for i, batchAction := range in.GetActions() {
-		transformer, result, err := d.processAction(batchAction, user)
+		transformer, result, err := d.processAction(batchAction)
 		if err != nil {
 			// Validation error
 			return nil, err

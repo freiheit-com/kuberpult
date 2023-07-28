@@ -21,13 +21,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"io"
 	"io/fs"
 	"os"
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 
@@ -584,13 +586,47 @@ func wrapFileError(e error, filename string, message string) error {
 	return fmt.Errorf("%s '%s': %w", message, filename, e)
 }
 
+type Authentication struct {
+	RBACConfig auth.RBACConfig
+}
+
 type CreateEnvironmentLock struct {
+	Authentication
 	Environment string
 	LockId      string
 	Message     string
 }
 
+func (s *State) checkUserPermissions(ctx context.Context, env, application, action string, RBACConfig auth.RBACConfig) error {
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
+	}
+
+	envs, err := s.GetEnvironmentConfigs()
+	if err != nil {
+		return err
+	}
+	var group string
+	for envName, config := range envs {
+		if envName == env {
+			group = mapper.DeriveGroupName(config, env)
+			break
+		}
+	}
+	if group == "" {
+		return fmt.Errorf("group not found for environment: %s", env)
+	}
+
+	return auth.CheckUserPermissions(RBACConfig, user, env, group, application, action)
+}
+
 func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
+
+	err := state.checkUserPermissions(ctx, c.Environment, "EnvironmentLock", "Create", c.RBACConfig)
+	if err != nil {
+		return "", err
+	}
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {

@@ -160,15 +160,16 @@ func TestBatchServiceWorks(t *testing.T) {
 					},
 				},
 				&repository.CreateEnvironmentLock{
-					Environment: "production",
-					LockId:      "1234",
-					Message:     "EnvLock",
+					Environment:    "production",
+					LockId:         "1234",
+					Message:        "EnvLock",
+					Authentication: repository.Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
 			Batch:         getBatchActions(),
 			context:       testutil.MakeTestContextDexEnabled(),
 			svc:           &BatchServer{RBACConfig: auth.RBACConfig{DexEnabled: true}},
-			expectedError: status.Errorf(codes.PermissionDenied, "user does not have permissions to create an environment lock with the permissions: p,developer,EnvironmentLock,Create,production:production,allow").Error(),
+			expectedError: status.Errorf(codes.PermissionDenied, "user does not have permissions for: p,developer,EnvironmentLock,Create,production:production,allow").Error(),
 		},
 		{
 			Name: "testing Dex setup with permissions",
@@ -206,7 +207,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(tc.context, tr); err != nil {
+				if err := repo.Apply(tc.context, tr); err != nil && err.Error() != tc.expectedError {
 					t.Fatal(err)
 				}
 			}
