@@ -20,10 +20,11 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"os"
 	"strings"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 )
@@ -165,14 +166,14 @@ func ReadRbacPolicy(dexEnabled bool) (policy map[string]*Permission, err error) 
 	return policy, nil
 }
 
-func CheckUserPermissions(rbacConfig *RBACConfig, user *User, env, envGroup, application, action string) error {
+func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, envGroup, application, action string) error {
 	if !rbacConfig.DexEnabled {
 		return nil
 	}
 	permissionsWanted := fmt.Sprintf("p,%s,%s,%s,%s:%s,allow", user.DexAuthContext.Role, application, action, env, envGroup)
 	_, permissionsExist := rbacConfig.Policy[permissionsWanted]
 	if !permissionsExist {
-		return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions to create an environment lock with the permissions: %s", permissionsWanted))
+		return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", permissionsWanted))
 	}
 
 	return nil

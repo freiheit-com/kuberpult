@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"io"
 	"os/exec"
 	"path"
@@ -29,6 +28,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
@@ -780,6 +782,83 @@ func TestReleaseTrainErrors(t *testing.T) {
 						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestRbacTransformerTest(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		ExpectedError string
+	}{
+		{
+			Name: "able to create environment lock with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateEnvironmentLock{
+					Environment: "production",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentLock,Create,production:production,allow": {Role: "developer"}}}},
+				},
+			},
+		},
+		{
+			Name: "unable to create environment lock without permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "dev"},
+				&CreateEnvironmentLock{
+					Environment: "dev",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentLock,Create,production:production,allow": {Role: "developer"}}}},
+				},
+			},
+			ExpectedError: "user does not have permissions for: p,developer,EnvironmentLock,Create,dev:dev,allow",
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+			repo, err := New(
+				testutil.MakeTestContextDexEnabled(),
+				RepositoryConfig{
+					URL:            remoteDir,
+					Path:           localDir,
+					CommitterEmail: "kuberpult@freiheit.com",
+					CommitterName:  "kuberpult",
+					BootstrapMode:  false,
+				},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, tf := range tc.Transformers {
+				err = repo.Apply(testutil.MakeTestContextDexEnabled(), tf)
+				if err != nil {
+					break
+				}
+			}
+			if err != nil {
+				if !(strings.Contains(err.Error(), tc.ExpectedError)) {
+					t.Errorf("want :\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, err.Error())
+				}
+				if tc.ExpectedError == "" {
+					t.Errorf("expected success but got: %v", err.Error())
+				}
+			} else if tc.ExpectedError != "" {
+				t.Errorf("expected error but got: none found")
 			}
 		})
 	}
