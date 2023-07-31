@@ -860,6 +860,47 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "unable to delete environment application lock without permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment:    "production",
+					Application:    "test",
+					Message:        "don't",
+					LockId:         "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+				},
+			},
+			ExpectedError: "user does not have permissions for: p,developer,EnvironmentApplicationLock,Create,production:production,allow",
+		},
+		{
+			Name: "able to delete environment application lock with correct permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentApplicationLock,Create,production:production,allow": {Role: "developer"},
+					}}},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
