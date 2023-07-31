@@ -820,6 +820,19 @@ func TestRbacTransformerTest(t *testing.T) {
 			ExpectedError: "user does not have permissions for: developer,CreateLock,production:production,*,allow",
 		},
 		{
+			Name: "able to create environment lock with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateEnvironmentLock{
+					Environment: "production",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentLock,Create,production:production,allow": {Role: "developer"}}}},
+				},
+			},
+		},
+		{
 			Name: "unable to delete environment lock without permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{Environment: "production"},
@@ -895,6 +908,63 @@ func TestRbacTransformerTest(t *testing.T) {
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
 						"developer,CreateLock,production:production,*,allow": {Role: "developer"},
+					}}},
+				},
+			},
+		},
+		{
+			Name: "unable to delete environment application lock without permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentApplicationLock,Create,production:production,allow": {Role: "developer"},
+					}}},
+				},
+				&DeleteEnvironmentApplicationLock{
+					Environment:    "production",
+					Application:    "test",
+					LockId:         "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+				},
+			},
+			ExpectedError: "user does not have permissions for: p,developer,EnvironmentApplicationLock,Delete,production:production,allow",
+		},
+		{
+			Name: "able to delete environment application lock without permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentApplicationLock,Create,production:production,allow": {Role: "developer"},
+					}}},
+				},
+				&DeleteEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentApplicationLock,Delete,production:production,allow": {Role: "developer"},
 					}}},
 				},
 			},

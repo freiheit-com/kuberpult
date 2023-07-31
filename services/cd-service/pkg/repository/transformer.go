@@ -763,12 +763,17 @@ func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state 
 }
 
 type DeleteEnvironmentApplicationLock struct {
+	Authentication
 	Environment string
 	Application string
 	LockId      string
 }
 
 func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
+	err := state.checkUserPermissions(ctx, c.Environment, "EnvironmentApplicationLock", "Delete", c.RBACConfig)
+	if err != nil {
+		return "", err
+	}
 	fs := state.Filesystem
 	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
