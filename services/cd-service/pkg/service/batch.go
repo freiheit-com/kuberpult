@@ -113,8 +113,9 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.DeleteEnvironmentLock{
-			Environment: act.Environment,
-			LockId:      act.LockId,
+			Environment:    act.Environment,
+			LockId:         act.LockId,
+			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 		}, nil, nil
 	case *api.BatchAction_CreateEnvironmentApplicationLock:
 		act := action.CreateEnvironmentApplicationLock

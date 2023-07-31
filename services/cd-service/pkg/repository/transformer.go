@@ -598,6 +598,9 @@ type CreateEnvironmentLock struct {
 }
 
 func (s *State) checkUserPermissions(ctx context.Context, env, application, action string, RBACConfig auth.RBACConfig) error {
+	if !RBACConfig.DexEnabled {
+		return nil
+	}
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
@@ -685,11 +688,16 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string
 }
 
 type DeleteEnvironmentLock struct {
+	Authentication
 	Environment string
 	LockId      string
 }
 
 func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
+	err := state.checkUserPermissions(ctx, c.Environment, "EnvironmentLock", "Delete", c.RBACConfig)
+	if err != nil {
+		return "", err
+	}
 	fs := state.Filesystem
 	lockDir := fs.Join("environments", c.Environment, "locks", c.LockId)
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {

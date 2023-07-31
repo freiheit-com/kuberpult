@@ -820,6 +820,46 @@ func TestRbacTransformerTest(t *testing.T) {
 			},
 			ExpectedError: "user does not have permissions for: p,developer,EnvironmentLock,Create,dev:dev,allow",
 		},
+		{
+			Name: "unable to delete environment lock without permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateEnvironmentLock{
+					Environment: "production",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentLock,Create,production:production,allow": {Role: "developer"}}}},
+				},
+				&DeleteEnvironmentLock{
+					Environment: "production",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentLock,Create,production:production,allow": {Role: "developer"}}}},
+				},
+			},
+			ExpectedError: "user does not have permissions for: p,developer,EnvironmentLock,Delete,production:production,allow",
+		},
+		{
+			Name: "able to delete environment lock with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateEnvironmentLock{
+					Environment: "production",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentLock,Create,production:production,allow": {Role: "developer"}}}},
+				},
+				&DeleteEnvironmentLock{
+					Environment: "production",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentLock,Create,production:production,allow": {Role: "developer"},
+						"p,developer,EnvironmentLock,Delete,production:production,allow": {Role: "developer"}}}},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -2589,7 +2629,7 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 		expectedError string
 	}{
 		{
-			name: "delete lock succedes",
+			name: "delete lock succeeds",
 		},
 		{
 			name:          "delete lock fails",
@@ -2616,8 +2656,9 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 			}
 			err = repo.Apply(testutil.MakeTestContext(), &injectErr{
 				Transformer: &DeleteEnvironmentLock{
-					Environment: "dev",
-					LockId:      "foo",
+					Environment:    "dev",
+					LockId:         "foo",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				collector: collector,
 				operation: tc.operation,

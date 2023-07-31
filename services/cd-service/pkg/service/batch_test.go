@@ -163,12 +163,12 @@ func TestBatchServiceWorks(t *testing.T) {
 					Environment:    "production",
 					LockId:         "1234",
 					Message:        "EnvLock",
-					Authentication: repository.Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: repository.Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true}},
 				},
 			},
 			Batch:         getBatchActions(),
 			context:       testutil.MakeTestContextDexEnabled(),
-			svc:           &BatchServer{RBACConfig: auth.RBACConfig{DexEnabled: true}},
+			svc:           &BatchServer{},
 			expectedError: status.Errorf(codes.PermissionDenied, "user does not have permissions for: p,developer,EnvironmentLock,Create,production:production,allow").Error(),
 		},
 		{
@@ -196,7 +196,8 @@ func TestBatchServiceWorks(t *testing.T) {
 				RBACConfig: auth.RBACConfig{
 					DexEnabled: true,
 					Policy: map[string]*auth.Permission{
-						"p,developer,EnvironmentLock,Create,production:production,allow": {Role: "Developer"}}}},
+						"p,developer,EnvironmentLock,Create,production:production,allow": {Role: "Developer"},
+						"p,developer,EnvironmentLock,Delete,production:production,allow": {Role: "Developer"}}}},
 		},
 	}
 	for _, tc := range tcs {

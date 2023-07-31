@@ -167,9 +167,6 @@ func ReadRbacPolicy(dexEnabled bool) (policy map[string]*Permission, err error) 
 }
 
 func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, envGroup, application, action string) error {
-	if !rbacConfig.DexEnabled {
-		return nil
-	}
 	permissionsWanted := fmt.Sprintf("p,%s,%s,%s,%s:%s,allow", user.DexAuthContext.Role, application, action, env, envGroup)
 	_, permissionsExist := rbacConfig.Policy[permissionsWanted]
 	if !permissionsExist {
