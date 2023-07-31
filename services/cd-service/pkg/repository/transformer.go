@@ -844,6 +844,7 @@ func (c *QueueApplicationVersion) Transform(ctx context.Context, state *State) (
 }
 
 type DeployApplicationVersion struct {
+	Authentication
 	Environment   string
 	Application   string
 	Version       uint64
@@ -851,6 +852,10 @@ type DeployApplicationVersion struct {
 }
 
 func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
+	err := state.checkUserPermissions(ctx, c.Environment, "Deploy", "*", c.RBACConfig)
+	if err != nil {
+		return "", err
+	}
 	fs := state.Filesystem
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)

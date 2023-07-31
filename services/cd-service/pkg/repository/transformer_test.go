@@ -794,6 +794,52 @@ func TestRbacTransformerTest(t *testing.T) {
 		ExpectedError string
 	}{
 		{
+			Name: "able to deploy application with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,Deploy,*,acceptance:acceptance,allow": {Role: "developer"}}}},
+				},
+			},
+		},
+		{
+			Name: "unable to deploy application with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:    envAcceptance,
+					Application:    "app1",
+					Version:        1,
+					LockBehaviour:  api.LockBehavior_Fail,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+				},
+			},
+			ExpectedError: "user does not have permissions for: p,developer,Deploy,*,acceptance:acceptance,allow",
+		},
+		{
 			Name: "able to create environment lock with permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{Environment: "production"},
