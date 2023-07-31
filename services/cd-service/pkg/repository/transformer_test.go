@@ -807,6 +807,19 @@ func TestRbacTransformerTest(t *testing.T) {
 			},
 		},
 		{
+			Name: "Test with user who has ability to do any environmentLock action",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateEnvironmentLock{
+					Environment: "production",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"p,developer,EnvironmentLock,*,production:production,allow": {Role: "developer"}}}},
+				},
+			},
+		},
+		{
 			Name: "unable to create environment lock without permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{Environment: "dev"},

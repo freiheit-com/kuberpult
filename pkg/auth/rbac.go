@@ -40,8 +40,8 @@ type RBACConfig struct {
 // Inits the RBAC Config struct
 func initPolicyConfig() policyConfig {
 	return policyConfig{
-		allowedApps:    []string{"EnvironmentLock", "EnvironmentApplicationLock", "Deploy", "Undeploy", "EnvironmentFromApplication"},
-		allowedActions: []string{"Create", "Delete"},
+		allowedApps:    []string{"EnvironmentLock", "EnvironmentApplicationLock", "Deploy", "Undeploy", "EnvironmentFromApplication", "*"},
+		allowedActions: []string{"Create", "Delete", "*"},
 	}
 }
 
@@ -166,15 +166,45 @@ func ReadRbacPolicy(dexEnabled bool) (policy map[string]*Permission, err error) 
 	return policy, nil
 }
 
+func recursionPermission(iter int, replace []string) [][]string {
+	allOptions := [][]string{}
+	recurseReturned := [][]string{}
+	if iter < len(replace)-1 {
+		recurseReturned = recursionPermission(iter+1, replace)
+	} else {
+		replaceGeneral := make([]string, len(replace))
+		copy(replaceGeneral, replace)
+		replaceGeneral[iter] = "*"
+		return [][]string{replaceGeneral, replace}
+	}
+	for i := range recurseReturned {
+		allOptions = append(allOptions, recurseReturned[i])
+		replaceGeneric := make([]string, len(recurseReturned[i]))
+		copy(replaceGeneric, recurseReturned[i])
+		replaceGeneric[iter] = "*"
+		allOptions = append(allOptions, replaceGeneric)
+	}
+	return allOptions
+}
+
 func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, envGroup, application, action string) error {
 	if !rbacConfig.DexEnabled {
 		return nil
 	}
 	permissionsWanted := fmt.Sprintf("p,%s,%s,%s,%s:%s,allow", user.DexAuthContext.Role, application, action, env, envGroup)
 	_, permissionsExist := rbacConfig.Policy[permissionsWanted]
-	if !permissionsExist {
-		return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", permissionsWanted))
+	if permissionsExist {
+		return nil
 	}
 
-	return nil
+	// check generics
+	generics := recursionPermission(0, []string{application, action, env, envGroup})
+	for _, currentGeneric := range generics {
+		permissionsWantedGeneric := fmt.Sprintf("p,%s,%s,%s,%s:%s,allow", user.DexAuthContext.Role, currentGeneric[0], currentGeneric[1], currentGeneric[2], currentGeneric[3])
+		_, permissionsExist = rbacConfig.Policy[permissionsWantedGeneric]
+		if permissionsExist {
+			return nil
+		}
+	}
+	return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", permissionsWanted))
 }
