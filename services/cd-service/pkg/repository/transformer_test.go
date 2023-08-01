@@ -812,7 +812,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Version:       1,
 					LockBehaviour: api.LockBehavior_Fail,
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"p,developer,Deploy,*,acceptance:acceptance,allow": {Role: "developer"}}}},
+						"developer,DeployRelease,acceptance:acceptance,*,allow": {Role: "developer"}}}},
 				},
 			},
 		},
@@ -837,7 +837,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "user does not have permissions for: p,developer,Deploy,*,acceptance:acceptance,allow",
+			ExpectedError: "user does not have permissions for: developer,DeployRelease,acceptance:acceptance,*,allow",
 		},
 		{
 			Name: "able to create environment lock with permissions policy",
@@ -899,8 +899,9 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment: "production",
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "developer"},
-						"developer,DeleteLock,production:production,*,allow": {Role: "developer"}}}},
+						"developer,DeployRelease,production:production,*,allow": {Role: "developer"},
+						"developer,CreateLock,production:production,*,allow":    {Role: "developer"},
+						"developer,DeleteLock,production:production,*,allow":    {Role: "developer"}}}},
 				},
 			},
 		},

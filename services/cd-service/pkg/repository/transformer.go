@@ -852,7 +852,7 @@ type DeployApplicationVersion struct {
 }
 
 func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, "Deploy", "*", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionDeployRelease, c.RBACConfig)
 	if err != nil {
 		return "", err
 	}
