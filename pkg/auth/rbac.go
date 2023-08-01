@@ -29,11 +29,24 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 )
 
+const (
+	PermissionCreateLock                   = "CreateLock"
+	PermissionDeleteLock                   = "DeleteLock"
+	PermissionCreateRelease                = "CreateRelease"
+	PermissionDeployRelease                = "DeployRelease"
+	PermissionCreateUndeploy               = "CreateUndeploy"
+	PermissionDeployUndeploy               = "DeployUndeploy"
+	PermissionCreateEnvironment            = "CreateEnvironment"
+	PermissionCreateEnvironmentApplication = "CreateEnvironmentApplication"
+	PermissionDeployReleaseTrain           = "DeployReleaseTrain"
+)
+
 // All static rbac information that is required to check authentication of a given user.
 type RBACConfig struct {
 	// Indicates if Dex is enabled.
 	DexEnabled bool
-	Policy     map[string]*Permission
+	// The RBAC policy. A key is a permission, for example: "Developer, CreateLock, development:development, *, allow"
+	Policy map[string]*Permission
 }
 
 // Inits the RBAC Config struct
@@ -41,15 +54,15 @@ func initPolicyConfig() policyConfig {
 	return policyConfig{
 		// List of allowed actions on the RBAC policy.
 		allowedActions: []string{
-			"CreateLock",
-			"DeleteLock",
-			"CreateRelease",
-			"DeployRelease",
-			"CreateUndeploy",
-			"DeployUndeploy",
-			"CreateEnvironment",
-			"CreateEnvironmentApplication",
-			"DeployReleaseTrain"},
+			PermissionCreateLock,
+			PermissionDeleteLock,
+			PermissionCreateRelease,
+			PermissionDeployRelease,
+			PermissionCreateUndeploy,
+			PermissionDeployUndeploy,
+			PermissionCreateEnvironment,
+			PermissionCreateEnvironmentApplication,
+			PermissionDeployReleaseTrain},
 	}
 }
 
@@ -73,8 +86,11 @@ func (c *policyConfig) validateEnvs(envs, action string) error {
 	if len(e) != 2 || envs == "" {
 		return fmt.Errorf("invalid environment %s", envs)
 	}
-	// Validate <ENVIRONMENT_GROUP:ENVIRONMENT>
-	if !valid.EnvironmentName(e[0]) {
+	// The environment follows the format <ENVIRONMENT_GROUP:ENVIRONMENT>
+	groupName := e[0]
+	envName := e[1]
+	// Validate environment group
+	if !valid.EnvironmentName(groupName) {
 		return fmt.Errorf("invalid environment group %s", envs)
 	}
 	// Actions that are environment independent need to follow the format <ENVIRONMENT_GROUP:*>.
@@ -84,7 +100,8 @@ func (c *policyConfig) validateEnvs(envs, action string) error {
 		}
 		return fmt.Errorf("the action %s requires the environment * and got %s", action, envs)
 	}
-	if !valid.EnvironmentName(e[1]) {
+	// Validate environment
+	if !valid.EnvironmentName(envName) {
 		return fmt.Errorf("invalid environment %s", envs)
 	}
 	return nil
@@ -126,26 +143,31 @@ func ValidateRbacPermission(line string) (p *Permission, err error) {
 	if len(c) != 5 {
 		return nil, fmt.Errorf("5 fields are expected but only %d were specified", len(c))
 	}
+	// Permission role
+	role := c[0]
 	// Validates the permission action
-	err = cfg.validateAction(c[1])
+	action := c[1]
+	err = cfg.validateAction(action)
 	if err != nil {
 		return nil, err
 	}
 	// Validate the permission environment
-	err = cfg.validateEnvs(c[2], c[1])
+	environment := c[2]
+	err = cfg.validateEnvs(environment, action)
 	if err != nil {
 		return nil, err
 	}
 	// Validate the environment names
-	err = cfg.validateApplication(c[3])
+	application := c[3]
+	err = cfg.validateApplication(application)
 	if err != nil {
 		return nil, err
 	}
 	return &Permission{
-		Role:        c[0],
-		Action:      c[1],
-		Environment: c[2],
-		Application: c[3],
+		Role:        role,
+		Action:      action,
+		Environment: environment,
+		Application: application,
 	}, nil
 }
 

@@ -626,7 +626,7 @@ func (s *State) checkUserPermissions(ctx context.Context, env, application, acti
 
 func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
 
-	err := state.checkUserPermissions(ctx, c.Environment, "*", "CreateLock", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, c.RBACConfig)
 	if err != nil {
 		return "", err
 	}
@@ -694,7 +694,7 @@ type DeleteEnvironmentLock struct {
 }
 
 func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, "*", "DeleteLock", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionDeleteLock, c.RBACConfig)
 	if err != nil {
 		return "", err
 	}
@@ -736,7 +736,7 @@ type CreateEnvironmentApplicationLock struct {
 
 func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
-	err := state.checkUserPermissions(ctx, c.Environment, "*", "CreateLock", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, c.RBACConfig)
 	if err != nil {
 		return "", err
 	}

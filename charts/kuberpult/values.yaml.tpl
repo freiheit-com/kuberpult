@@ -155,13 +155,14 @@ auth:
 dex:
   enabled: false
   # Defines the rbac policy when using Dex.
-  # The permissions are added using the following format (<ROLE>, <ACTION>, <ENVIRONMENT_GROUP>:<ENVIRONMENT>, <APPLICATION>, allow). 
-  # 
+  # The permissions are added using the following format (<ROLE>, <ACTION>, <ENVIRONMENT_GROUP>:<ENVIRONMENT>, <APPLICATION>, allow).
+  #
   # Available actions are: CreateLock, DeleteLock, CreateRelease, DeployRelease, CreateUndeploy, DeployUndeploy, CreateEnvironment, CreateEnvironmentApplication and DeployReleaseTrain.
-  # The following actions CreateUndeploy, DeployUndeploy and CreateEnvironmentApplication are environment independent meaning that the environment specified on the permission 
+  # The actions CreateUndeploy, DeployUndeploy and CreateEnvironmentApplication are environment independent meaning that the environment specified on the permission
   # needs to follow the following format <ENVIRONMENT_GROUP>:*, otherwise an error will be thrown.
   #
   # Example permission: Developer, CreateLock, development:development, *, allow
+  # If no group is configured for an environment, the environment group name is the same as the environment name, here "development".
   # The policy will be available on the kuberpult-rbac config map.
   policy_csv: ""
   clientId: ""
