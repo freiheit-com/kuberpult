@@ -26,21 +26,7 @@ import {
 import { GetFrontendConfigResponse } from '../../api/api';
 import { createStore } from 'react-use-sub';
 import { grpc } from '@improbable-eng/grpc-web';
-
-type FrontendConfig = {
-    configs: GetFrontendConfigResponse;
-    configReady: boolean;
-};
-
-export const [useFrontendConfig, UpdateFrontendConfig] = createStore<FrontendConfig>({
-    configs: {
-        sourceRepoUrl: '',
-        kuberpultVersion: '0',
-    },
-    configReady: false,
-});
-
-export const useKuberpultVersion = (): string => useFrontendConfig((configs) => configs.configs.kuberpultVersion);
+import { useFrontendConfig } from './store';
 
 type AzureAuthSubType = {
     authHeader: grpc.Metadata & {

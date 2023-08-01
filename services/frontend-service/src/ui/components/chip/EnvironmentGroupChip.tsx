@@ -19,6 +19,7 @@ import React from 'react';
 import { EnvironmentGroupExtended, getPriorityClassName, useCurrentlyDeployedAtGroup } from '../../utils/store';
 import { LocksWhite } from '../../../images';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
+import { ArgoAppEnvLink } from '../../utils/Links';
 
 export const AppLockSummary: React.FC<{
     app: string;
@@ -40,6 +41,7 @@ export const AppLockSummary: React.FC<{
 export type EnvironmentChipProps = {
     className: string;
     env: Environment;
+    app: string;
     groupNameOverride?: string;
     numberEnvsDeployed?: number;
     numberEnvsInGroup?: number;
@@ -47,7 +49,7 @@ export type EnvironmentChipProps = {
 };
 
 export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
-    const { className, env, smallEnvChip } = props;
+    const { className, env, smallEnvChip, app } = props;
     const priorityClassName = getPriorityClassName(env);
     const name = props.groupNameOverride ? props.groupNameOverride : env.name;
     const numberString =
@@ -59,7 +61,12 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     const locks = !smallEnvChip ? (
         <div className={classNames(className, 'env-locks')}>
             {Object.values(env.locks).map((lock) => (
-                <EnvironmentLockDisplay env={env.name} lockId={lock.lockId} bigLockIcon={false} />
+                <EnvironmentLockDisplay
+                    env={env.name}
+                    lockId={lock.lockId}
+                    bigLockIcon={false}
+                    key={'key-' + env.name + '-' + lock.lockId}
+                />
             ))}
         </div>
     ) : (
@@ -74,7 +81,9 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
             <span
                 className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
                 role="gridcell">
-                <span className="mdc-evolution-chip__text-name">{smallEnvChip ? name[0].toUpperCase() : name}</span>{' '}
+                <span className="mdc-evolution-chip__text-name">
+                    <ArgoAppEnvLink app={app} env={smallEnvChip ? name[0].toUpperCase() : name} />
+                </span>{' '}
                 <span className="mdc-evolution-chip__text-numbers">{numberString}</span>
                 {locks}
             </span>
@@ -85,9 +94,10 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
 export const EnvironmentGroupChip = (props: {
     className: string;
     envGroup: EnvironmentGroupExtended;
+    app: string;
     smallEnvChip?: boolean;
 }): JSX.Element => {
-    const { className, envGroup, smallEnvChip } = props;
+    const { className, envGroup, app, smallEnvChip } = props;
 
     // we display it different if there's only one env in this group:
     const displayAsGroup = envGroup.environments.length >= 2;
@@ -97,6 +107,7 @@ export const EnvironmentGroupChip = (props: {
                 <EnvironmentChip
                     className={className}
                     env={envGroup.environments[0]}
+                    app={app}
                     groupNameOverride={envGroup.environmentGroupName}
                     numberEnvsDeployed={envGroup.environments.length}
                     numberEnvsInGroup={envGroup.numberOfEnvsInGroup}
@@ -110,6 +121,7 @@ export const EnvironmentGroupChip = (props: {
         <EnvironmentChip
             className={className}
             env={envGroup.environments[0]}
+            app={app}
             groupNameOverride={undefined}
             numberEnvsDeployed={1}
             numberEnvsInGroup={envGroup.numberOfEnvsInGroup}
@@ -132,6 +144,7 @@ export const EnvironmentGroupChipList: React.FC<EnvChipListProps> = (props) => {
             {deployedAt.map((envGroup) => (
                 <EnvironmentGroupChip
                     key={envGroup.environmentGroupName}
+                    app={props.app}
                     envGroup={envGroup}
                     className={'release-environment'}
                     smallEnvChip={props.smallEnvChip}

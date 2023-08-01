@@ -29,6 +29,7 @@ import { Button } from '../button';
 import { Close, Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
+import { ArgoAppLink, ArgoTeamLink } from '../../utils/Links';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -160,6 +161,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             <div className="env-card-header">
                 <EnvironmentChip
                     env={env}
+                    app={app}
                     className={'release-environment'}
                     key={env.name}
                     groupNameOverride={undefined}
@@ -287,7 +289,9 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                 {release?.sourceAuthor ? 'Author: ' + release?.sourceAuthor : ''}
                             </div>
                             <div className={classNames('release-dialog-app', className)}>
-                                {`App: ${app} ` + (team ? ` | Team: ${team}` : '')}
+                                {'App: '}
+                                <ArgoAppLink app={app} />
+                                <ArgoTeamLink team={team} />
                             </div>
                         </div>
                         <span className={classNames('release-dialog-commitId', className)} title={undeployVersionTitle}>
@@ -299,13 +303,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             icon={<Close />}
                         />
                     </div>
-                    <EnvironmentList
-                        app={app}
-                        className={className}
-                        release={release}
-                        version={version}
-                        // deployedAtGroup={deployedAtGroup}
-                    />
+                    <EnvironmentList app={app} className={className} release={release} version={version} />
                 </Dialog>
             </div>
         ) : (

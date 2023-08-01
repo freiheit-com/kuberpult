@@ -14,6 +14,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 .release-dialog {
+    a {
+        color: white;
+    }
+
     div.MuiPaper-root {
         background-color: transparent;
         border-radius: $release-dialog-outer-border-radius;

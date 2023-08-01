@@ -1,0 +1,79 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ArgoAppEnvLink Renders properly  with url 1`] = `
+<body>
+  <div>
+    <a
+      href="https://example.com/argo/applications?search=dev-foo"
+      title="Opens the app in ArgoCd for this environment"
+    >
+      dev
+    </a>
+  </div>
+</body>
+`;
+
+exports[`ArgoAppEnvLink Renders properly  without url 1`] = `
+<body>
+  <div>
+    <span>
+      dev
+    </span>
+  </div>
+</body>
+`;
+
+exports[`ArgoAppLink Renders properly with url 1`] = `
+<body>
+  <div>
+    <a
+      href="https://example.com/argo/applications?search=-foo"
+      title="Opens this app in ArgoCd for all environments"
+    >
+      foo
+    </a>
+  </div>
+</body>
+`;
+
+exports[`ArgoAppLink Renders properly without url 1`] = `
+<body>
+  <div>
+    <span>
+      foo
+    </span>
+  </div>
+</body>
+`;
+
+exports[`ArgoTeamLink Renders properly with team, with url 1`] = `
+<body>
+  <div>
+    <span>
+       | Team: 
+      <a
+        href="https://example.com/argo/applications?&labels=com.freiheit.kuberpult%2Fteam%3Dfoo"
+        title="Opens the team in ArgoCd"
+      >
+        foo
+      </a>
+    </span>
+  </div>
+</body>
+`;
+
+exports[`ArgoTeamLink Renders properly with team, without url 1`] = `
+<body>
+  <div>
+    <span>
+      foo
+    </span>
+  </div>
+</body>
+`;
+
+exports[`ArgoTeamLink Renders properly without team, with url 1`] = `
+<body>
+  <div />
+</body>
+`;

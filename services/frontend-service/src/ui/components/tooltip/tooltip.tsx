@@ -20,8 +20,7 @@ export const Tooltip = (props: { children: JSX.Element; tooltipContent: JSX.Elem
     const delayHide = 50; // for debugging the css, increase this to 1000000
 
     // The React tooltip really wants us to use a href, but also we don't want to do anything on click:
-    // eslint-disable-next-line no-script-url
-    const href = 'javascript:void(0);';
+    const href = '#';
     return (
         <div className={'tooltip-container'}>
             <a href={href} id={'tooltip' + id} data-tooltip-place="bottom" data-tooltip-delay-hide={delayHide}>

@@ -35,7 +35,7 @@ describe('EnvironmentChip', () => {
         applications: {},
     };
     const getNode = (overloads?: Partial<EnvironmentChipProps>) => (
-        <EnvironmentChip className={'chip--test'} env={env} {...overloads} />
+        <EnvironmentChip app="app2" className={'chip--test'} env={env} {...overloads} />
     );
     const getWrapper = (overloads?: Partial<EnvironmentChipProps>) => render(getNode(overloads));
     it('renders a chip', () => {
@@ -57,7 +57,9 @@ describe('EnvironmentChip', () => {
                 <span
                   class="mdc-evolution-chip__text-name"
                 >
-                  Test Me
+                  <span>
+                    Test Me
+                  </span>
                 </span>
                  
                 <span
@@ -170,7 +172,7 @@ describe.each(envChipData)(`EnvironmentChip with envPrio Classname`, (testcase) 
             ],
         });
         // then
-        const getNode = () => <EnvironmentChip className={'chip--hello'} env={testcase.env} />;
+        const getNode = () => <EnvironmentChip app="app1" className={'chip--hello'} env={testcase.env} />;
         const getWrapper = () => render(getNode());
         const { container } = getWrapper();
         expect(container.firstChild).toHaveClass(
@@ -210,7 +212,9 @@ const envGroupChipData: Array<TestDataGroups> = [
 
 describe.each(envGroupChipData)(`EnvironmentGroupChip with different envs`, (testcase) => {
     it(`with envPrio=${testcase.expectedClass}`, () => {
-        const getNode = () => <EnvironmentGroupChip className={'chip--hello'} envGroup={testcase.envGroup} />;
+        const getNode = () => (
+            <EnvironmentGroupChip app="app1" className={'chip--hello'} envGroup={testcase.envGroup} />
+        );
         const getWrapper = () => render(getNode());
         const { container } = getWrapper();
         expect(container.querySelector('.mdc-evolution-chip__text-name')?.textContent).toContain(

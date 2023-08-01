@@ -23,8 +23,7 @@ import { ShowBarWhite } from '../../../images';
 import { useSearchParams } from 'react-router-dom';
 import { Dropdown } from '../dropdown/dropdown';
 import classNames from 'classnames';
-import { UpdateSidebar, useAllWarnings, useSidebarShown } from '../../utils/store';
-import { useKuberpultVersion } from '../../utils/AzureAuthProvider';
+import { UpdateSidebar, useAllWarnings, useKuberpultVersion, useSidebarShown } from '../../utils/store';
 import { Warning } from '../../../api/api';
 
 export const TopAppBar: React.FC = () => {

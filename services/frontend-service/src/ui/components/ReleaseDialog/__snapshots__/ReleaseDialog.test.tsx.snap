@@ -60,7 +60,10 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
             <div
               class="release-dialog-app"
             >
-              App: test1 
+              App: 
+              <span>
+                test1
+              </span>
             </div>
           </div>
           <span
@@ -104,7 +107,9 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                     <span
                       class="mdc-evolution-chip__text-name"
                     >
-                      prod
+                      <span>
+                        prod
+                      </span>
                     </span>
                      
                     <span
@@ -119,7 +124,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                         <a
                           data-tooltip-delay-hide="50"
                           data-tooltip-place="bottom"
-                          href="javascript:void(0);"
+                          href="#"
                           id="tooltipenv-group-chip-id-ui-envlock"
                         >
                           <div>
@@ -303,7 +308,10 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
             <div
               class="release-dialog-app"
             >
-              App: test1 
+              App: 
+              <span>
+                test1
+              </span>
             </div>
           </div>
           <span
@@ -347,7 +355,9 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                     <span
                       class="mdc-evolution-chip__text-name"
                     >
-                      prod
+                      <span>
+                        prod
+                      </span>
                     </span>
                      
                     <span
@@ -362,7 +372,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                         <a
                           data-tooltip-delay-hide="50"
                           data-tooltip-place="bottom"
-                          href="javascript:void(0);"
+                          href="#"
                           id="tooltipenv-group-chip-id-ui-envlock"
                         >
                           <div>
@@ -550,7 +560,13 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
             <div
               class="release-dialog-app"
             >
-              App: test1  | Team: test me team
+              App: 
+              <span>
+                test1
+              </span>
+              <span>
+                test me team
+              </span>
             </div>
           </div>
           <span
@@ -594,7 +610,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     <span
                       class="mdc-evolution-chip__text-name"
                     >
-                      prod
+                      <span>
+                        prod
+                      </span>
                     </span>
                      
                     <span
@@ -609,7 +627,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         <a
                           data-tooltip-delay-hide="50"
                           data-tooltip-place="bottom"
-                          href="javascript:void(0);"
+                          href="#"
                           id="tooltipenv-group-chip-id-ui-envlock"
                         >
                           <div>
@@ -738,7 +756,9 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     <span
                       class="mdc-evolution-chip__text-name"
                     >
-                      dev
+                      <span>
+                        dev
+                      </span>
                     </span>
                      
                     <span
@@ -753,7 +773,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         <a
                           data-tooltip-delay-hide="50"
                           data-tooltip-place="bottom"
-                          href="javascript:void(0);"
+                          href="#"
                           id="tooltipenv-group-chip-id-ui-envlock"
                         >
                           <div>
@@ -940,7 +960,10 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
             <div
               class="release-dialog-app"
             >
-              App: test1 
+              App: 
+              <span>
+                test1
+              </span>
             </div>
           </div>
           <span
