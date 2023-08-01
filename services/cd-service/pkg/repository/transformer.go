@@ -770,7 +770,8 @@ type DeleteEnvironmentApplicationLock struct {
 }
 
 func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, "EnvironmentApplicationLock", "Delete", c.RBACConfig)
+	// TODO (BB): add the "*" check on the checkUserPermissions() method.
+	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionDeleteLock, c.RBACConfig)
 	if err != nil {
 		return "", err
 	}
