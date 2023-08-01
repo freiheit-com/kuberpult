@@ -1,1 +1,1 @@
-p, Developer, EnvironmentLock, Create, development:development, allow
+Developer, CreateLock, development:development, *, allow

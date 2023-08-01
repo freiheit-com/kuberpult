@@ -31,38 +31,43 @@ func TestValidateRbacPermission(t *testing.T) {
 	}{
 		{
 			Name:       "Validating RBAC works as expected",
-			Permission: "p,Developer,Deploy,*,dev:development-d2,allow",
+			Permission: "Developer,CreateUndeploy,dev:*,*,allow",
 			WantPermission: &Permission{
 				Role:        "Developer",
-				Application: "Deploy",
-				Action:      "*",
-				Environment: "dev:development-d2",
+				Action:      "CreateUndeploy",
+				Application: "*",
+				Environment: "dev:*",
 			},
 		},
 		{
 			Name:       "Invalid permission Application",
-			Permission: "p,Developer,WRONG_APP,*,dev:development-d2,allow",
-			WantError:  "invalid application WRONG_APP",
+			Permission: "Developer,CreateLock,dev:development-d2,VeryLongAppWithInvalidName,allow",
+			WantError:  "invalid application VeryLongAppWithInvalidName",
 		},
 		{
 			Name:       "Invalid permission Action",
-			Permission: "p,Developer,EnvironmentLock,WRONG_ACTION,dev:development-d2,allow",
+			Permission: "Developer,WRONG_ACTION,dev:development-d2,*,allow",
 			WantError:  "invalid action WRONG_ACTION",
 		},
 		{
 			Name:       "Invalid permission Environment <ENVIRONMENT_GROUP:ENVIRONMENT>",
-			Permission: "p,Developer,Deploy,*,dev:-foo,allow",
+			Permission: "Developer,CreateLock,dev:-foo,*,allow",
 			WantError:  "invalid environment dev:-foo",
 		},
 		{
 			Name:       "Invalid permission Environment <ENVIRONMENT>",
-			Permission: "p,Developer,Deploy,*,-foo,allow",
+			Permission: "Developer,CreateLock,-foo,*,allow",
 			WantError:  "invalid environment -foo",
 		},
 		{
 			Name:       "Invalid permission Empty Environment",
-			Permission: "p,Developer,Deploy,*,,allow",
+			Permission: "Developer,CreateLock,,*,allow",
 			WantError:  "invalid environment ",
+		},
+		{
+			Name:       "Invalid permission for Environment Independent action <ENVIRONMENT_GROUP:*>",
+			Permission: "Developer,DeployUndeploy,dev:development-1,*,allow",
+			WantError:  "the action DeployUndeploy requires the environment * and got dev:development-1",
 		},
 	}
 
@@ -71,7 +76,7 @@ func TestValidateRbacPermission(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			permission, err := ValidateRbacPermission(tc.Permission)
 			if err != nil {
-				if diff := cmp.Diff(err.Error(), tc.WantError); diff != "" {
+				if diff := cmp.Diff(tc.WantError, err.Error()); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
 			} else {
