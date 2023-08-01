@@ -37,7 +37,7 @@ const (
 	PermissionCreateUndeploy               = "CreateUndeploy"
 	PermissionDeployUndeploy               = "DeployUndeploy"
 	PermissionCreateEnvironment            = "CreateEnvironment"
-	PermissionCreateEnvironmentApplication = "CreateEnvironmentApplication"
+	PermissionDeleteEnvironmentApplication = "DeleteEnvironmentApplication"
 	PermissionDeployReleaseTrain           = "DeployReleaseTrain"
 )
 
@@ -61,7 +61,7 @@ func initPolicyConfig() policyConfig {
 			PermissionCreateUndeploy,
 			PermissionDeployUndeploy,
 			PermissionCreateEnvironment,
-			PermissionCreateEnvironmentApplication,
+			PermissionDeleteEnvironmentApplication,
 			PermissionDeployReleaseTrain},
 	}
 }
