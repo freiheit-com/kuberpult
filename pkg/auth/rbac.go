@@ -29,45 +29,50 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 )
 
+const (
+	PermissionCreateLock                   = "CreateLock"
+	PermissionDeleteLock                   = "DeleteLock"
+	PermissionCreateRelease                = "CreateRelease"
+	PermissionDeployRelease                = "DeployRelease"
+	PermissionCreateUndeploy               = "CreateUndeploy"
+	PermissionDeployUndeploy               = "DeployUndeploy"
+	PermissionCreateEnvironment            = "CreateEnvironment"
+	PermissionDeleteEnvironmentApplication = "DeleteEnvironmentApplication"
+	PermissionDeployReleaseTrain           = "DeployReleaseTrain"
+)
+
 // All static rbac information that is required to check authentication of a given user.
 type RBACConfig struct {
 	// Indicates if Dex is enabled.
 	DexEnabled bool
-	// The RBAC policy. Key is for example "p,Developer,EnvironmentLock,Create,production,allow"
+	// The RBAC policy. A key is a permission, for example: "Developer, CreateLock, development:development, *, allow"
 	Policy map[string]*Permission
 }
 
 // Inits the RBAC Config struct
 func initPolicyConfig() policyConfig {
 	return policyConfig{
-		allowedApps:    []string{"EnvironmentLock", "EnvironmentApplicationLock", "Deploy", "Undeploy", "EnvironmentFromApplication"},
-		allowedActions: []string{"Create", "Delete"},
+		// List of allowed actions on the RBAC policy.
+		allowedActions: []string{
+			PermissionCreateLock,
+			PermissionDeleteLock,
+			PermissionCreateRelease,
+			PermissionDeployRelease,
+			PermissionCreateUndeploy,
+			PermissionDeployUndeploy,
+			PermissionCreateEnvironment,
+			PermissionDeleteEnvironmentApplication,
+			PermissionDeployReleaseTrain},
 	}
 }
 
 // Stores the RBAC Policy allowed Applications and Actions.
 // Only used for policy validation.
 type policyConfig struct {
-	allowedApps    []string
 	allowedActions []string
 }
 
-func (c *policyConfig) validateApp(app string) error {
-	if app == "" {
-		return fmt.Errorf("empty application value")
-	}
-	for _, a := range c.allowedApps {
-		if a == app {
-			return nil
-		}
-	}
-	return fmt.Errorf("invalid application %s", app)
-}
-
 func (c *policyConfig) validateAction(action string) error {
-	if action == "*" {
-		return nil
-	}
 	for _, a := range c.allowedActions {
 		if a == action {
 			return nil
@@ -76,28 +81,51 @@ func (c *policyConfig) validateAction(action string) error {
 	return fmt.Errorf("invalid action %s", action)
 }
 
-func (c *policyConfig) validateEnvs(envs string) error {
+func (c *policyConfig) validateEnvs(envs, action string) error {
 	e := strings.Split(envs, ":")
-	// Invalid format
-	if len(e) > 2 || envs == "" {
+	if len(e) != 2 || envs == "" {
 		return fmt.Errorf("invalid environment %s", envs)
 	}
-	// Validate <ENVIRONMENT_GROUP:ENVIRONMENT>
-	if len(e) == 2 {
-		if !valid.EnvironmentName(e[0]) {
-			return fmt.Errorf("invalid environment group %s", envs)
-		}
-		if !valid.EnvironmentName(e[1]) {
-			return fmt.Errorf("invalid environment %s", envs)
-		}
+	// The environment follows the format <ENVIRONMENT_GROUP:ENVIRONMENT>
+	groupName := e[0]
+	envName := e[1]
+	// Validate environment group
+	if !valid.EnvironmentName(groupName) {
+		return fmt.Errorf("invalid environment group %s", envs)
 	}
-	// Validate <ENVIRONMENT>
-	if len(e) == 1 {
-		if !valid.EnvironmentName(e[0]) {
-			return fmt.Errorf("invalid environment %s", envs)
+	// Actions that are environment independent need to follow the format <ENVIRONMENT_GROUP:*>.
+	if isEnvironmentIndependent(action) {
+		if envName == "*" {
+			return nil
 		}
+		return fmt.Errorf("the action %s requires the environment * and got %s", action, envs)
+	}
+	// Validate environment
+	if !valid.EnvironmentName(envName) {
+		return fmt.Errorf("invalid environment %s", envs)
 	}
 	return nil
+}
+
+func (c *policyConfig) validateApplication(app string) error {
+	if app == "*" {
+		return nil
+	}
+	if !valid.ApplicationName(app) {
+		return fmt.Errorf("invalid application %s", app)
+	}
+	return nil
+}
+
+// Helper function to indicate is the format if the specified action
+// is independent from the environment. If so, the following format needs to be
+// followed <ENVIRONMENT_GROUP:*>.
+func isEnvironmentIndependent(action string) bool {
+	switch action {
+	case "CreateUndeploy", "DeployUndeploy", "CreateEnvironmentApplication":
+		return true
+	}
+	return false
 }
 
 // Struct to store an RBAC permission.
@@ -112,29 +140,34 @@ func ValidateRbacPermission(line string) (p *Permission, err error) {
 	cfg := initPolicyConfig()
 	// Verifies if all fields are specified
 	c := strings.Split(line, ",")
-	if len(c) != 6 {
-		return nil, fmt.Errorf("6 fields are expected but only %d were specified", len(c))
+	if len(c) != 5 {
+		return nil, fmt.Errorf("5 fields are expected but only %d were specified", len(c))
 	}
-	// Validates the permission app
-	err = cfg.validateApp(c[2])
+	// Permission role
+	role := c[0]
+	// Validates the permission action
+	action := c[1]
+	err = cfg.validateAction(action)
 	if err != nil {
 		return nil, err
 	}
-	// Validate the permission action
-	err = cfg.validateAction(c[3])
+	// Validate the permission environment
+	environment := c[2]
+	err = cfg.validateEnvs(environment, action)
 	if err != nil {
 		return nil, err
 	}
 	// Validate the environment names
-	err = cfg.validateEnvs(c[4])
+	application := c[3]
+	err = cfg.validateApplication(application)
 	if err != nil {
 		return nil, err
 	}
 	return &Permission{
-		Role:        c[1],
-		Application: c[2],
-		Action:      c[3],
-		Environment: c[4],
+		Role:        role,
+		Action:      action,
+		Environment: environment,
+		Application: application,
 	}, nil
 }
 
@@ -166,8 +199,9 @@ func ReadRbacPolicy(dexEnabled bool) (policy map[string]*Permission, err error) 
 	return policy, nil
 }
 
+// Checks user permissions on the RBAC policy.
 func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, envGroup, application, action string) error {
-	permissionsWanted := fmt.Sprintf("p,%s,%s,%s,%s:%s,allow", user.DexAuthContext.Role, application, action, env, envGroup)
+	permissionsWanted := fmt.Sprintf("%s,%s,%s:%s,%s,allow", user.DexAuthContext.Role, action, envGroup, env, application)
 	_, permissionsExist := rbacConfig.Policy[permissionsWanted]
 	if !permissionsExist {
 		return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", permissionsWanted))
