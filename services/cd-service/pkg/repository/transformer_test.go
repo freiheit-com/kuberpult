@@ -794,6 +794,47 @@ func TestRbacTransformerTest(t *testing.T) {
 		ExpectedError string
 	}{
 		{
+			Name: "able to create undeploy with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1-rbac",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1-rbac",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"developer,CreateUndeploy,acceptance:*,*,allow": {Role: "developer"},
+					}}},
+				},
+			},
+		},
+		{
+			Name: "unable to create undeploy with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1-rbac",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&CreateUndeployApplicationVersion{
+					Application:    "app1-rbac",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+				},
+			},
+			ExpectedError: "user does not have permissions for: developer,CreateUndeploy,acceptance:*,*,allow",
+		},
+		{
 			Name: "able to create release train with permissions policy",
 			Transformers: ReleaseTrainTestSetup(&ReleaseTrain{
 				Target: envProduction,

@@ -339,6 +339,7 @@ func isLatestsVersion(state *State, application string, version uint64) (bool, e
 }
 
 type CreateUndeployApplicationVersion struct {
+	Authentication
 	Application string
 }
 
@@ -370,6 +371,10 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 	}
 	result := ""
 	for env := range configs {
+		err := state.checkUserPermissions(ctx, env, "*", auth.PermissionCreateUndeploy, c.RBACConfig)
+		if err != nil {
+			return "", err
+		}
 		envDir := fs.Join(releaseDir, "environments", env)
 
 		config, found := configs[env]
@@ -630,7 +635,6 @@ func (s *State) checkUserPermissions(ctx context.Context, env, application, acti
 	if group == "" {
 		return fmt.Errorf("group not found for environment: %s", env)
 	}
-
 	return auth.CheckUserPermissions(RBACConfig, user, env, group, application, action)
 }
 
