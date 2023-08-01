@@ -110,6 +110,12 @@ Copyright 2023 freiheit.com*/
                     top: $release-dialog-label-displacement;
                     left: $release-dialog-label-displacement;
                     height: 42px;
+
+                    .tooltip-container button {
+                        width: 16px;
+                        height: 16px;
+                    }
+
                     .env-card-label {
                         display: flex;
 
@@ -130,7 +136,7 @@ Copyright 2023 freiheit.com*/
                 .env-card-app-locks {
                     display: flex;
                     position: relative;
-                    top: 20px;
+                    top: 10px;
                     right: 36px;
                     flex-direction: row;
                     gap: 13px;

@@ -21,6 +21,10 @@ import { DisplayLock } from './ui/utils/store';
 // test utility to await all running promises
 global.nextTick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
+// CSS.supports is required a dependency of react-tooltip
+// @ts-ignore
+global.CSS = { supports: jest.fn() };
+
 export const documentQuerySelectorSafe = (selectors: string): HTMLElement => {
     const result = document.querySelector(selectors);
     if (!result) {

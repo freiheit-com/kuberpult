@@ -45,7 +45,12 @@ export const EnvironmentCard: React.FC<{ environment: Environment }> = (props) =
                 {locks.length !== 0 && (
                     <div className="environment__locks">
                         {locks.map((lock) => (
-                            <EnvironmentLockDisplay env={environment.name} lockId={lock} key={lock} />
+                            <EnvironmentLockDisplay
+                                env={environment.name}
+                                lockId={lock}
+                                key={lock}
+                                bigLockIcon={true}
+                            />
                         ))}
                     </div>
                 )}

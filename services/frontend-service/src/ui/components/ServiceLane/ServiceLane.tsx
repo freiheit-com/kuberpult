@@ -27,7 +27,6 @@ import {
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { DeleteWhite, HistoryWhite } from '../../../images';
 import { Application, Environment, UndeploySummary } from '../../../api/api';
-import { Tooltip } from '@material-ui/core';
 import * as React from 'react';
 import { AppLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
@@ -62,8 +61,8 @@ function getNumberOfReleasesBetween(releases: number[], higherVersion: number, l
     return releases.findIndex((ver) => ver === lowerVersion) - releases.findIndex((ver) => ver === higherVersion) - 1;
 }
 
-const DiffElement = (diff: number): JSX.Element => (
-    <div className="service-lane__diff--container">
+const DiffElement: React.FC<{ diff: number; title: string }> = ({ diff, title }) => (
+    <div className="service-lane__diff--container" title={title}>
         <div className="service-lane__diff--dot" />
         <div className="service-lane__diff--dot" />
         <div className="service-lane__diff--number">{diff}</div>
@@ -132,9 +131,10 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                 <div key={application.name + '-' + rel} className="service-lane__diff">
                     <ReleaseCard app={application.name} version={rel} key={application.name + '-' + rel} />
                     {!!diff && (
-                        <Tooltip title={'There are ' + diff + ' more releases hidden. Click on History to view more'}>
-                            {DiffElement(diff)}
-                        </Tooltip>
+                        <DiffElement
+                            diff={diff}
+                            title={'There are ' + diff + ' more releases hidden. Click on History to view more'}
+                        />
                     )}
                 </div>
             );

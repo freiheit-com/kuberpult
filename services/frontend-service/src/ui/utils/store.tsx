@@ -330,7 +330,7 @@ export const useEnvironmentLock = (lockId: string): DisplayLock => {
             }
         }
     }
-    throw new Error('lock with id not found: ' + lockId);
+    throw new Error('env lock with id not found: ' + lockId);
 };
 
 export const searchCustomFilter = (queryContent: string | null, val: string | undefined): string => {

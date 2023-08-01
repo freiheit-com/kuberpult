@@ -65,14 +65,14 @@ body,
 .text-regular {
     @extend .font;
     font-weight: 500;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 16px;
 }
 
 .text-bold {
     @extend .font;
     font-weight: 700;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 16px;
 }
 

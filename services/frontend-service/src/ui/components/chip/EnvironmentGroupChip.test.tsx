@@ -71,7 +71,7 @@ describe('EnvironmentChip', () => {
         `);
     });
     it('renders a short form tag chip', () => {
-        const { container } = getWrapper({
+        const wrapper = getWrapper({
             smallEnvChip: true,
             env: {
                 ...env,
@@ -81,21 +81,43 @@ describe('EnvironmentChip', () => {
                 },
             },
         });
+        const { container } = wrapper;
         expect(container.querySelector('.mdc-evolution-chip__text-name')?.textContent).toBe(env.name[0].toUpperCase());
         // only show one lock icon in the small env tag
         expect(container.querySelectorAll('.env-card-env-lock-icon').length).toBe(1);
     });
     it('renders env locks in big env chip', () => {
-        const { container } = getWrapper({
+        UpdateOverview.set({
+            environmentGroups: [
+                {
+                    environments: [
+                        {
+                            ...env,
+                            locks: {
+                                'test-lock1': makeLock('test-lock1'),
+                                'test-lock2': makeLock('test-lock2'),
+                            },
+                        },
+                    ],
+                    environmentGroupName: 'dontcare',
+                    distanceToUpstream: 0,
+                },
+            ],
+        });
+
+        const wrapper = getWrapper({
+            // big chip shows all locks
+            smallEnvChip: false,
             env: {
                 ...env,
                 locks: {
-                    lock1: makeLock('test-lock1'),
-                    lock2: makeLock('test-lock2'),
+                    'test-lock1': makeLock('test-lock1'),
+                    'test-lock2': makeLock('test-lock2'),
                 },
             },
         });
-        // big chip shows all locks
+
+        const { container } = wrapper;
         expect(container.querySelectorAll('.env-card-env-lock-icon').length).toBe(2);
         const lock1 = container.querySelectorAll('.button-lock')[0];
         fireEvent.click(lock1);

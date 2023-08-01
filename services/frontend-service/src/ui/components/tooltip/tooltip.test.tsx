@@ -19,7 +19,11 @@ import { Tooltip } from './tooltip';
 
 describe('Tooltip', () => {
     const getNode = (): JSX.Element => (
-        <Tooltip content={<div>I'm inside the tooltip</div>} children={<button>click me</button>} id={'test-tooltip'} />
+        <Tooltip
+            tooltipContent={<div>I'm inside the tooltip</div>}
+            children={<button>click me</button>}
+            id={'test-tooltip'}
+        />
     );
     const getWrapper = () => render(getNode());
 

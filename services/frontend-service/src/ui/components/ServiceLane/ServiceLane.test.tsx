@@ -630,7 +630,7 @@ describe('Service Lane AppLockSummary', () => {
             const { container } = getWrapper({ application: testcase.renderedApp });
 
             const appLockSummary = container.querySelector('.test-app-lock-summary div');
-            expect(appLockSummary?.attributes.getNamedItem('aria-label')?.value).toBe(testcase.expected);
+            expect(appLockSummary?.attributes.getNamedItem('title')?.value).toBe(testcase.expected);
         });
     });
 });
