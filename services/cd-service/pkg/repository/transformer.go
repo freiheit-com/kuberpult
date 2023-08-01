@@ -476,11 +476,16 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 }
 
 type DeleteEnvFromApp struct {
+	Authentication
 	Application string
 	Environment string
 }
 
 func (u *DeleteEnvFromApp) Transform(ctx context.Context, state *State) (string, error) {
+	err := state.checkUserPermissions(ctx, u.Environment, "*", auth.PermissionDeleteEnvironmentApplication, u.RBACConfig)
+	if err != nil {
+		return "", err
+	}
 	fs := state.Filesystem
 	thisSprintf := func(format string, a ...any) string {
 		return fmt.Sprintf("DeleteEnvFromApp app '%s' on env '%s': %s", u.Application, u.Environment, fmt.Sprintf(format, a...))

@@ -176,8 +176,9 @@ func (d *BatchServer) processAction(
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp
 		return &repository.DeleteEnvFromApp{
-			Environment: act.Environment,
-			Application: act.Application,
+			Environment:    act.Environment,
+			Application:    act.Application,
+			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 		}, nil, nil
 	case *api.BatchAction_ReleaseTrain:
 		in := action.ReleaseTrain

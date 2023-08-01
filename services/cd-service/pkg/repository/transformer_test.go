@@ -956,6 +956,61 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "unable to delete environment application without permission policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:   envProduction,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+				&DeleteEnvFromApp{
+					Application:    "app1",
+					Environment:    envProduction,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+				},
+			},
+			ExpectedError: "user does not have permissions for: developer,DeleteEnvironmentApplication,production:production,*,allow",
+		},
+		{
+			Name: "able to delete environment application without permission policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:   envProduction,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+				&DeleteEnvFromApp{
+					Application: "app1",
+					Environment: envProduction,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"developer,DeleteEnvironmentApplication,production:production,*,allow": {Role: "developer"},
+					}}},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
