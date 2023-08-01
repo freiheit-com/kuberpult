@@ -95,7 +95,7 @@ func (c *policyConfig) validateEnvs(envs, action string) error {
 	}
 	// Actions that are environment independent need to follow the format <ENVIRONMENT_GROUP:*>.
 	if isEnvironmentIndependent(action) {
-		if e[1] == "*" {
+		if envName == "*" {
 			return nil
 		}
 		return fmt.Errorf("the action %s requires the environment * and got %s", action, envs)
