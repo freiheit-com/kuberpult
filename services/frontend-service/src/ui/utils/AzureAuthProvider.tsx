@@ -27,6 +27,7 @@ import { GetFrontendConfigResponse } from '../../api/api';
 import { createStore } from 'react-use-sub';
 import { grpc } from '@improbable-eng/grpc-web';
 import { useFrontendConfig } from './store';
+import { AuthenticationResult } from '@azure/msal-common';
 
 type AzureAuthSubType = {
     authHeader: grpc.Metadata & {
@@ -63,6 +64,8 @@ const loginRequest = {
 export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { instance, accounts } = useMsal();
 
+    const { authReady } = useAzureAuthSub((auth) => auth);
+
     React.useEffect(() => {
         const request = {
             ...loginRequest,
@@ -72,7 +75,7 @@ export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children
         const username: string = accounts[0]?.name || '';
         instance
             .acquireTokenSilent(request)
-            .then((response) => {
+            .then((response: AuthenticationResult) => {
                 AzureAuthSub.set({
                     authHeader: new BrowserHeaders({
                         Authorization: response.idToken,
@@ -82,20 +85,31 @@ export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children
                     authReady: true,
                 });
             })
-            .catch(() => {
-                instance.acquireTokenPopup(request).then((response) => {
-                    AzureAuthSub.set({
-                        authHeader: new BrowserHeaders({
-                            Authorization: response.idToken,
-                            email: email, // use same key here as in server.go function getRequestAuthorFromAzure: r.Header.Get("email")
-                            username: username, // use same key here too
-                        }),
-                        authReady: true,
+            .catch((silentError) => {
+                instance
+                    .acquireTokenPopup(request)
+                    .then((response: AuthenticationResult) => {
+                        AzureAuthSub.set({
+                            authHeader: new BrowserHeaders({
+                                Authorization: response.idToken,
+                                email: email, // use same key here as in server.go function getRequestAuthorFromAzure: r.Header.Get("email")
+                                username: username, // use same key here too
+                            }),
+                            authReady: true,
+                        });
+                    })
+                    .catch((error) => {
+                        // eslint-disable-next-line no-console
+                        console.error('acquireTokenSilent failed: ', silentError);
+                        // eslint-disable-next-line no-console
+                        console.error('acquireTokenPopup failed: ', error);
                     });
-                });
             });
     }, [instance, accounts]);
 
+    if (!authReady) {
+        return <div>loading...</div>;
+    }
     return <>{children}</>;
 };
 
