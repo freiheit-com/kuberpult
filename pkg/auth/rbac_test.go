@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -78,13 +79,12 @@ func TestValidateRbacPermission(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			permission, err := ValidateRbacPermission(tc.Permission)
-			if err != nil {
-				if diff := cmp.Diff(tc.WantError, err.Error()); diff != "" {
+			if diff := cmp.Diff(permission, tc.WantPermission, cmpopts.EquateEmpty()); diff != "" {
+				t.Errorf("%s: unexpected result diff : %v", tc.Name, diff)
+			}
+			if tc.WantError != "" {
+				if diff := cmp.Diff(tc.WantError, err.Error(), cmpopts.EquateErrors()); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)
-				}
-			} else {
-				if diff := cmp.Diff(permission, tc.WantPermission); diff != "" {
-					t.Errorf("got %v, want %v, diff (-want +got) %s", permission, tc.WantPermission, diff)
 				}
 			}
 		})
@@ -100,7 +100,7 @@ func TestCheckUserPermissions(t *testing.T) {
 		envGroup    string
 		application string
 		action      string
-		WantError   string
+		WantError   error
 	}{
 		{
 			Name:        "Check user permission works as expected",
@@ -137,7 +137,7 @@ func TestCheckUserPermissions(t *testing.T) {
 			application: "app1",
 			action:      PermissionCreateLock,
 			rbacConfig:  RBACConfig{DexEnabled: true, Policy: map[string]*Permission{"Developer,CreateLock,staging:staging,app1,allow": {Role: "Developer"}}},
-			WantError:   status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", "Developer,CreateLock,production:production,app1,allow")).Error(),
+			WantError:   status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", "Developer,CreateLock,production:production,app1,allow")),
 		},
 		{
 			Name:        "User does not have permission: wrong app",
@@ -147,7 +147,7 @@ func TestCheckUserPermissions(t *testing.T) {
 			application: "app2",
 			action:      PermissionCreateLock,
 			rbacConfig:  RBACConfig{DexEnabled: true, Policy: map[string]*Permission{"Developer,CreateLock,production:production,app1,allow": {Role: "Developer"}}},
-			WantError:   status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", "Developer,CreateLock,production:production,app2,allow")).Error(),
+			WantError:   status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", "Developer,CreateLock,production:production,app2,allow")),
 		},
 	}
 
@@ -155,10 +155,8 @@ func TestCheckUserPermissions(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			err := CheckUserPermissions(tc.rbacConfig, tc.user, tc.env, tc.envGroup, tc.application, tc.action)
-			if err != nil && tc.WantError != "" {
-				if diff := cmp.Diff(tc.WantError, err.Error()); diff != "" {
-					t.Errorf("Error mismatch (-want +got):\n%s", diff)
-				}
+			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("Error mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
