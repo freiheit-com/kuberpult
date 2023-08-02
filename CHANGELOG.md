@@ -6,6 +6,27 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.80
+**released 2023-08-02**
+
+### Breaking Changes
+none
+
+### Major Changes
+* [Add links to ArgoCd in the UI](https://github.com/freiheit-com/kuberpult/pull/835)
+
+### Minor Changes
+* [Added Changelog information about IAP for /release endpoint](https://github.com/freiheit-com/kuberpult/pull/821)
+* [Block Users without Permission from Creating Environment Locks](https://github.com/freiheit-com/kuberpult/pull/815)
+* [Refactoring: rename httperrors.go to grpc/errors.go](https://github.com/freiheit-com/kuberpult/pull/825)
+* [Refactor checkUserPermissions in auth/rbac.go](https://github.com/freiheit-com/kuberpult/pull/823)
+* [CheckPermissions function moved to transformer](https://github.com/freiheit-com/kuberpult/pull/826)
+* [DeleteEnvironmentLock Role Based access Checked if Dex is Enabled](https://github.com/freiheit-com/kuberpult/pull/828)
+* [CreateEnvironmentApplicationLock Role Based access](https://github.com/freiheit-com/kuberpult/pull/830)
+* [Refactoring: Use own tooltip component](https://github.com/freiheit-com/kuberpult/pull/832)
+* [Refactor permission policy RBAC](https://github.com/freiheit-com/kuberpult/pull/834)
+
+
 ## 0.4.79
 **released 2023-07-26**
 
