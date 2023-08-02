@@ -22,7 +22,7 @@ require (
 	golang.org/x/crypto v0.10.0
 	golang.org/x/oauth2 v0.8.0
 	google.golang.org/api v0.128.0
-	google.golang.org/grpc v1.56.1
+	google.golang.org/grpc v1.57.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.52.0
 	k8s.io/apimachinery v0.27.3
