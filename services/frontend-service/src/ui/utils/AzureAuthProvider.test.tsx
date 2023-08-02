@@ -20,6 +20,7 @@ import { PublicClientApplication, IPublicClientApplication, Configuration, Accou
 import { AuthenticatedTemplate, MsalProvider, UnauthenticatedTemplate } from '@azure/msal-react';
 import { AuthenticationResult } from '@azure/msal-common';
 import { UpdateFrontendConfig } from './store';
+import { BrowserHeaders } from 'browser-headers';
 
 const makeAuthenticationResult = (partial: Partial<AuthenticationResult>): AuthenticationResult => ({
     authority: 'authority',
@@ -107,7 +108,7 @@ describe('AuthProvider', () => {
     });
 
     describe('AcquireToken', () => {
-        it('Get id token and store it in authHeader', async () => {
+        it('Get id token and store it in authHeader with acquireTokenSilent method', async () => {
             // given
             jest.spyOn(pca, 'getAllAccounts').mockImplementation(() => [testAccount]);
             const acquireTokenSilentSpy = jest
@@ -132,6 +133,82 @@ describe('AuthProvider', () => {
             await waitFor(() => expect(AzureAuthSub.get().authHeader.get('authorization')).toContain('unique-token'));
             await waitFor(() => expect(AzureAuthSub.get().authHeader.get('email')).toContain('mail@example.com'));
             await waitFor(() => expect(AzureAuthSub.get().authHeader.get('username')).toContain('test person'));
+        });
+
+        it('Get id token and store it in authHeader with acquireTokenPopup method', async () => {
+            // given
+            jest.spyOn(pca, 'getAllAccounts').mockImplementation(() => [testAccount]);
+            const acquireTokenSilentSpy = jest
+                .spyOn(pca, 'acquireTokenSilent')
+                .mockImplementation((r) => Promise.reject(new Error('promise failed testing')));
+            const acquireTokenPopup = jest
+                .spyOn(pca, 'acquireTokenPopup')
+                .mockImplementation((r) => Promise.resolve(makeAuthenticationResult({ idToken: 'unique-token-2' })));
+
+            // when
+            render(
+                <MsalProvider instance={pca}>
+                    <AuthenticatedTemplate>
+                        <AcquireToken>
+                            <span>Token Acquired</span>
+                        </AcquireToken>
+                    </AuthenticatedTemplate>
+                </MsalProvider>
+            );
+            await act(async () => await global.nextTick());
+
+            // then
+            expect(screen.queryByText('Token Acquired')).toBeInTheDocument();
+            await waitFor(async () => expect(acquireTokenSilentSpy).toHaveBeenCalledTimes(1));
+            await waitFor(async () => expect(acquireTokenPopup).toHaveBeenCalledTimes(1));
+            await waitFor(() => expect(AzureAuthSub.get().authHeader.get('authorization')).toContain('unique-token-2'));
+            await waitFor(() => expect(AzureAuthSub.get().authHeader.get('email')).toContain('mail@example.com'));
+            await waitFor(() => expect(AzureAuthSub.get().authHeader.get('username')).toContain('test person'));
+        });
+        it('Get id token both method failed', async () => {
+            // given
+            AzureAuthSub.set({
+                authHeader: new BrowserHeaders({}),
+                authReady: false,
+            });
+            // eslint-disable-next-line no-console
+            console.error = jest.fn();
+
+            jest.spyOn(pca, 'getAllAccounts').mockImplementation(() => [testAccount]);
+            const acquireTokenSilentSpy = jest
+                .spyOn(pca, 'acquireTokenSilent')
+                .mockImplementation((r) => Promise.reject(new Error('promise failed testing 1')));
+            const acquireTokenPopup = jest
+                .spyOn(pca, 'acquireTokenPopup')
+                .mockImplementation((r) => Promise.reject(new Error('promise failed testing 2')));
+
+            // when
+            render(
+                <MsalProvider instance={pca}>
+                    <AuthenticatedTemplate>
+                        <AcquireToken>
+                            <span>Token Acquired</span>
+                        </AcquireToken>
+                    </AuthenticatedTemplate>
+                </MsalProvider>
+            );
+            await act(async () => await global.nextTick());
+
+            // then
+            await waitFor(async () => expect(acquireTokenSilentSpy).toHaveBeenCalledTimes(1));
+            await waitFor(async () => expect(acquireTokenPopup).toHaveBeenCalledTimes(1));
+            // eslint-disable-next-line no-console
+            expect(console.error).toHaveBeenCalledWith(
+                'acquireTokenSilent failed: ',
+                new Error('promise failed testing 1')
+            );
+            // eslint-disable-next-line no-console
+            expect(console.error).toHaveBeenCalledWith(
+                'acquireTokenPopup failed: ',
+                new Error('promise failed testing 2')
+            );
+            expect(screen.queryByText('Token Acquired')).not.toBeInTheDocument();
+            expect(screen.queryByText('loading...')).toBeInTheDocument();
         });
     });
 
