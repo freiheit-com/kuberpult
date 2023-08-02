@@ -39,6 +39,8 @@ const (
 	PermissionCreateEnvironment            = "CreateEnvironment"
 	PermissionDeleteEnvironmentApplication = "DeleteEnvironmentApplication"
 	PermissionDeployReleaseTrain           = "DeployReleaseTrain"
+	// The default permission template.
+	PermissionTemplate = "%s,%s,%s:%s,%s,allow"
 )
 
 // All static rbac information that is required to check authentication of a given user.
@@ -122,7 +124,7 @@ func (c *policyConfig) validateApplication(app string) error {
 // followed <ENVIRONMENT_GROUP:*>.
 func isEnvironmentIndependent(action string) bool {
 	switch action {
-	case "CreateUndeploy", "DeployUndeploy", "CreateEnvironmentApplication":
+	case PermissionCreateUndeploy, PermissionDeployUndeploy, PermissionDeleteEnvironmentApplication:
 		return true
 	}
 	return false
@@ -201,11 +203,23 @@ func ReadRbacPolicy(dexEnabled bool) (policy map[string]*Permission, err error) 
 
 // Checks user permissions on the RBAC policy.
 func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, envGroup, application, action string) error {
-	permissionsWanted := fmt.Sprintf("%s,%s,%s:%s,%s,allow", user.DexAuthContext.Role, action, envGroup, env, application)
-	_, permissionsExist := rbacConfig.Policy[permissionsWanted]
-	if !permissionsExist {
-		return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", permissionsWanted))
+	// If the action is environment independent, the env format is <ENVIRONMENT_GROUP>:*
+	if isEnvironmentIndependent(action) {
+		env = "*"
 	}
-
-	return nil
+	// Check for wildcard application permission.
+	permissionApplicationWildcard := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, envGroup, env, "*")
+	_, permissionsExist := rbacConfig.Policy[permissionApplicationWildcard]
+	if permissionsExist {
+		return nil
+	}
+	// Check if the permission exists.
+	// TODO (BB): This needs to be a loop over all permutations. Envs can also be "*".
+	permissionsWanted := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, envGroup, env, application)
+	_, permissionsExist = rbacConfig.Policy[permissionsWanted]
+	if permissionsExist {
+		return nil
+	}
+	// The permission is not found. Return an error.
+	return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", permissionsWanted))
 }
