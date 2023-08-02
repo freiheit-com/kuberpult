@@ -207,7 +207,7 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, envGroup, appl
 	if isEnvironmentIndependent(action) {
 		env = "*"
 	}
-	// Wildcard check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
+	// Check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
 	for _, pEnvGroup := range []string{envGroup, "*"} {
 		for _, pEnv := range []string{env, "*"} {
 			for _, pApplication := range []string{application, "*"} {
