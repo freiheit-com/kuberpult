@@ -14,17 +14,12 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import { act, getByText, render, screen, waitFor } from '@testing-library/react';
-import {
-    AcquireToken,
-    AzureAuthProvider,
-    AzureAuthSub,
-    AzureAutoSignIn,
-    UpdateFrontendConfig,
-} from './AzureAuthProvider';
+import { AcquireToken, AzureAuthProvider, AzureAuthSub, AzureAutoSignIn } from './AzureAuthProvider';
 import { Crypto } from '@peculiar/webcrypto';
 import { PublicClientApplication, IPublicClientApplication, Configuration, AccountInfo } from '@azure/msal-browser';
 import { AuthenticatedTemplate, MsalProvider, UnauthenticatedTemplate } from '@azure/msal-react';
 import { AuthenticationResult } from '@azure/msal-common';
+import { UpdateFrontendConfig } from './store';
 
 const makeAuthenticationResult = (partial: Partial<AuthenticationResult>): AuthenticationResult => ({
     authority: 'authority',

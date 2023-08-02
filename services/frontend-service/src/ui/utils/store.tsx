@@ -20,6 +20,7 @@ import {
     BatchRequest,
     Environment,
     EnvironmentGroup,
+    GetFrontendConfigResponse,
     GetOverviewResponse,
     Priority,
     Release,
@@ -238,8 +239,8 @@ export const useTeamNames = (): string[] =>
         ),
     ]);
 
-export const useTeamFromApplication = (app: string): string =>
-    useOverview(({ applications }) => applications[app]?.team?.trim() || '');
+export const useTeamFromApplication = (app: string): string | undefined =>
+    useOverview(({ applications }) => applications[app]?.team?.trim());
 
 // returns warnings from all apps
 export const useAllWarnings = (): Warning[] =>
@@ -597,3 +598,20 @@ export const useNavigateWithSearchParams = (to: string): { navURL: string; navCa
         }, [navURL, navigate]),
     };
 };
+
+type FrontendConfig = {
+    configs: GetFrontendConfigResponse;
+    configReady: boolean;
+};
+
+export const [useFrontendConfig, UpdateFrontendConfig] = createStore<FrontendConfig>({
+    configs: {
+        sourceRepoUrl: '',
+        kuberpultVersion: '0',
+    },
+    configReady: false,
+});
+
+export const useKuberpultVersion = (): string => useFrontendConfig((configs) => configs.configs.kuberpultVersion);
+export const useArgoCdBaseUrl = (): string | undefined =>
+    useFrontendConfig((configs) => configs.configs.argoCd?.baseUrl);

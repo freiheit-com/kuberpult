@@ -19,17 +19,20 @@ import { ReleaseDialog } from '../components/ReleaseDialog/ReleaseDialog';
 import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
-import { PanicOverview, showSnackbarWarn, UpdateOverview, useReleaseDialogParams } from '../utils/store';
-import { useApi } from '../utils/GrpcApi';
 import {
-    AzureAuthProvider,
+    PanicOverview,
+    showSnackbarWarn,
     UpdateFrontendConfig,
-    useAzureAuthSub,
+    UpdateOverview,
     useKuberpultVersion,
-} from '../utils/AzureAuthProvider';
+    useReleaseDialogParams,
+} from '../utils/store';
+import { useApi } from '../utils/GrpcApi';
+import { AzureAuthProvider, useAzureAuthSub } from '../utils/AzureAuthProvider';
 import { Snackbar } from '../components/snackbar/snackbar';
 import { mergeMap, retryWhen } from 'rxjs/operators';
 import { Observable, throwError, timer } from 'rxjs';
+import { GetFrontendConfigResponse } from '../../api/api';
 
 // retry strategy: retries the observable subscription with randomized exponential backoff
 // source: https://www.learnrxjs.io/learn-rxjs/operators/error_handling/retrywhen#examples
@@ -62,7 +65,7 @@ export const App: React.FC = () => {
         api.configService()
             .GetConfig({}) // the config service does not require authorisation
             .then(
-                (result) => {
+                (result: GetFrontendConfigResponse) => {
                     UpdateFrontendConfig.set({ configs: result, configReady: true });
                 },
                 (error) => {

@@ -7,7 +7,7 @@ exports[`Tooltip Renders a tooltip 1`] = `
   <a
     data-tooltip-delay-hide="50"
     data-tooltip-place="bottom"
-    href="javascript:void(0);"
+    href="#"
     id="tooltiptest-tooltip"
   >
     <button>
