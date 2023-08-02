@@ -17,9 +17,12 @@ Copyright 2023 freiheit.com*/
 package auth
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestValidateRbacPermission(t *testing.T) {
@@ -82,6 +85,77 @@ func TestValidateRbacPermission(t *testing.T) {
 			} else {
 				if diff := cmp.Diff(permission, tc.WantPermission); diff != "" {
 					t.Errorf("got %v, want %v, diff (-want +got) %s", permission, tc.WantPermission, diff)
+				}
+			}
+		})
+	}
+}
+
+func TestCheckUserPermissions(t *testing.T) {
+	tcs := []struct {
+		Name        string
+		rbacConfig  RBACConfig
+		user        *User
+		env         string
+		envGroup    string
+		application string
+		action      string
+		WantError   string
+	}{
+		{
+			Name:        "Check user permission works as expected",
+			user:        &User{DexAuthContext: &DexAuthContext{Role: "Developer"}},
+			env:         "production",
+			envGroup:    "production",
+			application: "app1",
+			action:      PermissionCreateLock,
+			rbacConfig: RBACConfig{DexEnabled: true, Policy: map[string]*Permission{
+				"Developer,CreateLock,production:production,app1,allow": {Role: "Developer"},
+			}},
+		},
+		{
+			Name:        "Application Wildcard works as expected",
+			user:        &User{DexAuthContext: &DexAuthContext{Role: "Developer"}},
+			env:         "production",
+			envGroup:    "production",
+			application: "app1",
+			action:      PermissionCreateLock,
+			rbacConfig: RBACConfig{DexEnabled: true, Policy: map[string]*Permission{
+				"Developer,CreateLock,production:production,*,allow": {Role: "Developer"},
+			}},
+		},
+		{
+			Name:        "Environment independent works as expected",
+			user:        &User{DexAuthContext: &DexAuthContext{Role: "Developer"}},
+			env:         "production",
+			envGroup:    "production",
+			application: "app1",
+			action:      PermissionCreateUndeploy,
+			rbacConfig: RBACConfig{DexEnabled: true, Policy: map[string]*Permission{
+				"Developer,CreateUndeploy,production:*,*,allow": {Role: "Developer"},
+			}},
+		},
+		{
+			Name:        "User does not have permission",
+			user:        &User{DexAuthContext: &DexAuthContext{Role: "Developer"}},
+			env:         "production",
+			envGroup:    "production",
+			application: "app1",
+			action:      PermissionCreateLock,
+			rbacConfig: RBACConfig{DexEnabled: true, Policy: map[string]*Permission{
+				"Developer,CreateLock,staging:staging,app1,allow": {Role: "Developer"},
+			}},
+			WantError: status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", "Developer,CreateLock,production:production,app1,allow")).Error(),
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			err := CheckUserPermissions(tc.rbacConfig, tc.user, tc.env, tc.envGroup, tc.application, tc.action)
+			if err != nil {
+				if diff := cmp.Diff(tc.WantError, err.Error()); diff != "" {
+					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
