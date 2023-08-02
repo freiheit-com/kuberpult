@@ -109,9 +109,7 @@ func TestCheckUserPermissions(t *testing.T) {
 			envGroup:    "production",
 			application: "app1",
 			action:      PermissionCreateLock,
-			rbacConfig: RBACConfig{DexEnabled: true, Policy: map[string]*Permission{
-				"Developer,CreateLock,production:production,app1,allow": {Role: "Developer"},
-			}},
+			rbacConfig:  RBACConfig{DexEnabled: true, Policy: map[string]*Permission{"Developer,CreateLock,production:production,app1,allow": {Role: "Developer"}}},
 		},
 		{
 			Name:        "Application Wildcard works as expected",
@@ -120,9 +118,7 @@ func TestCheckUserPermissions(t *testing.T) {
 			envGroup:    "production",
 			application: "app1",
 			action:      PermissionCreateLock,
-			rbacConfig: RBACConfig{DexEnabled: true, Policy: map[string]*Permission{
-				"Developer,CreateLock,production:production,*,allow": {Role: "Developer"},
-			}},
+			rbacConfig:  RBACConfig{DexEnabled: true, Policy: map[string]*Permission{"Developer,CreateLock,production:production,*,allow": {Role: "Developer"}}},
 		},
 		{
 			Name:        "Environment independent works as expected",
@@ -131,21 +127,27 @@ func TestCheckUserPermissions(t *testing.T) {
 			envGroup:    "production",
 			application: "app1",
 			action:      PermissionCreateUndeploy,
-			rbacConfig: RBACConfig{DexEnabled: true, Policy: map[string]*Permission{
-				"Developer,CreateUndeploy,production:*,*,allow": {Role: "Developer"},
-			}},
+			rbacConfig:  RBACConfig{DexEnabled: true, Policy: map[string]*Permission{"Developer,CreateUndeploy,production:*,*,allow": {Role: "Developer"}}},
 		},
 		{
-			Name:        "User does not have permission",
+			Name:        "User does not have permission: wrong environment/group",
 			user:        &User{DexAuthContext: &DexAuthContext{Role: "Developer"}},
 			env:         "production",
 			envGroup:    "production",
 			application: "app1",
 			action:      PermissionCreateLock,
-			rbacConfig: RBACConfig{DexEnabled: true, Policy: map[string]*Permission{
-				"Developer,CreateLock,staging:staging,app1,allow": {Role: "Developer"},
-			}},
-			WantError: status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", "Developer,CreateLock,production:production,app1,allow")).Error(),
+			rbacConfig:  RBACConfig{DexEnabled: true, Policy: map[string]*Permission{"Developer,CreateLock,staging:staging,app1,allow": {Role: "Developer"}}},
+			WantError:   status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", "Developer,CreateLock,production:production,app1,allow")).Error(),
+		},
+		{
+			Name:        "User does not have permission: wrong app",
+			user:        &User{DexAuthContext: &DexAuthContext{Role: "Developer"}},
+			env:         "production",
+			envGroup:    "production",
+			application: "app2",
+			action:      PermissionCreateLock,
+			rbacConfig:  RBACConfig{DexEnabled: true, Policy: map[string]*Permission{"Developer,CreateLock,production:production,app1,allow": {Role: "Developer"}}},
+			WantError:   status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", "Developer,CreateLock,production:production,app2,allow")).Error(),
 		},
 	}
 
@@ -153,7 +155,7 @@ func TestCheckUserPermissions(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			err := CheckUserPermissions(tc.rbacConfig, tc.user, tc.env, tc.envGroup, tc.application, tc.action)
-			if err != nil {
+			if err != nil && tc.WantError != "" {
 				if diff := cmp.Diff(tc.WantError, err.Error()); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}

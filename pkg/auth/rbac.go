@@ -214,6 +214,7 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, envGroup, appl
 		return nil
 	}
 	// Check if the permission exists.
+	// TODO (BB): This needs to be a loop over all permutations. Envs can also be "*".
 	permissionsWanted := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, envGroup, env, application)
 	_, permissionsExist = rbacConfig.Policy[permissionsWanted]
 	if permissionsExist {
