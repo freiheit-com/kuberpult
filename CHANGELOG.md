@@ -6,6 +6,26 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.81
+**released 2023-08-03**
+
+### Breaking Changes
+none
+
+### Major Changes
+* [Fix broken link in small environmentGroupChip](https://github.com/freiheit-com/kuberpult/pull/844)
+
+### Minor Changes
+* [Improve azure error handling](https://github.com/freiheit-com/kuberpult/pull/840)
+* [Add Wildcard Check for Env/EnvGroup/Application](https://github.com/freiheit-com/kuberpult/pull/841)
+* [Add App/Environment wildcard permission check](https://github.com/freiheit-com/kuberpult/pull/794)
+* [Update golang Docker tag to v1.20.7](https://github.com/freiheit-com/kuberpult/pull/843)
+* [Update module github.com/argoproj/argo-cd/v2 to v2.7.10](https://github.com/freiheit-com/kuberpult/pull/841)
+* [Update module google.golang.org/grpc to v1.57.0](https://github.com/freiheit-com/kuberpult/pull/794)
+* [Update module github.com/coreos/go-oidc/v3 to v3.6.0](https://github.com/freiheit-com/kuberpult/pull/795)
+
+---
+
 ## 0.4.80
 **released 2023-08-02**
 
@@ -26,6 +46,7 @@ none
 * [Refactoring: Use own tooltip component](https://github.com/freiheit-com/kuberpult/pull/832)
 * [Refactor permission policy RBAC](https://github.com/freiheit-com/kuberpult/pull/834)
 
+---
 
 ## 0.4.79
 **released 2023-07-26**
