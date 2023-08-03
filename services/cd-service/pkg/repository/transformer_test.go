@@ -790,6 +790,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 func TestRbacTransformerTest(t *testing.T) {
 	tcs := []struct {
 		Name          string
+		ctx           context.Context
 		Transformers  []Transformer
 		ExpectedError string
 	}{
@@ -797,42 +798,49 @@ func TestRbacTransformerTest(t *testing.T) {
 			Name: "able to create undeploy with permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{
-					Environment: "acceptance",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					Environment: "staging",
+				},
+				&CreateEnvironment{
+					Environment: "production",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging", Latest: true}},
 				},
 				&CreateApplicationVersion{
-					Application: "app1-rbac",
+					Application: "app1",
 					Manifests: map[string]string{
-						envAcceptance: "acceptance",
+						"production": "production",
 					},
 				},
 				&CreateUndeployApplicationVersion{
-					Application: "app1-rbac",
+					Application: "app1",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateUndeploy,acceptance:*,*,allow": {Role: "developer"},
+						"developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
+						"developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
 					}}},
 				},
 			},
 		},
 		{
-			Name: "unable to create undeploy with permissions policy",
+			Name: "unable to create undeploy without permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{
-					Environment: "acceptance",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+					Environment: "staging",
+				},
+				&CreateEnvironment{
+					Environment: "production",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging", Latest: true}},
 				},
 				&CreateApplicationVersion{
-					Application: "app1-rbac",
+					Application: "app1",
 					Manifests: map[string]string{
-						envAcceptance: "acceptance",
+						"production": "production",
 					},
 				},
 				&CreateUndeployApplicationVersion{
-					Application:    "app1-rbac",
+					Application:    "app1",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "user does not have permissions for: developer,CreateUndeploy,acceptance:*,app1-rbac,allow",
+			ExpectedError: "user does not have permissions for: developer,CreateUndeploy,production:*,app1,allow",
 		},
 		{
 			Name: "able to create release train with permissions policy",
@@ -975,6 +983,20 @@ func TestRbacTransformerTest(t *testing.T) {
 						"developer,CreateLock,production:production,*,allow": {Role: "developer"}}}},
 				},
 			},
+		},
+		{
+			Name: "able to create environment lock with permissions policy: different user",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateEnvironmentLock{
+					Environment: "production",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"releaseManager,CreateLock,production:production,*,allow": {Role: "releaseManager"}}}},
+				},
+			},
+			ctx: testutil.MakeTestContextDexEnabledUser("releaseManager"),
 		},
 		{
 			Name: "unable to create environment lock without permissions policy",
@@ -1193,8 +1215,12 @@ func TestRbacTransformerTest(t *testing.T) {
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
 			cmd.Start()
 			cmd.Wait()
+			ctx := testutil.MakeTestContextDexEnabled()
+			if tc.ctx != nil {
+				ctx = tc.ctx
+			}
 			repo, err := New(
-				testutil.MakeTestContextDexEnabled(),
+				ctx,
 				RepositoryConfig{
 					URL:            remoteDir,
 					Path:           localDir,
@@ -1207,7 +1233,7 @@ func TestRbacTransformerTest(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tf := range tc.Transformers {
-				err = repo.Apply(testutil.MakeTestContextDexEnabled(), tf)
+				err = repo.Apply(ctx, tf)
 				if err != nil {
 					break
 				}
