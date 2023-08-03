@@ -207,19 +207,20 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, envGroup, appl
 	if isEnvironmentIndependent(action) {
 		env = "*"
 	}
-	// Check for wildcard application permission.
-	permissionApplicationWildcard := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, envGroup, env, "*")
-	_, permissionsExist := rbacConfig.Policy[permissionApplicationWildcard]
-	if permissionsExist {
-		return nil
-	}
-	// Check if the permission exists.
-	// TODO (BB): This needs to be a loop over all permutations. Envs can also be "*".
-	permissionsWanted := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, envGroup, env, application)
-	_, permissionsExist = rbacConfig.Policy[permissionsWanted]
-	if permissionsExist {
-		return nil
+	// Check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
+	for _, pEnvGroup := range []string{envGroup, "*"} {
+		for _, pEnv := range []string{env, "*"} {
+			for _, pApplication := range []string{application, "*"} {
+				// Check if the permission exists on the policy.
+				permissionsWanted := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, pEnvGroup, pEnv, pApplication)
+				_, permissionsExist := rbacConfig.Policy[permissionsWanted]
+				if permissionsExist {
+					return nil
+				}
+			}
+		}
 	}
 	// The permission is not found. Return an error.
-	return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", permissionsWanted))
+	p := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, envGroup, env, application)
+	return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", p))
 }
