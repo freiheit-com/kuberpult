@@ -244,6 +244,7 @@ func (d *BatchServer) processAction(
 				ArgoCd:           argocd,
 				EnvironmentGroup: conf.EnvironmentGroup,
 			},
+			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 		}
 		return transformer, nil, nil
 	}

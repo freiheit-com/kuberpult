@@ -632,10 +632,28 @@ func (s *State) checkUserPermissions(ctx context.Context, env, application, acti
 			break
 		}
 	}
-	if group == "" {
+	if group == "" && action != auth.PermissionCreateEnvironment {
 		return fmt.Errorf("group not found for environment: %s", env)
 	}
 	return auth.CheckUserPermissions(RBACConfig, user, env, group, application, action)
+}
+
+// checkUserPermissionsCreateEnvironment check the permission for the environment creation action.
+// This is a "special" case because the environment group is already provided on the request.
+func (s *State) checkUserPermissionsCreateEnvironment(ctx context.Context, RBACConfig auth.RBACConfig, envConfig config.EnvironmentConfig) error {
+	if !RBACConfig.DexEnabled {
+		return nil
+	}
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
+	}
+	envGroup := "*"
+	// If an env group is provided on the request, use it on the permission.
+	if envConfig.EnvironmentGroup != nil {
+		envGroup = *(envConfig.EnvironmentGroup)
+	}
+	return auth.CheckUserPermissions(RBACConfig, user, "*", envGroup, "*", auth.PermissionCreateEnvironment)
 }
 
 func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
@@ -806,11 +824,16 @@ func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state 
 }
 
 type CreateEnvironment struct {
+	Authentication
 	Environment string
 	Config      config.EnvironmentConfig
 }
 
 func (c *CreateEnvironment) Transform(ctx context.Context, state *State) (string, error) {
+	err := state.checkUserPermissionsCreateEnvironment(ctx, c.RBACConfig, c.Config)
+	if err != nil {
+		return "", err
+	}
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	// Creation of environment is possible, but configuring it is not if running in bootstrap mode.
