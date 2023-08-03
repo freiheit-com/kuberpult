@@ -736,7 +736,7 @@ type CreateEnvironmentApplicationLock struct {
 
 func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
-	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionCreateLock, c.RBACConfig)
 	if err != nil {
 		return "", err
 	}
@@ -763,12 +763,17 @@ func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state 
 }
 
 type DeleteEnvironmentApplicationLock struct {
+	Authentication
 	Environment string
 	Application string
 	LockId      string
 }
 
 func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
+	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeleteLock, c.RBACConfig)
+	if err != nil {
+		return "", err
+	}
 	fs := state.Filesystem
 	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
