@@ -794,6 +794,118 @@ func TestRbacTransformerTest(t *testing.T) {
 		ExpectedError string
 	}{
 		{
+			Name: "able to create release train with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance, // train drives from acceptance to production
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: "test",
+					Version:     1,
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+				},
+				&DeployApplicationVersion{
+					Environment: envAcceptance,
+					Application: "test",
+					Version:     1,
+				},
+				&DeployApplicationVersion{
+					Environment: envAcceptance,
+					Application: "test",
+					Version:     2,
+				},
+				&ReleaseTrain{
+					Target: envProduction,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
+					}}},
+				},
+		},
+		{
+			Name: "unable to create release train without permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance, // train drives from acceptance to production
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: envAcceptance,
+							Latest:      true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: "test",
+					Version:     1,
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						envProduction: "productionmanifest",
+						envAcceptance: "acceptancenmanifest",
+					},
+				},
+				&DeployApplicationVersion{
+					Environment: envAcceptance,
+					Application: "test",
+					Version:     1,
+				},
+				&DeployApplicationVersion{
+					Environment: envAcceptance,
+					Application: "test",
+					Version:     2,
+				},
+				&ReleaseTrain{
+					Target:         envProduction,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+				},
+			},
+			ExpectedError: "user does not have permissions for: developer,DeployReleaseTrain,production:production,*,allow",
+		},
+		{
 			Name: "able to create application version with permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{

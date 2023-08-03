@@ -190,8 +190,9 @@ func (d *BatchServer) processAction(
 			return nil, nil, status.Error(codes.InvalidArgument, "invalid Team name")
 		}
 		return &repository.ReleaseTrain{
-				Target: in.Target,
-				Team:   in.Team,
+				Target:         in.Target,
+				Team:           in.Team,
+				Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 			}, &api.BatchResult{
 				Result: &api.BatchResult_ReleaseTrain{
 					ReleaseTrain: &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team},
