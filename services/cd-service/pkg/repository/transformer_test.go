@@ -981,7 +981,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "user does not have permissions for: developer,DeleteEnvironmentApplication,production:production,*,allow",
+			ExpectedError: "user does not have permissions for: developer,DeleteEnvironmentApplication,production:production,app1,allow",
 		},
 		{
 			Name: "able to delete environment application without permission policy",
