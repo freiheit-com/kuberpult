@@ -82,7 +82,7 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
                 className="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary mdc-evolution-chip__action--primary"
                 role="gridcell">
                 <span className="mdc-evolution-chip__text-name">
-                    <ArgoAppEnvLink app={app} env={smallEnvChip ? name[0].toUpperCase() : name} />
+                    {smallEnvChip ? name[0].toUpperCase() : <ArgoAppEnvLink app={app} env={name} />}
                 </span>{' '}
                 <span className="mdc-evolution-chip__text-numbers">{numberString}</span>
                 {locks}
