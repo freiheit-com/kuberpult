@@ -124,7 +124,7 @@ func (c *policyConfig) validateApplication(app string) error {
 // followed <ENVIRONMENT_GROUP:*>.
 func isEnvironmentIndependent(action string) bool {
 	switch action {
-	case PermissionCreateUndeploy, PermissionDeployUndeploy, PermissionDeleteEnvironmentApplication:
+	case PermissionCreateUndeploy, PermissionDeployUndeploy, PermissionCreateRelease:
 		return true
 	}
 	return false
