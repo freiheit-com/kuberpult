@@ -837,7 +837,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "user does not have permissions for: developer,DeployRelease,acceptance:acceptance,*,allow",
+			ExpectedError: "user does not have permissions for: developer,DeployRelease,acceptance:acceptance,app1,allow",
 		},
 		{
 			Name: "able to create environment lock with permissions policy",
