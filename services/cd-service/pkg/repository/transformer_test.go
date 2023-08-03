@@ -832,7 +832,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "user does not have permissions for: developer,CreateUndeploy,acceptance:*,*,allow",
+			ExpectedError: "user does not have permissions for: developer,CreateUndeploy,acceptance:*,app1-rbac,allow",
 		},
 		{
 			Name: "able to create release train with permissions policy",

@@ -371,7 +371,7 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 	}
 	result := ""
 	for env := range configs {
-		err := state.checkUserPermissions(ctx, env, "*", auth.PermissionCreateUndeploy, c.RBACConfig)
+		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateUndeploy, c.RBACConfig)
 		if err != nil {
 			return "", err
 		}
