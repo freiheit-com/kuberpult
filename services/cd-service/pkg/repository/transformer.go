@@ -482,7 +482,7 @@ type DeleteEnvFromApp struct {
 }
 
 func (u *DeleteEnvFromApp) Transform(ctx context.Context, state *State) (string, error) {
-	err := state.checkUserPermissions(ctx, u.Environment, "*", auth.PermissionDeleteEnvironmentApplication, u.RBACConfig)
+	err := state.checkUserPermissions(ctx, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, u.RBACConfig)
 	if err != nil {
 		return "", err
 	}
