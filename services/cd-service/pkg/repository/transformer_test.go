@@ -794,6 +794,52 @@ func TestRbacTransformerTest(t *testing.T) {
 		ExpectedError string
 	}{
 		{
+			Name: "able to deploy application with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"developer,DeployRelease,acceptance:acceptance,*,allow": {Role: "developer"}}}},
+				},
+			},
+		},
+		{
+			Name: "unable to deploy application with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:    envAcceptance,
+					Application:    "app1",
+					Version:        1,
+					LockBehaviour:  api.LockBehavior_Fail,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+				},
+			},
+			ExpectedError: "user does not have permissions for: developer,DeployRelease,acceptance:acceptance,app1,allow",
+		},
+		{
 			Name: "able to create environment lock with permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{Environment: "production"},
@@ -853,8 +899,9 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment: "production",
 					LockId:      "manual",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "developer"},
-						"developer,DeleteLock,production:production,*,allow": {Role: "developer"}}}},
+						"developer,DeployRelease,production:production,*,allow": {Role: "developer"},
+						"developer,CreateLock,production:production,*,allow":    {Role: "developer"},
+						"developer,DeleteLock,production:production,*,allow":    {Role: "developer"}}}},
 				},
 			},
 		},

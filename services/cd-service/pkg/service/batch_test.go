@@ -196,8 +196,9 @@ func TestBatchServiceWorks(t *testing.T) {
 				RBACConfig: auth.RBACConfig{
 					DexEnabled: true,
 					Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "Developer"},
-						"developer,DeleteLock,production:production,*,allow": {Role: "Developer"},
+						"developer,DeployRelease,production:production,*,allow": {Role: "Developer"},
+						"developer,CreateLock,production:production,*,allow":    {Role: "Developer"},
+						"developer,DeleteLock,production:production,*,allow":    {Role: "Developer"},
 					}}},
 		},
 	}

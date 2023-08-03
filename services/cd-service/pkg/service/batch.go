@@ -168,10 +168,11 @@ func (d *BatchServer) processAction(
 			b = api.LockBehavior_Ignore
 		}
 		return &repository.DeployApplicationVersion{
-			Environment:   act.Environment,
-			Application:   act.Application,
-			Version:       act.Version,
-			LockBehaviour: b,
+			Environment:    act.Environment,
+			Application:    act.Application,
+			Version:        act.Version,
+			LockBehaviour:  b,
+			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp
