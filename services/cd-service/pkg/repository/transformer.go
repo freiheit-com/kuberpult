@@ -159,6 +159,7 @@ func (t TransformerFunc) Transform(ctx context.Context, state *State) (string, e
 }
 
 type CreateApplicationVersion struct {
+	Authentication
 	Version        uint64
 	Application    string
 	Manifests      map[string]string
@@ -260,6 +261,10 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 
 	for env, man := range c.Manifests {
+		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.RBACConfig)
+		if err != nil {
+			return "", err
+		}
 		envDir := fs.Join(releaseDir, "environments", env)
 
 		config, found := configs[env]

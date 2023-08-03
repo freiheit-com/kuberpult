@@ -794,6 +794,41 @@ func TestRbacTransformerTest(t *testing.T) {
 		ExpectedError string
 	}{
 		{
+			Name: "able to create application version with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"developer,CreateRelease,acceptance:*,app1,allow": {Role: "developer"},
+					}}},
+				},
+			},
+		},
+		{
+			Name: "unable to create application version without permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+				},
+			},
+			ExpectedError: "user does not have permissions for: developer,CreateRelease,acceptance:*,app1,allow",
+		},
+		{
 			Name: "able to deploy application with permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{
