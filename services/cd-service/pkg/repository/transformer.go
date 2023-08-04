@@ -1142,10 +1142,11 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 			}
 
 			d := &DeployApplicationVersion{
-				Environment:   envName, // here we deploy to the next env
-				Application:   appName,
-				Version:       versionToDeploy,
-				LockBehaviour: api.LockBehavior_Record,
+				Environment:    envName, // here we deploy to the next env
+				Application:    appName,
+				Version:        versionToDeploy,
+				LockBehaviour:  api.LockBehavior_Record,
+				Authentication: c.Authentication,
 			}
 			transform, err := d.Transform(ctx, state)
 			if err != nil {

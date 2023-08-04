@@ -795,114 +795,30 @@ func TestRbacTransformerTest(t *testing.T) {
 	}{
 		{
 			Name: "able to create release train with permissions policy",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envProduction,
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: envAcceptance, // train drives from acceptance to production
-						},
-					},
-				},
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: envAcceptance,
-							Latest:      true,
-						},
-					},
-				},
-				&CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						envProduction: "productionmanifest",
-						envAcceptance: "acceptancenmanifest",
-					},
-				},
-				&DeployApplicationVersion{
-					Environment: envProduction,
-					Application: "test",
-					Version:     1,
-				},
-				&CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						envProduction: "productionmanifest",
-						envAcceptance: "acceptancenmanifest",
-					},
-				},
-				&DeployApplicationVersion{
-					Environment: envAcceptance,
-					Application: "test",
-					Version:     1,
-				},
-				&DeployApplicationVersion{
-					Environment: envAcceptance,
-					Application: "test",
-					Version:     2,
-				},
-				&ReleaseTrain{
-					Target: envProduction,
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
-					}}},
-				},
+			Transformers: ReleaseTrainTestSetup(&ReleaseTrain{
+				Target: envProduction,
+				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+					"developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
+					"developer,DeployRelease,production:*,test,allow":            {Role: "developer"},
+				}}},
+			}),
 		},
 		{
-			Name: "unable to create release train without permissions policy",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envProduction,
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: envAcceptance, // train drives from acceptance to production
-						},
-					},
-				},
-				&CreateEnvironment{
-					Environment: envAcceptance,
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: envAcceptance,
-							Latest:      true,
-						},
-					},
-				},
-				&CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						envProduction: "productionmanifest",
-						envAcceptance: "acceptancenmanifest",
-					},
-				},
-				&DeployApplicationVersion{
-					Environment: envProduction,
-					Application: "test",
-					Version:     1,
-				},
-				&CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						envProduction: "productionmanifest",
-						envAcceptance: "acceptancenmanifest",
-					},
-				},
-				&DeployApplicationVersion{
-					Environment: envAcceptance,
-					Application: "test",
-					Version:     1,
-				},
-				&DeployApplicationVersion{
-					Environment: envAcceptance,
-					Application: "test",
-					Version:     2,
-				},
-				&ReleaseTrain{
-					Target:         envProduction,
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
-				},
-			},
+			Name: "unable to create release train without permissions policy: Missing DeployRelease permission",
+			Transformers: ReleaseTrainTestSetup(&ReleaseTrain{
+				Target: envProduction,
+				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+					"developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
+				}}},
+			}),
+			ExpectedError: "rpc error: code = Internal desc = internal error",
+		},
+		{
+			Name: "unable to create release train without permissions policy: Missing ReleaseTrain permission",
+			Transformers: ReleaseTrainTestSetup(&ReleaseTrain{
+				Target:         envProduction,
+				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+			}),
 			ExpectedError: "user does not have permissions for: developer,DeployReleaseTrain,production:production,*,allow",
 		},
 		{
@@ -1267,6 +1183,56 @@ func TestRbacTransformerTest(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Helper method to setup release train unit tests.
+func ReleaseTrainTestSetup(releaseTrainTransformer Transformer) []Transformer {
+	return append([]Transformer{
+		&CreateEnvironment{
+			Environment: envProduction,
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: envAcceptance, // train drives from acceptance to production
+				},
+			},
+		},
+		&CreateEnvironment{
+			Environment: envAcceptance,
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Latest: true,
+				},
+			},
+		},
+		&CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				envProduction: "productionmanifest",
+				envAcceptance: "acceptancenmanifest",
+			},
+		},
+		&DeployApplicationVersion{
+			Environment: envProduction,
+			Application: "test",
+			Version:     1,
+		},
+		&CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				envProduction: "productionmanifest",
+				envAcceptance: "acceptancenmanifest",
+			},
+		},
+		&DeployApplicationVersion{
+			Environment: envAcceptance,
+			Application: "test",
+			Version:     1,
+		},
+		&DeployApplicationVersion{
+			Environment: envAcceptance,
+			Application: "test",
+			Version:     2,
+		}}, releaseTrainTransformer)
 }
 
 func TestTransformer(t *testing.T) {
