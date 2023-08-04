@@ -798,25 +798,45 @@ func TestRbacTransformerTest(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "acceptance",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
 				&CreateApplicationVersion{
-					Application: "app1",
+					Application: "app1-testing",
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateRelease,acceptance:*,app1,allow": {Role: "developer"},
+						"developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
+						"developer,DeployRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
 					}}},
 				},
 			},
+		},
+		{
+			Name: "able to create application version with permissions policy: Missing DeployRelease permission",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1-testing",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
+					}}},
+				},
+			},
+			ExpectedError: "user does not have permissions for: developer,DeployRelease,acceptance:acceptance,app1-testing,allow",
 		},
 		{
 			Name: "unable to create application version without permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "acceptance",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
@@ -833,7 +853,7 @@ func TestRbacTransformerTest(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "acceptance",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
@@ -856,7 +876,7 @@ func TestRbacTransformerTest(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "acceptance",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",

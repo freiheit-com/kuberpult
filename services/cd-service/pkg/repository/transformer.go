@@ -279,13 +279,13 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
 			return "", err
 		}
-
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
-				Environment:   env,
-				Application:   c.Application,
-				Version:       version, // the train should queue deployments, instead of giving up:
-				LockBehaviour: api.LockBehavior_Record,
+				Environment:    env,
+				Application:    c.Application,
+				Version:        version, // the train should queue deployments, instead of giving up:
+				LockBehaviour:  api.LockBehavior_Record,
+				Authentication: c.Authentication,
 			}
 			deployResult, err := d.Transform(ctx, state)
 			if err != nil {
