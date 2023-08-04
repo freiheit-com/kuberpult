@@ -799,16 +799,48 @@ func TestRbacTransformerTest(t *testing.T) {
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "staging",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
 				&CreateEnvironment{
 					Environment: "production",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging", Latest: true}},
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
 						"production": "production",
+						"staging":    "staging",
 					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
+						"developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
+						"developer,DeployRelease,staging:*,app1,allow":     {Role: "developer"},
+					}}},
+				},
+			},
+		},
+		{
+			Name: "unable to create undeploy without permissions policy: Missing DeployRelease permission",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironment{
+					Environment: "production",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						"production": "production",
+						"staging":    "staging",
+					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -818,29 +850,33 @@ func TestRbacTransformerTest(t *testing.T) {
 					}}},
 				},
 			},
+			ExpectedError: "user does not have permissions for: developer,DeployRelease,staging:*,app1,allow",
 		},
 		{
-			Name: "unable to create undeploy without permissions policy",
+			Name: "unable to create undeploy without permissions policy: Missing CreateUndeploy permission",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "staging",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
 				&CreateEnvironment{
 					Environment: "production",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging", Latest: true}},
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
 						"production": "production",
+						"staging":    "staging",
 					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				&CreateUndeployApplicationVersion{
 					Application:    "app1",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "user does not have permissions for: developer,CreateUndeploy,production:*,app1,allow",
+			ExpectedError: "user does not have permissions for: developer,DeployRelease,staging:staging,app1,allow",
 		},
 		{
 			Name: "able to create release train with permissions policy",
@@ -937,6 +973,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -960,6 +997,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				&DeployApplicationVersion{
 					Environment:    envAcceptance,
