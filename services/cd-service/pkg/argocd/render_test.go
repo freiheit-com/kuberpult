@@ -184,7 +184,7 @@ spec:
 				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
 
-			actualResult, err := RenderApp(GitUrl, gitBranch, annotations, env, appData, destination, ignoreDifferences, syncOptions)
+			actualResult, err := RenderAppEnv(GitUrl, gitBranch, annotations, env, appData, destination, ignoreDifferences, syncOptions)
 			if err != nil {
 				t.Fatal(err)
 			}

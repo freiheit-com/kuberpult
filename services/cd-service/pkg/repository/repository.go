@@ -604,9 +604,9 @@ func (r *repository) afterTransform(ctx context.Context, state State) error {
 	return nil
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, state *State, name string, config config.EnvironmentConfig) error {
+func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig) error {
 	fs := state.Filesystem
-	if apps, err := state.GetEnvironmentApplications(name); err != nil {
+	if apps, err := state.GetEnvironmentApplications(env); err != nil {
 		return err
 	} else {
 		appData := []argocd.AppData{}
@@ -619,19 +619,32 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, name st
 			if err != nil {
 				return err
 			}
+			version, err := state.GetEnvironmentApplicationVersion(env, appName)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					// if the app does not exist, we skip it
+					// (It may not exist at all, or just hasn't been deployed to this environment yet)
+					continue
+				}
+				return err
+			}
+			if version == nil || *version == 0 {
+				// if nothing is deployed, ignore it
+				continue
+			}
 			appData = append(appData, argocd.AppData{
 				AppName:  appName,
 				TeamName: team,
 			})
 		}
-		if manifests, err := argocd.Render(r.config.URL, r.config.Branch, config, name, appData); err != nil {
+		if manifests, err := argocd.Render(r.config.URL, r.config.Branch, config, env, appData); err != nil {
 			return err
 		} else {
 			for apiVersion, content := range manifests {
 				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
 					return err
 				}
-				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", name))
+				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
 				if err := util.WriteFile(fs, target, content, 0666); err != nil {
 					return err
 				}

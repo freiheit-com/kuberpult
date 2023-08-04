@@ -395,6 +395,225 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 	}
 }
 
+func TestDeployOnSelectedEnvs(t *testing.T) {
+	type Expected struct {
+		Path     string
+		fileData *string
+	}
+	tcs := []struct {
+		Name         string
+		Transformers []Transformer
+		Expected     []Expected
+	}{
+		{
+			Name: "generates multiple manifests",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(&config.EnvironmentConfigArgoCd{}),
+				},
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      testutil.MakeEnvConfigLatest(&config.EnvironmentConfigArgoCd{}),
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acc1",
+						envProduction: "prod1",
+					},
+				},
+			},
+			Expected: []Expected{
+				{
+					Path: "argocd/v1alpha1/acceptance.yaml",
+					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: acceptance
+spec:
+  description: acceptance
+  destinations:
+  - {}
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: acceptance
+    com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
+  name: acceptance-app1
+spec:
+  destination: {}
+  project: acceptance
+  source:
+    path: environments/acceptance/applications/app1/manifests
+    repoURL: %%%REPO%%%
+    targetRevision: master
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`),
+				},
+				{
+					Path: "argocd/v1alpha1/production.yaml",
+					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - {}
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: production
+    com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
+  name: production-app1
+spec:
+  destination: {}
+  project: production
+  source:
+    path: environments/production/applications/app1/manifests
+    repoURL: %%%REPO%%%
+    targetRevision: master
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`),
+				},
+			},
+		},
+		{
+			Name: "generates only deployed manifest",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(&config.EnvironmentConfigArgoCd{}),
+				},
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      testutil.MakeEnvConfigUpstream(envAcceptance, &config.EnvironmentConfigArgoCd{}),
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "acc2",
+						envProduction: "prod2",
+					},
+				},
+			},
+			Expected: []Expected{
+				{
+					Path: "argocd/v1alpha1/acceptance.yaml",
+					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: acceptance
+spec:
+  description: acceptance
+  destinations:
+  - {}
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: acceptance
+    com.freiheit.kuberpult/team: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/team: ""
+  name: acceptance-app1
+spec:
+  destination: {}
+  project: acceptance
+  source:
+    path: environments/acceptance/applications/app1/manifests
+    repoURL: %%%REPO%%%
+    targetRevision: master
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`),
+				},
+				{
+					Path: "argocd/v1alpha1/production.yaml",
+					// here we expect only the appProject with the app, because it hasn't been deployed yet
+					fileData: ptr.FromString(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+spec:
+  description: production
+  destinations:
+  - {}
+  sourceRepos:
+  - '*'
+`),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo, repoUrl := setupRepositoryTestWithPath(t)
+
+			err := repo.Apply(testutil.MakeTestContext(), tc.Transformers...)
+			if err != nil {
+				t.Fatalf("Unexpected error ApplyTransformersInternal: %v", err)
+			}
+			for i, expected := range tc.Expected {
+				fileData, err := util.ReadFile(repo.State().Filesystem, repo.State().Filesystem.Join(repo.State().Filesystem.Root(), expected.Path))
+				if err == nil {
+					if expected.fileData == nil {
+						t.Fatalf("Expected [%d] an error but got content: '%s'", i, string(fileData))
+					}
+					var actual = string(fileData)
+					var exp = strings.ReplaceAll(ptr.ToString(expected.fileData), "%%%REPO%%%", repoUrl)
+					if diff := cmp.Diff(actual, exp); diff != "" {
+						t.Errorf("got %v, want %v, diff (-want +got) %s", actual, exp, diff)
+					}
+				} else {
+					// there is an error
+					if expected.fileData != nil {
+						t.Fatalf("Expected [%d] file data '%s' but got error: %v", i, ptr.ToString(expected.fileData), err)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestDeployApplicationVersion(t *testing.T) {
 	tcs := []struct {
 		Name                        string
@@ -3017,7 +3236,13 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 }
 
 func setupRepositoryTest(t *testing.T) Repository {
+	repo, _ := setupRepositoryTestWithPath(t)
+	return repo
+}
+
+func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	dir := t.TempDir()
+	t.Logf("created dir %s", dir)
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
@@ -3035,7 +3260,7 @@ func setupRepositoryTest(t *testing.T) Repository {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return repo
+	return repo, remoteDir
 }
 
 // Injects an error in the filesystem of the state
