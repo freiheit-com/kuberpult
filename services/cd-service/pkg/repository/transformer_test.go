@@ -850,7 +850,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					}}},
 				},
 			},
-			ExpectedError: "user does not have permissions for: developer,DeployRelease,staging:*,app1,allow",
+			ExpectedError: "user does not have permissions for: developer,DeployRelease,staging:staging,app1,allow",
 		},
 		{
 			Name: "unable to create undeploy without permissions policy: Missing CreateUndeploy permission",
@@ -876,7 +876,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "user does not have permissions for: developer,DeployRelease,staging:staging,app1,allow",
+			ExpectedError: "user does not have permissions for: developer,CreateUndeploy,production:*,app1,allow",
 		},
 		{
 			Name: "able to create release train with permissions policy",
