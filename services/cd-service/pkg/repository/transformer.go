@@ -984,6 +984,7 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 }
 
 type ReleaseTrain struct {
+	Authentication
 	Target string
 	Team   string
 }
@@ -1055,6 +1056,11 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		if envConfig.Upstream == nil {
 			return fmt.Sprintf("Environment %q does not have upstream configured - exiting.", envName), nil
 		}
+		err := state.checkUserPermissions(ctx, envName, "*", auth.PermissionDeployReleaseTrain, c.RBACConfig)
+		if err != nil {
+			return "", err
+		}
+
 		var upstreamLatest = envConfig.Upstream.Latest
 		var upstreamEnvName = envConfig.Upstream.Environment
 
@@ -1136,10 +1142,11 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 			}
 
 			d := &DeployApplicationVersion{
-				Environment:   envName, // here we deploy to the next env
-				Application:   appName,
-				Version:       versionToDeploy,
-				LockBehaviour: api.LockBehavior_Record,
+				Environment:    envName, // here we deploy to the next env
+				Application:    appName,
+				Version:        versionToDeploy,
+				LockBehaviour:  api.LockBehavior_Record,
+				Authentication: c.Authentication,
 			}
 			transform, err := d.Transform(ctx, state)
 			if err != nil {
