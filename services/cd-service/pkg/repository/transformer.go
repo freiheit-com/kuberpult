@@ -159,6 +159,7 @@ func (t TransformerFunc) Transform(ctx context.Context, state *State) (string, e
 }
 
 type CreateApplicationVersion struct {
+	Authentication
 	Version        uint64
 	Application    string
 	Manifests      map[string]string
@@ -260,6 +261,10 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 
 	for env, man := range c.Manifests {
+		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.RBACConfig)
+		if err != nil {
+			return "", err
+		}
 		envDir := fs.Join(releaseDir, "environments", env)
 
 		config, found := configs[env]
@@ -274,13 +279,13 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
 			return "", err
 		}
-
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
-				Environment:   env,
-				Application:   c.Application,
-				Version:       version, // the train should queue deployments, instead of giving up:
-				LockBehaviour: api.LockBehavior_Record,
+				Environment:    env,
+				Application:    c.Application,
+				Version:        version, // the train should queue deployments, instead of giving up:
+				LockBehaviour:  api.LockBehavior_Record,
+				Authentication: c.Authentication,
 			}
 			deployResult, err := d.Transform(ctx, state)
 			if err != nil {

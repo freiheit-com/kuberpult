@@ -208,6 +208,7 @@ func (d *BatchServer) processAction(
 				SourceMessage:  in.SourceMessage,
 				SourceRepoUrl:  in.SourceRepoUrl,
 				Team:           in.Team,
+				Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 			}, &api.BatchResult{
 				Result: &api.BatchResult_CreateReleaseResponse{
 					CreateReleaseResponse: &api.CreateReleaseResponse{},
