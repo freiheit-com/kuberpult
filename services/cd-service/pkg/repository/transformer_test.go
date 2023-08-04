@@ -795,10 +795,12 @@ func TestRbacTransformerTest(t *testing.T) {
 		Transformers  []Transformer
 		ExpectedError string
 	}{
-		{Name: "able to create environment with permissions policy",
+		{
+			Name: "able to create environment with permissions policy",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "production-p1",
+					Config:      config.EnvironmentConfig{EnvironmentGroup: nil},
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
 						"developer,CreateEnvironment,*:*,*,allow": {Role: "developer"}}}}},
 			},

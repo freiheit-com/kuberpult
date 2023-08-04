@@ -632,7 +632,7 @@ func (s *State) checkUserPermissions(ctx context.Context, env, application, acti
 			break
 		}
 	}
-	if group == "" && action != auth.PermissionCreateEnvironment {
+	if group == "" {
 		return fmt.Errorf("group not found for environment: %s", env)
 	}
 	return auth.CheckUserPermissions(RBACConfig, user, env, group, application, action)
