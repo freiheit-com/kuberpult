@@ -1,4 +1,4 @@
-Developer, CreateLock, *:*, my-app-2, allow
+Developer, CreateLock, *:*, *, allow
 Developer, DeleteLock, *:*, *, allow
 Developer, CreateRelease, *:*, *, allow
 Developer, DeployRelease, *:*, *, allow
