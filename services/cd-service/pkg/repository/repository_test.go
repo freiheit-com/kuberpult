@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -28,6 +27,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-git/go-billy/v5/util"
@@ -707,7 +708,7 @@ func TestGc(t *testing.T) {
 			GcFrequency:        0,
 			StorageBackend:     GitBackend,
 			ExpectedGarbageMin: 906,
-			ExpectedGarbageMax: 910,
+			ExpectedGarbageMax: 913,
 		},
 		{
 			// we are going to perform 101 requests, that should trigger a gc

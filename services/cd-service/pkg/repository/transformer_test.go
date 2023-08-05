@@ -788,12 +788,43 @@ func TestReleaseTrainErrors(t *testing.T) {
 }
 
 func TestRbacTransformerTest(t *testing.T) {
+	envGroupProduction := "production"
 	tcs := []struct {
 		Name          string
 		ctx           context.Context
 		Transformers  []Transformer
 		ExpectedError string
 	}{
+		{
+			Name: "able to create environment with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production-p1",
+					Config:      config.EnvironmentConfig{EnvironmentGroup: nil},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"developer,CreateEnvironment,*:*,*,allow": {Role: "developer"}}}}},
+			},
+		},
+		{
+			Name: "able to create environment inside environment group with permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production-p2",
+					Config:      config.EnvironmentConfig{EnvironmentGroup: &envGroupProduction},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"developer,CreateEnvironment,production:*,*,allow": {Role: "developer"}}}}},
+			},
+		},
+		{
+			Name: "unable to create environment without permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production-p2",
+					Config:         config.EnvironmentConfig{EnvironmentGroup: &envGroupProduction},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}}},
+			},
+			ExpectedError: "user does not have permissions for: developer,CreateEnvironment,production:*,*,allow",
+		},
 		{
 			Name: "able to create undeploy with permissions policy",
 			Transformers: []Transformer{
@@ -872,11 +903,13 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				&CreateUndeployApplicationVersion{
-					Application:    "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Application: "app1",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
+					}}},
 				},
 			},
-			ExpectedError: "user does not have permissions for: developer,CreateUndeploy,production:*,app1,allow",
+			ExpectedError: "user does not have permissions for: developer,CreateUndeploy,staging:*,app1,allow",
 		},
 		{
 			Name: "able to create release train with permissions policy",
