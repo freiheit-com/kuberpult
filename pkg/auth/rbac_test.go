@@ -153,6 +153,40 @@ func TestCheckUserPermissions(t *testing.T) {
 	}
 }
 
+func TestValidateRbacPermissionWildcards(t *testing.T) {
+	tcs := []struct {
+		Name        string
+		permissions []string
+		WantError   error
+	}{
+		{
+			Name: "Check permission validation works for all wildcard combinations",
+			permissions: []string{
+				"Developer,CreateLock,production:production,app1,allow",
+				"Developer,CreateLock,production:production,*,allow",
+				"Developer,CreateLock,production:*,app1,allow",
+				"Developer,CreateLock,production:*,*,allow",
+				"Developer,CreateLock,*:production,app1,allow",
+				"Developer,CreateLock,*:production,*,allow",
+				"Developer,CreateLock,*:*,app1,allow",
+				"Developer,CreateLock,*:*,*,allow",
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			// Test all wildcard possible combinations (2^8).
+			for _, permission := range tc.permissions {
+				_, err := ValidateRbacPermission(permission)
+				if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
+					t.Errorf("Error mismatch (-want +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
 func TestCheckUserPermissionsWildcards(t *testing.T) {
 	tcs := []struct {
 		Name        string

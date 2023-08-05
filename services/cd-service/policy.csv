@@ -1,1 +1,9 @@
-Developer, CreateLock, development:development, *, allow
+Developer, CreateLock, *:*, *, allow
+Developer, DeleteLock, *:*, *, allow
+Developer, CreateRelease, *:*, *, allow
+Developer, DeployRelease, *:*, *, allow
+Developer, CreateUndeploy, *:*, *, allow
+Developer, DeployUndeploy, *:*, *, allow
+Developer, CreateEnvironment, *:*, *, allow
+Developer, DeleteEnvironmentApplication, *:*, *, allow
+Developer, DeployReleaseTrain, *:*, *, allow

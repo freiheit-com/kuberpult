@@ -418,6 +418,7 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 }
 
 type UndeployApplication struct {
+	Authentication
 	Application string
 }
 
@@ -440,6 +441,10 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 	appDir := applicationDirectory(fs, u.Application)
 	configs, err := state.GetEnvironmentConfigs()
 	for env := range configs {
+		err := state.checkUserPermissions(ctx, env, u.Application, auth.PermissionDeployUndeploy, u.RBACConfig)
+		if err != nil {
+			return "", err
+		}
 		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
 		entries, err := fs.ReadDir(envAppDir)
 		if err != nil {

@@ -92,7 +92,7 @@ func (c *policyConfig) validateEnvs(envs, action string) error {
 	groupName := e[0]
 	envName := e[1]
 	// Validate environment group
-	if !valid.EnvironmentName(groupName) {
+	if !valid.EnvironmentName(groupName) && groupName != "*" {
 		return fmt.Errorf("invalid environment group %s", envs)
 	}
 	// Actions that are environment independent need to follow the format <ENVIRONMENT_GROUP:*>.
@@ -103,7 +103,7 @@ func (c *policyConfig) validateEnvs(envs, action string) error {
 		return fmt.Errorf("the action %s requires the environment * and got %s", action, envs)
 	}
 	// Validate environment
-	if !valid.EnvironmentName(envName) {
+	if !valid.EnvironmentName(envName) && envName != "*" {
 		return fmt.Errorf("invalid environment %s", envs)
 	}
 	return nil
