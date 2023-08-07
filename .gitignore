@@ -12,3 +12,12 @@ build/
 
 # used by envrc https://direnv.net/
 .envrc
+charts/kuberpult/kuberpult-keyring.gpg
+charts/kuberpult/manifests/
+known_hosts_github
+repository_checked_out
+repository_remote
+services/cd-service/client
+services/cd-service/host
+services/cd-service/known_hosts
+services/cd-service/repository_checked_out/
