@@ -45,13 +45,18 @@ export interface DisplayLock {
 export const displayLockUniqueId = (displayLock: DisplayLock): string =>
     'dl-' + displayLock.lockId + '-' + displayLock.environment + '-' + displayLock.application;
 
-const emptyOverview: GetOverviewResponse = {
+type EnhancedOverview = GetOverviewResponse & { loaded: boolean };
+
+const emptyOverview: EnhancedOverview = {
     applications: {},
     environmentGroups: [],
     gitRevision: '',
+    loaded: false,
 };
 const [useOverview, UpdateOverview_] = createStore(emptyOverview);
 export const UpdateOverview = UpdateOverview_; // we do not want to export "useOverview". The store.tsx should act like a facade to the data.
+
+export const useOverviewLoaded = (): boolean => useOverview(({ loaded }) => loaded);
 
 const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
@@ -611,6 +616,8 @@ export const [useFrontendConfig, UpdateFrontendConfig] = createStore<FrontendCon
     },
     configReady: false,
 });
+
+export const useConfigReady = (): boolean => useFrontendConfig(({ configReady }) => configReady);
 
 export const useKuberpultVersion = (): string => useFrontendConfig((configs) => configs.configs.kuberpultVersion);
 export const useArgoCdBaseUrl = (): string | undefined =>

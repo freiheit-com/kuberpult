@@ -84,6 +84,7 @@ export const App: React.FC = () => {
                 .subscribe(
                     (result) => {
                         UpdateOverview.set(result);
+                        UpdateOverview.set({ loaded: true });
                         PanicOverview.set({ error: '' });
                     },
                     (error) => {

@@ -53,77 +53,98 @@ const sampleEnvsB: Environment[] = [
     },
 ];
 
-interface dataT {
-    name: string;
-    environmentGroups: EnvironmentGroup[];
-    expected: number;
-    expectedEnvHeaderWrapper: number;
-}
-
-const cases: dataT[] = [
-    {
-        name: '1 group 1 env',
-        environmentGroups: [
-            {
-                environments: [sampleEnvsA[0]],
-                distanceToUpstream: 1,
-                environmentGroupName: 'g1',
-            },
-        ],
-        expected: 1,
-        expectedEnvHeaderWrapper: 1,
-    },
-    {
-        name: '2 group 1 env each',
-        environmentGroups: [
-            {
-                environments: [sampleEnvsA[0]],
-                distanceToUpstream: 1,
-                environmentGroupName: 'g1',
-            },
-            {
-                environments: [sampleEnvsB[0]],
-                distanceToUpstream: 1,
-                environmentGroupName: 'g1',
-            },
-        ],
-        expected: 1,
-        expectedEnvHeaderWrapper: 2,
-    },
-    {
-        name: '1 group 2 env',
-        environmentGroups: [
-            {
-                environments: sampleEnvsA,
-                distanceToUpstream: 1,
-                environmentGroupName: 'g1',
-            },
-            {
-                environments: sampleEnvsB,
-                distanceToUpstream: 1,
-                environmentGroupName: 'g2',
-            },
-        ],
-        expected: 2,
-        expectedEnvHeaderWrapper: 4,
-    },
-];
-
 describe('Environment Lane', () => {
     const getNode = () => <EnvironmentsPage />;
     const getWrapper = () => render(getNode());
 
+    interface dataT {
+        name: string;
+        environmentGroups: EnvironmentGroup[];
+        loaded: boolean;
+        expected: number;
+        expectedEnvHeaderWrapper: number;
+        expectedMainContent: number;
+        spinnerExpected: number;
+    }
+    const cases: dataT[] = [
+        {
+            name: '1 group 1 env',
+            environmentGroups: [
+                {
+                    environments: [sampleEnvsA[0]],
+                    distanceToUpstream: 1,
+                    environmentGroupName: 'g1',
+                },
+            ],
+            loaded: true,
+            expected: 1,
+            expectedEnvHeaderWrapper: 1,
+            expectedMainContent: 1,
+            spinnerExpected: 0,
+        },
+        {
+            name: '2 group 1 env each',
+            environmentGroups: [
+                {
+                    environments: [sampleEnvsA[0]],
+                    distanceToUpstream: 1,
+                    environmentGroupName: 'g1',
+                },
+                {
+                    environments: [sampleEnvsB[0]],
+                    distanceToUpstream: 1,
+                    environmentGroupName: 'g1',
+                },
+            ],
+            loaded: true,
+            expected: 1,
+            expectedEnvHeaderWrapper: 2,
+            expectedMainContent: 1,
+            spinnerExpected: 0,
+        },
+        {
+            name: '1 group 2 env',
+            environmentGroups: [
+                {
+                    environments: sampleEnvsA,
+                    distanceToUpstream: 1,
+                    environmentGroupName: 'g1',
+                },
+                {
+                    environments: sampleEnvsB,
+                    distanceToUpstream: 1,
+                    environmentGroupName: 'g2',
+                },
+            ],
+            loaded: true,
+            expected: 2,
+            expectedEnvHeaderWrapper: 4,
+            expectedMainContent: 1,
+            spinnerExpected: 0,
+        },
+        {
+            name: 'just the spinner',
+            environmentGroups: [],
+            loaded: false,
+            expected: 0,
+            expectedEnvHeaderWrapper: 0,
+            expectedMainContent: 0,
+            spinnerExpected: 1,
+        },
+    ];
     describe.each(cases)('Renders a row of environments', (testcase) => {
         it(testcase.name, () => {
             //given
             UpdateOverview.set({
                 environmentGroups: testcase.environmentGroups,
+                loaded: testcase.loaded,
             });
-            const { container } = getWrapper();
             // when
+            const { container } = getWrapper();
             // then
+            expect(container.getElementsByClassName('spinner')).toHaveLength(testcase.spinnerExpected);
             expect(container.getElementsByClassName('environment-group-lane')).toHaveLength(testcase.expected);
-            expect(container.getElementsByClassName('main-content')).toHaveLength(1);
+            expect(container.getElementsByClassName('main-content')).toHaveLength(testcase.expectedMainContent);
             expect(container.getElementsByClassName('environment-lane__header')).toHaveLength(
                 testcase.expectedEnvHeaderWrapper
             );

@@ -243,4 +243,22 @@ describe('AuthProvider', () => {
             expect(getByText(container, /Welcome to kuberpult/i)).toBeInTheDocument();
         });
     });
+    describe('Spinner renders', () => {
+        it('Spinner is rendered when the config is not loaded', () => {
+            // given
+            UpdateFrontendConfig.set({
+                configReady: false,
+            });
+
+            // when
+            const { container } = render(
+                <AzureAuthProvider>
+                    <div className={'welcome-kuberpult-test'}>Welcome to kuberpult</div>
+                </AzureAuthProvider>
+            );
+
+            // then
+            expect(container.getElementsByClassName('spinner')).toHaveLength(1);
+        });
+    });
 });

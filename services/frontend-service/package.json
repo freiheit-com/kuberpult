@@ -18,6 +18,7 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "6",
     "react-scripts": "^5.0.1",
+    "react-spinners": "^0.13.8",
     "react-tooltip": "^5.18.1",
     "react-use-sub": "^3.0.0",
     "rxjs": "^7.0.0"

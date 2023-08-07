@@ -13,8 +13,9 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { useEnvironmentGroups, useEnvironments } from '../../utils/store';
+import { useEnvironmentGroups, useEnvironments, useOverviewLoaded } from '../../utils/store';
 import { EnvironmentCard, EnvironmentGroupCard } from '../../components/EnvironmentCard/EnvironmentCard';
+import { Spinner } from '../../components/Spinner/Spinner';
 
 export const EnvironmentsPage: React.FC = () => {
     const envsGroups = useEnvironmentGroups();
@@ -22,6 +23,13 @@ export const EnvironmentsPage: React.FC = () => {
     // note that in all cases, envsGroups.length <= envs.length
     // if they are equal (envsGroups.length === envs.length), then there are effectively no groups, but the cd-server still returns each env wrapped in a group
     const useGroups = envsGroups.length !== envs.length;
+
+    // note that the config is definitely loaded here, because it's ensured in AzureAuthProvider
+    const overviewLoaded = useOverviewLoaded();
+    if (!overviewLoaded) {
+        return <Spinner message={'Overview'} />;
+    }
+
     if (useGroups) {
         return (
             <main className="main-content">
