@@ -34,6 +34,7 @@ package testutil
 
 import (
 	"context"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"google.golang.org/grpc/metadata"
@@ -73,4 +74,25 @@ func MakeTestContextDexEnabledUser(role string) context.Context {
 		auth.HeaderUserRole:  auth.Encode64(role),
 	}))
 	return ctx
+}
+
+func MakeEnvConfigLatest(argoCd *config.EnvironmentConfigArgoCd) config.EnvironmentConfig {
+	return config.EnvironmentConfig{
+		Upstream: &config.EnvironmentConfigUpstream{
+			Latest: true,
+		},
+		ArgoCd:           argoCd,
+		EnvironmentGroup: nil,
+	}
+}
+
+func MakeEnvConfigUpstream(upstream string, argoCd *config.EnvironmentConfigArgoCd) config.EnvironmentConfig {
+	return config.EnvironmentConfig{
+		Upstream: &config.EnvironmentConfigUpstream{
+			Latest:      false,
+			Environment: upstream,
+		},
+		ArgoCd:           argoCd,
+		EnvironmentGroup: nil,
+	}
 }
