@@ -15,8 +15,9 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { useMemo } from 'react';
 import { LocksTable } from '../../components/LocksTable/LocksTable';
-import { searchCustomFilter, sortLocks, useEnvironments } from '../../utils/store';
+import { searchCustomFilter, sortLocks, useEnvironments, useOverviewLoaded } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
+import { Spinner } from '../../components/Spinner/Spinner';
 
 const applicationFieldHeaders = [
     'Date',
@@ -78,6 +79,11 @@ export const LocksPage: React.FC = () => {
             ),
         [appNameParam, envs]
     );
+    // note that the config is definitely loaded here, because it's ensured in AzureAuthProvider
+    const overviewLoaded = useOverviewLoaded();
+    if (!overviewLoaded) {
+        return <Spinner message={'Overview'} />;
+    }
     return (
         <main className="main-content">
             <LocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} locks={envLocks} />

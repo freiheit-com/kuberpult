@@ -46,6 +46,7 @@ describe('App', () => {
         };
         UpdateOverview.set({
             applications: sampleApps,
+            loaded: true,
         });
         getWrapper();
 
@@ -53,6 +54,16 @@ describe('App', () => {
         expect(mock_ServiceLane.ServiceLane.getCallArgument(0, 0)).toStrictEqual({ application: sampleApps.app1 });
         expect(mock_ServiceLane.ServiceLane.getCallArgument(1, 0)).toStrictEqual({ application: sampleApps.app2 });
         expect(mock_ServiceLane.ServiceLane.getCallArgument(2, 0)).toStrictEqual({ application: sampleApps.app3 });
+    });
+    it('Renders Spinner', () => {
+        // given
+        UpdateOverview.set({
+            loaded: false,
+        });
+        // when
+        const { container } = getWrapper();
+        // then
+        expect(container.getElementsByClassName('spinner')).toHaveLength(1);
     });
 });
 

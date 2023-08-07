@@ -15,7 +15,9 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { ServiceLane } from '../../components/ServiceLane/ServiceLane';
 import { useSearchParams } from 'react-router-dom';
-import { useFilteredApps, useSearchedApplications } from '../../utils/store';
+import { useFilteredApps, useOverviewLoaded, useSearchedApplications } from '../../utils/store';
+import { Spinner } from '../../components/Spinner/Spinner';
+import React from 'react';
 
 export const Home: React.FC = () => {
     const [params] = useSearchParams();
@@ -25,6 +27,11 @@ export const Home: React.FC = () => {
     const searchedApp = useSearchedApplications(filteredApps, appNameParam);
 
     const apps = Object.values(searchedApp);
+
+    const loaded = useOverviewLoaded();
+    if (!loaded) {
+        return <Spinner message={'Overview'} />;
+    }
 
     return (
         <main className="main-content">

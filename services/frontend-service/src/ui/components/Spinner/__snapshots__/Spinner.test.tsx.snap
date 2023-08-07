@@ -1,0 +1,41 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Spinner Renders Renders 1`] = `
+<div
+  class="spinner"
+>
+  <div
+    class="spinner-animation"
+  >
+    <span
+      style="display: inherit; position: relative; font-size: 0px; height: 200px; width: 200px;"
+    >
+      <span
+        style="width: 0px; height: 0px; border-right: 100px solid transparent; border-top: 100px solid transparent; border-radius: 100px; position: absolute; animation: react-spinners-PacmanLoader-pacman-1 0.8s infinite ease-in-out; animation-fill-mode: both;"
+      />
+      <span
+        style="width: 0px; height: 0px; border-right: 100px solid transparent; border-bottom: 100px solid transparent; border-radius: 100px; position: absolute; animation: react-spinners-PacmanLoader-pacman-2 0.8s infinite ease-in-out; animation-fill-mode: both;"
+      />
+      <span
+        style="width: 33.333333333333336px; height: 33.333333333333336px; margin: 2px; border-radius: 100%; transform: translate(0, -25px); position: absolute; top: 100px; left: 400px; animation: react-spinners-PacmanLoader-ball 1s 0.5s infinite linear; animation-fill-mode: both;"
+      />
+      <span
+        style="width: 33.333333333333336px; height: 33.333333333333336px; margin: 2px; border-radius: 100%; transform: translate(0, -25px); position: absolute; top: 100px; left: 400px; animation: react-spinners-PacmanLoader-ball 1s 0.75s infinite linear; animation-fill-mode: both;"
+      />
+      <span
+        style="width: 33.333333333333336px; height: 33.333333333333336px; margin: 2px; border-radius: 100%; transform: translate(0, -25px); position: absolute; top: 100px; left: 400px; animation: react-spinners-PacmanLoader-ball 1s 1s infinite linear; animation-fill-mode: both;"
+      />
+      <span
+        style="width: 33.333333333333336px; height: 33.333333333333336px; margin: 2px; border-radius: 100%; transform: translate(0, -25px); position: absolute; top: 100px; left: 400px; animation: react-spinners-PacmanLoader-ball 1s 1.25s infinite linear; animation-fill-mode: both;"
+      />
+    </span>
+  </div>
+  <div
+    class="spinner-message"
+  >
+    Loading 
+    hello
+    ...
+  </div>
+</div>
+`;

@@ -34,9 +34,22 @@ describe('LocksPage', () => {
     const getWrapper = () => render(getNode());
 
     it('Renders full app', () => {
+        UpdateOverview.set({
+            loaded: true,
+        });
         const { container } = getWrapper();
         expect(container.getElementsByClassName('mdc-data-table')[0]).toHaveTextContent('Environment Locks');
         expect(container.getElementsByClassName('mdc-data-table')[1]).toHaveTextContent('Application Locks');
+    });
+    it('Renders spinner', () => {
+        // given
+        UpdateOverview.set({
+            loaded: false,
+        });
+        // when
+        const { container } = getWrapper();
+        // then
+        expect(container.getElementsByClassName('spinner')).toHaveLength(1);
     });
 });
 

@@ -28,6 +28,7 @@ import { createStore } from 'react-use-sub';
 import { grpc } from '@improbable-eng/grpc-web';
 import { useFrontendConfig } from './store';
 import { AuthenticationResult } from '@azure/msal-common';
+import { Spinner } from '../components/Spinner/Spinner';
 
 type AzureAuthSubType = {
     authHeader: grpc.Metadata & {
@@ -127,7 +128,9 @@ export const AzureAutoSignIn = (): JSX.Element => {
 export const AzureAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { configs, configReady } = useFrontendConfig((c) => c);
     const msalInstance = React.useMemo(() => new PublicClientApplication(getMsalConfig(configs)), [configs]);
-    if (!configReady) return null;
+    if (!configReady) {
+        return <Spinner message={'Configuration'} />;
+    }
 
     const useAzureAuth = configs.authConfig?.azureAuth?.enabled;
     if (!useAzureAuth) {
