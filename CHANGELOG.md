@@ -7,6 +7,29 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 # Change Log
 
 ## 0.4.81
+**released 2023-08-07**
+
+### Breaking Changes
+none
+
+### Major Changes
+* [Do not render undeployed argoCd apps](https://github.com/freiheit-com/kuberpult/pull/854)
+* [Render spinner while loading](https://github.com/freiheit-com/kuberpult/pull/858)
+
+### Minor Changes
+* [DeleteEnvironmentApplicationLock Role Based Access Control](https://github.com/freiheit-com/kuberpult/pull/833)
+* [DeployApplicationVersion Role based Access Control](https://github.com/freiheit-com/kuberpult/pull/831)
+* [DeleteEnvironmentApplication Role Based Access Control](https://github.com/freiheit-com/kuberpult/pull/836)
+* [CreateApplicationVersion Role Based Access Control ](https://github.com/freiheit-com/kuberpult/pull/849)
+* [ReleaseTrain Role Based Access Control](https://github.com/freiheit-com/kuberpult/pull/851)
+* [CreateUndeployApplicationVersion Role Based Access Control](https://github.com/freiheit-com/kuberpult/pull/837)
+* [Update module google.golang.org/api to v0.134.0](https://github.com/freiheit-com/kuberpult/pull/771)
+* [CreateEnvironment add Role Based Access Control ](https://github.com/freiheit-com/kuberpult/pull/848)
+* [UndeployApplication Role Based Access Control](https://github.com/freiheit-com/kuberpult/pull/850)
+* [Update dependency node to v18.17.0](https://github.com/freiheit-com/kuberpult/pull/846)
+* [Add files related to run-kind.sh to gitignore ](https://github.com/freiheit-com/kuberpult/pull/859)
+
+## 0.4.81
 **released 2023-08-03**
 
 ### Breaking Changes
