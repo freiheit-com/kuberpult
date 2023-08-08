@@ -6,7 +6,7 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
-## 0.4.81
+## 0.4.82
 **released 2023-08-07**
 
 ### Breaking Changes
