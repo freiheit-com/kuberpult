@@ -6,6 +6,23 @@ Specifically this means, that minor upgrades can contain **breaking changes**.
 
 # Change Log
 
+## 0.4.83
+**released 2023-08-10**
+
+### Breaking Changes
+none
+
+### Major Changes
+* [Fixed bugs in release train](https://github.com/freiheit-com/kuberpult/pull/867)
+* [Allow ArgoCd to use Webhooks to improve performance](https://github.com/freiheit-com/kuberpult/pull/868)
+
+### Minor Changes
+* [Update CHANGELOG.md: fix version number 81->82 ](https://github.com/freiheit-com/kuberpult/pull/861)
+* [Update module golang.org/x/oauth2 to v0.11.0](https://github.com/freiheit-com/kuberpult/pull/792)
+* [Update module gopkg.in/DataDog/dd-trace-go.v1 to v1.53.0](https://github.com/freiheit-com/kuberpult/pull/856)
+* [Update k8s.io/utils digest to 3b25d92](https://github.com/freiheit-com/kuberpult/pull/842)
+
+
 ## 0.4.82
 **released 2023-08-07**
 
