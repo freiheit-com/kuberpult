@@ -973,7 +973,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 			},
 			shouldSucceed:     true,
 			expectedError:     "",
-			expectedCommitMsg: "Target Environment 'acceptance' is locked - exiting.",
+			expectedCommitMsg: "Release Train to environment/environment group 'acceptance':\n\n",
 		},
 	}
 	for _, tc := range tcs {
