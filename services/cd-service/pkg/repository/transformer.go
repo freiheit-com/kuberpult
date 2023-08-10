@@ -1098,7 +1098,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		var upstreamEnvName = envConfig.Upstream.Environment
 
 		if !upstreamLatest && upstreamEnvName == "" {
-			envDeployedMsg[envName] = fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - exiting.", envName)
+			envDeployedMsg[envName] = fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - skipping.", envName)
 			continue
 		}
 		if upstreamLatest && upstreamEnvName != "" {
