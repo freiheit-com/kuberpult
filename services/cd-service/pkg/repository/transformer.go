@@ -1086,7 +1086,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 	for _, envName := range envGroups {
 		envConfig := envGroupConfigs[envName]
 		if envConfig.Upstream == nil {
-			envDeployedMsg[envName] = fmt.Sprintf("Environment %q does not have upstream configured - exiting.", envName)
+			envDeployedMsg[envName] = fmt.Sprintf("Environment %q does not have upstream configured - skipping.", envName)
 			continue
 		}
 		err := state.checkUserPermissions(ctx, envName, "*", auth.PermissionDeployReleaseTrain, c.RBACConfig)
