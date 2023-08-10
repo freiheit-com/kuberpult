@@ -1102,7 +1102,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 			continue
 		}
 		if upstreamLatest && upstreamEnvName != "" {
-			envDeployedMsg[envName] = fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - exiting.", envName)
+			envDeployedMsg[envName] = fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - skipping.", envName)
 			continue
 		}
 		source := upstreamEnvName
