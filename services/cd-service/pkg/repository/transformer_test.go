@@ -442,6 +442,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/acceptance/applications/app1/manifests
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: acceptance
     com.freiheit.kuberpult/team: ""
@@ -481,6 +482,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/production/applications/app1/manifests
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: production
     com.freiheit.kuberpult/team: ""
@@ -542,6 +544,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/acceptance/applications/app1/manifests
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: acceptance
     com.freiheit.kuberpult/team: ""
@@ -2942,6 +2945,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/staging/applications/test/manifests
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: staging
     com.freiheit.kuberpult/team: team1
@@ -2969,6 +2973,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/staging/applications/test2/manifests
     com.freiheit.kuberpult/application: test2
     com.freiheit.kuberpult/environment: staging
     com.freiheit.kuberpult/team: team2
@@ -3047,6 +3052,7 @@ kind: Application
 metadata:
   annotations:
     a: bar
+    argocd.argoproj.io/manifest-generate-paths: /environments/staging/applications/test/manifests
     b: foo
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: staging
@@ -3133,6 +3139,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/staging/applications/test/manifests
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: staging
     com.freiheit.kuberpult/team: ""

@@ -132,12 +132,17 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 	name := appData.AppName
 	annotations := map[string]string{}
 	labels := map[string]string{}
+	manifestPath := filepath.Join("environments", env, "applications", name, "manifests")
 	for k, v := range applicationAnnotations {
 		annotations[k] = v
 	}
 	annotations["com.freiheit.kuberpult/team"] = appData.TeamName
 	annotations["com.freiheit.kuberpult/application"] = name
 	annotations["com.freiheit.kuberpult/environment"] = env
+	// This annotation is so that argoCd does not invalidate *everything* in the whole repo when receiving a git webhook.
+	// It has to start with a "/" to be absolute to the git repo.
+	// See https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#webhook-and-manifest-paths-annotation
+	annotations["argocd.argoproj.io/manifest-generate-paths"] = "/" + manifestPath
 	labels["com.freiheit.kuberpult/team"] = appData.TeamName
 	app := v1alpha1.Application{
 		TypeMeta: v1alpha1.ApplicationTypeMeta,
@@ -151,7 +156,7 @@ func RenderAppEnv(gitUrl string, gitBranch string, applicationAnnotations map[st
 			Project: env,
 			Source: v1alpha1.ApplicationSource{
 				RepoURL:        gitUrl,
-				Path:           filepath.Join("environments", env, "applications", name, "manifests"),
+				Path:           manifestPath,
 				TargetRevision: gitBranch,
 			},
 			Destination: destination,
