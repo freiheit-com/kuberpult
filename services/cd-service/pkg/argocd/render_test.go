@@ -39,6 +39,7 @@ func TestRender(t *testing.T) {
 kind: Application
 metadata:
   annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
     com.freiheit.kuberpult/team: ""
@@ -80,6 +81,7 @@ spec:
 kind: Application
 metadata:
   annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
     com.freiheit.kuberpult/team: ""
@@ -123,6 +125,7 @@ spec:
 kind: Application
 metadata:
   annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
     com.freiheit.kuberpult/team: ""
@@ -321,6 +324,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
     com.freiheit.kuberpult/team: ""
@@ -375,6 +379,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
     com.freiheit.kuberpult/team: ""
@@ -498,6 +503,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/applications/app1/manifests
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
     com.freiheit.kuberpult/team: some-team
