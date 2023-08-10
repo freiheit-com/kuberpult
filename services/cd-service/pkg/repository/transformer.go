@@ -1086,7 +1086,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 	for _, envName := range envGroups {
 		envConfig := envGroupConfigs[envName]
 		if envConfig.Upstream == nil {
-			envDeployedMsg[envName] = fmt.Sprintf("Environment %q does not have upstream configured - skipping.", envName)
+			envSkippedMsg[envName] = fmt.Sprintf("Environment %q does not have upstream configured - skipping.", envName)
 			continue
 		}
 		err := state.checkUserPermissions(ctx, envName, "*", auth.PermissionDeployReleaseTrain, c.RBACConfig)
@@ -1098,11 +1098,11 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		var upstreamEnvName = envConfig.Upstream.Environment
 
 		if !upstreamLatest && upstreamEnvName == "" {
-			envDeployedMsg[envName] = fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - skipping.", envName)
+			envSkippedMsg[envName] = fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - skipping.", envName)
 			continue
 		}
 		if upstreamLatest && upstreamEnvName != "" {
-			envDeployedMsg[envName] = fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - skipping.", envName)
+			envSkippedMsg[envName] = fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - skipping.", envName)
 			continue
 		}
 		source := upstreamEnvName
@@ -1122,7 +1122,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 			return "", grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", envName, err))
 		}
 		if len(envLocks) > 0 {
-			envDeployedMsg[envName] = fmt.Sprintf("Target Environment '%s' is locked - skipping.\n", envName)
+			envSkippedMsg[envName] = fmt.Sprintf("Target Environment '%s' is locked - skipping.\n", envName)
 			continue
 		}
 
