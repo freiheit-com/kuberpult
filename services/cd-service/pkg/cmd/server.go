@@ -157,6 +157,7 @@ func RunServer() {
 			BootstrapMode:          c.BootstrapMode,
 			EnvironmentConfigsPath: "./environment_configs.json",
 			StorageBackend:         c.storageBackend(),
+			ArgoWebhookUrl:         "example.com", // TODO SU
 		})
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))

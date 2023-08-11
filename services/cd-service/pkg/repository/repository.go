@@ -120,6 +120,8 @@ type RepositoryConfig struct {
 	// false: read from config files in manifest repo
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
+	// if set, kuberpult will generate push events to argoCd whenever it writes to the manifest repo:
+	ArgoWebhookUrl string
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -419,7 +421,65 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 			err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
 		}
 	}
+	if r.config.ArgoWebhookUrl != "" {
+		head, err := r.repository.Head()
+		if err != nil {
+			logger.Error(fmt.Sprintf("error 1: %v", err))
+			return // todo
+		}
+		headStr := head.Target().String()
+		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: head: %s", headStr))
+		headCommit, err := r.repository.LookupCommit(head.Target())
+		if err != nil {
+			logger.Error(fmt.Sprintf("error 2: %v", err))
+			return // TODO
+		}
+		parentCommit := headCommit.Parent(1)
+		if parentCommit == nil {
+			logger.Error(fmt.Sprintf("error 3 parent nil"))
+			return // TODO
+		}
+		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: parent: %s", parentCommit.Id()))
+
+		argoResult := ArgoWebhookData{
+			webURLs:  []string{"https://github.com/freiheit-com"},
+			revision: "refs/heads/" + r.config.Branch,
+			change: changeInfo{
+				shaBefore: headStr,
+				shaAfter:  parentCommit.Id().String(),
+			},
+			defaultBranch: r.config.Branch, // this is questionable, but maybe ok
+			Commits: []commit{
+				// TODO
+				{
+					Added:    nil,
+					Modified: nil,
+					Removed:  nil,
+				},
+			},
+		}
+		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: result: %v", argoResult))
+	}
+
 	r.notify.Notify()
+}
+
+type changeInfo struct {
+	shaBefore string
+	shaAfter  string
+}
+type commit struct {
+	Added    []string
+	Modified []string
+	Removed  []string
+}
+
+type ArgoWebhookData struct {
+	webURLs       []string
+	revision      string
+	change        changeInfo
+	defaultBranch string
+	Commits       []commit
 }
 
 func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error) {
