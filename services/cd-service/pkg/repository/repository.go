@@ -99,6 +99,14 @@ type repository struct {
 	notify notify.Notify
 
 	backOffProvider func() backoff.BackOff
+
+	ArgoCdRefreshConfig ArgoCdRefreshConfig
+}
+
+type ArgoCdRefreshConfig struct {
+	Enabled bool
+	Token   string
+	Server  string
 }
 
 type RepositoryConfig struct {
@@ -120,6 +128,7 @@ type RepositoryConfig struct {
 	// false: read from config files in manifest repo
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
+	ArgoCdRefreshConfig    ArgoCdRefreshConfig
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -204,13 +213,14 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			return nil, err
 		} else {
 			result := &repository{
-				remote:          remote,
-				config:          &cfg,
-				credentials:     credentials,
-				certificates:    certificates,
-				repository:      repo2,
-				queue:           makeQueue(),
-				backOffProvider: defaultBackOffProvider,
+				remote:              remote,
+				config:              &cfg,
+				credentials:         credentials,
+				certificates:        certificates,
+				repository:          repo2,
+				queue:               makeQueue(),
+				backOffProvider:     defaultBackOffProvider,
+				ArgoCdRefreshConfig: cfg.ArgoCdRefreshConfig,
 			}
 			result.headLock.Lock()
 
@@ -588,15 +598,22 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 func (r *repository) afterTransform(ctx context.Context, state State) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "afterTransform")
 	defer span.Finish()
+	log := logger.FromContext(ctx)
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return err
 	}
-	for env, config := range configs {
-		if config.ArgoCd != nil {
-			err := r.updateArgoCdApps(ctx, &state, env, config)
+	for env, cfg := range configs {
+		if cfg.ArgoCd != nil {
+			err, updatedApps := r.updateArgoCdApps(ctx, &state, env, cfg)
 			if err != nil {
+				return err
+			}
+			err = r.ArgoCdRefreshConfig.runArgoRefreshes(ctx, updatedApps.appNames)
+			if err != nil {
+				log.Warn(fmt.Sprintf("could not refresh: %v", err))
+				// maybe just a warning?
 				return err
 			}
 		}
@@ -604,20 +621,49 @@ func (r *repository) afterTransform(ctx context.Context, state State) error {
 	return nil
 }
 
-func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig) error {
+func (c *ArgoCdRefreshConfig) runArgoRefreshes(ctx context.Context, appNames []string) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "argoRefresh")
+	defer span.Finish()
+	log := logger.FromContext(ctx)
+	if !c.Enabled {
+		return nil
+	}
+	for i := range appNames {
+		span, _ := tracer.StartSpanFromContext(ctx, "argoRefresh")
+		app := appNames[i]
+		span.SetTag("argo-app", app)
+		cmd := exec.Command("/usr/local/bin/argocd", "app", "get", app, "--refresh", "--server", c.Server, "--auth-token", c.Token, "--loglevel", "debug", "--grpc-web")
+		stdout, err := cmd.Output()
+		if err != nil {
+			log.Warn(fmt.Sprintf("error running argocd refresh: %v", err))
+		}
+		log.Info(fmt.Sprintf("argocd ran successfully - stdout: \n%s", string(stdout)))
+		span.Finish()
+	}
+	return nil
+}
+
+type UpdatedAppsResult struct {
+	appNames []string
+}
+
+func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig) (error, *UpdatedAppsResult) {
 	fs := state.Filesystem
+	result := &UpdatedAppsResult{
+		appNames: []string{},
+	}
 	if apps, err := state.GetEnvironmentApplications(env); err != nil {
-		return err
+		return err, nil
 	} else {
 		appData := []argocd.AppData{}
 		sort.Strings(apps)
 		for _, appName := range apps {
 			if err != nil {
-				return err
+				return err, nil
 			}
 			team, err := state.GetApplicationTeamOwner(appName)
 			if err != nil {
-				return err
+				return err, nil
 			}
 			version, err := state.GetEnvironmentApplicationVersion(env, appName)
 			if err != nil {
@@ -626,7 +672,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 					// (It may not exist at all, or just hasn't been deployed to this environment yet)
 					continue
 				}
-				return err
+				return err, nil
 			}
 			if version == nil || *version == 0 {
 				// if nothing is deployed, ignore it
@@ -636,22 +682,23 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 				AppName:  appName,
 				TeamName: team,
 			})
+			result.appNames = append(result.appNames, appName)
 		}
 		if manifests, err := argocd.Render(r.config.URL, r.config.Branch, config, env, appData); err != nil {
-			return err
+			return err, nil
 		} else {
 			for apiVersion, content := range manifests {
 				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
-					return err
+					return err, nil
 				}
 				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
 				if err := util.WriteFile(fs, target, content, 0666); err != nil {
-					return err
+					return err, nil
 				}
 			}
 		}
 	}
-	return nil
+	return nil, result
 }
 
 func (r *repository) State() *State {

@@ -156,6 +156,12 @@ spec:
         - name: KUBERPULT_BOOTSTRAP_MODE
           value: "{{ .Values.environment_configs.bootstrap_mode }}"
 {{- end }}
+        - name: KUBERPULT_ARGO_SERVER_URL
+          value: "{{ .Values.argocd.server }}"
+        - name: KUBERPULT_ARGO_REFRESH_ENABLED
+          value: "{{ .Values.argocd.refresh }}"
+        - name: KUBERPULT_ARGO_REFRESH_TOKEN
+          value: "{{ .Values.argocd.token }}"
         - name: KUBERPULT_ENABLE_SQLITE
           value: "{{ .Values.cd.enableSqlite }}"
         volumeMounts:

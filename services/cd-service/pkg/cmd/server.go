@@ -43,23 +43,26 @@ import (
 
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
-	GitUrl            string `required:"true" split_words:"true"`
-	GitBranch         string `default:"master" split_words:"true"`
-	BootstrapMode     bool   `default:"false" split_words:"true"`
-	GitCommitterEmail string `default:"kuberpult@freiheit.com" split_words:"true"`
-	GitCommitterName  string `default:"kuberpult" split_words:"true"`
-	GitSshKey         string `default:"/etc/ssh/identity" split_words:"true"`
-	GitSshKnownHosts  string `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
-	PgpKeyRing        string `split_words:"true"`
-	AzureEnableAuth   bool   `default:"false" split_words:"true"`
-	DexEnabled        bool   `default:"false" split_words:"true"`
-	DexRbacPolicy     string `split_words:"true"`
-	EnableTracing     bool   `default:"false" split_words:"true"`
-	EnableMetrics     bool   `default:"false" split_words:"true"`
-	DogstatsdAddr     string `default:"127.0.0.1:8125" split_words:"true"`
-	EnableSqlite      bool   `default:"true" split_words:"true"`
-	DexMock           bool   `default:"false" split_words:"true"`
-	DexMockRole       string `default:"Developer" split_words:"true"`
+	GitUrl             string `required:"true" split_words:"true"`
+	GitBranch          string `default:"master" split_words:"true"`
+	BootstrapMode      bool   `default:"false" split_words:"true"`
+	GitCommitterEmail  string `default:"kuberpult@freiheit.com" split_words:"true"`
+	GitCommitterName   string `default:"kuberpult" split_words:"true"`
+	GitSshKey          string `default:"/etc/ssh/identity" split_words:"true"`
+	GitSshKnownHosts   string `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
+	PgpKeyRing         string `split_words:"true"`
+	AzureEnableAuth    bool   `default:"false" split_words:"true"`
+	DexEnabled         bool   `default:"false" split_words:"true"`
+	DexRbacPolicy      string `split_words:"true"`
+	EnableTracing      bool   `default:"false" split_words:"true"`
+	EnableMetrics      bool   `default:"false" split_words:"true"`
+	DogstatsdAddr      string `default:"127.0.0.1:8125" split_words:"true"`
+	EnableSqlite       bool   `default:"true" split_words:"true"`
+	DexMock            bool   `default:"false" split_words:"true"`
+	DexMockRole        string `default:"Developer" split_words:"true"`
+	ArgoServerUrl      string `default:"" split_words:"true"`
+	ArgoRefreshEnabled bool   `default:"false" split_words:"true"`
+	ArgoRefreshToken   string `default:"" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -157,6 +160,11 @@ func RunServer() {
 			BootstrapMode:          c.BootstrapMode,
 			EnvironmentConfigsPath: "./environment_configs.json",
 			StorageBackend:         c.storageBackend(),
+			ArgoCdRefreshConfig: repository.ArgoCdRefreshConfig{
+				Enabled: c.ArgoRefreshEnabled,
+				Token:   c.ArgoRefreshToken,
+				Server:  c.ArgoServerUrl,
+			},
 		})
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))

@@ -293,6 +293,9 @@ argocd:
   token: "$token"
   server: "argocd-server.${ARGO_NAMESPACE}.svc.cluster.local"
   insecure: true
+  refresh:
+    enabled: true
+    token: "$token"
 pgp:
   keyRing: |
 $(sed -e "s/^/    /" <./kuberpult-keyring.gpg)

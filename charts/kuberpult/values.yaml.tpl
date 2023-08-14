@@ -97,6 +97,18 @@ argocd:
   server: ""
   # Disables tls verification. This is useful when running in the same cluster as argocd and using a self-signed certificate.
   insecure: false
+  refresh:
+    # Refresh is an beta feature as of now. It is only intended for massive amounts of apps (>~2k), when argoCd is struggling to keep up with syncing apps.
+    # When enabled, kuberpult will talk to argoCd and inform it to "refresh" (argoCd terminology) an app, whenever it changes.
+    # This is much more efficient than argoCd's way: By default argoCd checks every app with each new commit (after waiting for the `reconciliation.timeout`).
+    # When refresh is enabled, it is recommended to increase the reconciliation.timeout in argocd to reduce load, for example to "10m", or "0s" for `never`.
+    # See here https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/
+    # You must ensure that kuberpult can connect to argocd via `argocd.server`. This should be simple if argoCd and kuberpult run on the same cluster.
+    enabled: false
+    # The token is required if enabled=true.
+    # It must have the argocd capabilities "apiKey, login".
+    # Go to https://<kuberpulturl>/settings/accounts to create a token for a user
+    token: ""
 
 datadogTracing:
   enabled: false
