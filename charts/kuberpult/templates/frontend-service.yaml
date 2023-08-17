@@ -135,6 +135,8 @@ spec:
           value: "{{ .Values.dex.clientSecret }}"
         - name: KUBERPULT_DEX_BASE_URL
           value: "{{ .Values.dex.baseURL }}"
+        - name: KUBERPULT_DEX_SCOPES
+          value: "{{ .Values.dex.scopes }}"
 {{- end }}
 {{- end }}
 {{- if .Values.pgp.keyRing }}

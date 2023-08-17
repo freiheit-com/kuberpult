@@ -168,3 +168,4 @@ dex:
   clientId: ""
   clientSecret: ""
   baseURL: ""
+  scopes: ""

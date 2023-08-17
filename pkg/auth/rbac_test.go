@@ -231,3 +231,26 @@ func TestCheckUserPermissionsWildcards(t *testing.T) {
 		})
 	}
 }
+
+func TestReadScopes(t *testing.T) {
+	tcs := []struct {
+		Name         string
+		ScopesString string
+		WantScopes   []string
+	}{
+		{
+			Name:         "Correctly parses the scopes string",
+			ScopesString: "[groups, emails, profile, openID]",
+			WantScopes:   []string{"groups", "emails", "profile", "openID"},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			scopes := ReadScopes(tc.ScopesString)
+			if diff := cmp.Diff(tc.WantScopes, scopes); diff != "" {
+				t.Errorf("Error mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
