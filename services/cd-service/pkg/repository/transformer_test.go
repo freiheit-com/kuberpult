@@ -290,7 +290,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, err, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -370,7 +370,7 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			_, updatedState, _, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 
 			fileData, err := util.ReadFile(updatedState.Filesystem, updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath))
 
@@ -698,7 +698,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 			ctxWithTime := withTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
+			_, updatedState, err, _ := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
 			if err != nil {
 				t.Fatalf("Expected no error when applying: %v", err)
 			}
@@ -809,7 +809,7 @@ func TestCreateApplicationVersionWithVersion(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			_, updatedState, _, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 
 			fileData, err := util.ReadFile(updatedState.Filesystem, updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath))
 
@@ -910,7 +910,7 @@ func TestUndeployErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, err, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -984,7 +984,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, err, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -3426,12 +3426,12 @@ type injectErr struct {
 	err       error
 }
 
-func (i *injectErr) Transform(ctx context.Context, state *State) (string, error) {
+func (i *injectErr) Transform(ctx context.Context, state *State) (string, error, *TransformerResult) {
 	original := state.Filesystem
 	state.Filesystem = i.collector.WithError(state.Filesystem, i.operation, i.filename, i.err)
-	s, err := i.Transformer.Transform(ctx, state)
+	s, err, _ := i.Transformer.Transform(ctx, state)
 	state.Filesystem = original
-	return s, err
+	return s, err, changes
 }
 
 func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
@@ -3649,7 +3649,7 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			_, _, err, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 
 			if err != nil {
 				t.Fatalf("Got an unexpected error: %v", err)
@@ -3803,7 +3803,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, err, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {
@@ -3909,7 +3909,7 @@ func TestDeleteLocks(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			commitMsg, _, err, _ := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
 			if tc.shouldSucceed {
 				if err != nil {

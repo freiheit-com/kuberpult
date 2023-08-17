@@ -184,6 +184,8 @@ helm repo add argo-cd https://argoproj.github.io/argo-helm
 
 helm uninstall argocd || echo "did not uninstall argo"
 cat <<YAML > argocd-values.yml
+timeout:
+  reconciliation: 0s
 configs:
   ssh:
     knownHosts: |
@@ -246,6 +248,9 @@ token=$(argocd account generate-token --port-forward --account kuberpult)
 echo "argocd token: $token"
 
 
+kubectl create ns development
+kubectl create ns development2
+
 ## kuberpult
 print 'installing kuberpult helm chart...'
 
@@ -291,7 +296,7 @@ $(sed -e "s/^/    /" <../../services/cd-service/client)
 $(sed -e "s/^/    /" <../../services/cd-service/known_hosts)
 argocd:
   token: "$token"
-  server: "argocd-server.${ARGO_NAMESPACE}.svc.cluster.local"
+  server: "https://argocd-server.${ARGO_NAMESPACE}.svc.cluster.local"
   insecure: true
 pgp:
   keyRing: |
@@ -321,6 +326,12 @@ waitForDeployment "default" "app=kuberpult-rollout-service"
 
 kubectl get deployment
 kubectl get pods
+
+for i in $(seq 1 3)
+do
+   ../../infrastructure/scripts/create-testdata/create-release.sh echo;
+done
+
 
 if "$LOCAL_EXECUTION"
 then

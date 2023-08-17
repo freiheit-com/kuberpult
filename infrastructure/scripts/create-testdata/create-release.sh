@@ -61,15 +61,17 @@ for env in development development2 staging fakeprod-de fakeprod-ca
 do
   file=$(mktemp "${TMPDIR:-/tmp}/$env.XXXXXX")
   signatureFile=$(mktemp "${TMPDIR:-/tmp}/$env.XXXXXX")
+  randomValue=$(LC_CTYPE=C tr -dc a-f0-9 </dev/urandom | head -c 12 ; echo '')
 cat <<EOF > "${file}"
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: dummy-config-map
+  name: "$name"-dummy-config-map
   namespace: "$env"
 data:
   key: value
+  random: "${randomValue}"
 ---
 EOF
   echo "wrote file ${file}"

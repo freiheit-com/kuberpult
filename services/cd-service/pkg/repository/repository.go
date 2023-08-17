@@ -20,13 +20,16 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
+	v1alpha1 "github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,7 +60,7 @@ import (
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
-	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error)
+	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error, *TransformerResult)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	Notify() *notify.Notify
@@ -286,16 +289,18 @@ func (r *repository) ProcessQueue(ctx context.Context) {
 	}
 }
 
-func (r *repository) applyElements(elements []element, allowFetchAndReset bool) ([]element, error) {
+func (r *repository) applyElements(elements []element, allowFetchAndReset bool) ([]element, error, *TransformerResult) {
+	var changes = &TransformerResult{}
 	for i := 0; i < len(elements); {
 		e := elements[i]
-		applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
+		applyErr, subChanges := r.ApplyTransformers(e.ctx, e.transformers...)
+		changes.Combine(subChanges)
 		if applyErr != nil {
 			if errors.Is(applyErr, invalidJson) && allowFetchAndReset {
 				// Invalid state. fetch and reset and redo
 				err := r.FetchAndReset(e.ctx)
 				if err != nil {
-					return elements, err
+					return elements, err, nil
 				}
 				return r.applyElements(elements, false)
 			} else {
@@ -308,7 +313,7 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 			i++
 		}
 	}
-	return elements, nil
+	return elements, nil, changes
 }
 
 var panicError = errors.New("Panic")
@@ -385,7 +390,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	}
 
 	// Apply the items
-	elements, err = r.applyElements(elements, true)
+	elements, err, changes := r.applyElements(elements, true)
 	if err != nil {
 		return
 	}
@@ -405,7 +410,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 				return
 			}
 			// Apply the items
-			elements, err = r.applyElements(elements, false)
+			elements, err, _ = r.applyElements(elements, false)
 			if err != nil || len(elements) == 0 {
 				return
 			}
@@ -434,15 +439,27 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 			logger.Error(fmt.Sprintf("error 2: %v", err))
 			return // TODO
 		}
-		parentCommit := headCommit.Parent(1)
+		parentCommit := headCommit.Parent(0)
 		if parentCommit == nil {
-			logger.Error(fmt.Sprintf("error 3 parent nil"))
+			logger.Error(fmt.Sprintf("error 3 parent nil, head=%s", headCommit.Id().String()))
 			return // TODO
 		}
 		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: parent: %s", parentCommit.Id()))
 
+		//var commits = []commit{}
+		var modified = []string{}
+		for i := range changes.ChangedApps {
+			change := changes.ChangedApps[i]
+			manifestFilename := fmt.Sprintf("environments/%s/applications/%s/manifests/manifests.yaml", change.env, change.app)
+			// TODO SU: we need to add the root app in some circumstances
+			modified = append(modified, manifestFilename)
+			logger.Warn(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", manifestFilename))
+		}
+		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: sum modified: %v", modified))
+
 		argoResult := ArgoWebhookData{
-			htmlUrl:  []string{"https://github.com/freiheit-com"},
+			//htmlUrl:  "https://github.com/freiheit-com",
+			htmlUrl:  r.config.URL,
 			revision: "refs/heads/" + r.config.Branch,
 			change: changeInfo{
 				payloadBefore: headStr,
@@ -450,21 +467,121 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 			},
 			defaultBranch: r.config.Branch, // this is questionable, but maybe ok
 			Commits: []commit{
-				// TODO
 				// Because we are in ProcessQueueOnce there can only be 1 commit (but multiple files)
 				{
-					Added: nil,
-					Modified: []string{
-						"",
-					},
-					Removed: nil,
+					// TODO Added
+					Added:    []string{},
+					Modified: modified,
+					// TODO Removed
+					Removed: []string{},
 				},
 			},
 		}
-		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: result: %v", argoResult))
+		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: result: %+v", argoResult))
+		err = doPostRequest(ctx, argoResult, r.config)
+		if err != nil {
+			logger.Error(fmt.Sprintf("error sending post = %v", err))
+		} else {
+			logger.Warn("argo webhook was send successfully")
+		}
+		//return // TODO
 	}
 
 	r.notify.Notify()
+}
+
+func contains(s []int, e int) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+func doPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig *RepositoryConfig) error {
+	url := repoConfig.ArgoWebhookUrl + "/api/webhook"
+	l := logger.FromContext(ctx)
+	l.Info(fmt.Sprintf("URL: %s", url))
+
+	var argoFormat = v1alpha1.PushPayload{
+		Ref:    data.revision,
+		Before: data.change.payloadBefore,
+		After:  data.change.payloadAfter,
+		Repository: v1alpha1.Repository{
+			HTMLURL:       data.htmlUrl,
+			DefaultBranch: data.defaultBranch,
+		},
+		Commits: toArgoCommits(data.Commits),
+	}
+
+	jsonBytes, err := json.MarshalIndent(argoFormat, " ", " ")
+	if err != nil {
+		return err
+	}
+	l.Warn(fmt.Sprintf("doPostRequest argo format: %s", string(jsonBytes)))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
+	req.Header.Set("Content-Type", "application/json")
+
+	// now pretend that we are GitHub...
+	req.Header.Set("X-GitHub-Event", "push")
+
+	tr := &http.Transport{
+		// we reach argo from within the cluster, so there's no ssl:
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+	resp, err := client.Do(req)
+	if err != nil {
+		return errors.New(fmt.Sprintf("could not send request to '%s': %s", url, err.Error()))
+	}
+	defer resp.Body.Close()
+
+	l.Warn(fmt.Sprintf("response Status: %d", resp.StatusCode))
+	l.Warn(fmt.Sprintf("response headers: %s", resp.Header))
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return errors.New(fmt.Sprintf("could not read body: %s", err.Error()))
+	}
+	validResponseCodes := []int{200}
+	if !contains(validResponseCodes, resp.StatusCode) {
+		l.Warn(fmt.Sprintf("response Body: %s", string(body)))
+		return errors.New("invalid status code from argo")
+	}
+	l.Info(fmt.Sprintf("response Body: %s", string(body)))
+
+	return nil
+}
+
+func toArgoCommits(commits []commit) []v1alpha1.Commit {
+	var result = []v1alpha1.Commit{}
+	for i := range commits {
+		c := commits[i]
+		result = append(result, v1alpha1.Commit{
+			Sha:       "",
+			ID:        "",
+			NodeID:    "",
+			TreeID:    "",
+			Distinct:  false,
+			Message:   "",
+			Timestamp: "",
+			URL:       "",
+			Author: struct {
+				Name     string `json:"name"`
+				Email    string `json:"email"`
+				Username string `json:"username"`
+			}{},
+			Committer: struct {
+				Name     string `json:"name"`
+				Email    string `json:"email"`
+				Username string `json:"username"`
+			}{},
+			Added:    c.Added,
+			Removed:  c.Removed,
+			Modified: c.Modified,
+		})
+	}
+	return result
 }
 
 type changeInfo struct {
@@ -478,47 +595,74 @@ type commit struct {
 }
 
 type ArgoWebhookData struct {
-	htmlUrl       []string
+	htmlUrl       string
 	revision      string // aka "ref"
 	change        changeInfo
 	defaultBranch string
 	Commits       []commit
 }
 
-func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error) {
+func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error, *TransformerResult) {
 	if state, err := r.StateAt(nil); err != nil {
-		return nil, nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in StateAt", err))
+		return nil, nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in StateAt", err)), nil
 	} else {
+		changes := &TransformerResult{}
 		commitMsg := []string{}
 		ctxWithTime := withTimeNow(ctx, time.Now())
 		for _, t := range transformers {
-			if msg, err := t.Transform(ctxWithTime, state); err != nil {
-				return nil, nil, err
+			if msg, err, subChanges := t.Transform(ctxWithTime, state); err != nil {
+				return nil, nil, err, nil
 			} else {
 				commitMsg = append(commitMsg, msg)
+				changes.Combine(subChanges)
 			}
 		}
-		return commitMsg, state, nil
+		return commitMsg, state, nil, changes
 	}
 }
 
-func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) error {
-	commitMsg, state, err := r.ApplyTransformersInternal(ctx, transformers...)
+type AppEnv struct {
+	app string
+	env string
+}
+
+type TransformerResult struct {
+	ChangedApps []AppEnv
+}
+
+func (r *TransformerResult) AddAppEnv(app string, env string) {
+	r.ChangedApps = append(r.ChangedApps, AppEnv{
+		app: app,
+		env: env,
+	})
+}
+func (r *TransformerResult) Combine(other *TransformerResult) {
+	if other == nil {
+		return
+	}
+	for i := range other.ChangedApps {
+		a := other.ChangedApps[i]
+		r.AddAppEnv(a.app, a.env)
+	}
+}
+
+func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (error, *TransformerResult) {
+	commitMsg, state, err, changes := r.ApplyTransformersInternal(ctx, transformers...)
 	//
 	if err != nil {
-		return err
+		return err, nil
 	}
 	err = UpdateDatadogMetrics(state)
 	if err != nil {
-		return err
+		return err, nil
 	}
 	if err := r.afterTransform(ctx, *state); err != nil {
-		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in afterTransform", err))
+		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in afterTransform", err)), nil
 	}
 
 	treeId, err := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 	if err != nil {
-		return &InternalError{inner: err}
+		return &InternalError{inner: err}, nil
 	}
 	committer := &git.Signature{
 		Name:  r.config.CommitterName,
@@ -528,7 +672,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return err
+		return err, nil
 	}
 
 	author := &git.Signature{
@@ -550,9 +694,9 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		treeId,
 		rev,
 	); err != nil {
-		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err))
+		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err)), nil
 	}
-	return nil
+	return nil, changes
 }
 
 func (r *repository) FetchAndReset(ctx context.Context) error {
