@@ -161,7 +161,7 @@ func runServer(ctx context.Context) error {
 		// Registers Dex handlers.
 		_, err := auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes))
 		if err != nil {
-			logger.FromContext(ctx).Fatal("pgp.read.error", zap.Error(err))
+			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
 		}
 	}
 
