@@ -442,19 +442,22 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: parent: %s", parentCommit.Id()))
 
 		argoResult := ArgoWebhookData{
-			webURLs:  []string{"https://github.com/freiheit-com"},
+			htmlUrl:  []string{"https://github.com/freiheit-com"},
 			revision: "refs/heads/" + r.config.Branch,
 			change: changeInfo{
-				shaBefore: headStr,
-				shaAfter:  parentCommit.Id().String(),
+				payloadBefore: headStr,
+				payloadAfter:  parentCommit.Id().String(),
 			},
 			defaultBranch: r.config.Branch, // this is questionable, but maybe ok
 			Commits: []commit{
 				// TODO
+				// Because we are in ProcessQueueOnce there can only be 1 commit (but multiple files)
 				{
-					Added:    nil,
-					Modified: nil,
-					Removed:  nil,
+					Added: nil,
+					Modified: []string{
+						"",
+					},
+					Removed: nil,
 				},
 			},
 		}
@@ -465,8 +468,8 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 }
 
 type changeInfo struct {
-	shaBefore string
-	shaAfter  string
+	payloadBefore string
+	payloadAfter  string
 }
 type commit struct {
 	Added    []string
@@ -475,8 +478,8 @@ type commit struct {
 }
 
 type ArgoWebhookData struct {
-	webURLs       []string
-	revision      string
+	htmlUrl       []string
+	revision      string // aka "ref"
 	change        changeInfo
 	defaultBranch string
 	Commits       []commit
