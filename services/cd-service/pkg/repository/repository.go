@@ -84,6 +84,10 @@ const (
 	SqliteBackend  StorageBackend = iota
 )
 
+const (
+	maxArgoRequests = 3 // note that this happens inside a request, we cannot retry too much!
+)
+
 type repository struct {
 	// Mutex gurading the writer
 	writeLock    sync.Mutex
@@ -426,68 +430,82 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 			err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
 		}
 	}
+	span, _ := tracer.StartSpanFromContext(ctx, "PostPush")
+	defer span.Finish()
+
 	if r.config.ArgoWebhookUrl != "" {
-		head, err := r.repository.Head()
-		if err != nil {
-			logger.Error(fmt.Sprintf("error 1: %v", err))
-			return // todo
-		}
-		headStr := head.Target().String()
-		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: head: %s", headStr))
-		headCommit, err := r.repository.LookupCommit(head.Target())
-		if err != nil {
-			logger.Error(fmt.Sprintf("error 2: %v", err))
-			return // TODO
-		}
-		parentCommit := headCommit.Parent(0)
-		if parentCommit == nil {
-			logger.Error(fmt.Sprintf("error 3 parent nil, head=%s", headCommit.Id().String()))
-			return // TODO
-		}
-		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: parent: %s", parentCommit.Id()))
-
-		//var commits = []commit{}
-		var modified = []string{}
-		for i := range changes.ChangedApps {
-			change := changes.ChangedApps[i]
-			manifestFilename := fmt.Sprintf("environments/%s/applications/%s/manifests/manifests.yaml", change.env, change.app)
-			// TODO SU: we need to add the root app in some circumstances
-			modified = append(modified, manifestFilename)
-			logger.Warn(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", manifestFilename))
-		}
-		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: sum modified: %v", modified))
-
-		argoResult := ArgoWebhookData{
-			//htmlUrl:  "https://github.com/freiheit-com",
-			htmlUrl:  r.config.URL,
-			revision: "refs/heads/" + r.config.Branch,
-			change: changeInfo{
-				payloadBefore: headStr,
-				payloadAfter:  parentCommit.Id().String(),
-			},
-			defaultBranch: r.config.Branch, // this is questionable, but maybe ok
-			Commits: []commit{
-				// Because we are in ProcessQueueOnce there can only be 1 commit (but multiple files)
-				{
-					// TODO Added
-					Added:    []string{},
-					Modified: modified,
-					// TODO Removed
-					Removed: []string{},
-				},
-			},
-		}
-		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: result: %+v", argoResult))
-		err = doPostRequest(ctx, argoResult, r.config)
-		if err != nil {
-			logger.Error(fmt.Sprintf("error sending post = %v", err))
-		} else {
-			logger.Warn("argo webhook was send successfully")
-		}
-		//return // TODO
+		r.sendWebhookToArgoCd(ctx, logger, changes)
 	}
 
 	r.notify.Notify()
+}
+
+func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger, changes *TransformerResult) {
+	head, err := r.repository.Head()
+	if err != nil {
+		logger.Error(fmt.Sprintf("ArgoWebhookUrl: error getting repo head: %v", err))
+		return
+	}
+	headStr := head.Target().String()
+	headCommit, err := r.repository.LookupCommit(head.Target())
+	if err != nil {
+		logger.Error(fmt.Sprintf("ArgoWebhookUrl: error looking up head commit: %v", err))
+		return
+	}
+	parentCommit := headCommit.Parent(0)
+	if parentCommit == nil {
+		logger.Error(fmt.Sprintf("ArgoWebhookUrl: error getting parent of head. head=%s", headCommit.Id().String()))
+		return
+	}
+
+	var modified = []string{}
+	for i := range changes.ChangedApps {
+		change := changes.ChangedApps[i]
+		manifestFilename := fmt.Sprintf("environments/%s/applications/%s/manifests/manifests.yaml", change.env, change.app)
+		// TODO SU: we may need to add the root app in some circumstances
+		modified = append(modified, manifestFilename)
+		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", manifestFilename))
+	}
+
+	argoResult := ArgoWebhookData{
+		htmlUrl:  r.config.URL, // if this does not match, argo will completely ignore the request and return 200
+		revision: "refs/heads/" + r.config.Branch,
+		change: changeInfo{
+			payloadBefore: headStr,
+			payloadAfter:  parentCommit.Id().String(),
+		},
+		defaultBranch: r.config.Branch, // this is questionable, but maybe ok
+		Commits: []commit{
+			// Because we are in ProcessQueueOnce there can only be 1 commit (but multiple files)
+			{
+				// TODO Added necessary?
+				Added:    []string{},
+				Modified: modified,
+				// TODO Removed necessary?
+				Removed: []string{},
+			},
+		},
+	}
+
+	span, ctx := tracer.StartSpanFromContext(ctx, "Webhook-Retries")
+	defer span.Finish()
+	success := false
+	for i := 1; i <= maxArgoRequests; i++ {
+		err = doWebhookPostRequest(ctx, argoResult, r.config, i)
+		if err != nil {
+			logger.Warn(fmt.Sprintf("ProcessQueueOnce: error sending webhook on try %d: %v", i, err))
+			// we're still in a request here, we can't wait too long:
+			time.Sleep(time.Duration(50*i) * time.Millisecond)
+		} else {
+			logger.Info(fmt.Sprintf("ProcessQueueOnce: argo webhook was send successfully on try %d!", i))
+			success = true
+			break
+		}
+	}
+	span.SetTag("success", success)
+	if !success {
+		logger.Error(fmt.Sprintf("ProcessQueueOnce: error sending webhook after all %d tries: %v", maxArgoRequests, err))
+	}
 }
 
 func contains(s []int, e int) bool {
@@ -499,10 +517,15 @@ func contains(s []int, e int) bool {
 	return false
 }
 
-func doPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig *RepositoryConfig) error {
+func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig *RepositoryConfig, retryCounter int) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "Webhook")
+	span.SetTag("changeAfter", data.change.payloadAfter)
+	span.SetTag("changeBefore", data.change.payloadBefore)
+	span.SetTag("try", retryCounter)
+	defer span.Finish()
 	url := repoConfig.ArgoWebhookUrl + "/api/webhook"
 	l := logger.FromContext(ctx)
-	l.Info(fmt.Sprintf("URL: %s", url))
+	l.Info(fmt.Sprintf("doWebhookPostRequest: URL: %s", url))
 
 	var argoFormat = v1alpha1.PushPayload{
 		Ref:    data.revision,
@@ -519,37 +542,40 @@ func doPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig *Reposi
 	if err != nil {
 		return err
 	}
-	l.Warn(fmt.Sprintf("doPostRequest argo format: %s", string(jsonBytes)))
+	l.Warn(fmt.Sprintf("doWebhookPostRequest argo format: %s", string(jsonBytes)))
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
 
-	// now pretend that we are GitHub...
+	// now pretend that we are GitHub by adding this header, otherwise argo will ignore our request:
 	req.Header.Set("X-GitHub-Event", "push")
 
 	tr := &http.Transport{
 		// we reach argo from within the cluster, so there's no ssl:
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
 	}
 	client := &http.Client{Transport: tr}
 	resp, err := client.Do(req)
 	if err != nil {
-		return errors.New(fmt.Sprintf("could not send request to '%s': %s", url, err.Error()))
+		return errors.New(fmt.Sprintf("doWebhookPostRequest: could not send request to '%s': %s", url, err.Error()))
 	}
 	defer resp.Body.Close()
 
-	l.Warn(fmt.Sprintf("response Status: %d", resp.StatusCode))
-	l.Warn(fmt.Sprintf("response headers: %s", resp.Header))
+	//l.Warn(fmt.Sprintf("response Status: %d", resp.StatusCode))
+	l.Info(fmt.Sprintf("response headers: %s", resp.Header))
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return errors.New(fmt.Sprintf("could not read body: %s", err.Error()))
+		// weird but we kinda do not care about the body:
+		l.Warn(fmt.Sprintf("doWebhookPostRequest: could not read body: %s", err.Error()))
+		return nil
 	}
 	validResponseCodes := []int{200}
 	if !contains(validResponseCodes, resp.StatusCode) {
-		l.Warn(fmt.Sprintf("response Body: %s", string(body)))
-		return errors.New("invalid status code from argo")
+		l.Warn(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
+		return errors.New(fmt.Sprintf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode))
 	}
-	l.Info(fmt.Sprintf("response Body: %s", string(body)))
-
+	l.Info(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
 	return nil
 }
 
@@ -558,6 +584,8 @@ func toArgoCommits(commits []commit) []v1alpha1.Commit {
 	for i := range commits {
 		c := commits[i]
 		result = append(result, v1alpha1.Commit{
+			// ArgoCd ignores most fields, so we can ignore them too.
+			// Source: function "affectedRevisionInfo" in https://github.com/argoproj/argo-cd/blob/master/util/webhook/webhook.go#L141
 			Sha:       "",
 			ID:        "",
 			NodeID:    "",

@@ -871,13 +871,13 @@ type SlowTransformer struct {
 func (s *SlowTransformer) Transform(ctx context.Context, state *State) (string, error, *TransformerResult) {
 	s.started <- struct{}{}
 	<-s.finished
-	return "ok", nil, changes
+	return "ok", nil, &TransformerResult{}
 }
 
 type EmptyTransformer struct{}
 
 func (p *EmptyTransformer) Transform(ctx context.Context, state *State) (string, error, *TransformerResult) {
-	return "nothing happened", nil, changes
+	return "nothing happened", nil, &TransformerResult{}
 }
 
 type PanicTransformer struct{}
@@ -891,13 +891,13 @@ var TransformerError = errors.New("error transformer")
 type ErrorTransformer struct{}
 
 func (p *ErrorTransformer) Transform(ctx context.Context, state *State) (string, error, *TransformerResult) {
-	return "error", TransformerError, changes
+	return "error", TransformerError, nil
 }
 
 type InvalidJsonTransformer struct{}
 
 func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State) (string, error, *TransformerResult) {
-	return "error", invalidJson, changes
+	return "error", invalidJson, nil
 }
 
 func convertToSet(list []uint64) map[int]bool {
