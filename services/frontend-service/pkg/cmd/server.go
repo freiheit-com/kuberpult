@@ -19,11 +19,12 @@ package cmd
 import (
 	"context"
 	"fmt"
-	grpcerrors "github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+
+	grpcerrors "github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
@@ -154,6 +155,14 @@ func runServer(ctx context.Context) error {
 		}
 		grpcUnaryInterceptors = append(grpcUnaryInterceptors, AzureUnaryInterceptor)
 		grpcStreamInterceptors = append(grpcStreamInterceptors, AzureStreamInterceptor)
+	}
+
+	if c.DexEnabled {
+		// Registers Dex handlers.
+		_, err := auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes))
+		if err != nil {
+			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))
+		}
 	}
 
 	pgpKeyRing, err := readPgpKeyRing()

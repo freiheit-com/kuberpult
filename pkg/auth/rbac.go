@@ -224,3 +224,10 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, envGroup, appl
 	p := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, envGroup, env, application)
 	return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", p))
 }
+
+// Helper function to parse the scopes
+func ReadScopes(s string) (scopes []string) {
+	replacer := strings.NewReplacer(" ", "")
+	scopesTrim := replacer.Replace(s)
+	return strings.Split(scopesTrim, ",")
+}

@@ -34,6 +34,7 @@ type ServerConfig struct {
 	DexClientId         string `default:"" split_words:"true"`
 	DexClientSecret     string `default:"" split_words:"true"`
 	DexBaseURL          string `default:"" split_words:"true"`
+	DexScopes           string `default:"" split_words:"true"`
 	Version             string `default:""`
 	SourceRepoUrl       string `default:"" split_words:"true"`
 	AllowedOrigins      string `default:"" split_words:"true"`
