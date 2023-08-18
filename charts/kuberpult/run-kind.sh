@@ -184,14 +184,13 @@ helm repo add argo-cd https://argoproj.github.io/argo-helm
 
 helm uninstall argocd || echo "did not uninstall argo"
 cat <<YAML > argocd-values.yml
-timeout:
-  reconciliation: 0s
 configs:
   ssh:
     knownHosts: |
 $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
   cm:
     accounts.kuberpult: apiKey
+    timeout.reconciliation: 0s
   rbac:
     policy.csv: |
       p, role:kuberpult, applications, get, */*, allow
@@ -228,7 +227,7 @@ spec:
     server: https://kubernetes.default.svc
   project: test-env
   source:
-    path: ./argocd/v1alpha1
+    path: argocd/v1alpha1
     repoURL: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
     targetRevision: HEAD
   syncPolicy:
@@ -250,6 +249,7 @@ echo "argocd token: $token"
 
 kubectl create ns development
 kubectl create ns development2
+kubectl create ns staging
 
 ## kuberpult
 print 'installing kuberpult helm chart...'

@@ -67,7 +67,7 @@ cat <<EOF > "${file}"
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: "$name"-dummy-config-map
+  name: $name-dummy-config-map
   namespace: "$env"
 data:
   key: value

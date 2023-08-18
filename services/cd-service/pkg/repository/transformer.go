@@ -545,6 +545,11 @@ func (u *DeleteEnvFromApp) Transform(ctx context.Context, state *State) (string,
 				Env: u.Environment,
 			},
 		},
+		DeletedRootApps: []RootApp{
+			{
+				Env: u.Environment,
+			},
+		},
 	}
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil, changes
 }
@@ -1003,7 +1008,7 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		return "", err, nil
 	}
 	changes.AddAppEnv(c.Application, c.Environment)
-	logger.FromContext(ctx).Warn(fmt.Sprintf("DeployApp: changes added: %v+", changes))
+	logger.FromContext(ctx).Info(fmt.Sprintf("DeployApp: changes added: %v+", changes))
 
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
@@ -1032,13 +1037,13 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		Application: c.Application,
 	}
 	transform, err, subChanges := d.Transform(ctx, state)
-	logger.FromContext(ctx).Warn(fmt.Sprintf("DeployApp: sub changes: %v+", subChanges))
+	logger.FromContext(ctx).Info(fmt.Sprintf("DeployApp: sub changes: %v+", subChanges))
 	changes.Combine(subChanges)
 	if err != nil {
 		return "", err, nil
 	}
 
-	logger.FromContext(ctx).Warn(fmt.Sprintf("DeployApp: combined changes: %v+", changes))
+	logger.FromContext(ctx).Info(fmt.Sprintf("DeployApp: combined changes: %v+", changes))
 	return fmt.Sprintf("deployed version %d of %q to %q\n%s", c.Version, c.Application, c.Environment, transform), nil, changes
 }
 

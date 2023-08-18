@@ -461,10 +461,18 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 	var modified = []string{}
 	for i := range changes.ChangedApps {
 		change := changes.ChangedApps[i]
+		// we may need to add the root app in some circumstances - so far it doesn't seem necessary, so we just add the manifest.yaml:
 		manifestFilename := fmt.Sprintf("environments/%s/applications/%s/manifests/manifests.yaml", change.Env, change.App)
-		// we may need to add the root app in some circumstances - so far it doesn't seem necessary
 		modified = append(modified, manifestFilename)
-		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", manifestFilename))
+		logger.Info(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", manifestFilename))
+	}
+	var deleted = []string{}
+	for i := range changes.DeletedRootApps {
+		change := changes.DeletedRootApps[i]
+		// we may need to add the root app in some circumstances - so far it doesn't seem necessary, so we just add the manifest.yaml:
+		rootAppFilename := fmt.Sprintf("argocd/%s/%s.yaml", "v1alpha1", change.Env)
+		deleted = append(deleted, rootAppFilename)
+		logger.Info(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", rootAppFilename))
 	}
 
 	argoResult := ArgoWebhookData{
@@ -474,15 +482,15 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 			payloadBefore: headStr,
 			payloadAfter:  parentCommit.Id().String(),
 		},
-		defaultBranch: r.config.Branch, // this is questionable, but maybe ok
+		defaultBranch: r.config.Branch, // this is questionable, because we don't actually know the default branch, but it seems to work fine in practice
 		Commits: []commit{
-			// Because we are in ProcessQueueOnce there can only be 1 commit (but multiple files)
 			{
-				// TODO Added necessary?
+				// TODO test if Added necessary?
 				Added:    []string{},
 				Modified: modified,
-				// TODO Removed necessary?
-				Removed: []string{},
+				//Modified: modified,
+				// TODO test if Removed necessary?
+				Removed: deleted,
 			},
 		},
 	}
@@ -542,7 +550,7 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	if err != nil {
 		return err
 	}
-	l.Warn(fmt.Sprintf("doWebhookPostRequest argo format: %s", string(jsonBytes)))
+	l.Info(fmt.Sprintf("doWebhookPostRequest argo format: %s", string(jsonBytes)))
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -654,8 +662,14 @@ type AppEnv struct {
 	Env string
 }
 
+type RootApp struct {
+	Env string
+	//argocd/v1alpha1/development2.yaml
+}
+
 type TransformerResult struct {
-	ChangedApps []AppEnv
+	ChangedApps     []AppEnv
+	DeletedRootApps []RootApp
 }
 
 func (r *TransformerResult) AddAppEnv(app string, env string) {
@@ -664,6 +678,13 @@ func (r *TransformerResult) AddAppEnv(app string, env string) {
 		Env: env,
 	})
 }
+
+func (r *TransformerResult) AddRootApp(env string) {
+	r.DeletedRootApps = append(r.DeletedRootApps, RootApp{
+		Env: env,
+	})
+}
+
 func (r *TransformerResult) Combine(other *TransformerResult) {
 	if other == nil {
 		return
@@ -671,6 +692,10 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 	for i := range other.ChangedApps {
 		a := other.ChangedApps[i]
 		r.AddAppEnv(a.App, a.Env)
+	}
+	for i := range other.DeletedRootApps {
+		a := other.DeletedRootApps[i]
+		r.AddRootApp(a.Env)
 	}
 }
 
@@ -684,7 +709,6 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 
 func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (error, *TransformerResult) {
 	commitMsg, state, err, changes := r.ApplyTransformersInternal(ctx, transformers...)
-	//
 	if err != nil {
 		return err, nil
 	}
