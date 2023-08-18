@@ -499,11 +499,15 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 	defer span.Finish()
 	success := false
 	for i := 1; i <= maxArgoRequests; i++ {
-		err = doWebhookPostRequest(ctx, argoResult, r.config, i)
-		if err != nil {
+		err, shouldRetry := doWebhookPostRequest(ctx, argoResult, r.config, i)
+		if err != nil && shouldRetry {
 			logger.Warn(fmt.Sprintf("ProcessQueueOnce: error sending webhook on try %d: %v", i, err))
-			// we're still in a request here, we can't wait too long:
-			time.Sleep(time.Duration(50*i) * time.Millisecond)
+			if shouldRetry {
+				// we're still in a request here, we can't wait too long:
+				time.Sleep(time.Duration(100*i) * time.Millisecond)
+			} else {
+				break
+			}
 		} else {
 			logger.Info(fmt.Sprintf("ProcessQueueOnce: argo webhook was send successfully on try %d!", i))
 			success = true
@@ -525,7 +529,7 @@ func contains(s []int, e int) bool {
 	return false
 }
 
-func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig *RepositoryConfig, retryCounter int) error {
+func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig *RepositoryConfig, retryCounter int) (error, bool) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "Webhook")
 	span.SetTag("changeAfter", data.change.payloadAfter)
 	span.SetTag("changeBefore", data.change.payloadBefore)
@@ -548,7 +552,7 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 
 	jsonBytes, err := json.MarshalIndent(argoFormat, " ", " ")
 	if err != nil {
-		return err
+		return err, false
 	}
 	l.Info(fmt.Sprintf("doWebhookPostRequest argo format: %s", string(jsonBytes)))
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
@@ -566,7 +570,7 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	client := &http.Client{Transport: tr}
 	resp, err := client.Do(req)
 	if err != nil {
-		return errors.New(fmt.Sprintf("doWebhookPostRequest: could not send request to '%s': %s", url, err.Error()))
+		return errors.New(fmt.Sprintf("doWebhookPostRequest: could not send request to '%s': %s", url, err.Error())), false
 	}
 	defer resp.Body.Close()
 
@@ -575,16 +579,20 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		// weird but we kinda do not care about the body:
-		l.Warn(fmt.Sprintf("doWebhookPostRequest: could not read body: %s", err.Error()))
-		return nil
+		l.Warn(fmt.Sprintf("doWebhookPostRequest: could not read body: %s - continuing anyway", err.Error()))
 	}
 	validResponseCodes := []int{200}
-	if !contains(validResponseCodes, resp.StatusCode) {
-		l.Warn(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
-		return errors.New(fmt.Sprintf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode))
+	if resp.StatusCode >= 500 {
+		return errors.New(fmt.Sprintf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode)), true
 	}
-	l.Info(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
-	return nil
+
+	if contains(validResponseCodes, resp.StatusCode) {
+		l.Info(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
+		return nil, false
+	}
+	// in any other case we should not do a retry (e.g. status 4xx):
+	l.Warn(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
+	return errors.New(fmt.Sprintf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode)), false
 }
 
 func toArgoCommits(commits []commit) []v1alpha1.Commit {
