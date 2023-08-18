@@ -1158,6 +1158,11 @@ func TestTransformerChanges(t *testing.T) {
 						Env: envAcceptance,
 					},
 				},
+				DeletedRootApps: []RootApp{
+					{
+						Env: envAcceptance,
+					},
+				},
 			},
 		},
 		{
