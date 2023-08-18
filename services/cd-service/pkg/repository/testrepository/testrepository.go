@@ -41,7 +41,7 @@ func (fr *failingRepository) Push(ctx context.Context, pushAction func() error) 
 	return fr.err
 }
 
-func (fr *failingRepository) ApplyTransformersInternal(ctx context.Context, transformers ...repository.Transformer) ([]string, *repository.State, error, *repository.TransformerResult) {
+func (fr *failingRepository) ApplyTransformersInternal(ctx context.Context, transformers ...repository.Transformer) ([]string, *repository.State, error, []*repository.TransformerResult) {
 	return nil, nil, fr.err, nil
 }
 
