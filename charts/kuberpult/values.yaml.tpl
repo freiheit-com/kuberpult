@@ -168,4 +168,5 @@ dex:
   clientId: ""
   clientSecret: ""
   baseURL: ""
+  # List of scopes to validate the token. Please add them as comma separated values.
   scopes: ""

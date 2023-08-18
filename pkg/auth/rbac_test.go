@@ -240,7 +240,7 @@ func TestReadScopes(t *testing.T) {
 	}{
 		{
 			Name:         "Correctly parses the scopes string",
-			ScopesString: "[groups, emails, profile, openID]",
+			ScopesString: "groups, emails, profile, openID",
 			WantScopes:   []string{"groups", "emails", "profile", "openID"},
 		},
 	}
