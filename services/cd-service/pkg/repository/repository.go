@@ -60,7 +60,7 @@ import (
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
-	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error, []*TransformerResult)
+	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, error)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	Notify() *notify.Notify
@@ -127,6 +127,7 @@ type RepositoryConfig struct {
 	// false: read from config files in manifest repo
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
+	ArgoInsecure           bool
 	// if set, kuberpult will generate push events to argoCd whenever it writes to the manifest repo:
 	ArgoWebhookUrl string
 }
@@ -485,12 +486,9 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 		defaultBranch: r.config.Branch, // this is questionable, because we don't actually know the default branch, but it seems to work fine in practice
 		Commits: []commit{
 			{
-				// TODO test if Added necessary?
 				Added:    []string{},
 				Modified: modified,
-				//Modified: modified,
-				// TODO test if Removed necessary?
-				Removed: deleted,
+				Removed:  deleted,
 			},
 		},
 	}
@@ -564,7 +562,7 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	tr := &http.Transport{
 		// we reach argo from within the cluster, so there's no ssl:
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: repoConfig.ArgoInsecure,
 		},
 	}
 	client := &http.Client{Transport: tr}
@@ -646,22 +644,22 @@ type ArgoWebhookData struct {
 	Commits       []commit
 }
 
-func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error, []*TransformerResult) {
+func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, error) {
 	if state, err := r.StateAt(nil); err != nil {
-		return nil, nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in StateAt", err)), nil
+		return nil, nil, nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in StateAt", err))
 	} else {
 		var changes []*TransformerResult = nil
 		commitMsg := []string{}
 		ctxWithTime := withTimeNow(ctx, time.Now())
 		for _, t := range transformers {
-			if msg, err, subChanges := t.Transform(ctxWithTime, state); err != nil {
-				return nil, nil, err, nil
+			if msg, subChanges, err := t.Transform(ctxWithTime, state); err != nil {
+				return nil, nil, nil, err
 			} else {
 				commitMsg = append(commitMsg, msg)
 				changes = append(changes, subChanges)
 			}
 		}
-		return commitMsg, state, nil, changes
+		return commitMsg, state, changes, nil
 	}
 }
 
@@ -716,7 +714,7 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 }
 
 func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (error, *TransformerResult) {
-	commitMsg, state, err, changes := r.ApplyTransformersInternal(ctx, transformers...)
+	commitMsg, state, changes, err := r.ApplyTransformersInternal(ctx, transformers...)
 	if err != nil {
 		return err, nil
 	}

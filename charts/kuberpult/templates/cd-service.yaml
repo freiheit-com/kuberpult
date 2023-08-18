@@ -111,6 +111,8 @@ spec:
           value: {{ .Values.log.level | quote }}
         - name: KUBERPULT_ARGO_CD_SERVER
           value: {{ .Values.argocd.server | quote }}
+        - name: KUBERPULT_ARGO_CD_INSECURE
+          value: {{ .Values.argocd.insecure | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:

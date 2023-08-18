@@ -287,8 +287,8 @@ func TestBatchServiceWorks(t *testing.T) {
 
 type ErrorTransformer struct{}
 
-func (p *ErrorTransformer) Transform(ctx context.Context, state *repository.State) (string, error, *repository.TransformerResult) {
-	return "error", errors.New("i am the transformer error"), nil
+func (p *ErrorTransformer) Transform(ctx context.Context, state *repository.State) (string, *repository.TransformerResult, error) {
+	return "error", nil, errors.New("i am the transformer error")
 }
 
 func TestBatchServiceErrors(t *testing.T) {
