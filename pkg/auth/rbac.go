@@ -227,7 +227,6 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, envGroup, appl
 
 // Helper function to parse the scopes.
 func ReadScopes(s string) (scopes []string) {
-	// Removes the array brackets.
 	replacer := strings.NewReplacer(" ", "")
 	scopesTrim := replacer.Replace(s)
 	return strings.Split(scopesTrim, ",")
