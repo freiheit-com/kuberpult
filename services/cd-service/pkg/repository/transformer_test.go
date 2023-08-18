@@ -1009,6 +1009,212 @@ func TestReleaseTrainErrors(t *testing.T) {
 	}
 }
 
+func TestTransformerChanges(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		expectedCommitMsg string
+		expectedChanges   *TransformerResult
+	}{
+		{
+			Name: "Deploy 1 app, another app locked by app lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      testutil.MakeEnvConfigUpstream(envAcceptance, nil),
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: envProduction,
+					Application: "foo",
+					LockId:      "foo-id",
+					Message:     "foo",
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[string]string{
+						envProduction: envProduction,
+						envAcceptance: envAcceptance,
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "bar",
+					Manifests: map[string]string{
+						envProduction: envProduction,
+						envAcceptance: envAcceptance,
+					},
+				},
+				&ReleaseTrain{
+					Target: envProduction,
+				},
+			},
+			expectedChanges: &TransformerResult{
+				ChangedApps: []AppEnv{
+					// foo is locked, so it should not appear here
+					{
+						App: "bar",
+						Env: envProduction,
+					},
+				},
+			},
+		},
+		{
+			Name: "env lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      testutil.MakeEnvConfigUpstream(envAcceptance, nil),
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironmentLock{
+					Environment: envProduction,
+					LockId:      "foo-id",
+					Message:     "foo",
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[string]string{
+						envProduction: envProduction,
+						envAcceptance: envAcceptance,
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "bar",
+					Manifests: map[string]string{
+						envProduction: envProduction,
+						envAcceptance: envAcceptance,
+					},
+				},
+				&ReleaseTrain{
+					Target: envProduction,
+				},
+			},
+			expectedChanges: &TransformerResult{
+				ChangedApps: nil,
+			},
+		},
+		{
+			Name: "create env lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      testutil.MakeEnvConfigUpstream(envAcceptance, nil),
+				},
+				&CreateEnvironmentLock{
+					Environment: envProduction,
+					LockId:      "foo-id",
+					Message:     "foo",
+				},
+			},
+			expectedChanges: &TransformerResult{
+				ChangedApps: nil,
+			},
+		},
+		{
+			Name: "create env",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      testutil.MakeEnvConfigUpstream(envAcceptance, nil),
+				},
+			},
+			expectedChanges: &TransformerResult{
+				ChangedApps: nil,
+			},
+		},
+		{
+			Name: "delete env from app",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      testutil.MakeEnvConfigUpstream(envAcceptance, nil),
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[string]string{
+						envProduction: envProduction,
+						envAcceptance: envAcceptance,
+					},
+				},
+				&DeleteEnvFromApp{
+					Application: "foo",
+					Environment: envAcceptance,
+				},
+			},
+			expectedChanges: &TransformerResult{
+				ChangedApps: []AppEnv{
+					{
+						App: "foo",
+						Env: envAcceptance,
+					},
+				},
+			},
+		},
+		{
+			Name: "deploy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      testutil.MakeEnvConfigUpstream(envAcceptance, nil),
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[string]string{
+						envProduction: envProduction,
+						envAcceptance: envAcceptance,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication: Authentication{},
+					Environment:    envProduction,
+					Application:    "foo",
+					Version:        1,
+				},
+			},
+			expectedChanges: &TransformerResult{
+				ChangedApps: []AppEnv{
+					{
+						App: "foo",
+						Env: envProduction,
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			_, _, err, actualChanges := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			// we only diff the changes from the last transformer here:
+			lastChanges := actualChanges[len(actualChanges)-1]
+			// note that we only check the LAST error here:
+			if err != nil {
+				t.Fatalf("Expected no error: %v", err)
+			}
+
+			if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
+				t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
+			}
+		})
+	}
+}
+
 func TestRbacTransformerTest(t *testing.T) {
 	envGroupProduction := "production"
 	tcs := []struct {
@@ -3429,7 +3635,7 @@ type injectErr struct {
 func (i *injectErr) Transform(ctx context.Context, state *State) (string, error, *TransformerResult) {
 	original := state.Filesystem
 	state.Filesystem = i.collector.WithError(state.Filesystem, i.operation, i.filename, i.err)
-	s, err, _ := i.Transformer.Transform(ctx, state)
+	s, err, changes := i.Transformer.Transform(ctx, state)
 	state.Filesystem = original
 	return s, err, changes
 }

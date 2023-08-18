@@ -538,7 +538,14 @@ func (u *DeleteEnvFromApp) Transform(ctx context.Context, state *State) (string,
 		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app.'")), nil
 	}
 
-	changes := &TransformerResult{} // TODO implement
+	changes := &TransformerResult{
+		ChangedApps: []AppEnv{
+			{
+				App: u.Application,
+				Env: u.Environment,
+			},
+		},
+	}
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil, changes
 }
 

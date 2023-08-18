@@ -60,7 +60,7 @@ import (
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
-	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error, *TransformerResult)
+	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error, []*TransformerResult)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	Notify() *notify.Notify
@@ -461,8 +461,8 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 	var modified = []string{}
 	for i := range changes.ChangedApps {
 		change := changes.ChangedApps[i]
-		manifestFilename := fmt.Sprintf("environments/%s/applications/%s/manifests/manifests.yaml", change.env, change.app)
-		// TODO SU: we may need to add the root app in some circumstances
+		manifestFilename := fmt.Sprintf("environments/%s/applications/%s/manifests/manifests.yaml", change.Env, change.App)
+		// we may need to add the root app in some circumstances - so far it doesn't seem necessary
 		modified = append(modified, manifestFilename)
 		logger.Warn(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", manifestFilename))
 	}
@@ -630,11 +630,11 @@ type ArgoWebhookData struct {
 	Commits       []commit
 }
 
-func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error, *TransformerResult) {
+func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error, []*TransformerResult) {
 	if state, err := r.StateAt(nil); err != nil {
 		return nil, nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in StateAt", err)), nil
 	} else {
-		changes := &TransformerResult{}
+		var changes []*TransformerResult = nil
 		commitMsg := []string{}
 		ctxWithTime := withTimeNow(ctx, time.Now())
 		for _, t := range transformers {
@@ -642,7 +642,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 				return nil, nil, err, nil
 			} else {
 				commitMsg = append(commitMsg, msg)
-				changes.Combine(subChanges)
+				changes = append(changes, subChanges)
 			}
 		}
 		return commitMsg, state, nil, changes
@@ -650,8 +650,8 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 }
 
 type AppEnv struct {
-	app string
-	env string
+	App string
+	Env string
 }
 
 type TransformerResult struct {
@@ -660,8 +660,8 @@ type TransformerResult struct {
 
 func (r *TransformerResult) AddAppEnv(app string, env string) {
 	r.ChangedApps = append(r.ChangedApps, AppEnv{
-		app: app,
-		env: env,
+		App: app,
+		Env: env,
 	})
 }
 func (r *TransformerResult) Combine(other *TransformerResult) {
@@ -670,8 +670,16 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 	}
 	for i := range other.ChangedApps {
 		a := other.ChangedApps[i]
-		r.AddAppEnv(a.app, a.env)
+		r.AddAppEnv(a.App, a.Env)
 	}
+}
+
+func CombineArray(others []*TransformerResult) *TransformerResult {
+	var r *TransformerResult = &TransformerResult{}
+	for i := range others {
+		r.Combine(others[i])
+	}
+	return r
 }
 
 func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (error, *TransformerResult) {
@@ -724,7 +732,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	); err != nil {
 		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err)), nil
 	}
-	return nil, changes
+	return nil, CombineArray(changes)
 }
 
 func (r *repository) FetchAndReset(ctx context.Context) error {
