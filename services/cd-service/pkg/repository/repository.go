@@ -20,13 +20,16 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
+	v1alpha1 "github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,7 +60,7 @@ import (
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
-	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error)
+	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, error)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	Notify() *notify.Notify
@@ -79,6 +82,10 @@ const (
 	DefaultBackend StorageBackend = 0
 	GitBackend     StorageBackend = iota
 	SqliteBackend  StorageBackend = iota
+)
+
+const (
+	maxArgoRequests = 3 // note that this happens inside a request, we cannot retry too much!
 )
 
 type repository struct {
@@ -120,6 +127,9 @@ type RepositoryConfig struct {
 	// false: read from config files in manifest repo
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
+	ArgoInsecure           bool
+	// if set, kuberpult will generate push events to argoCd whenever it writes to the manifest repo:
+	ArgoWebhookUrl string
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -284,16 +294,18 @@ func (r *repository) ProcessQueue(ctx context.Context) {
 	}
 }
 
-func (r *repository) applyElements(elements []element, allowFetchAndReset bool) ([]element, error) {
+func (r *repository) applyElements(elements []element, allowFetchAndReset bool) ([]element, error, *TransformerResult) {
+	var changes = &TransformerResult{}
 	for i := 0; i < len(elements); {
 		e := elements[i]
-		applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
+		applyErr, subChanges := r.ApplyTransformers(e.ctx, e.transformers...)
+		changes.Combine(subChanges)
 		if applyErr != nil {
 			if errors.Is(applyErr, invalidJson) && allowFetchAndReset {
 				// Invalid state. fetch and reset and redo
 				err := r.FetchAndReset(e.ctx)
 				if err != nil {
-					return elements, err
+					return elements, err, nil
 				}
 				return r.applyElements(elements, false)
 			} else {
@@ -306,7 +318,7 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 			i++
 		}
 	}
-	return elements, nil
+	return elements, nil, changes
 }
 
 var panicError = errors.New("Panic")
@@ -383,7 +395,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	}
 
 	// Apply the items
-	elements, err = r.applyElements(elements, true)
+	elements, err, changes := r.applyElements(elements, true)
 	if err != nil {
 		return
 	}
@@ -403,7 +415,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 				return
 			}
 			// Apply the items
-			elements, err = r.applyElements(elements, false)
+			elements, err, _ = r.applyElements(elements, false)
 			if err != nil || len(elements) == 0 {
 				return
 			}
@@ -419,43 +431,304 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 			err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
 		}
 	}
+	span, _ := tracer.StartSpanFromContext(ctx, "PostPush")
+	defer span.Finish()
+
+	if r.config.ArgoWebhookUrl != "" {
+		r.sendWebhookToArgoCd(ctx, logger, changes)
+	}
+
 	r.notify.Notify()
 }
 
-func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, error) {
-	if state, err := r.StateAt(nil); err != nil {
-		return nil, nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in StateAt", err))
-	} else {
-		commitMsg := []string{}
-		ctxWithTime := withTimeNow(ctx, time.Now())
-		for _, t := range transformers {
-			if msg, err := t.Transform(ctxWithTime, state); err != nil {
-				return nil, nil, err
+func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger, changes *TransformerResult) {
+	head, err := r.repository.Head()
+	if err != nil {
+		logger.Error(fmt.Sprintf("ArgoWebhookUrl: error getting repo head: %v", err))
+		return
+	}
+	headStr := head.Target().String()
+	headCommit, err := r.repository.LookupCommit(head.Target())
+	if err != nil {
+		logger.Error(fmt.Sprintf("ArgoWebhookUrl: error looking up head commit: %v", err))
+		return
+	}
+	parentCommit := headCommit.Parent(0)
+	if parentCommit == nil {
+		logger.Error(fmt.Sprintf("ArgoWebhookUrl: error getting parent of head. head=%s", headCommit.Id().String()))
+		return
+	}
+
+	var modified = []string{}
+	for i := range changes.ChangedApps {
+		change := changes.ChangedApps[i]
+		// we may need to add the root app in some circumstances - so far it doesn't seem necessary, so we just add the manifest.yaml:
+		manifestFilename := fmt.Sprintf("environments/%s/applications/%s/manifests/manifests.yaml", change.Env, change.App)
+		modified = append(modified, manifestFilename)
+		logger.Info(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", manifestFilename))
+	}
+	var deleted = []string{}
+	for i := range changes.DeletedRootApps {
+		change := changes.DeletedRootApps[i]
+		// we may need to add the root app in some circumstances - so far it doesn't seem necessary, so we just add the manifest.yaml:
+		rootAppFilename := fmt.Sprintf("argocd/%s/%s.yaml", "v1alpha1", change.Env)
+		deleted = append(deleted, rootAppFilename)
+		logger.Info(fmt.Sprintf("ArgoWebhookUrl: adding modified: %s", rootAppFilename))
+	}
+
+	argoResult := ArgoWebhookData{
+		htmlUrl:  r.config.URL, // if this does not match, argo will completely ignore the request and return 200
+		revision: "refs/heads/" + r.config.Branch,
+		change: changeInfo{
+			payloadBefore: headStr,
+			payloadAfter:  parentCommit.Id().String(),
+		},
+		defaultBranch: r.config.Branch, // this is questionable, because we don't actually know the default branch, but it seems to work fine in practice
+		Commits: []commit{
+			{
+				Added:    []string{},
+				Modified: modified,
+				Removed:  deleted,
+			},
+		},
+	}
+
+	span, ctx := tracer.StartSpanFromContext(ctx, "Webhook-Retries")
+	defer span.Finish()
+	success := false
+	for i := 1; i <= maxArgoRequests; i++ {
+		err, shouldRetry := doWebhookPostRequest(ctx, argoResult, r.config, i)
+		if err != nil && shouldRetry {
+			logger.Warn(fmt.Sprintf("ProcessQueueOnce: error sending webhook on try %d: %v", i, err))
+			if shouldRetry {
+				// we're still in a request here, we can't wait too long:
+				time.Sleep(time.Duration(100*i) * time.Millisecond)
 			} else {
-				commitMsg = append(commitMsg, msg)
+				break
 			}
+		} else {
+			logger.Info(fmt.Sprintf("ProcessQueueOnce: argo webhook was send successfully on try %d!", i))
+			success = true
+			break
 		}
-		return commitMsg, state, nil
+	}
+	span.SetTag("success", success)
+	if !success {
+		logger.Error(fmt.Sprintf("ProcessQueueOnce: error sending webhook after all %d tries: %v", maxArgoRequests, err))
 	}
 }
 
-func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) error {
-	commitMsg, state, err := r.ApplyTransformersInternal(ctx, transformers...)
-	//
+func contains(s []int, e int) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig *RepositoryConfig, retryCounter int) (error, bool) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "Webhook")
+	span.SetTag("changeAfter", data.change.payloadAfter)
+	span.SetTag("changeBefore", data.change.payloadBefore)
+	span.SetTag("try", retryCounter)
+	defer span.Finish()
+	url := repoConfig.ArgoWebhookUrl + "/api/webhook"
+	l := logger.FromContext(ctx)
+	l.Info(fmt.Sprintf("doWebhookPostRequest: URL: %s", url))
+
+	var argoFormat = v1alpha1.PushPayload{
+		Ref:    data.revision,
+		Before: data.change.payloadBefore,
+		After:  data.change.payloadAfter,
+		Repository: v1alpha1.Repository{
+			HTMLURL:       data.htmlUrl,
+			DefaultBranch: data.defaultBranch,
+		},
+		Commits: toArgoCommits(data.Commits),
+	}
+
+	jsonBytes, err := json.MarshalIndent(argoFormat, " ", " ")
 	if err != nil {
-		return err
+		return err, false
+	}
+	l.Info(fmt.Sprintf("doWebhookPostRequest argo format: %s", string(jsonBytes)))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
+	req.Header.Set("Content-Type", "application/json")
+
+	// now pretend that we are GitHub by adding this header, otherwise argo will ignore our request:
+	req.Header.Set("X-GitHub-Event", "push")
+
+	tr := &http.Transport{
+		// we reach argo from within the cluster, so there's no ssl:
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: repoConfig.ArgoInsecure,
+		},
+	}
+	client := &http.Client{Transport: tr}
+	resp, err := client.Do(req)
+	if err != nil {
+		return errors.New(fmt.Sprintf("doWebhookPostRequest: could not send request to '%s': %s", url, err.Error())), false
+	}
+	defer resp.Body.Close()
+
+	//l.Warn(fmt.Sprintf("response Status: %d", resp.StatusCode))
+	l.Info(fmt.Sprintf("response headers: %s", resp.Header))
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		// weird but we kinda do not care about the body:
+		l.Warn(fmt.Sprintf("doWebhookPostRequest: could not read body: %s - continuing anyway", err.Error()))
+	}
+	validResponseCodes := []int{200}
+	if resp.StatusCode >= 500 {
+		return errors.New(fmt.Sprintf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode)), true
+	}
+
+	if contains(validResponseCodes, resp.StatusCode) {
+		l.Info(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
+		return nil, false
+	}
+	// in any other case we should not do a retry (e.g. status 4xx):
+	l.Warn(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
+	return errors.New(fmt.Sprintf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode)), false
+}
+
+func toArgoCommits(commits []commit) []v1alpha1.Commit {
+	var result = []v1alpha1.Commit{}
+	for i := range commits {
+		c := commits[i]
+		result = append(result, v1alpha1.Commit{
+			// ArgoCd ignores most fields, so we can ignore them too.
+			// Source: function "affectedRevisionInfo" in https://github.com/argoproj/argo-cd/blob/master/util/webhook/webhook.go#L141
+			Sha:       "",
+			ID:        "",
+			NodeID:    "",
+			TreeID:    "",
+			Distinct:  false,
+			Message:   "",
+			Timestamp: "",
+			URL:       "",
+			Author: struct {
+				Name     string `json:"name"`
+				Email    string `json:"email"`
+				Username string `json:"username"`
+			}{},
+			Committer: struct {
+				Name     string `json:"name"`
+				Email    string `json:"email"`
+				Username string `json:"username"`
+			}{},
+			Added:    c.Added,
+			Removed:  c.Removed,
+			Modified: c.Modified,
+		})
+	}
+	return result
+}
+
+type changeInfo struct {
+	payloadBefore string
+	payloadAfter  string
+}
+type commit struct {
+	Added    []string
+	Modified []string
+	Removed  []string
+}
+
+type ArgoWebhookData struct {
+	htmlUrl       string
+	revision      string // aka "ref"
+	change        changeInfo
+	defaultBranch string
+	Commits       []commit
+}
+
+func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, error) {
+	if state, err := r.StateAt(nil); err != nil {
+		return nil, nil, nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in StateAt", err))
+	} else {
+		var changes []*TransformerResult = nil
+		commitMsg := []string{}
+		ctxWithTime := withTimeNow(ctx, time.Now())
+		for _, t := range transformers {
+			if msg, subChanges, err := t.Transform(ctxWithTime, state); err != nil {
+				return nil, nil, nil, err
+			} else {
+				commitMsg = append(commitMsg, msg)
+				changes = append(changes, subChanges)
+			}
+		}
+		return commitMsg, state, changes, nil
+	}
+}
+
+type AppEnv struct {
+	App string
+	Env string
+}
+
+type RootApp struct {
+	Env string
+	//argocd/v1alpha1/development2.yaml
+}
+
+type TransformerResult struct {
+	ChangedApps     []AppEnv
+	DeletedRootApps []RootApp
+}
+
+func (r *TransformerResult) AddAppEnv(app string, env string) {
+	r.ChangedApps = append(r.ChangedApps, AppEnv{
+		App: app,
+		Env: env,
+	})
+}
+
+func (r *TransformerResult) AddRootApp(env string) {
+	r.DeletedRootApps = append(r.DeletedRootApps, RootApp{
+		Env: env,
+	})
+}
+
+func (r *TransformerResult) Combine(other *TransformerResult) {
+	if other == nil {
+		return
+	}
+	for i := range other.ChangedApps {
+		a := other.ChangedApps[i]
+		r.AddAppEnv(a.App, a.Env)
+	}
+	for i := range other.DeletedRootApps {
+		a := other.DeletedRootApps[i]
+		r.AddRootApp(a.Env)
+	}
+}
+
+func CombineArray(others []*TransformerResult) *TransformerResult {
+	var r *TransformerResult = &TransformerResult{}
+	for i := range others {
+		r.Combine(others[i])
+	}
+	return r
+}
+
+func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (error, *TransformerResult) {
+	commitMsg, state, changes, err := r.ApplyTransformersInternal(ctx, transformers...)
+	if err != nil {
+		return err, nil
 	}
 	err = UpdateDatadogMetrics(state)
 	if err != nil {
-		return err
+		return err, nil
 	}
 	if err := r.afterTransform(ctx, *state); err != nil {
-		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in afterTransform", err))
+		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in afterTransform", err)), nil
 	}
 
 	treeId, err := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 	if err != nil {
-		return &InternalError{inner: err}
+		return &InternalError{inner: err}, nil
 	}
 	committer := &git.Signature{
 		Name:  r.config.CommitterName,
@@ -465,7 +738,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return err
+		return err, nil
 	}
 
 	author := &git.Signature{
@@ -487,9 +760,9 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		treeId,
 		rev,
 	); err != nil {
-		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err))
+		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err)), nil
 	}
-	return nil
+	return nil, CombineArray(changes)
 }
 
 func (r *repository) FetchAndReset(ctx context.Context) error {

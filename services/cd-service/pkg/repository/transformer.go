@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"io"
 	"io/fs"
 	"os"
@@ -149,12 +150,12 @@ func GetRepositoryStateAndUpdateMetrics(repo Repository) {
 
 // A Transformer updates the files in the worktree
 type Transformer interface {
-	Transform(context.Context, *State) (commitMsg string, e error)
+	Transform(context.Context, *State) (commitMsg string, changes *TransformerResult, e error)
 }
 
-type TransformerFunc func(context.Context, *State) (string, error)
+type TransformerFunc func(context.Context, *State) (string, *TransformerResult, error)
 
-func (t TransformerFunc) Transform(ctx context.Context, state *State) (string, error) {
+func (t TransformerFunc) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	return (t)(ctx, state)
 }
 
@@ -194,76 +195,77 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 	}
 }
 
-func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
+func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	fs := state.Filesystem
 	version, err := c.calculateVersion(fs)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if !valid.ApplicationName(c.Application) {
-		return "", grpc.PublicError(ctx, fmt.Errorf("invalid application name: '%s' - must match regexp '%s' and <= %d characters", c.Application, valid.AppNameRegExp, valid.MaxAppNameLen))
+		return "", nil, grpc.PublicError(ctx, fmt.Errorf("invalid application name: '%s' - must match regexp '%s' and <= %d characters", c.Application, valid.AppNameRegExp, valid.MaxAppNameLen))
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
 	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	if c.SourceCommitId != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_commit_id"), []byte(c.SourceCommitId), 0666); err != nil {
-			return "", err
+			return "", nil, err
 		}
 	}
 	if c.SourceAuthor != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_author"), []byte(c.SourceAuthor), 0666); err != nil {
-			return "", err
+			return "", nil, err
 		}
 	}
 	if c.SourceMessage != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_message"), []byte(c.SourceMessage), 0666); err != nil {
-			return "", err
+			return "", nil, err
 		}
 	}
 	if err := util.WriteFile(fs, fs.Join(releaseDir, "created_at"), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if c.Team != "" {
 		if err := util.WriteFile(fs, fs.Join(appDir, "team"), []byte(c.Team), 0666); err != nil {
-			return "", err
+			return "", nil, err
 		}
 	}
 	if c.SourceRepoUrl != "" {
 		if err := util.WriteFile(fs, fs.Join(appDir, "sourceRepoUrl"), []byte(c.SourceRepoUrl), 0666); err != nil {
-			return "", err
+			return "", nil, err
 		}
 	}
 	result := ""
 	isLatest, err := isLatestsVersion(state, c.Application, version)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if !isLatest {
 		// check that we can actually backfill this version
 		oldVersions, err := findOldApplicationVersions(state, c.Application)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		for _, oldVersion := range oldVersions {
 			if version == oldVersion {
-				return "", ErrReleaseTooOld
+				return "", nil, ErrReleaseTooOld
 			}
 		}
 	}
 
+	changes := &TransformerResult{}
 	for env, man := range c.Manifests {
 		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.RBACConfig)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		envDir := fs.Join(releaseDir, "environments", env)
 
@@ -274,11 +276,12 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		}
 
 		if err = fs.MkdirAll(envDir, 0777); err != nil {
-			return "", err
+			return "", nil, err
 		}
 		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
-			return "", err
+			return "", nil, err
 		}
+		changes.AddAppEnv(c.Application, env)
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
 				Environment:    env,
@@ -287,19 +290,20 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 				LockBehaviour:  api.LockBehavior_Record,
 				Authentication: c.Authentication,
 			}
-			deployResult, err := d.Transform(ctx, state)
+			deployResult, subChanges, err := d.Transform(ctx, state)
+			changes.Combine(subChanges)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
 					continue // LockedErrors are expected
 				} else {
-					return "", err
+					return "", nil, err
 				}
 			}
 			result = result + deployResult + "\n"
 		}
 	}
-	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), nil
+	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), changes, nil
 }
 
 func (c *CreateApplicationVersion) calculateVersion(bfs billy.Filesystem) (uint64, error) {
@@ -343,37 +347,38 @@ type CreateUndeployApplicationVersion struct {
 	Application string
 }
 
-func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
+func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	fs := state.Filesystem
 	lastRelease, err := GetLastRelease(fs, c.Application)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
+	changes := &TransformerResult{}
 	if lastRelease == 0 {
-		return "", fmt.Errorf("cannot undeploy non-existing application '%v'", c.Application)
+		return "", nil, fmt.Errorf("cannot undeploy non-existing application '%v'", c.Application)
 	}
 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, lastRelease+1)
 	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	// this is a flag to indicate that this is the special "undeploy" version
 	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if err := util.WriteFile(fs, fs.Join(releaseDir, "created_at"), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	result := ""
 	for env := range configs {
 		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateUndeploy, c.RBACConfig)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		envDir := fs.Join(releaseDir, "environments", env)
 
@@ -384,15 +389,16 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 		}
 
 		if err = fs.MkdirAll(envDir, 0777); err != nil {
-			return "", err
+			return "", nil, err
 		}
 		// note that the manifest is empty here!
 		// but actually it's not quite empty!
 		// The function we are using in DeployApplication version is `util.WriteFile`. And that does not allow overwriting files with empty content.
 		// We work around this unusual behavior by writing a space into the file
 		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
-			return "", err
+			return "", nil, err
 		}
+		changes.AddAppEnv(c.Application, env)
 		if hasUpstream && config.Upstream.Latest {
 			d := &DeployApplicationVersion{
 				Environment: env,
@@ -402,19 +408,20 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 				LockBehaviour:  api.LockBehavior_Record,
 				Authentication: c.Authentication,
 			}
-			deployResult, err := d.Transform(ctx, state)
+			deployResult, subChanges, err := d.Transform(ctx, state)
+			changes.Combine(subChanges)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
 					continue // locked error are expected
 				} else {
-					return "", err
+					return "", nil, err
 				}
 			}
 			result = result + deployResult + "\n"
 		}
 	}
-	return fmt.Sprintf("created undeploy-version %d of '%v'\n%s", lastRelease+1, c.Application, result), nil
+	return fmt.Sprintf("created undeploy-version %d of '%v'\n%s", lastRelease+1, c.Application, result), changes, nil
 }
 
 type UndeployApplication struct {
@@ -422,33 +429,33 @@ type UndeployApplication struct {
 	Application string
 }
 
-func (u *UndeployApplication) Transform(ctx context.Context, state *State) (string, error) {
+func (u *UndeployApplication) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	fs := state.Filesystem
 	lastRelease, err := GetLastRelease(fs, u.Application)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if lastRelease == 0 {
-		return "", fmt.Errorf("UndeployApplication: error cannot undeploy non-existing application '%v'", u.Application)
+		return "", nil, fmt.Errorf("UndeployApplication: error cannot undeploy non-existing application '%v'", u.Application)
 	}
 	isUndeploy, err := state.IsUndeployVersion(u.Application, lastRelease)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if !isUndeploy {
-		return "", fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
+		return "", nil, fmt.Errorf("UndeployApplication: error last release is not un-deployed application version of '%v'", u.Application)
 	}
 	appDir := applicationDirectory(fs, u.Application)
 	configs, err := state.GetEnvironmentConfigs()
 	for env := range configs {
 		err := state.checkUserPermissions(ctx, env, u.Application, auth.PermissionDeployUndeploy, u.RBACConfig)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		envAppDir := environmentApplicationDirectory(fs, env, u.Application)
 		entries, err := fs.ReadDir(envAppDir)
 		if err != nil {
-			return "", wrapFileError(err, envAppDir, "UndeployApplication: Could not open application directory. Does the app exist?")
+			return "", nil, wrapFileError(err, envAppDir, "UndeployApplication: Could not open application directory. Does the app exist?")
 		}
 		if entries == nil {
 			// app was never deployed on this env, so we must ignore it!
@@ -458,7 +465,7 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 		appLocksDir := fs.Join(envAppDir, "locks")
 		err = fs.Remove(appLocksDir)
 		if err != nil {
-			return "", fmt.Errorf("UndeployApplication: cannot delete app locks '%v'", appLocksDir)
+			return "", nil, fmt.Errorf("UndeployApplication: cannot delete app locks '%v'", appLocksDir)
 		}
 
 		versionDir := fs.Join(envAppDir, "version")
@@ -472,22 +479,24 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 
 		_, err = fs.Stat(undeployFile)
 		if err != nil && errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' the release '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
+			return "", nil, fmt.Errorf("UndeployApplication: error cannot un-deploy application '%v' the release '%v' is not un-deployed: '%v'", u.Application, env, undeployFile)
 		}
 
 	}
 	// remove application
 	if err = fs.Remove(appDir); err != nil {
-		return "", err
+		return "", nil, err
 	}
+	changes := &TransformerResult{}
 	for env := range configs {
 		appDir := environmentApplicationDirectory(fs, env, u.Application)
+		changes.AddAppEnv(u.Application, env)
 		// remove environment application
 		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
+			return "", nil, fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
 		}
 	}
-	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
+	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), changes, nil
 }
 
 type DeleteEnvFromApp struct {
@@ -496,10 +505,10 @@ type DeleteEnvFromApp struct {
 	Environment string
 }
 
-func (u *DeleteEnvFromApp) Transform(ctx context.Context, state *State) (string, error) {
+func (u *DeleteEnvFromApp) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	err := state.checkUserPermissions(ctx, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, u.RBACConfig)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	fs := state.Filesystem
 	thisSprintf := func(format string, a ...any) string {
@@ -507,30 +516,43 @@ func (u *DeleteEnvFromApp) Transform(ctx context.Context, state *State) (string,
 	}
 
 	if u.Application == "" {
-		return "", fmt.Errorf(thisSprintf("Need to provide the application"))
+		return "", nil, fmt.Errorf(thisSprintf("Need to provide the application"))
 	}
 
 	if u.Environment == "" {
-		return "", fmt.Errorf(thisSprintf("Need to provide the environment"))
+		return "", nil, fmt.Errorf(thisSprintf("Need to provide the environment"))
 	}
 
 	envAppDir := environmentApplicationDirectory(fs, u.Environment, u.Application)
 	entries, err := fs.ReadDir(envAppDir)
 	if err != nil {
-		return "", wrapFileError(err, envAppDir, thisSprintf("Could not open application directory. Does the app exist?"))
+		return "", nil, wrapFileError(err, envAppDir, thisSprintf("Could not open application directory. Does the app exist?"))
 	}
 
 	if entries == nil {
 		// app was never deployed on this env, so that's unusual - but for idempotency we treat it just like a success case:
-		return fmt.Sprintf("Attempted to remove environment '%v' from application '%v' but it did not exist.", u.Environment, u.Application), nil
+		return fmt.Sprintf("Attempted to remove environment '%v' from application '%v' but it did not exist.", u.Environment, u.Application), nil, nil
 	}
 
 	err = fs.Remove(envAppDir)
 	if err != nil {
-		return "", wrapFileError(err, envAppDir, thisSprintf("Cannot delete app.'"))
+		return "", nil, wrapFileError(err, envAppDir, thisSprintf("Cannot delete app.'"))
 	}
 
-	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil
+	changes := &TransformerResult{
+		ChangedApps: []AppEnv{
+			{
+				App: u.Application,
+				Env: u.Environment,
+			},
+		},
+		DeletedRootApps: []RootApp{
+			{
+				Env: u.Environment,
+			},
+		},
+	}
+	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), changes, nil
 }
 
 type CleanupOldApplicationVersions struct {
@@ -577,11 +599,11 @@ func findOldApplicationVersions(state *State, name string) ([]uint64, error) {
 	return versions[0 : positionOfOldestVersion-(keptVersionsOnCleanup-1)], err
 }
 
-func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *State) (string, error) {
+func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	fs := state.Filesystem
 	oldVersions, err := findOldApplicationVersions(state, c.Application)
 	if err != nil {
-		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
+		return "", nil, fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
 	}
 
 	msg := ""
@@ -590,16 +612,17 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 		releasesDir := releasesDirectoryWithVersion(fs, c.Application, oldRelease)
 		_, err := fs.Stat(releasesDir)
 		if err != nil {
-			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
+			return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
 		err = fs.Remove(releasesDir)
 		if err != nil {
-			return "", fmt.Errorf("CleanupOldApplicationVersions: Unexpected error app %s: %w",
+			return "", nil, fmt.Errorf("CleanupOldApplicationVersions: Unexpected error app %s: %w",
 				c.Application, err)
 		}
 		msg = fmt.Sprintf("%sremoved version %d of app %v as cleanup\n", msg, oldRelease, c.Application)
 	}
-	return msg, nil
+	changes := &TransformerResult{} // we only cleanup non-deployed versions, so there are not changes for argoCd here
+	return msg, changes, nil
 }
 
 func wrapFileError(e error, filename string, message string) error {
@@ -661,25 +684,25 @@ func (s *State) checkUserPermissionsCreateEnvironment(ctx context.Context, RBACC
 	return auth.CheckUserPermissions(RBACConfig, user, "*", envGroup, "*", auth.PermissionCreateEnvironment)
 }
 
-func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
-
+func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, c.RBACConfig)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+		return "", nil, fmt.Errorf("error accessing dir %q: %w", envDir, err)
 	} else {
 		if chroot, err := fs.Chroot(envDir); err != nil {
-			return "", err
+			return "", nil, err
 		} else {
 			if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
-				return "", err
+				return "", nil, err
 			} else {
 				GaugeEnvLockMetric(fs, c.Environment)
-				return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), nil
+				changes := &TransformerResult{}
+				return fmt.Sprintf("Created lock %q on environment %q", c.LockId, c.Environment), changes, nil
 			}
 		}
 	}
@@ -730,36 +753,37 @@ type DeleteEnvironmentLock struct {
 	LockId      string
 }
 
-func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (string, error) {
+func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionDeleteLock, c.RBACConfig)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	fs := state.Filesystem
 	lockDir := fs.Join("environments", c.Environment, "locks", c.LockId)
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+		return "", nil, fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
 		s := State{
 			Filesystem: fs,
 		}
 		apps, err := s.GetEnvironmentApplications(c.Environment)
 		if err != nil {
-			return "", fmt.Errorf("environment applications for %q not found: %v", c.Environment, err.Error())
+			return "", nil, fmt.Errorf("environment applications for %q not found: %v", c.Environment, err.Error())
 		}
 
 		additionalMessageFromDeployment := ""
 		for _, appName := range apps {
 			queueMessage, err := s.ProcessQueue(ctx, fs, c.Environment, appName)
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 			if queueMessage != "" {
 				additionalMessageFromDeployment = additionalMessageFromDeployment + "\n" + queueMessage
 			}
 		}
 		GaugeEnvLockMetric(fs, c.Environment)
-		return fmt.Sprintf("Deleted lock %q on environment %q%s", c.LockId, c.Environment, additionalMessageFromDeployment), nil
+		changes := &TransformerResult{}
+		return fmt.Sprintf("Deleted lock %q on environment %q%s", c.LockId, c.Environment, additionalMessageFromDeployment), changes, nil
 	}
 }
 
@@ -771,29 +795,30 @@ type CreateEnvironmentApplicationLock struct {
 	Message     string
 }
 
-func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
+func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
 	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionCreateLock, c.RBACConfig)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+		return "", nil, fmt.Errorf("error accessing dir %q: %w", envDir, err)
 	} else {
 		appDir := fs.Join(envDir, "applications", c.Application)
 		if err := fs.MkdirAll(appDir, 0777); err != nil {
-			return "", err
+			return "", nil, err
 		}
 		if chroot, err := fs.Chroot(appDir); err != nil {
-			return "", err
+			return "", nil, err
 		} else {
 			if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
-				return "", err
+				return "", nil, err
 			} else {
 				GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
-				return fmt.Sprintf("Created lock %q on environment %q for application %q", c.LockId, c.Environment, c.Application), nil
+				changes := &TransformerResult{} // locks are invisible to argoCd, so no changes here
+				return fmt.Sprintf("Created lock %q on environment %q for application %q", c.LockId, c.Environment, c.Application), changes, nil
 			}
 		}
 	}
@@ -806,25 +831,26 @@ type DeleteEnvironmentApplicationLock struct {
 	LockId      string
 }
 
-func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, error) {
+func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeleteLock, c.RBACConfig)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	fs := state.Filesystem
 	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+		return "", nil, fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
 		s := State{
 			Filesystem: fs,
 		}
 		queueMessage, err := s.ProcessQueue(ctx, fs, c.Environment, c.Application)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
-		return fmt.Sprintf("Deleted lock %q on environment %q for application %q%s", c.LockId, c.Environment, c.Application, queueMessage), nil
+		changes := &TransformerResult{}
+		return fmt.Sprintf("Deleted lock %q on environment %q for application %q%s", c.LockId, c.Environment, c.Application, queueMessage), changes, nil
 	}
 }
 
@@ -834,32 +860,33 @@ type CreateEnvironment struct {
 	Config      config.EnvironmentConfig
 }
 
-func (c *CreateEnvironment) Transform(ctx context.Context, state *State) (string, error) {
+func (c *CreateEnvironment) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	err := state.checkUserPermissionsCreateEnvironment(ctx, c.RBACConfig, c.Config)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	fs := state.Filesystem
 	envDir := fs.Join("environments", c.Environment)
 	// Creation of environment is possible, but configuring it is not if running in bootstrap mode.
 	// Configuration needs to be done by modifying config map in source repo
 	if state.BootstrapMode && c.Config != (config.EnvironmentConfig{}) {
-		return "", fmt.Errorf("Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead.")
+		return "", nil, fmt.Errorf("Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead.")
 	}
 	if err := fs.MkdirAll(envDir, 0777); err != nil {
-		return "", err
+		return "", nil, err
 	} else {
 		configFile := fs.Join(envDir, "config.json")
 		file, err := fs.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
 		if err != nil {
-			return "", fmt.Errorf("error creating config: %w", err)
+			return "", nil, fmt.Errorf("error creating config: %w", err)
 		}
 		enc := json.NewEncoder(file)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(c.Config); err != nil {
-			return "", fmt.Errorf("error writing json: %w", err)
+			return "", nil, fmt.Errorf("error writing json: %w", err)
 		}
-		return fmt.Sprintf("create environment %q", c.Environment), file.Close()
+		changes := &TransformerResult{} // we do not need to inform argoCd when creating an environment, as there are no apps yet
+		return fmt.Sprintf("create environment %q", c.Environment), changes, file.Close()
 	}
 }
 
@@ -869,25 +896,25 @@ type QueueApplicationVersion struct {
 	Version     uint64
 }
 
-func (c *QueueApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
+func (c *QueueApplicationVersion) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	fs := state.Filesystem
 	// Create a symlink to the release
 	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
 	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	queuedVersionFile := fs.Join(applicationDir, queueFileName)
 	if err := fs.Remove(queuedVersionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", err
+		return "", nil, err
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
 	if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), queuedVersionFile); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	// TODO SU: maybe check here if that version is already deployed? or somewhere else ... or not at all...
-
-	return fmt.Sprintf("Queued version %d of app %q in env %q", c.Version, c.Application, c.Environment), nil
+	changes := &TransformerResult{}
+	return fmt.Sprintf("Queued version %d of app %q in env %q", c.Version, c.Application, c.Environment), changes, nil
 }
 
 type DeployApplicationVersion struct {
@@ -898,10 +925,10 @@ type DeployApplicationVersion struct {
 	LockBehaviour api.LockBehavior
 }
 
-func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) (string, error) {
+func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeployRelease, c.RBACConfig)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	fs := state.Filesystem
 	// Check that the release exist and fetch manifest
@@ -909,10 +936,10 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
 	manifestContent := []byte{}
 	if file, err := fs.Open(manifest); err != nil {
-		return "", wrapFileError(err, manifest, "could not open manifest")
+		return "", nil, wrapFileError(err, manifest, "could not open manifest")
 	} else {
 		if content, err := io.ReadAll(file); err != nil {
-			return "", err
+			return "", nil, err
 		} else {
 			manifestContent = content
 		}
@@ -927,11 +954,11 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		)
 		envLocks, err = state.GetEnvironmentLocks(c.Environment)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		appLocks, err = state.GetEnvironmentApplicationLocks(c.Environment, c.Application)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		if len(envLocks) > 0 || len(appLocks) > 0 {
 			switch c.LockBehaviour {
@@ -943,7 +970,7 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 				}
 				return q.Transform(ctx, state)
 			case api.LockBehavior_Fail:
-				return "", &LockedError{
+				return "", nil, &LockedError{
 					EnvironmentApplicationLocks: appLocks,
 					EnvironmentLocks:            envLocks,
 				}
@@ -955,20 +982,21 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 	// Create a symlink to the release
 	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
 	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	versionFile := fs.Join(applicationDir, "version")
 	if err := fs.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", err
+		return "", nil, err
 	}
 	if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), versionFile); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	// Copy the manifest for argocd
 	manifestsDir := fs.Join(applicationDir, "manifests")
 	if err := fs.MkdirAll(manifestsDir, 0777); err != nil {
-		return "", err
+		return "", nil, err
 	}
+	changes := &TransformerResult{}
 	manifestFilename := fs.Join(manifestsDir, "manifests.yaml")
 	// note that the manifest is empty here!
 	// but actually it's not quite empty!
@@ -978,23 +1006,25 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		manifestContent = []byte(" ")
 	}
 	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
-		return "", err
+		return "", nil, err
 	}
+	changes.AddAppEnv(c.Application, c.Environment)
+	logger.FromContext(ctx).Info(fmt.Sprintf("DeployApp: changes added: %v+", changes))
 
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by"), []byte(user.Name), 0666); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_by_email"), []byte(user.Email), 0666); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	if err := util.WriteFile(fs, fs.Join(applicationDir, "deployed_at_utc"), []byte(getTimeNow(ctx).UTC().String()), 0666); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	s := State{
@@ -1002,17 +1032,20 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 	err = s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	d := &CleanupOldApplicationVersions{
 		Application: c.Application,
 	}
-	transform, err := d.Transform(ctx, state)
+	transform, subChanges, err := d.Transform(ctx, state)
+	logger.FromContext(ctx).Info(fmt.Sprintf("DeployApp: sub changes: %v+", subChanges))
+	changes.Combine(subChanges)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	return fmt.Sprintf("deployed version %d of %q to %q\n%s", c.Version, c.Application, c.Environment, transform), nil
+	logger.FromContext(ctx).Info(fmt.Sprintf("DeployApp: combined changes: %v+", changes))
+	return fmt.Sprintf("deployed version %d of %q to %q\n%s", c.Version, c.Application, c.Environment, transform), changes, nil
 }
 
 type ReleaseTrain struct {
@@ -1061,17 +1094,17 @@ func generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg map[string]strin
 	return resp
 }
 
-func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, error) {
+func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	var targetGroupName = c.Target
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
-		return "", grpc.InternalError(ctx, err)
+		return "", nil, grpc.InternalError(ctx, err)
 	}
 	var envGroupConfigs = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
 
 	if len(envGroupConfigs) == 0 {
-		return "", grpc.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName))
+		return "", nil, grpc.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName))
 	}
 
 	// this to sort the env, to make sure that for the same input we always got the same output
@@ -1083,6 +1116,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 
 	envDeployedMsg := make(map[string]string)
 	envSkippedMsg := make(map[string]string)
+	changes := &TransformerResult{}
 	for _, envName := range envGroups {
 		envConfig := envGroupConfigs[envName]
 		if envConfig.Upstream == nil {
@@ -1091,7 +1125,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		}
 		err := state.checkUserPermissions(ctx, envName, "*", auth.PermissionDeployReleaseTrain, c.RBACConfig)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 
 		var upstreamLatest = envConfig.Upstream.Latest
@@ -1113,13 +1147,13 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		if !upstreamLatest {
 			_, ok := configs[upstreamEnvName]
 			if !ok {
-				return fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, envName), err
+				return fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, envName), nil, err
 			}
 		}
 
 		envLocks, err := state.GetEnvironmentLocks(envName)
 		if err != nil {
-			return "", grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", envName, err))
+			return "", nil, grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", envName, err))
 		}
 		if len(envLocks) > 0 {
 			envSkippedMsg[envName] = fmt.Sprintf("Target Environment '%s' is locked - skipping.\n", envName)
@@ -1130,12 +1164,12 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		if upstreamLatest {
 			apps, err = state.GetApplications()
 			if err != nil {
-				return "", grpc.InternalError(ctx, fmt.Errorf("could not get all applications for %q: %w", source, err))
+				return "", nil, grpc.InternalError(ctx, fmt.Errorf("could not get all applications for %q: %w", source, err))
 			}
 		} else {
 			apps, err = state.GetEnvironmentApplications(upstreamEnvName)
 			if err != nil {
-				return "", grpc.PublicError(ctx, fmt.Errorf("upstream environment (%q) does not have applications: %w", upstreamEnvName, err))
+				return "", nil, grpc.PublicError(ctx, fmt.Errorf("upstream environment (%q) does not have applications: %w", upstreamEnvName, err))
 			}
 		}
 		sort.Strings(apps)
@@ -1146,25 +1180,25 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		for _, appName := range apps {
 			if c.Team != "" {
 				if team, err := state.GetApplicationTeamOwner(appName); err != nil {
-					return "", nil
+					return "", nil, nil
 				} else if c.Team != team {
 					continue
 				}
 			}
 			currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(envName, appName)
 			if err != nil {
-				return "", grpc.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, envName, err))
+				return "", nil, grpc.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, envName, err))
 			}
 			var versionToDeploy uint64
 			if upstreamLatest {
 				versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
 				if err != nil {
-					return "", grpc.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err))
+					return "", nil, grpc.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err))
 				}
 			} else {
 				upstreamVersion, err := state.GetEnvironmentApplicationVersion(upstreamEnvName, appName)
 				if err != nil {
-					return "", grpc.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err))
+					return "", nil, grpc.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err))
 				}
 				if upstreamVersion == nil {
 					envSkippedMsg[envName] += fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)
@@ -1184,7 +1218,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 				LockBehaviour:  api.LockBehavior_Record,
 				Authentication: c.Authentication,
 			}
-			transform, err := d.Transform(ctx, state)
+			transform, subChanges, err := d.Transform(ctx, state)
 			if err != nil {
 				_, ok := err.(*LockedError)
 				if ok {
@@ -1193,8 +1227,9 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 				if errors.Is(err, os.ErrNotExist) {
 					continue // some apps do not exist on all envs, we ignore those
 				}
-				return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, envName, err))
+				return "", nil, grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, envName, err))
 			}
+			changes.Combine(subChanges)
 			numServices += 1
 			completeMessage = completeMessage + transform + "\n"
 		}
@@ -1205,5 +1240,5 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, err
 		envDeployedMsg[envName] = fmt.Sprintf("The release train deployed %d services from '%s' to '%s'%s\n%s\n", numServices, source, envName, teamInfo, completeMessage)
 	}
 
-	return generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg, targetGroupName), nil
+	return generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg, targetGroupName), changes, nil
 }

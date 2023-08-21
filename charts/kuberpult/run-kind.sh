@@ -190,6 +190,7 @@ configs:
 $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
   cm:
     accounts.kuberpult: apiKey
+    timeout.reconciliation: 0s
   rbac:
     policy.csv: |
       p, role:kuberpult, applications, get, */*, allow
@@ -226,7 +227,7 @@ spec:
     server: https://kubernetes.default.svc
   project: test-env
   source:
-    path: ./argocd/v1alpha1
+    path: argocd/v1alpha1
     repoURL: ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests
     targetRevision: HEAD
   syncPolicy:
@@ -245,6 +246,10 @@ token=$(argocd account generate-token --port-forward --account kuberpult)
 
 echo "argocd token: $token"
 
+
+kubectl create ns development
+kubectl create ns development2
+kubectl create ns staging
 
 ## kuberpult
 print 'installing kuberpult helm chart...'
@@ -269,7 +274,7 @@ frontend:
       cpu: 0.05
   tag: "${IMAGE_TAG_FRONTEND}"
 rollout:
-  enabled: true
+  enabled: false
   resources:
     limits:
       memory: 200Mi
@@ -291,7 +296,7 @@ $(sed -e "s/^/    /" <../../services/cd-service/client)
 $(sed -e "s/^/    /" <../../services/cd-service/known_hosts)
 argocd:
   token: "$token"
-  server: "argocd-server.${ARGO_NAMESPACE}.svc.cluster.local"
+  server: "https://argocd-server.${ARGO_NAMESPACE}.svc.cluster.local"
   insecure: true
 pgp:
   keyRing: |
@@ -314,13 +319,18 @@ waitForDeployment "default" "app=kuberpult-frontend-service"
 portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
 print "connection to frontend service successful"
 
-waitForDeployment "default" "app=kuberpult-rollout-service"
 
 
 
 
 kubectl get deployment
 kubectl get pods
+
+for i in $(seq 1 3)
+do
+   ../../infrastructure/scripts/create-testdata/create-release.sh echo;
+done
+
 
 if "$LOCAL_EXECUTION"
 then

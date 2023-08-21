@@ -868,21 +868,21 @@ type SlowTransformer struct {
 	started  chan struct{}
 }
 
-func (s *SlowTransformer) Transform(ctx context.Context, state *State) (string, error) {
+func (s *SlowTransformer) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	s.started <- struct{}{}
 	<-s.finished
-	return "ok", nil
+	return "ok", &TransformerResult{}, nil
 }
 
 type EmptyTransformer struct{}
 
-func (p *EmptyTransformer) Transform(ctx context.Context, state *State) (string, error) {
-	return "nothing happened", nil
+func (p *EmptyTransformer) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
+	return "nothing happened", &TransformerResult{}, nil
 }
 
 type PanicTransformer struct{}
 
-func (p *PanicTransformer) Transform(ctx context.Context, state *State) (string, error) {
+func (p *PanicTransformer) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	panic("panic tranformer")
 }
 
@@ -890,14 +890,14 @@ var TransformerError = errors.New("error transformer")
 
 type ErrorTransformer struct{}
 
-func (p *ErrorTransformer) Transform(ctx context.Context, state *State) (string, error) {
-	return "error", TransformerError
+func (p *ErrorTransformer) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
+	return "error", nil, TransformerError
 }
 
 type InvalidJsonTransformer struct{}
 
-func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State) (string, error) {
-	return "error", invalidJson
+func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
+	return "error", nil, invalidJson
 }
 
 func convertToSet(list []uint64) map[int]bool {

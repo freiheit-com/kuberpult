@@ -60,6 +60,8 @@ type Config struct {
 	EnableSqlite      bool   `default:"true" split_words:"true"`
 	DexMock           bool   `default:"false" split_words:"true"`
 	DexMockRole       string `default:"Developer" split_words:"true"`
+	ArgoCdServer      string `default:"" split_words:"true"`
+	ArgoCdInsecure    bool   `default:"false" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -157,6 +159,8 @@ func RunServer() {
 			BootstrapMode:          c.BootstrapMode,
 			EnvironmentConfigsPath: "./environment_configs.json",
 			StorageBackend:         c.storageBackend(),
+			ArgoInsecure:           c.ArgoCdInsecure,
+			ArgoWebhookUrl:         c.ArgoCdServer,
 		})
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
