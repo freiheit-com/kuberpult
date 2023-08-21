@@ -442,23 +442,6 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 }
 
 func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger, changes *TransformerResult) {
-	head, err := r.repository.Head()
-	if err != nil {
-		logger.Error(fmt.Sprintf("ArgoWebhookUrl: error getting repo head: %v", err))
-		return
-	}
-	headStr := head.Target().String()
-	headCommit, err := r.repository.LookupCommit(head.Target())
-	if err != nil {
-		logger.Error(fmt.Sprintf("ArgoWebhookUrl: error looking up head commit: %v", err))
-		return
-	}
-	parentCommit := headCommit.Parent(0)
-	if parentCommit == nil {
-		logger.Error(fmt.Sprintf("ArgoWebhookUrl: error getting parent of head. head=%s", headCommit.Id().String()))
-		return
-	}
-
 	var modified = []string{}
 	for i := range changes.ChangedApps {
 		change := changes.ChangedApps[i]
@@ -480,8 +463,8 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 		htmlUrl:  r.config.URL, // if this does not match, argo will completely ignore the request and return 200
 		revision: "refs/heads/" + r.config.Branch,
 		change: changeInfo{
-			payloadBefore: headStr,
-			payloadAfter:  parentCommit.Id().String(),
+			payloadBefore: changes.Commits.Previous,
+			payloadAfter:  changes.Commits.Current,
 		},
 		defaultBranch: r.config.Branch, // this is questionable, because we don't actually know the default branch, but it seems to work fine in practice
 		Commits: []commit{
@@ -496,6 +479,7 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 	span, ctx := tracer.StartSpanFromContext(ctx, "Webhook-Retries")
 	defer span.Finish()
 	success := false
+	var err error = nil
 	for i := 1; i <= maxArgoRequests; i++ {
 		err, shouldRetry := doWebhookPostRequest(ctx, argoResult, r.config, i)
 		if err != nil && shouldRetry {
@@ -676,6 +660,12 @@ type RootApp struct {
 type TransformerResult struct {
 	ChangedApps     []AppEnv
 	DeletedRootApps []RootApp
+	Commits         *Commits
+}
+
+type Commits struct {
+	Previous string
+	Current  string
 }
 
 func (r *TransformerResult) AddAppEnv(app string, env string) {
@@ -702,6 +692,9 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 	for i := range other.DeletedRootApps {
 		a := other.DeletedRootApps[i]
 		r.AddRootApp(a.Env)
+	}
+	if r.Commits == nil {
+		r.Commits = other.Commits
 	}
 }
 
@@ -750,19 +743,31 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	var rev *git.Oid
 	if state.Commit != nil {
 		rev = state.Commit.Id()
+	} else {
+		// first commit in the repo!
 	}
+	oldCommitId := rev
 
-	if _, err := r.repository.CreateCommitFromIds(
+	newCommitId, err := r.repository.CreateCommitFromIds(
 		fmt.Sprintf("refs/heads/%s", r.config.Branch),
 		author,
 		committer,
 		strings.Join(commitMsg, "\n"),
 		treeId,
 		rev,
-	); err != nil {
+	)
+	if err != nil {
 		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err)), nil
 	}
-	return nil, CombineArray(changes)
+	result := CombineArray(changes)
+	result.Commits = &Commits{
+		Current:  newCommitId.String(),
+		Previous: "",
+	}
+	if oldCommitId != nil {
+		result.Commits.Previous = oldCommitId.String()
+	}
+	return nil, result
 }
 
 func (r *repository) FetchAndReset(ctx context.Context) error {
