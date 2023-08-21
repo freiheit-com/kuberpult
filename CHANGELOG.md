@@ -1,10 +1,40 @@
 # Note on Semantic Versioning
 
-As of now, while we are still on version `0.*`,
-we do not use [Semantic Versioning](https://semver.org/).
-Specifically this means, that minor upgrades can contain **breaking changes**.
+Since Version 1.0.0, we are using [Semantic Versioning](https://semver.org/).
+
+Given a version number MAJOR.MINOR.PATCH:
+
+* MAJOR version when you make incompatible API changes. For example:
+  * Adding a new **required** parameter to the helm chart or making an optional parameter required.
+  * Same for the **rest** endpoints (`release`, `releasetrain` and `lock`) because these are a public API.
+  * Note that we do not think of the **grpc** protocol as *public*, so these may change without a major version. 
+  * Removing functionality (unlikely to happen).
+* MINOR version when you add functionality in a backward compatible manner. For example:
+  * Adding new features.
+  * Adding new optional parameters to the rest API.
+  * Changing the UI (without removing features).
+* PATCH version when you make backward compatible bug fixes
+  * This includes most dependency upgrades.
+
 
 # Change Log
+
+## 1.0.0
+**released 2023-08-21**
+
+### Breaking Changes
+none
+
+### Major Changes
+* [Tell ArgoCd to sync apps](https://github.com/freiheit-com/kuberpult/pull/872)
+
+### Minor Changes
+* [Create Dex API if enabled ](https://github.com/freiheit-com/kuberpult/pull/873)
+* [Update module google.golang.org/api to v0.138.0](https://github.com/freiheit-com/kuberpult/pull/863)
+
+
+---
+
 
 ## 0.4.83
 **released 2023-08-10**
@@ -22,6 +52,7 @@ none
 * [Update module gopkg.in/DataDog/dd-trace-go.v1 to v1.53.0](https://github.com/freiheit-com/kuberpult/pull/856)
 * [Update k8s.io/utils digest to 3b25d92](https://github.com/freiheit-com/kuberpult/pull/842)
 
+---
 
 ## 0.4.82
 **released 2023-08-07**
@@ -45,6 +76,8 @@ none
 * [UndeployApplication Role Based Access Control](https://github.com/freiheit-com/kuberpult/pull/850)
 * [Update dependency node to v18.17.0](https://github.com/freiheit-com/kuberpult/pull/846)
 * [Add files related to run-kind.sh to gitignore ](https://github.com/freiheit-com/kuberpult/pull/859)
+
+---
 
 ## 0.4.81
 **released 2023-08-03**
