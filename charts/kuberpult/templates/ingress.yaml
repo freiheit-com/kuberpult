@@ -57,7 +57,7 @@ metadata:
     cert-manager.io/acme-challenge-type: dns01
     cert-manager.io/cluster-issuer: letsencrypt
 {{- range $key, $value := .Values.ingress.annotations }}
-    {{ $key }}: {{ $value }}
+    {{ $key | quote}}: {{ $value | quote}}
 {{- end }}
   name: kuberpult
 spec:
