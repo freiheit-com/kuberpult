@@ -113,6 +113,8 @@ spec:
           value: {{ .Values.argocd.server | quote }}
         - name: KUBERPULT_ARGO_CD_INSECURE
           value: {{ .Values.argocd.insecure | quote }}
+        - name: KUBERPULT_GIT_WEB_URL
+          value: {{ .Values.git.webUrl | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:

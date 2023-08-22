@@ -110,6 +110,7 @@ type repository struct {
 
 type RepositoryConfig struct {
 	// Mandatory Config
+	// the URL used for git checkout, (ssh protocol)
 	URL  string
 	Path string
 	// Optional Config
@@ -130,6 +131,8 @@ type RepositoryConfig struct {
 	ArgoInsecure           bool
 	// if set, kuberpult will generate push events to argoCd whenever it writes to the manifest repo:
 	ArgoWebhookUrl string
+	// the url to the git repo, like the browser requires it (https protocol)
+	WebURL string
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -460,7 +463,7 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 	}
 
 	argoResult := ArgoWebhookData{
-		htmlUrl:  r.config.URL, // if this does not match, argo will completely ignore the request and return 200
+		htmlUrl:  r.config.WebURL, // if this does not match, argo will completely ignore the request and return 200
 		revision: "refs/heads/" + r.config.Branch,
 		change: changeInfo{
 			payloadAfter: changes.Commits.Current.String(),

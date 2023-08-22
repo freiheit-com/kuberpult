@@ -4,6 +4,7 @@
 
 git:
   url:  # git@github.com/.../...
+  webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
   branch: "master"
   sourceRepoUrl: ""
   author:
