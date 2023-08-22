@@ -298,7 +298,7 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 	var changes = &TransformerResult{}
 	for i := 0; i < len(elements); {
 		e := elements[i]
-		applyErr, subChanges := r.ApplyTransformers(e.ctx, e.transformers...)
+		subChanges, applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
 		changes.Combine(subChanges)
 		if applyErr != nil {
 			if errors.Is(applyErr, invalidJson) && allowFetchAndReset {
@@ -708,22 +708,22 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 	return r
 }
 
-func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (error, *TransformerResult) {
+func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (*TransformerResult, error) {
 	commitMsg, state, changes, err := r.ApplyTransformersInternal(ctx, transformers...)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	err = UpdateDatadogMetrics(state)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	if err := r.afterTransform(ctx, *state); err != nil {
-		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in afterTransform", err)), nil
+		return nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in afterTransform", err))
 	}
 
 	treeId, err := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 	if err != nil {
-		return &InternalError{inner: err}, nil
+		return nil, &InternalError{inner: err}
 	}
 	committer := &git.Signature{
 		Name:  r.config.CommitterName,
@@ -733,7 +733,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 
 	author := &git.Signature{
@@ -758,7 +758,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		rev,
 	)
 	if err != nil {
-		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err)), nil
+		return nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err))
 	}
 	result := CombineArray(changes)
 	result.Commits = &CommitIds{
@@ -768,7 +768,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	if oldCommitId != nil {
 		result.Commits.Previous = oldCommitId
 	}
-	return nil, result
+	return result, nil
 }
 
 func (r *repository) FetchAndReset(ctx context.Context) error {
