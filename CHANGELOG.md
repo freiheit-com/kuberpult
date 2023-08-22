@@ -34,6 +34,8 @@ none
 * [Update golang Docker tag to v1.21.0](https://github.com/freiheit-com/kuberpult/pull/880)
 * [Update module gopkg.in/DataDog/dd-trace-go.v1 to v1.54.0](https://github.com/freiheit-com/kuberpult/pull/881)
 
+---
+
 ## 1.0.0
 **released 2023-08-21**
 
