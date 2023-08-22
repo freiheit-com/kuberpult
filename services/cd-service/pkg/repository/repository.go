@@ -463,8 +463,7 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 		htmlUrl:  r.config.URL, // if this does not match, argo will completely ignore the request and return 200
 		revision: "refs/heads/" + r.config.Branch,
 		change: changeInfo{
-			payloadBefore: changes.Commits.Previous,
-			payloadAfter:  changes.Commits.Current,
+			payloadAfter: changes.Commits.Current.String(),
 		},
 		defaultBranch: r.config.Branch, // this is questionable, because we don't actually know the default branch, but it seems to work fine in practice
 		Commits: []commit{
@@ -474,6 +473,9 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 				Removed:  deleted,
 			},
 		},
+	}
+	if changes.Commits.Previous != nil {
+		argoResult.change.payloadBefore = changes.Commits.Previous.String()
 	}
 
 	span, ctx := tracer.StartSpanFromContext(ctx, "Webhook-Retries")
@@ -660,12 +662,12 @@ type RootApp struct {
 type TransformerResult struct {
 	ChangedApps     []AppEnv
 	DeletedRootApps []RootApp
-	Commits         *Commits
+	Commits         *CommitIds
 }
 
-type Commits struct {
-	Previous string
-	Current  string
+type CommitIds struct {
+	Previous *git.Oid
+	Current  *git.Oid
 }
 
 func (r *TransformerResult) AddAppEnv(app string, env string) {
@@ -741,10 +743,9 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	}
 
 	var rev *git.Oid
+	// the commit can be nil, if it's the first commit in the repo
 	if state.Commit != nil {
 		rev = state.Commit.Id()
-	} else {
-		// first commit in the repo!
 	}
 	oldCommitId := rev
 
@@ -760,12 +761,12 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		return grpc.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err)), nil
 	}
 	result := CombineArray(changes)
-	result.Commits = &Commits{
-		Current:  newCommitId.String(),
-		Previous: "",
+	result.Commits = &CommitIds{
+		Current:  newCommitId,
+		Previous: nil,
 	}
 	if oldCommitId != nil {
-		result.Commits.Previous = oldCommitId.String()
+		result.Commits.Previous = oldCommitId
 	}
 	return nil, result
 }
