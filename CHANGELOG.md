@@ -19,6 +19,23 @@ Given a version number MAJOR.MINOR.PATCH:
 
 # Change Log
 
+## 1.0.1
+**released 2023-08-22**
+
+### Breaking Changes
+none
+
+### Major Changes
+none
+
+### Minor Changes
+* [Fix commit Ids for webhooks to ArgoCd](https://github.com/freiheit-com/kuberpult/pull/879)
+* [Increase nginx timeout to 300s](https://github.com/freiheit-com/kuberpult/pull/877)
+* [Update golang Docker tag to v1.21.0](https://github.com/freiheit-com/kuberpult/pull/880)
+* [Update module gopkg.in/DataDog/dd-trace-go.v1 to v1.54.0](https://github.com/freiheit-com/kuberpult/pull/881)
+
+---
+
 ## 1.0.0
 **released 2023-08-21**
 
