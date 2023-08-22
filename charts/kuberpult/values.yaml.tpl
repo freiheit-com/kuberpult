@@ -64,7 +64,8 @@ rollout:
 
 ingress:
   create: true
-  annotations: {}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: 300
   domainName: null
   iap:
     enabled: false
