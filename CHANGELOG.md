@@ -16,8 +16,26 @@ Given a version number MAJOR.MINOR.PATCH:
 * PATCH version when you make backward compatible bug fixes
   * This includes most dependency upgrades.
 
+---
+
+
 
 # Change Log
+
+## [1.0.2](https://github.com/freiheit-com/kuberpult/tree/1.0.2) (2023-08-23)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.0.1...1.0.2)
+
+### Minor Changes
+
+- Submit user data via grpc message instead of header [\#889](https://github.com/freiheit-com/kuberpult/pull/889) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Add webUrl as separate option for argo webhooks [\#887](https://github.com/freiheit-com/kuberpult/pull/887) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Maintenance: handle ts-proto warning [\#886](https://github.com/freiheit-com/kuberpult/pull/886) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Refactor return type of ApplyTransformer [\#885](https://github.com/freiheit-com/kuberpult/pull/885) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Update module go.uber.org/zap to v1.25.0 [\#855](https://github.com/freiheit-com/kuberpult/pull/855) ([renovate[bot]](https://github.com/apps/renovate))
+
+---
+
 
 ## 1.0.1
 **released 2023-08-22**
