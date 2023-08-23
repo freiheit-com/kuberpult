@@ -216,7 +216,21 @@ make start
 ## releasing a new version
 
 Releases are half-automated via GitHub actions.
+
+### Changelog file
 To create a release, ensure that the release version and accompanying changes are added to the `CHANGELOG.md` file.
+To help with that, we use a changelog generator.
+You need a GitHub personal token to run this script and set the environment variable `TOKEN`.
+Run it:
+```bash
+./infrastructure/scripts/genrate-changelog.sh
+```
+This will generate a file `CHANGELOG.tmp.md`.
+To exclude PRs, label them as `exclude`.
+To set PRs to `major`, label them as `major`.
+To set PRs to `patch`, label them as `patch`. The `renovate` label is also considered as `patch`.
+
+### Triggering the Pipeline
 Once those changes are merged, create a tag on the main branch with the release version (use semantic versioning for the tag, and do not add a preceding 'v'. Eg: `0.4.21`).
 Then push the tag:
 ```shell

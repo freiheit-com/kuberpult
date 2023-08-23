@@ -123,7 +123,8 @@ ignoredFiles: [
     ".env",
     ".go-version",
     "services/cd-service/gitconfig",
-    "*.csv"
+    "*.csv",
+    ".github_changelog_generator"
   ] #ignored file extensions
 testFiles: ["_test.go", "_test.dart"]
 languagesConfig:
