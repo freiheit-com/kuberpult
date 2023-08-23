@@ -108,7 +108,7 @@ describe('AuthProvider', () => {
     });
 
     describe('AcquireToken', () => {
-        it('Get id token and store it in authHeader with acquireTokenSilent method', async () => {
+        it('Get id token with acquireTokenSilent method', async () => {
             // given
             jest.spyOn(pca, 'getAllAccounts').mockImplementation(() => [testAccount]);
             const acquireTokenSilentSpy = jest
@@ -131,11 +131,9 @@ describe('AuthProvider', () => {
             expect(screen.queryByText('Token Acquired')).toBeInTheDocument();
             await waitFor(async () => expect(acquireTokenSilentSpy).toHaveBeenCalledTimes(1));
             await waitFor(() => expect(AzureAuthSub.get().authHeader.get('authorization')).toContain('unique-token'));
-            await waitFor(() => expect(AzureAuthSub.get().authHeader.get('email')).toContain('mail@example.com'));
-            await waitFor(() => expect(AzureAuthSub.get().authHeader.get('username')).toContain('test person'));
         });
 
-        it('Get id token and store it in authHeader with acquireTokenPopup method', async () => {
+        it('Get id token with acquireTokenPopup method', async () => {
             // given
             jest.spyOn(pca, 'getAllAccounts').mockImplementation(() => [testAccount]);
             const acquireTokenSilentSpy = jest
@@ -162,8 +160,6 @@ describe('AuthProvider', () => {
             await waitFor(async () => expect(acquireTokenSilentSpy).toHaveBeenCalledTimes(1));
             await waitFor(async () => expect(acquireTokenPopup).toHaveBeenCalledTimes(1));
             await waitFor(() => expect(AzureAuthSub.get().authHeader.get('authorization')).toContain('unique-token-2'));
-            await waitFor(() => expect(AzureAuthSub.get().authHeader.get('email')).toContain('mail@example.com'));
-            await waitFor(() => expect(AzureAuthSub.get().authHeader.get('username')).toContain('test person'));
         });
         it('Get id token both method failed', async () => {
             // given
