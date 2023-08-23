@@ -39,6 +39,17 @@ func TestToFromContext(t *testing.T) {
 			},
 		},
 		{
+			Name: "User has special chars",
+			Author: User{
+				Email: "tur@test.com",
+				Name:  "Tür",
+			},
+			ExpectedUser: User{
+				Email: "tur@test.com",
+				Name:  "Tür",
+			},
+		},
+		{
 			Name: "Name is not specified",
 			Author: User{
 				Email: "new@test.com",

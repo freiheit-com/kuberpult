@@ -34,12 +34,20 @@ type AzureAuthSubType = {
     authHeader: grpc.Metadata & {
         Authorization?: String;
     };
+    userData: {
+        email: string;
+        username: string;
+    };
     authReady: boolean;
 };
 
 export const [useAzureAuthSub, AzureAuthSub] = createStore<AzureAuthSubType>({
     authHeader: new BrowserHeaders({}),
     authReady: false,
+    userData: {
+        email: '',
+        username: '',
+    },
 });
 
 const getMsalConfig = (configs: GetFrontendConfigResponse): Configuration => ({
@@ -80,9 +88,11 @@ export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children
                 AzureAuthSub.set({
                     authHeader: new BrowserHeaders({
                         Authorization: response.idToken,
-                        email: email, // use same key here as in server.go function getRequestAuthorFromAzure: r.Header.Get("email")
-                        username: username, // use same key here too
                     }),
+                    userData: {
+                        email: email,
+                        username: username,
+                    },
                     authReady: true,
                 });
             })
@@ -93,9 +103,11 @@ export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children
                         AzureAuthSub.set({
                             authHeader: new BrowserHeaders({
                                 Authorization: response.idToken,
-                                email: email, // use same key here as in server.go function getRequestAuthorFromAzure: r.Header.Get("email")
-                                username: username, // use same key here too
                             }),
+                            userData: {
+                                email: email,
+                                username: username,
+                            },
                             authReady: true,
                         });
                     })
