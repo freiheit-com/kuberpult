@@ -1,0 +1,1 @@
+add-sections= {"major":{"prefix":"### Major Changes","labels":["major"]}, "renovate":{"prefix":"### Minor Changes","labels":["renovate", "patch"]}, "breaking":{"prefix":"### Breaking Changes","labels":["breaking"]}}
