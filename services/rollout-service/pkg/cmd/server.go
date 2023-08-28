@@ -52,6 +52,21 @@ type Config struct {
 	ArgocdToken    string `split_words:"true"`
 }
 
+func (config *Config) ClientConfig() (apiclient.ClientOptions, error) {
+	var opts apiclient.ClientOptions
+	opts.ConfigPath = ""
+	u, err := url.ParseRequestURI(config.ArgocdServer)
+	if err != nil {
+		return opts, fmt.Errorf("invalid argocd server url: %w", err)
+	}
+	opts.ServerAddr = u.Host
+	opts.PlainText = u.Scheme == "http"
+	opts.UserAgent = "kuberpult"
+	opts.Insecure = config.ArgocdInsecure
+	opts.AuthToken = config.ArgocdToken
+	return opts, nil
+}
+
 func RunServer() {
 	var config Config
 	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
@@ -109,17 +124,10 @@ func runServer(ctx context.Context, config Config) error {
 		)
 	}
 
-	var opts apiclient.ClientOptions
-	opts.ConfigPath = ""
-	u, err := url.ParseRequestURI(config.ArgocdServer)
+	opts, err := config.ClientConfig()
 	if err != nil {
-		return fmt.Errorf("invalid argocd server url: %w", err)
+		return err
 	}
-	opts.ServerAddr = u.Host
-	opts.PlainText = u.Scheme == "http"
-	opts.UserAgent = "kuberpult"
-	opts.Insecure = config.ArgocdInsecure
-	opts.AuthToken = config.ArgocdToken
 
 	logger.FromContext(ctx).Info("argocd.connecting", zap.String("argocd.addr", opts.ServerAddr))
 	client, err := apiclient.NewClient(&opts)
