@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { Button } from '../button';
 import { DeleteGray, HideBarWhite } from '../../../images';
-import { BatchAction, User } from '../../../api/api';
+import { BatchAction } from '../../../api/api';
 import {
     deleteAction,
     useActions,
@@ -292,7 +292,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
     const [lockMessage, setLockMessage] = useState('');
     const api = useApi;
     const [open, setOpen] = useState(false);
-    const { authHeader, authReady, userData } = useAzureAuthSub((auth) => auth);
+    const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
 
     const handleClose = useCallback(() => setOpen(false), []);
     const handleOpen = useCallback(() => setOpen(true), []);
@@ -310,10 +310,6 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
     );
 
     const applyActions = useCallback(() => {
-        const currentUser: User = {
-            username: userData.username,
-            email: userData.email,
-        };
         if (lockMessage) {
             lockCreationList.forEach((action) => {
                 if (action.action?.$case === 'createEnvironmentLock') {
@@ -336,7 +332,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 }
             }
             api.batchService()
-                .ProcessBatch({ actions, currentUser }, authHeader)
+                .ProcessBatch({ actions }, authHeader)
                 .then((result) => {
                     deleteAllActions();
                     showSnackbarSuccess('Actions were applied successfully');
@@ -348,7 +344,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 });
             handleClose();
         }
-    }, [actions, api, handleClose, lockCreationList, lockMessage, authHeader, authReady, userData]);
+    }, [actions, api, handleClose, lockCreationList, lockMessage, authHeader, authReady]);
 
     const newLockExists = useMemo(() => lockCreationList.length !== 0, [lockCreationList.length]);
 

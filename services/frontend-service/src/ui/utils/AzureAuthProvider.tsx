@@ -34,20 +34,12 @@ type AzureAuthSubType = {
     authHeader: grpc.Metadata & {
         Authorization?: String;
     };
-    userData: {
-        email: string;
-        username: string;
-    };
     authReady: boolean;
 };
 
 export const [useAzureAuthSub, AzureAuthSub] = createStore<AzureAuthSubType>({
     authHeader: new BrowserHeaders({}),
     authReady: false,
-    userData: {
-        email: '',
-        username: '',
-    },
 });
 
 const getMsalConfig = (configs: GetFrontendConfigResponse): Configuration => ({
@@ -70,6 +62,9 @@ const loginRequest = {
     scopes: ['email'],
 };
 
+// exported just for testing
+export const Utf8ToBase64 = (str: string): string => window.btoa(unescape(encodeURIComponent(str)));
+
 export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { instance, accounts } = useMsal();
 
@@ -80,19 +75,17 @@ export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children
             ...loginRequest,
             account: accounts[0],
         };
-        const email: string = accounts[0]?.username || ''; // yes, the email is in the "username" field
-        const username: string = accounts[0]?.name || '';
+        const email: string = Utf8ToBase64(accounts[0]?.username || ''); // yes, the email is in the "username" field
+        const username: string = Utf8ToBase64(accounts[0]?.name || '');
         instance
             .acquireTokenSilent(request)
             .then((response: AuthenticationResult) => {
                 AzureAuthSub.set({
                     authHeader: new BrowserHeaders({
                         Authorization: response.idToken,
+                        email: email, // use same key here as in server.go function getRequestAuthorFromAzure: r.Header.Get("email")
+                        username: username, // use same key here too
                     }),
-                    userData: {
-                        email: email,
-                        username: username,
-                    },
                     authReady: true,
                 });
             })
@@ -103,11 +96,9 @@ export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children
                         AzureAuthSub.set({
                             authHeader: new BrowserHeaders({
                                 Authorization: response.idToken,
+                                email: email, // use same key here as in server.go function getRequestAuthorFromAzure: r.Header.Get("email")
+                                username: username, // use same key here too
                             }),
-                            userData: {
-                                email: email,
-                                username: username,
-                            },
                             authReady: true,
                         });
                     })
