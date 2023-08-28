@@ -38,7 +38,7 @@ func TestService(t *testing.T) {
 				ArgocdServer: "not a http address",
 			},
 		},
-		
+		{
 			Name:          "valid http argocd url",
 			ExpectedError: "connecting to argocd version: dial tcp 127.0.0.1:32761: connect: connection refused",
 			Config: Config{
