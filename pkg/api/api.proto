@@ -11,14 +11,8 @@ service BatchService {
   rpc ProcessBatch (BatchRequest) returns (BatchResponse) {}
 }
 
-message User {
-  string username = 1;
-  string email = 2;
-}
-
 message BatchRequest {
   repeated BatchAction actions = 1;
-  User currentUser = 2;
 }
 
 message BatchAction {

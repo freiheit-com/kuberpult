@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import { act, getByText, render, screen, waitFor } from '@testing-library/react';
-import { AcquireToken, AzureAuthProvider, AzureAuthSub, AzureAutoSignIn } from './AzureAuthProvider';
+import { AcquireToken, AzureAuthProvider, AzureAuthSub, AzureAutoSignIn, Utf8ToBase64 } from './AzureAuthProvider';
 import { Crypto } from '@peculiar/webcrypto';
 import { PublicClientApplication, IPublicClientApplication, Configuration, AccountInfo } from '@azure/msal-browser';
 import { AuthenticatedTemplate, MsalProvider, UnauthenticatedTemplate } from '@azure/msal-react';
@@ -108,7 +108,7 @@ describe('AuthProvider', () => {
     });
 
     describe('AcquireToken', () => {
-        it('Get id token with acquireTokenSilent method', async () => {
+        it('Get id token and store it in authHeader with acquireTokenSilent method', async () => {
             // given
             jest.spyOn(pca, 'getAllAccounts').mockImplementation(() => [testAccount]);
             const acquireTokenSilentSpy = jest
@@ -131,9 +131,15 @@ describe('AuthProvider', () => {
             expect(screen.queryByText('Token Acquired')).toBeInTheDocument();
             await waitFor(async () => expect(acquireTokenSilentSpy).toHaveBeenCalledTimes(1));
             await waitFor(() => expect(AzureAuthSub.get().authHeader.get('authorization')).toContain('unique-token'));
+            await waitFor(() =>
+                expect(AzureAuthSub.get().authHeader.get('email')).toContain(Utf8ToBase64('mail@example.com'))
+            );
+            await waitFor(() =>
+                expect(AzureAuthSub.get().authHeader.get('username')).toContain(Utf8ToBase64('test person'))
+            );
         });
 
-        it('Get id token with acquireTokenPopup method', async () => {
+        it('Get id token and store it in authHeader with acquireTokenPopup method', async () => {
             // given
             jest.spyOn(pca, 'getAllAccounts').mockImplementation(() => [testAccount]);
             const acquireTokenSilentSpy = jest
@@ -160,6 +166,12 @@ describe('AuthProvider', () => {
             await waitFor(async () => expect(acquireTokenSilentSpy).toHaveBeenCalledTimes(1));
             await waitFor(async () => expect(acquireTokenPopup).toHaveBeenCalledTimes(1));
             await waitFor(() => expect(AzureAuthSub.get().authHeader.get('authorization')).toContain('unique-token-2'));
+            await waitFor(() =>
+                expect(AzureAuthSub.get().authHeader.get('email')).toContain(Utf8ToBase64('mail@example.com'))
+            );
+            await waitFor(() =>
+                expect(AzureAuthSub.get().authHeader.get('username')).toContain(Utf8ToBase64('test person'))
+            );
         });
         it('Get id token both method failed', async () => {
             // given

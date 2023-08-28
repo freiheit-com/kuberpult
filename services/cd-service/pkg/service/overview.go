@@ -378,6 +378,7 @@ func (o *OverviewServiceServer) StreamOverview(in *api.GetOverviewRequest,
 				logger.FromContext(stream.Context()).Error("error sending overview response:", zap.Error(err), zap.String("overview", fmt.Sprintf("%+v", ov)))
 				return err
 			}
+
 		case <-done:
 			return nil
 		}

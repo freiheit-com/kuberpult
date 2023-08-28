@@ -371,19 +371,27 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.U
 	return u
 }
 
-func getRequestAuthorFromAzure(r *http.Request) *auth.User {
+func getRequestAuthorFromAzure(r *http.Request) (*auth.User, error) {
 	username := r.Header.Get("username")
 	email := r.Header.Get("email")
 	if username == "" || email == "" {
-		return nil
+		return nil, nil
+	}
+
+	nameDecoded, err := auth.Decode64(username)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding username '%s': %w", username, err)
+	}
+	emailDecoded, err := auth.Decode64(email)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding email '%s': %w", email, err)
 	}
 
 	u := &auth.User{
-		Name:  username,
-		Email: email,
+		Name:  nameDecoded,
+		Email: emailDecoded,
 	}
-	return u
-
+	return u, nil
 }
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -391,8 +399,15 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		span, ctx := tracer.StartSpanFromContext(ctx, "ServeHTTP")
 		defer span.Finish()
 		var user *auth.User = nil
+		var err error = nil
 		var source = ""
-		if !c.AzureEnableAuth { // AzureEnableAuth==true is handled in ProcessBatch
+		if c.AzureEnableAuth {
+			user, err = getRequestAuthorFromAzure(r)
+			if err != nil {
+				return err
+			}
+			source = "azure"
+		} else {
 			user = getRequestAuthorFromGoogleIAP(ctx, r)
 			source = "iap"
 		}
@@ -400,7 +415,9 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			user, _ = auth.ReadUserFromHttpHeader(ctx, r)
 		}
 		if user != nil {
-			enhanceSpanWithUser(span, user.Email, user.Name, source)
+			span.SetTag("current-user-name", user.Name)
+			span.SetTag("current-user-email", user.Email)
+			span.SetTag("current-user-source", source)
 		}
 		combinedUser := auth.GetUserOrDefault(user, p.DefaultUser)
 
@@ -410,12 +427,6 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
 		return nil
 	})
-}
-
-func enhanceSpanWithUser(span tracer.Span, email string, name string, source string) {
-	span.SetTag("current-user-name", name)
-	span.SetTag("current-user-email", email)
-	span.SetTag("current-user-source", source)
 }
 
 // GrpcProxy passes through gRPC messages to another server.
@@ -430,17 +441,6 @@ type GrpcProxy struct {
 func (p *GrpcProxy) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest) (*api.BatchResponse, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessBatch")
-	defer span.Finish()
-	if in.CurrentUser != nil {
-		/**
-		Previously, we submitted the user over headers. But headers do not have specific encoding, leading to trouble with non-ascii usernames.
-		We now submit this data as part of the ProcessBatch call, to be safe.
-		This is different from the handling for Google IAP, where we still take the data from a header - but that header is a JWT, so it is base64 encoded.
-		*/
-		enhanceSpanWithUser(span, in.CurrentUser.Email, in.CurrentUser.Username, "azure")
-	}
-
 	for i := range in.Actions {
 		batchAction := in.GetActions()[i]
 		switch batchAction.Action.(type) {
