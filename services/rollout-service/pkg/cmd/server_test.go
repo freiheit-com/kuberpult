@@ -25,10 +25,25 @@ func TestService(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		ExpectedError string
+		Config        Config
 	}{
 		{
 			Name:          "simple case",
-			ExpectedError: "connecting to argocd : Argo CD server address unspecified",
+			ExpectedError: "invalid argocd server url: parse \"\": empty url",
+		},
+		{
+			Name:          "invalid argocd url",
+			ExpectedError: "invalid argocd server url: parse \"not a http address\": invalid URI for request",
+			Config: Config{
+				ArgocdServer: "not a http address",
+			},
+		},
+		
+			Name:          "valid http argocd url",
+			ExpectedError: "connecting to argocd version: dial tcp 127.0.0.1:32761: connect: connection refused",
+			Config: Config{
+				ArgocdServer: "http://localhost:32761",
+			},
 		},
 	}
 
@@ -36,7 +51,7 @@ func TestService(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := context.Background()
-			err := runServer(ctx, Config{})
+			err := runServer(ctx, tc.Config)
 			if err != nil {
 				if err.Error() != tc.ExpectedError {
 					t.Errorf("expected error %q but got %q", tc.ExpectedError, err)

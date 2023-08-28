@@ -274,7 +274,7 @@ frontend:
       cpu: 0.05
   tag: "${IMAGE_TAG_FRONTEND}"
 rollout:
-  enabled: false
+  enabled: true
   resources:
     limits:
       memory: 200Mi
