@@ -15,6 +15,9 @@
 # Copyright 2023 freiheit.com
 # This file is part of kuberpult.
 {{- if .Values.rollout.enabled }}
+{{- if not (regexMatch "^https?://[^:]+:[0-9]+$" .Values.argocd.server) -}}
+{{ fail "argocd.server must be a valid http/https url including the port"}}
+{{- end -}}
 ---
 apiVersion: apps/v1
 kind: Deployment

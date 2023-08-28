@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	argoio "github.com/argoproj/argo-cd/v2/util/io"
@@ -49,6 +50,21 @@ type Config struct {
 	ArgocdServer   string `split_words:"true"`
 	ArgocdInsecure bool   `default:"false" split_words:"true"`
 	ArgocdToken    string `split_words:"true"`
+}
+
+func (config *Config) ClientConfig() (apiclient.ClientOptions, error) {
+	var opts apiclient.ClientOptions
+	opts.ConfigPath = ""
+	u, err := url.ParseRequestURI(config.ArgocdServer)
+	if err != nil {
+		return opts, fmt.Errorf("invalid argocd server url: %w", err)
+	}
+	opts.ServerAddr = u.Host
+	opts.PlainText = u.Scheme == "http"
+	opts.UserAgent = "kuberpult"
+	opts.Insecure = config.ArgocdInsecure
+	opts.AuthToken = config.ArgocdToken
+	return opts, nil
 }
 
 func RunServer() {
@@ -108,11 +124,10 @@ func runServer(ctx context.Context, config Config) error {
 		)
 	}
 
-	var opts apiclient.ClientOptions
-	opts.ServerAddr = config.ArgocdServer
-	opts.UserAgent = "kuberpult"
-	opts.Insecure = config.ArgocdInsecure
-	opts.AuthToken = config.ArgocdToken
+	opts, err := config.ClientConfig()
+	if err != nil {
+		return err
+	}
 
 	logger.FromContext(ctx).Info("argocd.connecting", zap.String("argocd.addr", opts.ServerAddr))
 	client, err := apiclient.NewClient(&opts)
