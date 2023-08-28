@@ -296,7 +296,7 @@ $(sed -e "s/^/    /" <../../services/cd-service/client)
 $(sed -e "s/^/    /" <../../services/cd-service/known_hosts)
 argocd:
   token: "$token"
-  server: "https://argocd-server.${ARGO_NAMESPACE}.svc.cluster.local"
+  server: "https://argocd-server.${ARGO_NAMESPACE}.svc.cluster.local:443"
   insecure: true
 pgp:
   keyRing: |
