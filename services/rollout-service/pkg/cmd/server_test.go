@@ -62,3 +62,57 @@ func TestService(t *testing.T) {
 		})
 	}
 }
+
+func TestClientConfig(t *testing.T) {
+	tcs := []struct {
+		Name   string
+		Config Config
+
+		ExpectedError      string
+		ExpectedServerAddr string
+		ExpectedPlainText  bool
+	}{
+		{
+			Name: "simple plaintext",
+			Config: Config{
+				ArgocdServer: "http://foo:80",
+			},
+			ExpectedServerAddr: "foo:80",
+			ExpectedPlainText:  true,
+		},
+		{
+			Name: "simple tls",
+			Config: Config{
+				ArgocdServer: "tls://foo:80",
+			},
+			ExpectedServerAddr: "foo:80",
+			ExpectedPlainText:  false,
+		},
+		{
+			Name: "simple tls",
+			Config: Config{
+				ArgocdServer: "not a url",
+			},
+			ExpectedError: "invalid argocd server url: parse \"not a url\": invalid URI for request",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			clientConfig, err := tc.Config.ClientConfig()
+			if err != nil {
+				if err.Error() != tc.ExpectedError {
+					t.Errorf("expected error %q but got %q", tc.ExpectedError, err)
+				}
+			} else if tc.ExpectedError != "" {
+				t.Errorf("expected error %q but got <nil>", tc.ExpectedError)
+			}
+			if clientConfig.ServerAddr != tc.ExpectedServerAddr {
+				t.Errorf("mismatched ServerAddr, expected %q, got %q", tc.ExpectedServerAddr, clientConfig.ServerAddr)
+			}
+			if clientConfig.PlainText != tc.ExpectedPlainText {
+				t.Errorf("mismatched PlainText, expected %t, got %t", tc.ExpectedPlainText, clientConfig.PlainText)
+			}
+		})
+	}
+}
