@@ -434,7 +434,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 			err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
 		}
 	}
-	span, _ := tracer.StartSpanFromContext(ctx, "PostPush")
+	span, ctx := tracer.StartSpanFromContext(e.ctx, "PostPush")
 	defer span.Finish()
 
 	if r.config.ArgoWebhookUrl != "" {
