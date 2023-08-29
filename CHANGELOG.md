@@ -25,6 +25,7 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ## [1.0.3](https://github.com/freiheit-com/kuberpult/tree/1.0.3) (2023-08-28)
 
+### Closed Issues:
 - Author not preserved in azure [\#893](https://github.com/freiheit-com/kuberpult/issues/893)
 - allow non-ascii usernames [\#874](https://github.com/freiheit-com/kuberpult/issues/874)
 
