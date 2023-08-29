@@ -112,8 +112,8 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 		return nil, grpc.AuthError(ctx, errors.New("could not retrieve metadata context with git author in grpc context"))
 	}
 	originalEmailArr := md.Get(HeaderUserEmail)
-	if len(originalEmailArr) == 0 {
-		return nil, grpc.AuthError(ctx, errors.New("did not find author-email in grpc context"))
+	if len(originalEmailArr) != 1 {
+		return nil, grpc.AuthError(ctx, errors.New(fmt.Sprintf("did not find exactly 1 author-email in grpc context: %+v", originalEmailArr)))
 	}
 	originalEmail := originalEmailArr[0]
 	userMail, err := Decode64(originalEmail)
@@ -121,8 +121,8 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 		return nil, grpc.AuthError(ctx, fmt.Errorf("extract: non-base64 in author-email in grpc context %s", originalEmail))
 	}
 	originalNameArr := md.Get(HeaderUserName)
-	if len(originalNameArr) == 0 {
-		return nil, grpc.AuthError(ctx, fmt.Errorf("extract: username undefined but mail defined in grpc context %s", userMail))
+	if len(originalNameArr) != 1 {
+		return nil, grpc.AuthError(ctx, fmt.Errorf("did not find exactly 1 author-name in grpc context %+v", originalNameArr))
 	}
 	originalName := originalNameArr[0]
 	userName, err := Decode64(originalName)
@@ -184,7 +184,7 @@ func ReadUserFromHttpHeader(ctx context.Context, r *http.Request) (*User, error)
 			},
 		}, nil
 	}
-	return nil, grpc.AuthError(ctx, errors.New("ExtractUserHttp: did not find data in headers"))
+	return nil, nil // no user, but the user is not always necessary
 }
 
 // WriteUserToHttpHeader should only be used in the frontend-service

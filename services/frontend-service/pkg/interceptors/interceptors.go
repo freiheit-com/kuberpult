@@ -18,12 +18,10 @@ package interceptors
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/handler"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -68,17 +66,12 @@ func UnaryAuthInterceptor(ctx context.Context,
 	handler grpc.UnaryHandler,
 	jwks *keyfunc.JWKS,
 	clientId string,
-	tenantId string,
-	defaultUser auth.User) (interface{}, error) {
+	tenantId string) (interface{}, error) {
 	if info.FullMethod != "/api.v1.FrontendConfigService/GetConfig" {
-		userData, err := authorize(ctx, jwks, clientId, tenantId)
+		_, err := authorize(ctx, jwks, clientId, tenantId)
 		if err != nil {
 			return nil, err
 		}
-		combinedUser := auth.GetUserOrDefault(userData, defaultUser)
-		logger.FromContext(ctx).Warn(fmt.Sprintf("auth interceptor: user: %s %s", combinedUser.Name, combinedUser.Email))
-		ctx = auth.WriteUserToContext(ctx, combinedUser)
-		ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
 	}
 	h, err := handler(ctx, req)
 	return h, err

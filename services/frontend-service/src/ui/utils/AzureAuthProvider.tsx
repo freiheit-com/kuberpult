@@ -83,8 +83,8 @@ export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children
                 AzureAuthSub.set({
                     authHeader: new BrowserHeaders({
                         Authorization: response.idToken,
-                        email: email, // use same key here as in server.go function getRequestAuthorFromAzure: r.Header.Get("email")
-                        username: username, // use same key here too
+                        'author-email': email, // use same key here as in server.go function getRequestAuthorFromAzure: r.Header.Get("email")
+                        'author-name': username, // use same key here too
                     }),
                     authReady: true,
                 });
@@ -96,8 +96,8 @@ export const AcquireToken: React.FC<{ children: React.ReactNode }> = ({ children
                         AzureAuthSub.set({
                             authHeader: new BrowserHeaders({
                                 Authorization: response.idToken,
-                                email: email, // use same key here as in server.go function getRequestAuthorFromAzure: r.Header.Get("email")
-                                username: username, // use same key here too
+                                'author-email': email, // use same key here as in server.go function getRequestAuthorFromAzure: r.Header.Get("email")
+                                'author-name': username, // use same key here too
                             }),
                             authReady: true,
                         });
