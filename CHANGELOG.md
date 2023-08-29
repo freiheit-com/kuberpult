@@ -22,6 +22,25 @@ Given a version number MAJOR.MINOR.PATCH:
 
 # Change Log
 
+
+## [1.0.3](https://github.com/freiheit-com/kuberpult/tree/1.0.3) (2023-08-28)
+
+- Author not preserved in azure [\#893](https://github.com/freiheit-com/kuberpult/issues/893)
+- allow non-ascii usernames [\#874](https://github.com/freiheit-com/kuberpult/issues/874)
+
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.0.2...1.0.3)
+
+### Minor Changes
+
+- Fix encoding issue with http header. [\#896](https://github.com/freiheit-com/kuberpult/pull/896) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Fix argocd server processing and set plaintext option correctly [\#895](https://github.com/freiheit-com/kuberpult/pull/895) ([hannesg](https://github.com/hannesg))
+- Use right context for spans "PostPush" and "Webhook-Retries" [\#894](https://github.com/freiheit-com/kuberpult/pull/894) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+
+---
+
+
 ## [1.0.2](https://github.com/freiheit-com/kuberpult/tree/1.0.2) (2023-08-23)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.0.1...1.0.2)
