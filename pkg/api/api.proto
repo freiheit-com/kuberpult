@@ -28,6 +28,8 @@ message BatchAction {
     CreateEnvironmentRequest create_environment = 9;
     ReleaseTrainRequest release_train = 10;
     CreateReleaseRequest create_release = 11;
+    CreateEnvironmentGroupLockRequest create_environment_group_lock = 12;
+    DeleteEnvironmentGroupLockRequest delete_environment_group_lock = 13;
   }
 }
 
@@ -52,6 +54,18 @@ message DeleteEnvironmentLockRequest {
   string environment = 1;
   string lock_id = 2;
 }
+
+message CreateEnvironmentGroupLockRequest {
+  string environmentGroup = 1;
+  string lock_id = 2;
+  string message = 3;
+}
+
+message DeleteEnvironmentGroupLockRequest {
+  string environment = 1;
+  string lock_id = 2;
+}
+
 
 message CreateEnvironmentApplicationLockRequest {
   string environment = 1;
