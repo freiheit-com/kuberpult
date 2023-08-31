@@ -15,9 +15,9 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { ReleaseCard, ReleaseCardProps } from './ReleaseCard';
 import { render } from '@testing-library/react';
-import { UpdateOverview } from '../../utils/store';
+import { UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
-import { Environment, Release, UndeploySummary } from '../../../api/api';
+import { Environment, EnvironmentGroup, Release, RolloutStatus, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
 
 const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
@@ -205,6 +205,89 @@ describe('Release Card', () => {
                 );
             }
             expect(container.querySelector('.env-group-chip-list-test')).not.toBeEmptyDOMElement();
+            expect(container.querySelector('.release__status')).toBeNull();
+        });
+    });
+});
+
+describe('Release Card Rollout Status', () => {
+    const getNode = (overrides: ReleaseCardProps) => (
+        <MemoryRouter>
+            <ReleaseCard {...overrides} />
+        </MemoryRouter>
+    );
+    const getWrapper = (overrides: ReleaseCardProps) => render(getNode(overrides));
+
+    type TestData = {
+        name: string;
+        props: {
+            app: string;
+            version: number;
+        };
+        rels: Release[];
+        environmentGroups: DeepPartial<EnvironmentGroup>[];
+    };
+    const data: TestData[] = [
+        {
+            name: 'using a sample release - useRelease hook',
+            props: { app: 'test1', version: 2 },
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                    undeployVersion: false,
+                    sourceCommitId: 'commit123',
+                    sourceAuthor: 'author',
+                    prNumber: '666',
+                    createdAt: new Date(2023, 6, 6),
+                },
+            ],
+            environmentGroups: [
+                {
+                    environmentGroupName: 'dev',
+                    environments: [
+                        {
+                            name: 'development',
+                            applications: {
+                                test1: {
+                                    version: 2,
+                                },
+                            },
+                            locks: {},
+                        },
+                    ],
+                },
+            ],
+        },
+    ];
+
+    describe.each(data)(`Renders a Release Card`, (testcase) => {
+        it(testcase.name, () => {
+            // given
+            mock_FormattedDate.FormattedDate.returns(<div>some formatted date</div>);
+            // when
+            UpdateOverview.set({
+                applications: {
+                    [testcase.props.app]: {
+                        name: testcase.props.app,
+                        releases: testcase.rels,
+                        sourceRepoUrl: 'url',
+                        undeploySummary: UndeploySummary.Normal,
+                        team: 'no-team',
+                        warnings: [],
+                    },
+                },
+                environmentGroups: testcase.environmentGroups,
+            });
+            UpdateRolloutStatus({
+                application: testcase.props.app,
+                environment: 'development',
+                version: 1,
+                rolloutStatus: RolloutStatus.RolloutStatusSuccesful,
+            });
+            const { container } = getWrapper(testcase.props);
+            // then
+            expect(container.querySelector('.release__status')).not.toBeNull();
         });
     });
 });

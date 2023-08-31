@@ -23,6 +23,7 @@ import {
     useRolloutStatus,
     RolloutStatusApplication,
     EnvironmentGroupExtended,
+    useEnvironmentGroups,
 } from '../../utils/store';
 import { Tooltip } from '../tooltip/tooltip';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
@@ -121,6 +122,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const { createdAt, sourceMessage, sourceCommitId, sourceAuthor, undeployVersion } = useReleaseOrThrow(app, version);
     const openReleaseDialog = useOpenReleaseDialog(app, version);
     const rolloutStatus = useRolloutStatus(app);
+    const overview = useEnvironmentGroups();
     const deployedAt = useCurrentlyDeployedAtGroup(app, version);
 
     const [rolloutEnvs, mostInteresting] = calculateDeploymentStatus(app, deployedAt, rolloutStatus);
@@ -184,6 +186,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                             <div className="release__title">{undeployVersion ? 'Undeploy Version' : firstLine}</div>
                             {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
                         </div>
+                        {JSON.stringify(overview)}
                         {mostInteresting && (
                             <div className="release__status">
                                 <RolloutStatusIcon status={mostInteresting.rolloutStatus} />
