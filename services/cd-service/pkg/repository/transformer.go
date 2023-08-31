@@ -666,6 +666,17 @@ func (s *State) checkUserPermissions(ctx context.Context, env, application, acti
 	return auth.CheckUserPermissions(RBACConfig, user, env, group, application, action)
 }
 
+func (s *State) checkUserPermissionsEnvGroup(ctx context.Context, envGroup, application, action string, RBACConfig auth.RBACConfig) error {
+	if !RBACConfig.DexEnabled {
+		return nil
+	}
+	user, err := auth.ReadUserFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
+	}
+	return auth.CheckUserPermissions(RBACConfig, user, "*", envGroup, application, action)
+}
+
 // checkUserPermissionsCreateEnvironment check the permission for the environment creation action.
 // This is a "special" case because the environment group is already provided on the request.
 func (s *State) checkUserPermissionsCreateEnvironment(ctx context.Context, RBACConfig auth.RBACConfig, envConfig config.EnvironmentConfig) error {
@@ -785,6 +796,77 @@ func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (st
 		changes := &TransformerResult{}
 		return fmt.Sprintf("Deleted lock %q on environment %q%s", c.LockId, c.Environment, additionalMessageFromDeployment), changes, nil
 	}
+}
+
+type CreateEnvironmentGroupLock struct {
+	Authentication
+	EnvironmentGroup string
+	LockId           string
+	Message          string
+}
+
+func (c *CreateEnvironmentGroupLock) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
+	err := state.checkUserPermissions(ctx, c.EnvironmentGroup, "*", auth.PermissionCreateLock, c.RBACConfig)
+	if err != nil {
+		return "", nil, err
+	}
+	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(c.EnvironmentGroup)
+	if err != nil {
+		return "", nil, grpc.PublicError(ctx, err)
+	}
+	changes := &TransformerResult{}
+	message := fmt.Sprintf("Creating locks '%s' for environment group '%s':", c.LockId, c.EnvironmentGroup)
+	for index := range envNamesSorted {
+		envName := envNamesSorted[index]
+		x := CreateEnvironmentLock{
+			Authentication: c.Authentication,
+			Environment:    envName,
+			LockId:         c.LockId, // the IDs should be the same for all. See `useLocksSimilarTo` in store.tsx
+			Message:        c.Message,
+		}
+		subMessage, subChanges, err := x.Transform(ctx, state)
+		if err != nil {
+			return "", nil, err
+		}
+		changes.Combine(subChanges)
+		message = message + "\n" + subMessage
+	}
+	return message, changes, nil
+}
+
+type DeleteEnvironmentGroupLock struct {
+	Authentication
+	EnvironmentGroup string
+	LockId           string
+}
+
+func (c *DeleteEnvironmentGroupLock) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
+	err := state.checkUserPermissions(ctx, c.EnvironmentGroup, "*", auth.PermissionDeleteLock, c.RBACConfig)
+	if err != nil {
+		return "", nil, err
+	}
+	envNamesSorted, err := state.GetEnvironmentConfigsForGroup(c.EnvironmentGroup)
+	if err != nil {
+		return "", nil, grpc.PublicError(ctx, err)
+	}
+	changes := &TransformerResult{}
+	message := fmt.Sprintf("Deleting locks '%s' for environment group '%s':", c.LockId, c.EnvironmentGroup)
+
+	for index := range envNamesSorted {
+		envName := envNamesSorted[index]
+		x := DeleteEnvironmentLock{
+			Authentication: c.Authentication,
+			Environment:    envName,
+			LockId:         c.LockId,
+		}
+		subMessage, subChanges, err := x.Transform(ctx, state)
+		if err != nil {
+			return "", nil, err
+		}
+		changes.Combine(subChanges)
+		message = message + "\n" + subMessage
+	}
+	return message, changes, nil
 }
 
 type CreateEnvironmentApplicationLock struct {

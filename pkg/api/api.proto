@@ -56,13 +56,13 @@ message DeleteEnvironmentLockRequest {
 }
 
 message CreateEnvironmentGroupLockRequest {
-  string environmentGroup = 1;
+  string environment_group = 1;
   string lock_id = 2;
   string message = 3;
 }
 
 message DeleteEnvironmentGroupLockRequest {
-  string environment = 1;
+  string environment_group = 1;
   string lock_id = 2;
 }
 
