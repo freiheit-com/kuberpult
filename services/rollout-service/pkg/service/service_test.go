@@ -109,6 +109,10 @@ func (m *mockVersionClient) GetVersion(ctx context.Context, revision string, env
 	return 0, nil
 }
 
+func (m *mockVersionClient) Subscribe(ctx context.Context) error {
+	panic("not implemented")
+}
+
 var _ versions.VersionClient = (*mockVersionClient)(nil)
 
 func TestArgoConection(t *testing.T) {

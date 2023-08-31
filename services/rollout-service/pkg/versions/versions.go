@@ -34,6 +34,7 @@ var RolloutServiceUser auth.User = auth.User{
 
 type VersionClient interface {
 	GetVersion(ctx context.Context, revision, environment, application string) (uint64, error)
+	Subscribe(ctx context.Context) error
 }
 
 type versionClient struct {
@@ -70,6 +71,11 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 		}
 	}
 	return 0, nil
+}
+
+func (c *versionClient) Subscribe(ctx context.Context) error {
+	<-ctx.Done()
+	return ctx.Err()
 }
 
 func New(client api.OverviewServiceClient) VersionClient {

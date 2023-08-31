@@ -157,10 +157,11 @@ func runServer(ctx context.Context, config Config) error {
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
 	ready := false
+	versionC := versions.New(overview)
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{
 			{
-				Port: "8080",
+			Port: "8080",
 				Register: func(mux *http.ServeMux) {
 					mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						if ready {
@@ -174,11 +175,16 @@ func runServer(ctx context.Context, config Config) error {
 		},
 		Background: []setup.BackgroundTaskConfig{
 			{
-				Name: "consume events",
+				Name: "consume argocd events",
 				Run: func(ctx context.Context) error {
-					return service.ConsumeEvents(ctx, appClient, versions.New(overview), broadcast, func() { ready = true })
+					return service.ConsumeEvents(ctx, appClient, versionC, broadcast, func() { ready = true })
 				},
-			}},
+			},
+			{
+				Name: "consume kuberpult events",
+				Run: versionC.Subscribe,
+			},
+	 	},
 		GRPC: &setup.GRPCConfig{
 			Port: "8443",
 			Opts: []grpc.ServerOption{
