@@ -26,6 +26,7 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"google.golang.org/grpc"
 )
 
@@ -66,10 +67,25 @@ func TestBroadcast(t *testing.T) {
 		RolloutStatusError       = api.RolloutStatus_RolloutStatusError
 	)
 	type step struct {
-		Event Event
+		ArgoEvent    *ArgoEvent
+		VersionEvent *versions.KuberpultEvent
 
 		ExpectStatus *api.RolloutStatus
 	}
+
+	application := func(s step) string {
+		if s.ArgoEvent != nil {
+			return s.ArgoEvent.Application
+		}
+		return s.VersionEvent.Application
+	}
+	environment := func(s step) string {
+		if s.ArgoEvent != nil {
+			return s.ArgoEvent.Environment
+		}
+		return s.VersionEvent.Environment
+	}
+
 	tcs := []struct {
 		Name  string
 		Steps []step
@@ -78,7 +94,7 @@ func TestBroadcast(t *testing.T) {
 			Name: "simple case",
 			Steps: []step{
 				{
-					Event: Event{
+					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
 						Version:          1,
@@ -95,7 +111,7 @@ func TestBroadcast(t *testing.T) {
 			Name: "app syncing and becomming healthy",
 			Steps: []step{
 				{
-					Event: Event{
+					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
 						Version:          1,
@@ -106,7 +122,7 @@ func TestBroadcast(t *testing.T) {
 					ExpectStatus: &RolloutStatusSuccesful,
 				},
 				{
-					Event: Event{
+					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
 						Version:          1,
@@ -117,7 +133,7 @@ func TestBroadcast(t *testing.T) {
 					ExpectStatus: &RolloutStatusProgressing,
 				},
 				{
-					Event: Event{
+					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
 						Version:          1,
@@ -125,10 +141,10 @@ func TestBroadcast(t *testing.T) {
 						HealthStatusCode: health.HealthStatusProgressing,
 					},
 
-					ExpectStatus: &RolloutStatusProgressing,
+					ExpectStatus: nil,
 				},
 				{
-					Event: Event{
+					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
 						Version:          2,
@@ -144,7 +160,7 @@ func TestBroadcast(t *testing.T) {
 			Name: "app becomming unhealthy and recovers",
 			Steps: []step{
 				{
-					Event: Event{
+					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
 						Version:          1,
@@ -155,7 +171,7 @@ func TestBroadcast(t *testing.T) {
 					ExpectStatus: &RolloutStatusSuccesful,
 				},
 				{
-					Event: Event{
+					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
 						Version:          1,
@@ -166,7 +182,7 @@ func TestBroadcast(t *testing.T) {
 					ExpectStatus: &RolloutStatusError,
 				},
 				{
-					Event: Event{
+					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
 						Version:          1,
@@ -182,7 +198,7 @@ func TestBroadcast(t *testing.T) {
 			Name: "rollout fails",
 			Steps: []step{
 				{
-					Event: Event{
+					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
 						Version:          1,
@@ -201,7 +217,7 @@ func TestBroadcast(t *testing.T) {
 			Name: "rollout errors",
 			Steps: []step{
 				{
-					Event: Event{
+					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
 						Version:          1,
@@ -216,6 +232,42 @@ func TestBroadcast(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "healthy app switches to progressing when a new version in kuberpult is deployed",
+			Steps: []step{
+				{
+					ArgoEvent: &ArgoEvent{
+						Application:      "foo",
+						Environment:      "bar",
+						Version:          1,
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusHealthy,
+					},
+
+					ExpectStatus: &RolloutStatusSuccesful,
+				},
+				{
+					VersionEvent: &versions.KuberpultEvent{
+						Application: "foo",
+						Environment: "bar",
+						Version:     2,
+					},
+
+					ExpectStatus: &RolloutStatusProgressing,
+				},
+				{
+					ArgoEvent: &ArgoEvent{
+						Application:      "foo",
+						Environment:      "bar",
+						Version:          2,
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusHealthy,
+					},
+
+					ExpectStatus: &RolloutStatusSuccesful,
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -227,17 +279,27 @@ func TestBroadcast(t *testing.T) {
 			srv := testSrv{ctx: ctx, ch: ch}
 			go bc.StreamStatus(&api.StreamStatusRequest{}, &srv)
 			for i, s := range tc.Steps {
-				bc.Process(context.Background(), s.Event)
+				if s.ArgoEvent != nil {
+					bc.ProcessArgoEvent(context.Background(), *s.ArgoEvent)
+				} else if s.VersionEvent != nil {
+					bc.ProcessKuberpultEvent(context.Background(), *s.VersionEvent)
+				}
 				if s.ExpectStatus != nil {
 					resp := <-ch
-					if resp.Application != s.Event.Application {
-						t.Errorf("wrong application received in step %d: expected %q, got %q", i, s.Event.Application, resp.Application)
+					if resp.Application != application(s) {
+						t.Errorf("wrong application received in step %d: expected %q, got %q", i, application(s), resp.Application)
 					}
-					if resp.Environment != s.Event.Environment {
-						t.Errorf("wrong environment received in step %d: expected %q, got %q", i, s.Event.Environment, resp.Environment)
+					if resp.Environment != environment(s) {
+						t.Errorf("wrong environment received in step %d: expected %q, got %q", i, environment(s), resp.Environment)
 					}
 					if resp.RolloutStatus != *s.ExpectStatus {
 						t.Errorf("wrong status received in step %d: expected %q, got %q", i, s.ExpectStatus, resp.RolloutStatus)
+					}
+				} else {
+					select {
+					case resp := <-ch:
+						t.Errorf("didn't expect status update but got %#v", resp)
+					default:
 					}
 				}
 			}
@@ -246,7 +308,11 @@ func TestBroadcast(t *testing.T) {
 		t.Run(tc.Name+" (once)", func(t *testing.T) {
 			bc := New()
 			for i, s := range tc.Steps {
-				bc.Process(context.Background(), s.Event)
+				if s.ArgoEvent != nil {
+					bc.ProcessArgoEvent(context.Background(), *s.ArgoEvent)
+				} else if s.VersionEvent != nil {
+					bc.ProcessKuberpultEvent(context.Background(), *s.VersionEvent)
+				}
 				if s.ExpectStatus != nil {
 					ctx, cancel := context.WithCancel(context.Background())
 					ch := make(chan *api.StreamStatusResponse, 1)
@@ -254,11 +320,11 @@ func TestBroadcast(t *testing.T) {
 					go bc.StreamStatus(&api.StreamStatusRequest{}, &srv)
 					resp := <-ch
 					cancel()
-					if resp.Application != s.Event.Application {
-						t.Errorf("wrong application received in step %d: expected %q, got %q", i, s.Event.Application, resp.Application)
+					if resp.Application != application(s) {
+						t.Errorf("wrong application received in step %d: expected %q, got %q", i, application(s), resp.Application)
 					}
-					if resp.Environment != s.Event.Environment {
-						t.Errorf("wrong environment received in step %d: expected %q, got %q", i, s.Event.Environment, resp.Environment)
+					if resp.Environment != environment(s) {
+						t.Errorf("wrong environment received in step %d: expected %q, got %q", i, environment(s), resp.Environment)
 					}
 					if resp.RolloutStatus != *s.ExpectStatus {
 						t.Errorf("wrong status received in step %d: expected %q, got %q", i, s.ExpectStatus, resp.RolloutStatus)
@@ -286,7 +352,7 @@ func TestBroadcastDoesntGetStuck(t *testing.T) {
 			bc := New()
 			// srv1 will just be blocked
 			ctx1, cancel1 := context.WithCancel(context.Background())
-			ch1 := make(chan *api.StreamStatusResponse)
+			ch1 := make(chan *api.StreamStatusResponse, 200)
 			ech1 := make(chan error, 1)
 			srv1 := testSrv{ctx: ctx1, ch: ch1}
 			go func() {
@@ -314,11 +380,12 @@ func TestBroadcastDoesntGetStuck(t *testing.T) {
 
 			for i := uint(0); i < tc.Events; i += 1 {
 				app := fmt.Sprintf("app-%d", i)
-				bc.Process(context.Background(), Event{
+				bc.ProcessArgoEvent(context.Background(), ArgoEvent{
 					Application:      app,
 					Environment:      "doesntmatter",
 					HealthStatusCode: health.HealthStatusHealthy,
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+					Version:          1,
 				})
 				select {
 				case resp := <-ch2:

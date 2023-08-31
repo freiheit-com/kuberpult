@@ -103,6 +103,8 @@ argocd:
   insecure: false
   # Enable sending webhooks to argocd
   sendWebhooks: false
+  # Enable sending refresh requests to argocd
+  refreshEnabled: false
 
 datadogTracing:
   enabled: false

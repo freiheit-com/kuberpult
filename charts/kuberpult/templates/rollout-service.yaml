@@ -85,6 +85,8 @@ spec:
           value: {{ .Values.argocd.server | quote }}
         - name: KUBERPULT_ARGOCD_INSECURE
           value: {{ .Values.argocd.insecure | quote }}
+        - name: KUBERPULT_ARGOCD_REFRESH_ENABLED
+          value: {{ .Values.argocd.refreshEnabled | quote }}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
