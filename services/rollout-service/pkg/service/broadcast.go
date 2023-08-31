@@ -25,6 +25,7 @@ import (
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
+	"github.com/argoproj/gitops-engine/pkg/sync/common"
 )
 
 type key struct {
@@ -131,6 +132,13 @@ func rolloutStatus(ev *Event) api.RolloutStatus {
 	case health.HealthStatusProgressing, health.HealthStatusSuspended:
 		return api.RolloutStatus_RolloutStatusProgressing
 	case health.HealthStatusHealthy:
+		if ev.OperationState != nil {
+			switch ev.OperationState.Phase {
+			case common.OperationError, common.OperationFailed:
+
+				return api.RolloutStatus_RolloutStatusError
+			}
+		}
 		switch ev.SyncStatusCode {
 		case v1alpha1.SyncStatusCodeOutOfSync:
 			return api.RolloutStatus_RolloutStatusProgressing

@@ -24,6 +24,7 @@ import (
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
+	"github.com/argoproj/gitops-engine/pkg/sync/common"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"google.golang.org/grpc"
 )
@@ -174,6 +175,44 @@ func TestBroadcast(t *testing.T) {
 					},
 
 					ExpectStatus: &RolloutStatusSuccesful,
+				},
+			},
+		},
+		{
+			Name: "rollout fails",
+			Steps: []step{
+				{
+					Event: Event{
+						Application:      "foo",
+						Environment:      "bar",
+						Version:          1,
+						SyncStatusCode:   v1alpha1.SyncStatusCodeOutOfSync,
+						HealthStatusCode: health.HealthStatusHealthy,
+						OperationState: &v1alpha1.OperationState{
+							Phase: common.OperationFailed,
+						},
+					},
+
+					ExpectStatus: &RolloutStatusError,
+				},
+			},
+		},
+		{
+			Name: "rollout errors",
+			Steps: []step{
+				{
+					Event: Event{
+						Application:      "foo",
+						Environment:      "bar",
+						Version:          1,
+						SyncStatusCode:   v1alpha1.SyncStatusCodeOutOfSync,
+						HealthStatusCode: health.HealthStatusHealthy,
+						OperationState: &v1alpha1.OperationState{
+							Phase: common.OperationError,
+						},
+					},
+
+					ExpectStatus: &RolloutStatusError,
 				},
 			},
 		},

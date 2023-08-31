@@ -82,6 +82,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 					Environment:      environment,
 					SyncStatusCode:   ev.Application.Status.Sync.Status,
 					HealthStatusCode: ev.Application.Status.Health.Status,
+					OperationState:   ev.Application.Status.OperationState,
 					Version:          version,
 				})
 			case "DELETED":
@@ -90,7 +91,9 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 					Environment:      environment,
 					SyncStatusCode:   ev.Application.Status.Sync.Status,
 					HealthStatusCode: ev.Application.Status.Health.Status,
-					Version:          0,
+
+					OperationState: ev.Application.Status.OperationState,
+					Version:        0,
 				})
 				continue recv
 			case "BOOKMARK":
@@ -111,5 +114,6 @@ type Event struct {
 	Application      string
 	SyncStatusCode   v1alpha1.SyncStatusCode
 	HealthStatusCode health.HealthStatusCode
+	OperationState   *v1alpha1.OperationState
 	Version          uint64
 }
