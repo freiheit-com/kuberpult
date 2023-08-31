@@ -17,7 +17,14 @@ import { ReleaseCard, ReleaseCardProps } from './ReleaseCard';
 import { render } from '@testing-library/react';
 import { UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
-import { Environment, EnvironmentGroup, Release, RolloutStatus, UndeploySummary } from '../../../api/api';
+import {
+    Environment,
+    EnvironmentGroup,
+    Release,
+    RolloutStatus,
+    StreamStatusResponse,
+    UndeploySummary,
+} from '../../../api/api';
 import { Spy } from 'spy4js';
 
 const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
@@ -226,10 +233,12 @@ describe('Release Card Rollout Status', () => {
         };
         rels: Release[];
         environmentGroups: DeepPartial<EnvironmentGroup>[];
+        rolloutStatus: StreamStatusResponse[];
+        expectedStatusIcon: RolloutStatus;
     };
     const data: TestData[] = [
         {
-            name: 'using a sample release - useRelease hook',
+            name: 'shows success when it is deployed',
             props: { app: 'test1', version: 2 },
             rels: [
                 {
@@ -258,6 +267,16 @@ describe('Release Card Rollout Status', () => {
                     ],
                 },
             ],
+            rolloutStatus: [
+                {
+                    environment: 'development',
+                    application: 'test1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.RolloutStatusSuccesful,
+                },
+            ],
+
+            expectedStatusIcon: RolloutStatus.RolloutStatusSuccesful,
         },
     ];
 
@@ -279,15 +298,14 @@ describe('Release Card Rollout Status', () => {
                 },
                 environmentGroups: testcase.environmentGroups,
             });
-            UpdateRolloutStatus({
-                application: testcase.props.app,
-                environment: 'development',
-                version: 1,
-                rolloutStatus: RolloutStatus.RolloutStatusSuccesful,
-            });
+            testcase.rolloutStatus.forEach(UpdateRolloutStatus);
             const { container } = getWrapper(testcase.props);
             // then
             expect(container.querySelector('.release__status')).not.toBeNull();
+            switch (testcase.expectedStatusIcon) {
+                case RolloutStatus.RolloutStatusSuccesful:
+                    expect(container.querySelector('.release__status .rollout__icon_successful')).not.toBeNull();
+            }
         });
     });
 });
