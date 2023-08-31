@@ -68,6 +68,7 @@ const rolloutStatusPriority = [
     RolloutStatus.RolloutStatusError,
     RolloutStatus.RolloutStatusProgressing,
     RolloutStatus.RolloutStatusUnknown,
+    RolloutStatus.RolloutStatusSuccessful,
 ];
 
 const calculateDeploymentStatus = (
