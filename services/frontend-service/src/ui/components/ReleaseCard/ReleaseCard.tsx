@@ -61,6 +61,9 @@ const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (props) =>
     return <span className="rollout__description_unknown">? Unkwown</span>;
 };
 
+// note that the order is important here.
+// "most interesting" must come first.
+// see `calculateDeploymentStatus`
 const rolloutStatusPriority = [
     RolloutStatus.RolloutStatusError,
     RolloutStatus.RolloutStatusProgressing,
