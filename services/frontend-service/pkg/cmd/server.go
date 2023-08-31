@@ -143,7 +143,7 @@ func runServer(ctx context.Context) error {
 			req interface{},
 			info *grpc.UnaryServerInfo,
 			handler grpc.UnaryHandler) (interface{}, error) {
-			return interceptors.UnaryAuthInterceptor(ctx, req, info, handler, jwks, c.AzureClientId, c.AzureTenantId, defaultUser)
+			return interceptors.UnaryAuthInterceptor(ctx, req, info, handler, jwks, c.AzureClientId, c.AzureTenantId)
 		}
 		var AzureStreamInterceptor = func(
 			srv interface{},
@@ -371,27 +371,8 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.U
 	return u
 }
 
-func getRequestAuthorFromAzure(r *http.Request) (*auth.User, error) {
-	username := r.Header.Get("username")
-	email := r.Header.Get("email")
-	if username == "" || email == "" {
-		return nil, nil
-	}
-
-	nameDecoded, err := auth.Decode64(username)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding username '%s': %w", username, err)
-	}
-	emailDecoded, err := auth.Decode64(email)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding email '%s': %w", email, err)
-	}
-
-	u := &auth.User{
-		Name:  nameDecoded,
-		Email: emailDecoded,
-	}
-	return u, nil
+func getRequestAuthorFromAzure(ctx context.Context, r *http.Request) (*auth.User, error) {
+	return auth.ReadUserFromHttpHeader(ctx, r)
 }
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -402,7 +383,7 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var err error = nil
 		var source = ""
 		if c.AzureEnableAuth {
-			user, err = getRequestAuthorFromAzure(r)
+			user, err = getRequestAuthorFromAzure(ctx, r)
 			if err != nil {
 				return err
 			}
@@ -410,9 +391,6 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			user = getRequestAuthorFromGoogleIAP(ctx, r)
 			source = "iap"
-		}
-		if user == nil {
-			user, _ = auth.ReadUserFromHttpHeader(ctx, r)
 		}
 		if user != nil {
 			span.SetTag("current-user-name", user.Name)

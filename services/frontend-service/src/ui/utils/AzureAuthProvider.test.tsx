@@ -132,10 +132,10 @@ describe('AuthProvider', () => {
             await waitFor(async () => expect(acquireTokenSilentSpy).toHaveBeenCalledTimes(1));
             await waitFor(() => expect(AzureAuthSub.get().authHeader.get('authorization')).toContain('unique-token'));
             await waitFor(() =>
-                expect(AzureAuthSub.get().authHeader.get('email')).toContain(Utf8ToBase64('mail@example.com'))
+                expect(AzureAuthSub.get().authHeader.get('author-email')).toContain(Utf8ToBase64('mail@example.com'))
             );
             await waitFor(() =>
-                expect(AzureAuthSub.get().authHeader.get('username')).toContain(Utf8ToBase64('test person'))
+                expect(AzureAuthSub.get().authHeader.get('author-name')).toContain(Utf8ToBase64('test person'))
             );
         });
 
@@ -167,10 +167,10 @@ describe('AuthProvider', () => {
             await waitFor(async () => expect(acquireTokenPopup).toHaveBeenCalledTimes(1));
             await waitFor(() => expect(AzureAuthSub.get().authHeader.get('authorization')).toContain('unique-token-2'));
             await waitFor(() =>
-                expect(AzureAuthSub.get().authHeader.get('email')).toContain(Utf8ToBase64('mail@example.com'))
+                expect(AzureAuthSub.get().authHeader.get('author-email')).toContain(Utf8ToBase64('mail@example.com'))
             );
             await waitFor(() =>
-                expect(AzureAuthSub.get().authHeader.get('username')).toContain(Utf8ToBase64('test person'))
+                expect(AzureAuthSub.get().authHeader.get('author-name')).toContain(Utf8ToBase64('test person'))
             );
         });
         it('Get id token both method failed', async () => {
