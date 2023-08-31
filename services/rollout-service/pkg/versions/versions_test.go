@@ -18,6 +18,8 @@ package versions
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -28,6 +30,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type step struct {
+	Event      *api.GetOverviewResponse
+	ConnectErr error
+	RecvErr    error
+}
+
 type expectedVersion struct {
 	Revision        string
 	Environment     string
@@ -36,9 +44,24 @@ type expectedVersion struct {
 	Metadata        metadata.MD
 }
 
+type mockOverviewStreamMessage struct {
+	Overview     *api.GetOverviewResponse
+	Error        error
+	ConnectError error
+}
+
 type mockOverviewClient struct {
+	grpc.ClientStream
 	Responses    map[string]*api.GetOverviewResponse
 	LastMetadata metadata.MD
+	Steps        []step
+	current      int
+}
+
+func (m *mockOverviewClient) testAllConsumed(t *testing.T) {
+	if m.current < len(m.Steps) {
+		t.Errorf("expected to consume all %d replies, only consumed %d", len(m.Steps), m.current)
+	}
 }
 
 // GetOverview implements api.OverviewServiceClient
@@ -51,8 +74,25 @@ func (m *mockOverviewClient) GetOverview(ctx context.Context, in *api.GetOvervie
 }
 
 // StreamOverview implements api.OverviewServiceClient
-func (*mockOverviewClient) StreamOverview(ctx context.Context, in *api.GetOverviewRequest, opts ...grpc.CallOption) (api.OverviewService_StreamOverviewClient, error) {
-	panic("unimplemented")
+func (m *mockOverviewClient) StreamOverview(ctx context.Context, in *api.GetOverviewRequest, opts ...grpc.CallOption) (api.OverviewService_StreamOverviewClient, error) {
+	if m.current >= len(m.Steps) {
+		return nil, fmt.Errorf("exhausted: %w", io.EOF)
+	}
+	reply := m.Steps[m.current]
+	if reply.ConnectErr != nil {
+		m.current = m.current + 1
+		return nil, reply.ConnectErr
+	}
+	return m, nil
+}
+
+func (m *mockOverviewClient) Recv() (*api.GetOverviewResponse, error) {
+	if m.current >= len(m.Steps) {
+		return nil, fmt.Errorf("exhausted: %w", io.EOF)
+	}
+	reply := m.Steps[m.current]
+	m.current = m.current + 1
+	return reply.Event, reply.RecvErr
 }
 
 var _ api.OverviewServiceClient = (*mockOverviewClient)(nil)
@@ -168,6 +208,44 @@ func TestVersionClient(t *testing.T) {
 					t.Errorf("mismachted metadata %s", cmp.Diff(mc.LastMetadata, ev.Metadata))
 				}
 			}
+		})
+	}
+
+}
+
+func TestVersionClientStream(t *testing.T) {
+	t.Parallel()
+
+	tcs := []struct {
+		Name  string
+		Steps []step
+	}{
+		{
+			Name: "Retries connections and finishes",
+			Steps: []step{
+				{
+					ConnectErr: fmt.Errorf("no"),
+				},
+				{
+					RecvErr: fmt.Errorf("no"),
+				},
+				{
+					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			mc := &mockOverviewClient{Steps: tc.Steps}
+			vc := New(mc)
+			err := vc.Subscribe(ctx)
+			if err != nil {
+				t.Errorf("expected no error, but received %q", err)
+			}
+			mc.testAllConsumed(t)
 		})
 	}
 

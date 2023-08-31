@@ -161,7 +161,7 @@ func runServer(ctx context.Context, config Config) error {
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{
 			{
-			Port: "8080",
+				Port: "8080",
 				Register: func(mux *http.ServeMux) {
 					mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						if ready {
@@ -182,9 +182,9 @@ func runServer(ctx context.Context, config Config) error {
 			},
 			{
 				Name: "consume kuberpult events",
-				Run: versionC.Subscribe,
+				Run:  versionC.Subscribe,
 			},
-	 	},
+		},
 		GRPC: &setup.GRPCConfig{
 			Port: "8443",
 			Opts: []grpc.ServerOption{

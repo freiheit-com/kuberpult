@@ -20,8 +20,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/argoproj/argo-cd/v2/util/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 	"k8s.io/utils/lru"
 )
 
@@ -73,9 +77,40 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 	return 0, nil
 }
 
-func (c *versionClient) Subscribe(ctx context.Context) error {
-	<-ctx.Done()
-	return ctx.Err()
+func (v *versionClient) Subscribe(ctx context.Context) error {
+	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
+outer:
+	for {
+		client, err := v.client.StreamOverview(ctx, &api.GetOverviewRequest{})
+		if err != nil {
+			logger.FromContext(ctx).Warn("overview.connect", zap.Error(err))
+			continue outer
+		}
+	inner:
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+			}
+			overview, err := client.Recv()
+			if err != nil {
+				grpcErr := grpc.UnwrapGRPCStatus(err)
+				if grpcErr != nil {
+					if grpcErr.Code() == codes.Canceled {
+						return nil
+					}
+
+					logger.FromContext(ctx).Warn("overview.stream", zap.Error(err), zap.String("grpc.code", grpcErr.Code().String()), zap.String("grpc.message", grpcErr.Message()))
+				} else {
+					logger.FromContext(ctx).Warn("overview.stream", zap.Error(err))
+				}
+				continue inner
+			}
+			v.cache.Add(overview.GitRevision, overview)
+		}
+	}
+
 }
 
 func New(client api.OverviewServiceClient) VersionClient {
