@@ -78,6 +78,7 @@ message CreateReleaseRequest {
   string sourceAuthor = 7;
   string sourceMessage = 8;
   string sourceRepoUrl = 9;
+  string displayVersion = 10;
 }
 
 message CreateReleaseResponse {

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 set -o pipefail
-#set -x
+set -x
 
 # usage
 # ./create-release.sh my-service-name [my-team-name]
@@ -9,7 +9,7 @@ set -o pipefail
 
 name=${1}
 applicationOwnerTeam=${2:-sreteam}
-commit_id=$(LC_CTYPE=C tr -dc a-f0-9 </dev/urandom | head -c 12 ; echo '')
+commit_id=$(echo $RANDOM)
 authors[0]="urbansky"
 authors[1]="Medo"
 authors[2]="Hannes"
@@ -24,6 +24,7 @@ echo ${authors[$index]}
 author="${authors[$index]}"
 commit_message_file="$(mktemp "${TMPDIR:-/tmp}/publish.XXXXXX")"
 trap "rm -f ""$commit_message_file" INT TERM HUP EXIT
+displayVersion="1.2.3"
 
 
 msgs[0]="Added new eslint rule"
@@ -76,23 +77,19 @@ data:
 EOF
   echo "wrote file ${file}"
   manifests+=("--form" "manifests[${env}]=@${file}")
-  gpg  --keyring trustedkeys-kuberpult.gpg --local-user kuberpult-kind@example.com --detach --sign --armor < "${file}" > "${signatureFile}"
-  manifests+=("--form" "signatures[${env}]=@${signatureFile}")
+  # gpg  --keyring trustedkeys-kuberpult.gpg --local-user kuberpult-kind@example.com --detach --sign --armor < "${file}" > "${signatureFile}"
+  # manifests+=("--form" "signatures[${env}]=@${signatureFile}")
 done
 echo commit id: "${commit_id}"
 
 FRONTEND_PORT=8081 # see docker-compose.yml
 
-EMAIL=$(echo -n "script-user@example.com" | base64 -w 0)
-AUTHOR=$(echo -n "script-user" | base64 -w 0)
 
 curl http://localhost:${FRONTEND_PORT}/release \
-  -H "author-email:${EMAIL}" \
-  -H "author-name:${AUTHOR}=" \
   --form-string "application=$name" \
   --form-string "source_commit_id=${commit_id}" \
   --form-string "source_author=${author}" \
-  ${release_version} \
+  --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \
   "${manifests[@]}" -v
