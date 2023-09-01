@@ -101,6 +101,8 @@ argocd:
   server: ""
   # Disables tls verification. This is useful when running in the same cluster as argocd and using a self-signed certificate.
   insecure: false
+  # Enable sending webhooks to argocd
+  sendWebhooks: false
 
 datadogTracing:
   enabled: false

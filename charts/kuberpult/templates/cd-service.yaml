@@ -109,8 +109,13 @@ spec:
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
           value: {{ .Values.log.level | quote }}
+{{- if .Values.argocd.sendWebhook }}
         - name: KUBERPULT_ARGO_CD_SERVER
           value: {{ .Values.argocd.server | quote }}
+{{- else }}
+        - name: KUBERPULT_ARGO_CD_SERVER
+          value: ""
+{{- end }}
         - name: KUBERPULT_ARGO_CD_INSECURE
           value: {{ .Values.argocd.insecure | quote }}
         - name: KUBERPULT_GIT_WEB_URL
