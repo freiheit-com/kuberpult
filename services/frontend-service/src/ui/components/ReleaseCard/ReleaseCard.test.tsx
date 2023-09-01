@@ -224,6 +224,11 @@ describe('Release Card Rollout Status', () => {
         </MemoryRouter>
     );
     const getWrapper = (overrides: ReleaseCardProps) => render(getNode(overrides));
+    type DeepPartial<T> = T extends object
+        ? {
+              [P in keyof T]?: DeepPartial<T[P]>;
+          }
+        : T;
 
     type TestData = {
         name: string;
