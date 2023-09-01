@@ -102,7 +102,7 @@ describe('Release Card', () => {
                     priority: 0,
                     applications: {
                         test2: {
-                            displayVersion: "2",
+                            displayVersion: '2',
                             version: 2,
                             queuedVersion: 0,
                             name: 'test2',
@@ -140,7 +140,7 @@ describe('Release Card', () => {
                             name: 'test2',
                             locks: {},
                             undeployVersion: false,
-                            displayVersion: "3"
+                            displayVersion: '3'
                         },
                     },
                 },
@@ -173,7 +173,7 @@ describe('Release Card', () => {
                             name: 'test2',
                             locks: {},
                             undeployVersion: false,
-                            displayVersion: "3"
+                            displayVersion: '3'
                         },
                     },
                 },

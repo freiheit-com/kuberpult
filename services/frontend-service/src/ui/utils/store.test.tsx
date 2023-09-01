@@ -167,7 +167,7 @@ describe('Test useLocksSimilarTo', () => {
                                     undeployVersion: false,
                                     queuedVersion: 0,
                                     argoCD: undefined,
-                                    displayVersion: "666"
+                                    displayVersion: '666'
                                 },
                             },
                         },
@@ -222,7 +222,7 @@ describe('Test useLocksSimilarTo', () => {
                                     undeployVersion: false,
                                     queuedVersion: 0,
                                     argoCD: undefined,
-                                    displayVersion: "666"
+                                    displayVersion: '666'
                                 },
                             },
                         },
