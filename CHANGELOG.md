@@ -22,6 +22,26 @@ Given a version number MAJOR.MINOR.PATCH:
 
 # Change Log
 
+## [1.1.0](https://github.com/freiheit-com/kuberpult/tree/1.1.0) (2023-09-01)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.0.3...1.1.0)
+
+### Minor Changes
+
+- Upgrade buf to 1.26.1 [\#901](https://github.com/freiheit-com/kuberpult/pull/901) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Add rollout service in grpc api [\#802](https://github.com/freiheit-com/kuberpult/pull/802) ([hannesg](https://github.com/hannesg))
+- Add more error conditions to the rollout service [\#900](https://github.com/freiheit-com/kuberpult/pull/900) ([hannesg](https://github.com/hannesg))
+- Fix author header handling \(again\) [\#899](https://github.com/freiheit-com/kuberpult/pull/899) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Add a feature flag to disable sending webhooks [\#903](https://github.com/freiheit-com/kuberpult/pull/903) ([hannesg](https://github.com/hannesg))
+
+**Closed issues:**
+
+- Should we provide a new tab "Action History" ? [\#892](https://github.com/freiheit-com/kuberpult/issues/892)
+- Changelog and Release notes differ [\#865](https://github.com/freiheit-com/kuberpult/issues/865)
+
+
+---
+
 
 ## [1.0.3](https://github.com/freiheit-com/kuberpult/tree/1.0.3) (2023-08-28)
 
