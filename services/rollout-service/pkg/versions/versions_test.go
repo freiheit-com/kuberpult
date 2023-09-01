@@ -31,7 +31,7 @@ import (
 )
 
 type step struct {
-	Event      *api.GetOverviewResponse
+	Overview   *api.GetOverviewResponse
 	ConnectErr error
 	RecvErr    error
 }
@@ -92,7 +92,7 @@ func (m *mockOverviewClient) Recv() (*api.GetOverviewResponse, error) {
 	}
 	reply := m.Steps[m.current]
 	m.current = m.current + 1
-	return reply.Event, reply.RecvErr
+	return reply.Overview, reply.RecvErr
 }
 
 var _ api.OverviewServiceClient = (*mockOverviewClient)(nil)
@@ -195,19 +195,7 @@ func TestVersionClient(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			mc := &mockOverviewClient{Responses: tc.Responses}
 			vc := New(mc)
-			for _, ev := range tc.ExpectedVersions {
-				version, err := vc.GetVersion(context.Background(), ev.Revision, ev.Environment, ev.Application)
-				if err != nil {
-					t.Errorf("expected no error for %s/%s@%s, but got %q", ev.Environment, ev.Application, ev.Revision, err)
-					continue
-				}
-				if version != ev.DeployedVersion {
-					t.Errorf("expected version %d to be deployed for %s/%s@%s but got %d", ev.DeployedVersion, ev.Environment, ev.Application, ev.Revision, version)
-				}
-				if !cmp.Equal(mc.LastMetadata, ev.Metadata) {
-					t.Errorf("mismachted metadata %s", cmp.Diff(mc.LastMetadata, ev.Metadata))
-				}
-			}
+			testExpectedVersions(t, tc.ExpectedVersions, vc, mc)
 		})
 	}
 
@@ -215,10 +203,28 @@ func TestVersionClient(t *testing.T) {
 
 func TestVersionClientStream(t *testing.T) {
 	t.Parallel()
+	testOverview := &api.GetOverviewResponse{
+		EnvironmentGroups: []*api.EnvironmentGroup{
+			{
+				Environments: []*api.Environment{
+					{
+						Name: "staging",
+						Applications: map[string]*api.Environment_Application{
+							"foo": {
+								Version: 1,
+							},
+						},
+					},
+				},
+			},
+		},
+		GitRevision: "1234",
+	}
 
 	tcs := []struct {
-		Name  string
-		Steps []step
+		Name             string
+		Steps            []step
+		ExpectedVersions []expectedVersion
 	}{
 		{
 			Name: "Retries connections and finishes",
@@ -234,6 +240,25 @@ func TestVersionClientStream(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Puts received overviews in the cache",
+			Steps: []step{
+				{
+					Overview: testOverview,
+				},
+				{
+					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+				},
+			},
+			ExpectedVersions: []expectedVersion{
+				{
+					Revision:        "1234",
+					Environment:     "staging",
+					Application:     "foo",
+					DeployedVersion: 1,
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -246,7 +271,23 @@ func TestVersionClientStream(t *testing.T) {
 				t.Errorf("expected no error, but received %q", err)
 			}
 			mc.testAllConsumed(t)
+			testExpectedVersions(t, tc.ExpectedVersions, vc, mc)
 		})
 	}
+}
 
+func testExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc VersionClient, mc *mockOverviewClient) {
+	for _, ev := range expectedVersions {
+		version, err := vc.GetVersion(context.Background(), ev.Revision, ev.Environment, ev.Application)
+		if err != nil {
+			t.Errorf("expected no error for %s/%s@%s, but got %q", ev.Environment, ev.Application, ev.Revision, err)
+			continue
+		}
+		if version != ev.DeployedVersion {
+			t.Errorf("expected version %d to be deployed for %s/%s@%s but got %d", ev.DeployedVersion, ev.Environment, ev.Application, ev.Revision, version)
+		}
+		if !cmp.Equal(mc.LastMetadata, ev.Metadata) {
+			t.Errorf("mismachted metadata %s", cmp.Diff(mc.LastMetadata, ev.Metadata))
+		}
+	}
 }
