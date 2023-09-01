@@ -20,6 +20,7 @@ import { MemoryRouter } from 'react-router-dom';
 import {
     Environment,
     EnvironmentGroup,
+    Priority,
     Release,
     RolloutStatus,
     StreamStatusResponse,
@@ -224,11 +225,6 @@ describe('Release Card Rollout Status', () => {
         </MemoryRouter>
     );
     const getWrapper = (overrides: ReleaseCardProps) => render(getNode(overrides));
-    type DeepPartial<T> = T extends object
-        ? {
-              [P in keyof T]?: DeepPartial<T[P]>;
-          }
-        : T;
 
     type TestData = {
         name: string;
@@ -237,7 +233,7 @@ describe('Release Card Rollout Status', () => {
             version: number;
         };
         rels: Release[];
-        environmentGroups: DeepPartial<EnvironmentGroup>[];
+        environmentGroups: EnvironmentGroup[];
         rolloutStatus: StreamStatusResponse[];
         expectedStatusIcon: RolloutStatus;
     };
@@ -265,11 +261,19 @@ describe('Release Card Rollout Status', () => {
                             applications: {
                                 test1: {
                                     version: 2,
+                                    name: '',
+                                    locks: {},
+                                    queuedVersion: 0,
+                                    undeployVersion: false,
                                 },
                             },
                             locks: {},
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
                         },
                     ],
+
+                    distanceToUpstream: 0,
                 },
             ],
             rolloutStatus: [
