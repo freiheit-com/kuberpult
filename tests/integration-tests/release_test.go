@@ -34,6 +34,7 @@ package integration_tests
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"io"
@@ -122,6 +123,38 @@ func callRelease(values map[string]io.Reader, files map[string]io.Reader) (int, 
 	return formResult.StatusCode, string(resBody), err
 }
 
+// calls the release endpoint with files for manifests + signatures
+func callCreateGroupLock(t *testing.T, envGroup, lockId string, requestBody *putLockRequest) (int, string, error) {
+	var buf bytes.Buffer
+	jsonBytes, err := json.Marshal(&requestBody)
+	if err != nil {
+		return 0, "", err
+	}
+	buf.Write(jsonBytes)
+
+	url := fmt.Sprintf("http://localhost:%s/environment-groups/%s/locks/%s", frontendPort, envGroup, lockId)
+	t.Logf("GroupLock url: %s", url)
+	t.Logf("GroupLock body: %s", buf.String())
+	req, err := http.NewRequest(http.MethodPut, url, &buf)
+	if err != nil {
+		return 0, "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, "", err
+	}
+	defer resp.Body.Close()
+	responseBuf := new(strings.Builder)
+	_, err = io.Copy(responseBuf, resp.Body)
+	if err != nil {
+		return 0, "", err
+	}
+
+	return resp.StatusCode, responseBuf.String(), err
+}
+
 func CalcSignature(t *testing.T, manifest string) string {
 	err := os.WriteFile("./manifestA.yaml", []byte(manifest), 0644)
 	if err != nil {
@@ -134,6 +167,7 @@ func CalcSignature(t *testing.T, manifest string) string {
 		t.Errorf("output: %s", string(theSignature))
 		t.Fail()
 	}
+	t.Logf("signature: " + string(theSignature))
 	return string(theSignature)
 }
 
@@ -245,6 +279,44 @@ func TestReleaseCalls(t *testing.T) {
 			}
 			if actualStatusCode != tc.expectedStatusCode {
 				t.Errorf("expected code %v but got %v. Body: %s", tc.expectedStatusCode, actualStatusCode, body)
+			}
+		})
+	}
+}
+
+type putLockRequest struct {
+	Message   string `json:"message"`
+	Signature string `json:"signature,omitempty"`
+}
+
+func TestGroupLock(t *testing.T) {
+	testCases := []struct {
+		name               string
+		inputEnvGroup      string
+		inputLockId        string
+		expectedStatusCode int
+	}{
+		{
+			name:               "Simple invocation of group lock endpoint",
+			expectedStatusCode: 201,
+		},
+	}
+
+	for index, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			lockId := fmt.Sprintf("lockIdIntegration%d", index)
+			inputSignature := CalcSignature(t, tc.inputEnvGroup+tc.inputLockId)
+			requestBody := &putLockRequest{
+				Message:   "hello world",
+				Signature: inputSignature,
+			}
+			actualStatusCode, respBody, err := callCreateGroupLock(t, "prod", lockId, requestBody)
+			if err != nil {
+				log.Fatalf("callRelease failed: %s", err.Error())
+			}
+			if actualStatusCode != tc.expectedStatusCode {
+				t.Errorf("expected code %v but got %v. Body: '%s'", tc.expectedStatusCode, actualStatusCode, respBody)
 			}
 		})
 	}

@@ -236,6 +236,13 @@ func runServer(ctx context.Context) error {
 		}
 		httpHandler.Handle(w, req)
 	}))
+	mux.Handle("/environment-groups/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		defer readAllAndClose(req.Body, 1024)
+		if c.DexEnabled {
+			interceptors.DexLoginInterceptor(w, req, httpHandler, c.DexClientId, c.DexClientSecret)
+		}
+		httpHandler.Handle(w, req)
+	}))
 	mux.Handle("/release", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {

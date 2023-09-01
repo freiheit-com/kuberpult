@@ -72,5 +72,6 @@ func Wrap(ctx context.Context, inner func(ctx context.Context) error) error {
 		}
 	}()
 	err = inner(WithLogger(ctx, logger))
+
 	return err
 }

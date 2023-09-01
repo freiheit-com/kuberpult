@@ -5,6 +5,8 @@ services:
       args:
         - UID=$USER_UID
     container_name: kuberpult-cd-service
+    environment:
+      - LOG_LEVEL=INFO
     ports:
       - "8080:8080"
       - "8443:8443"
@@ -19,6 +21,7 @@ services:
     environment:
       - KUBERPULT_CDSERVER=kuberpult-cd-service:8443
       - KUBERPULT_HTTP_CD_SERVER=http://kuberpult-cd-service:8080
+      - LOG_LEVEL=INFO
     ports:
       - "8081:8081"
     depends_on:
