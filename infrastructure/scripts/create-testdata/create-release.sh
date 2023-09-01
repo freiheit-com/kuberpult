@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 set -o pipefail
-# set -x
+#set -x
 
 # usage
 # ./create-release.sh my-service-name [my-team-name]
@@ -87,7 +87,7 @@ FRONTEND_PORT=8081 # see docker-compose.yml
 EMAIL=$(echo -n "script-user@example.com" | base64 -w 0)
 AUTHOR=$(echo -n "script-user" | base64 -w 0)
 
-echo http://localhost:${FRONTEND_PORT}/release \
+curl http://localhost:${FRONTEND_PORT}/release \
   -H "author-email:${EMAIL}" \
   -H "author-name:${AUTHOR}=" \
   --form-string "application=$name" \
