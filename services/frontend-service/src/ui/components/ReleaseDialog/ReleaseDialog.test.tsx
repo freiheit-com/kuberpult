@@ -70,6 +70,7 @@ describe('Release Dialog', () => {
                             locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
                             queuedVersion: 0,
                             undeployVersion: false,
+                            displayVersion: "2"
                         },
                     },
                     distanceToUpstream: 0,
@@ -110,6 +111,7 @@ describe('Release Dialog', () => {
                             queuedVersion: 0,
                             undeployVersion: false,
                             deploymentMetaData: { deployAuthor: 'test', deployTime: '1688467491' },
+                            displayVersion: "2"
                         },
                     },
                     distanceToUpstream: 0,
@@ -138,6 +140,7 @@ describe('Release Dialog', () => {
                             locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
                             queuedVersion: 0,
                             undeployVersion: false,
+                            displayVersion: "2"
                         },
                     },
                     distanceToUpstream: 0,
@@ -153,6 +156,7 @@ describe('Release Dialog', () => {
                             locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
                             queuedVersion: 666,
                             undeployVersion: false,
+                            displayVersion: "2"
                         },
                     },
                     distanceToUpstream: 0,

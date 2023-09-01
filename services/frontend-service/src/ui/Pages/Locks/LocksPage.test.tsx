@@ -326,6 +326,7 @@ describe('Test app locks', () => {
                             locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
                             queuedVersion: 0,
                             undeployVersion: true,
+                            displayVersion: "1337"
                         },
                     },
                 },
@@ -356,6 +357,7 @@ describe('Test app locks', () => {
                             },
                             queuedVersion: 0,
                             undeployVersion: true,
+                            displayVersion: "1337"
                         },
                     },
                 },
@@ -384,6 +386,7 @@ describe('Test app locks', () => {
                             locks: {
                                 lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
                             },
+                            displayVersion: "1337"
                         },
                         bar: {
                             name: 'bar',
@@ -398,6 +401,7 @@ describe('Test app locks', () => {
                                     createdAt: new Date(1995, 11, 17),
                                 },
                             },
+                            displayVersion: "420"
                         },
                     },
                 },
