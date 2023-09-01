@@ -30,6 +30,7 @@ Spy.mockModule('../utils/AzureAuthProvider', 'AzureAuthProvider');
 
 const mock_GetConfig = Spy('Config');
 const mock_StreamOverview = Spy('Overview');
+const mock_StreamStatus = Spy('Status');
 
 jest.mock('../utils/GrpcApi', () => ({
     // useApi is a constant, so we mock it by mocking the module and spying on a getter method instead
@@ -40,6 +41,9 @@ jest.mock('../utils/GrpcApi', () => ({
             }),
             overviewService: () => ({
                 StreamOverview: () => mock_StreamOverview(),
+            }),
+            rolloutService: () => ({
+                StreamStatus: () => mock_StreamStatus(),
             }),
         };
     },
@@ -71,6 +75,11 @@ describe('App uses the API', () => {
         );
         mock_GetConfig.returns(Promise.resolve('test-config'));
         AzureAuthSub.set({ authReady: true });
+        mock_StreamStatus.returns(
+            new Observable((observer) => {
+                observer.next({});
+            })
+        );
 
         // when
         getWrapper();
@@ -86,6 +95,11 @@ describe('App uses the API', () => {
             new Observable((observer) => {
                 observer.error('error');
                 subscriptionCount++;
+            })
+        );
+        mock_StreamStatus.returns(
+            new Observable((observer) => {
+                observer.next({});
             })
         );
         mock_GetConfig.returns(Promise.resolve('test-config'));

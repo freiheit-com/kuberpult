@@ -14,8 +14,17 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import { act, renderHook } from '@testing-library/react';
-import { AllLocks, updateActions, UpdateOverview, useLocksSimilarTo, useNavigateWithSearchParams } from './store';
-import { BatchAction, EnvironmentGroup, Priority } from '../../api/api';
+import {
+    AllLocks,
+    FlushRolloutStatus,
+    updateActions,
+    UpdateOverview,
+    UpdateRolloutStatus,
+    useLocksSimilarTo,
+    useNavigateWithSearchParams,
+    useRolloutStatus,
+} from './store';
+import { BatchAction, EnvironmentGroup, Priority, RolloutStatus, StreamStatusResponse } from '../../api/api';
 import { makeDisplayLock, makeLock } from '../../setupTests';
 import { BrowserRouter } from 'react-router-dom';
 
@@ -316,6 +325,110 @@ describe('Test useNavigateWithSearchParams', () => {
             });
             // then
             expect(window.location.href).toContain(testcase.expectedURL);
+        });
+    });
+});
+
+describe('Rollout Status', () => {
+    type Testcase = {
+        name: string;
+        events: Array<StreamStatusResponse | { error: true }>;
+        expectedApps: Array<{
+            application: string;
+            environment: string;
+            version: number;
+            rolloutStatus: RolloutStatus;
+        }>;
+    };
+
+    const testdata: Array<Testcase> = [
+        {
+            name: 'updates one app',
+            events: [
+                {
+                    environment: 'env1',
+                    application: 'app1',
+                    version: 1,
+                    rolloutStatus: RolloutStatus.RolloutStatusSuccesful,
+                },
+            ],
+            expectedApps: [
+                {
+                    application: 'app1',
+                    environment: 'env1',
+                    version: 1,
+                    rolloutStatus: RolloutStatus.RolloutStatusSuccesful,
+                },
+            ],
+        },
+        {
+            name: 'keep the latest entry per app and environment',
+            events: [
+                {
+                    environment: 'env1',
+                    application: 'app1',
+                    version: 1,
+                    rolloutStatus: RolloutStatus.RolloutStatusSuccesful,
+                },
+                {
+                    environment: 'env1',
+                    application: 'app1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.RolloutStatusSuccesful,
+                },
+            ],
+            expectedApps: [
+                {
+                    application: 'app1',
+                    environment: 'env1',
+                    version: 0,
+                    rolloutStatus: RolloutStatus.RolloutStatusSuccesful,
+                },
+            ],
+        },
+        {
+            name: 'flushes the state',
+            events: [
+                {
+                    environment: 'env1',
+                    application: 'app1',
+                    version: 1,
+                    rolloutStatus: RolloutStatus.RolloutStatusSuccesful,
+                },
+                { error: true },
+            ],
+            expectedApps: [
+                {
+                    application: 'app1',
+                    environment: 'env1',
+                    version: 0,
+                    rolloutStatus: RolloutStatus.RolloutStatusSuccesful,
+                },
+            ],
+        },
+    ];
+
+    describe.each(testdata)('with', (testcase) => {
+        it(testcase.name, () => {
+            FlushRolloutStatus();
+            testcase.events.forEach((ev) => {
+                if ('error' in ev) {
+                    FlushRolloutStatus();
+                } else {
+                    UpdateRolloutStatus(ev);
+                }
+            });
+            testcase.expectedApps.forEach((app) => {
+                const rollout = renderHook(() => {
+                    const status = useRolloutStatus(app.application);
+                    return status;
+                });
+                if (app.version === 0) {
+                    expect(rollout.result.current).not.toHaveProperty(app.environment, app);
+                } else {
+                    expect(rollout.result.current).toHaveProperty(app.environment, app);
+                }
+            });
         });
     });
 });

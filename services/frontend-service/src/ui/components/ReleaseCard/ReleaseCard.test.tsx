@@ -15,9 +15,17 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { ReleaseCard, ReleaseCardProps } from './ReleaseCard';
 import { render } from '@testing-library/react';
-import { UpdateOverview } from '../../utils/store';
+import { UpdateOverview, UpdateRolloutStatus } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
-import { Environment, Release, UndeploySummary } from '../../../api/api';
+import {
+    Environment,
+    EnvironmentGroup,
+    Priority,
+    Release,
+    RolloutStatus,
+    StreamStatusResponse,
+    UndeploySummary,
+} from '../../../api/api';
 import { Spy } from 'spy4js';
 
 const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
@@ -205,6 +213,108 @@ describe('Release Card', () => {
                 );
             }
             expect(container.querySelector('.env-group-chip-list-test')).not.toBeEmptyDOMElement();
+            expect(container.querySelector('.release__status')).toBeNull();
+        });
+    });
+});
+
+describe('Release Card Rollout Status', () => {
+    const getNode = (overrides: ReleaseCardProps) => (
+        <MemoryRouter>
+            <ReleaseCard {...overrides} />
+        </MemoryRouter>
+    );
+    const getWrapper = (overrides: ReleaseCardProps) => render(getNode(overrides));
+
+    type TestData = {
+        name: string;
+        props: {
+            app: string;
+            version: number;
+        };
+        rels: Release[];
+        environmentGroups: EnvironmentGroup[];
+        rolloutStatus: StreamStatusResponse[];
+        expectedStatusIcon: RolloutStatus;
+    };
+    const data: TestData[] = [
+        {
+            name: 'shows success when it is deployed',
+            props: { app: 'test1', version: 2 },
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test-rel',
+                    undeployVersion: false,
+                    sourceCommitId: 'commit123',
+                    sourceAuthor: 'author',
+                    prNumber: '666',
+                    createdAt: new Date(2023, 6, 6),
+                },
+            ],
+            environmentGroups: [
+                {
+                    environmentGroupName: 'dev',
+                    environments: [
+                        {
+                            name: 'development',
+                            applications: {
+                                test1: {
+                                    version: 2,
+                                    name: '',
+                                    locks: {},
+                                    queuedVersion: 0,
+                                    undeployVersion: false,
+                                },
+                            },
+                            locks: {},
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                    ],
+
+                    distanceToUpstream: 0,
+                },
+            ],
+            rolloutStatus: [
+                {
+                    environment: 'development',
+                    application: 'test1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.RolloutStatusSuccesful,
+                },
+            ],
+
+            expectedStatusIcon: RolloutStatus.RolloutStatusSuccesful,
+        },
+    ];
+
+    describe.each(data)(`Renders a Release Card`, (testcase) => {
+        it(testcase.name, () => {
+            // given
+            mock_FormattedDate.FormattedDate.returns(<div>some formatted date</div>);
+            // when
+            UpdateOverview.set({
+                applications: {
+                    [testcase.props.app]: {
+                        name: testcase.props.app,
+                        releases: testcase.rels,
+                        sourceRepoUrl: 'url',
+                        undeploySummary: UndeploySummary.Normal,
+                        team: 'no-team',
+                        warnings: [],
+                    },
+                },
+                environmentGroups: testcase.environmentGroups,
+            });
+            testcase.rolloutStatus.forEach(UpdateRolloutStatus);
+            const { container } = getWrapper(testcase.props);
+            // then
+            expect(container.querySelector('.release__status')).not.toBeNull();
+            switch (testcase.expectedStatusIcon) {
+                case RolloutStatus.RolloutStatusSuccesful:
+                    expect(container.querySelector('.release__status .rollout__icon_successful')).not.toBeNull();
+            }
         });
     });
 });

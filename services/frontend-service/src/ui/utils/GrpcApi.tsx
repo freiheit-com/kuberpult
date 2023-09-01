@@ -22,18 +22,22 @@ export interface Api {
     batchService(): api.BatchService;
     // config service returns basics configuration like for azure auth
     configService(): api.FrontendConfigService;
+    // rollout service
+    rolloutService(): api.RolloutService;
 }
 
 class GrpcApi implements Api {
     _overviewService: api.OverviewService;
     _batchService: api.BatchService;
     _configService: api.FrontendConfigService;
+    _rolloutService: api.RolloutService;
     constructor() {
         // eslint-disable-next-line no-restricted-globals
         const gcli = new api.GrpcWebImpl(location.protocol + '//' + location.host, {});
         this._overviewService = new api.OverviewServiceClientImpl(gcli);
         this._batchService = new api.BatchServiceClientImpl(gcli);
         this._configService = new api.FrontendConfigServiceClientImpl(gcli);
+        this._rolloutService = new api.RolloutServiceClientImpl(gcli);
     }
     overviewService(): api.OverviewService {
         return this._overviewService;
@@ -43,6 +47,9 @@ class GrpcApi implements Api {
     }
     configService(): api.FrontendConfigService {
         return this._configService;
+    }
+    rolloutService(): api.RolloutService {
+        return this._rolloutService;
     }
 }
 
