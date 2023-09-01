@@ -140,7 +140,7 @@ describe('Release Card', () => {
                             name: 'test2',
                             locks: {},
                             undeployVersion: false,
-                            displayVersion: '3'
+                            displayVersion: '3',
                         },
                     },
                 },
@@ -173,7 +173,7 @@ describe('Release Card', () => {
                             name: 'test2',
                             locks: {},
                             undeployVersion: false,
-                            displayVersion: '3'
+                            displayVersion: '3',
                         },
                     },
                 },

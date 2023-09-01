@@ -66,7 +66,7 @@ describe('Release Card Mini', () => {
                             name: 'test2',
                             locks: {},
                             undeployVersion: false,
-                            displayVersion: '2'
+                            displayVersion: '2',
                         },
                     },
                 },
@@ -90,7 +90,7 @@ describe('Release Card Mini', () => {
                             name: 'test2',
                             locks: {},
                             undeployVersion: false,
-                            displayVersion: '2'
+                            displayVersion: '2',
                         },
                     },
                 },
