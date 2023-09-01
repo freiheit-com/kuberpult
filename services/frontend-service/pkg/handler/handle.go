@@ -38,6 +38,8 @@ func (s Server) Handle(w http.ResponseWriter, req *http.Request) {
 	switch group {
 	case "environments":
 		s.HandleEnvironments(w, req, tail)
+	case "environment-group":
+		s.HandleEnvironmentGroups(w, req, tail)
 	case "release":
 		s.HandleRelease(w, req, tail)
 	default:

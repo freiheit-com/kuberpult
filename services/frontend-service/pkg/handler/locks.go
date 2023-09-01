@@ -30,14 +30,35 @@ import (
 	"strings"
 )
 
-func (s Server) handleEnvironmentLocks(w http.ResponseWriter, req *http.Request, environment, tail string) {
+func (s Server) handleEnvironmentGroupLocks(w http.ResponseWriter, req *http.Request, environmentGroup, tail string) {
 	lockID, tail := xpath.Shift(tail)
 	if lockID == "" {
-		http.Error(w, "missing lock ID", http.StatusNotFound)
+		http.Error(w, "missing ID for env group lock", http.StatusNotFound)
 		return
 	}
 	if tail != "/" {
-		http.Error(w, fmt.Sprintf("locks does not accept additional path arguments after the lock ID, got: '%s'", tail), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("group locks does not accept additional path arguments after the lock ID, got: '%s'", tail), http.StatusNotFound)
+		return
+	}
+
+	switch req.Method {
+	case http.MethodPut:
+		s.handlePutEnvironmentLock(w, req, environmentGroup, lockID)
+	case http.MethodDelete:
+		s.handleDeleteEnvironmentLock(w, req, environmentGroup, lockID)
+	default:
+		http.Error(w, fmt.Sprintf("unsupported method '%s'", req.Method), http.StatusMethodNotAllowed)
+	}
+}
+
+func (s Server) handleEnvironmentLocks(w http.ResponseWriter, req *http.Request, environment, tail string) {
+	lockID, tail := xpath.Shift(tail)
+	if lockID == "" {
+		http.Error(w, "missing ID for env lock", http.StatusNotFound)
+		return
+	}
+	if tail != "/" {
+		http.Error(w, fmt.Sprintf("env locks does not accept additional path arguments after the lock ID, got: '%s'", tail), http.StatusNotFound)
 		return
 	}
 
