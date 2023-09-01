@@ -295,6 +295,7 @@ message Environment {
     bool undeployVersion = 6;
     ArgoCD argoCD = 7;
     DeploymentMetaData deploymentMetaData = 8;
+    string displayVersion = 9;
   }
 
   string name = 1;

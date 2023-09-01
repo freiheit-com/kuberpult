@@ -194,6 +194,17 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		}
 	}
 
+	if displayVersion, ok := form.Value["displayVersion"]; ok {
+		if len(displayVersion) == 1 {
+			if len(displayVersion[0]) > 15 {
+				w.WriteHeader(400)
+				fmt.Fprintf(w, "DisplayVersion given should be <= 15")
+				return
+			}
+			tf.DisplayVersion = displayVersion[0]
+		}
+	}
+
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{
 		{
 			Action: &api.BatchAction_CreateRelease{

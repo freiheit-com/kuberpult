@@ -803,6 +803,25 @@ func TestCreateApplicationVersionWithVersion(t *testing.T) {
 			expectedPath:     "applications/app1/releases/99/environments/acceptance/manifests.yaml",
 			expectedFileData: []byte("second version (99) manifest"),
 		},
+		{
+			Name: "successfully create app version with displayVersion",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						envAcceptance: "manifest",
+					},
+					Version:        100,
+					DisplayVersion: "1.3.1",
+				},
+			},
+			expectedPath:     "applications/app1/releases/100/display_version",
+			expectedFileData: []byte("1.3.1"),
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
