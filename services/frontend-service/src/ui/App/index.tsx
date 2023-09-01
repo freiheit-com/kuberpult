@@ -20,6 +20,7 @@ import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
 import * as React from 'react';
 import {
+    EnableRolloutStatus,
     FlushRolloutStatus,
     PanicOverview,
     showSnackbarWarn,
@@ -109,8 +110,13 @@ export const App: React.FC = () => {
                         UpdateRolloutStatus(result);
                     },
                     (error) => {
+                        if (error.code === 12) {
+                            // Error code 12 means "not implemented". That is what we get when the rollout service is not enabled.
+                            FlushRolloutStatus();
+                            return;
+                        }
                         PanicOverview.set({ error: JSON.stringify({ msg: 'error in rolloutstatus', error }) });
-                        FlushRolloutStatus();
+                        EnableRolloutStatus();
                     }
                 );
             return (): void => subscription.unsubscribe();

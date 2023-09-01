@@ -74,8 +74,12 @@ const rolloutStatusPriority = [
 const calculateDeploymentStatus = (
     app: string,
     deployedAt: EnvironmentGroupExtended[],
+    rolloutEnabled: boolean,
     rolloutStatus: RolloutStatusApplication
 ): [Array<StreamStatusResponse>, StreamStatusResponse?] => {
+    if (!rolloutEnabled) {
+        return [[], undefined];
+    }
     const rolloutEnvs = deployedAt.flatMap((envGroup) =>
         envGroup.environments.map((env) => {
             const status = rolloutStatus[env.name];
@@ -120,10 +124,10 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     // the ReleaseCard only displays actual releases, so we can assume that it exists here:
     const { createdAt, sourceMessage, sourceCommitId, sourceAuthor, undeployVersion } = useReleaseOrThrow(app, version);
     const openReleaseDialog = useOpenReleaseDialog(app, version);
-    const rolloutStatus = useRolloutStatus(app);
+    const [rolloutEnabled, rolloutStatus] = useRolloutStatus(app);
     const deployedAt = useCurrentlyDeployedAtGroup(app, version);
 
-    const [rolloutEnvs, mostInteresting] = calculateDeploymentStatus(app, deployedAt, rolloutStatus);
+    const [rolloutEnvs, mostInteresting] = calculateDeploymentStatus(app, deployedAt, rolloutEnabled, rolloutStatus);
 
     const tooltipContents = (
         <div className="mdc-tooltip__title_ release__details">
