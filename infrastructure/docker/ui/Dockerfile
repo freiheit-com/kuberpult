@@ -2,7 +2,7 @@ FROM alpine:3.18
 
 ARG UID=1000
 
-ARG BUF_VERSION=v1.21.0
+ARG BUF_VERSION=v1.26.1
 ARG BUF_BIN_PATH=/usr/local/bin
 
 COPY buf_sha256.txt .
