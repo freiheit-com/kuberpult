@@ -306,7 +306,7 @@ func TestGroupLock(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			lockId := fmt.Sprintf("lockIdIntegration%d", index)
-			inputSignature := CalcSignature(t, lockId)
+			inputSignature := CalcSignature(t, tc.inputEnvGroup+lockId)
 			requestBody := &putLockRequest{
 				Message:   "hello world",
 				Signature: inputSignature,
