@@ -268,6 +268,7 @@ describe('Release Card Rollout Status', () => {
                                     locks: {},
                                     queuedVersion: 0,
                                     undeployVersion: false,
+                                    displayVersion: '2',
                                 },
                             },
                             locks: {},
