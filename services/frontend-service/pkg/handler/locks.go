@@ -310,6 +310,11 @@ func (s Server) handleDeleteEnvironmentGroupLock(w http.ResponseWriter, req *htt
 		return
 	}
 
+	if response == nil || len(response.Results) == 0 {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("cd-service did not return a result"))
+		return
+	}
 	jsonResponse, err := json.Marshal(response.Results[0])
 	if err != nil {
 		return

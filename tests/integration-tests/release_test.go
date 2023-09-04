@@ -293,11 +293,11 @@ func TestGroupLock(t *testing.T) {
 	testCases := []struct {
 		name               string
 		inputEnvGroup      string
-		inputLockId        string
 		expectedStatusCode int
 	}{
 		{
 			name:               "Simple invocation of group lock endpoint",
+			inputEnvGroup:      "prod",
 			expectedStatusCode: 201,
 		},
 	}
@@ -306,12 +306,12 @@ func TestGroupLock(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			lockId := fmt.Sprintf("lockIdIntegration%d", index)
-			inputSignature := CalcSignature(t, tc.inputEnvGroup+tc.inputLockId)
+			inputSignature := CalcSignature(t, lockId)
 			requestBody := &putLockRequest{
 				Message:   "hello world",
 				Signature: inputSignature,
 			}
-			actualStatusCode, respBody, err := callCreateGroupLock(t, "prod", lockId, requestBody)
+			actualStatusCode, respBody, err := callCreateGroupLock(t, tc.inputEnvGroup, lockId, requestBody)
 			if err != nil {
 				log.Fatalf("callRelease failed: %s", err.Error())
 			}
