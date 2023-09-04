@@ -904,7 +904,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
-			expectedBody: "locks does not accept additional path arguments after the lock ID, got: /garbage\n",
+			expectedBody: "group locks does not accept additional path arguments after the lock ID, got: '/garbage'\n",
 		},
 		{
 			name: "lock env group but wrong method",
