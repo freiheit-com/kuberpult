@@ -18,11 +18,11 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.2.0](https://github.com/freiheit-com/kuberpult/tree/1.2.0) (2023-09-04)
 **Closed issues:**
 
 - Author not preserved in azure [\#893](https://github.com/freiheit-com/kuberpult/issues/893)
 
-## [1.2.0](https://github.com/freiheit-com/kuberpult/tree/1.2.0) (2023-09-04)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.1.0...1.2.0)
 
