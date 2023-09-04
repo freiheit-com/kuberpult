@@ -244,7 +244,7 @@ func (s Server) handlePutEnvironmentGroupLock(w http.ResponseWriter, req *http.R
 	if err != nil {
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusCreated)
 	w.Write(jsonResponse)
 }
 
