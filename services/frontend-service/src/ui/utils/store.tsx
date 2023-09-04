@@ -629,30 +629,39 @@ export type RolloutStatusApplication = {
 };
 
 export type RolloutStatusStore = {
-    [environment: string]: RolloutStatusApplication;
+    enabled: boolean;
+    applications: {
+        [application: string]: RolloutStatusApplication;
+    };
 };
 
-const [useEntireRolloutStatus, rolloutStatus] = createStore<RolloutStatusStore>({});
+const [useEntireRolloutStatus, rolloutStatus] = createStore<RolloutStatusStore>({ enabled: false, applications: {} });
 
-export const useRolloutStatus = (application: string): RolloutStatusApplication =>
-    useEntireRolloutStatus((data: RolloutStatusStore): RolloutStatusApplication => data[application] ?? {});
+export const useRolloutStatus = (application: string): [boolean, RolloutStatusApplication] => {
+    const enabled = useEntireRolloutStatus((data: RolloutStatusStore): boolean => data.enabled);
+    const status = useEntireRolloutStatus(
+        (data: RolloutStatusStore): RolloutStatusApplication => data.applications[application] ?? {}
+    );
+    return [enabled, status];
+};
 
 export const UpdateRolloutStatus = (ev: StreamStatusResponse): void => {
-    rolloutStatus.set((data: RolloutStatusStore) => {
-        let app = data[ev.application];
-        if (!app) {
-            app = data[ev.application] = {};
-        }
-        app[ev.environment] = ev;
-    });
+    rolloutStatus.set((data: RolloutStatusStore) => ({
+        enabled: true,
+        applications: {
+            ...data.applications,
+            [ev.application]: {
+                ...(data.applications[ev.application] ?? {}),
+                [ev.environment]: ev,
+            },
+        },
+    }));
+};
+
+export const EnableRolloutStatus = (): void => {
+    rolloutStatus.set({ enabled: true });
 };
 
 export const FlushRolloutStatus = (): void => {
-    rolloutStatus.set((data: RolloutStatusStore) => {
-        const result: RolloutStatusStore = {};
-        Object.keys(data).forEach(function (key) {
-            result[key] = {};
-        });
-        return result;
-    });
+    rolloutStatus.set({ enabled: false, applications: {} });
 };
