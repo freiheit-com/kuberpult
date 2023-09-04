@@ -30,7 +30,7 @@ export const DisplayLockRenderer: React.FC<{ lock: DisplayLock }> = (props) => {
                 {kind} locked by {author}
             </div>
             <div>
-                with Message: <b>{lock.message} AAA</b>
+                with Message: <b>{lock.message}</b>
             </div>
             <div>ID: {lock.lockId}</div>
             <div>Click to unlock.</div>
