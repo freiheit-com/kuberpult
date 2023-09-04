@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"log"
 	"net/http"
@@ -102,13 +101,11 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 	token := req.Header.Get("authorization")
 	for _, allowedPath := range allowedPaths {
 		if req.URL.Path == allowedPath {
-			logger.FromContext(req.Context()).Info("path not allowed: " + req.URL.Path)
 			return nil
 		}
 	}
 	for _, allowedPrefix := range allowedPrefixes {
 		if strings.HasPrefix(req.URL.Path, allowedPrefix) {
-			logger.FromContext(req.Context()).Info("prefix not allowed: " + req.URL.Path)
 			return nil
 		}
 	}
