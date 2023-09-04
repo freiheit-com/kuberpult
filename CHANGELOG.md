@@ -18,6 +18,26 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+**Closed issues:**
+
+- Author not preserved in azure [\#893](https://github.com/freiheit-com/kuberpult/issues/893)
+
+## [1.2.0](https://github.com/freiheit-com/kuberpult/tree/1.2.0) (2023-09-04)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.1.0...1.2.0)
+
+### Minor Changes
+
+- Fix tooltip css format [\#911](https://github.com/freiheit-com/kuberpult/pull/911) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Write Username instead of email [\#909](https://github.com/freiheit-com/kuberpult/pull/909) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Don't show the rollout status if it's disabled [\#905](https://github.com/freiheit-com/kuberpult/pull/905) ([hannesg](https://github.com/hannesg))
+
+**Merged pull requests:**
+
+- Allow locking and unlocking env groups over rest [\#902](https://github.com/freiheit-com/kuberpult/pull/902) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+
+---
 
 
 # Change Log
