@@ -202,7 +202,7 @@ func TestVersionClient(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			mc := &mockOverviewClient{Responses: tc.Responses}
 			vc := New(mc)
-			testExpectedVersions(t, tc.ExpectedVersions, vc, mc)
+			assertExpectedVersions(t, tc.ExpectedVersions, vc, mc)
 		})
 	}
 
@@ -279,12 +279,12 @@ func TestVersionClientStream(t *testing.T) {
 				t.Errorf("expected no error, but received %q", err)
 			}
 			mc.testAllConsumed(t)
-			testExpectedVersions(t, tc.ExpectedVersions, vc, mc)
+			assertExpectedVersions(t, tc.ExpectedVersions, vc, mc)
 		})
 	}
 }
 
-func testExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc VersionClient, mc *mockOverviewClient) {
+func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc VersionClient, mc *mockOverviewClient) {
 	for _, ev := range expectedVersions {
 		version, err := vc.GetVersion(context.Background(), ev.Revision, ev.Environment, ev.Application)
 		if err != nil {

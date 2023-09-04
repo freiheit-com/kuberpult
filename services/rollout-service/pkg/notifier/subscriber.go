@@ -60,7 +60,7 @@ func (s *subscriber) maybeSend(ctx context.Context, ev *service.BroadcastEvent) 
 	}
 	// also don't notify when the version in argocd is already the right one
 	if ev.ArgocdVersion == ev.KuberpultVersion {
-	  return
+		return
 	}
 	// also don't send events for the same version again
 	k := key{ev.Environment, ev.Application}
