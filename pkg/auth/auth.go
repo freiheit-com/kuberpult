@@ -165,7 +165,7 @@ func ReadUserFromHttpHeader(ctx context.Context, r *http.Request) (*User, error)
 		return nil, grpc.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data in email: '%s'", headerEmail64))
 	}
 	headerName64 := r.Header.Get(HeaderUserName)
-	headerName, err := Decode64(headerEmail64)
+	headerName, err := Decode64(headerName64)
 	if err != nil {
 		return nil, grpc.AuthError(ctx, fmt.Errorf("ExtractUserHttp: invalid data in name: '%s'", headerName64))
 	}
