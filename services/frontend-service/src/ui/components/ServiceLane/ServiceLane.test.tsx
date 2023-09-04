@@ -34,6 +34,7 @@ const mock_addAction = Spy.mockModule('../../utils/store', 'addAction');
 
 const extendRelease = (props: Partial<Release>): Release => ({
     version: 123,
+    displayVersion: '123',
     sourceCommitId: 'id',
     sourceAuthor: 'author',
     sourceMessage: 'source',

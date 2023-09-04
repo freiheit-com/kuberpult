@@ -20,18 +20,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/ProtonMail/go-crypto/openpgp"
-	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/ProtonMail/go-crypto/openpgp"
+	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -192,6 +193,20 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 			}
 			tf.Version = val
 		}
+	}
+
+	if displayVersion, ok := form.Value["display_version"]; ok {
+		if len(displayVersion) != 1 {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, fmt.Sprintf("Invalid number of display versions provided: %d, ", len(displayVersion)))
+		}
+		if len(displayVersion[0]) > 15 {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "DisplayVersion given should be <= 15 characters")
+			return
+		}
+		tf.DisplayVersion = displayVersion[0]
+
 	}
 
 	response, err := s.BatchClient.ProcessBatch(ctx, &api.BatchRequest{Actions: []*api.BatchAction{

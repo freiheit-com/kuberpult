@@ -60,6 +60,7 @@ describe('Release Card', () => {
                     sourceAuthor: 'author',
                     prNumber: '666',
                     createdAt: new Date(2023, 6, 6),
+                    displayVersion: '2',
                 },
             ],
             environments: {},
@@ -76,6 +77,7 @@ describe('Release Card', () => {
                     sourceAuthor: 'test-author',
                     prNumber: '666',
                     createdAt: new Date(2002),
+                    displayVersion: '2',
                 },
             ],
             environments: {},
@@ -92,6 +94,7 @@ describe('Release Card', () => {
                     prNumber: '666',
                     undeployVersion: false,
                     createdAt: new Date(2023, 6, 6),
+                    displayVersion: '2',
                 },
             ],
             environments: {
@@ -124,6 +127,7 @@ describe('Release Card', () => {
                     createdAt: new Date(2023, 6, 6),
                     sourceAuthor: 'test-author',
                     prNumber: '666',
+                    displayVersion: '2',
                 },
             ],
             environments: {
@@ -156,6 +160,7 @@ describe('Release Card', () => {
                     sourceAuthor: 'test-author',
                     prNumber: '666',
                     createdAt: new Date(2023, 6, 6),
+                    displayVersion: '2',
                 },
             ],
             environments: {
@@ -250,6 +255,7 @@ describe('Release Card Rollout Status', () => {
                     sourceAuthor: 'author',
                     prNumber: '666',
                     createdAt: new Date(2023, 6, 6),
+                    displayVersion: '2',
                 },
             ],
             environmentGroups: [

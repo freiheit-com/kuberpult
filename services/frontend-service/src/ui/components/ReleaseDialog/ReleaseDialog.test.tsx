@@ -57,6 +57,7 @@ describe('Release Dialog', () => {
                     createdAt: new Date(2002),
                     undeployVersion: false,
                     prNumber: '#1337',
+                    displayVersion: '2',
                 },
             ],
             envs: [
@@ -96,6 +97,7 @@ describe('Release Dialog', () => {
                     createdAt: new Date(2002),
                     undeployVersion: false,
                     prNumber: '#1337',
+                    displayVersion: '2',
                 },
             ],
             envs: [
@@ -168,6 +170,7 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: 'PR123',
                     sourceAuthor: 'nobody',
+                    displayVersion: '2',
                 },
                 {
                     sourceCommitId: 'cafe',
@@ -177,6 +180,7 @@ describe('Release Dialog', () => {
                     undeployVersion: false,
                     prNumber: 'PR123',
                     sourceAuthor: 'nobody',
+                    displayVersion: '3',
                 },
             ],
 
@@ -200,6 +204,7 @@ describe('Release Dialog', () => {
                     prNumber: '',
                     createdAt: new Date(2002),
                     undeployVersion: true,
+                    displayVersion: '4',
                 },
             ],
             envs: [],

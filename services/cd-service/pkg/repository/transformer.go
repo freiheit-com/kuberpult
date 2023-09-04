@@ -169,6 +169,7 @@ type CreateApplicationVersion struct {
 	SourceMessage  string
 	SourceRepoUrl  string
 	Team           string
+	DisplayVersion string
 }
 
 func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
@@ -227,6 +228,11 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 	if c.SourceMessage != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_message"), []byte(c.SourceMessage), 0666); err != nil {
+			return "", nil, err
+		}
+	}
+	if c.DisplayVersion != "" {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, "display_version"), []byte(c.DisplayVersion), 0666); err != nil {
 			return "", nil, err
 		}
 	}

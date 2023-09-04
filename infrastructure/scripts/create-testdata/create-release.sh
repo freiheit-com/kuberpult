@@ -24,6 +24,7 @@ echo ${authors[$index]}
 author="${authors[$index]}"
 commit_message_file="$(mktemp "${TMPDIR:-/tmp}/publish.XXXXXX")"
 trap "rm -f ""$commit_message_file" INT TERM HUP EXIT
+displayVersion=$(( $RANDOM % 100)).$(( $RANDOM % 100)).$(( $RANDOM % 100))
 
 
 msgs[0]="Added new eslint rule"
@@ -93,6 +94,7 @@ curl http://localhost:${FRONTEND_PORT}/release \
   --form-string "source_commit_id=${commit_id}" \
   --form-string "source_author=${author}" \
   ${release_version} \
+  --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
   "${configuration[@]}" \
   "${manifests[@]}" -v
