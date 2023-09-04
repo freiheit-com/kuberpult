@@ -23,6 +23,23 @@ import (
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 )
 
+func (s Server) HandleEnvironmentGroups(w http.ResponseWriter, req *http.Request, tail string) {
+	envGroup, tail := xpath.Shift(tail)
+	if envGroup == "" {
+		http.Error(w, "missing group ID", http.StatusNotFound)
+		return
+	}
+
+	function, tail := xpath.Shift(tail)
+
+	switch function {
+	case "locks":
+		s.handleEnvironmentGroupLocks(w, req, envGroup, tail)
+	default:
+		http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
+	}
+}
+
 func (s Server) HandleEnvironments(w http.ResponseWriter, req *http.Request, tail string) {
 	environment, tail := xpath.Shift(tail)
 	if environment == "" {

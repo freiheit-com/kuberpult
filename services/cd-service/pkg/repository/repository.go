@@ -1345,6 +1345,26 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 	}
 }
 
+func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error) {
+	allEnvConfigs, err := s.GetEnvironmentConfigs()
+	if err != nil {
+		return nil, err
+	}
+	groupEnvNames := []string{}
+	for env := range allEnvConfigs {
+		envConfig := allEnvConfigs[env]
+		g := envConfig.EnvironmentGroup
+		if g != nil && *g == envGroup {
+			groupEnvNames = append(groupEnvNames, env)
+		}
+	}
+	if len(groupEnvNames) == 0 {
+		return nil, errors.New(fmt.Sprintf("No environment found with given group '%s'", envGroup))
+	}
+	sort.Strings(groupEnvNames)
+	return groupEnvNames, nil
+}
+
 func (s *State) GetEnvironmentApplications(environment string) ([]string, error) {
 	appDir := s.Filesystem.Join("environments", environment, "applications")
 	return names(s.Filesystem, appDir)

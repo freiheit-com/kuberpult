@@ -561,7 +561,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
-			expectedBody: "missing lock ID\n",
+			expectedBody: "missing ID for env lock\n",
 		},
 		{
 			name: "lock env but additional path params",
@@ -574,7 +574,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
-			expectedBody: "locks does not accept additional path arguments after the lock ID, got: '/junk'\n",
+			expectedBody: "env locks does not accept additional path arguments after the lock ID, got: '/junk'\n",
 		},
 		{
 			name: "lock env but wrong content type",
@@ -676,7 +676,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
-			expectedBody: "missing lock ID\n",
+			expectedBody: "missing ID for env lock\n",
 		},
 		{
 			name: "unlock env but additional path params",
@@ -689,7 +689,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
-			expectedBody: "locks does not accept additional path arguments after the lock ID, got: '/junk'\n",
+			expectedBody: "env locks does not accept additional path arguments after the lock ID, got: '/junk'\n",
 		},
 		{
 			name: "lock env but wrong method",
@@ -852,6 +852,73 @@ func TestServer_Handle(t *testing.T) {
 			},
 			expectedBody: "unsupported method 'GET'\n",
 		},
+		{
+			name: "unlock env group",
+			req: &http.Request{
+				Method: http.MethodDelete,
+				URL: &url.URL{
+					Path: "/environment-groups/development/locks/test",
+				},
+			},
+			batchResponse: &api.BatchResponse{Results: []*api.BatchResult{
+				{},
+			}},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "{\"Result\":null}",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_DeleteEnvironmentGroupLock{
+							DeleteEnvironmentGroupLock: &api.DeleteEnvironmentGroupLockRequest{
+								EnvironmentGroup: "development",
+								LockId:           "test",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "unlock env group but missing lock ID",
+			req: &http.Request{
+				Method: http.MethodDelete,
+				URL: &url.URL{
+					Path: "/environment-groups/development/locks",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "missing ID for env group lock\n",
+		},
+		{
+			name: "unlock env group but additional path params",
+			req: &http.Request{
+				Method: http.MethodDelete,
+				URL: &url.URL{
+					Path: "/environment-groups/development/locks/test/garbage",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "group locks does not accept additional path arguments after the lock ID, got: '/garbage'\n",
+		},
+		{
+			name: "lock env group but wrong method",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/environment-groups/development/locks/test-lock",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusMethodNotAllowed,
+			},
+			expectedBody: "unsupported method 'GET'\n",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -874,7 +941,9 @@ func TestServer_Handle(t *testing.T) {
 				t.Errorf("error reading response body: %s", err)
 			}
 			if d := cmp.Diff(tt.expectedBody, string(body)); d != "" {
-				t.Errorf("response body mismatch: %s", d)
+				//t.Errorf("response body mismatch: %s", d)
+				t.Errorf("response body mismatch:\ngot:  %s\nwant: %s\ndiff: \n%s", string(body), tt.expectedBody, d)
+
 			}
 			if d := cmp.Diff(tt.expectedBatchRequest, batchClient.batchRequest, protocmp.Transform()); d != "" {
 				t.Errorf("create batch request mismatch: %s", d)

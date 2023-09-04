@@ -248,6 +248,21 @@ func (d *BatchServer) processAction(
 			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 		}
 		return transformer, nil, nil
+	case *api.BatchAction_CreateEnvironmentGroupLock:
+		act := action.CreateEnvironmentGroupLock
+		return &repository.CreateEnvironmentGroupLock{
+			EnvironmentGroup: act.EnvironmentGroup,
+			LockId:           act.LockId,
+			Message:          act.Message,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+		}, nil, nil
+	case *api.BatchAction_DeleteEnvironmentGroupLock:
+		act := action.DeleteEnvironmentGroupLock
+		return &repository.DeleteEnvironmentGroupLock{
+			EnvironmentGroup: act.EnvironmentGroup,
+			LockId:           act.LockId,
+			Authentication:   repository.Authentication{RBACConfig: d.RBACConfig},
+		}, nil, nil
 	}
 	return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")
 }

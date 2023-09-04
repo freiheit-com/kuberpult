@@ -77,12 +77,16 @@ func MakeTestContextDexEnabledUser(role string) context.Context {
 }
 
 func MakeEnvConfigLatest(argoCd *config.EnvironmentConfigArgoCd) config.EnvironmentConfig {
+	return MakeEnvConfigLatestWithGroup(argoCd, nil)
+}
+
+func MakeEnvConfigLatestWithGroup(argoCd *config.EnvironmentConfigArgoCd, envGroup *string) config.EnvironmentConfig {
 	return config.EnvironmentConfig{
 		Upstream: &config.EnvironmentConfigUpstream{
 			Latest: true,
 		},
 		ArgoCd:           argoCd,
-		EnvironmentGroup: nil,
+		EnvironmentGroup: envGroup,
 	}
 }
 
