@@ -295,7 +295,6 @@ message Environment {
     bool undeployVersion = 6;
     ArgoCD argoCD = 7;
     DeploymentMetaData deploymentMetaData = 8;
-    string displayVersion = 9;
   }
 
   string name = 1;
@@ -314,6 +313,7 @@ message Release {
   google.protobuf.Timestamp created_at = 5;
   bool undeployVersion = 6;
   string prNumber = 7;
+  string displayVersion = 8;
 }
 
 enum UndeploySummary {

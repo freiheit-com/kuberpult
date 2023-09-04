@@ -39,6 +39,7 @@ describe('Release Dialog', () => {
                     createdAt: new Date('2022-12-04T12:30:12'),
                     undeployVersion: false,
                     prNumber: '666',
+                    displayVersion: '1',
                 },
                 {
                     version: 2,
@@ -48,6 +49,7 @@ describe('Release Dialog', () => {
                     createdAt: new Date('2022-12-05T12:30:12'),
                     undeployVersion: false,
                     prNumber: '666',
+                    displayVersion: '2',
                 },
                 {
                     version: 3,
@@ -57,6 +59,7 @@ describe('Release Dialog', () => {
                     createdAt: new Date('2022-12-06T12:30:12'),
                     undeployVersion: false,
                     prNumber: '666',
+                    displayVersion: '3',
                 },
             ],
         },
@@ -72,6 +75,7 @@ describe('Release Dialog', () => {
                     createdAt: new Date('2022-12-04T12:30:12'),
                     undeployVersion: false,
                     prNumber: '666',
+                    displayVersion: '1',
                 },
                 {
                     version: 2,
@@ -81,6 +85,7 @@ describe('Release Dialog', () => {
                     createdAt: new Date('2022-12-04T15:30:12'),
                     undeployVersion: false,
                     prNumber: '666',
+                    displayVersion: '2',
                 },
                 {
                     version: 3,
@@ -90,6 +95,7 @@ describe('Release Dialog', () => {
                     createdAt: new Date('2022-12-06T12:30:12'),
                     undeployVersion: false,
                     prNumber: '666',
+                    displayVersion: '3',
                 },
             ],
         },
