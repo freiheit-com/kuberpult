@@ -195,7 +195,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		}
 	}
 
-	if displayVersion, ok := form.Value["displayVersion"]; ok {
+	if displayVersion, ok := form.Value["display_version"]; ok {
 		if len(displayVersion) != 1 {
 			w.WriteHeader(400)
 			fmt.Fprintf(w, fmt.Sprintf("Invalid number of display versions provided: %d, ", len(displayVersion)))
