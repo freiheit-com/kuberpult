@@ -24,17 +24,24 @@ import (
 
 func Subscribe(ctx context.Context, notifier Notifier, broadcast *service.Broadcast) error {
 	s := subscriber{notifier: notifier, notifyStatus: map[key]*notifyStatus{}}
-	initial, ch, unsubscribe := broadcast.Start()
-	defer unsubscribe()
-	for _, ev := range initial {
-		s.maybeSend(ctx, ev)
-	}
+reconnect:
 	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case ev := <-ch:
+		initial, ch, unsubscribe := broadcast.Start()
+		defer unsubscribe()
+		for _, ev := range initial {
 			s.maybeSend(ctx, ev)
+		}
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case ev, ok := <-ch:
+				if !ok {
+					// channel closed
+					continue reconnect
+				}
+				s.maybeSend(ctx, ev)
+			}
 		}
 	}
 }
