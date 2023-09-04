@@ -30,7 +30,7 @@ export const Home: React.FC = () => {
 
     const loaded = useOverviewLoaded();
     if (!loaded) {
-        return <Spinner message={'Overview'} />;
+        return <Spinner message={'Loading Overview'} />;
     }
 
     return (

@@ -24,6 +24,15 @@ Copyright 2023 freiheit.com*/
     .spinner-animation {
     }
     .spinner-message {
+        @extend .sub-headline1;
+
         margin-top: 20px;
+        background-color: white;
+        box-shadow: 0 0 0 99999px rgba(0, 0, 0, 0.5);
+        border-radius: 5px;
+        text-align: center;
     }
+    border-radius: 10px;
+    background-color: transparent;
+    color: black;
 }

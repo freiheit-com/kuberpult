@@ -132,7 +132,7 @@ export const AzureAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const { configs, configReady } = useFrontendConfig((c) => c);
     const msalInstance = React.useMemo(() => new PublicClientApplication(getMsalConfig(configs)), [configs]);
     if (!configReady) {
-        return <Spinner message={'Configuration'} />;
+        return <Spinner message={'Loading Configuration'} />;
     }
 
     const useAzureAuth = configs.authConfig?.azureAuth?.enabled;
