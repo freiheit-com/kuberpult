@@ -974,28 +974,180 @@ func TestReleaseTrainErrors(t *testing.T) {
 			shouldSucceed:     false,
 		},
 		{
-			Name: "Environment is locked",
+			Name: "Environment is locked - but train continues in other env",
 			Transformers: []Transformer{
 				&CreateEnvironment{
-					Environment: envAcceptance,
+					Environment: envAcceptance + "-de",
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
-							Environment: envAcceptance,
+							Latest: true,
 						},
+						EnvironmentGroup: ptr.FromString(envAcceptance),
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance + "-ca",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						EnvironmentGroup: ptr.FromString(envAcceptance),
 					},
 				},
 				&CreateEnvironmentLock{
-					Environment: envAcceptance,
+					Environment: envAcceptance + "-ca",
 					Message:     "don't",
 					LockId:      "care",
+				},
+				&CreateEnvironmentLock{
+					Environment: envAcceptance + "-de",
+					Message:     "do not",
+					LockId:      "care either",
 				},
 				&ReleaseTrain{
 					Target: envAcceptance,
 				},
 			},
-			shouldSucceed:     true,
-			expectedError:     "",
-			expectedCommitMsg: "Release Train to environment/environment group 'acceptance':\n\n",
+			shouldSucceed: true,
+			expectedError: "",
+			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
+
+Release Train to 'acceptance-ca' environment:
+
+Skipped services:
+Target Environment 'acceptance-ca' is locked - skipping.
+
+
+Release Train to 'acceptance-de' environment:
+
+Skipped services:
+Target Environment 'acceptance-de' is locked - skipping.
+
+
+`,
+		},
+		{
+			Name: "Environment has no upstream - but train continues in other env",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance + "-ca",
+					Config: config.EnvironmentConfig{
+						Upstream:         nil,
+						EnvironmentGroup: ptr.FromString(envAcceptance),
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance + "-de",
+					Config: config.EnvironmentConfig{
+						Upstream:         nil,
+						EnvironmentGroup: ptr.FromString(envAcceptance),
+					},
+				},
+				&ReleaseTrain{
+					Target: envAcceptance,
+				},
+			},
+			shouldSucceed: true,
+			expectedError: "",
+			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
+
+Release Train to 'acceptance-ca' environment:
+
+Skipped services:
+Environment '"acceptance-ca"' does not have upstream configured - skipping.
+
+Release Train to 'acceptance-de' environment:
+
+Skipped services:
+Environment '"acceptance-de"' does not have upstream configured - skipping.
+
+`,
+		},
+		{
+			Name: "Environment has no upstream.latest or env - but train continues in other env",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance + "-ca",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "",
+							Latest:      false,
+						},
+						EnvironmentGroup: ptr.FromString(envAcceptance),
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance + "-de",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "",
+							Latest:      false,
+						},
+						EnvironmentGroup: ptr.FromString(envAcceptance),
+					},
+				},
+				&ReleaseTrain{
+					Target: envAcceptance,
+				},
+			},
+			shouldSucceed: true,
+			expectedError: "",
+			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
+
+Release Train to 'acceptance-ca' environment:
+
+Skipped services:
+Environment "acceptance-ca" does not have upstream.latest or upstream.environment configured - skipping.
+
+Release Train to 'acceptance-de' environment:
+
+Skipped services:
+Environment "acceptance-de" does not have upstream.latest or upstream.environment configured - skipping.
+
+`,
+		},
+		{
+			Name: "Environment has both upstream.latest and env - but train continues in other env",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envAcceptance + "-ca",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "dev",
+							Latest:      true,
+						},
+						EnvironmentGroup: ptr.FromString(envAcceptance),
+					},
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance + "-de",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "dev",
+							Latest:      true,
+						},
+						EnvironmentGroup: ptr.FromString(envAcceptance),
+					},
+				},
+				&ReleaseTrain{
+					Target: envAcceptance,
+				},
+			},
+			shouldSucceed: true,
+			expectedError: "",
+			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
+
+Release Train to 'acceptance-ca' environment:
+
+Skipped services:
+Environment "acceptance-ca" has both upstream.latest and upstream.environment configured - skipping.
+
+Release Train to 'acceptance-de' environment:
+
+Skipped services:
+Environment "acceptance-de" has both upstream.latest and upstream.environment configured - skipping.
+
+`,
 		},
 	}
 	for _, tc := range tcs {
@@ -1010,10 +1162,9 @@ func TestReleaseTrainErrors(t *testing.T) {
 					t.Fatalf("Expected no error: %v", err)
 				}
 				actualMsg := commitMsg[len(commitMsg)-1]
-				if actualMsg != tc.expectedCommitMsg {
-					t.Fatalf("expected a different message.\nExpected: %q\nGot %q", tc.expectedCommitMsg, actualMsg)
+				if diff := cmp.Diff(actualMsg, tc.expectedCommitMsg); diff != "" {
+					t.Errorf("got \n%s\n, want \n%s\n, diff (-want +got)\n%s\n", actualMsg, tc.expectedCommitMsg, diff)
 				}
-
 			} else {
 				if err == nil {
 					t.Fatalf("Expected an error but got none")
