@@ -171,7 +171,7 @@ func runServer(ctx context.Context, config Config) error {
 		{
 			Name: "consume kuberpult events",
 			Run: func(ctx context.Context) error {
-				return versionC.Subscribe(ctx, broadcast)
+				return versionC.ConsumeEvents(ctx, broadcast)
 			},
 		},
 	}

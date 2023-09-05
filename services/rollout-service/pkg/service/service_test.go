@@ -109,7 +109,7 @@ func (m *mockVersionClient) GetVersion(ctx context.Context, revision string, env
 	return 0, nil
 }
 
-func (m *mockVersionClient) Subscribe(ctx context.Context, pc versions.VersionEventProcessor ) error {
+func (m *mockVersionClient) ConsumeEvents(ctx context.Context, pc versions.VersionEventProcessor ) error {
 	panic("not implemented")
 }
 

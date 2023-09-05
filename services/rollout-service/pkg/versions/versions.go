@@ -38,7 +38,7 @@ var RolloutServiceUser auth.User = auth.User{
 
 type VersionClient interface {
 	GetVersion(ctx context.Context, revision, environment, application string) (uint64, error)
-	Subscribe(ctx context.Context, processor VersionEventProcessor) error
+	ConsumeEvents(ctx context.Context, processor VersionEventProcessor) error
 }
 
 type versionClient struct {
@@ -87,7 +87,7 @@ type VersionEventProcessor interface {
 	ProcessKuberpultEvent(ctx context.Context, ev KuberpultEvent)
 }
 
-func (v *versionClient) Subscribe(ctx context.Context, processor VersionEventProcessor) error {
+func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEventProcessor) error {
 	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
 outer:
 	for {
@@ -96,7 +96,6 @@ outer:
 			logger.FromContext(ctx).Warn("overview.connect", zap.Error(err))
 			continue outer
 		}
-	inner:
 		for {
 			select {
 			case <-ctx.Done():
@@ -115,7 +114,7 @@ outer:
 				} else {
 					logger.FromContext(ctx).Warn("overview.stream", zap.Error(err))
 				}
-				continue inner
+				continue
 			}
 			l := logger.FromContext(ctx).With(zap.String("git.revision", overview.GitRevision))
 			v.cache.Add(overview.GitRevision, overview)

@@ -274,7 +274,7 @@ func TestVersionClientStream(t *testing.T) {
 			vp := &mockVersionEventProcessor{}
 			mc := &mockOverviewClient{Steps: tc.Steps}
 			vc := New(mc)
-			err := vc.Subscribe(ctx, vp)
+			err := vc.ConsumeEvents(ctx, vp)
 			if err != nil {
 				t.Errorf("expected no error, but received %q", err)
 			}
