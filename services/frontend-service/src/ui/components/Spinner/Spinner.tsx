@@ -22,9 +22,9 @@ export const Spinner: React.FC<{ message: string }> = (props): JSX.Element => {
     return (
         <div className={'spinner'}>
             <div className={'spinner-animation'}>
-                <PacmanLoader color="var(--mdc-theme-primary)" loading={true} size={100} speedMultiplier={1} />
+                <PacmanLoader color={'var(--mdc-theme-primary)'} loading={true} size={100} speedMultiplier={1} />
             </div>
-            <div className={'spinner-message'}>Loading {message}...</div>
+            <div className={'spinner-message'}>{message}...</div>
         </div>
     );
 };

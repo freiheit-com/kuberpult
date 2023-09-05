@@ -33,7 +33,6 @@ exports[`Spinner Renders Renders 1`] = `
   <div
     class="spinner-message"
   >
-    Loading 
     hello
     ...
   </div>

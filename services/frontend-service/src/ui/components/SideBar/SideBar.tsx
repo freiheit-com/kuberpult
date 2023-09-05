@@ -29,11 +29,12 @@ import {
     addAction,
     useLocksSimilarTo,
 } from '../../utils/store';
-import { ChangeEvent, useCallback, useMemo, useState } from 'react';
+import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
 import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core';
 import classNames from 'classnames';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
+import { Spinner } from '../Spinner/Spinner';
 
 export enum ActionTypes {
     Deploy,
@@ -308,6 +309,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
             action.action?.$case === 'createEnvironmentLock' ||
             action.action?.$case === 'createEnvironmentApplicationLock'
     );
+    const [showSpinner, setShowSpinner] = useState(false);
 
     const applyActions = useCallback(() => {
         if (lockMessage) {
@@ -322,6 +324,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
             setLockMessage('');
         }
         if (authReady) {
+            setShowSpinner(true);
             const lockId = randomLockId();
             for (const action of actions) {
                 if (action.action?.$case === 'createEnvironmentApplicationLock') {
@@ -341,6 +344,9 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                     // eslint-disable-next-line no-console
                     console.error('error in batch request: ', e);
                     showSnackbarError('Actions were not applied. Please try again');
+                })
+                .finally(() => {
+                    setShowSpinner(false);
                 });
             handleClose();
         }
@@ -394,6 +400,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                         disabled={!canApply}
                         onClick={handleOpen}
                     />
+                    {showSpinner && <Spinner message="Submitting changes" />}
                     <Dialog open={open} onClose={handleClose}>
                         <DialogTitle id="alert-dialog-title">
                             {'Are you sure you want to apply all planned actions?'}

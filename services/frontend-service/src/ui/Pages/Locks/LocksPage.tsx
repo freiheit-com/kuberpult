@@ -82,7 +82,7 @@ export const LocksPage: React.FC = () => {
     // note that the config is definitely loaded here, because it's ensured in AzureAuthProvider
     const overviewLoaded = useOverviewLoaded();
     if (!overviewLoaded) {
-        return <Spinner message={'Overview'} />;
+        return <Spinner message={'Loading Overview'} />;
     }
     return (
         <main className="main-content">
