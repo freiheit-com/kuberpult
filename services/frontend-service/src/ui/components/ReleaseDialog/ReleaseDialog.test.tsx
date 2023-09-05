@@ -250,6 +250,9 @@ describe('Release Dialog', () => {
                 expect(document.querySelector('.release-dialog-message')?.textContent).toContain(
                     testcase.rels[0].sourceMessage
                 );
+                expect(document.querySelector('.release-dialog-message')?.textContent).toContain(
+                    testcase.rels[0].displayVersion
+                );
             } else {
                 expect(document.querySelector('.release-dialog-message') === undefined);
             }

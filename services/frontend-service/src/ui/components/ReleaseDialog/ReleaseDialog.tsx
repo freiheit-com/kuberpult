@@ -289,6 +289,16 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                 <span className={classNames('release-dialog-commitMessage', className)}>
                                     {release?.sourceMessage}
                                 </span>
+                                &nbsp;
+                                <span className={classNames('release-dialog-display-version', className)}>
+                                    {release?.displayVersion
+                                        ? '  Release Version: ' + release?.displayVersion
+                                        : release?.sourceCommitId
+                                        ? 'CommitID: ' + release?.sourceCommitId
+                                        : release?.version
+                                        ? 'Version: ' + release?.version
+                                        : ''}
+                                </span>
                             </div>
                             {!!release?.createdAt && (
                                 <FormattedDate
