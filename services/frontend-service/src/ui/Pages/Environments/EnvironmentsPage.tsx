@@ -13,9 +13,10 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { useEnvironmentGroups, useEnvironments, useOverviewLoaded } from '../../utils/store';
+import { useEnvironmentGroups, useEnvironments, useGlobalLoadingState } from '../../utils/store';
 import { EnvironmentCard, EnvironmentGroupCard } from '../../components/EnvironmentCard/EnvironmentCard';
-import { Spinner } from '../../components/Spinner/Spinner';
+import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
+import React from 'react';
 
 export const EnvironmentsPage: React.FC = () => {
     const envsGroups = useEnvironmentGroups();
@@ -24,10 +25,9 @@ export const EnvironmentsPage: React.FC = () => {
     // if they are equal (envsGroups.length === envs.length), then there are effectively no groups, but the cd-server still returns each env wrapped in a group
     const useGroups = envsGroups.length !== envs.length;
 
-    // note that the config is definitely loaded here, because it's ensured in AzureAuthProvider
-    const overviewLoaded = useOverviewLoaded();
-    if (!overviewLoaded) {
-        return <Spinner message={'Loading Overview'} />;
+    const [everythingLoaded, loadingState] = useGlobalLoadingState();
+    if (!everythingLoaded) {
+        return <LoadingStateSpinner loadingState={loadingState} />;
     }
 
     if (useGroups) {

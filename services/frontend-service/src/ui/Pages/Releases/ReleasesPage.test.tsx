@@ -14,9 +14,9 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import { render } from '@testing-library/react';
-import { UpdateOverview } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 import { ReleasesPage } from './ReleasesPage';
+import { fakeLoadEverything } from '../../../setupTests';
 
 describe('LocksPage', () => {
     const getNode = (): JSX.Element | any => (
@@ -50,9 +50,7 @@ describe('LocksPage', () => {
 
     describe.each(sampleEnvData)(`Renders ReleasesPage`, (testcase) => {
         it(testcase.name, () => {
-            UpdateOverview.set({
-                loaded: testcase.loaded,
-            });
+            fakeLoadEverything(testcase.loaded);
             const { container } = getWrapper();
             expect(container.getElementsByClassName('main-content')).toHaveLength(testcase.expectedNumMainContent);
             expect(container.getElementsByClassName('spinner')).toHaveLength(testcase.expectedNumSpinner);

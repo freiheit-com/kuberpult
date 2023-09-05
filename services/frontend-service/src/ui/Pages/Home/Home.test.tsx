@@ -19,6 +19,7 @@ import { searchCustomFilter, UpdateOverview, useFilteredApps, useTeamNames } fro
 import { Spy } from 'spy4js';
 import { MemoryRouter } from 'react-router-dom';
 import { Application, UndeploySummary } from '../../../api/api';
+import { fakeLoadEverything } from '../../../setupTests';
 
 const mock_ServiceLane = Spy.mockReactComponents('../../components/ServiceLane/ServiceLane', 'ServiceLane');
 
@@ -46,8 +47,8 @@ describe('App', () => {
         };
         UpdateOverview.set({
             applications: sampleApps,
-            loaded: true,
         });
+        fakeLoadEverything(true);
         getWrapper();
 
         // then apps are sorted and Service Lane is called

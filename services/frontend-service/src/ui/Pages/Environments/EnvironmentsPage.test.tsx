@@ -18,6 +18,7 @@ import { UpdateOverview } from '../../utils/store';
 import { Environment, EnvironmentGroup, Priority } from '../../../api/api';
 import React from 'react';
 import { EnvironmentsPage } from './EnvironmentsPage';
+import { fakeLoadEverything } from '../../../setupTests';
 
 const sampleEnvsA: Environment[] = [
     {
@@ -137,8 +138,8 @@ describe('Environment Lane', () => {
             //given
             UpdateOverview.set({
                 environmentGroups: testcase.environmentGroups,
-                loaded: testcase.loaded,
             });
+            fakeLoadEverything(testcase.loaded);
             // when
             const { container } = getWrapper();
             // then

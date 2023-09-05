@@ -32,6 +32,7 @@ import { useCallback, useMemo } from 'react';
 import { Empty } from '../../google/protobuf/empty';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as React from 'react';
+import { useIsAuthenticated } from '@azure/msal-react';
 
 export interface DisplayLock {
     date?: Date;
@@ -618,7 +619,30 @@ export const [useFrontendConfig, UpdateFrontendConfig] = createStore<FrontendCon
     configReady: false,
 });
 
-export const useConfigReady = (): boolean => useFrontendConfig(({ configReady }) => configReady);
+export type GlobalLoadingState = {
+    configReady: boolean;
+    isAuthenticated: boolean;
+    azureAuthEnabled: boolean;
+    overviewLoaded: boolean;
+};
+
+// returns one loading state for all the calls done on startup, in order to render a spinner with details
+export const useGlobalLoadingState = (): [boolean, GlobalLoadingState] => {
+    const { configs, configReady } = useFrontendConfig((c) => c);
+    const isAuthenticated = useIsAuthenticated();
+    const azureAuthEnabled = configs.authConfig?.azureAuth?.enabled || false;
+    const overviewLoaded = useOverviewLoaded();
+    const everythingLoaded = overviewLoaded && configReady && (isAuthenticated || !azureAuthEnabled);
+    return [
+        everythingLoaded,
+        {
+            configReady,
+            isAuthenticated,
+            azureAuthEnabled,
+            overviewLoaded,
+        },
+    ];
+};
 
 export const useKuberpultVersion = (): string => useFrontendConfig((configs) => configs.configs.kuberpultVersion);
 export const useArgoCdBaseUrl = (): string | undefined =>
