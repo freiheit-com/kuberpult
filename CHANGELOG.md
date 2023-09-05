@@ -18,6 +18,20 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.3.0](https://github.com/freiheit-com/kuberpult/tree/1.3.0) (2023-09-05)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.2.0...1.3.0)
+
+### Minor Changes
+
+- Fix layout in Lock tooltip [\#913](https://github.com/freiheit-com/kuberpult/pull/913) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Notify argocd about updates [\#910](https://github.com/freiheit-com/kuberpult/pull/910) ([hannesg](https://github.com/hannesg))
+- Add Display Version to create release request [\#906](https://github.com/freiheit-com/kuberpult/pull/906) ([gsandok](https://github.com/gsandok))
+
+
+---
+
+
 ## [1.2.0](https://github.com/freiheit-com/kuberpult/tree/1.2.0) (2023-09-04)
 **Closed issues:**
 
