@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
@@ -33,38 +34,73 @@ type key struct {
 	Environment string
 }
 
+type appState struct {
+	argocdVersion    uint64
+	kuberpultVersion uint64
+	rolloutStatus    api.RolloutStatus
+}
+
+func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
+	status := rolloutStatus(ev)
+	if a.rolloutStatus != status || a.argocdVersion != ev.Version {
+		a.rolloutStatus = status
+		a.argocdVersion = ev.Version
+		return a.getEvent(ev.Application, ev.Environment)
+	}
+	return nil
+}
+
+func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEvent {
+	if a.kuberpultVersion != ev.Version {
+		a.kuberpultVersion = ev.Version
+		return a.getEvent(ev.Application, ev.Environment)
+	}
+	return nil
+}
+
+func (a *appState) getEvent(application, environment string) *BroadcastEvent {
+	rs := a.rolloutStatus
+	if a.kuberpultVersion != 0 && a.kuberpultVersion != a.argocdVersion {
+		rs = api.RolloutStatus_RolloutStatusProgressing
+	}
+	return &BroadcastEvent{
+		Environment:      environment,
+		Application:      application,
+		ArgocdVersion:    a.argocdVersion,
+		RolloutStatus:    rs,
+		KuberpultVersion: a.kuberpultVersion,
+	}
+}
+
 type Broadcast struct {
-	state    map[key]Event
+	state    map[key]*appState
 	mx       sync.Mutex
-	listener map[chan *api.StreamStatusResponse]struct{}
+	listener map[chan *BroadcastEvent]struct{}
 }
 
 func New() *Broadcast {
 	return &Broadcast{
-		state:    map[key]Event{},
-		listener: map[chan *api.StreamStatusResponse]struct{}{},
+		state:    map[key]*appState{},
+		listener: map[chan *BroadcastEvent]struct{}{},
 	}
 }
 
-// Process implements service.EventProcessor
-func (b *Broadcast) Process(ctx context.Context, ev Event) {
+// ProcessArgoEvent implements service.EventProcessor
+func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 	b.mx.Lock()
 	defer b.mx.Unlock()
 	k := key{
 		Application: ev.Application,
 		Environment: ev.Environment,
 	}
-	if b.state[k] == ev {
+	if b.state[k] == nil {
+		b.state[k] = &appState{}
+	}
+	msg := b.state[k].applyArgoEvent(&ev)
+	if msg == nil {
 		return
 	}
-	msg := &api.StreamStatusResponse{
-		Environment:   ev.Environment,
-		Application:   ev.Application,
-		Version:       ev.Version,
-		RolloutStatus: rolloutStatus(&ev),
-	}
-	b.state[k] = ev
-	desub := []chan *api.StreamStatusResponse{}
+	desub := []chan *BroadcastEvent{}
 	for l := range b.listener {
 		select {
 		case l <- msg:
@@ -78,16 +114,54 @@ func (b *Broadcast) Process(ctx context.Context, ev Event) {
 	}
 }
 
+func (b *Broadcast) ProcessKuberpultEvent(ctx context.Context, ev versions.KuberpultEvent) {
+	b.mx.Lock()
+	defer b.mx.Unlock()
+	k := key{
+		Application: ev.Application,
+		Environment: ev.Environment,
+	}
+	if b.state[k] == nil {
+		b.state[k] = &appState{}
+	}
+	msg := b.state[k].applyKuberpultEvent(&ev)
+	if msg == nil {
+		return
+	}
+	desub := []chan *BroadcastEvent{}
+	for l := range b.listener {
+		select {
+		case l <- msg:
+		default:
+			close(l)
+			desub = append(desub, l)
+		}
+	}
+	for _, l := range desub {
+		delete(b.listener, l)
+	}
+}
+
+// Disconnects all listeners. This is used in tests to check wheter subscribers handle reconnects
+func (b *Broadcast) DisconnectAll() {
+	b.mx.Lock()
+	defer b.mx.Unlock()
+	for l := range b.listener {
+		close(l)
+	}
+	b.listener = make(map[chan *BroadcastEvent]struct{})
+}
+
 func (b *Broadcast) StreamStatus(req *api.StreamStatusRequest, svc api.RolloutService_StreamStatusServer) error {
-	resp, ch, unsubscribe := b.start()
+	resp, ch, unsubscribe := b.Start()
 	defer unsubscribe()
 	for _, r := range resp {
-		svc.Send(r)
+		svc.Send(streamStatus(r))
 	}
 	for {
 		select {
 		case r := <-ch:
-			err := svc.Send(r)
+			err := svc.Send(streamStatus(r))
 			if err != nil {
 				return err
 			}
@@ -103,20 +177,14 @@ func (b *Broadcast) StreamStatus(req *api.StreamStatusRequest, svc api.RolloutSe
 
 type unsubscribe func()
 
-func (b *Broadcast) start() ([]*api.StreamStatusResponse, <-chan *api.StreamStatusResponse, unsubscribe) {
+func (b *Broadcast) Start() ([]*BroadcastEvent, <-chan *BroadcastEvent, unsubscribe) {
 	b.mx.Lock()
 	defer b.mx.Unlock()
-	result := make([]*api.StreamStatusResponse, 0, len(b.state))
-	for _, ev := range b.state {
-		msg := &api.StreamStatusResponse{
-			Environment:   ev.Environment,
-			Application:   ev.Application,
-			Version:       ev.Version,
-			RolloutStatus: rolloutStatus(&ev),
-		}
-		result = append(result, msg)
+	result := make([]*BroadcastEvent, 0, len(b.state))
+	for key, app := range b.state {
+		result = append(result, app.getEvent(key.Application, key.Environment))
 	}
-	ch := make(chan *api.StreamStatusResponse, 100)
+	ch := make(chan *BroadcastEvent, 100)
 	b.listener[ch] = struct{}{}
 	return result, ch, func() {
 		b.mx.Lock()
@@ -125,7 +193,24 @@ func (b *Broadcast) start() ([]*api.StreamStatusResponse, <-chan *api.StreamStat
 	}
 }
 
-func rolloutStatus(ev *Event) api.RolloutStatus {
+type BroadcastEvent struct {
+	Environment      string
+	Application      string
+	ArgocdVersion    uint64
+	KuberpultVersion uint64
+	RolloutStatus    api.RolloutStatus
+}
+
+func streamStatus(b *BroadcastEvent) *api.StreamStatusResponse {
+	return &api.StreamStatusResponse{
+		Environment:   b.Environment,
+		Application:   b.Application,
+		Version:       b.ArgocdVersion,
+		RolloutStatus: b.RolloutStatus,
+	}
+}
+
+func rolloutStatus(ev *ArgoEvent) api.RolloutStatus {
 	switch ev.HealthStatusCode {
 	case health.HealthStatusDegraded, health.HealthStatusMissing:
 		return api.RolloutStatus_RolloutStatusError
@@ -148,5 +233,5 @@ func rolloutStatus(ev *Event) api.RolloutStatus {
 	return api.RolloutStatus_RolloutStatusUnknown
 }
 
-var _ EventProcessor = (*Broadcast)(nil)
+var _ ArgoEventProcessor = (*Broadcast)(nil)
 var _ api.RolloutServiceServer = (*Broadcast)(nil)

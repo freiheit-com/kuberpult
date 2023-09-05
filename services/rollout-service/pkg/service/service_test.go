@@ -37,7 +37,7 @@ type step struct {
 	WatchErr error
 	RecvErr  error
 
-	ExpectedEvent *Event
+	ExpectedEvent *ArgoEvent
 }
 
 func (m *mockApplicationServiceClient) Recv() (*v1alpha1.ApplicationWatchEvent, error) {
@@ -60,7 +60,7 @@ type mockApplicationServiceClient struct {
 	Steps     []step
 	current   int
 	t         *testing.T
-	lastEvent *Event
+	lastEvent *ArgoEvent
 	grpc.ClientStream
 }
 
@@ -83,7 +83,7 @@ func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T) {
 }
 
 // Process implements service.EventProcessor
-func (m *mockApplicationServiceClient) Process(ctx context.Context, ev Event) {
+func (m *mockApplicationServiceClient) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 	m.lastEvent = &ev
 }
 
@@ -107,6 +107,10 @@ func (m *mockVersionClient) GetVersion(ctx context.Context, revision string, env
 		}
 	}
 	return 0, nil
+}
+
+func (m *mockVersionClient) ConsumeEvents(ctx context.Context, pc versions.VersionEventProcessor ) error {
+	panic("not implemented")
 }
 
 var _ versions.VersionClient = (*mockVersionClient)(nil)
@@ -223,7 +227,7 @@ func TestArgoConection(t *testing.T) {
 							},
 						},
 					},
-					ExpectedEvent: &Event{
+					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
 						Version:     42,
@@ -266,7 +270,7 @@ func TestArgoConection(t *testing.T) {
 							},
 						},
 					},
-					ExpectedEvent: &Event{
+					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
 						Version:     0,

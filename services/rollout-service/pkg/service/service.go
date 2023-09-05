@@ -41,11 +41,11 @@ var (
 	_ SimplifiedApplicationServiceClient = (application.ApplicationServiceClient)(nil)
 )
 
-type EventProcessor interface {
-	Process(ctx context.Context, ev Event)
+type ArgoEventProcessor interface {
+	ProcessArgoEvent(ctx context.Context, ev ArgoEvent)
 }
 
-func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, version versions.VersionClient, sink EventProcessor, ready func()) error {
+func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, version versions.VersionClient, sink ArgoEventProcessor, ready func()) error {
 	for {
 		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
@@ -77,7 +77,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 				if err != nil {
 					logger.FromContext(ctx).Warn("version.getversion", zap.String("revision", ev.Application.Status.Sync.Revision), zap.Error(err))
 				}
-				sink.Process(ctx, Event{
+				sink.ProcessArgoEvent(ctx, ArgoEvent{
 					Application:      application,
 					Environment:      environment,
 					SyncStatusCode:   ev.Application.Status.Sync.Status,
@@ -86,7 +86,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 					Version:          version,
 				})
 			case "DELETED":
-				sink.Process(ctx, Event{
+				sink.ProcessArgoEvent(ctx, ArgoEvent{
 					Application:      application,
 					Environment:      environment,
 					SyncStatusCode:   ev.Application.Status.Sync.Status,
@@ -109,7 +109,7 @@ func getEnvironmentAndName(annotations map[string]string) (string, string) {
 	return annotations["com.freiheit.kuberpult/environment"], annotations["com.freiheit.kuberpult/application"]
 }
 
-type Event struct {
+type ArgoEvent struct {
 	Environment      string
 	Application      string
 	SyncStatusCode   v1alpha1.SyncStatusCode
@@ -117,3 +117,4 @@ type Event struct {
 	OperationState   *v1alpha1.OperationState
 	Version          uint64
 }
+

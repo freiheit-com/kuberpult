@@ -29,6 +29,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/notifier"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/kelseyhightower/envconfig"
@@ -47,9 +48,10 @@ type Config struct {
 	CdServer      string `default:"kuberpult-cd-service:8443"`
 	EnableTracing bool   `default:"false" split_words:"true"`
 
-	ArgocdServer   string `split_words:"true"`
-	ArgocdInsecure bool   `default:"false" split_words:"true"`
-	ArgocdToken    string `split_words:"true"`
+	ArgocdServer         string `split_words:"true"`
+	ArgocdInsecure       bool   `default:"false" split_words:"true"`
+	ArgocdToken          string `split_words:"true"`
+	ArgocdRefreshEnabled bool   `split_words:"true"`
 }
 
 func (config *Config) ClientConfig() (apiclient.ClientOptions, error) {
@@ -157,6 +159,33 @@ func runServer(ctx context.Context, config Config) error {
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
 	ready := false
+	versionC := versions.New(overview)
+
+	backgroundTasks := []setup.BackgroundTaskConfig{
+		{
+			Name: "consume argocd events",
+			Run: func(ctx context.Context) error {
+				return service.ConsumeEvents(ctx, appClient, versionC, broadcast, func() { ready = true })
+			},
+		},
+		{
+			Name: "consume kuberpult events",
+			Run: func(ctx context.Context) error {
+				return versionC.ConsumeEvents(ctx, broadcast)
+			},
+		},
+	}
+
+	if config.ArgocdRefreshEnabled {
+		notify := notifier.New(appClient)
+		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
+			Name: "refresh argocd",
+			Run: func(ctx context.Context) error {
+				return notifier.Subscribe(ctx, notify, broadcast)
+			},
+		})
+	}
+
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{
 			{
@@ -172,13 +201,7 @@ func runServer(ctx context.Context, config Config) error {
 				},
 			},
 		},
-		Background: []setup.BackgroundTaskConfig{
-			{
-				Name: "consume events",
-				Run: func(ctx context.Context) error {
-					return service.ConsumeEvents(ctx, appClient, versions.New(overview), broadcast, func() { ready = true })
-				},
-			}},
+		Background: backgroundTasks,
 		GRPC: &setup.GRPCConfig{
 			Port: "8443",
 			Opts: []grpc.ServerOption{
