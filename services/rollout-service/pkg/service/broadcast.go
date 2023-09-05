@@ -142,6 +142,16 @@ func (b *Broadcast) ProcessKuberpultEvent(ctx context.Context, ev versions.Kuber
 	}
 }
 
+// Disconnects all listeners. This is used in tests to check wheter subscribers handle reconnects
+func (b *Broadcast) DisconnectAll() {
+	b.mx.Lock()
+	defer b.mx.Unlock()
+	for l := range b.listener {
+		close(l)
+	}
+	b.listener = make(map[chan *BroadcastEvent]struct{})
+}
+
 func (b *Broadcast) StreamStatus(req *api.StreamStatusRequest, svc api.RolloutService_StreamStatusServer) error {
 	resp, ch, unsubscribe := b.Start()
 	defer unsubscribe()

@@ -18,29 +18,41 @@ package notifier
 
 import (
 	"context"
+	"fmt"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 )
 
+var errChannelClosed error = fmt.Errorf("subscriber: channel closed")
+
+var backOffFactory func() backoff.BackOff = func() backoff.BackOff {
+	return backoff.NewExponentialBackOff()
+}
+
 func Subscribe(ctx context.Context, notifier Notifier, broadcast *service.Broadcast) error {
 	s := subscriber{notifier: notifier, notifyStatus: map[key]*notifyStatus{}}
-reconnect:
+	bo := backOffFactory()
 	for {
-		initial, ch, unsubscribe := broadcast.Start()
-		defer unsubscribe()
-		for _, ev := range initial {
-			s.maybeSend(ctx, ev)
-		}
-		for {
-			select {
-			case <-ctx.Done():
+		err := s.subscribeOnce(ctx, broadcast)
+		select {
+		case <-ctx.Done():
+			// the channel closed error is irrelevant when we shutdown
+			if err == errChannelClosed {
 				return nil
-			case ev, ok := <-ch:
-				if !ok {
-					// channel closed
-					continue reconnect
+			}
+			return err
+		default:
+			nb := bo.NextBackOff()
+			if nb == backoff.Stop {
+				return err
+			} else {
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-time.After(nb):
 				}
-				s.maybeSend(ctx, ev)
 			}
 		}
 	}
@@ -58,6 +70,26 @@ type notifyStatus struct {
 type subscriber struct {
 	notifier     Notifier
 	notifyStatus map[key]*notifyStatus
+}
+
+func (s *subscriber) subscribeOnce(ctx context.Context, broadcast *service.Broadcast) error {
+	initial, ch, unsubscribe := broadcast.Start()
+	defer unsubscribe()
+	for _, ev := range initial {
+		s.maybeSend(ctx, ev)
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case ev, ok := <-ch:
+			if !ok {
+				// channel closed
+				return errChannelClosed
+			}
+			s.maybeSend(ctx, ev)
+		}
+	}
 }
 
 func (s *subscriber) maybeSend(ctx context.Context, ev *service.BroadcastEvent) {
