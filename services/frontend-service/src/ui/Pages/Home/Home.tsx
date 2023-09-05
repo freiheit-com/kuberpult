@@ -15,9 +15,9 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { ServiceLane } from '../../components/ServiceLane/ServiceLane';
 import { useSearchParams } from 'react-router-dom';
-import { useFilteredApps, useOverviewLoaded, useSearchedApplications } from '../../utils/store';
-import { Spinner } from '../../components/Spinner/Spinner';
+import { useFilteredApps, useGlobalLoadingState, useSearchedApplications } from '../../utils/store';
 import React from 'react';
+import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 
 export const Home: React.FC = () => {
     const [params] = useSearchParams();
@@ -28,9 +28,9 @@ export const Home: React.FC = () => {
 
     const apps = Object.values(searchedApp);
 
-    const loaded = useOverviewLoaded();
-    if (!loaded) {
-        return <Spinner message={'Loading Overview'} />;
+    const [everythingLoaded, loadingState] = useGlobalLoadingState();
+    if (!everythingLoaded) {
+        return <LoadingStateSpinner loadingState={loadingState} />;
     }
 
     return (

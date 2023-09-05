@@ -14,17 +14,17 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import { Releases } from '../../components/Releases/Releases';
-import { useOverviewLoaded } from '../../utils/store';
-import { Spinner } from '../../components/Spinner/Spinner';
+import { useGlobalLoadingState } from '../../utils/store';
+import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
+import React from 'react';
 
 export const ReleasesPage: React.FC = () => {
     const url = window.location.pathname.split('/');
     const app_name = url[url.length - 1];
 
-    // note that the config is definitely loaded here, because it's ensured in AzureAuthProvider
-    const overviewLoaded = useOverviewLoaded();
-    if (!overviewLoaded) {
-        return <Spinner message={'Loading Overview'} />;
+    const [everythingLoaded, loadingState] = useGlobalLoadingState();
+    if (!everythingLoaded) {
+        return <LoadingStateSpinner loadingState={loadingState} />;
     }
 
     return (

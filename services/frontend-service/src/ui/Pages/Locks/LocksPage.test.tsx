@@ -24,6 +24,7 @@ import {
 } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
 import { Environment } from '../../../api/api';
+import { fakeLoadEverything } from '../../../setupTests';
 
 describe('LocksPage', () => {
     const getNode = (): JSX.Element | any => (
@@ -34,9 +35,7 @@ describe('LocksPage', () => {
     const getWrapper = () => render(getNode());
 
     it('Renders full app', () => {
-        UpdateOverview.set({
-            loaded: true,
-        });
+        fakeLoadEverything(true);
         const { container } = getWrapper();
         expect(container.getElementsByClassName('mdc-data-table')[0]).toHaveTextContent('Environment Locks');
         expect(container.getElementsByClassName('mdc-data-table')[1]).toHaveTextContent('Application Locks');
