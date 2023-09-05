@@ -87,6 +87,11 @@ type VersionEventProcessor interface {
 	ProcessKuberpultEvent(ctx context.Context, ev KuberpultEvent)
 }
 
+type key struct {
+	Environment string
+	Application string
+}
+
 func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEventProcessor) error {
 	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
 outer:
@@ -96,6 +101,7 @@ outer:
 			logger.FromContext(ctx).Warn("overview.connect", zap.Error(err))
 			continue outer
 		}
+		versions := map[key]uint64{}
 		for {
 			select {
 			case <-ctx.Done():
@@ -119,11 +125,17 @@ outer:
 			l := logger.FromContext(ctx).With(zap.String("git.revision", overview.GitRevision))
 			v.cache.Add(overview.GitRevision, overview)
 			l.Info("overview.get")
+			seen := make(map[key]uint64, len(versions))
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
 					for _, app := range env.Applications {
 
 						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version))
+						k := key{env.Name, app.Name}
+						seen[k] = app.Version
+						if versions[k] == app.Version {
+							continue
+						}
 						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
 							Application: app.Name,
 							Environment: env.Name,
@@ -132,6 +144,16 @@ outer:
 					}
 				}
 			}
+			for k := range versions {
+				if seen[k] == 0 {
+					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+						Application: k.Application,
+						Environment: k.Environment,
+						Version:     0,
+					})
+				}
+			}
+			versions = seen
 		}
 	}
 
