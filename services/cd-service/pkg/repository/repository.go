@@ -1448,12 +1448,13 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 	} else {
 		release.SourceMessage = string(cnt)
 	}
-	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "display_version")); err != nil {
+	if displayVersion, err := readFile(s.Filesystem, s.Filesystem.Join(base, "display_version")); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
+		release.DisplayVersion = "";
 	} else {
-		release.DisplayVersion = string(cnt)
+		release.DisplayVersion = string(displayVersion)
 	}
 	isUndeploy, err := s.IsUndeployVersion(application, version)
 	if err != nil {

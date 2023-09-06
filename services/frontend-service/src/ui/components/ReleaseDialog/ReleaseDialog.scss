@@ -47,17 +47,12 @@ Copyright 2023 freiheit.com*/
             justify-content: space-between;
 
             .release-dialog-message {
+                @extend .sub-headline1;
                 display: flex;
                 justify-content: space-between;
 
                 .release-dialog-commitMessage {
-                    @extend .sub-headline1;
                     text-overflow: wrap;
-                }
-                .release-dialog-display-version {
-                    text-overflow: wrap;
-                    font-size: 16px;
-                    margin-top: 4px;
                 }
             }
         }

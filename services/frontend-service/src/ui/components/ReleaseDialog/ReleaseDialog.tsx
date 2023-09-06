@@ -29,7 +29,7 @@ import { Button } from '../button';
 import { Close, Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
-import { ArgoAppLink, ArgoTeamLink } from '../../utils/Links';
+import { ArgoAppLink, ArgoTeamLink, ReleaseVersionLink } from '../../utils/Links';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -289,16 +289,6 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                 <span className={classNames('release-dialog-commitMessage', className)}>
                                     {release?.sourceMessage}
                                 </span>
-                                &nbsp;
-                                <span className={classNames('release-dialog-display-version', className)}>
-                                    {release?.displayVersion
-                                        ? '  Release Version: ' + release?.displayVersion
-                                        : release?.sourceCommitId
-                                        ? 'CommitID: ' + release?.sourceCommitId
-                                        : release?.version
-                                        ? 'Version: ' + release?.version
-                                        : ''}
-                                </span>
                             </div>
                             {!!release?.createdAt && (
                                 <FormattedDate
@@ -316,7 +306,13 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             </div>
                         </div>
                         <span className={classNames('release-dialog-commitId', className)} title={undeployVersionTitle}>
-                            {release.undeployVersion ? 'Undeploy Version' : release?.sourceCommitId}
+                            <ReleaseVersionLink
+                                displayVersion={release.displayVersion}
+                                undeployVersion={release.undeployVersion}
+                                sourceCommitId={release.sourceCommitId}
+                                version={release.version}
+                                app={app}
+                            />
                         </span>
                         <Button
                             onClick={closeReleaseDialog}

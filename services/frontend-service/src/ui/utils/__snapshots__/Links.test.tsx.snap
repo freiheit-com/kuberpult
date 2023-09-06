@@ -77,3 +77,45 @@ exports[`ArgoTeamLink Renders properly without team, with url 1`] = `
   <div />
 </body>
 `;
+
+exports[`ReleaseVersionLink RendersProperly Test with displayVersion 1`] = `
+<body>
+  <div>
+    <span>
+      Release Version: 
+      <a
+        href="https://example.com/testing/releases/applications/foo/releases/1"
+        title="Opens the release directory for this release"
+      >
+        1
+      </a>
+    </span>
+  </div>
+</body>
+`;
+
+exports[`ReleaseVersionLink RendersProperly Test with undeployVersion 1`] = `
+<body>
+  <div>
+    <span>
+      Undeploy Version
+    </span>
+  </div>
+</body>
+`;
+
+exports[`ReleaseVersionLink RendersProperly Test without DisplayVersion 1`] = `
+<body>
+  <div>
+    <span>
+      CommitID: 
+      <a
+        href="https://example.com/testing/releases/applications/foo/releases/1"
+        title="Opens the release directory for this release"
+      >
+        1
+      </a>
+    </span>
+  </div>
+</body>
+`;

@@ -48,12 +48,6 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
               >
                 test1
               </span>
-               
-              <span
-                class="release-dialog-display-version"
-              >
-                  Release Version: 2
-              </span>
             </div>
             <div>
               some formatted date
@@ -76,7 +70,12 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
             class="release-dialog-commitId"
             title="Commit Hash of the source repository."
           >
-            commit
+            <span>
+              Release Version: 
+              <span>
+                2
+              </span>
+            </span>
           </span>
           <button
             aria-label=""
@@ -307,12 +306,6 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
               >
                 test1
               </span>
-               
-              <span
-                class="release-dialog-display-version"
-              >
-                  Release Version: 2
-              </span>
             </div>
             <div>
               some formatted date
@@ -335,7 +328,12 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
             class="release-dialog-commitId"
             title="Commit Hash of the source repository."
           >
-            commit
+            <span>
+              Release Version: 
+              <span>
+                2
+              </span>
+            </span>
           </span>
           <button
             aria-label=""
@@ -570,12 +568,6 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
               >
                 the other commit message 2
               </span>
-               
-              <span
-                class="release-dialog-display-version"
-              >
-                  Release Version: 2
-              </span>
             </div>
             <div>
               some formatted date
@@ -601,7 +593,12 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
             class="release-dialog-commitId"
             title="Commit Hash of the source repository."
           >
-            cafe
+            <span>
+              Release Version: 
+              <span>
+                2
+              </span>
+            </span>
           </span>
           <button
             aria-label=""
@@ -986,12 +983,6 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
               <span
                 class="release-dialog-commitMessage"
               />
-               
-              <span
-                class="release-dialog-display-version"
-              >
-                  Release Version: 4
-              </span>
             </div>
             <div>
               some formatted date
@@ -1014,7 +1005,9 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
             class="release-dialog-commitId"
             title="This is the \\"undeploy\\" version. It is essentially an empty manifest. Deploying this means removing all kubernetes entities like deployments from the given environment. You must deploy this to all environments before kuberpult allows to delete the app entirely."
           >
-            Undeploy Version
+            <span>
+              Undeploy Version
+            </span>
           </span>
           <button
             aria-label=""
