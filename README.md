@@ -11,7 +11,7 @@ Kuberpult is a catapult for [kubernetes](https://kubernetes.io/) :) it catapults
 ## About
 
 **Kuberpult** helps you manage different versions of different microservices in different cluster.
-While [ArgoCD](https://argo-cd.readthedocs.io/en/stable) applies the *current* version of your services in clusters,
+While [Argo CD](https://argo-cd.readthedocs.io/en/stable) applies the *current* version of your services in clusters,
 Kuberpult also helps you with managing what is deployed *next*.
 
 ## Purpose
@@ -28,11 +28,11 @@ We use it for requirements like this:
 Kuberpult has an API that is intended to be used in CI/CD (GitHub Actions, Azure Pipelines, etc) to release new versions of one (or more) microservices.
 The API can also rollout many services at the same time via "release trains". It also supports rolling out some groups of services.
 
-# ArgoCD
-Kuberpult works best with [ArgoCD](https://argo-cd.readthedocs.io/en/stable/) which applies the
+# Argo CD
+Kuberpult works best with [Argo CD](https://argo-cd.readthedocs.io/en/stable/) which applies the
 manifests to your clusters and Kuberpult helps you to manage those manifests in the repository.
 
-`kuberpult` does not actually `deploy`. That part is usually handled by argoCD.
+`kuberpult` does not actually `deploy`. That part is usually handled by Argo CD.
 
 # App Locks & Environment Locks
 `kuberpult` can handle *locks* in its UI. When something is locked, it's version will not be changed via the API.
@@ -58,14 +58,15 @@ You can see all releases on the [Releases page on GitHub](https://github.com/fre
 ## Releasing a new version
 In order to let kuberpult know about a change in your service, you need to invoke its `/release` http endpoint.
 An example for this can be found [here](https://github.com/freiheit-com/kuberpult/blob/main/infrastructure/scripts/create-testdata/create-release.sh#L80).
-* `manifests` the (kubernetes) manifests that belong to this service. Need to be unique for each version. You can achieve this by adding the git commit id to the docker image tag of your kubernetes Deployment.
+The `/release` endpoint accepts several parameters:
+* `manifests` the (kubernetes) manifests that belong to this service. Needs to be unique for each version. You can achieve this by adding the git commit id to the docker image tag of your kubernetes Deployment.
 * `application` name of the microservice. Must be the same name over all releases, otherwise kuberpult assumes this is a separate microservice.
 * `source_commit_id` git commit hash, we recommend to use the first 12 characters (but can be shorter/longer if needed).
 * `source_author` git author of the new change.
 * `source_message` git commit message of the new change.
 * `author-email` and `author-name` are base64 encoded http headers. They define the `git author` that pushes to the manifest repository.
 * `version` (optional, but recommended) If not set, kuberpult will just use `last release number + 1`. It is recommended to set this to a unique number, for example the number of commits in your git main branch. This way, if you have parallel executions of `/release` for the same service, kuberpult will sort them in the right order.
-* `team` (optional) team name of the microservice. Used to filter more easily for relevant services in kuberpult's UI and also written as label to the ArgoCd app to allow filtering in the ArgoCd UI.
+* `team` (optional) team name of the microservice. Used to filter more easily for relevant services in kuberpult's UI and also written as label to the Argo CD app to allow filtering in the Argo CD UI.
 
 Caveats:
 * Note that the `/release` endpoint can be rather slow. This is because it involves running `git push` to a real repository, which in itself is a slow operation. Usually this takes about 1 second, but it highly depends on your Git Hosting Provider. This applies to all endpoints that have to write to the git repo (which is most of the endpoints).
@@ -82,15 +83,14 @@ The train should run *often enough* to not slow down development, while also giv
 ### Trigger
 
 The release train needs to be triggered externally - there is nothing in `kuberpult` that triggers it.
-The trigger is usually implemented as a jenkins pipeline with a cronjob.
-See `k8s-jenkins-cac.tf` in your project.
+The trigger can be implemented as a GitHub Action, Google Cloud Build, etc.
 
 ### Environments
 
 There are 2 environments involved:
-* *target*:  this is where the services will be deployed (where the version changes happen), *target* can be either a single `environment` or `environmentGroup`
-in the case of `environmentGroup` the train will run for all environments belonging to this `environmentGroup`, if one of those environments fails, the train will fail too.
-* *upstream*: this is where the system tests are run. It is also the source for the *versions* of the apps.
+* *target*:  this is where the services will be deployed (where the version changes happen), *target* can be either a single `environment` or an `environmentGroup`
+in the case of `environmentGroup` the train will run for all environments belonging to this `environmentGroup`. If one environment cannot be changed (e.g. because of a lock), the other environments will still be processed.
+* *upstream*: This is the source for the *versions* of the apps. You should run system tests on this environment before running the release train.
 
 ---
 
@@ -102,11 +102,11 @@ In a cloud provider like GCP, we recommend separating the environments on a proj
 
 Environments are also called `stages` - but in kuberpult we stick to `environments`, in short `envs`.
 
-The config for an environment is stored in a json file called `config.json`. This file would go into an environment in the manifests repository like this: `environments/development/config.json` (in this example the `config.json` file would dictate the configuration for the `development` environment)
+The config for an environment is stored in a json file called `config.json`. This file belongs in the environment's directory like this: `environments/development/config.json` (in this example the `config.json` file would dictate the configuration for the `development` environment).
 
 In the `config.json` file there are 3 main fields:
 - [Upstream](#upstream)  `"upstream"`
-- [ArgoCD](#argocd)    `"argocd"`
+- [Argo CD](#argocd)    `"argocd"`
 - [EnvironmentGroup](#environment-group) `"environmentGroup"`
 
 ##### Upstream:
@@ -115,12 +115,12 @@ The `"upstream"` field can have one of the two options (cannot have both):
   - `latest`: can only be set to `true` which means that kuberpult will deploy the latest version of an application to this environment
   - `environment`: has a string which is the name of another environment. Following the chain of upstream environments would take you to the one with `"latest": true`. This is used in release trains: when a release train is run in an environment, it will pull the version from the environment's upstream environment.
 
-##### ArgoCd: 
+##### Argo CD: 
 
 The `"argocd"` field has a few subfields:
 - `"accessList"`:  
-  Is a list of objects that describe which resources are allowed in the cluster ([ArgoCD Docs](https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#projects)).
-  Note that this is only necessary when argoCd cannot apply a certain resource on the cluster. Most common resources (Pods, Configmaps, Cronjobs, Deployments...) just work out of the box.
+  Is a list of objects that describe which resources are allowed in the cluster ([Argo CD Docs](https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#projects)).
+  Note that this is only necessary when Argo CD cannot apply a certain resource on the cluster. Most common resources (Pods, Configmaps, Cronjobs, Deployments...) just work out of the box.
   It has the following fields:
   - `"group"`: relates to the Kubernetes API group without the version
   - `"kind"`: the resource type in kubernetes
@@ -128,7 +128,7 @@ The `"argocd"` field has a few subfields:
 - `"destination"` (**Mandatory**):
   > Defines which Kubernetes cluster/namespace to deploy to
   >
-  > \- [Template ArgoCD Docs](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Template/#template-fields)
+  > \- [Template Argo CD Docs](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Template/#template-fields)
 
   It has the following fields:
   - `"name"` (**Mandatory**): Name of the cluster (within Argo CD) to deploy to
@@ -154,9 +154,9 @@ The `"argocd"` field has a few subfields:
       ```
 
 - `"syncWindows"`:
-  > Sync windows are configurable windows of time where syncs will either be blocked or allowed. Note that this is not generally necessary, and by default, argoCd syncs all the time. We recommend to only use this setting, if it's really necessary, as it complicates the deployment pipeline.
+  > Sync windows are configurable windows of time where syncs will either be blocked or allowed. Note that this is not generally necessary, and by default, Argo CD syncs all the time. We recommend to only use this setting, if it's really necessary, as it complicates the deployment pipeline.
   >
-  > - [Sync Windows ArgoCD Docs](https://argo-cd.readthedocs.io/en/stable/user-guide/sync_windows/)
+  > - [Sync Windows Argo CD Docs](https://argo-cd.readthedocs.io/en/stable/user-guide/sync_windows/)
 
   It has the following fields:
   - `"schedule"`: is the schedule of the window in `cron` format (Example: `"10 1 * * *"`)
@@ -167,7 +167,7 @@ The `"argocd"` field has a few subfields:
 - `"ignoreDifferences"`:
   > Argo CD allows ignoring differences at a specific JSON path, using RFC6902 JSON patches and JQ path expressions.
   > 
-  > [Application Level Config ArgoCD Docs](https://argo-cd.readthedocs.io/en/stable/user-guide/diffing/#application-level-configuration)
+  > [Application Level Config Argo CD Docs](https://argo-cd.readthedocs.io/en/stable/user-guide/diffing/#application-level-configuration)
 
   It has the following fields:
   - `"group"`: relates to the Kubernetes API group without the version
@@ -180,7 +180,7 @@ The `"argocd"` field has a few subfields:
 
 - `"applicationAnnotations"`: Map of annotations to add to the resources
 
-- `"syncOptions"`: A list of strings that allows users to customize some aspects of how it syncs the desired state in the target cluster ([Sync Options ArgoCD Docs](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/))
+- `"syncOptions"`: A list of strings that allows users to customize some aspects of how it syncs the desired state in the target cluster ([Sync Options Argo CD Docs](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/))
 
 ##### Environment Group:
 
