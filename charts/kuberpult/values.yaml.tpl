@@ -64,10 +64,13 @@ rollout:
       memory: 250Mi
 
 ingress:
+  # The simplest setup involves an ingress, to make kuberpult available outside the cluster.
+  # set to false, if you want use your own ingress:
   create: true
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: 300
   domainName: null
+  # note that IAP is a GCP specific feature. On GCP we recommend to enable it.
   iap:
     enabled: false
     secretName: null
@@ -75,12 +78,15 @@ ingress:
     host: null
     secretName: kuberpult-tls-secret
 ssh:
+  # This section is necessary to checkout the manifest repo from git. Only ssh is supported (no https).
   identity: |
     -----BEGIN OPENSSH PRIVATE KEY-----
     -----END OPENSSH PRIVATE KEY-----
   known_hosts: |
     github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
 pgp:
+  # The pgp keyring is used as an authentication measure for kuberpult rest endpoints that are publicly available.
+  # If you do not use IAP, it is highly recommended to enable this.
   keyRing: null
 
 argocd:

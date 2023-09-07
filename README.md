@@ -15,7 +15,7 @@ While [Argo CD](https://argo-cd.readthedocs.io/en/stable) applies the *current* 
 Kuberpult also helps you with managing what is deployed *next*.
 
 ## Purpose
-The purpose of kuberpult is to help roll out quickly yet organized.
+The purpose of Kuberpult is to help roll out quickly yet organized.
 We use it for requirements like this:
 * We have 3 clusters, development, staging, production
 * Any merged changes should instantly be deployed to development.
@@ -32,41 +32,67 @@ The API can also rollout many services at the same time via "release trains". It
 Kuberpult works best with [Argo CD](https://argo-cd.readthedocs.io/en/stable/) which applies the
 manifests to your clusters and Kuberpult helps you to manage those manifests in the repository.
 
-`kuberpult` does not actually `deploy`. That part is usually handled by Argo CD.
+<<<<<<< HEAD
+`Kuberpult` does not actually `deploy`. That part is usually handled by Argo CD.
 
 # App Locks & Environment Locks
-`kuberpult` can handle *locks* in its UI. When something is locked, it's version will not be changed via the API.
+`Kuberpult` can handle *locks* in its UI. When something is locked, it's version will not be changed via the API.
 Both *environments* and *microservices* can be `locked`.
 
 ## Public releases of Kuberpult
 
 ### Docker Registries
 Kuberpult's docker images are currently available in 2 docker registries: (Example with version 0.4.55)
-* `docker pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:0.4.55` ([Link for kuberpult devs](https://console.cloud.google.com/artifacts/docker/fdc-public-docker-registry/europe-west3/kuberpult/kuberpult-frontend-service))
-* `docker pull ghcr.io/freiheit-com/kuberpult/kuberpult-frontend-service:0.4.55` ([Link for kuberpult devs](https://github.com/freiheit-com/kuberpult/pkgs/container/kuberpult%2Fkuberpult-frontend-service))
+* `docker pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:0.4.55` ([Link for Kuberpult devs](https://console.cloud.google.com/artifacts/docker/fdc-public-docker-registry/europe-west3/kuberpult/kuberpult-frontend-service))
+* `docker pull ghcr.io/freiheit-com/kuberpult/kuberpult-frontend-service:0.4.55` ([Link for Kuberpult devs](https://github.com/freiheit-com/kuberpult/pkgs/container/kuberpult%2Fkuberpult-frontend-service))
 And the same applies for the `kuberpult-cd-service` - just replace "frontend" by "cd".
 
 We may deprecate one of the registries in the future for simplicity.
 
-If you're using kuberpult's helm chart, generally you don't have to worry about that.
+If you're using Kuberpult's helm chart, generally you don't have to worry about that.
 
 ### GitHub Releases
 
 To use the helm chart, you can use [this url](https://github.com/freiheit-com/kuberpult/releases/download/0.4.55/kuberpult-0.4.55.tgz) (replace both versions with the current version!).
 You can see all releases on the [Releases page on GitHub](https://github.com/freiheit-com/kuberpult/releases)
 
+#### Helm Chart 
+See [values.yaml.tpl](https://github.com/freiheit-com/kuberpult/blob/main/charts/kuberpult/values.yaml.tpl) for details like default values.
+
+Most important helm chart parameters are:
+* `git.url`: **required** - The url of the git manifest repository. This is a shared repo between Kuberpult and Argo CD.
+* `git.branch`: **recommended** - Branch name of the git repo. Must be the same one that Argo CD uses.
+* `ssh.identity`: **required** - The ssh private key to access the git manifest repo.
+* `ssh.known_hosts`: - The ssh key fingerprints of for your git provider (e.g. [GitHub](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints))
+* `pgp.keyring`: **recommended** - Additional security. Highly recommended if you do not us IAP. If enabled, calls to the REST API need to provide signatures with each call. See [create-release](https://github.com/freiheit-com/kuberpult/blob/main/infrastructure/scripts/create-testdata/create-release.sh) for an example.
+* `ingress.create`: **recommended** - If you want to use your own ingress, set to false.
+* `ingress.iap`: **recommended** - We recommend to use IAP, but note that this a GCP-only feature.
+* `datadogTracing`: **recommended** - We recommend using Datadog for tracing. Requires the [Datadog daemons to run on the cluster](https://docs.datadoghq.com/containers/kubernetes/installation/?tab=operator).
+* `dogstatsdMetrics`: **optional** - As of now Kuberpult sends very limited metrics to Datadog, so this is optional.
+* `auth.aureAuth.enabled`: **recommended** - Enable this on Azure to limit who can use Kuberpult. Alternative to IAP. Requires an Azure "App" to be set up.
+
 ## Releasing a new version
-In order to let kuberpult know about a change in your service, you need to invoke its `/release` http endpoint.
+In order to let Kuberpult know about a change in your service, you need to invoke its `/release` http endpoint.
 An example for this can be found [here](https://github.com/freiheit-com/kuberpult/blob/main/infrastructure/scripts/create-testdata/create-release.sh#L80).
+<<<<<<< HEAD
 The `/release` endpoint accepts several parameters:
 * `manifests` the (kubernetes) manifests that belong to this service. Needs to be unique for each version. You can achieve this by adding the git commit id to the docker image tag of your kubernetes Deployment.
 * `application` name of the microservice. Must be the same name over all releases, otherwise kuberpult assumes this is a separate microservice.
+=======
+* `manifests` the (kubernetes) manifests that belong to this service. Need to be unique for each version. You can achieve this by adding the git commit id to the docker image tag of your kubernetes Deployment.
+* `application` name of the microservice. Must be the same name over all releases, otherwise Kuberpult assumes this is a separate microservice.
+>>>>>>> d627940 (Explain Main Helm Parameters in Readme)
 * `source_commit_id` git commit hash, we recommend to use the first 12 characters (but can be shorter/longer if needed).
 * `source_author` git author of the new change.
 * `source_message` git commit message of the new change.
 * `author-email` and `author-name` are base64 encoded http headers. They define the `git author` that pushes to the manifest repository.
+<<<<<<< HEAD
 * `version` (optional, but recommended) If not set, kuberpult will just use `last release number + 1`. It is recommended to set this to a unique number, for example the number of commits in your git main branch. This way, if you have parallel executions of `/release` for the same service, kuberpult will sort them in the right order.
 * `team` (optional) team name of the microservice. Used to filter more easily for relevant services in kuberpult's UI and also written as label to the Argo CD app to allow filtering in the Argo CD UI.
+=======
+* `version` (optional, but recommended) If not set, Kuberpult will just use `last release number + 1`. It is recommended to set this to a unique number, for example the number of commits in your git main branch. This way, if you have parallel executions of `/release` for the same service, Kuberpult will sort them in the right order.
+* `team` (optional) team name of the microservice. Used to filter more easily for relevant services in Kuberpult's UI and also written as label to the ArgoCd app to allow filtering in the ArgoCd UI.
+>>>>>>> d627940 (Explain Main Helm Parameters in Readme)
 
 Caveats:
 * Note that the `/release` endpoint can be rather slow. This is because it involves running `git push` to a real repository, which in itself is a slow operation. Usually this takes about 1 second, but it highly depends on your Git Hosting Provider. This applies to all endpoints that have to write to the git repo (which is most of the endpoints).
@@ -82,7 +108,7 @@ The train should run *often enough* to not slow down development, while also giv
 
 ### Trigger
 
-The release train needs to be triggered externally - there is nothing in `kuberpult` that triggers it.
+The release train needs to be triggered externally - there is nothing in `Kuberpult` that triggers it.
 The trigger can be implemented as a GitHub Action, Google Cloud Build, etc.
 
 ### Environments
@@ -98,9 +124,9 @@ in the case of `environmentGroup` the train will run for all environments belong
 
 An `environment` is the set of machines where your microservices will run. For example: `development`, `staging` and `production` (or `de-prod`, `jp-prod`, and `pt-prod` which would all be `production` environments - and belong to the `production` environment group - but are machines in different countries).
 
-In a cloud provider like GCP, we recommend separating the environments on a project level. This means that one GCP project correlates to one kuberpult environment 1:1 - although this is not a technical requirement.
+In a cloud provider like GCP, we recommend separating the environments on a project level. This means that one GCP project correlates to one Kuberpult environment 1:1 - although this is not a technical requirement.
 
-Environments are also called `stages` - but in kuberpult we stick to `environments`, in short `envs`.
+Environments are also called `stages` - but in Kuberpult we stick to `environments`, in short `envs`.
 
 The config for an environment is stored in a json file called `config.json`. This file belongs in the environment's directory like this: `environments/development/config.json` (in this example the `config.json` file would dictate the configuration for the `development` environment).
 
@@ -112,7 +138,7 @@ In the `config.json` file there are 3 main fields:
 ##### Upstream:
 
 The `"upstream"` field can have one of the two options (cannot have both):
-  - `latest`: can only be set to `true` which means that kuberpult will deploy the latest version of an application to this environment
+  - `latest`: can only be set to `true` which means that Kuberpult will deploy the latest version of an application to this environment
   - `environment`: has a string which is the name of another environment. Following the chain of upstream environments would take you to the one with `"latest": true`. This is used in release trains: when a release train is run in an environment, it will pull the version from the environment's upstream environment.
 
 ##### Argo CD: 
