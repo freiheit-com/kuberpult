@@ -18,6 +18,9 @@
 {{- if not (regexMatch "^https?://[^:]+:[0-9]+$" .Values.argocd.server) -}}
 {{ fail "argocd.server must be a valid http/https url including the port"}}
 {{- end -}}
+{{- if not (eq .Values.argocd.refreshEnabled nil) }}
+{{ fail "argocd.refreshEnabled is removed in favour of argocd.refresh.enabled"}}
+{{- end -}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -86,7 +89,9 @@ spec:
         - name: KUBERPULT_ARGOCD_INSECURE
           value: {{ .Values.argocd.insecure | quote }}
         - name: KUBERPULT_ARGOCD_REFRESH_ENABLED
-          value: {{ .Values.argocd.refreshEnabled | quote }}
+          value: {{ .Values.argocd.refresh.enabled | quote }}
+        - name: KUBERPULT_ARGOCD_REFRESH_CONCURRENCY
+          value: {{ .Values.argocd.refresh.concurrency | quote }}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL

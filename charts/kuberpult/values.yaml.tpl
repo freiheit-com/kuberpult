@@ -103,8 +103,13 @@ argocd:
   insecure: false
   # Enable sending webhooks to argocd
   sendWebhooks: false
-  # Enable sending refresh requests to argocd
-  refreshEnabled: false
+
+  refresh:
+    # Enable sending refresh requests to argocd
+    enabled: false
+    # Send up to that many parallel refresh requests to argocd.
+    # The number is determined by the power of the deployed argocd.
+    concurrency: 50
 
 datadogTracing:
   enabled: false

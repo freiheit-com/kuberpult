@@ -26,6 +26,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
@@ -38,29 +39,41 @@ type Notifier interface {
 	NotifyArgoCd(ctx context.Context, environment, application string)
 }
 
-func New(client SimplifiedApplicationInterface) Notifier {
-	return &notifier{client}
+func New(client SimplifiedApplicationInterface, concurrencyLimit int) Notifier {
+	n := &notifier{client, errgroup.Group{}}
+	n.errGroup.SetLimit(concurrencyLimit)
+	return n
+}
+
+type queueElement struct {
+	ctx         context.Context
+	environment string
+	application string
 }
 
 type notifier struct {
-	client SimplifiedApplicationInterface
+	client   SimplifiedApplicationInterface
+	errGroup errgroup.Group
 }
 
 func (n *notifier) NotifyArgoCd(ctx context.Context, environment, application string) {
-        var err error
-	span, ctx := tracer.StartSpanFromContext(ctx, "argocd.refresh")
-	span.SetTag("environment", environment)
-	span.SetTag("application", application)
-	defer span.Finish(tracer.WithError(err))
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	l := logger.FromContext(ctx).With(zap.String("environment", environment), zap.String("application", application))
+	n.errGroup.Go(func() error {
+		var err error
+		span, ctx := tracer.StartSpanFromContext(ctx, "argocd.refresh")
+		span.SetTag("environment", environment)
+		span.SetTag("application", application)
+		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		defer cancel()
+		l := logger.FromContext(ctx).With(zap.String("environment", environment), zap.String("application", application))
 
-	_, err = n.client.Get(ctx, &argoapplication.ApplicationQuery{
-		Name:    ptr.FromString(fmt.Sprintf("%s-%s", environment, application)),
-		Refresh: ptr.FromString(string(argoappv1.RefreshTypeNormal)),
+		_, err = n.client.Get(ctx, &argoapplication.ApplicationQuery{
+			Name:    ptr.FromString(fmt.Sprintf("%s-%s", environment, application)),
+			Refresh: ptr.FromString(string(argoappv1.RefreshTypeNormal)),
+		})
+		if err != nil {
+			l.Error("argocd.refresh", zap.Error(err))
+		}
+		span.Finish(tracer.WithError(err))
+		return nil
 	})
-	if err != nil {
-		l.Error("argocd.refresh", zap.Error(err))
-	}
 }
