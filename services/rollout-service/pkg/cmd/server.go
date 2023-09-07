@@ -48,10 +48,11 @@ type Config struct {
 	CdServer      string `default:"kuberpult-cd-service:8443"`
 	EnableTracing bool   `default:"false" split_words:"true"`
 
-	ArgocdServer         string `split_words:"true"`
-	ArgocdInsecure       bool   `default:"false" split_words:"true"`
-	ArgocdToken          string `split_words:"true"`
-	ArgocdRefreshEnabled bool   `split_words:"true"`
+	ArgocdServer             string `split_words:"true"`
+	ArgocdInsecure           bool   `default:"false" split_words:"true"`
+	ArgocdToken              string `split_words:"true"`
+	ArgocdRefreshEnabled     bool   `split_words:"true"`
+	ArgocdRefreshConcurrency int    `default:"50" split_words:"true"`
 }
 
 func (config *Config) ClientConfig() (apiclient.ClientOptions, error) {
@@ -177,10 +178,11 @@ func runServer(ctx context.Context, config Config) error {
 	}
 
 	if config.ArgocdRefreshEnabled {
-		notify := notifier.New(appClient)
+
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 			Name: "refresh argocd",
 			Run: func(ctx context.Context) error {
+				notify := notifier.New(appClient, config.ArgocdRefreshConcurrency)
 				return notifier.Subscribe(ctx, notify, broadcast)
 			},
 		})
