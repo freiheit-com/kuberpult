@@ -18,6 +18,9 @@
 {{- if not (regexMatch "^https?://[^:]+:[0-9]+$" .Values.argocd.server) -}}
 {{ fail "argocd.server must be a valid http/https url including the port"}}
 {{- end -}}
+{{- if not (eq .Values.argocd.refreshEnabled nil) }}
+{{ fail "argocd.refreshEnabled is removed in favour of argocd.refresh.enabled"}}
+{{- end -}}
 ---
 apiVersion: apps/v1
 kind: Deployment
