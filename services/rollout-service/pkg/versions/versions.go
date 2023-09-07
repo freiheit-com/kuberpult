@@ -144,6 +144,8 @@ outer:
 					}
 				}
 			}
+			// Send events with version 0 for deleted applications so that we can react
+			// to apps getting deleted.
 			for k := range versions {
 				if seen[k] == 0 {
 					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
