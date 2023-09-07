@@ -270,7 +270,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 
 	changes := &TransformerResult{}
 	for env, man := range c.Manifests {
-		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.RBACConfig)
+		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
 		if err != nil {
 			return "", nil, err
 		}
@@ -383,7 +383,7 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 	}
 	result := ""
 	for env := range configs {
-		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateUndeploy, c.RBACConfig)
+		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateUndeploy, "", c.RBACConfig)
 		if err != nil {
 			return "", nil, err
 		}
@@ -455,7 +455,7 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 	appDir := applicationDirectory(fs, u.Application)
 	configs, err := state.GetEnvironmentConfigs()
 	for env := range configs {
-		err := state.checkUserPermissions(ctx, env, u.Application, auth.PermissionDeployUndeploy, u.RBACConfig)
+		err := state.checkUserPermissions(ctx, env, u.Application, auth.PermissionDeployUndeploy, "", u.RBACConfig)
 		if err != nil {
 			return "", nil, err
 		}
@@ -513,7 +513,7 @@ type DeleteEnvFromApp struct {
 }
 
 func (u *DeleteEnvFromApp) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	err := state.checkUserPermissions(ctx, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, u.RBACConfig)
+	err := state.checkUserPermissions(ctx, u.Environment, u.Application, auth.PermissionDeleteEnvironmentApplication, "", u.RBACConfig)
 	if err != nil {
 		return "", nil, err
 	}
@@ -647,7 +647,7 @@ type CreateEnvironmentLock struct {
 	Message     string
 }
 
-func (s *State) checkUserPermissions(ctx context.Context, env, application, action string, RBACConfig auth.RBACConfig) error {
+func (s *State) checkUserPermissions(ctx context.Context, env, application, action, team string, RBACConfig auth.RBACConfig) error {
 	if !RBACConfig.DexEnabled {
 		return nil
 	}
@@ -670,10 +670,10 @@ func (s *State) checkUserPermissions(ctx context.Context, env, application, acti
 	if group == "" {
 		return fmt.Errorf("group not found for environment: %s", env)
 	}
-	return auth.CheckUserPermissions(RBACConfig, user, env, group, application, action)
+	return auth.CheckUserPermissions(RBACConfig, user, env, team, group, application, action)
 }
 
-func (s *State) checkUserPermissionsEnvGroup(ctx context.Context, envGroup, application, action string, RBACConfig auth.RBACConfig) error {
+func (s *State) checkUserPermissionsEnvGroup(ctx context.Context, envGroup, application, action, team string, RBACConfig auth.RBACConfig) error {
 	if !RBACConfig.DexEnabled {
 		return nil
 	}
@@ -681,7 +681,7 @@ func (s *State) checkUserPermissionsEnvGroup(ctx context.Context, envGroup, appl
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
 	}
-	return auth.CheckUserPermissions(RBACConfig, user, "*", envGroup, application, action)
+	return auth.CheckUserPermissions(RBACConfig, user, "*", team, envGroup, application, action)
 }
 
 // checkUserPermissionsCreateEnvironment check the permission for the environment creation action.
@@ -699,11 +699,11 @@ func (s *State) checkUserPermissionsCreateEnvironment(ctx context.Context, RBACC
 	if envConfig.EnvironmentGroup != nil {
 		envGroup = *(envConfig.EnvironmentGroup)
 	}
-	return auth.CheckUserPermissions(RBACConfig, user, "*", envGroup, "*", auth.PermissionCreateEnvironment)
+	return auth.CheckUserPermissions(RBACConfig, user, "*", "", envGroup, "*", auth.PermissionCreateEnvironment)
 }
 
 func (c *CreateEnvironmentLock) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, "", c.RBACConfig)
 	if err != nil {
 		return "", nil, err
 	}
@@ -772,7 +772,7 @@ type DeleteEnvironmentLock struct {
 }
 
 func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionDeleteLock, c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionDeleteLock, "", c.RBACConfig)
 	if err != nil {
 		return "", nil, err
 	}
@@ -813,7 +813,7 @@ type CreateEnvironmentGroupLock struct {
 }
 
 func (c *CreateEnvironmentGroupLock) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	err := state.checkUserPermissions(ctx, c.EnvironmentGroup, "*", auth.PermissionCreateLock, c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.EnvironmentGroup, "*", auth.PermissionCreateLock, "", c.RBACConfig)
 	if err != nil {
 		return "", nil, err
 	}
@@ -848,7 +848,7 @@ type DeleteEnvironmentGroupLock struct {
 }
 
 func (c *DeleteEnvironmentGroupLock) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	err := state.checkUserPermissions(ctx, c.EnvironmentGroup, "*", auth.PermissionDeleteLock, c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.EnvironmentGroup, "*", auth.PermissionDeleteLock, "", c.RBACConfig)
 	if err != nil {
 		return "", nil, err
 	}
@@ -886,7 +886,7 @@ type CreateEnvironmentApplicationLock struct {
 
 func (c *CreateEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
 	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
-	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionCreateLock, c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionCreateLock, "", c.RBACConfig)
 	if err != nil {
 		return "", nil, err
 	}
@@ -921,7 +921,7 @@ type DeleteEnvironmentApplicationLock struct {
 }
 
 func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeleteLock, c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeleteLock, "", c.RBACConfig)
 	if err != nil {
 		return "", nil, err
 	}
@@ -1015,7 +1015,7 @@ type DeployApplicationVersion struct {
 }
 
 func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeployRelease, c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeployRelease,  "", c.RBACConfig)
 	if err != nil {
 		return "", nil, err
 	}
@@ -1218,7 +1218,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, *Tr
 			envSkippedMsg[envName] = fmt.Sprintf("Environment '%q' does not have upstream configured - skipping.", envName)
 			continue
 		}
-		err := state.checkUserPermissions(ctx, envName, "*", auth.PermissionDeployReleaseTrain, c.RBACConfig)
+		err := state.checkUserPermissions(ctx, envName, "*", auth.PermissionDeployReleaseTrain, c.Team, c.RBACConfig)
 		if err != nil {
 			return "", nil, err
 		}
