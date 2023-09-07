@@ -24,6 +24,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"io"
 	"io/fs"
+	"k8s.io/utils/strings/slices"
 	"os"
 	"sort"
 	"strconv"
@@ -1168,6 +1169,11 @@ func generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg map[string]strin
 	for env := range envDeployedMsg {
 		envGroups = append(envGroups, env)
 	}
+	for env := range envSkippedMsg {
+		if !slices.Contains(envGroups, env) {
+			envGroups = append(envGroups, env)
+		}
+	}
 	sort.Strings(envGroups)
 
 	for _, env := range envGroups {
@@ -1178,6 +1184,7 @@ func generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg map[string]strin
 			resp += "Skipped services:\n"
 			resp += skippedMsg
 		}
+		resp += "\n\n"
 	}
 	return resp
 }
@@ -1208,7 +1215,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, *Tr
 	for _, envName := range envGroups {
 		envConfig := envGroupConfigs[envName]
 		if envConfig.Upstream == nil {
-			envSkippedMsg[envName] = fmt.Sprintf("Environment %q does not have upstream configured - skipping.", envName)
+			envSkippedMsg[envName] = fmt.Sprintf("Environment '%q' does not have upstream configured - skipping.", envName)
 			continue
 		}
 		err := state.checkUserPermissions(ctx, envName, "*", auth.PermissionDeployReleaseTrain, c.RBACConfig)
