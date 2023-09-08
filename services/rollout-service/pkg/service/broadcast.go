@@ -161,6 +161,10 @@ func (b *Broadcast) StreamStatus(req *api.StreamStatusRequest, svc api.RolloutSe
 	for {
 		select {
 		case r := <-ch:
+			if r == nil {
+				// closed
+				return nil
+			}
 			err := svc.Send(streamStatus(r))
 			if err != nil {
 				return err
