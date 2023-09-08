@@ -49,6 +49,9 @@ export KUBERPULT_ALLOWED_ORIGINS?=localhost:*
 export KUBERPULT_GIT_AUTHOR_NAME?=user-local-dev
 export KUBERPULT_GIT_AUTHOR_EMAIL?=user-local-dev@example.com
 export KUBERPULT_ARGOCD_BASE_URL=https://cd.dev.freiheit.systems/
+export KUBERPULT_SOURCE_REPO_URL=https://github.com/freiheit-com/kuberpult/commit/{commit}
+export KUBERPULT_MANIFEST_REPO_URL=https://github.com/freiheit-com/fdc-standard-setup-dev-env-manifest/tree/{branch}/{dir}
+export KUBERPULT_GIT_BRANCH=main
 run: bin/main
 	./bin/main
 

@@ -55,6 +55,9 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                 test1
               </span>
             </div>
+            <div>
+              some formatted date
+            </div>
             <div
               class="source"
             >
@@ -75,6 +78,17 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
               </span>
             </div>
           </div>
+          <span
+            class="release-dialog-commitId"
+            title="Commit Hash of the source repository."
+          >
+            <span>
+              Release Version: 
+              <span>
+                2
+              </span>
+            </span>
+          </span>
           <button
             aria-label=""
             class="mdc-button release-dialog-close"
@@ -182,14 +196,11 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                     class="env-card-data"
                     title="Shows the version that is currently deployed on prod. "
                   >
-                    <span>
-                      <span
-                        class="release-version__display-version"
-                        title="commit"
-                      >
-                        2
-                      </span>
-                      test1
+                    <span
+                      class="commit-id"
+                    >
+                       
+                      commit: test1
                     </span>
                   </div>
                   <div
@@ -303,27 +314,18 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
               class="release-dialog-message"
             >
               <span
-                class="release-version__display-version"
-                title="commit"
-              >
-                2
-              </span>
-              <span
                 class="release-dialog-commitMessage"
               >
                 test1
               </span>
             </div>
+            <div>
+              some formatted date
+            </div>
             <div
-              class="source"
+              class="release-dialog-author"
             >
-              Created 
-              <div>
-                some formatted date
-              </div>
-               by 
-              test
-               
+              Author: test
             </div>
             <div
               class="release-dialog-app"
@@ -334,6 +336,17 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
               </span>
             </div>
           </div>
+          <span
+            class="release-dialog-commitId"
+            title="Commit Hash of the source repository."
+          >
+            <span>
+              Release Version: 
+              <span>
+                2
+              </span>
+            </span>
+          </span>
           <button
             aria-label=""
             class="mdc-button release-dialog-close"
@@ -441,14 +454,11 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                     class="env-card-data"
                     title="Shows the version that is currently deployed on prod. "
                   >
-                    <span>
-                      <span
-                        class="release-version__display-version"
-                        title="commit"
-                      >
-                        2
-                      </span>
-                      test1
+                    <span
+                      class="commit-id"
+                    >
+                       
+                      commit: test1
                     </span>
                   </div>
                   <div
@@ -566,27 +576,18 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
               class="release-dialog-message"
             >
               <span
-                class="release-version__display-version"
-                title="cafe"
-              >
-                2
-              </span>
-              <span
                 class="release-dialog-commitMessage"
               >
                 the other commit message 2
               </span>
             </div>
+            <div>
+              some formatted date
+            </div>
             <div
-              class="source"
+              class="release-dialog-author"
             >
-              Created 
-              <div>
-                some formatted date
-              </div>
-               by 
-              nobody
-               
+              Author: nobody
             </div>
             <div
               class="release-dialog-app"
@@ -600,6 +601,17 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
               </span>
             </div>
           </div>
+          <span
+            class="release-dialog-commitId"
+            title="Commit Hash of the source repository."
+          >
+            <span>
+              Release Version: 
+              <span>
+                2
+              </span>
+            </span>
+          </span>
           <button
             aria-label=""
             class="mdc-button release-dialog-close"
@@ -707,14 +719,11 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     class="env-card-data"
                     title="Shows the version that is currently deployed on prod. "
                   >
-                    <span>
-                      <span
-                        class="release-version__display-version"
-                        title="cafe"
-                      >
-                        2
-                      </span>
-                      the other commit message 2
+                    <span
+                      class="commit-id"
+                    >
+                       
+                      cafe: the other commit message 2
                     </span>
                   </div>
                   <div
@@ -861,14 +870,11 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     class="env-card-data"
                     title="Shows the version that is currently deployed on dev. "
                   >
-                    <span>
-                      <span
-                        class="release-version__display-version"
-                        title="cafe"
-                      >
-                        3
-                      </span>
-                      the other commit message 3
+                    <span
+                      class="commit-id"
+                    >
+                       
+                      cafe: the other commit message 3
                     </span>
                   </div>
                   <div
@@ -987,25 +993,16 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
               class="release-dialog-message"
             >
               <span
-                class="release-version__undeploy-version"
-                title="Remove"
-              >
-                undeploy
-              </span>
-              <span
                 class="release-dialog-commitMessage"
               />
             </div>
+            <div>
+              some formatted date
+            </div>
             <div
-              class="source"
+              class="release-dialog-author"
             >
-              Created 
-              <div>
-                some formatted date
-              </div>
-               by 
-              test1
-               
+              Author: test1
             </div>
             <div
               class="release-dialog-app"
@@ -1016,6 +1013,14 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
               </span>
             </div>
           </div>
+          <span
+            class="release-dialog-commitId"
+            title="This is the \\"undeploy\\" version. It is essentially an empty manifest. Deploying this means removing all kubernetes entities like deployments from the given environment. You must deploy this to all environments before kuberpult allows to delete the app entirely."
+          >
+            <span>
+              Undeploy Version
+            </span>
+          </span>
           <button
             aria-label=""
             class="mdc-button release-dialog-close"

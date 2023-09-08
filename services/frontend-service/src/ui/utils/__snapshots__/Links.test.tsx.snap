@@ -94,12 +94,9 @@ exports[`ReleaseVersionLink RendersProperly Test with displayVersion 1`] = `
 exports[`ReleaseVersionLink RendersProperly Test with undeployVersion 1`] = `
 <body>
   <div>
-    <a
-      href="https://example.com/testing"
-      title="Opens the release directory for this release"
-    >
-      1
-    </a>
+    <span>
+      Undeploy Version
+    </span>
   </div>
 </body>
 `;

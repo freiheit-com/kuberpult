@@ -3,18 +3,33 @@
 # Declare variables to be passed into your templates.
 
 git:
+  # The git url of the manifest repository (git protocol)
   url:  # git@github.com/.../...
   webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
+
+  # The branch to be use in the manifest repository
   branch: "master"
-   # If this is set, kuberpult will render a link to apps in the manifest(!) repository.
+
+  # If this is set, kuberpult will render a link to apps in the manifest repository (not the source repo).
   # Use `{dir}` and `{branch}` to automatically replace with proper values
   # Example for GitHub: https://github.com/freiheit-com/kuberpult/tree/{branch}/{dir}
   # Example for BitBucket: http://bitbucket.com/projects/projectName/repos/repoName/browse/{dir}/?at=refs%2Fheads%2F{branch}/
   # Example for Azure: https://dev.azure.com/projectName/_git/repoName?path=/{dir}&version=GB{branch}&_a=contents
+  manifestRepoUrl: ""
+
+  # If this is set, kuberpult will render a link to the source code of your services (not the manifest repository).
+  # Use `{branch}` and `{commit}` to automatically replace with proper values
+  # Example for GitHub: https://github.com/freiheit-com/kuberpult/commit/{commit}
+  # Example for BitBucket: https://example.com/path/to/repo/commits/{commit}
+  # Example for Azure: https://dev.azure.com/path/to/repo/commit/{commit}?refName=refs%2Fheads%2F{branch}
   sourceRepoUrl: ""
+
+  # The git author is what kuberpult writes to the manifest repository.
+  # The git committer cannot be configured. It will always be "kuberpult".
   author:
     name: local.user@example.com
     email: defaultUser
+
   # Timeout used for network operations
   networkTimeout: 1m
 

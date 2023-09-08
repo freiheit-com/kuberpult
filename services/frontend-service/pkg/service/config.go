@@ -14,7 +14,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-
 package service
 
 import (
@@ -43,6 +42,7 @@ func (c *FrontendConfigServiceServer) GetConfig(
 			},
 		},
 		SourceRepoUrl:    c.Config.SourceRepoUrl,
+		ManifestRepoUrl:  c.Config.ManifestRepoUrl,
 		KuberpultVersion: c.Config.KuberpultVersion,
 		Branch:           c.Config.Branch,
 	}

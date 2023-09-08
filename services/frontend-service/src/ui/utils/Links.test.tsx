@@ -30,7 +30,8 @@ const setupArgoCd = (baseUrl: string | undefined) => {
             argoCd: argo,
             authConfig: undefined,
             kuberpultVersion: 'dontcare',
-            sourceRepoUrl: 'dontcare',
+            manifestRepoUrl: 'dontcare',
+            sourceRepoUrl: 'mysource',
             branch: 'dontcare',
         },
     });
@@ -143,7 +144,8 @@ const setupSourceRepo = (baseUrl: string) => {
             argoCd: undefined,
             authConfig: undefined,
             kuberpultVersion: 'kuberpult',
-            sourceRepoUrl: baseUrl,
+            manifestRepoUrl: baseUrl,
+            sourceRepoUrl: 'mysource',
             branch: 'main',
         },
     });
