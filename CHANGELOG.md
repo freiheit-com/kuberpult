@@ -22,10 +22,15 @@ Given a version number MAJOR.MINOR.PATCH:
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.3.0...1.4.0)
 
-### Minor Changes
+### Major Changes (New Features)
 
-- Explain Helm Parameters in Readme [\#925](https://github.com/freiheit-com/kuberpult/pull/925) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
 - Submit refreshes to argocd in parallel [\#924](https://github.com/freiheit-com/kuberpult/pull/924) ([hannesg](https://github.com/hannesg))
+
+### Patch Changes (Bugfixes)
+
+- Fix NPE in broadcast.go [\#931](https://github.com/freiheit-com/kuberpult/pull/931) ([hannesg](https://github.com/hannesg))
+- Change wording for release note generator [\#928](https://github.com/freiheit-com/kuberpult/pull/928) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Explain Helm Parameters in Readme [\#925](https://github.com/freiheit-com/kuberpult/pull/925) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
 - Rollout service: dedup version notifications and notify for app deletions [\#923](https://github.com/freiheit-com/kuberpult/pull/923) ([hannesg](https://github.com/hannesg))
 - Update README.md for users [\#922](https://github.com/freiheit-com/kuberpult/pull/922) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
 - Added tests for release train to env groups [\#921](https://github.com/freiheit-com/kuberpult/pull/921) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
@@ -34,8 +39,8 @@ Given a version number MAJOR.MINOR.PATCH:
 
 **Closed issues:**
 
+- release trains for groups need more tests [\#869](https://github.com/freiheit-com/kuberpult/issues/869)
 - Need to show spinner \(while loading overview, etc\) [\#853](https://github.com/freiheit-com/kuberpult/issues/853)
-
 
 ---
 
