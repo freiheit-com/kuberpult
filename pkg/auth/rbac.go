@@ -202,7 +202,7 @@ func ReadRbacPolicy(dexEnabled bool) (policy map[string]*Permission, err error) 
 }
 
 // Checks user permissions on the RBAC policy.
-func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, envGroup, application, action string) error {
+func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup, application, action string) error {
 	// If the action is environment independent, the env format is <ENVIRONMENT_GROUP>:*
 	if isEnvironmentIndependent(action) {
 		env = "*"
@@ -221,8 +221,7 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, envGroup, appl
 		}
 	}
 	// The permission is not found. Return an error.
-	p := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, envGroup, env, application)
-	return status.Errorf(codes.PermissionDenied, fmt.Sprintf("user does not have permissions for: %s", p))
+	return status.Errorf(codes.PermissionDenied, fmt.Sprintf("%s: The user '%s' with role '%s' is not allowed to perform the action '%s' on environment '%s' for team '%s'", codes.PermissionDenied.String(), user.Name, user.DexAuthContext.Role, action, env, team))
 }
 
 // Helper function to parse the scopes

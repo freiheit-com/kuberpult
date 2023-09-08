@@ -169,7 +169,7 @@ func TestBatchServiceWorks(t *testing.T) {
 			Batch:         getBatchActions(),
 			context:       testutil.MakeTestContextDexEnabled(),
 			svc:           &BatchServer{},
-			expectedError: status.Errorf(codes.PermissionDenied, "user does not have permissions for: developer,CreateLock,production:production,*,allow").Error(),
+			expectedError: status.Errorf(codes.PermissionDenied, "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production' for team ''").Error(),
 		},
 		{
 			Name: "testing Dex setup with permissions",
