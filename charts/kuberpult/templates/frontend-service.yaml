@@ -107,6 +107,8 @@ spec:
           value: "{{ .Values.gke.project_number }}"
         - name: KUBERPULT_ALLOWED_ORIGINS
           value: "https://{{ .Values.ingress.domainName }}"
+        - name: KUBERPULT_GIT_BRANCH
+          value: {{ .Values.git.branch | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:

@@ -1402,6 +1402,7 @@ type Release struct {
 	SourceCommitId  string
 	SourceMessage   string
 	CreatedAt       time.Time
+	DisplayVersion  string 
 }
 
 func (s *State) IsUndeployVersion(application string, version uint64) (bool, error) {
@@ -1446,6 +1447,14 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		}
 	} else {
 		release.SourceMessage = string(cnt)
+	}
+	if displayVersion, err := readFile(s.Filesystem, s.Filesystem.Join(base, "display_version")); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+		release.DisplayVersion = "";
+	} else {
+		release.DisplayVersion = string(displayVersion)
 	}
 	isUndeploy, err := s.IsUndeployVersion(application, version)
 	if err != nil {

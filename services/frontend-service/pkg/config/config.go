@@ -37,6 +37,7 @@ type ServerConfig struct {
 	DexScopes           string `default:"" split_words:"true"`
 	Version             string `default:""`
 	SourceRepoUrl       string `default:"" split_words:"true"`
+	GitBranch           string `default:"" split_words:"true"`
 	AllowedOrigins      string `default:"" split_words:"true"`
 	GitAuthorName       string `default:"" split_words:"true"`
 	GitAuthorEmail      string `default:"" split_words:"true"`
@@ -47,6 +48,7 @@ type FrontendConfig struct {
 	Auth             *AuthConfig   `json:"auth"`
 	KuberpultVersion string        `json:"version"`
 	SourceRepoUrl    string        `json:"source"`
+	Branch           string        `json:"branch"`
 }
 
 type ArgoCdConfig struct {

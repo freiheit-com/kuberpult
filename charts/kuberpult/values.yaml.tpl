@@ -6,6 +6,11 @@ git:
   url:  # git@github.com/.../...
   webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
   branch: "master"
+   # If this is set, kuberpult will render a link to apps in the manifest(!) repository.
+  # Use `{dir}` and `{branch}` to automatically replace with proper values
+  # Example for GitHub: https://github.com/freiheit-com/kuberpult/tree/{branch}/{dir}
+  # Example for BitBucket: http://bitbucket.com/projects/projectName/repos/repoName/browse/{dir}/?at=refs%2Fheads%2F{branch}/
+  # Example for Azure: https://dev.azure.com/projectName/_git/repoName?path=/{dir}&version=GB{branch}&_a=contents
   sourceRepoUrl: ""
   author:
     name: local.user@example.com

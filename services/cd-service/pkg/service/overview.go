@@ -217,6 +217,7 @@ func (o *OverviewServiceServer) getOverview(
 							SourceMessage:   rel.SourceMessage,
 							UndeployVersion: rel.UndeployVersion,
 							CreatedAt:       timestamppb.New(rel.CreatedAt),
+							DisplayVersion:  rel.DisplayVersion,
 						}
 
 						release.PrNumber = extractPrNumber(release.SourceMessage)

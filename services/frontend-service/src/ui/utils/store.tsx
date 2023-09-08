@@ -617,6 +617,7 @@ type FrontendConfig = {
 export const [useFrontendConfig, UpdateFrontendConfig] = createStore<FrontendConfig>({
     configs: {
         sourceRepoUrl: '',
+        branch: '',
         kuberpultVersion: '0',
     },
     configReady: false,
@@ -650,6 +651,8 @@ export const useGlobalLoadingState = (): [boolean, GlobalLoadingState] => {
 export const useKuberpultVersion = (): string => useFrontendConfig((configs) => configs.configs.kuberpultVersion);
 export const useArgoCdBaseUrl = (): string | undefined =>
     useFrontendConfig((configs) => configs.configs.argoCd?.baseUrl);
+export const useSourceRepoUrl = (): string | undefined => useFrontendConfig((configs) => configs.configs.sourceRepoUrl);
+export const useBranch = (): string | undefined => useFrontendConfig((configs) => configs.configs.branch);
 
 export type RolloutStatusApplication = {
     [environment: string]: StreamStatusResponse;

@@ -29,7 +29,7 @@ import { Button } from '../button';
 import { Close, Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
-import { ArgoAppLink, ArgoTeamLink } from '../../utils/Links';
+import { ArgoAppLink, ArgoTeamLink, ReleaseVersionLink } from '../../utils/Links';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -306,7 +306,13 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             </div>
                         </div>
                         <span className={classNames('release-dialog-commitId', className)} title={undeployVersionTitle}>
-                            {release.undeployVersion ? 'Undeploy Version' : release?.sourceCommitId}
+                            <ReleaseVersionLink
+                                displayVersion={release.displayVersion}
+                                undeployVersion={release.undeployVersion}
+                                sourceCommitId={release.sourceCommitId}
+                                version={release.version}
+                                app={app}
+                            />
                         </span>
                         <Button
                             onClick={closeReleaseDialog}

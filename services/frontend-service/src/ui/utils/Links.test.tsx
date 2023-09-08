@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { render } from '@testing-library/react';
 import React from 'react';
-import { ArgoAppEnvLink, ArgoAppLink, ArgoTeamLink } from './Links';
+import { ArgoAppEnvLink, ArgoAppLink, ArgoTeamLink, ReleaseVersionLink } from './Links';
 import { GetFrontendConfigResponse_ArgoCD } from '../../api/api';
 import { UpdateFrontendConfig } from './store';
 
@@ -31,6 +31,7 @@ const setupArgoCd = (baseUrl: string | undefined) => {
             authConfig: undefined,
             kuberpultVersion: 'dontcare',
             sourceRepoUrl: 'dontcare',
+            branch: 'dontcare',
         },
     });
 };
@@ -131,6 +132,75 @@ describe('ArgoAppLink', () => {
             getWrapper();
             // when
             // then
+            expect(document.body).toMatchSnapshot();
+        });
+    });
+});
+
+const setupSourceRepo = (baseUrl: string) => {
+    UpdateFrontendConfig.set({
+        configs: {
+            argoCd: undefined,
+            authConfig: undefined,
+            kuberpultVersion: 'kuberpult',
+            sourceRepoUrl: baseUrl,
+            branch: 'main',
+        },
+    });
+};
+
+describe('ReleaseVersionLink', () => {
+    const cases: {
+        name: string;
+        displayVersion: string;
+        undeployVersion: boolean;
+        sourceCommitId: string;
+        version: number;
+        app: string;
+        sourceRepo: string;
+    }[] = [
+        {
+            name: 'Test with displayVersion',
+            displayVersion: '1',
+            undeployVersion: false,
+            sourceCommitId: '1',
+            version: 1,
+            app: 'foo',
+            sourceRepo: 'https://example.com/testing/{dir}/{branch}',
+        },
+        {
+            name: 'Test without DisplayVersion',
+            displayVersion: '',
+            undeployVersion: false,
+            sourceCommitId: '1',
+            version: 1,
+            app: 'foo',
+            sourceRepo: 'https://example.com/testing/{branch}/{dir}',
+        },
+        {
+            name: 'Test with undeployVersion',
+            displayVersion: '1',
+            undeployVersion: true,
+            sourceCommitId: '1',
+            version: 1,
+            app: 'foo',
+            sourceRepo: 'https://example.com/testing',
+        },
+    ];
+    describe.each(cases)('RendersProperly', (testcase) => {
+        const getNode = () => (
+            <ReleaseVersionLink
+                displayVersion={testcase.displayVersion}
+                undeployVersion={testcase.undeployVersion}
+                sourceCommitId={testcase.sourceCommitId}
+                version={testcase.version}
+                app={testcase.app}
+            />
+        );
+        const getWrapper = () => render(getNode());
+        it(testcase.name, () => {
+            setupSourceRepo(testcase.sourceRepo);
+            getWrapper();
             expect(document.body).toMatchSnapshot();
         });
     });
