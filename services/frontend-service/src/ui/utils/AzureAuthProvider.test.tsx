@@ -226,6 +226,7 @@ describe('AuthProvider', () => {
             UpdateFrontendConfig.set({
                 configs: {
                     sourceRepoUrl: 'myrepo',
+                    branch: 'main',
                     kuberpultVersion: '1.2.3',
                     authConfig: {
                         azureAuth: {

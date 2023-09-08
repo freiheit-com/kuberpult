@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 
 import React from 'react';
-import { useArgoCdBaseUrl, useSourceRepoUrl } from './store';
+import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch } from './store';
 
 export const deriveArgoAppLink = (baseUrl: string | undefined, app: string): string | undefined => {
     if (baseUrl) {
@@ -41,10 +41,16 @@ export const deriveArgoTeamLink = (baseUrl: string | undefined, team: string): s
     return '';
 };
 
-export const deriveReleaseDirLink = (baseUrl: string | undefined, app: string, version: string): string | undefined => {
-    if (baseUrl) {
-        const baseUrlSlash = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
-        return baseUrlSlash + 'applications/' + app + '/releases/' + version;
+export const deriveReleaseDirLink = (
+    baseUrl: string | undefined,
+    branch: string | undefined,
+    app: string,
+    version: string
+): string | undefined => {
+    if (baseUrl && branch) {
+        baseUrl = baseUrl.replace(/{branch}/gi, branch);
+        baseUrl = baseUrl.replace(/{dir}/gi, 'applications/' + app + '/releases/' + version);
+        return baseUrl;
     }
     return '';
 };
@@ -100,11 +106,12 @@ export const ArgoAppEnvLink: React.FC<{ app: string; env: string }> = (props): J
 export const DisplayLink: React.FC<{ displayString: string; app: string; version: string }> = (props): JSX.Element => {
     const { displayString, app, version } = props;
     const sourceRepo = useSourceRepoUrl();
+    const branch = useBranch();
     if (sourceRepo) {
         return (
             <a
                 title={'Opens the release directory for this release'}
-                href={deriveReleaseDirLink(sourceRepo, app, version)}>
+                href={deriveReleaseDirLink(sourceRepo, branch, app, version)}>
                 {displayString}
             </a>
         );
@@ -126,7 +133,7 @@ export const ReleaseVersionLink: React.FC<{
     if (displayVersion !== '') {
         return (
             <span>
-                Release Version: <DisplayLink displayString={displayVersion} app={app} version={String(version)} />
+                Release Version: <DisplayLink displayString={displayVersion} app={'account'} version={'1483'} />
             </span>
         );
     }

@@ -47,6 +47,7 @@ type FrontendConfig struct {
 	Auth             *AuthConfig   `json:"auth"`
 	KuberpultVersion string        `json:"version"`
 	SourceRepoUrl    string        `json:"source"`
+	Branch           string        `json:"branch"`
 }
 
 type ArgoCdConfig struct {

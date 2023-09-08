@@ -84,7 +84,7 @@ exports[`ReleaseVersionLink RendersProperly Test with displayVersion 1`] = `
     <span>
       Release Version: 
       <a
-        href="https://example.com/testing/releases/applications/foo/releases/1"
+        href="https://example.com/testing/applications/account/releases/1483/main"
         title="Opens the release directory for this release"
       >
         1
@@ -110,7 +110,7 @@ exports[`ReleaseVersionLink RendersProperly Test without DisplayVersion 1`] = `
     <span>
       CommitID: 
       <a
-        href="https://example.com/testing/releases/applications/foo/releases/1"
+        href="https://example.com/testing/main/applications/foo/releases/1"
         title="Opens the release directory for this release"
       >
         1

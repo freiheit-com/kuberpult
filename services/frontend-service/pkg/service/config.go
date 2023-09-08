@@ -44,6 +44,7 @@ func (c *FrontendConfigServiceServer) GetConfig(
 		},
 		SourceRepoUrl:    c.Config.SourceRepoUrl,
 		KuberpultVersion: c.Config.KuberpultVersion,
+		Branch:           c.Config.Branch,
 	}
 	return &result, nil
 }

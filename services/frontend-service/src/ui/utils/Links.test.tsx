@@ -31,6 +31,7 @@ const setupArgoCd = (baseUrl: string | undefined) => {
             authConfig: undefined,
             kuberpultVersion: 'dontcare',
             sourceRepoUrl: 'dontcare',
+            branch: 'dontcare',
         },
     });
 };
@@ -143,6 +144,7 @@ const setupSourceRepo = (baseUrl: string) => {
             authConfig: undefined,
             kuberpultVersion: 'kuberpult',
             sourceRepoUrl: baseUrl,
+            branch: 'main',
         },
     });
 };
@@ -164,7 +166,7 @@ describe('ReleaseVersionLink', () => {
             sourceCommitId: '1',
             version: 1,
             app: 'foo',
-            sourceRepo: 'https://example.com/testing/releases',
+            sourceRepo: 'https://example.com/testing/{dir}/{branch}',
         },
         {
             name: 'Test without DisplayVersion',
@@ -173,7 +175,7 @@ describe('ReleaseVersionLink', () => {
             sourceCommitId: '1',
             version: 1,
             app: 'foo',
-            sourceRepo: 'https://example.com/testing/releases',
+            sourceRepo: 'https://example.com/testing/{branch}/{dir}',
         },
         {
             name: 'Test with undeployVersion',
@@ -182,7 +184,7 @@ describe('ReleaseVersionLink', () => {
             sourceCommitId: '1',
             version: 1,
             app: 'foo',
-            sourceRepo: 'https://example.com/testing/releases',
+            sourceRepo: 'https://example.com/testing',
         },
     ];
     describe.each(cases)('RendersProperly', (testcase) => {
