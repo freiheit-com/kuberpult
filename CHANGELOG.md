@@ -18,6 +18,27 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.4.0](https://github.com/freiheit-com/kuberpult/tree/1.4.0) (2023-09-08)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.3.0...1.4.0)
+
+### Minor Changes
+
+- Explain Helm Parameters in Readme [\#925](https://github.com/freiheit-com/kuberpult/pull/925) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Submit refreshes to argocd in parallel [\#924](https://github.com/freiheit-com/kuberpult/pull/924) ([hannesg](https://github.com/hannesg))
+- Rollout service: dedup version notifications and notify for app deletions [\#923](https://github.com/freiheit-com/kuberpult/pull/923) ([hannesg](https://github.com/hannesg))
+- Update README.md for users [\#922](https://github.com/freiheit-com/kuberpult/pull/922) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Added tests for release train to env groups [\#921](https://github.com/freiheit-com/kuberpult/pull/921) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Added details to the Spinner showed on startup [\#920](https://github.com/freiheit-com/kuberpult/pull/920) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Added spinner for submitting planned actions [\#917](https://github.com/freiheit-com/kuberpult/pull/917) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+**Closed issues:**
+
+- Need to show spinner \(while loading overview, etc\) [\#853](https://github.com/freiheit-com/kuberpult/issues/853)
+
+
+---
+
 ## [1.3.0](https://github.com/freiheit-com/kuberpult/tree/1.3.0) (2023-09-05)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.2.0...1.3.0)
