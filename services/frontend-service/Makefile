@@ -90,7 +90,7 @@ test-go: $(ALL_GO_FILES) | proto
 test-ts: src/api/api.ts
 	pnpm eslint
 	# The extra '--' was added because of pnpm, Usage: pnpm test [-- <args>...]
-	pnpm test -- --watchAll=false -u
+	pnpm test -- --watchAll=false
 
 lint-scss: deps
 	pnpm lint-scss
