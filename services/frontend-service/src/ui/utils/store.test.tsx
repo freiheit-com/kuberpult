@@ -16,17 +16,28 @@ Copyright 2023 freiheit.com*/
 import { act, renderHook } from '@testing-library/react';
 import {
     AllLocks,
+    appendAction,
     FlushRolloutStatus,
+    UpdateAction,
     updateActions,
     UpdateOverview,
     UpdateRolloutStatus,
+    UpdateSnackbar,
     useLocksSimilarTo,
     useNavigateWithSearchParams,
     useRolloutStatus,
 } from './store';
-import { BatchAction, EnvironmentGroup, Priority, RolloutStatus, StreamStatusResponse } from '../../api/api';
+import {
+    BatchAction,
+    EnvironmentGroup,
+    LockBehavior,
+    Priority,
+    RolloutStatus,
+    StreamStatusResponse,
+} from '../../api/api';
 import { makeDisplayLock, makeLock } from '../../setupTests';
 import { BrowserRouter } from 'react-router-dom';
+import { experimentalStyled } from '@material-ui/core';
 
 describe('Test useLocksSimilarTo', () => {
     type TestDataStore = {
@@ -449,6 +460,64 @@ describe('Rollout Status', () => {
                 }
                 expect(enabled).toEqual(testcase.expectedEnabled);
             });
+        });
+    });
+});
+
+describe('Test maxActions', () => {
+    type TestDataStore = {
+        name: string;
+        inputActionsLen: number;
+        expectedLen: number;
+        expectedShowError: boolean;
+    };
+
+    const testdata: TestDataStore[] = [
+        {
+            name: 'below limit',
+            inputActionsLen: 99,
+            expectedLen: 99,
+            expectedShowError: false,
+        },
+        {
+            name: 'at limit',
+            inputActionsLen: 100,
+            expectedLen: 100,
+            expectedShowError: false,
+        },
+        {
+            name: 'over limit',
+            inputActionsLen: 101,
+            expectedLen: 100,
+            expectedShowError: true,
+        },
+    ];
+
+    describe.each(testdata)('with', (testcase) => {
+        it(testcase.name, () => {
+            // given
+            updateActions([]);
+
+            // when
+            for (let i = 0; i < testcase.inputActionsLen; i++) {
+                appendAction([
+                    {
+                        action: {
+                            $case: 'deploy',
+                            deploy: {
+                                environment: 'foo',
+                                application: 'bread' + i,
+                                version: i,
+                                ignoreAllLocks: false,
+                                lockBehavior: LockBehavior.Ignore,
+                            },
+                        },
+                    },
+                ]);
+            }
+            // then
+            expect(UpdateSnackbar.get().show).toStrictEqual(testcase.expectedShowError);
+            expect(UpdateAction.get().actions.length).toStrictEqual(testcase.expectedLen);
         });
     });
 });

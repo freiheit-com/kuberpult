@@ -36,6 +36,7 @@ type BatchServer struct {
 	RBACConfig auth.RBACConfig
 }
 
+// see maxBatchActions in store.tsx
 const maxBatchActions int = 100
 
 func ValidateEnvironmentLock(
