@@ -133,7 +133,7 @@ export const ReleaseVersionLink: React.FC<{
     if (displayVersion !== '') {
         return (
             <span>
-                Release Version: <DisplayLink displayString={displayVersion} app={'account'} version={'1483'} />
+                Release Version: <DisplayLink displayString={displayVersion} app={app} version={String(version)} />
             </span>
         );
     }

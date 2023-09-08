@@ -37,6 +37,7 @@ type ServerConfig struct {
 	DexScopes           string `default:"" split_words:"true"`
 	Version             string `default:""`
 	SourceRepoUrl       string `default:"" split_words:"true"`
+	GitBranch           string `default:"" split_words:"true"`
 	AllowedOrigins      string `default:"" split_words:"true"`
 	GitAuthorName       string `default:"" split_words:"true"`
 	GitAuthorEmail      string `default:"" split_words:"true"`
