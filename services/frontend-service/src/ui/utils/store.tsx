@@ -27,12 +27,13 @@ import {
     Warning,
     StreamStatusResponse,
 } from '../../api/api';
-import { useApi } from './GrpcApi';
 import { useCallback, useMemo } from 'react';
-import { Empty } from '../../google/protobuf/empty';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as React from 'react';
 import { useIsAuthenticated } from '@azure/msal-react';
+
+// see maxBatchActions in batch.go
+export const maxBatchActions = 100;
 
 export interface DisplayLock {
     date?: Date;
@@ -64,8 +65,6 @@ const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 
 export const [_, PanicOverview] = createStore({ error: '' });
-
-export const useApplyActions = (): Promise<Empty> => useApi.batchService().ProcessBatch({ actions: useActions() });
 
 const randBase36 = (): string => Math.random().toString(36).substring(7);
 export const randomLockId = (): string => 'ui-v2-' + randBase36();
@@ -103,6 +102,10 @@ export const appendAction = (actions: BatchAction[]): void => {
 
 export const addAction = (action: BatchAction): void => {
     const actions = UpdateAction.get().actions;
+    if (actions.length + 1 > maxBatchActions) {
+        showSnackbarError('Maximum number of actions is ' + String(maxBatchActions));
+        return;
+    }
     // checking for duplicates
     switch (action.action?.$case) {
         case 'createEnvironmentLock':
