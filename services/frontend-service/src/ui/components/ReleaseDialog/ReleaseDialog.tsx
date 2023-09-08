@@ -15,8 +15,8 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { Dialog } from '@material-ui/core';
 import classNames from 'classnames';
-import React, { useCallback } from 'react';
-import { Environment, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
+import React, { ReactElement, useCallback } from 'react';
+import { Environment, Environment_Application, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import {
     addAction,
     useCloseReleaseDialog,
@@ -65,6 +65,32 @@ export type EnvironmentListItemProps = {
     release: Release;
     queuedVersion: number;
     className?: string;
+};
+
+type CommitIdProps = {
+    application: Environment_Application;
+    app: string;
+    env: Environment;
+    otherRelease?: Release;
+};
+
+const CommitId: React.FC<CommitIdProps> = ({ application, app, env, otherRelease }): ReactElement => {
+    const msg = (): string => {
+        if (!application || !otherRelease) {
+            return `"${app}" has no version deployed on "${env.name}"`;
+        }
+        if (otherRelease.undeployVersion) {
+            return 'Undeploy Version';
+        }
+        if (otherRelease.version === application.version) {
+            return otherRelease.sourceCommitId + ': ' + otherRelease.sourceMessage;
+        }
+        if (otherRelease?.undeployVersion) {
+            return 'Undeploy Version';
+        }
+        return otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage;
+    };
+    return <span className={'commit-id'}> {msg()}</span>;
 };
 
 export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
@@ -118,21 +144,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         );
     const otherRelease = useReleaseOptional(app, env);
     const application = env.applications[app];
-    const getCommitString = (): string => {
-        if (!application) {
-            return `"${app}" has no version deployed on "${env.name}"`;
-        }
-        if (release.undeployVersion) {
-            return 'Undeploy Version';
-        }
-        if (release.version === application.version) {
-            return release.sourceCommitId + ': ' + release.sourceMessage;
-        }
-        if (otherRelease?.undeployVersion) {
-            return 'Undeploy Version';
-        }
-        return otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage;
-    };
     const getDeploymentMetadata = (): [String, JSX.Element] => {
         if (!application) {
             return ['', <></>];
@@ -189,7 +200,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             '. ' +
                             (release.undeployVersion ? undeployTooltipExplanation : '')
                         }>
-                        {getCommitString()}
+                        <CommitId app={app} env={env} application={application} otherRelease={otherRelease} />
                     </div>
                     {queueInfo}
                     <div className={classNames('env-card-data', className)}>
