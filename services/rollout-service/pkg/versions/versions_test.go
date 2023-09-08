@@ -98,10 +98,11 @@ func (m *mockOverviewClient) Recv() (*api.GetOverviewResponse, error) {
 var _ api.OverviewServiceClient = (*mockOverviewClient)(nil)
 
 type mockVersionEventProcessor struct {
+	events []KuberpultEvent
 }
 
 func (m *mockVersionEventProcessor) ProcessKuberpultEvent(ctx context.Context, ev KuberpultEvent) {
-
+	m.events = append(m.events, ev)
 }
 
 func TestVersionClient(t *testing.T) {
@@ -218,6 +219,7 @@ func TestVersionClientStream(t *testing.T) {
 						Name: "staging",
 						Applications: map[string]*api.Environment_Application{
 							"foo": {
+								Name:    "foo",
 								Version: 1,
 							},
 						},
@@ -227,11 +229,16 @@ func TestVersionClientStream(t *testing.T) {
 		},
 		GitRevision: "1234",
 	}
+	emptyTestOverview := &api.GetOverviewResponse{
+		EnvironmentGroups: []*api.EnvironmentGroup{},
+		GitRevision: "000",
+	}
 
 	tcs := []struct {
 		Name             string
 		Steps            []step
 		ExpectedVersions []expectedVersion
+		ExpectedEvents   []KuberpultEvent
 	}{
 		{
 			Name: "Retries connections and finishes",
@@ -265,6 +272,60 @@ func TestVersionClientStream(t *testing.T) {
 					DeployedVersion: 1,
 				},
 			},
+			ExpectedEvents: []KuberpultEvent{
+				{
+					Environment: "staging",
+					Application: "foo",
+					Version:     1,
+				},
+			},
+		},
+		{
+			Name: "Don't notify twice for the same version",
+			Steps: []step{
+				{
+					Overview: testOverview,
+				},
+				{
+					Overview: testOverview,
+				},
+				{
+					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+				},
+			},
+			ExpectedEvents: []KuberpultEvent{
+				{
+					Environment: "staging",
+					Application: "foo",
+					Version:     1,
+				},
+			},
+		},
+		{
+			Name: "Notify for apps that are deleted",
+			Steps: []step{
+				{
+					Overview: testOverview,
+				},
+				{
+					Overview: emptyTestOverview,
+				},
+				{
+					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+				},
+			},
+			ExpectedEvents: []KuberpultEvent{
+				{
+					Environment: "staging",
+					Application: "foo",
+					Version:     1,
+				},
+				{
+					Environment: "staging",
+					Application: "foo",
+					Version:     0,
+				},
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -280,6 +341,9 @@ func TestVersionClientStream(t *testing.T) {
 			}
 			mc.testAllConsumed(t)
 			assertExpectedVersions(t, tc.ExpectedVersions, vc, mc)
+			if !cmp.Equal(tc.ExpectedEvents, vp.events) {
+				t.Errorf("version events differ: %s", cmp.Diff(tc.ExpectedEvents, vp.events))
+			}
 		})
 	}
 }
