@@ -179,7 +179,12 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                     class="env-card-data"
                     title="Shows the version that is currently deployed on prod. "
                   >
-                    commit: test1
+                    <span
+                      class="commit-id"
+                    >
+                       
+                      commit: test1
+                    </span>
                   </div>
                   <div
                     class="env-card-data"
@@ -427,7 +432,12 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                     class="env-card-data"
                     title="Shows the version that is currently deployed on prod. "
                   >
-                    commit: test1
+                    <span
+                      class="commit-id"
+                    >
+                       
+                      commit: test1
+                    </span>
                   </div>
                   <div
                     class="env-card-data"
@@ -682,7 +692,12 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     class="env-card-data"
                     title="Shows the version that is currently deployed on prod. "
                   >
-                    cafe: the other commit message 2
+                    <span
+                      class="commit-id"
+                    >
+                       
+                      cafe: the other commit message 2
+                    </span>
                   </div>
                   <div
                     class="env-card-data"
@@ -828,7 +843,12 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     class="env-card-data"
                     title="Shows the version that is currently deployed on dev. "
                   >
-                    cafe: the other commit message 3
+                    <span
+                      class="commit-id"
+                    >
+                       
+                      cafe: the other commit message 3
+                    </span>
                   </div>
                   <div
                     class="env-card-data env-card-data-queue"
