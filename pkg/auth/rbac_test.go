@@ -132,7 +132,7 @@ func TestCheckUserPermissions(t *testing.T) {
 			action:      PermissionCreateLock,
 			rbacConfig:  RBACConfig{DexEnabled: true, Policy: map[string]*Permission{"Developer,CreateLock,production:production,app1,allow": {Role: "Developer"}}},
 			team:        "random-team",
-			WantError:   status.Errorf(codes.PermissionDenied, fmt.Sprintf("The user  with role Developer is not allowed to perform the action CreateLock on environment production for team random-team")),
+			WantError:   status.Errorf(codes.PermissionDenied, fmt.Sprintf("PermissionDenied: The user '' with role 'Developer' is not allowed to perform the action 'CreateLock' on environment 'production' for team 'random-team'")),
 		},
 		{
 			Name:        "User does not have permission: wrong app",
@@ -143,7 +143,7 @@ func TestCheckUserPermissions(t *testing.T) {
 			action:      PermissionCreateLock,
 			team:        "other-team",
 			rbacConfig:  RBACConfig{DexEnabled: true, Policy: map[string]*Permission{"Developer,CreateLock,production:production,app1,allow": {Role: "Developer"}}},
-			WantError:   status.Errorf(codes.PermissionDenied, fmt.Sprintf("The user  with role Developer is not allowed to perform the action CreateLock on environment production for team other-team")),
+			WantError:   status.Errorf(codes.PermissionDenied, fmt.Sprintf("PermissionDenied: The user '' with role 'Developer' is not allowed to perform the action 'CreateLock' on environment 'production' for team 'other-team'")),
 		},
 	}
 

@@ -343,7 +343,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 .catch((e) => {
                     // eslint-disable-next-line no-console
                     console.error('error in batch request: ', e);
-                    if (e.message.includes('not allowed to perform the action')) {
+                    if (e.message.includes('PermissionDenied')) {
                         showSnackbarError(e.message);
                     } else {
                         showSnackbarError('Actions were not applied. Please try again');
