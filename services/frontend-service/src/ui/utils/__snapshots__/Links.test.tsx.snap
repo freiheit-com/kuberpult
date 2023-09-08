@@ -84,7 +84,7 @@ exports[`ReleaseVersionLink RendersProperly Test with displayVersion 1`] = `
     <span>
       Release Version: 
       <a
-        href="https://example.com/testing/applications/account/releases/1483/main"
+        href="https://example.com/testing/applications/foo/releases/1/main"
         title="Opens the release directory for this release"
       >
         1
