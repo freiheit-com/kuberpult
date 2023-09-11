@@ -62,6 +62,7 @@ Copyright 2023 freiheit.com*/
     gap: 6px;
     color: var(--mdc-theme-on-surface);
     align-items: flex-start;
+    @extend .text-regular;
 }
 
 .mdc-drawer-sidebar-list-item-text-name {
