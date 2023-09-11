@@ -202,12 +202,12 @@ type SideBarListItemProps = {
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
     const { environmentLocks, appLocks } = useAllLocks();
     const actionDetails = getActionDetails(action, appLocks, environmentLocks);
-    const DisplayVersion = (): string => {
+    const DisplayVersion = () => {
         try {
             const release = useReleaseOrThrow(actionDetails.application ?? '', actionDetails.version ?? 0);
             return release.displayVersion;
         } catch (error) {
-            return '' as const;
+            return '';
         }
     };
 
@@ -275,7 +275,7 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
                 <div className="mdc-drawer-sidebar-list-item-text-name">{actionDetails.name}</div>
                 <div className="mdc-drawer-sidebar-list-item-text-summary">{actionDetails.summary}</div>
                 <ReleaseVersionLink
-                    displayVersion={DisplayVersion.toString()}
+                    displayVersion={DisplayVersion()}
                     undeployVersion={actionDetails.type === ActionTypes.Undeploy}
                     sourceCommitId={''}
                     version={actionDetails.version ?? 0}
