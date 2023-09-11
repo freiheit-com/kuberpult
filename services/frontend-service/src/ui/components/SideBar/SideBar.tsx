@@ -202,7 +202,7 @@ type SideBarListItemProps = {
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
     const { environmentLocks, appLocks } = useAllLocks();
     const actionDetails = getActionDetails(action, appLocks, environmentLocks);
-    const DisplayVersion = () => {
+    const DisplayVersion = (): string => {
         try {
             const release = useReleaseOrThrow(actionDetails.application ?? '', actionDetails.version ?? 0);
             return release.displayVersion;
