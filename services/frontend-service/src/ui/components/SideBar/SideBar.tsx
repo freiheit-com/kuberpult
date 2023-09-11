@@ -28,6 +28,7 @@ import {
     randomLockId,
     addAction,
     useLocksSimilarTo,
+    useReleaseOrThrow,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -35,6 +36,7 @@ import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core
 import classNames from 'classnames';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { Spinner } from '../Spinner/Spinner';
+import { ReleaseVersionLink } from '../../utils/Links';
 
 export enum ActionTypes {
     Deploy,
@@ -200,6 +202,13 @@ type SideBarListItemProps = {
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
     const { environmentLocks, appLocks } = useAllLocks();
     const actionDetails = getActionDetails(action, appLocks, environmentLocks);
+    var displayVersion = '';
+    try {
+        const release = useReleaseOrThrow(actionDetails.application ?? '', actionDetails.version ?? 0);
+        displayVersion = release.displayVersion;
+    } catch (error) {
+        // continue without displayVersion
+    }
 
     const handleDelete = useCallback(() => deleteAction(action), [action]);
     const similarLocks = useLocksSimilarTo(action);
@@ -264,6 +273,13 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
             <div className="mdc-drawer-sidebar-list-item-text" title={actionDetails.tooltip}>
                 <div className="mdc-drawer-sidebar-list-item-text-name">{actionDetails.name}</div>
                 <div className="mdc-drawer-sidebar-list-item-text-summary">{actionDetails.summary}</div>
+                <ReleaseVersionLink
+                    displayVersion={displayVersion}
+                    undeployVersion={actionDetails.type === ActionTypes.Undeploy}
+                    sourceCommitId={''}
+                    version={actionDetails.version ?? 0}
+                    app={actionDetails.application ?? ''}
+                />
                 {deleteAllSection}
             </div>
             <div onClick={handleDelete}>
