@@ -202,12 +202,13 @@ type SideBarListItemProps = {
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
     const { environmentLocks, appLocks } = useAllLocks();
     const actionDetails = getActionDetails(action, appLocks, environmentLocks);
-    var displayVersion = '';
-    try {
-        const release = useReleaseOrThrow(actionDetails.application ?? '', actionDetails.version ?? 0);
-        displayVersion = release.displayVersion;
-    } catch (error) {
-        // continue without displayVersion
+    const displayVersion = ():string  => {
+        try {
+            const release = useReleaseOrThrow(actionDetails.application ?? '', actionDetails.version ?? 0);
+            return release.displayVersion;
+        } catch (error) {
+            return '' as const
+        }
     }
 
     const handleDelete = useCallback(() => deleteAction(action), [action]);
@@ -274,7 +275,7 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
                 <div className="mdc-drawer-sidebar-list-item-text-name">{actionDetails.name}</div>
                 <div className="mdc-drawer-sidebar-list-item-text-summary">{actionDetails.summary}</div>
                 <ReleaseVersionLink
-                    displayVersion={displayVersion}
+                    displayVersion={displayVersion.toString()}
                     undeployVersion={actionDetails.type === ActionTypes.Undeploy}
                     sourceCommitId={''}
                     version={actionDetails.version ?? 0}
