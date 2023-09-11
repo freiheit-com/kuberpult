@@ -1464,7 +1464,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					}}},
 				},
 			},
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeployUndeploy' on environment '*' for team ''",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeployUndeploy' on environment '*'",
 		},
 		{
 			Name: "able to create environment with permissions policy",
@@ -1494,7 +1494,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Config:         config.EnvironmentConfig{EnvironmentGroup: &envGroupProduction},
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}}},
 			},
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateEnvironment' on environment '*' for team",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateEnvironment' on environment '*'",
 		},
 		{
 			Name: "able to create undeploy with permissions policy",
@@ -1556,7 +1556,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					}}},
 				},
 			},
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeployRelease' on environment 'staging' for team",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeployRelease' on environment 'staging'",
 		},
 		{
 			Name: "unable to create undeploy without permissions policy: Missing CreateUndeploy permission",
@@ -1586,7 +1586,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					}}},
 				},
 			},
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateUndeploy' on environment '*' for team",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateUndeploy' on environment '*'",
 		},
 		{
 			Name: "able to create release train with permissions policy",
@@ -1614,7 +1614,7 @@ func TestRbacTransformerTest(t *testing.T) {
 				Target:         envProduction,
 				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 			}),
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeployReleaseTrain' on environment 'production' for team",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeployReleaseTrain' on environment 'production'",
 		},
 		{
 			Name: "able to create application version with permissions policy",
@@ -1654,7 +1654,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					}}},
 				},
 			},
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeployRelease' on environment 'acceptance' for team",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeployRelease' on environment 'acceptance'",
 		},
 		{
 			Name: "unable to create application version without permissions policy",
@@ -1672,7 +1672,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateRelease' on environment '*' for team",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateRelease' on environment '*'",
 		},
 		{
 			Name: "able to deploy application with permissions policy",
@@ -1722,7 +1722,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeployRelease' on environment 'acceptance' for team",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeployRelease' on environment 'acceptance'",
 		},
 		{
 			Name: "able to create environment lock with permissions policy",
@@ -1771,7 +1771,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production' for team",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production'",
 		},
 		{
 			Name: "unable to delete environment lock without permissions policy",
@@ -1793,7 +1793,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeleteLock' on environment 'production' for team",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeleteLock' on environment 'production'",
 		},
 		{
 			Name: "able to delete environment lock with permissions policy",
@@ -1841,7 +1841,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production' for team",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production'",
 		},
 		{
 			Name: "able to create environment application lock with correct permissions policy",
@@ -1896,7 +1896,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeleteLock' on environment 'production' for team",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeleteLock' on environment 'production'",
 		},
 		{
 			Name: "able to delete environment application lock without permissions policy",
@@ -1959,7 +1959,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
-			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeleteEnvironmentApplication' on environment 'production' for team",
+			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeleteEnvironmentApplication' on environment 'production'",
 		},
 		{
 			Name: "able to delete environment application without permission policy",

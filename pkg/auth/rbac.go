@@ -221,7 +221,11 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup
 		}
 	}
 	// The permission is not found. Return an error.
-	return status.Errorf(codes.PermissionDenied, fmt.Sprintf("%s: The user '%s' with role '%s' is not allowed to perform the action '%s' on environment '%s' for team '%s'", codes.PermissionDenied.String(), user.Name, user.DexAuthContext.Role, action, env, team))
+	var errorMsg = fmt.Sprintf("%s: The user '%s' with role '%s' is not allowed to perform the action '%s' on environment '%s'", codes.PermissionDenied.String(), user.Name, user.DexAuthContext.Role, action, env)
+	if team != "" {
+		errorMsg = errorMsg + fmt.Sprintf(" for team '%s'", team)
+	}
+	return status.Errorf(codes.PermissionDenied, errorMsg)
 }
 
 // Helper function to parse the scopes
