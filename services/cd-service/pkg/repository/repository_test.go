@@ -1400,7 +1400,7 @@ func TestPushUpdate(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			var success = false
-			actualError := DefaultPushUpdate(tc.InputBranch, &success)(tc.InputRefName, tc.InputStatus)
+			actualError := defaultPushUpdate(tc.InputBranch, &success)(tc.InputRefName, tc.InputStatus)
 			if success != tc.ExpectedSuccess {
 				t.Fatal(fmt.Sprintf("expected sucess=%t but got %t", tc.ExpectedSuccess, success))
 			}
@@ -1421,7 +1421,7 @@ func TestProcessQueueOnce(t *testing.T) {
 	}{
 		{
 			Name:           "success",
-			PushUpdateFunc: DefaultPushUpdate,
+			PushUpdateFunc: defaultPushUpdate,
 			PushActionFunc: DefaultPushActionCallback,
 			Element: element{
 				ctx: testutil.MakeTestContext(),

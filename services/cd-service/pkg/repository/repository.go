@@ -292,7 +292,7 @@ func (r *repository) ProcessQueue(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case e := <-r.queue.elements:
-			r.ProcessQueueOnce(ctx, e, DefaultPushUpdate, DefaultPushActionCallback)
+			r.ProcessQueueOnce(ctx, e, defaultPushUpdate, DefaultPushActionCallback)
 		}
 	}
 }
@@ -344,10 +344,10 @@ func (r *repository) drainQueue() []element {
 	}
 }
 
-// DefaultPushUpdate is public for testing reasons only.
+// defaultPushUpdate is public for testing reasons only.
 // It returns always nil
 // success is set to true if the push was successful
-func DefaultPushUpdate(branch string, success *bool) git.PushUpdateReferenceCallback {
+func defaultPushUpdate(branch string, success *bool) git.PushUpdateReferenceCallback {
 	return func(refName string, status string) error {
 		var expectedRefName = fmt.Sprintf("refs/heads/%s", branch)
 		// if we were successful the status is empty and the ref contains our branch:
