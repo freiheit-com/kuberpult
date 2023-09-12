@@ -18,6 +18,38 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+
+## [1.4.1](https://github.com/freiheit-com/kuberpult/tree/1.4.1) (2023-09-11)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.4.0...1.4.1)
+
+**Fixed bugs:**
+
+- Shopping Cart should show lock that is removed [\#239](https://github.com/freiheit-com/kuberpult/issues/239)
+
+### Minor Changes
+
+- Conditionally show team name in error message  [\#937](https://github.com/freiheit-com/kuberpult/pull/937) ([gsandok](https://github.com/gsandok))
+- Add Release Version to the frontend SideBar [\#936](https://github.com/freiheit-com/kuberpult/pull/936) ([gsandok](https://github.com/gsandok))
+- User get notified of permission errors on the frontend [\#926](https://github.com/freiheit-com/kuberpult/pull/926) ([gsandok](https://github.com/gsandok))
+- Add Release Version to the frontend [\#918](https://github.com/freiheit-com/kuberpult/pull/918) ([gsandok](https://github.com/gsandok))
+
+### Patch Changes (Bugfixes)
+
+- Fix: Show "undeploy version" only in correct circumstances [\#934](https://github.com/freiheit-com/kuberpult/pull/934) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Show error about too many items before submit [\#930](https://github.com/freiheit-com/kuberpult/pull/930) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+**Closed issues:**
+
+- Unlocking an environment with `upstream: latest` configuration should update all services in the environment to their most recent releases [\#576](https://github.com/freiheit-com/kuberpult/issues/576)
+- Improvement: Release trains from arbitrary sources [\#401](https://github.com/freiheit-com/kuberpult/issues/401)
+- helm chart ingress issue [\#269](https://github.com/freiheit-com/kuberpult/issues/269)
+- Removing applications from single stages [\#50](https://github.com/freiheit-com/kuberpult/issues/50)
+
+
+---
+
+
 ## [1.4.0](https://github.com/freiheit-com/kuberpult/tree/1.4.0) (2023-09-08)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.3.0...1.4.0)
