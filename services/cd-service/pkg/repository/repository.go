@@ -330,7 +330,10 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 var panicError = errors.New("Panic")
 
 func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) error) error {
-	remote, _ := r.repository.Remotes.CreateAnonymous(r.config.URL)
+	remote, err := r.repository.Remotes.CreateAnonymous(r.config.URL)
+	if err != nil {
+		return fmt.Errorf("opening remote %q: %w", r.config.URL, err)
+	}
 	defer remote.Disconnect()
 	ctx, cancel := context.WithTimeout(context.Background(), r.config.NetworkTimeout)
 	defer cancel()
