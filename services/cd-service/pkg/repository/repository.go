@@ -93,7 +93,6 @@ type repository struct {
 	writeLock    sync.Mutex
 	writesDone   uint
 	queue        queue
-	remote       *git.Remote
 	config       *RepositoryConfig
 	credentials  *credentialsStore
 	certificates *certificateStore
@@ -120,6 +119,8 @@ type RepositoryConfig struct {
 	CommitterName  string
 	// default branch is master
 	Branch string
+	// network timeout
+	NetworkTimeout time.Duration
 	//
 	GcFrequency    uint
 	StorageBackend StorageBackend
@@ -193,6 +194,9 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	if cfg.StorageBackend == DefaultBackend {
 		cfg.StorageBackend = SqliteBackend
 	}
+	if cfg.NetworkTimeout == 0 {
+		cfg.NetworkTimeout = time.Minute
+	}
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	var err error
@@ -217,7 +221,6 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			return nil, err
 		} else {
 			result := &repository{
-				remote:          remote,
 				config:          &cfg,
 				credentials:     credentials,
 				certificates:    certificates,
@@ -326,6 +329,23 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 
 var panicError = errors.New("Panic")
 
+func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) error) error {
+	remote, _ := r.repository.Remotes.CreateAnonymous(r.config.URL)
+	defer remote.Disconnect()
+	ctx, cancel := context.WithTimeout(context.Background(), r.config.NetworkTimeout)
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- callback(remote)
+	}()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-errCh:
+		return err
+	}
+}
+
 func (r *repository) drainQueue() []element {
 	elements := []element{}
 	for {
@@ -344,7 +364,6 @@ func (r *repository) drainQueue() []element {
 	}
 }
 
-// defaultPushUpdate is public for testing reasons only.
 // It returns always nil
 // success is set to true if the push was successful
 func defaultPushUpdate(branch string, success *bool) git.PushUpdateReferenceCallback {
@@ -362,7 +381,9 @@ type PushActionCallbackFunc func(git.PushOptions, *repository) PushActionFunc
 // DefaultPushActionCallback is public for testing reasons only.
 func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushActionFunc {
 	return func() error {
-		return r.remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
+		return r.useRemote(context.Background(), func(remote *git.Remote) error {
+			return remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
+		})
 	}
 }
 
@@ -410,9 +431,9 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	// Try pushing once
 	err = r.Push(e.ctx, pushAction(pushOptions, r))
 	if err != nil {
-		gerr := err.(*git.GitError)
+		gerr, ok := err.(*git.GitError)
 		// If it doesn't work because the branch diverged, try reset and apply again.
-		if gerr.Code == git.ErrorCodeNonFastForward {
+		if ok && gerr.Code == git.ErrorCodeNonFastForward {
 			err = r.FetchAndReset(e.ctx)
 			if err != nil {
 				return
@@ -425,6 +446,8 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 			if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
 				err = &InternalError{inner: pushErr}
 			}
+		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			err = grpc.CanceledError(ctx, err)
 		} else {
 			logger.Error(fmt.Sprintf("error while pushing: %s", err))
 			err = grpc.PublicError(ctx, errors.New(fmt.Sprintf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch)))
@@ -735,6 +758,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	}
 
 	user, err := auth.ReadUserFromContext(ctx)
+
 	if err != nil {
 		return nil, err
 	}
@@ -790,7 +814,9 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 			CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
 		},
 	}
-	err := r.remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+	err := r.useRemote(ctx, func(remote *git.Remote) error {
+		return remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+	})
 	if err != nil {
 		return &InternalError{inner: err}
 	}
@@ -856,8 +882,8 @@ func (r *repository) Push(ctx context.Context, pushAction func() error) error {
 			defer span.Finish()
 			err := pushAction()
 			if err != nil {
-				gerr := err.(*git.GitError)
-				if gerr.Code == git.ErrorCodeNonFastForward {
+				gerr, ok := err.(*git.GitError)
+				if ok && gerr.Code == git.ErrorCodeNonFastForward {
 					return backoff.Permanent(err)
 				}
 			}
@@ -1402,7 +1428,7 @@ type Release struct {
 	SourceCommitId  string
 	SourceMessage   string
 	CreatedAt       time.Time
-	DisplayVersion  string 
+	DisplayVersion  string
 }
 
 func (s *State) IsUndeployVersion(application string, version uint64) (bool, error) {
@@ -1452,7 +1478,7 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-		release.DisplayVersion = "";
+		release.DisplayVersion = ""
 	} else {
 		release.DisplayVersion = string(displayVersion)
 	}
