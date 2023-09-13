@@ -87,12 +87,13 @@ spec:
           httpGet:
             path: /health
             port: http
-          initialDelaySeconds: 5
+          initialDelaySeconds: {{ .Values.cd.probes.readiness.initialDelaySeconds }}
           periodSeconds: 10
         livenessProbe:
           httpGet:
             path: /health
             port: http
+          initialDelaySeconds: {{ .Values.cd.probes.liveness.initialDelaySeconds }}
         resources:
           limits:
             cpu: "{{ .Values.cd.resources.limits.cpu }}"

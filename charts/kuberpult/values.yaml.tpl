@@ -40,6 +40,11 @@ cd:
       cpu: 2
       memory: 3Gi
   enableSqlite: true
+  probes:
+    liveness:
+      initialDelaySeconds: 5
+    readiness:
+      initialDelaySeconds: 5
 frontend:
   image: kuberpult-frontend-service
 # In MOST cases, do NOT overwrite the "tag".
