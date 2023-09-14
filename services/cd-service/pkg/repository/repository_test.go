@@ -27,13 +27,17 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testssh"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 	git "github.com/libgit2/git2go/v34"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestNew(t *testing.T) {
@@ -1400,7 +1404,7 @@ func TestPushUpdate(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			var success = false
-			actualError := DefaultPushUpdate(tc.InputBranch, &success)(tc.InputRefName, tc.InputStatus)
+			actualError := defaultPushUpdate(tc.InputBranch, &success)(tc.InputRefName, tc.InputStatus)
 			if success != tc.ExpectedSuccess {
 				t.Fatal(fmt.Sprintf("expected sucess=%t but got %t", tc.ExpectedSuccess, success))
 			}
@@ -1421,7 +1425,7 @@ func TestProcessQueueOnce(t *testing.T) {
 	}{
 		{
 			Name:           "success",
-			PushUpdateFunc: DefaultPushUpdate,
+			PushUpdateFunc: defaultPushUpdate,
 			PushActionFunc: DefaultPushActionCallback,
 			Element: element{
 				ctx: testutil.MakeTestContext(),
@@ -1507,6 +1511,74 @@ func TestProcessQueueOnce(t *testing.T) {
 			expectedError := strings.ReplaceAll(tc.ExpectedError.Error(), "$DIR", dir)
 			if actualError.Error() != expectedError {
 				t.Errorf("result error is not:\n\"%v\"\nbut got:\n\"%v\"", expectedError, actualError.Error())
+			}
+		})
+	}
+}
+
+func TestGitPushDoesntGetStuck(t *testing.T) {
+	tcs := []struct {
+		Name string
+	}{
+		{
+			Name: "it doesnt get stuck",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Run()
+			ts := testssh.New(remoteDir)
+			defer ts.Close()
+			repo, err := New(
+				ctx,
+				RepositoryConfig{
+					URL: ts.Url,
+					Certificates: Certificates{
+						KnownHostsFile: ts.KnownHosts,
+					},
+					Credentials: Credentials{
+						SshKey: ts.ClientKey,
+					},
+					Path:           localDir,
+					NetworkTimeout: time.Second,
+				},
+			)
+			if err != nil {
+				t.Errorf("expected no error, got %q ( %#v )", err, err)
+			}
+			err = repo.Apply(testutil.MakeTestContext(),
+				&CreateEnvironment{Environment: "dev"},
+			)
+			if err != nil {
+				t.Errorf("expected no error, got %q ( %#v )", err, err)
+			}
+			// This will prevent the next push from working
+			ts.DelayExecs(15 * time.Second)
+			err = repo.Apply(testutil.MakeTestContext(),
+				&CreateEnvironment{Environment: "stg"},
+			)
+			if err == nil {
+				t.Errorf("expected an error, but didn't get one")
+			}
+			if status.Code(err) != codes.Canceled {
+				t.Errorf("expected status code cancelled, but got %q", status.Code(err))
+			}
+			// This will make the next push work
+			ts.DelayExecs(0 * time.Second)
+			err = repo.Apply(testutil.MakeTestContext(),
+				&CreateEnvironment{Environment: "stg"},
+			)
+			if err != nil {
+				t.Errorf("expected no error, got %q ( %#v )", err, err)
 			}
 		})
 	}

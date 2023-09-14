@@ -15,6 +15,8 @@ git:
   author:
     name: local.user@example.com
     email: defaultUser
+  # Timeout used for network operations
+  networkTimeout: 1m
 
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 

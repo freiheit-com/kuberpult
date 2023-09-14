@@ -36,6 +36,10 @@ func PublicError(ctx context.Context, err error) error {
 	return status.Error(codes.InvalidArgument, "error: "+err.Error())
 }
 
+func CanceledError(ctx context.Context, err error) error {
+	return status.Error(codes.Canceled, err.Error())
+}
+
 func AuthError(ctx context.Context, err error) error {
 	return status.Error(codes.Unauthenticated, "error: "+err.Error())
 }
