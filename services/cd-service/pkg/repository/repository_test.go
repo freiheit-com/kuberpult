@@ -1572,7 +1572,7 @@ func TestGitPushDoesntGetStuck(t *testing.T) {
 			if status.Code(err) != codes.Canceled {
 				t.Errorf("expected status code cancelled, but got %q", status.Code(err))
 			}
-			// This will prevent the next push from working
+			// This will make the next push work
 			ts.DelayExecs(0 * time.Second)
 			err = repo.Apply(testutil.MakeTestContext(),
 				&CreateEnvironment{Environment: "stg"},
