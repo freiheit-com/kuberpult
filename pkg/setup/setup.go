@@ -53,6 +53,7 @@ type shutdown struct {
 // Setup structure that holds only the shutdown callbacks for all
 // grpc and http server for endpoints, metrics, health checks, etc.
 type setup struct {
+	health          HealthServer
 	shutdown        []shutdown
 	shutdownChannel chan bool
 }
@@ -82,9 +83,11 @@ type HTTPConfig struct {
 	Shutdown  func(context.Context) error
 }
 
+type BackgroundFunc func(context.Context, *HealthReporter) error
+
 type BackgroundTaskConfig struct {
 	// a function that triggers a graceful shutdown of all other resources after completion
-	Run  func(context.Context) error
+	Run  BackgroundFunc
 	Name string
 	// optional
 	Shutdown func(context.Context) error
@@ -204,8 +207,11 @@ func serveGRPC(ctx context.Context, grpcS *grpc.Server, grpcL net.Listener, canc
 
 func setupHTTP(ctx context.Context, s *setup, config HTTPConfig, cancel context.CancelFunc, metricHandler http.Handler) {
 	mux := http.NewServeMux()
-	config.Register(mux)
+	if config.Register != nil {
+		config.Register(mux)
+	}
 	mux.Handle("/metrics", metricHandler)
+	mux.Handle("/healthz", &s.health)
 	runHTTPHandler(ctx, s, mux, config.Port, config.BasicAuth, config.Shutdown, cancel)
 }
 
@@ -264,13 +270,14 @@ func setupBackgroundTask(ctx context.Context, s *setup, config BackgroundTaskCon
 			config.Shutdown,
 		)
 	}
+	reporter := s.health.Reporter(config.Name)
 
-	go runBackgroundTask(ctx, config, cancel)
+	go runBackgroundTask(ctx, config, cancel, reporter)
 }
 
-func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig, cancel context.CancelFunc) {
+func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig, cancel context.CancelFunc, reporter *HealthReporter) {
 	defer cancel()
-	if err := config.Run(ctx); err != nil {
+	if err := config.Run(ctx, reporter); err != nil {
 		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job", config.Name))
 	}
 }

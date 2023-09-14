@@ -25,6 +25,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -292,8 +293,8 @@ func TestArgoConection(t *testing.T) {
 				Steps: tc.Steps,
 				t:     t,
 			}
-			ready := false
-			err := ConsumeEvents(ctx, &as, &mockVersionClient{versions: tc.Versions}, &as, func() { ready = true })
+			hlth := &setup.HealthServer{}
+			err := ConsumeEvents(ctx, &as, &mockVersionClient{versions: tc.Versions}, &as, hlth.Reporter("consume"))
 			if tc.ExpectedError == "" {
 				if err != nil {
 					t.Errorf("expected no error, but got %q", err)
@@ -305,6 +306,7 @@ func TestArgoConection(t *testing.T) {
 					t.Errorf("expected error %q, but got %q", tc.ExpectedError, err)
 				}
 			}
+			ready := hlth.IsReady("consume")
 			if tc.ExpectedReady != ready {
 				t.Errorf("expected ready to be %t but got %t", tc.ExpectedReady, ready)
 			}

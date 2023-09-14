@@ -120,7 +120,7 @@ func TestServerHeader(t *testing.T) {
 				defer wg.Done()
 				defer cancel()
 				for {
-					res, err := http.Get("http://localhost:8081/health")
+					res, err := http.Get("http://localhost:8081/healthz")
 					if err != nil {
 						t.Logf("unhealthy: %q", err)
 						<-time.After(1 * time.Second)
@@ -220,7 +220,7 @@ func TestGrpcForwardHeader(t *testing.T) {
 				defer wg.Done()
 				defer cancel()
 				for {
-					res, err := http.Get("http://localhost:8081/health")
+					res, err := http.Get("http://localhost:8081/healthz")
 					if err != nil {
 						t.Logf("unhealthy: %q", err)
 						<-time.After(1 * time.Second)

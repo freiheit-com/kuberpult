@@ -262,10 +262,7 @@ func runServer(ctx context.Context) error {
 		}
 		httpHandler.Handle(w, req)
 	}))
-	mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.WriteHeader(200)
-		fmt.Fprintf(w, "ok\n")
-	}))
+
 	mux.Handle("/", http.FileServer(http.Dir("build")))
 	// Split HTTP REST from gRPC Web requests, as suggested in the documentation:
 	// https://pkg.go.dev/github.com/improbable-eng/grpc-web@v0.15.0/go/grpcweb

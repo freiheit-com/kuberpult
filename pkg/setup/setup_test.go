@@ -203,7 +203,7 @@ func TestMetrics(t *testing.T) {
 				Background: []BackgroundTaskConfig{
 					{
 						Name: "something",
-						Run: func(ctx context.Context) error {
+						Run: func(ctx context.Context, hr *HealthReporter) error {
 							pv := metrics.FromContext(ctx)
 							counter, _ := pv.Meter("something").Int64Counter("something")
 							counter.Add(ctx, 1)
