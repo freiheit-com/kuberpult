@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	grpcerrors "github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 
@@ -192,7 +193,10 @@ func runServer(ctx context.Context) error {
 		rolloutClient = api.NewRolloutServiceClient(rolloutCon)
 	}
 
-	batchClient := api.NewBatchServiceClient(cdCon)
+	batchClient := &service.BatchServiceWithDefaultTimeout{
+		Inner:          api.NewBatchServiceClient(cdCon),
+		DefaultTimeout: 2 * time.Minute,
+	}
 	gproxy := &GrpcProxy{
 		OverviewClient:       api.NewOverviewServiceClient(cdCon),
 		BatchClient:          batchClient,
@@ -216,7 +220,7 @@ func runServer(ctx context.Context) error {
 			},
 			SourceRepoUrl:    c.SourceRepoUrl,
 			KuberpultVersion: c.Version,
-			Branch: c.GitBranch,
+			Branch:           c.GitBranch,
 		},
 	}
 
@@ -434,6 +438,7 @@ func (p *GrpcProxy) ProcessBatch(
 			return nil, grpcerrors.PublicError(ctx, fmt.Errorf("action create-release is only supported via http in the frontend-service"))
 		}
 	}
+
 	return p.BatchClient.ProcessBatch(ctx, in)
 }
 
