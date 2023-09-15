@@ -19,6 +19,22 @@ Given a version number MAJOR.MINOR.PATCH:
 ---
 
 
+## [1.4.2](https://github.com/freiheit-com/kuberpult/tree/1.4.2) (2023-09-14)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.4.1...1.4.2)
+
+### Patch Changes (Bugfixes)
+
+- Added default network timeouts for batch service in the frontend service [\#942](https://github.com/freiheit-com/kuberpult/pull/942) ([hannesg](https://github.com/hannesg))
+- Add networking timeouts to git pushes [\#941](https://github.com/freiheit-com/kuberpult/pull/941) ([hannesg](https://github.com/hannesg))
+- chart: Make the delay to cd service's probes configurable from the values file [\#940](https://github.com/freiheit-com/kuberpult/pull/940) ([jaypontes](https://github.com/jaypontes))
+
+
+
+
+---
+
+
 ## [1.4.1](https://github.com/freiheit-com/kuberpult/tree/1.4.1) (2023-09-11)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.4.0...1.4.1)
