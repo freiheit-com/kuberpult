@@ -9,7 +9,7 @@ set -o pipefail
 
 name=${1}
 applicationOwnerTeam=${2:-sreteam}
-commit_id=$(LC_CTYPE=C tr -dc a-f0-9 </dev/urandom | head -c 12 ; echo '')
+commit_id=$(LC_CTYPE=C tr -dc a-f0-9 </dev/urandom | head -c 40 ; echo '')
 authors[0]="urbansky"
 authors[1]="Medo"
 authors[2]="Hannes"

@@ -30,6 +30,7 @@ import { Close, Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { ArgoAppLink, ArgoTeamLink, ReleaseVersionLink } from '../../utils/Links';
+import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -73,24 +74,32 @@ type CommitIdProps = {
     env: Environment;
     otherRelease?: Release;
 };
+/*
+const commitId = ({ application, app, env, otherRelease }: CommitIdProps): string => {
+    if (!application || !otherRelease) {
+        return `"${app}" has no version deployed on "${env.name}"`;
+    }
+    if (otherRelease.undeployVersion) {
+        return 'Undeploy Version';
+    }
+    if (otherRelease.version === application.version) {
+        return otherRelease.sourceCommitId + ': ' + otherRelease.sourceMessage;
+    }
+    if (otherRelease.undeployVersion) {
+        return 'Undeploy Version';
+    }
+    return otherRelease.sourceCommitId + ': ' + otherRelease.sourceMessage;
+};*/
 
 const CommitId: React.FC<CommitIdProps> = ({ application, app, env, otherRelease }): ReactElement => {
-    const msg = (): string => {
-        if (!application || !otherRelease) {
-            return `"${app}" has no version deployed on "${env.name}"`;
-        }
-        if (otherRelease.undeployVersion) {
-            return 'Undeploy Version';
-        }
-        if (otherRelease.version === application.version) {
-            return otherRelease.sourceCommitId + ': ' + otherRelease.sourceMessage;
-        }
-        if (otherRelease?.undeployVersion) {
-            return 'Undeploy Version';
-        }
-        return otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage;
-    };
-    return <span className={'commit-id'}> {msg()}</span>;
+    if (!application || !otherRelease) {
+        return (
+            <span>
+                "{app}" has no version deployed on "{env.name}"
+            </span>
+        );
+    }
+    return <ReleaseVersion release={otherRelease} />;
 };
 
 export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
