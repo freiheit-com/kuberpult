@@ -104,6 +104,13 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
               class="env-card"
             >
               <div
+                class="confirmation-dialog-container"
+              >
+                <div
+                  class="confirmation-dialog-hidden"
+                />
+              </div>
+              <div
                 class="env-card-header"
               >
                 <div
@@ -369,6 +376,13 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
             <li
               class="env-card"
             >
+              <div
+                class="confirmation-dialog-container"
+              >
+                <div
+                  class="confirmation-dialog-hidden"
+                />
+              </div>
               <div
                 class="env-card-header"
               >
@@ -643,6 +657,13 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
               class="env-card"
             >
               <div
+                class="confirmation-dialog-container"
+              >
+                <div
+                  class="confirmation-dialog-hidden"
+                />
+              </div>
+              <div
                 class="env-card-header"
               >
                 <div
@@ -796,6 +817,13 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
             <li
               class="env-card"
             >
+              <div
+                class="confirmation-dialog-container"
+              >
+                <div
+                  class="confirmation-dialog-hidden"
+                />
+              </div>
               <div
                 class="env-card-header"
               >

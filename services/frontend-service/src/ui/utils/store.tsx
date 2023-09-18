@@ -315,6 +315,11 @@ export const useFilteredApplicationLocks = (appNameParam: string | null): Displa
     return sortLocks(filteredLocks, 'newestToOldest');
 };
 
+export const useFilteredApplicationLocksForEnv = (appNameParam: string, env: string): DisplayLock[] => {
+    const finalLocks: DisplayLock[] = useFilteredApplicationLocks(appNameParam);
+    return finalLocks.filter((val) => env === val.environment);
+};
+
 // return env lock IDs from given env
 export const useFilteredEnvironmentLockIDs = (envName: string): string[] =>
     useEnvironments()
@@ -358,6 +363,28 @@ export const searchCustomFilter = (queryContent: string | null, val: string | un
 export type AllLocks = {
     environmentLocks: DisplayLock[];
     appLocks: DisplayLock[];
+};
+
+export const useEnvLocks = (thisEnv: string): DisplayLock[] => {
+    const envs = useEnvironments();
+    const environmentLocks: DisplayLock[] = [];
+    envs.forEach((env: Environment) => {
+        for (const locksKey in env.locks) {
+            const lock = env.locks[locksKey];
+            const displayLock: DisplayLock = {
+                lockId: lock.lockId,
+                date: lock.createdAt,
+                environment: env.name,
+                message: lock.message,
+                authorName: lock.createdBy?.name,
+                authorEmail: lock.createdBy?.email,
+            };
+            if (thisEnv === displayLock.environment) {
+                environmentLocks.push(displayLock);
+            }
+        }
+    });
+    return environmentLocks;
 };
 
 export const useAllLocks = (): AllLocks => {

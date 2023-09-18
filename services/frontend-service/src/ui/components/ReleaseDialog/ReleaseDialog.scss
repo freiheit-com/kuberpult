@@ -180,3 +180,48 @@ button.mdc-button.env-card-deploy-btn {
     color: white;
     @extend .text-bold;
 }
+
+
+
+.confirmation-dialog-container {
+    display: flex;
+}
+
+.confirmation-dialog-open {
+    background: #ffffff;
+    position: absolute;
+    float: left;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+
+    z-index: 1000;
+    border: 5px solid var(--mdc-theme-primary);
+    border-radius: 5px;
+    box-shadow: rgba(0, 0, 0, 0.2) 0px 5px 5px -3px, rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+    rgba(0, 0, 0, 0.12) 0px 3px 14px 2px;
+
+    .confirmation-dialog-header {
+        margin: 16px;
+        @extend .headline1;
+
+    }
+    .confirmation-dialog-content {
+        margin: 16px;
+    }
+    .list {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 8px;
+        margin-bottom: 8px;
+
+        .item:not(:first-child) {
+            border-top: 1px solid;
+            border-color: white;
+        }
+        .item {
+            list-style-type: none;
+            padding: 0px;
+        }
+    }
+}

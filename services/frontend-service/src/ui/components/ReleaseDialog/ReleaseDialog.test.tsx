@@ -41,6 +41,101 @@ describe('Release Dialog', () => {
         data_length: number;
         teamName: string;
     }
+    interface dataTLocks {
+        name: string;
+        props: ReleaseDialogProps;
+        rels: Release[];
+        envs: Environment[];
+        expect_message: boolean;
+        expect_queues: number;
+        data_length: number;
+        teamName: string;
+        expectExtraClick: boolean;
+    }
+    const dataLocks: dataTLocks[] = [
+        {
+            name: 'without locks',
+            expectExtraClick: false,
+            props: {
+                app: 'test1',
+                version: 2,
+            },
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test1',
+                    sourceAuthor: 'test',
+                    sourceCommitId: 'commit',
+                    createdAt: new Date(2002),
+                    undeployVersion: false,
+                    prNumber: '#1337',
+                    displayVersion: '2',
+                },
+            ],
+            envs: [
+                {
+                    name: 'prod',
+                    locks: {},
+                    applications: {
+                        test1: {
+                            name: 'test1',
+                            version: 2,
+                            locks: {},
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                },
+            ],
+            expect_message: true,
+            expect_queues: 0,
+            data_length: 2,
+            teamName: '',
+        },
+        {
+            name: 'with locks',
+            expectExtraClick: true,
+            props: {
+                app: 'test1',
+                version: 2,
+            },
+            rels: [
+                {
+                    version: 2,
+                    sourceMessage: 'test1',
+                    sourceAuthor: 'test',
+                    sourceCommitId: 'commit',
+                    createdAt: new Date(2002),
+                    undeployVersion: false,
+                    prNumber: '#1337',
+                    displayVersion: '2',
+                },
+            ],
+            envs: [
+                {
+                    name: 'prod',
+                    locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
+                    applications: {
+                        test1: {
+                            name: 'test1',
+                            version: 2,
+                            locks: {},
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                },
+            ],
+            expect_message: true,
+            expect_queues: 0,
+            data_length: 2,
+            teamName: '',
+        },
+    ];
     const data: dataT[] = [
         {
             name: 'normal release',
@@ -301,55 +396,67 @@ describe('Release Dialog', () => {
     };
 
     describe(`Test automatic cart opening`, () => {
-        const testcase = data[0];
         it('Test using direct call to open function', () => {
             UpdateSidebar.set({ shown: false });
             UpdateSidebar.set({ shown: true });
             expect(UpdateSidebar.get().shown).toBeTruthy();
         });
-        it('Test using deploy button click simulation', () => {
-            UpdateSidebar.set({ shown: false });
-            UpdateAction.set({ actions: [] });
-            setTheStore(testcase);
 
-            render(
-                <EnvironmentListItem
-                    env={testcase.envs[0]}
-                    app={testcase.props.app}
-                    queuedVersion={0}
-                    release={{ ...testcase.rels[0], version: 3 }}
-                />
-            );
-            const result = querySelectorSafe('.env-card-deploy-btn');
-            fireEvent.click(result);
-            expect(UpdateSidebar.get().shown).toBeTruthy();
-            expect(UpdateAction.get().actions).toEqual([
-                {
-                    action: {
-                        $case: 'deploy',
-                        deploy: {
-                            application: 'test1',
-                            environment: 'prod',
-                            ignoreAllLocks: false,
-                            lockBehavior: 2,
-                            version: 3,
+        describe.each(dataLocks)('click handling', (testcase) => {
+            it('Test using deploy button click simulation ' + testcase.name, () => {
+                UpdateSidebar.set({ shown: false });
+                UpdateAction.set({ actions: [] });
+                setTheStore(testcase);
+
+                render(
+                    <EnvironmentListItem
+                        env={testcase.envs[0]}
+                        app={testcase.props.app}
+                        queuedVersion={0}
+                        release={{ ...testcase.rels[0], version: 3 }}
+                    />
+                );
+                const result = querySelectorSafe('.env-card-deploy-btn');
+                fireEvent.click(result);
+                if (testcase.expectExtraClick) {
+                    // when there is a lock, a confirmation dialog pops up, so we have to click another button:
+                    expect(UpdateSidebar.get().shown).toBeFalsy();
+                    const confirm = querySelectorSafe('.button-confirm');
+                    expect(confirm.attributes.getNamedItem('aria-label')?.value).toBe('Yes I really want to deploy');
+                    fireEvent.click(confirm);
+                } else {
+                    // because there is no lock, we do not need an extra click:
+                }
+                expect(UpdateSidebar.get().shown).toBeTruthy();
+                expect(UpdateAction.get().actions).toEqual([
+                    {
+                        action: {
+                            $case: 'deploy',
+                            deploy: {
+                                application: 'test1',
+                                environment: 'prod',
+                                ignoreAllLocks: false,
+                                lockBehavior: 2,
+                                version: 3,
+                            },
                         },
                     },
-                },
-                {
-                    action: {
-                        $case: 'createEnvironmentApplicationLock',
-                        createEnvironmentApplicationLock: {
-                            application: 'test1',
-                            environment: 'prod',
-                            lockId: '',
-                            message: '',
+                    {
+                        action: {
+                            $case: 'createEnvironmentApplicationLock',
+                            createEnvironmentApplicationLock: {
+                                application: 'test1',
+                                environment: 'prod',
+                                lockId: '',
+                                message: '',
+                            },
                         },
                     },
-                },
-            ]);
+                ]);
+            });
         });
         it('Test using add lock button click simulation', () => {
+            const testcase = data[0];
             UpdateSidebar.set({ shown: false });
             UpdateAction.set({ actions: [] });
             setTheStore(testcase);
