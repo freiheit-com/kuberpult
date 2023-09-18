@@ -24,8 +24,10 @@ echo ${authors[$index]}
 author="${authors[$index]}"
 commit_message_file="$(mktemp "${TMPDIR:-/tmp}/publish.XXXXXX")"
 trap "rm -f ""$commit_message_file" INT TERM HUP EXIT
-displayVersion=$(( $RANDOM % 100)).$(( $RANDOM % 100)).$(( $RANDOM % 100))
-
+displayVersion=
+if ((RANDOM % 2)); then
+  displayVersion=$(( $RANDOM % 100)).$(( $RANDOM % 100)).$(( $RANDOM % 100))
+fi
 
 msgs[0]="Added new eslint rule"
 msgs[1]="Fix annotations in helm templates"

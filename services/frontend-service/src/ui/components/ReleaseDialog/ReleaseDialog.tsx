@@ -74,24 +74,8 @@ type CommitIdProps = {
     env: Environment;
     otherRelease?: Release;
 };
-/*
-const commitId = ({ application, app, env, otherRelease }: CommitIdProps): string => {
-    if (!application || !otherRelease) {
-        return `"${app}" has no version deployed on "${env.name}"`;
-    }
-    if (otherRelease.undeployVersion) {
-        return 'Undeploy Version';
-    }
-    if (otherRelease.version === application.version) {
-        return otherRelease.sourceCommitId + ': ' + otherRelease.sourceMessage;
-    }
-    if (otherRelease.undeployVersion) {
-        return 'Undeploy Version';
-    }
-    return otherRelease.sourceCommitId + ': ' + otherRelease.sourceMessage;
-};*/
 
-const CommitId: React.FC<CommitIdProps> = ({ application, app, env, otherRelease }): ReactElement => {
+const DeployedVersion: React.FC<CommitIdProps> = ({ application, app, env, otherRelease }): ReactElement => {
     if (!application || !otherRelease) {
         return (
             <span>
@@ -99,7 +83,8 @@ const CommitId: React.FC<CommitIdProps> = ({ application, app, env, otherRelease
             </span>
         );
     }
-    return <ReleaseVersion release={otherRelease} />;
+    const firstLine = otherRelease.sourceMessage.split('\n')[0];
+    return <span><ReleaseVersion release={otherRelease} />{firstLine}</span>;
 };
 
 export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
@@ -209,7 +194,8 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             '. ' +
                             (release.undeployVersion ? undeployTooltipExplanation : '')
                         }>
-                        <CommitId app={app} env={env} application={application} otherRelease={otherRelease} />
+
+                        <DeployedVersion app={app} env={env} application={application} otherRelease={otherRelease} />
                     </div>
                     {queueInfo}
                     <div className={classNames('env-card-data', className)}>
@@ -295,6 +281,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                     <div className={classNames('release-dialog-app-bar', className)}>
                         <div className={classNames('release-dialog-app-bar-data')}>
                             <div className={classNames('release-dialog-message', className)}>
+				<ReleaseVersion release={release} />
                                 <span className={classNames('release-dialog-commitMessage', className)}>
                                     {release?.sourceMessage}
                                 </span>
@@ -314,15 +301,6 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                 <ArgoTeamLink team={team} />
                             </div>
                         </div>
-                        <span className={classNames('release-dialog-commitId', className)} title={undeployVersionTitle}>
-                            <ReleaseVersionLink
-                                displayVersion={release.displayVersion}
-                                undeployVersion={release.undeployVersion}
-                                sourceCommitId={release.sourceCommitId}
-                                version={release.version}
-                                app={app}
-                            />
-                        </span>
                         <Button
                             onClick={closeReleaseDialog}
                             className={classNames('release-dialog-close', className)}

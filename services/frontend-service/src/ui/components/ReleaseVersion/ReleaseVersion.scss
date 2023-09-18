@@ -1,0 +1,33 @@
+.release-version {
+  font-family: monospace;
+  padding: 2px;
+  margin-right: 0.5em;
+  border: 1px solid var(--mdc-theme-surface);
+  color: var(--mdc-theme-on-surface-light);
+  border-radius: $border-radius-small;
+  background: var(--mdc-theme-surface);
+}
+
+.release-version__undeploy-verson {
+  @extend .release-version;
+}
+
+.release-version__commit-id {
+  @extend .release-version;
+  font-weight: bold;
+  border-color: var(--mdc-theme-on-surface-light);
+}
+
+.release-version__display-version {
+  @extend .release-version;
+
+  border-color: var(--mdc-theme-secondary);
+  background: var(--mdc-theme-secondary);
+  color: var(--mdc-theme-on-secondary);
+}
+
+.release-version__version {
+  @extend .release-version;
+
+  font-weight: bold;
+}

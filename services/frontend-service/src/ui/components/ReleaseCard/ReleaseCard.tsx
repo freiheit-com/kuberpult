@@ -28,6 +28,7 @@ import { Tooltip } from '../tooltip/tooltip';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { RolloutStatus, StreamStatusResponse } from '../../../api/api';
+import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 
 export type ReleaseCardProps = {
     className?: string;
@@ -122,7 +123,8 @@ const calculateDeploymentStatus = (
 export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const { className, app, version } = props;
     // the ReleaseCard only displays actual releases, so we can assume that it exists here:
-    const { createdAt, sourceMessage, sourceCommitId, sourceAuthor, undeployVersion } = useReleaseOrThrow(app, version);
+    const release = useReleaseOrThrow(app, version);
+    const { createdAt, sourceMessage, sourceAuthor, undeployVersion } = release;
     const openReleaseDialog = useOpenReleaseDialog(app, version);
     const [rolloutEnabled, rolloutStatus] = useRolloutStatus(app);
     const deployedAt = useCurrentlyDeployedAtGroup(app, version);
@@ -132,11 +134,6 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const tooltipContents = (
         <div className="mdc-tooltip__title_ release__details">
             {!!sourceMessage && <b>{sourceMessage}</b>}
-            {!!sourceCommitId && (
-                <div className={'release__hash--container'}>
-                    <Button className="release__hash" label={'' + sourceCommitId} />
-                </div>
-            )}
             {!!sourceAuthor && (
                 <div>
                     <span>Author:</span> {sourceAuthor}
@@ -186,7 +183,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                         onClick={openReleaseDialog}>
                         <div className="release-card__header">
                             <div className="release__title">{undeployVersion ? 'Undeploy Version' : firstLine}</div>
-                            {!!sourceCommitId && <Button className="release__hash" label={sourceCommitId} />}
+                <ReleaseVersion release={release} />
                         </div>
                         {mostInteresting && (
                             <div className="release__status">
