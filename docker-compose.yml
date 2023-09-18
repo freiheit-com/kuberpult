@@ -12,6 +12,7 @@ services:
       - "8443:8443"
     volumes:
       - .:/kp/kuberpult
+    stop_grace_period: 0.5s
   frontend:
     build:
       context: infrastructure/docker/frontend
@@ -28,6 +29,7 @@ services:
       - backend
     volumes:
       - .:/kp/kuberpult
+    stop_grace_period: 0.5s
   ui:
     build:
       context: infrastructure/docker/ui
@@ -40,3 +42,4 @@ services:
       - frontend
     volumes:
       - .:/kp/kuberpult
+    stop_grace_period: 0.5s
