@@ -29,7 +29,7 @@ import { Button } from '../button';
 import { Close, Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
-import { ArgoAppLink, ArgoTeamLink, ReleaseVersionLink } from '../../utils/Links';
+import { ArgoAppLink, ArgoTeamLink } from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 
 export type ReleaseDialogProps = {
@@ -84,7 +84,12 @@ const DeployedVersion: React.FC<CommitIdProps> = ({ application, app, env, other
         );
     }
     const firstLine = otherRelease.sourceMessage.split('\n')[0];
-    return <span><ReleaseVersion release={otherRelease} />{firstLine}</span>;
+    return (
+        <span>
+            <ReleaseVersion release={otherRelease} />
+            {firstLine}
+        </span>
+    );
 };
 
 export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
@@ -194,7 +199,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             '. ' +
                             (release.undeployVersion ? undeployTooltipExplanation : '')
                         }>
-
                         <DeployedVersion app={app} env={env} application={application} otherRelease={otherRelease} />
                     </div>
                     {queueInfo}
@@ -266,9 +270,6 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const release = useReleaseOrThrow(app, version);
     const team = useTeamFromApplication(app);
     const closeReleaseDialog = useCloseReleaseDialog();
-    const undeployVersionTitle = release.undeployVersion
-        ? undeployTooltipExplanation
-        : 'Commit Hash of the source repository.';
     const dialog =
         app !== '' ? (
             <div>
@@ -281,7 +282,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                     <div className={classNames('release-dialog-app-bar', className)}>
                         <div className={classNames('release-dialog-app-bar-data')}>
                             <div className={classNames('release-dialog-message', className)}>
-				<ReleaseVersion release={release} />
+                                <ReleaseVersion release={release} />
                                 <span className={classNames('release-dialog-commitMessage', className)}>
                                     {release?.sourceMessage}
                                 </span>

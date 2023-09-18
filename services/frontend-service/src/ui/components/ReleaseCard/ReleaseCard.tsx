@@ -14,7 +14,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
-import { Button } from '../button';
 import React from 'react';
 import {
     useCurrentlyDeployedAtGroup,
@@ -183,7 +182,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                         onClick={openReleaseDialog}>
                         <div className="release-card__header">
                             <div className="release__title">{undeployVersion ? 'Undeploy Version' : firstLine}</div>
-                <ReleaseVersion release={release} />
+                            <ReleaseVersion release={release} />
                         </div>
                         {mostInteresting && (
                             <div className="release__status">
