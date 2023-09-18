@@ -39,9 +39,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
-	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 )
 
 type Config struct {
@@ -88,16 +85,15 @@ func getGrpcClient(ctx context.Context, config Config) (api.OverviewServiceClien
 	grpcClientOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 	}
-	if config.EnableTracing {
-		grpcClientOpts = append(grpcClientOpts,
-			grpc.WithStreamInterceptor(
-				grpctrace.StreamClientInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-rollout-service"))),
-			),
-			grpc.WithUnaryInterceptor(
-				grpctrace.UnaryClientInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-rollout-service"))),
-			),
-		)
-	}
+
+	grpcClientOpts = append(grpcClientOpts,
+		grpc.WithStreamInterceptor(
+			tracing.OTELStreamClientInterceptor(ctx),
+		),
+		grpc.WithUnaryInterceptor(
+			tracing.OTELUnaryClientInterceptor(ctx),
+		),
+	)
 
 	con, err := grpc.Dial(config.CdServer, grpcClientOpts...)
 	if err != nil {
@@ -116,17 +112,15 @@ func runServer(ctx context.Context, config Config) error {
 		grpc_zap.UnaryServerInterceptor(grpcServerLogger),
 	}
 
-	if config.EnableTracing {
-		tracer.Start()
-		defer tracer.Stop()
-		grpcStreamInterceptors = append(grpcStreamInterceptors,
-			grpctrace.StreamServerInterceptor(grpctrace.WithServiceName("rollout-service")),
-		)
-		grpcUnaryInterceptors = append(grpcUnaryInterceptors,
-			grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName("rollout-service")),
-		)
-	}
+	ctx, cancel, err := tracing.WithTracerProvider(ctx, "kuberpult-rollout-service")
+	defer cancel()
 
+	grpcStreamInterceptors = append(grpcStreamInterceptors,
+		tracing.OTELStreamServerInterceptor(ctx),
+	)
+	grpcUnaryInterceptors = append(grpcUnaryInterceptors,
+		tracing.OTELUnaryServerInterceptor(ctx),
+	)
 	opts, err := config.ClientConfig()
 	if err != nil {
 		return err
