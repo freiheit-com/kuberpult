@@ -29,7 +29,7 @@ import { Button } from '../button';
 import { Close, Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
-import { ArgoAppLink, ArgoTeamLink } from '../../utils/Links';
+import { ArgoAppLink, ArgoTeamLink, DisplayLink } from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 
 export type ReleaseDialogProps = {
@@ -287,14 +287,19 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                     {release?.sourceMessage}
                                 </span>
                             </div>
-                            {!!release?.createdAt && (
-                                <FormattedDate
-                                    createdAt={release.createdAt}
-                                    className={classNames('release-dialog-createdAt', className)}
-                                />
-                            )}
-                            <div className={classNames('release-dialog-author', className)}>
-                                {release?.sourceAuthor ? 'Author: ' + release?.sourceAuthor : ''}
+                            <div className="source">
+                                {'Created '}
+                                {release?.createdAt ? (
+                                    <FormattedDate
+                                        createdAt={release.createdAt}
+                                        className={classNames('release-dialog-createdAt', className)}
+                                    />
+                                ) : (
+                                    'at an unknown date'
+                                )}
+                                {' by '}
+                                {release?.sourceAuthor ? release?.sourceAuthor : 'an unknown author'}{' '}
+                                <DisplayLink app={app} version={release.version.toString()} displayString="Source" />
                             </div>
                             <div className={classNames('release-dialog-app', className)}>
                                 {'App: '}

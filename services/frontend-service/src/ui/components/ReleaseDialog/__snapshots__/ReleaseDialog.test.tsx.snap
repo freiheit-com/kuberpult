@@ -55,13 +55,16 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                 test1
               </span>
             </div>
-            <div>
-              some formatted date
-            </div>
             <div
-              class="release-dialog-author"
+              class="source"
             >
-              Author: test
+              Created 
+              <div>
+                some formatted date
+              </div>
+               by 
+              test
+               
             </div>
             <div
               class="release-dialog-app"
@@ -311,13 +314,16 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                 test1
               </span>
             </div>
-            <div>
-              some formatted date
-            </div>
             <div
-              class="release-dialog-author"
+              class="source"
             >
-              Author: test
+              Created 
+              <div>
+                some formatted date
+              </div>
+               by 
+              test
+               
             </div>
             <div
               class="release-dialog-app"
@@ -571,13 +577,16 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                 the other commit message 2
               </span>
             </div>
-            <div>
-              some formatted date
-            </div>
             <div
-              class="release-dialog-author"
+              class="source"
             >
-              Author: nobody
+              Created 
+              <div>
+                some formatted date
+              </div>
+               by 
+              nobody
+               
             </div>
             <div
               class="release-dialog-app"
@@ -987,13 +996,16 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
                 class="release-dialog-commitMessage"
               />
             </div>
-            <div>
-              some formatted date
-            </div>
             <div
-              class="release-dialog-author"
+              class="source"
             >
-              Author: test1
+              Created 
+              <div>
+                some formatted date
+              </div>
+               by 
+              test1
+               
             </div>
             <div
               class="release-dialog-app"

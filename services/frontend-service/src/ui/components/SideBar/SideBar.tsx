@@ -28,7 +28,7 @@ import {
     randomLockId,
     addAction,
     useLocksSimilarTo,
-    useReleaseOrThrow,
+    useRelease,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
@@ -36,7 +36,7 @@ import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core
 import classNames from 'classnames';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { Spinner } from '../Spinner/Spinner';
-import { ReleaseVersionLink } from '../../utils/Links';
+import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 
 export enum ActionTypes {
     Deploy,
@@ -202,15 +202,7 @@ type SideBarListItemProps = {
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
     const { environmentLocks, appLocks } = useAllLocks();
     const actionDetails = getActionDetails(action, appLocks, environmentLocks);
-    const DisplayVersion = (): string => {
-        try {
-            const release = useReleaseOrThrow(actionDetails.application ?? '', actionDetails.version ?? 0);
-            return release.displayVersion;
-        } catch (error) {
-            return '';
-        }
-    };
-
+    const release = useRelease(actionDetails.application ?? '', actionDetails.version ?? 0);
     const handleDelete = useCallback(() => deleteAction(action), [action]);
     const similarLocks = useLocksSimilarTo(action);
     const handleAddAll = useCallback(() => {
@@ -274,13 +266,7 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
             <div className="mdc-drawer-sidebar-list-item-text" title={actionDetails.tooltip}>
                 <div className="mdc-drawer-sidebar-list-item-text-name">{actionDetails.name}</div>
                 <div className="mdc-drawer-sidebar-list-item-text-summary">{actionDetails.summary}</div>
-                <ReleaseVersionLink
-                    displayVersion={DisplayVersion()}
-                    undeployVersion={actionDetails.type === ActionTypes.Undeploy}
-                    sourceCommitId={''}
-                    version={actionDetails.version ?? 0}
-                    app={actionDetails.application ?? ''}
-                />
+                {release !== undefined && <ReleaseVersion release={release} />}
                 {deleteAllSection}
             </div>
             <div onClick={handleDelete}>

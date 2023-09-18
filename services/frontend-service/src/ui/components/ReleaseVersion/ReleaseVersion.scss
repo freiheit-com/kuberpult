@@ -6,10 +6,13 @@
   color: var(--mdc-theme-on-surface-light);
   border-radius: $border-radius-small;
   background: var(--mdc-theme-surface);
+  font-weight: bold;
 }
 
-.release-version__undeploy-verson {
+.release-version__undeploy-version {
   @extend .release-version;
+  font-weight: bold;
+  border-color: var(--mdc-theme-on-surface-light);
 }
 
 .release-version__commit-id {
@@ -28,6 +31,6 @@
 
 .release-version__version {
   @extend .release-version;
-
   font-weight: bold;
+  border-color: var(--mdc-theme-on-surface-light);
 }

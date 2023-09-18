@@ -499,8 +499,8 @@ export const sortLocks = (displayLocks: DisplayLock[], sorting: 'oldestToNewest'
 };
 
 // returns the release number {$version} of {$application}
-const useRelease = (application: string, version: number): Release | undefined =>
-    useOverview(({ applications }) => applications[application].releases.find((r) => r.version === version));
+export const useRelease = (application: string, version: number): Release | undefined =>
+    useOverview(({ applications }) => applications[application]?.releases?.find((r) => r.version === version));
 
 export const useReleaseOrThrow = (application: string, version: number): Release => {
     const release = useRelease(application, version);
