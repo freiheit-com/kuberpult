@@ -26,7 +26,7 @@ export const Tooltip = (props: { children: JSX.Element; tooltipContent: JSX.Elem
             <a href={href} id={'tooltip' + id} data-tooltip-place="bottom" data-tooltip-delay-hide={delayHide}>
                 {children}
             </a>
-            <TooltipReact className={'tooltip'} anchorSelect={'#tooltip' + id} border={'2px solid lightgray'}>
+            <TooltipReact className={'tooltip'} anchorSelect={'#tooltip' + id}>
                 {tooltipContent}
             </TooltipReact>
         </div>

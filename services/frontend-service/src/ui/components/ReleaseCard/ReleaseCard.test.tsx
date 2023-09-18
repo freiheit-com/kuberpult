@@ -212,8 +212,12 @@ describe('Release Card', () => {
                 );
             }
 
-            if (testcase.rels[0].sourceCommitId) {
-                expect(container.querySelector('.release__hash')?.textContent).toContain(
+            if (testcase.rels[0].displayVersion) {
+                expect(container.querySelector('.release-version__display-version')?.textContent).toContain(
+                    testcase.rels[0].displayVersion
+                );
+            } else if (testcase.rels[0].sourceCommitId) {
+                expect(container.querySelector('.release-version__commit-id')?.textContent).toContain(
                     testcase.rels[0].sourceCommitId
                 );
             }
