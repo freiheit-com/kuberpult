@@ -39,7 +39,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.0 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230217124315-7d5c6f04bbb8
 	github.com/acomagu/bufpipe v1.0.4 // indirect
-	github.com/argoproj/gitops-engine v0.7.1-0.20230526233214-ad9a694fe4bc
+	github.com/argoproj/gitops-engine v0.7.3
 	github.com/argoproj/pkg v0.13.7-0.20230627120311-a4dd357b057e // indirect
 	github.com/bombsimon/logrusr/v2 v2.0.1 // indirect
 	github.com/bradleyfalzon/ghinstallation/v2 v2.1.0 // indirect
