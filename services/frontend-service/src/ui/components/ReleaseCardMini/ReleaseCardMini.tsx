@@ -19,7 +19,7 @@ import { useOpenReleaseDialog, useReleaseOrThrow } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { undeployTooltipExplanation } from '../ReleaseDialog/ReleaseDialog';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
-import { ReleaseVersionLink } from '../../utils/Links';
+import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 
 export type ReleaseCardMiniProps = {
     className?: string;
@@ -41,13 +41,7 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
                 <div className="release__details-header" title={displayedTitle}>
                     {displayedMessage}
                 </div>
-                <ReleaseVersionLink
-                    displayVersion={release.displayVersion}
-                    undeployVersion={undeployVersion}
-                    sourceCommitId={''}
-                    version={version}
-                    app={app}
-                />
+                <ReleaseVersion release={release} />
                 <div className="release__details-msg">
                     {sourceAuthor + ' | '}
                     {!!createdAt && <FormattedDate createdAt={createdAt} className="release__metadata-mini" />}

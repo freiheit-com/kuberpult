@@ -29,7 +29,8 @@ import { Button } from '../button';
 import { Close, Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
-import { ArgoAppLink, ArgoTeamLink, ReleaseVersionLink } from '../../utils/Links';
+import { ArgoAppLink, ArgoTeamLink, DisplayLink } from '../../utils/Links';
+import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -74,23 +75,21 @@ type CommitIdProps = {
     otherRelease?: Release;
 };
 
-const CommitId: React.FC<CommitIdProps> = ({ application, app, env, otherRelease }): ReactElement => {
-    const msg = (): string => {
-        if (!application || !otherRelease) {
-            return `"${app}" has no version deployed on "${env.name}"`;
-        }
-        if (otherRelease.undeployVersion) {
-            return 'Undeploy Version';
-        }
-        if (otherRelease.version === application.version) {
-            return otherRelease.sourceCommitId + ': ' + otherRelease.sourceMessage;
-        }
-        if (otherRelease?.undeployVersion) {
-            return 'Undeploy Version';
-        }
-        return otherRelease?.sourceCommitId + ': ' + otherRelease?.sourceMessage;
-    };
-    return <span className={'commit-id'}> {msg()}</span>;
+const DeployedVersion: React.FC<CommitIdProps> = ({ application, app, env, otherRelease }): ReactElement => {
+    if (!application || !otherRelease) {
+        return (
+            <span>
+                "{app}" has no version deployed on "{env.name}"
+            </span>
+        );
+    }
+    const firstLine = otherRelease.sourceMessage.split('\n')[0];
+    return (
+        <span>
+            <ReleaseVersion release={otherRelease} />
+            {firstLine}
+        </span>
+    );
 };
 
 export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
@@ -200,7 +199,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             '. ' +
                             (release.undeployVersion ? undeployTooltipExplanation : '')
                         }>
-                        <CommitId app={app} env={env} application={application} otherRelease={otherRelease} />
+                        <DeployedVersion app={app} env={env} application={application} otherRelease={otherRelease} />
                     </div>
                     {queueInfo}
                     <div className={classNames('env-card-data', className)}>
@@ -271,9 +270,6 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const release = useReleaseOrThrow(app, version);
     const team = useTeamFromApplication(app);
     const closeReleaseDialog = useCloseReleaseDialog();
-    const undeployVersionTitle = release.undeployVersion
-        ? undeployTooltipExplanation
-        : 'Commit Hash of the source repository.';
     const dialog =
         app !== '' ? (
             <div>
@@ -286,18 +282,24 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                     <div className={classNames('release-dialog-app-bar', className)}>
                         <div className={classNames('release-dialog-app-bar-data')}>
                             <div className={classNames('release-dialog-message', className)}>
+                                <ReleaseVersion release={release} />
                                 <span className={classNames('release-dialog-commitMessage', className)}>
                                     {release?.sourceMessage}
                                 </span>
                             </div>
-                            {!!release?.createdAt && (
-                                <FormattedDate
-                                    createdAt={release.createdAt}
-                                    className={classNames('release-dialog-createdAt', className)}
-                                />
-                            )}
-                            <div className={classNames('release-dialog-author', className)}>
-                                {release?.sourceAuthor ? 'Author: ' + release?.sourceAuthor : ''}
+                            <div className="source">
+                                {'Created '}
+                                {release?.createdAt ? (
+                                    <FormattedDate
+                                        createdAt={release.createdAt}
+                                        className={classNames('release-dialog-createdAt', className)}
+                                    />
+                                ) : (
+                                    'at an unknown date'
+                                )}
+                                {' by '}
+                                {release?.sourceAuthor ? release?.sourceAuthor : 'an unknown author'}{' '}
+                                <DisplayLink app={app} version={release.version.toString()} displayString="Source" />
                             </div>
                             <div className={classNames('release-dialog-app', className)}>
                                 {'App: '}
@@ -305,15 +307,6 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                 <ArgoTeamLink team={team} />
                             </div>
                         </div>
-                        <span className={classNames('release-dialog-commitId', className)} title={undeployVersionTitle}>
-                            <ReleaseVersionLink
-                                displayVersion={release.displayVersion}
-                                undeployVersion={release.undeployVersion}
-                                sourceCommitId={release.sourceCommitId}
-                                version={release.version}
-                                app={app}
-                            />
-                        </span>
                         <Button
                             onClick={closeReleaseDialog}
                             className={classNames('release-dialog-close', className)}

@@ -1,0 +1,51 @@
+/*This file is part of kuberpult.
+
+Kuberpult is free software: you can redistribute it and/or modify
+it under the terms of the Expat(MIT) License as published by
+the Free Software Foundation.
+
+Kuberpult is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+MIT License for more details.
+
+You should have received a copy of the MIT License
+along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+Copyright 2023 freiheit.com*/
+.release-version {
+    font-family: monospace;
+    padding: 2px;
+    margin-right: 0.5em;
+    border: 1px solid var(--mdc-theme-surface);
+    color: var(--mdc-theme-on-surface-light);
+    border-radius: $border-radius-small;
+    background: var(--mdc-theme-surface);
+    font-weight: bold;
+}
+
+.release-version__undeploy-version {
+    @extend .release-version;
+    font-weight: bold;
+    border-color: var(--mdc-theme-on-surface-light);
+}
+
+.release-version__commit-id {
+    @extend .release-version;
+    font-weight: bold;
+    border-color: var(--mdc-theme-on-surface-light);
+}
+
+.release-version__display-version {
+    @extend .release-version;
+
+    border-color: var(--mdc-theme-secondary);
+    background: var(--mdc-theme-secondary);
+    color: var(--mdc-theme-on-secondary);
+}
+
+.release-version__version {
+    @extend .release-version;
+    font-weight: bold;
+    border-color: var(--mdc-theme-on-surface-light);
+}

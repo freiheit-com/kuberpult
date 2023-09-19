@@ -289,6 +289,7 @@ log:
   level: INFO
 git:
   url: "ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests"
+  sourceRepoUrl: "https://github.com/freiheit-com/kuberpult/tree/{branch}/{dir}"
 ssh:
   identity: |
 $(sed -e "s/^/    /" <../../services/cd-service/client)

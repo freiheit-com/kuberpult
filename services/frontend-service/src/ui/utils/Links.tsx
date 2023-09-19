@@ -103,7 +103,9 @@ export const ArgoAppEnvLink: React.FC<{ app: string; env: string }> = (props): J
     );
 };
 
-export const DisplayLink: React.FC<{ displayString: string; app: string; version: string }> = (props): JSX.Element => {
+export const DisplayLink: React.FC<{ displayString: string; app: string; version: string }> = (
+    props
+): JSX.Element | null => {
     const { displayString, app, version } = props;
     const sourceRepo = useSourceRepoUrl();
     const branch = useBranch();
@@ -116,41 +118,5 @@ export const DisplayLink: React.FC<{ displayString: string; app: string; version
             </a>
         );
     }
-    return <span>{displayString}</span>;
-};
-
-export const ReleaseVersionLink: React.FC<{
-    displayVersion: string;
-    undeployVersion: boolean;
-    sourceCommitId: string;
-    version: number;
-    app: string;
-}> = (props): JSX.Element => {
-    const { displayVersion, undeployVersion, sourceCommitId, version, app } = props;
-    if (undeployVersion) {
-        return <span>Undeploy Version</span>;
-    }
-    if (displayVersion !== '') {
-        return (
-            <span>
-                Release Version: <DisplayLink displayString={displayVersion} app={app} version={String(version)} />
-            </span>
-        );
-    }
-    if (sourceCommitId !== '') {
-        return (
-            <span>
-                CommitID: <DisplayLink displayString={sourceCommitId} app={app} version={String(version)} />
-            </span>
-        );
-    }
-    if (version > 0) {
-        return (
-            <span>
-                Version: <DisplayLink displayString={String(version)} app={app} version={String(version)} />
-            </span>
-        );
-    }
-
-    return <span></span>;
+    return null;
 };
