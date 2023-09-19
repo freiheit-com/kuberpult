@@ -20,7 +20,7 @@ git:
   # If this is set, kuberpult will render a link to the source code of your services (not the manifest repository).
   # Use `{branch}` and `{commit}` to automatically replace with proper values
   # Example for GitHub: https://github.com/freiheit-com/kuberpult/commit/{commit}
-  # Example for BitBucket: https://example.com/path/to/repo/commits/{commit}
+  # Example for BitBucket: https://bitbucket.com/path/to/repo/commits/{commit}
   # Example for Azure: https://dev.azure.com/path/to/repo/commit/{commit}?refName=refs%2Fheads%2F{branch}
   sourceRepoUrl: ""
 
