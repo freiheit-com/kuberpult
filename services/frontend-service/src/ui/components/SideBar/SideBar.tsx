@@ -258,7 +258,7 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
                     }>
                     There are other similar locks.
                 </div>
-                <Button onClick={handleAddAll} label={' Delete them all! '} className={'button-lock'}></Button>
+                <Button onClick={handleAddAll} label={' Delete them all! '} className={''}></Button>
             </div>
         );
     return (
