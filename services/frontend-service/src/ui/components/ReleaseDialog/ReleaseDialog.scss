@@ -54,6 +54,11 @@ Copyright 2023 freiheit.com*/
             }
         }
 
+        .source {
+            justify-content: space-between;
+            display: flex;
+        }
+
         button.release-dialog-close {
             display: flex;
             margin: 20px 10px auto;

@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { render } from '@testing-library/react';
 import React from 'react';
-import { ArgoAppEnvLink, ArgoAppLink, ArgoTeamLink, DisplayLink } from './Links';
+import { ArgoAppEnvLink, ArgoAppLink, ArgoTeamLink, DisplayManifestLink } from './Links';
 import { GetFrontendConfigResponse_ArgoCD } from '../../api/api';
 import { UpdateFrontendConfig } from './store';
 
@@ -191,9 +191,9 @@ describe('ReleaseVersionLink', () => {
     ];
     describe.each(cases)('RendersProperly', (testcase) => {
         const getNode = () => (
-            <DisplayLink
+            <DisplayManifestLink
                 displayString={testcase.displayVersion}
-                version={testcase.version.toString()}
+                version={testcase.version}
                 app={testcase.app}
             />
         );

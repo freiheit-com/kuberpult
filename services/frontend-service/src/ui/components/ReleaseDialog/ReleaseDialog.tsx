@@ -29,7 +29,7 @@ import { Button } from '../button';
 import { Close, Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
-import { ArgoAppLink, ArgoTeamLink, DisplayLink } from '../../utils/Links';
+import { ArgoAppLink, ArgoTeamLink, DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 
 export type ReleaseDialogProps = {
@@ -288,18 +288,23 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                 </span>
                             </div>
                             <div className="source">
-                                {'Created '}
-                                {release?.createdAt ? (
-                                    <FormattedDate
-                                        createdAt={release.createdAt}
-                                        className={classNames('release-dialog-createdAt', className)}
-                                    />
-                                ) : (
-                                    'at an unknown date'
-                                )}
-                                {' by '}
-                                {release?.sourceAuthor ? release?.sourceAuthor : 'an unknown author'}{' '}
-                                <DisplayLink app={app} version={release.version.toString()} displayString="Source" />
+                                <span>
+                                    {'Created '}
+                                    {release?.createdAt ? (
+                                        <FormattedDate
+                                            createdAt={release.createdAt}
+                                            className={classNames('release-dialog-createdAt', className)}
+                                        />
+                                    ) : (
+                                        'at an unknown date'
+                                    )}
+                                    {' by '}
+                                    {release?.sourceAuthor ? release?.sourceAuthor : 'an unknown author'}{' '}
+                                </span>
+                                <span className="links">
+                                    <DisplaySourceLink commitId={release.sourceCommitId} displayString={'Source'} />{' '}
+                                    <DisplayManifestLink app={app} version={release.version} displayString="Manifest" />
+                                </span>
                             </div>
                             <div className={classNames('release-dialog-app', className)}>
                                 {'App: '}

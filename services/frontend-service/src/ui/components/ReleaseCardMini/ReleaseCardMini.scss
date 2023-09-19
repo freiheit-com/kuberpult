@@ -31,12 +31,19 @@ Copyright 2023 freiheit.com*/
     color: #4a4a4a;
 }
 
+.links {
+    justify-content: space-between;
+    display: flex;
+}
+
 .release__details-header {
     font-style: normal;
     font-weight: 700;
     font-size: 18px;
     line-height: 32px;
     color: #4a4a4a;
+    justify-content: space-between;
+    display: flex;
 }
 
 .release__details-msg {

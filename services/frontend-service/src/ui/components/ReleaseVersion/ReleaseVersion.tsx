@@ -14,9 +14,16 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
+import React from 'react';
 import { Release } from '../../../api/api';
+import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 
 export type ReleaseVersionProps = {
+    release: Pick<Release, 'version' | 'sourceCommitId' | 'displayVersion' | 'undeployVersion'>;
+};
+
+export type ReleaseVersionWithLinksProps = {
+    application: string;
     release: Pick<Release, 'version' | 'sourceCommitId' | 'displayVersion' | 'undeployVersion'>;
 };
 
@@ -43,3 +50,15 @@ export const ReleaseVersion: React.FC<ReleaseVersionProps> = ({ release }) => {
         return <span className="release-version__version">#{release.version}</span>;
     }
 };
+
+export const ReleaseVersionWithLinks: React.FC<ReleaseVersionWithLinksProps> = ({ release, application }) => (
+    <div className={'links'}>
+        <div className={'left'}>
+            <ReleaseVersion release={release} />{' '}
+        </div>
+        <div className={'right'}>
+            <DisplaySourceLink displayString={'Source'} commitId={release.sourceCommitId} />{' '}
+            <DisplayManifestLink version={release.version} app={application} displayString={'Manifest'} />
+        </div>
+    </div>
+);
