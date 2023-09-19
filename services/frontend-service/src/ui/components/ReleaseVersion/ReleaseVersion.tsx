@@ -53,10 +53,10 @@ export const ReleaseVersion: React.FC<ReleaseVersionProps> = ({ release }) => {
 
 export const ReleaseVersionWithLinks: React.FC<ReleaseVersionWithLinksProps> = ({ release, application }) => (
     <div className={'links'}>
-        <div className={'left'}>
+        <div className={'links-left'}>
             <ReleaseVersion release={release} />{' '}
         </div>
-        <div className={'right'}>
+        <div className={'links-right'}>
             <DisplaySourceLink displayString={'Source'} commitId={release.sourceCommitId} />{' '}
             <DisplayManifestLink version={release.version} app={application} displayString={'Manifest'} />
         </div>

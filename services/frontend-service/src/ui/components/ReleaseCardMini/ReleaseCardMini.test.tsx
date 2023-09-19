@@ -48,7 +48,7 @@ describe('Release Card Mini', () => {
             props: { app: 'test2', version: 2 },
             rels: [makeRelease(2, 'd1.2.3')],
             expectedMessage: 'test2',
-            expectedLabel: 'Release Version: ',
+            expectedLabel: 'd1.2.3 ',
             environments: [],
         },
         {
@@ -56,7 +56,7 @@ describe('Release Card Mini', () => {
             props: { app: 'test2', version: 2 },
             rels: [makeRelease(2, '')],
             expectedMessage: 'test2',
-            expectedLabel: 'CommitID: ',
+            expectedLabel: 'commit2 ',
             environments: [],
         },
         {
@@ -64,7 +64,7 @@ describe('Release Card Mini', () => {
             props: { app: 'test2', version: 2 },
             rels: [makeRelease(2, '', '')],
             expectedMessage: 'test2',
-            expectedLabel: 'Version: ',
+            expectedLabel: '#2 ',
             environments: [],
         },
         {
@@ -89,7 +89,7 @@ describe('Release Card Mini', () => {
                 },
             ],
             expectedMessage: 'test2',
-            expectedLabel: 'CommitID: ',
+            expectedLabel: 'commit2 ',
         },
         {
             name: 'A release with undeploy version',
@@ -113,7 +113,7 @@ describe('Release Card Mini', () => {
                 },
             ],
             expectedMessage: 'Undeploy Version',
-            expectedLabel: undefined,
+            expectedLabel: 'undeploy ',
         },
     ];
 
@@ -148,8 +148,10 @@ describe('Release Card Mini', () => {
             expect(elementQuerySelectorSafe(container, '.env-group-chip-list-test').children.length).toBe(
                 testcase.environments.length
             );
-            expect(container.querySelector('.release__details-header')?.textContent).toBe(testcase.expectedMessage);
-            expect(container.querySelector('.link-label')?.textContent).toBe(testcase.expectedLabel);
+            expect(container.querySelector('.release__details-header-title')?.textContent).toBe(
+                testcase.expectedMessage
+            );
+            expect(container.querySelector('.links-left')?.textContent).toBe(testcase.expectedLabel);
         });
     });
 });

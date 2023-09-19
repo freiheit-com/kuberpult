@@ -39,7 +39,7 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
         <div className={classNames('release-card-mini', className)} onClick={openReleaseDialog}>
             <div className={classNames('release__details-mini', className)}>
                 <div className="release__details-header" title={displayedTitle}>
-                    <div>{displayedMessage}</div>
+                    <div className="release__details-header-title">{displayedMessage}</div>
                     <div className="release__environments-mini">
                         <EnvironmentGroupChipList app={props.app} version={props.version} />
                     </div>

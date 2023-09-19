@@ -139,7 +139,7 @@ export const DisplayManifestLink: React.FC<{ displayString: string; app: string;
     if (manifestRepo) {
         return (
             <a
-                title={'Opens the release directory for this release'}
+                title={'Opens the release directory in the manifest repository for this release'}
                 href={deriveReleaseDirLink(manifestRepo, branch, app, version)}>
                 {displayString}
             </a>

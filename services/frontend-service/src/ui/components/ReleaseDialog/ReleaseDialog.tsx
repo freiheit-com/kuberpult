@@ -302,7 +302,8 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                     {release?.sourceAuthor ? release?.sourceAuthor : 'an unknown author'}{' '}
                                 </span>
                                 <span className="links">
-                                    <DisplaySourceLink commitId={release.sourceCommitId} displayString={'Source'} />{' '}
+                                    <DisplaySourceLink commitId={release.sourceCommitId} displayString={'Source'} />
+                                    &nbsp;
                                     <DisplayManifestLink app={app} version={release.version} displayString="Manifest" />
                                 </span>
                             </div>
