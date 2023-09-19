@@ -49,7 +49,7 @@ Copyright 2023 freiheit.com*/
             .release-dialog-message {
                 .release-dialog-commitMessage {
                     text-overflow: wrap;
-		    @extend .sub-headline1;
+                    @extend .sub-headline1;
                 }
             }
         }
@@ -58,7 +58,6 @@ Copyright 2023 freiheit.com*/
             display: flex;
             margin: 20px 10px auto;
         }
-
     }
 
     .release-env-group-list {
