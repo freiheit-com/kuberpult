@@ -9,6 +9,7 @@ set -o pipefail
 
 name=${1}
 applicationOwnerTeam=${2:-sreteam}
+# 40 is the length of a full git commit hash.
 commit_id=$(LC_CTYPE=C tr -dc a-f0-9 </dev/urandom | head -c 40 ; echo '')
 authors[0]="urbansky"
 authors[1]="Medo"
