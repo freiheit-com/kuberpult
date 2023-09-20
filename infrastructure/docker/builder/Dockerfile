@@ -1,4 +1,4 @@
-FROM golang:1.21.0-alpine3.17 as golang
+FROM golang:1.21.1-alpine3.17 as golang
 FROM docker:23.0.6-cli-alpine3.17
 
 COPY --from=golang /usr/local/go/ /usr/local/go/
