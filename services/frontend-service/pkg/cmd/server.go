@@ -218,6 +218,7 @@ func runServer(ctx context.Context) error {
 					CloudInstance: c.AzureCloudInstance,
 				},
 			},
+			ManifestRepoUrl:  c.ManifestRepoUrl,
 			SourceRepoUrl:    c.SourceRepoUrl,
 			KuberpultVersion: c.Version,
 			Branch:           c.GitBranch,

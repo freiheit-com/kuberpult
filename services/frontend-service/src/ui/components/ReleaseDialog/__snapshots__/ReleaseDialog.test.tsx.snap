@@ -58,13 +58,20 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
             <div
               class="source"
             >
-              Created 
-              <div>
-                some formatted date
-              </div>
-               by 
-              test
-               
+              <span>
+                Created 
+                <div>
+                  some formatted date
+                </div>
+                 by 
+                test
+                 
+              </span>
+              <span
+                class="links"
+              >
+                 
+              </span>
             </div>
             <div
               class="release-dialog-app"
@@ -317,13 +324,20 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
             <div
               class="source"
             >
-              Created 
-              <div>
-                some formatted date
-              </div>
-               by 
-              test
-               
+              <span>
+                Created 
+                <div>
+                  some formatted date
+                </div>
+                 by 
+                test
+                 
+              </span>
+              <span
+                class="links"
+              >
+                 
+              </span>
             </div>
             <div
               class="release-dialog-app"
@@ -580,13 +594,20 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
             <div
               class="source"
             >
-              Created 
-              <div>
-                some formatted date
-              </div>
-               by 
-              nobody
-               
+              <span>
+                Created 
+                <div>
+                  some formatted date
+                </div>
+                 by 
+                nobody
+                 
+              </span>
+              <span
+                class="links"
+              >
+                 
+              </span>
             </div>
             <div
               class="release-dialog-app"
@@ -999,13 +1020,20 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
             <div
               class="source"
             >
-              Created 
-              <div>
-                some formatted date
-              </div>
-               by 
-              test1
-               
+              <span>
+                Created 
+                <div>
+                  some formatted date
+                </div>
+                 by 
+                test1
+                 
+              </span>
+              <span
+                class="links"
+              >
+                 
+              </span>
             </div>
             <div
               class="release-dialog-app"

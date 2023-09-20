@@ -97,6 +97,8 @@ spec:
           value: {{ .Values.frontend.tag | quote}}
         - name: KUBERPULT_SOURCE_REPO_URL
           value: {{ .Values.git.sourceRepoUrl | quote}}
+        - name: KUBERPULT_MANIFEST_REPO_URL
+          value: {{ .Values.git.manifestRepoUrl | quote}}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL

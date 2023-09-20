@@ -617,6 +617,7 @@ type FrontendConfig = {
 export const [useFrontendConfig, UpdateFrontendConfig] = createStore<FrontendConfig>({
     configs: {
         sourceRepoUrl: '',
+        manifestRepoUrl: '',
         branch: '',
         kuberpultVersion: '0',
     },
@@ -652,6 +653,8 @@ export const useKuberpultVersion = (): string => useFrontendConfig((configs) => 
 export const useArgoCdBaseUrl = (): string | undefined =>
     useFrontendConfig((configs) => configs.configs.argoCd?.baseUrl);
 export const useSourceRepoUrl = (): string | undefined => useFrontendConfig((configs) => configs.configs.sourceRepoUrl);
+export const useManifestRepoUrl = (): string | undefined =>
+    useFrontendConfig((configs) => configs.configs.manifestRepoUrl);
 export const useBranch = (): string | undefined => useFrontendConfig((configs) => configs.configs.branch);
 
 export type RolloutStatusApplication = {

@@ -36,7 +36,7 @@ import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core
 import classNames from 'classnames';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { Spinner } from '../Spinner/Spinner';
-import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
+import { ReleaseVersionWithLinks } from '../ReleaseVersion/ReleaseVersion';
 
 export enum ActionTypes {
     Deploy,
@@ -266,7 +266,9 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
             <div className="mdc-drawer-sidebar-list-item-text" title={actionDetails.tooltip}>
                 <div className="mdc-drawer-sidebar-list-item-text-name">{actionDetails.name}</div>
                 <div className="mdc-drawer-sidebar-list-item-text-summary">{actionDetails.summary}</div>
-                {release !== undefined && <ReleaseVersion release={release} />}
+                {release !== undefined && actionDetails.application && (
+                    <ReleaseVersionWithLinks application={actionDetails.application} release={release} />
+                )}
                 {deleteAllSection}
             </div>
             <div onClick={handleDelete}>

@@ -15,9 +15,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { render } from '@testing-library/react';
 import React from 'react';
-import { ArgoAppEnvLink, ArgoAppLink, ArgoTeamLink, DisplayLink } from './Links';
+import { ArgoAppEnvLink, ArgoAppLink, ArgoTeamLink, DisplayManifestLink, DisplaySourceLink } from './Links';
 import { GetFrontendConfigResponse_ArgoCD } from '../../api/api';
 import { UpdateFrontendConfig } from './store';
+import { elementQuerySelectorSafe } from '../../setupTests';
 
 const setupArgoCd = (baseUrl: string | undefined) => {
     const argo: GetFrontendConfigResponse_ArgoCD | undefined = baseUrl
@@ -30,7 +31,8 @@ const setupArgoCd = (baseUrl: string | undefined) => {
             argoCd: argo,
             authConfig: undefined,
             kuberpultVersion: 'dontcare',
-            sourceRepoUrl: 'dontcare',
+            manifestRepoUrl: 'dontcare',
+            sourceRepoUrl: 'mysource',
             branch: 'dontcare',
         },
     });
@@ -143,63 +145,142 @@ const setupSourceRepo = (baseUrl: string) => {
             argoCd: undefined,
             authConfig: undefined,
             kuberpultVersion: 'kuberpult',
+            manifestRepoUrl: 'mymanifest',
             sourceRepoUrl: baseUrl,
             branch: 'main',
         },
     });
 };
 
-describe('ReleaseVersionLink', () => {
+const setupManifestRepo = (baseUrl: string) => {
+    UpdateFrontendConfig.set({
+        configs: {
+            argoCd: undefined,
+            authConfig: undefined,
+            kuberpultVersion: 'kuberpult',
+            manifestRepoUrl: baseUrl,
+            sourceRepoUrl: 'mysource',
+            branch: 'main',
+        },
+    });
+};
+
+describe('DisplayManifestLink', () => {
     const cases: {
         name: string;
         displayVersion: string;
-        undeployVersion: boolean;
-        sourceCommitId: string;
         version: number;
         app: string;
         sourceRepo: string;
+        expectedLink: string | undefined;
     }[] = [
         {
             name: 'Test with displayVersion',
             displayVersion: '1',
-            undeployVersion: false,
-            sourceCommitId: '1',
             version: 1,
             app: 'foo',
             sourceRepo: 'https://example.com/testing/{dir}/{branch}',
+            expectedLink: 'https://example.com/testing/applications/foo/releases/1/main',
         },
         {
             name: 'Test without DisplayVersion',
             displayVersion: '',
-            undeployVersion: false,
-            sourceCommitId: '1',
             version: 1,
             app: 'foo',
             sourceRepo: 'https://example.com/testing/{branch}/{dir}',
+            expectedLink: 'https://example.com/testing/main/applications/foo/releases/1',
         },
         {
-            name: 'Test with undeployVersion',
+            name: 'Test without repo link should render nothing',
             displayVersion: '1',
-            undeployVersion: true,
-            sourceCommitId: '1',
             version: 1,
             app: 'foo',
+            sourceRepo: '',
+            expectedLink: undefined,
+        },
+        {
+            name: 'Test with undeployVersion should render nothing',
+            displayVersion: '1',
+            version: 0,
+            app: 'foo',
             sourceRepo: 'https://example.com/testing',
+            expectedLink: undefined,
         },
     ];
+
     describe.each(cases)('RendersProperly', (testcase) => {
         const getNode = () => (
-            <DisplayLink
+            <DisplayManifestLink
                 displayString={testcase.displayVersion}
-                version={testcase.version.toString()}
+                version={testcase.version}
                 app={testcase.app}
             />
         );
         const getWrapper = () => render(getNode());
         it(testcase.name, () => {
+            setupManifestRepo(testcase.sourceRepo);
+            const { container } = getWrapper();
+
+            if (testcase.expectedLink) {
+                // Either render the link:
+                const aElem = elementQuerySelectorSafe(container, 'a');
+                expect(aElem.attributes.getNamedItem('href')?.value).toBe(testcase.expectedLink);
+            } else {
+                // or render nothing:
+                expect(document.body.textContent).toBe('');
+            }
+        });
+    });
+});
+
+describe('DisplaySourceLink', () => {
+    const cases: {
+        name: string;
+        displayVersion: string;
+        commitId: string;
+        sourceRepo: string;
+        expectedLink: string | undefined;
+    }[] = [
+        {
+            name: 'Test with displayVersion',
+            displayVersion: '1',
+            commitId: '123',
+            sourceRepo: 'https://example.com/testing/{commit}/{branch}',
+            expectedLink: 'https://example.com/testing/123/main',
+        },
+        {
+            name: 'Test without DisplayVersion',
+            displayVersion: '',
+            commitId: '123',
+            sourceRepo: 'https://example.com/testing/{branch}/{commit}',
+            expectedLink: 'https://example.com/testing/main/123',
+        },
+        {
+            name: 'Test without repo link should render nothing',
+            displayVersion: '1',
+            commitId: '123',
+            sourceRepo: '',
+            expectedLink: undefined,
+        },
+    ];
+
+    describe.each(cases)('RendersProperly', (testcase) => {
+        const getNode = () => (
+            <DisplaySourceLink displayString={testcase.displayVersion} commitId={testcase.commitId} />
+        );
+        const getWrapper = () => render(getNode());
+        it(testcase.name, () => {
             setupSourceRepo(testcase.sourceRepo);
-            getWrapper();
-            expect(document.body).toMatchSnapshot();
+            const { container } = getWrapper();
+
+            if (testcase.expectedLink) {
+                // Either render the link:
+                const aElem = elementQuerySelectorSafe(container, 'a');
+                expect(aElem.attributes.getNamedItem('href')?.value).toBe(testcase.expectedLink);
+            } else {
+                // or render nothing:
+                expect(document.body.textContent).toBe('');
+            }
         });
     });
 });

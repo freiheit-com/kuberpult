@@ -173,6 +173,7 @@ message GetFrontendConfigResponse {
   string sourceRepoUrl = 3;
   string kuberpultVersion = 4;
   string branch = 5;
+  string manifestRepoUrl = 6;
 }
 
 

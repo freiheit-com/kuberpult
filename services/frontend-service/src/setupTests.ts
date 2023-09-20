@@ -59,11 +59,17 @@ export const getElementsByClassNameSafe = (element: HTMLElement, selectors: stri
     return result;
 };
 
-export const makeRelease = (version: number, undeployVersion: boolean = false): Release => ({
+export const makeRelease = (
+    version: number,
+    displayVersion: string = '',
+    sourceCommitId: string = 'commit' + version,
+    undeployVersion: boolean = false
+): Release => ({
     version: version,
     sourceMessage: 'test' + version,
     sourceAuthor: 'test-author',
-    sourceCommitId: 'commit' + version,
+    sourceCommitId: sourceCommitId,
+    displayVersion: displayVersion,
     createdAt: new Date(2002),
     undeployVersion: undeployVersion,
     prNumber: '666',
