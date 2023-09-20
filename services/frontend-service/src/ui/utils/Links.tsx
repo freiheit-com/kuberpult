@@ -64,7 +64,7 @@ export const deriveReleaseDirLink = (
         baseUrl = baseUrl.replace(/{dir}/gi, 'applications/' + app + '/releases/' + version);
         return baseUrl;
     }
-    return '';
+    return undefined;
 };
 
 export const ArgoTeamLink: React.FC<{ team: string | undefined }> = (props): JSX.Element | null => {
@@ -136,11 +136,10 @@ export const DisplayManifestLink: React.FC<{ displayString: string; app: string;
     const { displayString, app, version } = props;
     const manifestRepo = useManifestRepoUrl();
     const branch = useBranch();
-    if (manifestRepo) {
+    const manifestLink = deriveReleaseDirLink(manifestRepo, branch, app, version);
+    if (manifestLink && version) {
         return (
-            <a
-                title={'Opens the release directory in the manifest repository for this release'}
-                href={deriveReleaseDirLink(manifestRepo, branch, app, version)}>
+            <a title={'Opens the release directory in the manifest repository for this release'} href={manifestLink}>
                 {displayString}
             </a>
         );
