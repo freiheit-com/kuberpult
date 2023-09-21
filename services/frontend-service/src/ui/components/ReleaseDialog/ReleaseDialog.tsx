@@ -103,18 +103,13 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     queuedVersion,
     className,
 }) => {
-    type ConfirmDialog = {
-        showConfirmationDialog: boolean;
-    };
-
-    const initial: ConfirmDialog = {
-        showConfirmationDialog: false,
-    };
     const appLocks = useFilteredApplicationLocksForEnv(app, env.name);
     const envLocks = useEnvLocks(env.name);
     const hasLocks = appLocks.length > 0 || envLocks.length > 0;
 
-    const [dialogState, setDialogState] = useState(initial);
+    const [dialogState, setDialogState] = useState({
+        showConfirmationDialog: false,
+    });
     const cancelConfirmation = useCallback((): void => {
         setDialogState({ showConfirmationDialog: false });
     }, []);
@@ -174,7 +169,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             </>
         );
     const confirmationDialog: JSX.Element = (
-        <div className={'confirmation-dialog-container'}>
+        <div className={'confirmation-dialog-container OLD_OUTDATED'}>
             <ConfirmationDialog
                 onConfirm={onConfirm}
                 confirmLabel={'Yes I really want to deploy'}
@@ -354,15 +349,16 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => 
 
     return (
         <div className={'confirmation-dialog-open'}>
-            <div className={'confirmation-dialog-header'}>Please Confirm</div>
-            <div className={'confirmation-dialog-content'}>{props.children}</div>
-            <div className={'list'}>
+            <div className={'confirmation-dialog-header'}>
+                Please Confirm the Deployment <hr />
+            </div>
+            <div className={'confirmation-dialog-content'}>
+                {props.children}
+                <hr />
+            </div>
+            <div className={'confirmation-dialog-footer'}>
                 <div className={'item'} key={'button-menu-cancel'}>
-                    <Button
-                        className="mdc-button--unelevated button-cancel"
-                        label={'Cancel'}
-                        onClick={props.onCancel}
-                    />
+                    <Button className="mdc-button--ripple button-cancel" label={'Cancel'} onClick={props.onCancel} />
                 </div>
                 <div className={'item'} key={'button-menu-confirm'}>
                     <Button

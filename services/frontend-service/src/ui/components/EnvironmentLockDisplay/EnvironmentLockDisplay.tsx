@@ -23,14 +23,22 @@ export const DisplayLockInlineRenderer: React.FC<{ lock: DisplayLock }> = (props
     const { lock } = props;
     const hasAuthor = lock.authorEmail || lock.authorName;
     const author = hasAuthor ? lock.authorName + '<' + lock.authorEmail + '>' : 'unknown';
+
+    const description = lock.application ? (
+        <span>
+            App <b>{lock.application}</b> locked by <b>{author}</b> on environment <b>{lock.environment}</b>
+        </span>
+    ) : (
+        <span>
+            Environment <b>{lock.environment}</b> locked by <b>{author}</b>
+        </span>
+    );
     return (
         <span title={lock.lockId}>
-            <span>
-                locked by <b>{author}</b>
-            </span>
+            {description}
             <span>
                 {' '}
-                with message: <b>{lock.message}</b>{' '}
+                with message: <b>'{lock.message}'</b>{' '}
             </span>
         </span>
     );

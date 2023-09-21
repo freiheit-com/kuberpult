@@ -185,35 +185,55 @@ button.mdc-button.env-card-deploy-btn {
 
 .confirmation-dialog-container {
     display: flex;
+
+    &.confirmation-dialog-container-open {
+        &::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 999;
+            background-color: #00000050;
+        }
+    }
 }
 
 .confirmation-dialog-open {
-    background: #ffffff;
-    position: absolute;
+    max-height: 80vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    background: white;
+    color: black;
+    position: fixed;
     float: left;
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
 
     z-index: 1000;
-    border: 5px solid var(--mdc-theme-primary);
-    border-radius: 5px;
+    //border: 2px solid var(--mdc-theme-primary);
+    //border-radius: 5px;
+    //border-width: 2px;
+    border-radius: 10px;
     box-shadow: rgba(0, 0, 0, 0.2) 0px 5px 5px -3px, rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
     rgba(0, 0, 0, 0.12) 0px 3px 14px 2px;
 
-    .confirmation-dialog-header {
-        margin: 16px;
-        @extend .headline1;
 
+    .confirmation-dialog-header {
+        @extend .headline1;
+        padding: 2rem 2rem 0 2rem;
     }
     .confirmation-dialog-content {
-        margin: 16px;
+        font-weight: 500;
+        overflow:auto;
+        padding: 0 2rem 0 2rem;
     }
-    .list {
+    .confirmation-dialog-footer {
         display: flex;
         justify-content: space-around;
-        margin-top: 8px;
-        margin-bottom: 8px;
+        padding: 1rem 2rem 1rem 2rem;
 
         .item:not(:first-child) {
             border-top: 1px solid;
@@ -221,7 +241,11 @@ button.mdc-button.env-card-deploy-btn {
         }
         .item {
             list-style-type: none;
-            padding: 0px;
+            padding: 0;
         }
+    }
+    hr {
+        width: 100%;
+        color: grey;
     }
 }
