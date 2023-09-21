@@ -300,11 +300,8 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
     const actions = useActions();
     const [lockMessage, setLockMessage] = useState('');
     const api = useApi;
-    // const [open, setOpen] = useState(false);
     const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
 
-    // const handleClose = useCallback(() => setOpen(false), []);
-    // const handleOpen = useCallback(() => setOpen(true), []);
     let title = 'Planned Actions';
     const numActions = useNumberOfActions();
     if (numActions > 0) {
@@ -374,13 +371,9 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
         }
     }, [actions, api, authHeader, authReady, lockCreationList, lockMessage]);
 
-    const applyActionsOrDialog = useCallback(() => {
-        if (hasLocks) {
-            setDialogState({ showConfirmationDialog: true });
-        } else {
-            applyActions();
-        }
-    }, [applyActions, hasLocks]);
+    const showDialog = useCallback(() => {
+        setDialogState({ showConfirmationDialog: true });
+    }, [applyActions]);
 
     const newLockExists = useMemo(() => lockCreationList.length !== 0, [lockCreationList.length]);
 
@@ -424,13 +417,14 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 </ul>
             </>
         );
-    const confirmationDialog: JSX.Element = (
+    const confirmationDialog: JSX.Element = hasLocks ? (
         <div
             className={
                 'confirmation-dialog-container ' +
                 (dialogState.showConfirmationDialog ? 'confirmation-dialog-container-open' : '')
             }>
             <ConfirmationDialog
+                headerLabel={'Please Confirm the Deployment over Locks'}
                 onConfirm={applyActions}
                 confirmLabel={'Confirm Deployment'}
                 onCancel={cancelConfirmation}
@@ -443,6 +437,21 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                         {envLocksRendered}
                     </div>
                 </div>
+            </ConfirmationDialog>
+        </div>
+    ) : (
+        <div
+            className={
+                'confirmation-dialog-container ' +
+                (dialogState.showConfirmationDialog ? 'confirmation-dialog-container-open' : '')
+            }>
+            <ConfirmationDialog
+                headerLabel={'Please Confirm the Deployment over Locks'}
+                onConfirm={applyActions}
+                confirmLabel={'Confirm Submit'}
+                onCancel={cancelConfirmation}
+                open={dialogState.showConfirmationDialog}>
+                <div>Are you sure you want to apply all planned actions?'</div>
             </ConfirmationDialog>
         </div>
     );
@@ -482,19 +491,10 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                         )}
                         label={'Apply'}
                         disabled={!canApply}
-                        onClick={applyActionsOrDialog}
+                        onClick={showDialog}
                     />
                     {showSpinner && <Spinner message="Submitting changes" />}
                     {confirmationDialog}
-                    {/*<Dialog open={open} onClose={handleClose}>*/}
-                    {/*    <DialogTitle id="alert-dialog-title">*/}
-                    {/*        {'Are you sure you want to apply all planned actions?'}*/}
-                    {/*    </DialogTitle>*/}
-                    {/*    <DialogActions>*/}
-                    {/*        <Button label="Cancel" onClick={handleClose} />*/}
-                    {/*        <Button label="Confirm" onClick={applyActionsOrDialog} />*/}
-                    {/*    </DialogActions>*/}
-                    {/*</Dialog>*/}
                 </div>
             </nav>
         </aside>

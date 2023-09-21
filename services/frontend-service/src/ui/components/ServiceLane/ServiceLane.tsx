@@ -205,7 +205,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
     );
 
     return (
-        <div className="service-lane_">
+        <div className="service-lane">
             {dialog}
             <div className="service-lane__header">
                 <div className="service__name">

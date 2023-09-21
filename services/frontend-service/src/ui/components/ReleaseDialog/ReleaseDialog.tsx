@@ -273,6 +273,7 @@ export type ConfirmationDialogProps = {
     onCancel: () => void;
     open: boolean;
     children: JSX.Element;
+    headerLabel: string;
     confirmLabel: string;
 };
 
@@ -282,7 +283,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => 
     }
     return (
         <div className={'confirmation-dialog-open'}>
-            <div className={'confirmation-dialog-header'}>Please Confirm the Deployment over Locks</div>
+            <div className={'confirmation-dialog-header'}>{props.headerLabel}</div>
             <hr />
             <div className={'confirmation-dialog-content'}>{props.children}</div>
             <hr />
