@@ -181,8 +181,6 @@ button.mdc-button.env-card-deploy-btn {
     @extend .text-bold;
 }
 
-
-
 .confirmation-dialog-container {
     display: flex;
 }
@@ -190,7 +188,7 @@ button.mdc-button.env-card-deploy-btn {
 .confirmation-dialog-container-open {
     &::before {
         // this is to make everything behind the dialog grey and not clickable:
-        content: "";
+        content: '';
         position: fixed;
         top: 0;
         left: 0;
@@ -216,8 +214,7 @@ button.mdc-button.env-card-deploy-btn {
     z-index: 1000;
     border-radius: 10px;
     box-shadow: rgba(0, 0, 0, 0.2) 0 5px 5px -3px, rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
-    rgba(0, 0, 0, 0.12) 0px 3px 14px 2px;
-
+        rgba(0, 0, 0, 0.12) 0px 3px 14px 2px;
 
     .confirmation-dialog-header {
         @extend .headline1;
@@ -225,7 +222,7 @@ button.mdc-button.env-card-deploy-btn {
     }
     .confirmation-dialog-content {
         font-weight: 500;
-        overflow:auto;
+        overflow: auto;
         padding: 1rem 2rem 1rem 2rem;
     }
     .confirmation-dialog-footer {
@@ -244,7 +241,6 @@ button.mdc-button.env-card-deploy-btn {
         }
         button {
             border-radius: 10px;
-
         }
     }
     hr {

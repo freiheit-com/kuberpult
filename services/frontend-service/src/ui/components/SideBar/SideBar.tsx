@@ -373,7 +373,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
 
     const showDialog = useCallback(() => {
         setDialogState({ showConfirmationDialog: true });
-    }, [applyActions]);
+    }, []);
 
     const newLockExists = useMemo(() => lockCreationList.length !== 0, [lockCreationList.length]);
 
@@ -446,12 +446,12 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 (dialogState.showConfirmationDialog ? 'confirmation-dialog-container-open' : '')
             }>
             <ConfirmationDialog
-                headerLabel={'Please Confirm the Deployment over Locks'}
+                headerLabel={'Please Confirm the Planned Actions'}
                 onConfirm={applyActions}
-                confirmLabel={'Confirm Submit'}
+                confirmLabel={'Confirm Planned Actions'}
                 onCancel={cancelConfirmation}
                 open={dialogState.showConfirmationDialog}>
-                <div>Are you sure you want to apply all planned actions?'</div>
+                <div>Are you sure you want to apply all planned actions?</div>
             </ConfirmationDialog>
         </div>
     );
