@@ -346,16 +346,12 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => 
     if (!props.open) {
         return <div className={'confirmation-dialog-hidden'}></div>;
     }
-
     return (
         <div className={'confirmation-dialog-open'}>
-            <div className={'confirmation-dialog-header'}>
-                Please Confirm the Deployment <hr />
-            </div>
-            <div className={'confirmation-dialog-content'}>
-                {props.children}
-                <hr />
-            </div>
+            <div className={'confirmation-dialog-header'}>Please Confirm the Deployment over Locks</div>
+            <hr />
+            <div className={'confirmation-dialog-content'}>{props.children}</div>
+            <hr />
             <div className={'confirmation-dialog-footer'}>
                 <div className={'item'} key={'button-menu-cancel'}>
                     <Button className="mdc-button--ripple button-cancel" label={'Cancel'} onClick={props.onCancel} />

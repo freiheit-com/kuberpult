@@ -213,26 +213,24 @@ button.mdc-button.env-card-deploy-btn {
     transform: translate(-50%, -50%);
 
     z-index: 1000;
-    //border: 2px solid var(--mdc-theme-primary);
-    //border-radius: 5px;
-    //border-width: 2px;
     border-radius: 10px;
-    box-shadow: rgba(0, 0, 0, 0.2) 0px 5px 5px -3px, rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+    box-shadow: rgba(0, 0, 0, 0.2) 0 5px 5px -3px, rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
     rgba(0, 0, 0, 0.12) 0px 3px 14px 2px;
 
 
     .confirmation-dialog-header {
         @extend .headline1;
-        padding: 2rem 2rem 0 2rem;
+        padding: 2rem 2rem 1rem 2rem;
     }
     .confirmation-dialog-content {
         font-weight: 500;
         overflow:auto;
-        padding: 0 2rem 0 2rem;
+        padding: 1rem 2rem 0 2rem;
     }
     .confirmation-dialog-footer {
         display: flex;
-        justify-content: space-around;
+        justify-content: flex-end;
+        gap: 1rem;
         padding: 1rem 2rem 1rem 2rem;
 
         .item:not(:first-child) {
@@ -243,9 +241,13 @@ button.mdc-button.env-card-deploy-btn {
             list-style-type: none;
             padding: 0;
         }
+        button {
+            border-radius: 10px;
+
+        }
     }
     hr {
-        width: 100%;
         color: grey;
+        margin: 0 2rem 0 2rem;
     }
 }
