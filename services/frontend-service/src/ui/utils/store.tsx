@@ -315,11 +315,6 @@ export const useFilteredApplicationLocks = (appNameParam: string | null): Displa
     return sortLocks(filteredLocks, 'newestToOldest');
 };
 
-export const useFilteredApplicationLocksForEnv = (appNameParam: string, env: string): DisplayLock[] => {
-    const finalLocks: DisplayLock[] = useFilteredApplicationLocks(appNameParam);
-    return finalLocks.filter((val) => env === val.environment);
-};
-
 export const useLocksConflictingWithActions = (): AllLocks => {
     const allActions = useActions();
     const locks = useAllLocks();
