@@ -185,18 +185,19 @@ button.mdc-button.env-card-deploy-btn {
 
 .confirmation-dialog-container {
     display: flex;
+}
 
-    &.confirmation-dialog-container-open {
-        &::before {
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 999;
-            background-color: #00000050;
-        }
+.confirmation-dialog-container-open {
+    &::before {
+        // this is to make everything behind the dialog grey and not clickable:
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 999;
+        background-color: #00000050;
     }
 }
 

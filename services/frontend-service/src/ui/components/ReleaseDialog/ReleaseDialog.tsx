@@ -15,15 +15,12 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { Dialog } from '@material-ui/core';
 import classNames from 'classnames';
-import React, { ReactElement, useCallback, useState } from 'react';
+import React, { ReactElement, useCallback } from 'react';
 import { Environment, Environment_Application, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import {
     addAction,
-    DisplayLock,
     useCloseReleaseDialog,
     useEnvironmentGroups,
-    useEnvLocks,
-    useFilteredApplicationLocksForEnv,
     useReleaseOptional,
     useReleaseOrThrow,
     useTeamFromApplication,
@@ -34,7 +31,6 @@ import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { ArgoAppLink, ArgoTeamLink, DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
-import { DisplayLockInlineRenderer } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -103,16 +99,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     queuedVersion,
     className,
 }) => {
-    const appLocks = useFilteredApplicationLocksForEnv(app, env.name);
-    const envLocks = useEnvLocks(env.name);
-    const hasLocks = appLocks.length > 0 || envLocks.length > 0;
-
-    const [dialogState, setDialogState] = useState({
-        showConfirmationDialog: false,
-    });
-    const cancelConfirmation = useCallback((): void => {
-        setDialogState({ showConfirmationDialog: false });
-    }, []);
     const createAppLock = useCallback(() => {
         addAction({
             action: {
@@ -139,64 +125,13 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                 },
             },
         });
-        setDialogState({ showConfirmationDialog: false });
         createAppLock();
     }, [app, env.name, release.version, createAppLock]);
-    const appLocksRendered =
-        appLocks.length === 0 ? undefined : (
-            <>
-                <h4>App locks:</h4>
-                <ul>
-                    {appLocks.map((appLock: DisplayLock) => (
-                        <li>
-                            <DisplayLockInlineRenderer lock={appLock} key={appLock.lockId + '-' + app} />
-                        </li>
-                    ))}
-                </ul>
-            </>
-        );
-    const envLocksRendered =
-        envLocks.length === 0 ? undefined : (
-            <>
-                <h4>Environment locks:</h4>
-                <ul>
-                    {envLocks.map((envLock: DisplayLock) => (
-                        <li>
-                            <DisplayLockInlineRenderer lock={envLock} key={envLock.lockId + '-' + env.name} />
-                        </li>
-                    ))}
-                </ul>
-            </>
-        );
-    const confirmationDialog: JSX.Element = (
-        <div className={'confirmation-dialog-container OLD_OUTDATED'}>
-            <ConfirmationDialog
-                onConfirm={onConfirm}
-                confirmLabel={'Yes I really want to deploy'}
-                onCancel={cancelConfirmation}
-                open={dialogState.showConfirmationDialog}>
-                <div>
-                    You are attempting to deploy the app <b>{app}</b> in version <b>{release.version}</b> to environment{' '}
-                    <b>{env.name}</b> even though <b>it is locked</b>. Please check the locks and be sure you really
-                    want to ignore them:
-                    <div className={'locks'}>
-                        {appLocksRendered}
-                        {envLocksRendered}
-                    </div>
-                </div>
-            </ConfirmationDialog>
-        </div>
-    );
-
     const deployClick = useCallback(() => {
-        if (hasLocks) {
-            if (release.version) {
-                setDialogState({ showConfirmationDialog: true });
-            }
-        } else {
+        if (release.version) {
             onConfirm();
         }
-    }, [release.version, onConfirm, hasLocks]);
+    }, [release.version, onConfirm]);
 
     const queueInfo =
         queuedVersion === 0 ? null : (
@@ -237,7 +172,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     };
     return (
         <li key={env.name} className={classNames('env-card', className)}>
-            {confirmationDialog}
             <div className="env-card-header">
                 <EnvironmentChip
                     env={env}

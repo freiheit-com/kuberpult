@@ -374,12 +374,6 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
         }
     }, [actions, api, authHeader, authReady, lockCreationList, lockMessage]);
 
-    // const useHasLocks = (): boolean => {
-    //     const appLocks = useFilteredApplicationLocksForEnv(app, env.name);
-    //     const envLocks = useEnvLocks(env.name);
-    //     return appLocks.length > 0 || envLocks.length > 0;
-    // };
-
     const applyActionsOrDialog = useCallback(() => {
         if (hasLocks) {
             setDialogState({ showConfirmationDialog: true });
@@ -433,9 +427,8 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
     const confirmationDialog: JSX.Element = (
         <div
             className={
-                'confirmation-dialog-container ' + dialogState.showConfirmationDialog
-                    ? 'confirmation-dialog-container-open'
-                    : ''
+                'confirmation-dialog-container ' +
+                (dialogState.showConfirmationDialog ? 'confirmation-dialog-container-open' : '')
             }>
             <ConfirmationDialog
                 onConfirm={applyActions}
@@ -445,24 +438,9 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 <div>
                     You are attempting to deploy apps, although there are locks present. Please check the locks and be
                     sure you really want to ignore them.
-                    {/*You are attempting to deploy the app <b>{app}</b> in version <b>{release.version}</b> to environment{' '}*/}
-                    {/*<b>{env.name}</b> even though <b>it is locked</b>. Please check the locks and be sure you really*/}
-                    {/*want to ignore them:*/}
                     <div className={'locks'}>
-                        {/*{appLocksRendered}*/}
-                        {/*{appLocksRendered}*/}
-                        {/*{appLocksRendered}*/}
-                        {/*{envLocksRendered}*/}
                         {appLocksRendered}
                         {envLocksRendered}
-                        {/*{appLocksRendered}*/}
-                        {/*{envLocksRendered}*/}
-                        {/*{appLocksRendered}*/}
-                        {/*{envLocksRendered}*/}
-                        {/*{appLocksRendered}*/}
-                        {/*{envLocksRendered}*/}
-                        {/*{appLocksRendered}*/}
-                        {/*{envLocksRendered}*/}
                     </div>
                 </div>
             </ConfirmationDialog>
