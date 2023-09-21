@@ -23,7 +23,7 @@ import {
     useCloseReleaseDialog,
     useEnvironmentGroups,
     useEnvLocks,
-    useFilteredApplicationLocks,
+    useFilteredApplicationLocksForEnv,
     useReleaseOptional,
     useReleaseOrThrow,
     useTeamFromApplication,
@@ -105,14 +105,12 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
 }) => {
     type ConfirmDialog = {
         showConfirmationDialog: boolean;
-        // environment: string | null;
     };
 
     const initial: ConfirmDialog = {
         showConfirmationDialog: false,
-        // environment: 'staging',
     };
-    const appLocks = useFilteredApplicationLocks(app);
+    const appLocks = useFilteredApplicationLocksForEnv(app, env.name);
     const envLocks = useEnvLocks(env.name);
     const hasLocks = appLocks.length > 0 || envLocks.length > 0;
 
