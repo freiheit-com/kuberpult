@@ -18,6 +18,31 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.5.0](https://github.com/freiheit-com/kuberpult/tree/1.5.0) (2023-09-22)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.4.2...1.5.0)
+
+### Minor Changes (New Features)
+
+- UI: Show warning before deploying over a lock [\#955](https://github.com/freiheit-com/kuberpult/pull/955) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Shorten commit hashes and use common styling for release versions [\#947](https://github.com/freiheit-com/kuberpult/pull/947) ([hannesg](https://github.com/hannesg))
+- Render Link to manifest and source repo [\#935](https://github.com/freiheit-com/kuberpult/pull/935) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+### Patch Changes (Bugfixes)
+
+- Update dependency node to v18.18.0 [\#954](https://github.com/freiheit-com/kuberpult/pull/954) ([renovate[bot]](https://github.com/apps/renovate))
+- Update golang Docker tag to v1.21.1 [\#953](https://github.com/freiheit-com/kuberpult/pull/953) ([renovate[bot]](https://github.com/apps/renovate))
+- Fix display of delete-them-all button in planned actions [\#952](https://github.com/freiheit-com/kuberpult/pull/952) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Fix lock symbol size on history page [\#949](https://github.com/freiheit-com/kuberpult/pull/949) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+**Closed issues:**
+
+- Please display release hash on history page [\#951](https://github.com/freiheit-com/kuberpult/issues/951)
+- Showing version nr [\#809](https://github.com/freiheit-com/kuberpult/issues/809)
+
+
+---
+
 
 ## [1.4.2](https://github.com/freiheit-com/kuberpult/tree/1.4.2) (2023-09-14)
 
@@ -42,6 +67,7 @@ Given a version number MAJOR.MINOR.PATCH:
 **Fixed bugs:**
 
 - Shopping Cart should show lock that is removed [\#239](https://github.com/freiheit-com/kuberpult/issues/239)
+- Warn in the UI when there are too many items in the cart [\#878](https://github.com/freiheit-com/kuberpult/issues/878)
 
 ### Minor Changes
 
