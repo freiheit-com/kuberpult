@@ -322,7 +322,6 @@ export const useLocksConflictingWithActions = (): AllLocks => {
         environmentLocks: locks.environmentLocks.filter((envLock: DisplayLock) => {
             const actions = allActions.filter((action) => {
                 if (action.action?.$case === 'deploy') {
-                    // const app = action.action.deploy.application;
                     const env = action.action.deploy.environment;
                     if (envLock.environment === env) {
                         // found an env lock that matches
@@ -393,28 +392,6 @@ export const searchCustomFilter = (queryContent: string | null, val: string | un
 export type AllLocks = {
     environmentLocks: DisplayLock[];
     appLocks: DisplayLock[];
-};
-
-export const useEnvLocks = (thisEnv: string): DisplayLock[] => {
-    const envs = useEnvironments();
-    const environmentLocks: DisplayLock[] = [];
-    envs.forEach((env: Environment) => {
-        for (const locksKey in env.locks) {
-            const lock = env.locks[locksKey];
-            const displayLock: DisplayLock = {
-                lockId: lock.lockId,
-                date: lock.createdAt,
-                environment: env.name,
-                message: lock.message,
-                authorName: lock.createdBy?.name,
-                authorEmail: lock.createdBy?.email,
-            };
-            if (thisEnv === displayLock.environment) {
-                environmentLocks.push(displayLock);
-            }
-        }
-    });
-    return environmentLocks;
 };
 
 export const useAllLocks = (): AllLocks => {

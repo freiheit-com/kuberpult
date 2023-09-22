@@ -433,8 +433,8 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                     You are attempting to deploy apps, although there are locks present. Please check the locks and be
                     sure you really want to ignore them.
                     <div className={'locks'}>
-                        {appLocksRendered}
                         {envLocksRendered}
+                        {appLocksRendered}
                     </div>
                 </div>
             </ConfirmationDialog>

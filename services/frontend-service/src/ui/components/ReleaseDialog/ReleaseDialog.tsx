@@ -112,26 +112,23 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             },
         });
     }, [app, env.name]);
-    const onConfirm = useCallback((): void => {
-        addAction({
-            action: {
-                $case: 'deploy',
-                deploy: {
-                    environment: env.name,
-                    application: app,
-                    version: release.version,
-                    ignoreAllLocks: false,
-                    lockBehavior: LockBehavior.Ignore,
-                },
-            },
-        });
-        createAppLock();
-    }, [app, env.name, release.version, createAppLock]);
-    const deployClick = useCallback(() => {
+    const deployAndLockClick = useCallback(() => {
         if (release.version) {
-            onConfirm();
+            addAction({
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: env.name,
+                        application: app,
+                        version: release.version,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.Ignore,
+                    },
+                },
+            });
+            createAppLock();
         }
-    }, [release.version, onConfirm]);
+    }, [release.version, app, env.name, createAppLock]);
 
     const queueInfo =
         queuedVersion === 0 ? null : (
@@ -227,7 +224,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             <Button
                                 disabled={application && application.version === release.version}
                                 className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
-                                onClick={deployClick}
+                                onClick={deployAndLockClick}
                                 label="Deploy & Lock"
                             />
                         </div>
