@@ -82,8 +82,8 @@ export const makeLock = (input: Partial<Lock>): Lock => ({
     message: 'lock msg 1',
     createdAt: date,
     createdBy: {
-        name: 'Betty',
-        email: 'betty@example.com',
+        name: 'default',
+        email: 'default@example.com',
     },
     ...input,
 });

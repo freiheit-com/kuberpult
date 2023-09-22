@@ -29,14 +29,17 @@ import {
     addAction,
     useLocksSimilarTo,
     useRelease,
+    useLocksConflictingWithActions,
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
-import { TextField, Dialog, DialogTitle, DialogActions } from '@material-ui/core';
+import { TextField } from '@material-ui/core';
 import classNames from 'classnames';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { Spinner } from '../Spinner/Spinner';
 import { ReleaseVersionWithLinks } from '../ReleaseVersion/ReleaseVersion';
+import { ConfirmationDialog } from '../ReleaseDialog/ReleaseDialog';
+import { DisplayLockInlineRenderer } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 
 export enum ActionTypes {
     Deploy,
@@ -297,11 +300,8 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
     const actions = useActions();
     const [lockMessage, setLockMessage] = useState('');
     const api = useApi;
-    const [open, setOpen] = useState(false);
     const { authHeader, authReady } = useAzureAuthSub((auth) => auth);
 
-    const handleClose = useCallback(() => setOpen(false), []);
-    const handleOpen = useCallback(() => setOpen(true), []);
     let title = 'Planned Actions';
     const numActions = useNumberOfActions();
     if (numActions > 0) {
@@ -315,6 +315,15 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
             action.action?.$case === 'createEnvironmentApplicationLock'
     );
     const [showSpinner, setShowSpinner] = useState(false);
+    const [dialogState, setDialogState] = useState({
+        showConfirmationDialog: false,
+    });
+    const cancelConfirmation = useCallback((): void => {
+        setDialogState({ showConfirmationDialog: false });
+    }, []);
+
+    const conflictingLocks = useLocksConflictingWithActions();
+    const hasLocks = conflictingLocks.environmentLocks.length > 0 || conflictingLocks.appLocks.length > 0;
 
     const applyActions = useCallback(() => {
         if (lockMessage) {
@@ -358,9 +367,13 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 .finally(() => {
                     setShowSpinner(false);
                 });
-            handleClose();
+            setDialogState({ showConfirmationDialog: false });
         }
-    }, [actions, api, handleClose, lockCreationList, lockMessage, authHeader, authReady]);
+    }, [actions, api, authHeader, authReady, lockCreationList, lockMessage]);
+
+    const showDialog = useCallback(() => {
+        setDialogState({ showConfirmationDialog: true });
+    }, []);
 
     const newLockExists = useMemo(() => lockCreationList.length !== 0, [lockCreationList.length]);
 
@@ -371,6 +384,76 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
     const canApply = useMemo(
         () => actions.length > 0 && (!newLockExists || lockMessage),
         [actions.length, lockMessage, newLockExists]
+    );
+    const appLocksRendered =
+        conflictingLocks.appLocks.length === 0 ? undefined : (
+            <>
+                <h4>Conflicting App Locks:</h4>
+                <ul>
+                    {conflictingLocks.appLocks.map((appLock: DisplayLock) => (
+                        <li>
+                            <DisplayLockInlineRenderer
+                                lock={appLock}
+                                key={appLock.lockId + '-' + appLock.application + '-' + appLock.environment}
+                            />
+                        </li>
+                    ))}
+                </ul>
+            </>
+        );
+    const envLocksRendered =
+        conflictingLocks.environmentLocks.length === 0 ? undefined : (
+            <>
+                <h4>Conflicting Environment Locks:</h4>
+                <ul>
+                    {conflictingLocks.environmentLocks.map((envLock: DisplayLock) => (
+                        <li>
+                            <DisplayLockInlineRenderer
+                                lock={envLock}
+                                key={envLock.lockId + '-' + envLock.environment}
+                            />
+                        </li>
+                    ))}
+                </ul>
+            </>
+        );
+    const confirmationDialog: JSX.Element = hasLocks ? (
+        <div
+            className={
+                'confirmation-dialog-container ' +
+                (dialogState.showConfirmationDialog ? 'confirmation-dialog-container-open' : '')
+            }>
+            <ConfirmationDialog
+                headerLabel={'Please Confirm the Deployment over Locks'}
+                onConfirm={applyActions}
+                confirmLabel={'Confirm Deployment'}
+                onCancel={cancelConfirmation}
+                open={dialogState.showConfirmationDialog}>
+                <div>
+                    You are attempting to deploy apps, although there are locks present. Please check the locks and be
+                    sure you really want to ignore them.
+                    <div className={'locks'}>
+                        {envLocksRendered}
+                        {appLocksRendered}
+                    </div>
+                </div>
+            </ConfirmationDialog>
+        </div>
+    ) : (
+        <div
+            className={
+                'confirmation-dialog-container ' +
+                (dialogState.showConfirmationDialog ? 'confirmation-dialog-container-open' : '')
+            }>
+            <ConfirmationDialog
+                headerLabel={'Please Confirm the Planned Actions'}
+                onConfirm={applyActions}
+                confirmLabel={'Confirm Planned Actions'}
+                onCancel={cancelConfirmation}
+                open={dialogState.showConfirmationDialog}>
+                <div>Are you sure you want to apply all planned actions?</div>
+            </ConfirmationDialog>
+        </div>
     );
 
     return (
@@ -408,18 +491,10 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                         )}
                         label={'Apply'}
                         disabled={!canApply}
-                        onClick={handleOpen}
+                        onClick={showDialog}
                     />
                     {showSpinner && <Spinner message="Submitting changes" />}
-                    <Dialog open={open} onClose={handleClose}>
-                        <DialogTitle id="alert-dialog-title">
-                            {'Are you sure you want to apply all planned actions?'}
-                        </DialogTitle>
-                        <DialogActions>
-                            <Button label="Cancel" onClick={handleClose} />
-                            <Button label="Confirm" onClick={applyActions} />
-                        </DialogActions>
-                    </Dialog>
+                    {confirmationDialog}
                 </div>
             </nav>
         </aside>

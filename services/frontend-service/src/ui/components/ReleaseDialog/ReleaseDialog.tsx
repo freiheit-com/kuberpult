@@ -112,7 +112,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             },
         });
     }, [app, env.name]);
-    const deploy = useCallback(() => {
+    const deployAndLockClick = useCallback(() => {
         if (release.version) {
             addAction({
                 action: {
@@ -126,9 +126,10 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     },
                 },
             });
+            createAppLock();
         }
-        createAppLock();
-    }, [app, env.name, release.version, createAppLock]);
+    }, [release.version, app, env.name, createAppLock]);
+
     const queueInfo =
         queuedVersion === 0 ? null : (
             <div
@@ -223,7 +224,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             <Button
                                 disabled={application && application.version === release.version}
                                 className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
-                                onClick={deploy}
+                                onClick={deployAndLockClick}
                                 label="Deploy & Lock"
                             />
                         </div>
@@ -264,13 +265,49 @@ export const EnvironmentList: React.FC<{
 export const undeployTooltipExplanation =
     'This is the "undeploy" version. It is essentially an empty manifest. Deploying this means removing all kubernetes entities like deployments from the given environment. You must deploy this to all environments before kuberpult allows to delete the app entirely.';
 
+export type ConfirmationDialogProps = {
+    onConfirm: () => void;
+    onCancel: () => void;
+    open: boolean;
+    children: JSX.Element;
+    headerLabel: string;
+    confirmLabel: string;
+};
+
+export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => {
+    if (!props.open) {
+        return <div className={'confirmation-dialog-hidden'}></div>;
+    }
+    return (
+        <div className={'confirmation-dialog-open'}>
+            <div className={'confirmation-dialog-header'}>{props.headerLabel}</div>
+            <hr />
+            <div className={'confirmation-dialog-content'}>{props.children}</div>
+            <hr />
+            <div className={'confirmation-dialog-footer'}>
+                <div className={'item'} key={'button-menu-cancel'}>
+                    <Button className="mdc-button--ripple button-cancel" label={'Cancel'} onClick={props.onCancel} />
+                </div>
+                <div className={'item'} key={'button-menu-confirm'}>
+                    <Button
+                        className="mdc-button--unelevated button-confirm"
+                        label={props.confirmLabel}
+                        onClick={props.onConfirm}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, version } = props;
     // the ReleaseDialog is only opened when there is a release, so we can assume that it exists here:
     const release = useReleaseOrThrow(app, version);
     const team = useTeamFromApplication(app);
     const closeReleaseDialog = useCloseReleaseDialog();
-    const dialog =
+
+    const dialog: JSX.Element | '' =
         app !== '' ? (
             <div>
                 <Dialog
@@ -282,7 +319,6 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                     <div className={classNames('release-dialog-app-bar', className)}>
                         <div className={classNames('release-dialog-app-bar-data')}>
                             <div className={classNames('release-dialog-message', className)}>
-                                <ReleaseVersion release={release} />
                                 <span className={classNames('release-dialog-commitMessage', className)}>
                                     {release?.sourceMessage}
                                 </span>

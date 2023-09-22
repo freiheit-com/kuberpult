@@ -216,7 +216,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                         </div>
                     )}
                 </div>
-                <div className="service__actions">{dotsMenu}</div>
+                <div className="service__actions__">{dotsMenu}</div>
             </div>
             <div className="service__warnings">
                 <WarningBoxes application={application} />

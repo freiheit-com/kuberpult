@@ -24,12 +24,12 @@ import {
     GetOverviewResponse,
     Priority,
     Release,
-    Warning,
     StreamStatusResponse,
+    Warning,
 } from '../../api/api';
+import * as React from 'react';
 import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import * as React from 'react';
 import { useIsAuthenticated } from '@azure/msal-react';
 
 // see maxBatchActions in batch.go
@@ -313,6 +313,40 @@ export const useFilteredApplicationLocks = (appNameParam: string | null): Displa
         });
     const filteredLocks = finalLocks.filter((val) => appNameParam === val.application);
     return sortLocks(filteredLocks, 'newestToOldest');
+};
+
+export const useLocksConflictingWithActions = (): AllLocks => {
+    const allActions = useActions();
+    const locks = useAllLocks();
+    return {
+        environmentLocks: locks.environmentLocks.filter((envLock: DisplayLock) => {
+            const actions = allActions.filter((action) => {
+                if (action.action?.$case === 'deploy') {
+                    const env = action.action.deploy.environment;
+                    if (envLock.environment === env) {
+                        // found an env lock that matches
+                        return true;
+                    }
+                }
+                return false;
+            });
+            return actions.length > 0;
+        }),
+        appLocks: locks.appLocks.filter((envLock: DisplayLock) => {
+            const actions = allActions.filter((action) => {
+                if (action.action?.$case === 'deploy') {
+                    const app = action.action.deploy.application;
+                    const env = action.action.deploy.environment;
+                    if (envLock.environment === env && envLock.application === app) {
+                        // found an app lock that matches
+                        return true;
+                    }
+                }
+                return false;
+            });
+            return actions.length > 0;
+        }),
+    };
 };
 
 // return env lock IDs from given env

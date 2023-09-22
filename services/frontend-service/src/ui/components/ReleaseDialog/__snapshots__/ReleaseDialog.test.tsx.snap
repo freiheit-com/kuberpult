@@ -44,12 +44,6 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
               class="release-dialog-message"
             >
               <span
-                class="release-version__display-version"
-                title="commit"
-              >
-                2
-              </span>
-              <span
                 class="release-dialog-commitMessage"
               >
                 test1
@@ -309,12 +303,6 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
             <div
               class="release-dialog-message"
             >
-              <span
-                class="release-version__display-version"
-                title="commit"
-              >
-                2
-              </span>
               <span
                 class="release-dialog-commitMessage"
               >
@@ -579,12 +567,6 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
             <div
               class="release-dialog-message"
             >
-              <span
-                class="release-version__display-version"
-                title="cafe"
-              >
-                2
-              </span>
               <span
                 class="release-dialog-commitMessage"
               >
@@ -1007,12 +989,6 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
             <div
               class="release-dialog-message"
             >
-              <span
-                class="release-version__undeploy-version"
-                title="Remove"
-              >
-                undeploy
-              </span>
               <span
                 class="release-dialog-commitMessage"
               />
