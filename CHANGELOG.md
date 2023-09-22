@@ -22,6 +22,12 @@ Given a version number MAJOR.MINOR.PATCH:
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.4.2...1.5.0)
 
+### Upgrade Notes
+There are no breaking changes.
+However, we now recommend to submit the whole git hash to the `/release` endpoint. Kuberpult's UI now takes care to shorten the hash when displaying it.
+We also recommend to set the helm chart parameter `git.sourceRepoUrl` to add a link to the source. Optionally you can also set `git.manifestRepoUrl` to add a link to the manifest repo.
+See [values file](https://github.com/freiheit-com/kuberpult/blob/main/charts/kuberpult/values.yaml.tpl#L25) for how to set them.
+
 ### Minor Changes (New Features)
 
 - UI: Show warning before deploying over a lock [\#955](https://github.com/freiheit-com/kuberpult/pull/955) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
