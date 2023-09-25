@@ -19,6 +19,7 @@ package versions
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/argoproj/argo-cd/v2/util/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -46,8 +47,13 @@ type versionClient struct {
 	cache  *lru.Cache
 }
 
+type VersionInfo struct {
+  Version uint64
+  DeployedAt time.Time
+}
+
 // GetVersion implements VersionClient
-func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (uint64, error) {
+func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
 	var overview *api.GetOverviewResponse
 	entry, ok := v.cache.Get(revision)
 	if !ok {
@@ -57,7 +63,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 			GitRevision: revision,
 		})
 		if err != nil {
-			return 0, fmt.Errorf("requesting overview %q: %w", revision, err)
+			return nil, fmt.Errorf("requesting overview %q: %w", revision, err)
 		}
 		v.cache.Add(revision, overview)
 	} else {
@@ -68,13 +74,13 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 			if env.Name == environment {
 				app := env.Applications[application]
 				if app == nil {
-					return 0, nil
+					return nil, nil
 				}
-				return app.Version, nil
+				return *VersionInfo{Version: app.Version, DeployedAt: app.DeploymentMetaData.DeployTime}, nil
 			}
 		}
 	}
-	return 0, nil
+	return nil, nil
 }
 
 type KuberpultEvent struct {
