@@ -125,3 +125,9 @@ publish: release
 .PHONY: get-builder-image
 get-builder-image:
 	@echo "$(KUBERPULT_BUILDER)"
+
+kind-load: docker
+	kind load docker-image "$(IMAGENAME)"
+
+patch-kind: kind-load
+	kubectl set image deployment/kuberpult-cd-service service=$(IMAGENAME)

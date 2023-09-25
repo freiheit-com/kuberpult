@@ -174,6 +174,10 @@ kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
 kind load docker-image "$rollout_imagename"
 
+## jaeger
+
+helm repo add jaeger-all-in-one https://raw.githubusercontent.com/hansehe/jaeger-all-in-one/master/helm/charts
+helm install jaeger-all-in-one jaeger-all-in-one/jaeger-all-in-one --version 0.1.11 --set enableHttpOpenTelemetryCollector=true
 
 ## argoCd
 
@@ -191,6 +195,8 @@ $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
   cm:
     accounts.kuberpult: apiKey
     timeout.reconciliation: 0s
+  params:
+    otlp.address: jaeger-all-in-one:4317
   rbac:
     policy.csv: |
       p, role:kuberpult, applications, get, */*, allow
@@ -320,16 +326,15 @@ portForwardAndWait "default" deployment/kuberpult-cd-service 8082 8080
 
 waitForDeployment "default" "app=kuberpult-frontend-service"
 portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
-print "connection to frontend service successful"
+print "kuberpult is available at http://localhost:8081"
 
-
-
-
+portForwardAndWait "default" "svc/jaeger-all-in-one" "16686" "16686"
+print "jaeger is avaiable at http://localhost:16686"
 
 kubectl get deployment
 kubectl get pods
 
-for i in $(seq 1 3)
+for i in $(seq 1 10)
 do
    ../../infrastructure/scripts/create-testdata/create-release.sh echo;
 done
@@ -337,8 +342,8 @@ done
 
 if "$LOCAL_EXECUTION"
 then
-  echo "sleeping for 1h to allow debugging"
-  sleep 1h
+  echo "Kuberpult is now running. Hit Ctrl+c to stop it"
+  read -r -d '' _ </dev/tty
 else
   echo "done. Kind cluster is up and kuberpult and argoCd are running."
 fi

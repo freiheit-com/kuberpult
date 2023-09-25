@@ -24,11 +24,13 @@ import (
 	argoapplication "github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	argoappv1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type SimplifiedApplicationInterface interface {
@@ -59,9 +61,10 @@ type notifier struct {
 func (n *notifier) NotifyArgoCd(ctx context.Context, environment, application string) {
 	n.errGroup.Go(func() error {
 		var err error
-		span, ctx := tracer.StartSpanFromContext(ctx, "argocd.refresh")
-		span.SetTag("environment", environment)
-		span.SetTag("application", application)
+		ctx, span := tracing.Start(ctx, "argocd.refresh")
+		defer span.End()
+		span.SetAttributes(attribute.String("environment", environment),
+			attribute.String("application", application))
 		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
 		l := logger.FromContext(ctx).With(zap.String("environment", environment), zap.String("application", application))
@@ -73,7 +76,7 @@ func (n *notifier) NotifyArgoCd(ctx context.Context, environment, application st
 		if err != nil {
 			l.Error("argocd.refresh", zap.Error(err))
 		}
-		span.Finish(tracer.WithError(err))
+		span.RecordError(err)
 		return nil
 	})
 }

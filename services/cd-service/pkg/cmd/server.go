@@ -37,9 +37,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
-	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type Config struct {
@@ -115,24 +112,17 @@ func RunServer() {
 			return interceptors.UnaryUserContextInterceptor(ctx, req, info, handler, reader)
 		}
 
+		ctx, cancel, err := tracing.WithTracerProvider(ctx, "kuberpult-cd-service")
+		defer cancel()
+
 		grpcStreamInterceptors := []grpc.StreamServerInterceptor{
 			grpc_zap.StreamServerInterceptor(grpcServerLogger),
+			tracing.OTELStreamServerInterceptor(ctx),
 		}
 		grpcUnaryInterceptors := []grpc.UnaryServerInterceptor{
 			grpc_zap.UnaryServerInterceptor(grpcServerLogger),
+			tracing.OTELUnaryServerInterceptor(ctx),
 			unaryUserContextInterceptor,
-		}
-
-		if c.EnableTracing {
-			tracer.Start()
-			defer tracer.Stop()
-
-			grpcStreamInterceptors = append(grpcStreamInterceptors,
-				grpctrace.StreamServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-cd-service"))),
-			)
-			grpcUnaryInterceptors = append(grpcUnaryInterceptors,
-				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-cd-service"))),
-			)
 		}
 
 		if c.EnableMetrics {
@@ -144,7 +134,7 @@ func RunServer() {
 		}
 
 		// If the tracer is not started, calling this function is a no-op.
-		span, ctx := tracer.StartSpanFromContext(ctx, "Start server")
+		ctx, span := tracing.Start(ctx, "Start server")
 
 		repo, err := repository.New(ctx, repository.RepositoryConfig{
 			URL:            c.GitUrl,
@@ -169,13 +159,13 @@ func RunServer() {
 		})
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
+			span.RecordError(err)
 		}
+		span.End()
 
 		repositoryService := &service.Service{
 			Repository: repo,
 		}
-
-		span.Finish()
 
 		wg.Add(1)
 		go repository.RegularlySendDatadogMetrics(repo, 300, repository.GetRepositoryStateAndUpdateMetrics)
@@ -188,9 +178,7 @@ func RunServer() {
 					Port: "8080",
 					Register: func(mux *http.ServeMux) {
 						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
-						if c.EnableTracing {
-							handler = httptrace.WrapHandler(handler, "kuberpult-cd-service", "/")
-						}
+						handler = tracing.WrapHttp(ctx, handler)
 						mux.Handle("/", handler)
 					},
 				},
