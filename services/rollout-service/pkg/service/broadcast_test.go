@@ -97,7 +97,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          1,
+						Version:          &versions.VersionInfo{Version: 1},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -114,7 +114,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          1,
+						Version:          &versions.VersionInfo{Version: 1},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -125,7 +125,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          1,
+						Version:          &versions.VersionInfo{Version: 1},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeOutOfSync,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -136,7 +136,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          1,
+						Version:          &versions.VersionInfo{Version: 1},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeOutOfSync,
 						HealthStatusCode: health.HealthStatusProgressing,
 					},
@@ -147,7 +147,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          2,
+						Version:          &versions.VersionInfo{Version: 2},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -163,7 +163,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          1,
+						Version:          &versions.VersionInfo{Version: 1},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -174,7 +174,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          1,
+						Version:          &versions.VersionInfo{Version: 1},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusDegraded,
 					},
@@ -185,7 +185,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          1,
+						Version:          &versions.VersionInfo{Version: 1},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -201,7 +201,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          1,
+						Version:          &versions.VersionInfo{Version: 1},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeOutOfSync,
 						HealthStatusCode: health.HealthStatusHealthy,
 						OperationState: &v1alpha1.OperationState{
@@ -220,7 +220,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          1,
+						Version:          &versions.VersionInfo{Version: 1},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeOutOfSync,
 						HealthStatusCode: health.HealthStatusHealthy,
 						OperationState: &v1alpha1.OperationState{
@@ -239,7 +239,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          1,
+						Version:          &versions.VersionInfo{Version: 1},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -250,7 +250,7 @@ func TestBroadcast(t *testing.T) {
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     2,
+						Version:     &versions.VersionInfo{Version: 2},
 					},
 
 					ExpectStatus: &RolloutStatusProgressing,
@@ -259,7 +259,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          2,
+						Version:          &versions.VersionInfo{Version: 2},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -385,7 +385,7 @@ func TestBroadcastDoesntGetStuck(t *testing.T) {
 					Environment:      "doesntmatter",
 					HealthStatusCode: health.HealthStatusHealthy,
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
-					Version:          1,
+					Version:          &versions.VersionInfo{Version: 1},
 				})
 				select {
 				case resp := <-ch2:
