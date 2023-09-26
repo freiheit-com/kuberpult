@@ -62,14 +62,14 @@ func TestSubscribe(t *testing.T) {
 					ArgoEvent: &service.ArgoEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     1,
+						Version:     &versions.VersionInfo{Version: 1},
 					},
 				},
 				{
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     2,
+						Version:     &versions.VersionInfo{Version: 2},
 					},
 					ExpectedNotification: &expectedNotification{
 						Application: "foo",
@@ -85,14 +85,14 @@ func TestSubscribe(t *testing.T) {
 					ArgoEvent: &service.ArgoEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     1,
+						Version:     &versions.VersionInfo{Version: 1},
 					},
 				},
 				{
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     2,
+						Version:     &versions.VersionInfo{Version: 2},
 					},
 					ExpectedNotification: &expectedNotification{
 						Application: "foo",
@@ -103,7 +103,7 @@ func TestSubscribe(t *testing.T) {
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     2,
+						Version:     &versions.VersionInfo{Version: 2},
 					},
 				},
 			},
@@ -115,14 +115,14 @@ func TestSubscribe(t *testing.T) {
 					ArgoEvent: &service.ArgoEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     1,
+						Version:     &versions.VersionInfo{Version: 1},
 					},
 				},
 				{
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     2,
+						Version:     &versions.VersionInfo{Version: 2},
 					},
 					ExpectedNotification: &expectedNotification{
 						Application: "foo",
@@ -133,7 +133,7 @@ func TestSubscribe(t *testing.T) {
 					VersionEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
-						Version:     3,
+						Version:     &versions.VersionInfo{Version: 3},
 					},
 					ExpectedNotification: &expectedNotification{
 						Application: "foo",
@@ -185,7 +185,7 @@ func TestSubscribe(t *testing.T) {
 }
 
 type mockBackoff struct {
-	called   uint
+	called uint
 }
 
 func (b *mockBackoff) NextBackOff() time.Duration {
@@ -206,8 +206,8 @@ func TestSubscriberHandlesReconnects(t *testing.T) {
 		return bo
 	}
 	tcs := []struct {
-		Name          string
-		Disconnects   uint
+		Name        string
+		Disconnects uint
 	}{
 		{
 			Name:        "reconnects are handled",
@@ -231,7 +231,7 @@ func TestSubscriberHandlesReconnects(t *testing.T) {
 				bc.ProcessKuberpultEvent(ctx, versions.KuberpultEvent{
 					Application: "app",
 					Environment: "env",
-					Version:     i,
+					Version:     &versions.VersionInfo{Version: i},
 				})
 				<-notifications
 				bc.DisconnectAll()

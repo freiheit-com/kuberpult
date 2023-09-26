@@ -19,6 +19,7 @@ package versions
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/argoproj/argo-cd/v2/util/grpc"
@@ -38,7 +39,7 @@ var RolloutServiceUser auth.User = auth.User{
 }
 
 type VersionClient interface {
-	GetVersion(ctx context.Context, revision, environment, application string) (uint64, error)
+	GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error)
 	ConsumeEvents(ctx context.Context, processor VersionEventProcessor) error
 }
 
@@ -48,8 +49,8 @@ type versionClient struct {
 }
 
 type VersionInfo struct {
-  Version uint64
-  DeployedAt time.Time
+	Version    uint64
+	DeployedAt time.Time
 }
 
 // GetVersion implements VersionClient
@@ -74,19 +75,34 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 			if env.Name == environment {
 				app := env.Applications[application]
 				if app == nil {
-					return nil, nil
+					return &VersionInfo{}, nil
 				}
-				return *VersionInfo{Version: app.Version, DeployedAt: app.DeploymentMetaData.DeployTime}, nil
+				return &VersionInfo{Version: app.Version, DeployedAt: deployedAt(app)}, nil
 			}
 		}
 	}
-	return nil, nil
+	return &VersionInfo{}, nil
+}
+
+func deployedAt(app *api.Environment_Application) time.Time {
+	if app.DeploymentMetaData == nil {
+		return time.Time{}
+	}
+	deployTime := app.DeploymentMetaData.DeployTime
+	if deployTime != "" {
+		dt, err := strconv.ParseInt(deployTime, 10, 64)
+		if err != nil {
+			return time.Time{}
+		}
+		return time.Unix(dt, 0).UTC()
+	}
+	return time.Time{}
 }
 
 type KuberpultEvent struct {
 	Environment string
 	Application string
-	Version     uint64
+	Version     *VersionInfo
 }
 
 type VersionEventProcessor interface {
@@ -145,7 +161,9 @@ outer:
 						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
 							Application: app.Name,
 							Environment: env.Name,
-							Version:     app.Version,
+							Version: &VersionInfo{
+								Version: app.Version,
+							},
 						})
 					}
 				}
@@ -157,7 +175,7 @@ outer:
 					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
 						Application: k.Application,
 						Environment: k.Environment,
-						Version:     0,
+						Version:     &VersionInfo{},
 					})
 				}
 			}

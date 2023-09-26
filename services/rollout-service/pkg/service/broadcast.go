@@ -35,14 +35,14 @@ type key struct {
 }
 
 type appState struct {
-	argocdVersion    uint64
-	kuberpultVersion uint64
+	argocdVersion    *versions.VersionInfo
+	kuberpultVersion *versions.VersionInfo
 	rolloutStatus    api.RolloutStatus
 }
 
 func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
 	status := rolloutStatus(ev)
-	if a.rolloutStatus != status || a.argocdVersion != ev.Version {
+	if a.rolloutStatus != status || a.argocdVersion == nil || a.argocdVersion.Version != ev.Version.Version {
 		a.rolloutStatus = status
 		a.argocdVersion = ev.Version
 		return a.getEvent(ev.Application, ev.Environment)
@@ -51,7 +51,7 @@ func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
 }
 
 func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEvent {
-	if a.kuberpultVersion != ev.Version {
+	if a.kuberpultVersion == nil || a.kuberpultVersion.Version != ev.Version.Version {
 		a.kuberpultVersion = ev.Version
 		return a.getEvent(ev.Application, ev.Environment)
 	}
@@ -60,7 +60,7 @@ func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEv
 
 func (a *appState) getEvent(application, environment string) *BroadcastEvent {
 	rs := a.rolloutStatus
-	if a.kuberpultVersion != 0 && a.kuberpultVersion != a.argocdVersion {
+	if a.kuberpultVersion != nil && a.argocdVersion != nil && a.kuberpultVersion.Version != a.argocdVersion.Version {
 		rs = api.RolloutStatus_RolloutStatusProgressing
 	}
 	return &BroadcastEvent{
@@ -200,8 +200,8 @@ func (b *Broadcast) Start() ([]*BroadcastEvent, <-chan *BroadcastEvent, unsubscr
 type BroadcastEvent struct {
 	Environment      string
 	Application      string
-	ArgocdVersion    uint64
-	KuberpultVersion uint64
+	ArgocdVersion    *versions.VersionInfo
+	KuberpultVersion *versions.VersionInfo
 	RolloutStatus    api.RolloutStatus
 }
 
@@ -209,7 +209,7 @@ func streamStatus(b *BroadcastEvent) *api.StreamStatusResponse {
 	return &api.StreamStatusResponse{
 		Environment:   b.Environment,
 		Application:   b.Application,
-		Version:       b.ArgocdVersion,
+		Version:       b.ArgocdVersion.Version,
 		RolloutStatus: b.RolloutStatus,
 	}
 }
