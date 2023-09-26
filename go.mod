@@ -60,7 +60,7 @@ require (
 	github.com/go-git/go-git/v5 v5.6.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
-	github.com/go-openapi/jsonreference v0.20.1 // indirect
+	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/google/btree v1.0.1 // indirect
@@ -100,7 +100,7 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.3.4 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	github.com/xlab/treeprint v1.1.0 // indirect
+	github.com/xlab/treeprint v1.2.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.35.0 // indirect
 	go.opentelemetry.io/otel v1.16.0 // indirect
 	go.opentelemetry.io/otel/trace v1.16.0 // indirect
@@ -116,11 +116,11 @@ require (
 	k8s.io/component-base v0.24.2 // indirect
 	k8s.io/component-helpers v0.24.2 // indirect
 	k8s.io/kube-aggregator v0.24.2 // indirect
-	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
+	k8s.io/kube-openapi v0.0.0-20230601164746-7562a1006961 // indirect
 	k8s.io/kubectl v0.24.2 // indirect
 	k8s.io/kubernetes v1.24.2 // indirect
 	sigs.k8s.io/kustomize/api v0.13.2 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.14.1 // indirect
+	sigs.k8s.io/kustomize/kyaml v0.14.3 // indirect
 )
 
 require (
@@ -146,6 +146,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/s2a-go v0.1.5 // indirect
 	github.com/google/uuid v1.3.0 // indirect
@@ -222,6 +223,6 @@ replace (
 	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.24.2
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.2
 
-	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.12.1
+	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.14.0
 	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.13.9
 )
