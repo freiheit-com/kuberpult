@@ -93,7 +93,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 					HealthStatusCode: ev.Application.Status.Health.Status,
 
 					OperationState: ev.Application.Status.OperationState,
-					Version:        0,
+					Version:        &versions.VersionInfo{Version: 0},
 				})
 				continue recv
 			case "BOOKMARK":
@@ -115,6 +115,5 @@ type ArgoEvent struct {
 	SyncStatusCode   v1alpha1.SyncStatusCode
 	HealthStatusCode health.HealthStatusCode
 	OperationState   *v1alpha1.OperationState
-	Version          uint64
+	Version          *versions.VersionInfo
 }
-
