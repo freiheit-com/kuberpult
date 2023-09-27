@@ -151,8 +151,9 @@ outer:
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
 					for _, app := range env.Applications {
+						dt := deployedAt(app)
 
-						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version))
+						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version), zap.Time("deployedAt", dt))
 						k := key{env.Name, app.Name}
 						seen[k] = app.Version
 						if versions[k] == app.Version {
@@ -162,7 +163,8 @@ outer:
 							Application: app.Name,
 							Environment: env.Name,
 							Version: &VersionInfo{
-								Version: app.Version,
+								Version:    app.Version,
+								DeployedAt: dt,
 							},
 						})
 					}
