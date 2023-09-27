@@ -40,11 +40,15 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => 
             <hr />
             <div className={'confirmation-dialog-footer'}>
                 <div className={'item'} key={'button-menu-cancel'}>
-                    <Button className="mdc-button--ripple button-cancel" label={'Cancel'} onClick={props.onCancel} />
+                    <Button
+                        className="mdc-button--ripple button-cancel test-button-cancel"
+                        label={'Cancel'}
+                        onClick={props.onCancel}
+                    />
                 </div>
                 <div className={'item'} key={'button-menu-confirm'}>
                     <Button
-                        className="mdc-button--unelevated button-confirm"
+                        className="mdc-button--unelevated button-confirm test-button-confirm"
                         label={props.confirmLabel}
                         onClick={props.onConfirm}
                     />
