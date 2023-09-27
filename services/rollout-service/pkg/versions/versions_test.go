@@ -220,6 +220,8 @@ func TestVersionClientStream(t *testing.T) {
 	testOverview := &api.GetOverviewResponse{
 		EnvironmentGroups: []*api.EnvironmentGroup{
 			{
+
+				EnvironmentGroupName: "staging-group",
 				Environments: []*api.Environment{
 					{
 						Name: "staging",
@@ -227,6 +229,29 @@ func TestVersionClientStream(t *testing.T) {
 							"foo": {
 								Name:    "foo",
 								Version: 1,
+								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+									DeployTime: "123456789",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		GitRevision: "1234",
+	}
+	testOverviewWithDifferentEnvgroup := &api.GetOverviewResponse{
+		EnvironmentGroups: []*api.EnvironmentGroup{
+			{
+
+				EnvironmentGroupName: "not-staging-group",
+				Environments: []*api.Environment{
+					{
+						Name: "staging",
+						Applications: map[string]*api.Environment_Application{
+							"foo": {
+								Name:    "foo",
+								Version: 2,
 								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
 									DeployTime: "123456789",
 								},
@@ -284,9 +309,10 @@ func TestVersionClientStream(t *testing.T) {
 			},
 			ExpectedEvents: []KuberpultEvent{
 				{
-					Environment: "staging",
-					Application: "foo",
-					Version:     &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
+					Environment:      "staging",
+					Application:      "foo",
+					EnvironmentGroup: "staging-group",
+					Version:          &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 			},
 		},
@@ -307,6 +333,7 @@ func TestVersionClientStream(t *testing.T) {
 				{
 					Environment: "staging",
 					Application: "foo",
+					EnvironmentGroup: "staging-group",
 					Version:     &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 			},
@@ -328,12 +355,42 @@ func TestVersionClientStream(t *testing.T) {
 				{
 					Environment: "staging",
 					Application: "foo",
+					EnvironmentGroup: "staging-group",
 					Version:     &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 				{
 					Environment: "staging",
 					Application: "foo",
+					EnvironmentGroup: "staging-group",
 					Version:     &VersionInfo{},
+				},
+			},
+		},
+		{
+			Name: "Updates environment groups",
+			Steps: []step{
+				{
+					Overview: testOverview,
+				},
+				{
+					Overview: testOverviewWithDifferentEnvgroup,
+				},
+				{
+					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+				},
+			},
+			ExpectedEvents: []KuberpultEvent{
+				{
+					Environment: "staging",
+					Application: "foo",
+					EnvironmentGroup: "staging-group",
+					Version:     &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
+				},
+		  		{
+					Environment: "staging",
+					Application: "foo",
+					EnvironmentGroup: "not-staging-group",
+					Version:     &VersionInfo{Version: 2, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 			},
 		},

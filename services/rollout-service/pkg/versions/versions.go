@@ -100,9 +100,10 @@ func deployedAt(app *api.Environment_Application) time.Time {
 }
 
 type KuberpultEvent struct {
-	Environment string
-	Application string
-	Version     *VersionInfo
+	Environment      string
+	Application      string
+	EnvironmentGroup string
+	Version          *VersionInfo
 }
 
 type VersionEventProcessor interface {
@@ -124,6 +125,7 @@ outer:
 			continue outer
 		}
 		versions := map[key]uint64{}
+		environmentGroups := map[key]string{}
 		for {
 			select {
 			case <-ctx.Done():
@@ -156,12 +158,15 @@ outer:
 						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version), zap.Time("deployedAt", dt))
 						k := key{env.Name, app.Name}
 						seen[k] = app.Version
+						environmentGroups[k] = envGroup.EnvironmentGroupName
 						if versions[k] == app.Version {
 							continue
 						}
+
 						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-							Application: app.Name,
-							Environment: env.Name,
+							Application:      app.Name,
+							Environment:      env.Name,
+							EnvironmentGroup: envGroup.EnvironmentGroupName,
 							Version: &VersionInfo{
 								Version:    app.Version,
 								DeployedAt: dt,
@@ -175,9 +180,10 @@ outer:
 			for k := range versions {
 				if seen[k] == 0 {
 					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-						Application: k.Application,
-						Environment: k.Environment,
-						Version:     &VersionInfo{},
+						Application:      k.Application,
+						Environment:      k.Environment,
+						EnvironmentGroup: environmentGroups[k],
+						Version:          &VersionInfo{},
 					})
 				}
 			}
