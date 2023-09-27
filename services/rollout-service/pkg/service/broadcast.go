@@ -38,6 +38,7 @@ type appState struct {
 	argocdVersion    *versions.VersionInfo
 	kuberpultVersion *versions.VersionInfo
 	rolloutStatus    api.RolloutStatus
+	environmentGroup string
 }
 
 func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
@@ -53,6 +54,7 @@ func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
 func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEvent {
 	if a.kuberpultVersion == nil || a.kuberpultVersion.Version != ev.Version.Version {
 		a.kuberpultVersion = ev.Version
+		a.environmentGroup = ev.EnvironmentGroup
 		return a.getEvent(ev.Application, ev.Environment)
 	}
 	return nil
@@ -66,6 +68,7 @@ func (a *appState) getEvent(application, environment string) *BroadcastEvent {
 	return &BroadcastEvent{
 		Environment:      environment,
 		Application:      application,
+		EnvironmentGroup: a.environmentGroup,
 		ArgocdVersion:    a.argocdVersion,
 		RolloutStatus:    rs,
 		KuberpultVersion: a.kuberpultVersion,
@@ -200,6 +203,7 @@ func (b *Broadcast) Start() ([]*BroadcastEvent, <-chan *BroadcastEvent, unsubscr
 type BroadcastEvent struct {
 	Environment      string
 	Application      string
+	EnvironmentGroup string
 	ArgocdVersion    *versions.VersionInfo
 	KuberpultVersion *versions.VersionInfo
 	RolloutStatus    api.RolloutStatus

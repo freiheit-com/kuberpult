@@ -44,12 +44,47 @@ func TestMetric(t *testing.T) {
 		Steps []step
 	}{
 		{
+			Name: "doesnt write metrics when argocd data is missing",
+			Steps: []step{
+				{
+					VersionsEvent: &versions.KuberpultEvent{
+						Application:      "foo",
+						Environment:      "bar",
+						EnvironmentGroup: "buz",
+						Version: &versions.VersionInfo{
+							Version:    1,
+							DeployedAt: time.Unix(1000, 0),
+						},
+					},
+					ExpectedBody: ``,
+				},
+			},
+		},
+		{
+			Name: "doesn't write metrics when kuberpult data is missing",
+			Steps: []step{
+				{
+					ArgoEvent: &service.ArgoEvent{
+						Application: "foo",
+						Environment: "bar",
+						Version: &versions.VersionInfo{
+							Version: 1,
+						},
+						HealthStatusCode: health.HealthStatusHealthy,
+						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
+					},
+					ExpectedBody: ``,
+				},
+			},
+		},
+		{
 			Name: "writes out 0 for successful deployments",
 			Steps: []step{
 				{
 					VersionsEvent: &versions.KuberpultEvent{
-						Application: "foo",
-						Environment: "bar",
+						Application:      "foo",
+						Environment:      "bar",
+						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
 							Version:    1,
 							DeployedAt: time.Unix(1000, 0),
@@ -66,18 +101,19 @@ func TestMetric(t *testing.T) {
 					},
 					ExpectedBody: `# HELP rollout_lag_seconds 
 # TYPE rollout_lag_seconds gauge
-rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar"} 0
+rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="buz"} 0
 `,
 				},
 			},
 		},
-    {
+		{
 			Name: "writes out time diff for missing deployments",
 			Steps: []step{
 				{
 					VersionsEvent: &versions.KuberpultEvent{
 						Application: "foo",
 						Environment: "bar",
+						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
 							Version:    2,
 							DeployedAt: time.Unix(1000, 0),
@@ -94,7 +130,91 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar"} 0
 					},
 					ExpectedBody: `# HELP rollout_lag_seconds 
 # TYPE rollout_lag_seconds gauge
-rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar"} 1000
+rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="buz"} 1000
+`,
+				},
+			},
+		},
+		{
+			Name: "removes metrics when app is removed",
+			Steps: []step{
+				{
+					VersionsEvent: &versions.KuberpultEvent{
+						Application: "foo",
+						Environment: "bar",
+						EnvironmentGroup: "buz",
+						Version: &versions.VersionInfo{
+							Version:    2,
+							DeployedAt: time.Unix(1000, 0),
+						},
+					},
+					ArgoEvent: &service.ArgoEvent{
+						Application: "foo",
+						Environment: "bar",
+						Version: &versions.VersionInfo{
+							Version: 1,
+						},
+						HealthStatusCode: health.HealthStatusHealthy,
+						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
+					},
+					ExpectedBody: `# HELP rollout_lag_seconds 
+# TYPE rollout_lag_seconds gauge
+rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="buz"} 1000
+`,
+				},
+				{	
+					VersionsEvent: &versions.KuberpultEvent{
+						Application: "foo",
+						Environment: "bar",
+						EnvironmentGroup: "buz",
+						Version: &versions.VersionInfo{
+							Version:    0,
+						},
+					},
+					ExpectedBody: ``,
+				},
+			},
+		},
+		{
+			Name: "updates environment group when it changes",
+			Steps: []step{
+				{
+					VersionsEvent: &versions.KuberpultEvent{
+						Application: "foo",
+						Environment: "bar",
+						EnvironmentGroup: "buz",
+						Version: &versions.VersionInfo{
+							Version:    2,
+							DeployedAt: time.Unix(1000, 0),
+						},
+					},
+					ArgoEvent: &service.ArgoEvent{
+						Application: "foo",
+						Environment: "bar",
+						Version: &versions.VersionInfo{
+							Version: 1,
+						},
+						HealthStatusCode: health.HealthStatusHealthy,
+						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
+					},
+					ExpectedBody: `# HELP rollout_lag_seconds 
+# TYPE rollout_lag_seconds gauge
+rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="buz"} 1000
+`,
+				},
+				{
+					VersionsEvent: &versions.KuberpultEvent{
+						Application: "foo",
+						Environment: "bar",
+						EnvironmentGroup: "not-buz",
+						Version: &versions.VersionInfo{
+							Version:    3,
+							DeployedAt: time.Unix(1500, 0),
+						},
+					},
+					ExpectedBody: `# HELP rollout_lag_seconds 
+# TYPE rollout_lag_seconds gauge
+rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="not-buz"} 500
 `,
 				},
 			},

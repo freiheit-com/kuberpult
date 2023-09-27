@@ -106,20 +106,30 @@ func (a *appState) update(ev *service.BroadcastEvent) *appState {
 		return nil
 	}
 	sc := ev.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful
-	var (
-		as attribute.Set
-	)
-	if a != nil {
-		as = a.Attributes
-	} else {
-		as = attribute.NewSet(
-			attribute.String("kuberpult_application", ev.Application),
-			attribute.String("kuberpult_environment", ev.Environment),
-		)
-	}
+	// The environment group is the only thing that can change
+	as := a.attributes(ev)
 	return &appState{
 		Attributes: as,
 		Successful: sc,
 		DeployedAt: ev.KuberpultVersion.DeployedAt,
 	}
+}
+
+func (a *appState) attributes(ev *service.BroadcastEvent) attribute.Set {
+	if a == nil {
+		return buildAttributes(ev)
+	}
+	eg, _ := a.Attributes.Value("kuberpult_environment_group")
+	if eg.AsString() == ev.EnvironmentGroup {
+		return a.Attributes
+	}
+	return buildAttributes(ev)
+}
+
+func buildAttributes(ev *service.BroadcastEvent) attribute.Set {
+	return attribute.NewSet(
+		attribute.String("kuberpult_application", ev.Application),
+		attribute.String("kuberpult_environment", ev.Environment),
+		attribute.String("kuberpult_environment_group", ev.EnvironmentGroup),
+	)
 }
