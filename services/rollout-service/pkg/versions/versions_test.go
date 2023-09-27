@@ -227,6 +227,9 @@ func TestVersionClientStream(t *testing.T) {
 							"foo": {
 								Name:    "foo",
 								Version: 1,
+								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+									DeployTime: "123456789",
+								},
 							},
 						},
 					},
@@ -276,13 +279,14 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:     "staging",
 					Application:     "foo",
 					DeployedVersion: 1,
+					DeployTime:      time.Unix(123456789, 0).UTC(),
 				},
 			},
 			ExpectedEvents: []KuberpultEvent{
 				{
 					Environment: "staging",
 					Application: "foo",
-					Version:     &VersionInfo{Version: 1},
+					Version:     &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 			},
 		},
@@ -303,7 +307,7 @@ func TestVersionClientStream(t *testing.T) {
 				{
 					Environment: "staging",
 					Application: "foo",
-					Version:     &VersionInfo{Version: 1},
+					Version:     &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 			},
 		},
@@ -324,7 +328,7 @@ func TestVersionClientStream(t *testing.T) {
 				{
 					Environment: "staging",
 					Application: "foo",
-					Version:     &VersionInfo{Version: 1},
+					Version:     &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 				{
 					Environment: "staging",
