@@ -89,6 +89,7 @@ rollout:
     requests:
       cpu: 500m
       memory: 250Mi
+  podAnnotations: {}
 
 ingress:
   # The simplest setup involves an ingress, to make kuberpult available outside the cluster.
