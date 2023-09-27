@@ -38,8 +38,8 @@ import classNames from 'classnames';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { Spinner } from '../Spinner/Spinner';
 import { ReleaseVersionWithLinks } from '../ReleaseVersion/ReleaseVersion';
-import { ConfirmationDialog } from '../ReleaseDialog/ReleaseDialog';
 import { DisplayLockInlineRenderer } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
+import { ConfirmationDialog } from '../dialog/ConfirmationDialog';
 
 export enum ActionTypes {
     Deploy,
