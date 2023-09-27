@@ -64,9 +64,9 @@ func TestMetric(t *testing.T) {
 						HealthStatusCode: health.HealthStatusHealthy,
 						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
 					},
-					ExpectedBody: `# HELP argocd_lag 
-# TYPE argocd_lag gauge
-argocd_lag{kuberpult_application="foo",kuberpult_environment="bar"} 0
+					ExpectedBody: `# HELP rollout_lag_seconds 
+# TYPE rollout_lag_seconds gauge
+rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar"} 0
 `,
 				},
 			},
@@ -92,9 +92,9 @@ argocd_lag{kuberpult_application="foo",kuberpult_environment="bar"} 0
 						HealthStatusCode: health.HealthStatusHealthy,
 						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
 					},
-					ExpectedBody: `# HELP argocd_lag 
-# TYPE argocd_lag gauge
-argocd_lag{kuberpult_application="foo",kuberpult_environment="bar"} 1000
+					ExpectedBody: `# HELP rollout_lag_seconds 
+# TYPE rollout_lag_seconds gauge
+rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar"} 1000
 `,
 				},
 			},

@@ -27,8 +27,10 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	pkgmetrics "github.com/freiheit-com/kuberpult/pkg/metrics"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/metrics"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/notifier"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
@@ -188,6 +190,18 @@ func runServer(ctx context.Context, config Config) error {
 		})
 	}
 
+	// metrics (hack)
+	meter, handler, err := pkgmetrics.Init()
+	if err != nil {
+		return err
+	}
+	backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
+		Name: "create metrics",
+		Run: func(ctx context.Context) error {
+			return metrics.Metrics(ctx, broadcast, meter, nil)
+		},
+	})
+
 	setup.Run(ctx, setup.ServerConfig{
 		HTTP: []setup.HTTPConfig{
 			{
@@ -200,6 +214,7 @@ func runServer(ctx context.Context, config Config) error {
 							w.WriteHeader(500)
 						}
 					}))
+					mux.Handle("/metrics", handler)
 				},
 			},
 		},

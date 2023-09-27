@@ -19,6 +19,7 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -33,7 +34,7 @@ func Metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.Me
 	}
 	var err error
 	meter := meterProvider.Meter("kuberpult")
-	argoLag, err := meter.Float64ObservableGauge("argocd_lag")
+	argoLag, err := meter.Int64ObservableGauge("rollout_lag_seconds")
 	if err != nil {
 		return fmt.Errorf("registering meter: %w", err)
 	}
@@ -45,7 +46,7 @@ func Metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.Me
 			now := clock()
 			for _, st := range state {
 				if st != nil {
-					o.ObserveFloat64(argoLag, st.value(now), metric.WithAttributeSet(st.Attributes))
+					o.ObserveInt64(argoLag, st.value(now), metric.WithAttributeSet(st.Attributes))
 				}
 			}
 			return nil
@@ -83,11 +84,11 @@ type appState struct {
 	Successful bool
 }
 
-func (a *appState) value(now time.Time) float64 {
+func (a *appState) value(now time.Time) int64 {
 	if a.Successful {
 		return 0
 	} else {
-		return now.Sub(a.DeployedAt).Seconds()
+		return int64(math.Round(now.Sub(a.DeployedAt).Seconds()))
 	}
 }
 
