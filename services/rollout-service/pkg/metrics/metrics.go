@@ -51,7 +51,7 @@ func metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.Me
 		return fmt.Errorf("registering meter: %w", err)
 	}
 	var stateMx sync.Mutex
-	state := map[string]*appState{}
+	state := map[service.Key]*appState{}
 
 	reg, err := meter.RegisterCallback(
 		func(_ context.Context, o metric.Observer) error {
@@ -79,8 +79,7 @@ func metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.Me
 
 	stateMx.Lock()
 	for _, ev := range st {
-		k := fmt.Sprintf("%s|%s", ev.Environment, ev.Application)
-		state[k] = state[k].update(ev)
+		state[ev.Key] = state[ev.Key].update(ev)
 	}
 	stateMx.Unlock()
 	for {
@@ -90,8 +89,7 @@ func metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.Me
 				return nil
 			}
 			stateMx.Lock()
-			k := fmt.Sprintf("%s|%s", ev.Environment, ev.Application)
-			state[k] = state[k].update(ev)
+			state[ev.Key] = state[ev.Key].update(ev)
 			stateMx.Unlock()
 		case <-ctx.Done():
 			return err

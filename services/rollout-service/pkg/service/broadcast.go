@@ -29,7 +29,7 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
 )
 
-type key struct {
+type Key struct {
 	Application string
 	Environment string
 }
@@ -66,8 +66,10 @@ func (a *appState) getEvent(application, environment string) *BroadcastEvent {
 		rs = api.RolloutStatus_RolloutStatusProgressing
 	}
 	return &BroadcastEvent{
-		Environment:      environment,
-		Application:      application,
+		Key: Key{
+			Environment: environment,
+			Application: application,
+		},
 		EnvironmentGroup: a.environmentGroup,
 		ArgocdVersion:    a.argocdVersion,
 		RolloutStatus:    rs,
@@ -76,14 +78,14 @@ func (a *appState) getEvent(application, environment string) *BroadcastEvent {
 }
 
 type Broadcast struct {
-	state    map[key]*appState
+	state    map[Key]*appState
 	mx       sync.Mutex
 	listener map[chan *BroadcastEvent]struct{}
 }
 
 func New() *Broadcast {
 	return &Broadcast{
-		state:    map[key]*appState{},
+		state:    map[Key]*appState{},
 		listener: map[chan *BroadcastEvent]struct{}{},
 	}
 }
@@ -92,7 +94,7 @@ func New() *Broadcast {
 func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 	b.mx.Lock()
 	defer b.mx.Unlock()
-	k := key{
+	k := Key{
 		Application: ev.Application,
 		Environment: ev.Environment,
 	}
@@ -120,7 +122,7 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 func (b *Broadcast) ProcessKuberpultEvent(ctx context.Context, ev versions.KuberpultEvent) {
 	b.mx.Lock()
 	defer b.mx.Unlock()
-	k := key{
+	k := Key{
 		Application: ev.Application,
 		Environment: ev.Environment,
 	}
@@ -201,8 +203,7 @@ func (b *Broadcast) Start() ([]*BroadcastEvent, <-chan *BroadcastEvent, unsubscr
 }
 
 type BroadcastEvent struct {
-	Environment      string
-	Application      string
+	Key
 	EnvironmentGroup string
 	ArgocdVersion    *versions.VersionInfo
 	KuberpultVersion *versions.VersionInfo
