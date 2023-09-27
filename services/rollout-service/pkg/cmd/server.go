@@ -190,7 +190,6 @@ func runServer(ctx context.Context, config Config) error {
 		})
 	}
 
-	// metrics (hack)
 	meter, handler, err := pkgmetrics.Init()
 	if err != nil {
 		return err

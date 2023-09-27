@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -29,6 +30,17 @@ import (
 )
 
 func Metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.MeterProvider, clock func() time.Time) error {
+	for {
+		err := metrics(ctx, bc, meterProvider, clock)
+		select {
+		case <-ctx.Done():
+			return err
+		default:
+		}
+	}
+}
+
+func metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.MeterProvider, clock func() time.Time) error {
 	if clock == nil {
 		clock = time.Now
 	}
@@ -38,11 +50,13 @@ func Metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.Me
 	if err != nil {
 		return fmt.Errorf("registering meter: %w", err)
 	}
-
+	var stateMx sync.Mutex
 	state := map[string]*appState{}
 
 	reg, err := meter.RegisterCallback(
 		func(_ context.Context, o metric.Observer) error {
+			stateMx.Lock()
+			defer stateMx.Unlock()
 			now := clock()
 			for _, st := range state {
 				if st != nil {
@@ -63,15 +77,22 @@ func Metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.Me
 	st, ch, unsub := bc.Start()
 	defer unsub()
 
+	stateMx.Lock()
 	for _, ev := range st {
 		k := fmt.Sprintf("%s|%s", ev.Environment, ev.Application)
 		state[k] = state[k].update(ev)
 	}
+	stateMx.Unlock()
 	for {
 		select {
 		case ev := <-ch:
+			if ev == nil {
+				return nil
+			}
+			stateMx.Lock()
 			k := fmt.Sprintf("%s|%s", ev.Environment, ev.Application)
 			state[k] = state[k].update(ev)
+			stateMx.Unlock()
 		case <-ctx.Done():
 			return err
 		}

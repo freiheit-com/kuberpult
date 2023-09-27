@@ -34,6 +34,7 @@ import (
 type step struct {
 	VersionsEvent *versions.KuberpultEvent
 	ArgoEvent     *service.ArgoEvent
+	Disconnect    bool
 
 	ExpectedBody string
 }
@@ -111,8 +112,8 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 			Steps: []step{
 				{
 					VersionsEvent: &versions.KuberpultEvent{
-						Application: "foo",
-						Environment: "bar",
+						Application:      "foo",
+						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
 							Version:    2,
@@ -140,8 +141,8 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 			Steps: []step{
 				{
 					VersionsEvent: &versions.KuberpultEvent{
-						Application: "foo",
-						Environment: "bar",
+						Application:      "foo",
+						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
 							Version:    2,
@@ -162,13 +163,13 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="buz"} 1000
 `,
 				},
-				{	
+				{
 					VersionsEvent: &versions.KuberpultEvent{
-						Application: "foo",
-						Environment: "bar",
+						Application:      "foo",
+						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
-							Version:    0,
+							Version: 0,
 						},
 					},
 					ExpectedBody: ``,
@@ -180,8 +181,8 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 			Steps: []step{
 				{
 					VersionsEvent: &versions.KuberpultEvent{
-						Application: "foo",
-						Environment: "bar",
+						Application:      "foo",
+						Environment:      "bar",
 						EnvironmentGroup: "buz",
 						Version: &versions.VersionInfo{
 							Version:    2,
@@ -204,8 +205,8 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 				},
 				{
 					VersionsEvent: &versions.KuberpultEvent{
-						Application: "foo",
-						Environment: "bar",
+						Application:      "foo",
+						Environment:      "bar",
 						EnvironmentGroup: "not-buz",
 						Version: &versions.VersionInfo{
 							Version:    3,
@@ -215,6 +216,57 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 					ExpectedBody: `# HELP rollout_lag_seconds 
 # TYPE rollout_lag_seconds gauge
 rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="not-buz"} 500
+`,
+				},
+			},
+		},
+		{
+			Name: "handles reconnects",
+			Steps: []step{
+				{
+					VersionsEvent: &versions.KuberpultEvent{
+						Application:      "foo",
+						Environment:      "bar",
+						EnvironmentGroup: "buz",
+						Version: &versions.VersionInfo{
+							Version:    2,
+							DeployedAt: time.Unix(1000, 0),
+						},
+					},
+					ArgoEvent: &service.ArgoEvent{
+						Application: "foo",
+						Environment: "bar",
+						Version: &versions.VersionInfo{
+							Version: 1,
+						},
+						HealthStatusCode: health.HealthStatusHealthy,
+						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
+					},
+					ExpectedBody: `# HELP rollout_lag_seconds 
+# TYPE rollout_lag_seconds gauge
+rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="buz"} 1000
+`,
+				},
+				{
+					Disconnect: true,
+					ExpectedBody: `# HELP rollout_lag_seconds 
+# TYPE rollout_lag_seconds gauge
+rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="buz"} 1000
+`,
+				},
+				{
+					VersionsEvent: &versions.KuberpultEvent{
+						Application:      "foo",
+						Environment:      "bar",
+						EnvironmentGroup: "buz",
+						Version: &versions.VersionInfo{
+							Version:    3,
+							DeployedAt: time.Unix(1500, 0),
+						},
+					},
+					ExpectedBody: `# HELP rollout_lag_seconds 
+# TYPE rollout_lag_seconds gauge
+rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="buz"} 500
 `,
 				},
 			},
@@ -234,6 +286,9 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 				eCh <- Metrics(ctx, bc, mpv, func() time.Time { return time.Unix(2000, 0).UTC() })
 			}()
 			for i, s := range tc.Steps {
+				if s.Disconnect {
+					bc.DisconnectAll()
+				}
 				if s.VersionsEvent != nil {
 					bc.ProcessKuberpultEvent(ctx, *s.VersionsEvent)
 				}
