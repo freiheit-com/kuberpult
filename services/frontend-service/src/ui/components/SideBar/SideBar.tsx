@@ -407,7 +407,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 <h4>Conflicting Environment Locks:</h4>
                 <ul>
                     {conflictingLocks.environmentLocks.map((envLock: DisplayLock) => (
-                        <li>
+                        <li key={envLock.lockId + '-' + envLock.environment + '-envlock'}>
                             <DisplayLockInlineRenderer
                                 lock={envLock}
                                 key={envLock.lockId + '-' + envLock.environment}
@@ -418,42 +418,30 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
             </>
         );
     const confirmationDialog: JSX.Element = hasLocks ? (
-        <div
-            className={
-                'confirmation-dialog-container ' +
-                (dialogState.showConfirmationDialog ? 'confirmation-dialog-container-open' : '')
-            }>
-            <ConfirmationDialog
-                headerLabel={'Please Confirm the Deployment over Locks'}
-                onConfirm={applyActions}
-                confirmLabel={'Confirm Deployment'}
-                onCancel={cancelConfirmation}
-                open={dialogState.showConfirmationDialog}>
-                <div>
-                    You are attempting to deploy apps, although there are locks present. Please check the locks and be
-                    sure you really want to ignore them.
-                    <div className={'locks'}>
-                        {envLocksRendered}
-                        {appLocksRendered}
-                    </div>
+        <ConfirmationDialog
+            headerLabel={'Please Confirm the Deployment over Locks'}
+            onConfirm={applyActions}
+            confirmLabel={'Confirm Deployment'}
+            onCancel={cancelConfirmation}
+            open={dialogState.showConfirmationDialog}>
+            <div>
+                You are attempting to deploy apps, although there are locks present. Please check the locks and be sure
+                you really want to ignore them.
+                <div className={'locks'}>
+                    {envLocksRendered}
+                    {appLocksRendered}
                 </div>
-            </ConfirmationDialog>
-        </div>
+            </div>
+        </ConfirmationDialog>
     ) : (
-        <div
-            className={
-                'confirmation-dialog-container ' +
-                (dialogState.showConfirmationDialog ? 'confirmation-dialog-container-open' : '')
-            }>
-            <ConfirmationDialog
-                headerLabel={'Please Confirm the Planned Actions'}
-                onConfirm={applyActions}
-                confirmLabel={'Confirm Planned Actions'}
-                onCancel={cancelConfirmation}
-                open={dialogState.showConfirmationDialog}>
-                <div>Are you sure you want to apply all planned actions?</div>
-            </ConfirmationDialog>
-        </div>
+        <ConfirmationDialog
+            headerLabel={'Please Confirm the Planned Actions'}
+            onConfirm={applyActions}
+            confirmLabel={'Confirm Planned Actions'}
+            onCancel={cancelConfirmation}
+            open={dialogState.showConfirmationDialog}>
+            <div>Are you sure you want to apply all planned actions?</div>
+        </ConfirmationDialog>
     );
 
     return (

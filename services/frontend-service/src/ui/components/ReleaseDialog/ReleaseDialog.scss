@@ -69,7 +69,6 @@ Copyright 2023 freiheit.com*/
         background-color: var(--mdc-theme-surface);
         display: flex;
         flex-direction: column;
-        overflow: overlay;
         gap: 12px;
         margin: 0px;
         padding-bottom: 20px;
@@ -86,11 +85,8 @@ Copyright 2023 freiheit.com*/
             display: flex;
             flex-direction: column;
             width: 900px;
-            padding: 0px;
-            margin-top: 10px;
-            margin-bottom: 0px;
-            margin-left: 20px;
-            margin-right: 20px;
+            padding: 0 0 10px;
+            margin: 10px 20px 0;
             border-radius: $release-dialog-inner-border-radius;
             gap: 0;
 
@@ -150,6 +146,7 @@ Copyright 2023 freiheit.com*/
                 display: flex;
                 flex-direction: row;
                 gap: 20px;
+                min-width: 300px;
                 button {
                     padding: 8px 19px;
                 }

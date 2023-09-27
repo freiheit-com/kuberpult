@@ -13,7 +13,6 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { Dialog } from '@material-ui/core';
 import classNames from 'classnames';
 import React, { ReactElement, useCallback } from 'react';
 import { Environment, Environment_Application, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
@@ -31,6 +30,7 @@ import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { ArgoAppLink, ArgoTeamLink, DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
+import { PlainDialog } from '../dialog/ConfirmationDialog';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -154,7 +154,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         const deployedBy = application.deploymentMetaData?.deployAuthor ?? 'unknown';
         const deployedUNIX = application.deploymentMetaData?.deployTime ?? '';
         if (deployedUNIX === '') {
-            return ['Deployed by ' + deployedBy, <></>];
+            return ['Deployed by &nbsp;' + deployedBy, <></>];
         }
         const deployedDate = new Date(+deployedUNIX * 1000);
         const returnString = 'Deployed by ' + deployedBy + ' ';
@@ -202,7 +202,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     {queueInfo}
                     <div className={classNames('env-card-data', className)}>
                         {getDeploymentMetadata().flatMap((metadata, i) => (
-                            <div key={i}>{metadata}</div>
+                            <div key={i}>{metadata}&nbsp;</div>
                         ))}
                     </div>
                 </div>
@@ -269,60 +269,51 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const team = useTeamFromApplication(app);
     const closeReleaseDialog = useCloseReleaseDialog();
 
-    const dialog: JSX.Element | '' =
-        app !== '' ? (
-            <div>
-                <Dialog
-                    className={classNames('release-dialog', className)}
-                    fullWidth={true}
-                    maxWidth="md"
-                    open={app !== ''}
-                    onClose={closeReleaseDialog}>
-                    <div className={classNames('release-dialog-app-bar', className)}>
-                        <div className={classNames('release-dialog-app-bar-data')}>
-                            <div className={classNames('release-dialog-message', className)}>
-                                <span className={classNames('release-dialog-commitMessage', className)}>
-                                    {release?.sourceMessage}
-                                </span>
-                            </div>
-                            <div className="source">
-                                <span>
-                                    {'Created '}
-                                    {release?.createdAt ? (
-                                        <FormattedDate
-                                            createdAt={release.createdAt}
-                                            className={classNames('release-dialog-createdAt', className)}
-                                        />
-                                    ) : (
-                                        'at an unknown date'
-                                    )}
-                                    {' by '}
-                                    {release?.sourceAuthor ? release?.sourceAuthor : 'an unknown author'}{' '}
-                                </span>
-                                <span className="links">
-                                    <DisplaySourceLink commitId={release.sourceCommitId} displayString={'Source'} />
-                                    &nbsp;
-                                    <DisplayManifestLink app={app} version={release.version} displayString="Manifest" />
-                                </span>
-                            </div>
-                            <div className={classNames('release-dialog-app', className)}>
-                                {'App: '}
-                                <ArgoAppLink app={app} />
-                                <ArgoTeamLink team={team} />
-                            </div>
+    const dialog: JSX.Element | '' = (
+        <PlainDialog open={app !== ''} onClose={closeReleaseDialog}>
+            <>
+                <div className={classNames('release-dialog-app-bar', className)}>
+                    <div className={classNames('release-dialog-app-bar-data')}>
+                        <div className={classNames('release-dialog-message', className)}>
+                            <span className={classNames('release-dialog-commitMessage', className)}>
+                                {release?.sourceMessage}
+                            </span>
                         </div>
-                        <Button
-                            onClick={closeReleaseDialog}
-                            className={classNames('release-dialog-close', className)}
-                            icon={<Close />}
-                        />
+                        <div className="source">
+                            <span>
+                                {'Created '}
+                                {release?.createdAt ? (
+                                    <FormattedDate
+                                        createdAt={release.createdAt}
+                                        className={classNames('release-dialog-createdAt', className)}
+                                    />
+                                ) : (
+                                    'at an unknown date'
+                                )}
+                                {' by '}
+                                {release?.sourceAuthor ? release?.sourceAuthor : 'an unknown author'}{' '}
+                            </span>
+                            <span className="links">
+                                <DisplaySourceLink commitId={release.sourceCommitId} displayString={'Source'} />
+                                &nbsp;
+                                <DisplayManifestLink app={app} version={release.version} displayString="Manifest" />
+                            </span>
+                        </div>
+                        <div className={classNames('release-dialog-app', className)}>
+                            {'App: '}
+                            <ArgoAppLink app={app} />
+                            <ArgoTeamLink team={team} />
+                        </div>
                     </div>
-                    <EnvironmentList app={app} className={className} release={release} version={version} />
-                </Dialog>
-            </div>
-        ) : (
-            ''
-        );
-
+                    <Button
+                        onClick={closeReleaseDialog}
+                        className={classNames('release-dialog-close', className)}
+                        icon={<Close />}
+                    />
+                </div>
+                <EnvironmentList app={app} className={className} release={release} version={version} />
+            </>
+        </PlainDialog>
+    );
     return <div>{dialog}</div>;
 };
