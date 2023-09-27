@@ -70,7 +70,7 @@ func TestBroadcast(t *testing.T) {
 		ArgoEvent    *ArgoEvent
 		VersionEvent *versions.KuberpultEvent
 
-		ExpectStatus             *api.RolloutStatus
+		ExpectStatus *api.RolloutStatus
 	}
 
 	application := func(s step) string {
