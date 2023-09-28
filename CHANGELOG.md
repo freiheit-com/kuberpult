@@ -18,6 +18,24 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.6.0](https://github.com/freiheit-com/kuberpult/tree/1.6.0) (2023-09-28)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.5.0...1.6.0)
+
+### Minor Changes (New Features)
+
+- Add pod annotations to the rollout pod [\#972](https://github.com/freiheit-com/kuberpult/pull/972) ([hannesg](https://github.com/hannesg))
+- Refactor EnvSelection to not use mui [\#970](https://github.com/freiheit-com/kuberpult/pull/970) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Add metrics to the rollout service [\#961](https://github.com/freiheit-com/kuberpult/pull/961) ([hannesg](https://github.com/hannesg))
+- Track DeployTime of applications in the rollout service [\#960](https://github.com/freiheit-com/kuberpult/pull/960) ([hannesg](https://github.com/hannesg))
+
+### Patch Changes (Bugfixes)
+
+- Add environment group name to kuberpult events [\#963](https://github.com/freiheit-com/kuberpult/pull/963) ([hannesg](https://github.com/hannesg))
+- Also emit deploy time in version events [\#962](https://github.com/freiheit-com/kuberpult/pull/962) ([hannesg](https://github.com/hannesg))
+
+---
+
 ## [1.5.0](https://github.com/freiheit-com/kuberpult/tree/1.5.0) (2023-09-22)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.4.2...1.5.0)
