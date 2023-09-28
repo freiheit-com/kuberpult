@@ -13,11 +13,10 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { Dialog, DialogActions, DialogTitle } from '@material-ui/core';
 import * as React from 'react';
-import { Button } from '../button';
 import { useState } from 'react';
 import { Checkbox } from '../dropdown/checkbox';
+import { ConfirmationDialog } from '../dialog/ConfirmationDialog';
 
 export type EnvSelectionDialogProps = {
     environments: string[];
@@ -56,8 +55,12 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
     );
 
     return (
-        <Dialog open={props.open}>
-            <DialogTitle id="alert-dialog-title">{'Select all environments to be removed:'}</DialogTitle>
+        <ConfirmationDialog
+            onConfirm={onConfirm}
+            onCancel={onCancel}
+            open={props.open}
+            headerLabel={'Select all environments to be removed:'}
+            confirmLabel={'Remove app from environments'}>
             <div className="envs-dropdown-select">
                 {props.environments.map((env: string, index: number) => {
                     const enabled = selectedEnvs.includes(env);
@@ -74,11 +77,6 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
                     );
                 })}
             </div>
-
-            <DialogActions>
-                <Button label="Cancel" onClick={onCancel} className={'test-button-cancel'} />
-                <Button label="Confirm" onClick={onConfirm} className={'test-button-confirm'} />
-            </DialogActions>
-        </Dialog>
+        </ConfirmationDialog>
     );
 };
