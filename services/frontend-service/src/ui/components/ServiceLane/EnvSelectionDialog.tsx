@@ -60,7 +60,7 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
             onCancel={onCancel}
             open={props.open}
             headerLabel={'Select all environments to be removed:'}
-            confirmLabel={'Remove environments from app'}>
+            confirmLabel={'Remove app from environments'}>
             <div className="envs-dropdown-select">
                 {props.environments.map((env: string, index: number) => {
                     const enabled = selectedEnvs.includes(env);
