@@ -65,6 +65,7 @@ func TestBroadcast(t *testing.T) {
 		RolloutStatusSuccesful   = api.RolloutStatus_RolloutStatusSuccesful
 		RolloutStatusProgressing = api.RolloutStatus_RolloutStatusProgressing
 		RolloutStatusError       = api.RolloutStatus_RolloutStatusError
+		RolloutStatusUnknown     = api.RolloutStatus_RolloutStatusUnknown
 	)
 	type step struct {
 		ArgoEvent    *ArgoEvent
@@ -106,7 +107,20 @@ func TestBroadcast(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "missing argo app",
+			Steps: []step{
+				{
+					VersionEvent: &versions.KuberpultEvent{
+						Application: "foo",
+						Environment: "bar",
+						Version:     &versions.VersionInfo{Version: 2},
+					},
 
+					ExpectStatus: &RolloutStatusUnknown,
+				},
+			},
+		},
 		{
 			Name: "app syncing and becomming healthy",
 			Steps: []step{
