@@ -20,7 +20,7 @@ Copyright 2023 freiheit.com*/
 
 .confirmation-dialog-container-open {
     &::before {
-         // this is to make everything behind the dialog grey and not clickable:
+        // this is to make everything behind the dialog grey and not clickable:
         content: '';
         position: fixed;
         top: 0;
