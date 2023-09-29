@@ -148,9 +148,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         if (!application) {
             return ['', <></>];
         }
-        if (!(application && application.version === release.version)) {
-            return ['', <></>];
-        }
         if (application.deploymentMetaData === null) {
             return ['', <></>];
         }
