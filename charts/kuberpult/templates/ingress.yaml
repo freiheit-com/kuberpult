@@ -62,7 +62,7 @@ metadata:
   name: kuberpult
 spec:
 {{- if .Values.ingress.ingressClassName }}
-  ingressClassName: {{ .Values.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.ingress.ingressClassName | quote }}
 {{- end }}
   rules:
   - host: {{ required ".ingress.domainName is required" .Values.ingress.domainName | quote }}
