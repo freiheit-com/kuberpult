@@ -24,6 +24,13 @@ We use it for requirements like this:
 * Sometimes we want to prevent certain deployments, either of single services, or of entire clusters.
 * We never want to deploy (to production) between 9am and 11am as these are peak business hours.
 
+
+## Kuberpult Design Principles
+* **All power to the engineers**: Kuberpult never stops an engineer from deploying manually. The engineers know their services best, so they can decide which version to deploy.
+* **Microservices**: Kuberpult was built on the assumption that our teams work with kubernetes microservices.
+* **Monorepo**: Kuberpult works best with a monorepo setup. One product should be one monorepo. If you have multiple products, consider giving each one a kuberpult instance.
+
+
 ## API
 Kuberpult has an API that is intended to be used in CI/CD (GitHub Actions, Azure Pipelines, etc) to release new versions of one (or more) microservices.
 The API can also rollout many services at the same time via "release trains". It also supports rolling out some groups of services.
