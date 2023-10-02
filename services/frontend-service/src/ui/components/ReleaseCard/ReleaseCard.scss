@@ -83,7 +83,8 @@ Copyright 2023 freiheit.com*/
     right: $release-card-inner-padding;
 }
 
-.rollout__icon_error {
+.rollout__icon_error,
+.rollout__icon_unhealthy {
     color: var(--mdc-theme-error);
 }
 
@@ -91,7 +92,8 @@ Copyright 2023 freiheit.com*/
     color: var(--mdc-theme-on-surface);
 }
 
-.rollout__icon_progressing {
+.rollout__icon_progressing,
+.rollout__icon_pending {
     color: var(--mdc-theme-secondary);
 }
 
@@ -119,14 +121,16 @@ Copyright 2023 freiheit.com*/
     border-color: var(--mdc-theme-on-secondary);
 }
 
-.rollout__description_error {
+.rollout__description_error,
+.rollout__description_unhealthy {
     @extend .rollout__description;
     background-color: var(--mdc-theme-error);
     color: var(--mdc-theme-on-secondary);
     border-color: var(--mdc-theme-on-secondary);
 }
 
-.rollout__description_progressing {
+.rollout__description_progressing,
+.rollout__description_pending {
     @extend .rollout__description;
     background-color: var(--mdc-theme-secondary);
     color: var(--mdc-theme-on-secondary);

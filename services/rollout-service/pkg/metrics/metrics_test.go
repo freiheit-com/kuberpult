@@ -137,6 +137,35 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 			},
 		},
 		{
+			Name: "reports no lag if the application is just unhealthy",
+			Steps: []step{
+				{
+					VersionsEvent: &versions.KuberpultEvent{
+						Application:      "foo",
+						Environment:      "bar",
+						EnvironmentGroup: "buz",
+						Version: &versions.VersionInfo{
+							Version:    2,
+							DeployedAt: time.Unix(1000, 0),
+						},
+					},
+					ArgoEvent: &service.ArgoEvent{
+						Application: "foo",
+						Environment: "bar",
+						Version: &versions.VersionInfo{
+							Version: 2,
+						},
+						HealthStatusCode: health.HealthStatusDegraded,
+						SyncStatusCode:   v1alpha1.SyncStatusCodeUnknown,
+					},
+					ExpectedBody: `# HELP rollout_lag_seconds 
+# TYPE rollout_lag_seconds gauge
+rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="buz"} 0
+`,
+				},
+			},
+		},
+		{
 			Name: "removes metrics when app is removed",
 			Steps: []step{
 				{

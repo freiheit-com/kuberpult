@@ -369,9 +369,11 @@ Error = error
 */
 enum RolloutStatus {
   RolloutStatusUnknown = 0; // argocd didn't report anything for this app
-  RolloutStatusSuccesful = 1; // sync healthy
-  RolloutStatusProgressing = 2; // out-of-sync || 
-  RolloutStatusError = 3; // error in argocd
+  RolloutStatusSuccesful = 1; // sync succesful
+  RolloutStatusProgressing = 2; // argocd picked up the change but didn't apply it yet
+  RolloutStatusError = 3; // argocd applied the change but failed
+  RolloutStatusPending = 4; // argocd hasn't yet picked up the change
+  RolloutStatusUnhealthy = 5; // argocd applied the change succesfully, but the app is unhealthy
 }
 
 message StreamStatusResponse {

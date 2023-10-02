@@ -42,8 +42,12 @@ const RolloutStatusIcon: React.FC<{ status: RolloutStatus }> = (props) => {
             return <span className="rollout__icon_successful">✓</span>;
         case RolloutStatus.RolloutStatusProgressing:
             return <span className="rollout__icon_progressing">↻</span>;
+        case RolloutStatus.RolloutStatusPending:
+            return <span className="rollout__icon_pending">⧖</span>;
         case RolloutStatus.RolloutStatusError:
             return <span className="rollout__icon_error">!</span>;
+        case RolloutStatus.RolloutStatusUnhealthy:
+            return <span className="rollout__icon_unhealthy">⚠</span>;
     }
     return <span className="rollout__icon_unknown">?</span>;
 };
@@ -55,8 +59,12 @@ const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (props) =>
             return <span className="rollout__description_successful">✓ Done</span>;
         case RolloutStatus.RolloutStatusProgressing:
             return <span className="rollout__description_progressing">↻ In progress</span>;
+        case RolloutStatus.RolloutStatusPending:
+            return <span className="rollout__description_pending">⧖ Pending</span>;
         case RolloutStatus.RolloutStatusError:
             return <span className="rollout__description_error">! Failed</span>;
+        case RolloutStatus.RolloutStatusUnhealthy:
+            return <span className="rollout__description_unhealthy">⚠ Unhealthy</span>;
     }
     return <span className="rollout__description_unknown">? Unkwown</span>;
 };
@@ -67,6 +75,8 @@ const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (props) =>
 const rolloutStatusPriority = [
     RolloutStatus.RolloutStatusError,
     RolloutStatus.RolloutStatusProgressing,
+    RolloutStatus.RolloutStatusUnhealthy,
+    RolloutStatus.RolloutStatusPending,
     RolloutStatus.RolloutStatusUnknown,
     RolloutStatus.RolloutStatusSuccesful,
 ];
@@ -98,7 +108,7 @@ const calculateDeploymentStatus = (
             ) {
                 // The rollout service might be sligthly behind the UI.
                 // In that case the
-                return { ...status, rolloutStatus: RolloutStatus.RolloutStatusProgressing };
+                return { ...status, rolloutStatus: RolloutStatus.RolloutStatusPending };
             }
             return status;
         })
