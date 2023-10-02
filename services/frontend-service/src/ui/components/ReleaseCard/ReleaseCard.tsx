@@ -108,7 +108,7 @@ const calculateDeploymentStatus = (
             ) {
                 // The rollout service might be sligthly behind the UI.
                 // In that case the
-                return { ...status, rolloutStatus: RolloutStatus.RolloutStatusProgressing };
+                return { ...status, rolloutStatus: RolloutStatus.RolloutStatusPending };
             }
             return status;
         })
