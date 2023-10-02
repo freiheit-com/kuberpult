@@ -124,7 +124,7 @@ func (a *appState) update(ev *service.BroadcastEvent) *appState {
 		// We also need to know that something is in argocd
 		return nil
 	}
-	sc := ev.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful
+	sc := (ev.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful || ev.RolloutStatus == api.RolloutStatus_RolloutStatusUnhealthy)
 	// The environment group is the only thing that can change
 	as := a.attributes(ev)
 	return &appState{

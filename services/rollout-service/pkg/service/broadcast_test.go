@@ -66,6 +66,8 @@ func TestBroadcast(t *testing.T) {
 		RolloutStatusProgressing = api.RolloutStatus_RolloutStatusProgressing
 		RolloutStatusError       = api.RolloutStatus_RolloutStatusError
 		RolloutStatusUnknown     = api.RolloutStatus_RolloutStatusUnknown
+		RolloutStatusUnhealthy   = api.RolloutStatus_RolloutStatusUnhealthy
+		RolloutStatusPending     = api.RolloutStatus_RolloutStatusPending
 	)
 	type step struct {
 		ArgoEvent    *ArgoEvent
@@ -193,7 +195,7 @@ func TestBroadcast(t *testing.T) {
 						HealthStatusCode: health.HealthStatusDegraded,
 					},
 
-					ExpectStatus: &RolloutStatusError,
+					ExpectStatus: &RolloutStatusUnhealthy,
 				},
 				{
 					ArgoEvent: &ArgoEvent{
@@ -247,7 +249,7 @@ func TestBroadcast(t *testing.T) {
 			},
 		},
 		{
-			Name: "healthy app switches to progressing when a new version in kuberpult is deployed",
+			Name: "healthy app switches to pending when a new version in kuberpult is deployed",
 			Steps: []step{
 				{
 					ArgoEvent: &ArgoEvent{
@@ -267,7 +269,7 @@ func TestBroadcast(t *testing.T) {
 						Version:     &versions.VersionInfo{Version: 2},
 					},
 
-					ExpectStatus: &RolloutStatusProgressing,
+					ExpectStatus: &RolloutStatusPending,
 				},
 				{
 					ArgoEvent: &ArgoEvent{

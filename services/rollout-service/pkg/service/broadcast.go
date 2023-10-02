@@ -63,7 +63,7 @@ func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEv
 func (a *appState) getEvent(application, environment string) *BroadcastEvent {
 	rs := a.rolloutStatus
 	if a.kuberpultVersion != nil && a.argocdVersion != nil && a.kuberpultVersion.Version != a.argocdVersion.Version {
-		rs = api.RolloutStatus_RolloutStatusProgressing
+		rs = api.RolloutStatus_RolloutStatusPending
 	}
 	return &BroadcastEvent{
 		Key: Key{
@@ -224,23 +224,23 @@ func streamStatus(b *BroadcastEvent) *api.StreamStatusResponse {
 }
 
 func rolloutStatus(ev *ArgoEvent) api.RolloutStatus {
+	if ev.OperationState != nil {
+		switch ev.OperationState.Phase {
+		case common.OperationError, common.OperationFailed:
+
+			return api.RolloutStatus_RolloutStatusError
+		}
+	}
+	switch ev.SyncStatusCode {
+	case v1alpha1.SyncStatusCodeOutOfSync:
+		return api.RolloutStatus_RolloutStatusProgressing
+	}
 	switch ev.HealthStatusCode {
 	case health.HealthStatusDegraded, health.HealthStatusMissing:
-		return api.RolloutStatus_RolloutStatusError
+		return api.RolloutStatus_RolloutStatusUnhealthy
 	case health.HealthStatusProgressing, health.HealthStatusSuspended:
 		return api.RolloutStatus_RolloutStatusProgressing
 	case health.HealthStatusHealthy:
-		if ev.OperationState != nil {
-			switch ev.OperationState.Phase {
-			case common.OperationError, common.OperationFailed:
-
-				return api.RolloutStatus_RolloutStatusError
-			}
-		}
-		switch ev.SyncStatusCode {
-		case v1alpha1.SyncStatusCodeOutOfSync:
-			return api.RolloutStatus_RolloutStatusProgressing
-		}
 		return api.RolloutStatus_RolloutStatusSuccesful
 	}
 	return api.RolloutStatus_RolloutStatusUnknown

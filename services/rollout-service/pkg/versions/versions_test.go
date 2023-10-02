@@ -331,10 +331,10 @@ func TestVersionClientStream(t *testing.T) {
 			},
 			ExpectedEvents: []KuberpultEvent{
 				{
-					Environment: "staging",
-					Application: "foo",
+					Environment:      "staging",
+					Application:      "foo",
 					EnvironmentGroup: "staging-group",
-					Version:     &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
+					Version:          &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 			},
 		},
@@ -353,16 +353,16 @@ func TestVersionClientStream(t *testing.T) {
 			},
 			ExpectedEvents: []KuberpultEvent{
 				{
-					Environment: "staging",
-					Application: "foo",
+					Environment:      "staging",
+					Application:      "foo",
 					EnvironmentGroup: "staging-group",
-					Version:     &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
+					Version:          &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 				{
-					Environment: "staging",
-					Application: "foo",
+					Environment:      "staging",
+					Application:      "foo",
 					EnvironmentGroup: "staging-group",
-					Version:     &VersionInfo{},
+					Version:          &VersionInfo{},
 				},
 			},
 		},
@@ -381,16 +381,16 @@ func TestVersionClientStream(t *testing.T) {
 			},
 			ExpectedEvents: []KuberpultEvent{
 				{
-					Environment: "staging",
-					Application: "foo",
+					Environment:      "staging",
+					Application:      "foo",
 					EnvironmentGroup: "staging-group",
-					Version:     &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
+					Version:          &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
-		  		{
-					Environment: "staging",
-					Application: "foo",
+				{
+					Environment:      "staging",
+					Application:      "foo",
 					EnvironmentGroup: "not-staging-group",
-					Version:     &VersionInfo{Version: 2, DeployedAt: time.Unix(123456789, 0).UTC()},
+					Version:          &VersionInfo{Version: 2, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 			},
 		},
