@@ -399,7 +399,7 @@ func TestHttpMiddleware(t *testing.T) {
 	}
 }
 
-func TestShouldAllowRequest(t *testing.T) {
+func TestAllowBypassingAzureAuth(t *testing.T) {
 	tcs := []struct {
 		Name            string
 		allowedPaths    []string
@@ -462,7 +462,7 @@ func TestShouldAllowRequest(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			actualResult := ShouldAllowRequest(tc.allowedPaths, tc.requestUrlPath, tc.requestMethod, tc.allowedPrefixes)
+			actualResult := AllowBypassingAzureAuth(tc.allowedPaths, tc.requestUrlPath, tc.requestMethod, tc.allowedPrefixes)
 			if actualResult != tc.expectedResult {
 				t.Errorf("Expected %v but got %v", tc.expectedResult, actualResult)
 			}

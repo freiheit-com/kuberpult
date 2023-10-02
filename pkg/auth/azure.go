@@ -99,7 +99,7 @@ func ValidateToken(jwtB64 string, jwks *keyfunc.JWKS, clientId string, tenantId 
 
 func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfunc.JWKS, clientId string, tenantId string, allowedPaths []string, allowedPrefixes []string) error {
 	token := req.Header.Get("authorization")
-	if ShouldAllowRequest(allowedPaths, req.URL.Path, req.Method, allowedPrefixes) {
+	if AllowBypassingAzureAuth(allowedPaths, req.URL.Path, req.Method, allowedPrefixes) {
 		return nil
 	}
 	claims, err := ValidateToken(token, jwks, clientId, tenantId)
@@ -114,7 +114,7 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 	return err
 }
 
-func ShouldAllowRequest(allowedPaths []string, requestUrlPath string, requestMethod string, allowedPrefixes []string) bool {
+func AllowBypassingAzureAuth(allowedPaths []string, requestUrlPath string, requestMethod string, allowedPrefixes []string) bool {
 	for _, allowedPath := range allowedPaths {
 		if requestUrlPath == allowedPath {
 			return true
@@ -130,7 +130,6 @@ func ShouldAllowRequest(allowedPaths []string, requestUrlPath string, requestMet
 	// usage in requests from outside the cluster (e.g. by GitHub Actions and the publish.sh script).
 	group, tail := xpath.Shift(requestUrlPath)
 
-	//if group == "environments" {
 	if group == "environments" || group == "environment-groups" {
 		envName, tail := xpath.Shift(tail)
 		if envName != "" { // We shouldn't receive an empty env, added just as a second layer of validation
