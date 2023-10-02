@@ -18,6 +18,27 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.7.0](https://github.com/freiheit-com/kuberpult/tree/1.7.0) (2023-10-02)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.6.0...1.7.0)
+
+### Minor Changes (New Features)
+
+- Distinguish more rollout states [\#981](https://github.com/freiheit-com/kuberpult/pull/981) ([hannesg](https://github.com/hannesg))
+- Add ingress class name as optional parameter [\#974](https://github.com/freiheit-com/kuberpult/pull/974) ([Murtaza-Solangi](https://github.com/Murtaza-Solangi))
+
+### Patch Changes (Bugfixes)
+
+- Fix: Show "deployed by" also for other versions in ReleaseDialog [\#979](https://github.com/freiheit-com/kuberpult/pull/979) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Fix: segfault in rollout service [\#975](https://github.com/freiheit-com/kuberpult/pull/975) ([hannesg](https://github.com/hannesg))
+- Refactor ReleaseDialog to not use mui [\#971](https://github.com/freiheit-com/kuberpult/pull/971) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+**Closed issues:**
+
+- "Deployed by" only shows up for the current release  [\#977](https://github.com/freiheit-com/kuberpult/issues/977)
+
+---
+
 ## [1.6.0](https://github.com/freiheit-com/kuberpult/tree/1.6.0) (2023-09-28)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.5.0...1.6.0)
