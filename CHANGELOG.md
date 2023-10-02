@@ -18,6 +18,20 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.6.1](https://github.com/freiheit-com/kuberpult/tree/1.6.1) (2023-09-29)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.6.0...1.6.1)
+
+### Minor Changes (New Features)
+
+- Add ingress class name as optional parameter [\#974](https://github.com/freiheit-com/kuberpult/pull/974) ([Murtaza-Solangi](https://github.com/Murtaza-Solangi))
+
+### Patch Changes (Bugfixes)
+
+- Fix: segfault in rollout service [\#975](https://github.com/freiheit-com/kuberpult/pull/975) ([hannesg](https://github.com/hannesg))
+
+---
+
 ## [1.6.0](https://github.com/freiheit-com/kuberpult/tree/1.6.0) (2023-09-28)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.5.0...1.6.0)
