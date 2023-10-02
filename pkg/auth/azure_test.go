@@ -398,3 +398,74 @@ func TestHttpMiddleware(t *testing.T) {
 		})
 	}
 }
+
+func TestAllowBypassingAzureAuth(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		allowedPaths    []string
+		requestUrlPath  string
+		requestMethod   string
+		allowedPrefixes []string
+		expectedResult  bool
+	}{
+		{
+			Name:            "Bugfix env group locks",
+			allowedPaths:    nil,
+			requestUrlPath:  "environment-groups/dev/locks/mylock123",
+			requestMethod:   "POST",
+			allowedPrefixes: nil,
+			expectedResult:  true,
+		},
+		{
+			Name:            "env locks",
+			allowedPaths:    nil,
+			requestUrlPath:  "environments/dev/locks/mylock123",
+			requestMethod:   "POST",
+			allowedPrefixes: nil,
+			expectedResult:  true,
+		},
+		{
+			Name:            "allowed path succeeds",
+			allowedPaths:    []string{"foo/bar"},
+			requestUrlPath:  "foo/bar",
+			requestMethod:   "POST",
+			allowedPrefixes: nil,
+			expectedResult:  true,
+		},
+		{
+			Name:            "allowed path fails",
+			allowedPaths:    []string{"bar/foo"},
+			requestUrlPath:  "foo/bar",
+			requestMethod:   "POST",
+			allowedPrefixes: nil,
+			expectedResult:  false,
+		},
+		{
+			Name:            "allowed prefix succeeds",
+			allowedPaths:    nil,
+			requestUrlPath:  "foo/bar",
+			requestMethod:   "POST",
+			allowedPrefixes: []string{"foo"},
+			expectedResult:  true,
+		},
+		{
+			Name:            "allowed prefix fails",
+			allowedPaths:    nil,
+			requestUrlPath:  "foo/bar",
+			requestMethod:   "POST",
+			allowedPrefixes: []string{"bar"},
+			expectedResult:  false,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			actualResult := AllowBypassingAzureAuth(tc.allowedPaths, tc.requestUrlPath, tc.requestMethod, tc.allowedPrefixes)
+			if actualResult != tc.expectedResult {
+				t.Errorf("Expected %v but got %v", tc.expectedResult, actualResult)
+			}
+		})
+	}
+}

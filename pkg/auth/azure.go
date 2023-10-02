@@ -99,35 +99,8 @@ func ValidateToken(jwtB64 string, jwks *keyfunc.JWKS, clientId string, tenantId 
 
 func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfunc.JWKS, clientId string, tenantId string, allowedPaths []string, allowedPrefixes []string) error {
 	token := req.Header.Get("authorization")
-	for _, allowedPath := range allowedPaths {
-		if req.URL.Path == allowedPath {
-			return nil
-		}
-	}
-	for _, allowedPrefix := range allowedPrefixes {
-		if strings.HasPrefix(req.URL.Path, allowedPrefix) {
-			return nil
-		}
-	}
-
-	// Skip azure authentication with ID for `/` (POST: createEnv), `/release`, `/releasetrain` and `/locks`  endpoints. The requests will be validated with pgp signature
-	// usage in requests from outside the cluster (e.g. by GitHub Actions and the publish.sh script).
-	group, tail := xpath.Shift(req.URL.Path)
-	if group == "environments" {
-		envName, tail := xpath.Shift(tail)
-		if envName != "" { // We shouldn't receive an empty env, added just as a second layer of validation
-			function, tail := xpath.Shift(tail)
-			switch function {
-			case "locks":
-				return nil
-			case "releasetrain":
-				return nil
-			case "": // create environment
-				if tail == "/" && req.Method == http.MethodPost {
-					return nil
-				}
-			}
-		}
+	if AllowBypassingAzureAuth(allowedPaths, req.URL.Path, req.Method, allowedPrefixes) {
+		return nil
 	}
 	claims, err := ValidateToken(token, jwks, clientId, tenantId)
 	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
@@ -139,4 +112,39 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 		resp.Write([]byte("Invalid authorization header provided"))
 	}
 	return err
+}
+
+func AllowBypassingAzureAuth(allowedPaths []string, requestUrlPath string, requestMethod string, allowedPrefixes []string) bool {
+	for _, allowedPath := range allowedPaths {
+		if requestUrlPath == allowedPath {
+			return true
+		}
+	}
+	for _, allowedPrefix := range allowedPrefixes {
+		if strings.HasPrefix(requestUrlPath, allowedPrefix) {
+			return true
+		}
+	}
+
+	// Skip azure authentication with ID for `/` (POST: createEnv), `/release`, `/releasetrain` and `/locks`  endpoints. The requests will be validated with pgp signature
+	// usage in requests from outside the cluster (e.g. by GitHub Actions and the publish.sh script).
+	group, tail := xpath.Shift(requestUrlPath)
+
+	if group == "environments" || group == "environment-groups" {
+		envName, tail := xpath.Shift(tail)
+		if envName != "" { // We shouldn't receive an empty env, added just as a second layer of validation
+			function, tail := xpath.Shift(tail)
+			switch function {
+			case "locks":
+				return true
+			case "releasetrain":
+				return true
+			case "": // create environment
+				if tail == "/" && requestMethod == http.MethodPost {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
