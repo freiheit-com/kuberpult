@@ -45,7 +45,8 @@ Copyright 2023 freiheit.com*/
     transform: translate(-50%, -50%);
 
     z-index: 1000;
-    border-radius: 10px;
+    // the border radius has to align with the border radius of the release dialog:
+    border-radius: $release-dialog-outer-border-radius;
     box-shadow: rgba(0, 0, 0, 0.2) 0 5px 5px -3px, rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
         rgba(0, 0, 0, 0.12) 0px 3px 14px 2px;
 

@@ -13,6 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
+
 import React from 'react';
 import { Button } from '../button';
 
@@ -28,18 +29,15 @@ export type ConfirmationDialogProps = {
 /**
  * A dialog that is used to confirm a question with either yes or no.
  */
-export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => {
-    if (!props.open) {
-        return <div className={'confirmation-dialog-hidden'}></div>;
-    }
-    return (
-        <div className={'confirmation-dialog-open'}>
+export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => (
+    <PlainDialog open={props.open} onClose={props.onCancel}>
+        <>
             <div className={'confirmation-dialog-header'}>{props.headerLabel}</div>
             <hr />
             <div className={'confirmation-dialog-content'}>{props.children}</div>
             <hr />
             <div className={'confirmation-dialog-footer'}>
-                <div className={'item'} key={'button-menu-cancel'}>
+                <div className={'item'} key={'button-menu-cancel'} title={'ESC also closes the dialog'}>
                     <Button
                         className="mdc-button--ripple button-cancel test-button-cancel"
                         label={'Cancel'}
@@ -54,6 +52,38 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => 
                     />
                 </div>
             </div>
+        </>
+    </PlainDialog>
+);
+
+export type PlainDialogProps = {
+    open: boolean;
+    onClose: () => void;
+    children: JSX.Element;
+};
+
+/**
+ * A dialog that just renders its children. Invoker must take care of all buttons.
+ */
+export const PlainDialog: React.FC<PlainDialogProps> = (props) => {
+    const { onClose, open, children } = props;
+    React.useEffect(() => {
+        window.addEventListener('keyup', (event) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        });
+    }, [onClose]);
+
+    if (!open) {
+        return <div className={'confirmation-dialog-hidden'}></div>;
+    }
+    return (
+        <div
+            className={
+                'INSIDE confirmation-dialog-container ' + (props.open ? 'confirmation-dialog-container-open' : '')
+            }>
+            <div className={'confirmation-dialog-open release-dialog'}>{children}</div>
         </div>
     );
 };
