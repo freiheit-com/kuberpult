@@ -27,8 +27,8 @@ We use it for requirements like this:
 
 ## Kuberpult Design Principles
 * **All power to the engineers**: Kuberpult never stops an engineer from deploying manually. The engineers know their services best, so they can decide which version to deploy.
-* **Microservices**: Kuberpult was built on the assumption that our teams work with kubernetes microservices.
-* **Monorepo**: Kuberpult works best with a monorepo setup. One product should be one monorepo. If you have multiple products, consider giving each one a kuberpult instance.
+* **Microservices**: Kuberpult is built on the assumption that our teams work with kubernetes microservices.
+* **Monorepo**: Kuberpult is built for a monorepo setup. One product should be one monorepo. If you have multiple products, consider giving each one a kuberpult instance.
 
 
 ## API
