@@ -486,3 +486,10 @@ func (p *GrpcProxy) StreamStatus(in *api.StreamStatusRequest, stream api.Rollout
 		}
 	}
 }
+
+func (p *GrpcProxy) GetStatus(ctx context.Context, in *api.GetStatusRequest) (*api.GetStatusResponse, error) {
+	if p.RolloutServiceClient == nil {
+		return nil, status.Error(codes.Unimplemented, "rollout status not implemented")
+	}
+	return p.RolloutServiceClient.GetStatus(ctx, in)
+}
