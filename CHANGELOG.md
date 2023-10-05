@@ -18,6 +18,24 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.7.1](https://github.com/freiheit-com/kuberpult/tree/1.7.1) (2023-10-02)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.7.0...1.7.1)
+
+### Patch Changes (Bugfixes)
+
+- Fix: Allow locks for groups with azure enabled [\#983](https://github.com/freiheit-com/kuberpult/pull/983) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Documentation: Add design principles [\#978](https://github.com/freiheit-com/kuberpult/pull/978) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+**Closed issues:**
+
+- Changing Domainnames [\#964](https://github.com/freiheit-com/kuberpult/issues/964)
+- Ideas from Thorsten [\#818](https://github.com/freiheit-com/kuberpult/issues/818)
+
+
+
+---
+
 ## [1.7.0](https://github.com/freiheit-com/kuberpult/tree/1.7.0) (2023-10-02)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.6.0...1.7.0)
