@@ -184,6 +184,22 @@ func (b *Broadcast) StreamStatus(req *api.StreamStatusRequest, svc api.RolloutSe
 	}
 }
 
+func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*api.GetStatusResponse, error) {
+	resp, _, unsubscribe := b.Start()
+	defer unsubscribe()
+	apps := []*api.GetStatusResponse_ApplicationStatus{}
+	status := api.RolloutStatus_RolloutStatusSuccesful
+	for _, r := range resp {
+		s := getStatus(r)
+		apps = append(apps, s)
+		status = mostRelevantStatus(status, s.RolloutStatus)
+	}
+	return &api.GetStatusResponse{
+		Status:       status,
+		Applications: apps,
+	}, nil
+}
+
 type unsubscribe func()
 
 func (b *Broadcast) Start() ([]*BroadcastEvent, <-chan *BroadcastEvent, unsubscribe) {
@@ -223,6 +239,14 @@ func streamStatus(b *BroadcastEvent) *api.StreamStatusResponse {
 	}
 }
 
+func getStatus(b *BroadcastEvent) *api.GetStatusResponse_ApplicationStatus {
+	return &api.GetStatusResponse_ApplicationStatus{
+		Environment:   b.Environment,
+		Application:   b.Application,
+		RolloutStatus: b.RolloutStatus,
+	}
+}
+
 func rolloutStatus(ev *ArgoEvent) api.RolloutStatus {
 	if ev.OperationState != nil {
 		switch ev.OperationState.Phase {
@@ -244,6 +268,44 @@ func rolloutStatus(ev *ArgoEvent) api.RolloutStatus {
 		return api.RolloutStatus_RolloutStatusSuccesful
 	}
 	return api.RolloutStatus_RolloutStatusUnknown
+}
+
+// Depending on the rollout state, there are different things a user should do.
+// 1. Nothing because everything is fine
+// 2. Wait longer
+// 3. Stop and call an operator
+// The sorting is the same as in the UI.
+var statusPriorities []api.RolloutStatus = []api.RolloutStatus{
+	// Error is not recoverable by waiting and requires manual intervention
+	api.RolloutStatus_RolloutStatusError,
+
+	// These states may resolve by waiting longer
+	api.RolloutStatus_RolloutStatusProgressing,
+	api.RolloutStatus_RolloutStatusUnhealthy,
+	api.RolloutStatus_RolloutStatusPending,
+	api.RolloutStatus_RolloutStatusUnknown,
+
+	// This is the only successful state
+	api.RolloutStatus_RolloutStatusSuccesful,
+}
+
+func statusPriority(a api.RolloutStatus) int {
+	for i, p := range statusPriorities {
+		if p == a {
+			return i
+		}
+	}
+	return len(statusPriorities) - 1
+}
+
+func mostRelevantStatus(a, b api.RolloutStatus) api.RolloutStatus {
+	ap := statusPriority(a)
+	bp := statusPriority(b)
+	if ap < bp {
+		return a
+	} else {
+		return b
+	}
 }
 
 var _ ArgoEventProcessor = (*Broadcast)(nil)

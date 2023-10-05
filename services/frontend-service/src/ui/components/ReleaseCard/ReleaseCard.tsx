@@ -72,12 +72,18 @@ const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (props) =>
 // note that the order is important here.
 // "most interesting" must come first.
 // see `calculateDeploymentStatus`
+// The same priority list is also implemented in pkg/service/broadcast.go.
 const rolloutStatusPriority = [
+    // Error is not recoverable by waiting and requires manual intervention
     RolloutStatus.RolloutStatusError,
+
+    // These states may resolve by waiting longer
     RolloutStatus.RolloutStatusProgressing,
     RolloutStatus.RolloutStatusUnhealthy,
     RolloutStatus.RolloutStatusPending,
     RolloutStatus.RolloutStatusUnknown,
+
+    // This is the only successful state
     RolloutStatus.RolloutStatusSuccesful,
 ];
 

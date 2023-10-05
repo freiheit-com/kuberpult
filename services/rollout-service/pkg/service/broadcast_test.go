@@ -348,6 +348,42 @@ func TestBroadcast(t *testing.T) {
 				}
 			}
 		})
+		t.Run(tc.Name+" (get)", func(t *testing.T) {
+			bc := New()
+			lastStatus := RolloutStatusUnknown
+			for i, s := range tc.Steps {
+				if s.ArgoEvent != nil {
+					bc.ProcessArgoEvent(context.Background(), *s.ArgoEvent)
+				} else if s.VersionEvent != nil {
+					bc.ProcessKuberpultEvent(context.Background(), *s.VersionEvent)
+				}
+
+				ctx, cancel := context.WithCancel(context.Background())
+				resp, err := bc.GetStatus(ctx, &api.GetStatusRequest{})
+				cancel()
+				if err != nil {
+					t.Errorf("didn't expect an error but got %q", err)
+				}
+
+				if s.ExpectStatus != nil {
+					lastStatus = *s.ExpectStatus
+				}
+				app := resp.Applications[0]
+				if app.Application != application(s) {
+					t.Errorf("wrong application received in step %d: expected %q, got %q", i, application(s), app.Application)
+				}
+				if app.Environment != environment(s) {
+					t.Errorf("wrong environment received in step %d: expected %q, got %q", i, environment(s), app.Environment)
+				}
+				if app.RolloutStatus != lastStatus {
+					t.Errorf("wrong status received in step %d: expected %q, got %q", i, lastStatus, app.RolloutStatus)
+				}
+				if resp.Status != lastStatus {
+					t.Errorf("wrong status received in step %d: expected %q, got %q", i, lastStatus, resp.Status)
+				}
+			}
+		})
+
 	}
 }
 
