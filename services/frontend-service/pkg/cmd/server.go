@@ -229,10 +229,11 @@ func runServer(ctx context.Context) error {
 
 	grpcWebServer := grpcweb.WrapServer(gsrv)
 	httpHandler := handler.Server{
-		BatchClient: batchClient,
-		Config:      c,
-		KeyRing:     pgpKeyRing,
-		AzureAuth:   c.AzureEnableAuth,
+		BatchClient:   batchClient,
+		RolloutClient: rolloutClient,
+		Config:        c,
+		KeyRing:       pgpKeyRing,
+		AzureAuth:     c.AzureEnableAuth,
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/environments/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
