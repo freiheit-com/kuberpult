@@ -47,7 +47,6 @@ jobs:
         run: |
           echo "stage_a=$(cat artifacts/github-convertor.json | jq '.stage_a.steps' -c)" >> $GITHUB_OUTPUT
           echo "stage_b=$(cat artifacts/github-convertor.json | jq '.stage_b.steps' -c)" >> $GITHUB_OUTPUT
-          echo "cleanup=$(cat artifacts/execution-plan.json | jq '.cleanup' -c)" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v3
         name: Upload execution plan
         with:
@@ -58,7 +57,6 @@ jobs:
     outputs:
       stage_a: ${{ steps.splitplan.outputs.stage_a }}
       stage_b: ${{ steps.splitplan.outputs.stage_b }}
-      cleanup: ${{ steps.splitplan.outputs.cleanup }}
   stageA_build:
     needs: [execution_plan]
     if: needs.execution_plan.outputs.stage_a != '[]'
@@ -199,11 +197,7 @@ jobs:
           path: ${{ matrix.data.artifacts }}
   cleanup:
     needs: [stageA_build, stageB_build, execution_plan]
-    if: needs.execution_plan.outputs.cleanup != '[]'
-    strategy:
-      matrix:
-        data: ${{fromJSON(needs.execution_plan.outputs.cleanup)}}
-    name: ${{ matrix.data.directory }} - Cleanup
+    name: Cleanup
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -220,4 +214,4 @@ jobs:
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
       - name: Cleanup
-        run: ${{ matrix.data.commands }}
+        run: make cleanup-pr
