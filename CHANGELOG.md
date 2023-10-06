@@ -18,6 +18,22 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.7.2](https://github.com/freiheit-com/kuberpult/tree/1.7.2) (2023-10-06)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.7.1...1.7.2)
+
+### Patch Changes (Bugfixes)
+
+- Fix: ReleaseDialog renders many environments [\#988](https://github.com/freiheit-com/kuberpult/pull/988) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Added Docs for Release Train Recommendations [\#986](https://github.com/freiheit-com/kuberpult/pull/986) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+**Closed issues:**
+
+- Release Dialog not displayed full with many environments [\#987](https://github.com/freiheit-com/kuberpult/issues/987)
+
+
+---
+
 ## [1.7.1](https://github.com/freiheit-com/kuberpult/tree/1.7.1) (2023-10-02)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.7.0...1.7.1)
