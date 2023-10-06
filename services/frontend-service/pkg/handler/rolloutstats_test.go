@@ -51,13 +51,14 @@ var _ api.RolloutServiceClient = (*mockRolloutCient)(nil)
 func TestHandleRolloutStatus(t *testing.T) {
 
 	tcs := []struct {
-		Name            string
-		Request         *http.Request
-		RolloutResponse *api.GetStatusResponse
-
+		Name                       string
+		Request                    *http.Request
+		RolloutResponse            *api.GetStatusResponse
 		DontConfigureRolloutClient bool
-		ExpectedStatus             int
-		ExpectedBody               string
+		AzureAuth                  bool
+
+		ExpectedStatus int
+		ExpectedBody   string
 	}{
 		{
 			Name:                       "returns not implemented when not configured",
@@ -75,6 +76,18 @@ func TestHandleRolloutStatus(t *testing.T) {
 			},
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedBody:   "invalid json in request\n",
+		},
+		{
+			Name: "fails on missing sig",
+			Request: &http.Request{
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{}`)),
+			},
+			AzureAuth:      true,
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedBody:   "Missing signature in request body - this is required with AzureAuth enabled\n",
 		},
 		{
 			Name: "succedes with a simple request",
@@ -123,6 +136,7 @@ func TestHandleRolloutStatus(t *testing.T) {
 			}
 			srv := Server{
 				RolloutClient: rc,
+				AzureAuth:     tc.AzureAuth,
 			}
 
 			w := httptest.NewRecorder()

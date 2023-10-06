@@ -50,8 +50,7 @@ func (s *Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req 
 
 	signature := reqBody.Signature
 	if len(signature) == 0 && s.AzureAuth {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Missing signature in request body - this is required with AzureAuth enabled"))
+		http.Error(w, "Missing signature in request body - this is required with AzureAuth enabled", http.StatusBadRequest)
 		return
 	}
 
@@ -66,8 +65,7 @@ func (s *Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req 
 				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
 				return
 			}
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "Invalid signature")
+			http.Error(w, "Invalid Signature", http.StatusUnauthorized)
 			return
 		}
 	}
