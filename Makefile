@@ -92,3 +92,6 @@ cleanup-main:
 
 kuberpult:
 	docker-compose up --build
+
+temp-linter:
+	exhaustruct $(go list -find all | grep kuberpult) > structs.out.txt 2> structs.err.txt
