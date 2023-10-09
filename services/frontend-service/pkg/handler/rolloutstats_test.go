@@ -17,7 +17,9 @@ Copyright 2023 freiheit.com*/
 package handler
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,9 +28,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 type mockRolloutCient struct {
@@ -49,16 +53,22 @@ func (b *mockRolloutCient) GetStatus(ctx context.Context, req *api.GetStatusRequ
 var _ api.RolloutServiceClient = (*mockRolloutCient)(nil)
 
 func TestHandleRolloutStatus(t *testing.T) {
-
+	key, err := openpgp.NewEntity("Test", "", "test@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyRing := openpgp.EntityList{key}
+	environmentGroup := "foo"
 	tcs := []struct {
 		Name                       string
 		Request                    *http.Request
 		RolloutResponse            *api.GetStatusResponse
 		DontConfigureRolloutClient bool
-		AzureAuth                  bool
+		NoAzureAuth                bool
 
-		ExpectedStatus int
-		ExpectedBody   string
+		ExpectedStatus  int
+		ExpectedBody    string
+		ExpectedRequest *api.GetStatusRequest
 	}{
 		{
 			Name:                       "returns not implemented when not configured",
@@ -78,30 +88,61 @@ func TestHandleRolloutStatus(t *testing.T) {
 			ExpectedBody:   "invalid json in request\n",
 		},
 		{
-			Name: "fails on missing sig",
+			Name: "fails on missing signature",
 			Request: &http.Request{
 				Header: http.Header{
 					"Content-Type": []string{"application/json"},
 				},
 				Body: io.NopCloser(strings.NewReader(`{}`)),
 			},
-			AzureAuth:      true,
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedBody:   "Missing signature in request body - this is required with AzureAuth enabled\n",
 		},
 		{
-			Name: "succedes with a simple request",
+			Name: "fails with wrong signature",
 			Request: &http.Request{
 				Header: http.Header{
 					"Content-Type": []string{"application/json"},
 				},
-				Body: io.NopCloser(strings.NewReader(`{}`)),
+				Body: io.NopCloser(strings.NewReader(`{"signature":"fooo"}`)),
+			},
+			ExpectedStatus: http.StatusUnauthorized,
+			ExpectedBody:   "Internal: Invalid Signature: EOF",
+		},
+		{
+			Name: "succedes with correct signature",
+			Request: &http.Request{
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{"signature":` + toJson(mustSign(key, environmentGroup)) + `}`)),
 			},
 			RolloutResponse: &api.GetStatusResponse{
 				Status: api.RolloutStatus_RolloutStatusSuccesful,
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedBody:   `{"status":"succesful","applications":[]}`,
+			ExpectedRequest: &api.GetStatusRequest{
+				EnvironmentGroup: environmentGroup,
+			},
+		},
+		{
+			Name: "succedes without signature when no auth is enabled",
+			Request: &http.Request{
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{}`)),
+			},
+			NoAzureAuth: true,
+			RolloutResponse: &api.GetStatusResponse{
+				Status: api.RolloutStatus_RolloutStatusSuccesful,
+			},
+			ExpectedStatus: http.StatusOK,
+			ExpectedBody:   `{"status":"succesful","applications":[]}`,
+			ExpectedRequest: &api.GetStatusRequest{
+				EnvironmentGroup: environmentGroup,
+			},
 		},
 		{
 			Name: "succedes with a larger request",
@@ -109,7 +150,7 @@ func TestHandleRolloutStatus(t *testing.T) {
 				Header: http.Header{
 					"Content-Type": []string{"application/json"},
 				},
-				Body: io.NopCloser(strings.NewReader(`{}`)),
+				Body: io.NopCloser(strings.NewReader(`{"signature":` + toJson(mustSign(key, environmentGroup)) + `}`)),
 			},
 			RolloutResponse: &api.GetStatusResponse{
 				Status:       api.RolloutStatus_RolloutStatusSuccesful,
@@ -124,6 +165,9 @@ func TestHandleRolloutStatus(t *testing.T) {
 				`{"application":"RolloutStatusPending","environment":"","status":"pending"},` +
 				`{"application":"RolloutStatusUnhealthy","environment":"","status":"unhealthy"}` +
 				`]}`,
+			ExpectedRequest: &api.GetStatusRequest{
+				EnvironmentGroup: environmentGroup,
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -131,16 +175,19 @@ func TestHandleRolloutStatus(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			var rc api.RolloutServiceClient = nil
+			mrc := &mockRolloutCient{resp: tc.RolloutResponse}
 			if !tc.DontConfigureRolloutClient {
-				rc = &mockRolloutCient{resp: tc.RolloutResponse}
+				rc = mrc
 			}
+
 			srv := Server{
 				RolloutClient: rc,
-				AzureAuth:     tc.AzureAuth,
+				AzureAuth:     !tc.NoAzureAuth,
+				KeyRing:       keyRing,
 			}
 
 			w := httptest.NewRecorder()
-			srv.handleEnvironmentGroupRolloutStatus(w, tc.Request, "foo")
+			srv.handleEnvironmentGroupRolloutStatus(w, tc.Request, environmentGroup)
 			result := w.Result()
 			if result.StatusCode != tc.ExpectedStatus {
 				t.Errorf("wrong status received, expected %d but got %d", tc.ExpectedStatus, result.StatusCode)
@@ -148,6 +195,10 @@ func TestHandleRolloutStatus(t *testing.T) {
 			body, _ := io.ReadAll(result.Body)
 			if d := cmp.Diff(tc.ExpectedBody, string(body)); d != "" {
 				t.Errorf("response body mismatch:\ngot:  %s\nwant: %s\ndiff: \n%s", string(body), tc.ExpectedBody, d)
+			}
+
+			if d := cmp.Diff(tc.ExpectedRequest, mrc.req, protocmp.Transform()); d != "" {
+				t.Errorf("request mismatch:\ndiff:%s", d)
 			}
 		})
 	}
@@ -167,4 +218,21 @@ func applicationsWithAllStates() []*api.GetStatusResponse_ApplicationStatus {
 		})
 	}
 	return result
+}
+
+func mustSign(key *openpgp.Entity, data string) string {
+	signatureBuffer := bytes.Buffer{}
+	err := openpgp.ArmoredDetachSign(&signatureBuffer, key, bytes.NewReader([]byte(data)), nil)
+	if err != nil {
+		panic(err)
+	}
+	return signatureBuffer.String()
+}
+
+func toJson(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
 }
