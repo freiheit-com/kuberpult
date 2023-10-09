@@ -549,7 +549,7 @@ func TestGetStatus(t *testing.T) {
 			},
 		},
 		{
-			Name: "exludes succesful applications",
+			Name: "excludes succesful applications",
 			ArgoEvents: []ArgoEvent{
 				{
 					Application:      "foo",
