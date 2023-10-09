@@ -294,6 +294,7 @@ var statusPriorities []api.RolloutStatus = []api.RolloutStatus{
 	api.RolloutStatus_RolloutStatusSuccesful,
 }
 
+// 0 is the highest priority - (RolloutStatusSuccesful) is the lowest priority
 func statusPriority(a api.RolloutStatus) int {
 	for i, p := range statusPriorities {
 		if p == a {
