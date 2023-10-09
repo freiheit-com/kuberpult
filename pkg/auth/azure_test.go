@@ -425,6 +425,22 @@ func TestAllowBypassingAzureAuth(t *testing.T) {
 			expectedResult:  true,
 		},
 		{
+			Name:            "env rollout status",
+			allowedPaths:    nil,
+			requestUrlPath:  "environments/dev/rollout-status",
+			requestMethod:   "POST",
+			allowedPrefixes: nil,
+			expectedResult:  true,
+		},
+		{
+			Name:            "env group rollout status",
+			allowedPaths:    nil,
+			requestUrlPath:  "environment-groups/dev/rollout-status",
+			requestMethod:   "POST",
+			allowedPrefixes: nil,
+			expectedResult:  true,
+		},
+		{
 			Name:            "allowed path succeeds",
 			allowedPaths:    []string{"foo/bar"},
 			requestUrlPath:  "foo/bar",
