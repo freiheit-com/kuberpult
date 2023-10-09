@@ -63,6 +63,7 @@ func TestHandleRolloutStatus(t *testing.T) {
 		Name                       string
 		Request                    *http.Request
 		RolloutResponse            *api.GetStatusResponse
+		RolloutError               error
 		DontConfigureRolloutClient bool
 		NoAzureAuth                bool
 
@@ -127,6 +128,21 @@ func TestHandleRolloutStatus(t *testing.T) {
 			},
 		},
 		{
+			Name: "handles backend errors",
+			Request: &http.Request{
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{"signature":` + toJson(mustSign(key, environmentGroup)) + `}`)),
+			},
+			RolloutError:   fmt.Errorf("no"),
+			ExpectedStatus: http.StatusInternalServerError,
+			ExpectedBody:   "Internal error: no\n",
+			ExpectedRequest: &api.GetStatusRequest{
+				EnvironmentGroup: environmentGroup,
+			},
+		},
+		{
 			Name: "succedes without signature when no auth is enabled",
 			Request: &http.Request{
 				Header: http.Header{
@@ -175,7 +191,7 @@ func TestHandleRolloutStatus(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			var rc api.RolloutServiceClient = nil
-			mrc := &mockRolloutCient{resp: tc.RolloutResponse}
+			mrc := &mockRolloutCient{resp: tc.RolloutResponse, err: tc.RolloutError}
 			if !tc.DontConfigureRolloutClient {
 				rc = mrc
 			}

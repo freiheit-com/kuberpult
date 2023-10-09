@@ -73,9 +73,9 @@ func (s *Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req 
 		EnvironmentGroup: environmentGroup,
 	})
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Internal error: %s", err)
+		http.Error(w, fmt.Sprintf("Internal error: %s", err), http.StatusInternalServerError)
 		logger.FromContext(ctx).Error("rollout", zap.Error(err))
+		return
 	}
 
 	resBody := struct {
