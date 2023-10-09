@@ -190,9 +190,14 @@ func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*
 	apps := []*api.GetStatusResponse_ApplicationStatus{}
 	status := api.RolloutStatus_RolloutStatusSuccesful
 	for _, r := range resp {
-		s := getStatus(r)
-		apps = append(apps, s)
-		status = mostRelevantStatus(status, s.RolloutStatus)
+		if r.EnvironmentGroup == req.EnvironmentGroup {
+			s := getStatus(r)
+			if s.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful {
+				continue
+			}
+			apps = append(apps, s)
+			status = mostRelevantStatus(status, s.RolloutStatus)
+		}
 	}
 	return &api.GetStatusResponse{
 		Status:       status,
