@@ -607,9 +607,7 @@ func TestGetStatus(t *testing.T) {
 				bc.ProcessKuberpultEvent(context.Background(), s)
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
-			resp, err := bc.GetStatus(ctx, tc.Request)
-			cancel()
+			resp, err := bc.GetStatus(context.Background(), tc.Request)
 			if err != nil {
 				t.Errorf("didn't expect an error but got %q", err)
 			}
