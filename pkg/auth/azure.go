@@ -139,6 +139,8 @@ func AllowBypassingAzureAuth(allowedPaths []string, requestUrlPath string, reque
 				return true
 			case "releasetrain":
 				return true
+			case "rollout-status":
+				return true
 			case "": // create environment
 				if tail == "/" && requestMethod == http.MethodPost {
 					return true
