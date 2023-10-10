@@ -2,3 +2,4 @@ metadata:
     registry: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 spec:
   version: "1"
+  # rebuild counter: 2
