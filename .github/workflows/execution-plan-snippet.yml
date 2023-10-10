@@ -59,7 +59,7 @@ jobs:
       stage_b: ${{ steps.splitplan.outputs.stage_b }}
   stageA_build:
     needs: [execution_plan]
-    if: needs.execution_plan.outputs.stage_a != '[]'
+    if: needs.execution_plan.outputs.stage_a != 'null'
     strategy:
         matrix:
           data: ${{fromJSON(needs.execution_plan.outputs.stage_a)}}
@@ -126,8 +126,12 @@ jobs:
             name: ${{ matrix.data.artifactName }}
             path: ${{ matrix.data.artifacts }}
   stageB_build:
-    needs: [stageA_build, execution_plan]
-    if: needs.execution_plan.outputs.stage_b != '[]'
+    needs: [execution_plan, stageA_build]
+    # Workaround to run stageB in case stageA was skipped
+    if: |
+        always() &&
+        (needs.stageA_build.result != 'failed')  &&
+        (needs.execution_plan.outputs.stage_b != 'null')
     strategy:
       matrix:
         data: ${{fromJSON(needs.execution_plan.outputs.stage_b)}}
@@ -196,7 +200,7 @@ jobs:
           name: ${{ matrix.data.artifactName }}
           path: ${{ matrix.data.artifacts }}
   cleanup:
-    needs: [stageA_build, stageB_build, execution_plan]
+    needs: [stageB_build, execution_plan]
     name: Cleanup
     runs-on: ubuntu-latest
     steps:
