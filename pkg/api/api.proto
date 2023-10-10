@@ -356,9 +356,13 @@ message Actor {
 
 service RolloutService {
   rpc StreamStatus (StreamStatusRequest) returns (stream StreamStatusResponse) {}
+  rpc GetStatus (GetStatusRequest) returns (GetStatusResponse) {}
 }
 
 message StreamStatusRequest {}
+message GetStatusRequest {
+  string environmentGroup = 1;
+}
 
 /*
 
@@ -381,4 +385,14 @@ message StreamStatusResponse {
   string application = 2;
   uint64 version     = 3;
   RolloutStatus rollout_status = 4;
+}
+
+message GetStatusResponse {
+  message ApplicationStatus {
+    string environment = 1;
+    string application = 2;
+    RolloutStatus rollout_status = 3;
+  }
+  RolloutStatus status = 1;
+  repeated ApplicationStatus applications = 2;
 }
