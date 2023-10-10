@@ -23,6 +23,8 @@ MAKEFLAGS += --no-builtin-rules
 export CGO_ENABLED=1
 
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:$(VERSION)
+ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:${VERSION}
+
 export KUBERPULT_DEX_MOCK=false
 export KUBERPULT_DEX_ENABLED=false
 
@@ -114,7 +116,10 @@ docker: bin/main
 # e.g IMAGENAME=ghcr.io/replace_me...cd-service:1.2.3 make release
 release: docker
 	docker push $(IMAGENAME)
-
+ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
+	docker tag $(IMAGENAME) $(ARTIFACT_REGISTRY_IMAGE_NAME)
+	docker push $(ARTIFACT_REGISTRY_IMAGE_NAME)
+endif
 all: test docker
 
 .PHONY: publish

@@ -29,7 +29,7 @@ ALL_GO_FILES := $(GO_FILES) $(PKG_GO_FILES)
 
 
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-frontend-service:${VERSION}
-
+ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:${VERSION}
 GARBAGE := *.sentinel
 
 image-name:
@@ -103,7 +103,10 @@ docker: bin/main | dist
 
 release: docker
 	docker push $(IMAGENAME)
-
+ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
+	docker tag $(IMAGENAME) $(ARTIFACT_REGISTRY_IMAGE_NAME)
+	docker push $(ARTIFACT_REGISTRY_IMAGE_NAME)
+endif
 all: test docker
 
 .PHONY: all release test docker clean
