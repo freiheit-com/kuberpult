@@ -18,6 +18,16 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.8.0](https://github.com/freiheit-com/kuberpult/tree/1.8.0) (2023-10-10)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.7.2...1.8.0)
+
+### Minor Changes (New Features)
+
+- Add a rest endpoint for obtaining the rollout status of a whole environment group [\#990](https://github.com/freiheit-com/kuberpult/pull/990) ([hannesg](https://github.com/hannesg))
+
+---
+
 ## [1.7.2](https://github.com/freiheit-com/kuberpult/tree/1.7.2) (2023-10-06)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.7.1...1.7.2)
