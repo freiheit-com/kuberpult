@@ -39,7 +39,7 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
     }, [props]);
 
     const addTeam = React.useCallback(
-        (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+        (id: string, e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
             const index = Number(e.currentTarget.id);
             const newTeam = props.environments[index];
             const indexOf = selectedEnvs.indexOf(newTeam);
@@ -56,6 +56,7 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
 
     return (
         <ConfirmationDialog
+            classNames={'env-selection-dialog'}
             onConfirm={onConfirm}
             onCancel={onCancel}
             open={props.open}
