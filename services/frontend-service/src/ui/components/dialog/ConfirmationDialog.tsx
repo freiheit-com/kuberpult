@@ -73,7 +73,19 @@ export const PlainDialog: React.FC<PlainDialogProps> = (props) => {
                 onClose();
             }
         });
-    }, [onClose]);
+        document.addEventListener('click', (event) => {
+            if (open) {
+                if (event.target instanceof HTMLElement) {
+                    // eslint-disable-next-line no-type-assertion/no-type-assertion
+                    const target = event.target as HTMLElement;
+                    const isOutside = target.className.indexOf('confirmation-dialog-container') >= 0;
+                    if (isOutside) {
+                        onClose();
+                    }
+                }
+            }
+        });
+    }, [onClose, open]);
 
     if (!open) {
         return <div className={'confirmation-dialog-hidden'}></div>;
