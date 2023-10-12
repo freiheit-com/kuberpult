@@ -5,10 +5,10 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
   <div>
     <div>
       <div
-        class="INSIDE confirmation-dialog-container confirmation-dialog-container-open"
+        class="confirmation-dialog-container confirmation-dialog-container-open"
       >
         <div
-          class="confirmation-dialog-open release-dialog"
+          class="confirmation-dialog-open release-dialog "
         >
           <div
             class="release-dialog-app-bar"
@@ -241,10 +241,10 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
   <div>
     <div>
       <div
-        class="INSIDE confirmation-dialog-container confirmation-dialog-container-open"
+        class="confirmation-dialog-container confirmation-dialog-container-open"
       >
         <div
-          class="confirmation-dialog-open release-dialog"
+          class="confirmation-dialog-open release-dialog "
         >
           <div
             class="release-dialog-app-bar"
@@ -480,10 +480,10 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
   <div>
     <div>
       <div
-        class="INSIDE confirmation-dialog-container confirmation-dialog-container-open"
+        class="confirmation-dialog-container confirmation-dialog-container-open"
       >
         <div
-          class="confirmation-dialog-open release-dialog"
+          class="confirmation-dialog-open release-dialog "
         >
           <div
             class="release-dialog-app-bar"
@@ -883,10 +883,10 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
   <div>
     <div>
       <div
-        class="INSIDE confirmation-dialog-container confirmation-dialog-container-open"
+        class="confirmation-dialog-container confirmation-dialog-container-open"
       >
         <div
-          class="confirmation-dialog-open release-dialog"
+          class="confirmation-dialog-open release-dialog "
         >
           <div
             class="release-dialog-app-bar"

@@ -92,7 +92,7 @@ export const PlainDialog: React.FC<PlainDialogProps> = (props) => {
     }
     return (
         <div className={'confirmation-dialog-container ' + (props.open ? 'confirmation-dialog-container-open' : '')}>
-            <div className={'confirmation-dialog-open release-dialog ' + props.classNames}>{children}</div>
+            <div className={'confirmation-dialog-open ' + props.classNames}>{children}</div>
         </div>
     );
 };

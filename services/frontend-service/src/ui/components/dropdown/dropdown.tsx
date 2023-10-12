@@ -27,16 +27,17 @@ export type DropdownProps = {
     leadingIcon?: string;
 };
 
+export type DropdownSelectProps = {
+    handleChange: (id: string) => void;
+    isEmpty: (arr: string[] | undefined) => boolean;
+    allTeams: string[];
+    selectedTeams: string[];
+};
+
 const allTeamsId = 'all-teams';
 
 // A dropdown allowing multiple selections
-export const DropdownSelect: React.FC<{
-    handleChange: (id: string) => void;
-    isEmpty: (arr: string[] | undefined) => boolean;
-    floatingLabel: string | undefined;
-    allTeams: string[];
-    selectedTeams: string[];
-}> = (props) => {
+export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
     const { handleChange, allTeams, selectedTeams } = props;
 
     const [open, setOpen] = React.useState(false);
@@ -60,11 +61,12 @@ export const DropdownSelect: React.FC<{
             <input
                 type="text"
                 className="dropdown-input"
-                value={selectedTeams.length === 0 ? 'Filter Teams' : ' ' + selectedTeams.join(', ')}
+                value={selectedTeams.length === 0 ? 'Filter Teams' : '' + selectedTeams.join(', ')}
                 aria-label={'Teams'}
                 disabled={open}
                 onChange={openClose}
                 onSelect={openClose}
+                data-testid="teams-dropdown-input"
             />
 
             <PlainDialog open={open} onClose={onCancel} classNames={'dropdown'}>
@@ -148,7 +150,6 @@ export const Dropdown = (props: DropdownProps): JSX.Element => {
             <DropdownSelect
                 handleChange={handleChange}
                 isEmpty={isEmpty}
-                floatingLabel={floatingLabel}
                 allTeams={teams}
                 selectedTeams={selectedTeams}
             />

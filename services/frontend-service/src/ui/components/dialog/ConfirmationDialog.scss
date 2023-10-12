@@ -18,9 +18,6 @@ Copyright 2023 freiheit.com*/
     display: flex;
 }
 
-.confirmation-dialog {
-}
-
 .confirmation-dialog-container-open {
     &::before {
         // this is to make everything behind the dialog grey and not clickable:

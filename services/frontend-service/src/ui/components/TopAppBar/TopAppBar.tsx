@@ -67,11 +67,6 @@ export const TopAppBar: React.FC = () => {
                         leadingIcon={'search'}
                     />
                     <Dropdown className={'top-app-bar-search-field'} floatingLabel={'Teams'} leadingIcon={'search'} />
-                    {/*<DropdownOld*/}
-                    {/*    className={'top-app-bar-search-field'}*/}
-                    {/*    floatingLabel={'Teams'}*/}
-                    {/*    leadingIcon={'search'}*/}
-                    {/*/>*/}
                 </div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong className="sub-headline1">Planned Actions</strong>
