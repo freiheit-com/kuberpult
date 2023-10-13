@@ -100,16 +100,16 @@ type mockVersionClient struct {
 }
 
 // GetVersion implements versions.VersionClient
-func (m *mockVersionClient) GetVersion(ctx context.Context, revision string, environment string, application string) (uint64, error) {
+func (m *mockVersionClient) GetVersion(ctx context.Context, revision string, environment string, application string) (*versions.VersionInfo, error) {
 	for _, v := range m.versions {
 		if v.Revision == revision && v.Environment == environment && v.Application == application {
-			return v.DeployedVersion, v.Error
+			return &versions.VersionInfo{Version: v.DeployedVersion}, v.Error
 		}
 	}
-	return 0, nil
+	return nil, nil
 }
 
-func (m *mockVersionClient) ConsumeEvents(ctx context.Context, pc versions.VersionEventProcessor ) error {
+func (m *mockVersionClient) ConsumeEvents(ctx context.Context, pc versions.VersionEventProcessor) error {
 	panic("not implemented")
 }
 
@@ -230,7 +230,7 @@ func TestArgoConection(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
-						Version:     42,
+						Version:     &versions.VersionInfo{Version: 42},
 					},
 				},
 				{
@@ -240,7 +240,7 @@ func TestArgoConection(t *testing.T) {
 			ExpectedReady: true,
 		},
 		{
-			Name: "doesnt generate events for deleted ",
+			Name: "doesnt generate events for deleted",
 			Versions: []version{
 				{
 					Revision:        "1234",
@@ -273,7 +273,7 @@ func TestArgoConection(t *testing.T) {
 					ExpectedEvent: &ArgoEvent{
 						Application: "bar",
 						Environment: "foo",
-						Version:     0,
+						Version:     &versions.VersionInfo{Version: 0},
 					},
 				},
 				{

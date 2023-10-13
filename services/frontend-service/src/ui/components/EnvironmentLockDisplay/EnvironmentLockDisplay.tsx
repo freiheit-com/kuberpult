@@ -19,6 +19,30 @@ import { Tooltip } from '../tooltip/tooltip';
 import { Locks, LocksWhite } from '../../../images';
 import { Button } from '../button';
 
+export const DisplayLockInlineRenderer: React.FC<{ lock: DisplayLock }> = (props) => {
+    const { lock } = props;
+    const hasAuthor = lock.authorEmail || lock.authorName;
+    const author = hasAuthor ? lock.authorName + '<' + lock.authorEmail + '>' : 'unknown';
+
+    const description = lock.application ? (
+        <span>
+            Application <b>{lock.application}</b> locked by <b>{author}</b> on environment <b>{lock.environment}</b>
+        </span>
+    ) : (
+        <span>
+            Environment <b>{lock.environment}</b> locked by <b>{author}</b>
+        </span>
+    );
+    return (
+        <span title={lock.lockId}>
+            {description}
+            <span>
+                {' '}
+                with message: <b>'{lock.message}'</b>{' '}
+            </span>
+        </span>
+    );
+};
 export const DisplayLockRenderer: React.FC<{ lock: DisplayLock }> = (props) => {
     const { lock } = props;
     const hasAuthor = lock.authorEmail || lock.authorName;

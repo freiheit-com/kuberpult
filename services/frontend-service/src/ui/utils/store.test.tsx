@@ -17,18 +17,21 @@ import { act, renderHook } from '@testing-library/react';
 import {
     AllLocks,
     appendAction,
+    DisplayLock,
     FlushRolloutStatus,
     UpdateAction,
     updateActions,
     UpdateOverview,
     UpdateRolloutStatus,
     UpdateSnackbar,
+    useLocksConflictingWithActions,
     useLocksSimilarTo,
     useNavigateWithSearchParams,
     useRolloutStatus,
 } from './store';
 import {
     BatchAction,
+    Environment,
     EnvironmentGroup,
     LockBehavior,
     Priority,
@@ -140,8 +143,6 @@ describe('Test useLocksSimilarTo', () => {
                     makeDisplayLock({
                         lockId: 'l1',
                         environment: 'staging',
-                        authorName: 'Betty',
-                        authorEmail: 'betty@example.com',
                     }),
                 ],
             },
@@ -192,8 +193,6 @@ describe('Test useLocksSimilarTo', () => {
                         lockId: 'l1',
                         application: 'betty',
                         message: 'lock msg 1',
-                        authorName: 'Betty',
-                        authorEmail: 'betty@example.com',
                     }),
                 ],
                 environmentLocks: [],
@@ -255,8 +254,6 @@ describe('Test useLocksSimilarTo', () => {
                         lockId: 'l1',
                         application: 'betty',
                         message: 'lock msg 1',
-                        authorName: 'Betty',
-                        authorEmail: 'betty@example.com',
                     }),
                 ],
                 environmentLocks: [
@@ -264,15 +261,11 @@ describe('Test useLocksSimilarTo', () => {
                         environment: 'dev',
                         lockId: 'l1',
                         message: 'lock msg 1',
-                        authorName: 'Betty',
-                        authorEmail: 'betty@example.com',
                     }),
                     makeDisplayLock({
                         environment: 'dev2',
                         lockId: 'l1',
                         message: 'lock msg 1',
-                        authorName: 'Betty',
-                        authorEmail: 'betty@example.com',
                     }),
                 ],
             },
@@ -517,6 +510,154 @@ describe('Test maxActions', () => {
             // then
             expect(UpdateSnackbar.get().show).toStrictEqual(testcase.expectedShowError);
             expect(UpdateAction.get().actions.length).toStrictEqual(testcase.expectedLen);
+        });
+    });
+});
+
+describe('Test useLocksConflictingWithActions', () => {
+    type TestDataStore = {
+        name: string;
+        actions: BatchAction[];
+        expectedAppLocks: DisplayLock[];
+        expectedEnvLocks: DisplayLock[];
+        environments: Environment[];
+    };
+
+    const testdata: TestDataStore[] = [
+        {
+            name: 'empty actions empty locks',
+            actions: [],
+            expectedAppLocks: [],
+            expectedEnvLocks: [],
+            environments: [],
+        },
+        {
+            name: 'deploy action and related app lock and env lock',
+            actions: [
+                {
+                    action: {
+                        $case: 'deploy',
+                        deploy: {
+                            environment: 'dev',
+                            application: 'app1',
+                            version: 1,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.Ignore,
+                        },
+                    },
+                },
+            ],
+            environments: [
+                {
+                    name: 'dev',
+                    locks: {
+                        'lock-env-dev': makeLock({
+                            message: 'locked because christmas',
+                            lockId: 'my-env-lock1',
+                        }),
+                    },
+                    applications: {
+                        echo: {
+                            name: 'app1',
+                            version: 0,
+                            locks: {
+                                applock: makeLock({
+                                    lockId: 'app-lock-id',
+                                    message: 'i do not like this app',
+                                }),
+                            },
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    distanceToUpstream: 0,
+                    priority: 0,
+                },
+            ],
+            expectedAppLocks: [
+                makeDisplayLock({
+                    lockId: 'app-lock-id',
+                    application: 'app1',
+                    message: 'i do not like this app',
+                    environment: 'dev',
+                }),
+            ],
+            expectedEnvLocks: [
+                makeDisplayLock({
+                    lockId: 'my-env-lock1',
+                    environment: 'dev',
+                    message: 'locked because christmas',
+                }),
+            ],
+        },
+        {
+            name: 'deploy action and unrelated locks',
+            actions: [
+                {
+                    action: {
+                        $case: 'deploy',
+                        deploy: {
+                            environment: 'dev',
+                            application: 'app1',
+                            version: 1,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.Ignore,
+                        },
+                    },
+                },
+            ],
+            environments: [
+                {
+                    name: 'staging', // this lock differs by stage
+                    locks: {
+                        'lock-env-dev': makeLock({
+                            message: 'locked because christmas',
+                            lockId: 'my-env-lock1',
+                        }),
+                    },
+                    applications: {
+                        echo: {
+                            name: 'anotherapp', // this lock differs by app
+                            version: 0,
+                            locks: {
+                                applock: makeLock({
+                                    lockId: 'app-lock-id',
+                                    message: 'i do not like this app',
+                                }),
+                            },
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                        },
+                    },
+                    distanceToUpstream: 0,
+                    priority: 0,
+                },
+            ],
+            expectedAppLocks: [],
+            expectedEnvLocks: [],
+        },
+    ];
+
+    describe.each(testdata)('with', (testcase) => {
+        it(testcase.name, () => {
+            // given
+            updateActions(testcase.actions);
+            UpdateOverview.set({
+                applications: {},
+                environmentGroups: [
+                    {
+                        environmentGroupName: 'g1',
+                        environments: testcase.environments,
+                        distanceToUpstream: 0,
+                    },
+                ],
+            });
+
+            // when
+            const actualLocks = renderHook(() => useLocksConflictingWithActions()).result.current;
+            // then
+            expect(actualLocks.environmentLocks).toStrictEqual(testcase.expectedEnvLocks);
+            expect(actualLocks.appLocks).toStrictEqual(testcase.expectedAppLocks);
         });
     });
 });

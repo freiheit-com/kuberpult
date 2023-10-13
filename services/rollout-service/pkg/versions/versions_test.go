@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/google/go-cmp/cmp"
@@ -41,6 +42,7 @@ type expectedVersion struct {
 	Environment     string
 	Application     string
 	DeployedVersion uint64
+	DeployTime      time.Time
 	Metadata        metadata.MD
 }
 
@@ -136,6 +138,9 @@ func TestVersionClient(t *testing.T) {
 							Applications: map[string]*api.Environment_Application{
 								"bar": {
 									Version: 2,
+									DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+										DeployTime: "123456789",
+									},
 								},
 							},
 						},
@@ -173,6 +178,7 @@ func TestVersionClient(t *testing.T) {
 					Environment:     "staging",
 					Application:     "bar",
 					DeployedVersion: 2,
+					DeployTime:      time.Unix(123456789, 0).UTC(),
 					Metadata:        defaultMetadata,
 				},
 			},
@@ -214,6 +220,8 @@ func TestVersionClientStream(t *testing.T) {
 	testOverview := &api.GetOverviewResponse{
 		EnvironmentGroups: []*api.EnvironmentGroup{
 			{
+
+				EnvironmentGroupName: "staging-group",
 				Environments: []*api.Environment{
 					{
 						Name: "staging",
@@ -221,6 +229,32 @@ func TestVersionClientStream(t *testing.T) {
 							"foo": {
 								Name:    "foo",
 								Version: 1,
+								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+									DeployTime: "123456789",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		GitRevision: "1234",
+	}
+	testOverviewWithDifferentEnvgroup := &api.GetOverviewResponse{
+		EnvironmentGroups: []*api.EnvironmentGroup{
+			{
+
+				EnvironmentGroupName: "not-staging-group",
+				Environments: []*api.Environment{
+					{
+						Name: "staging",
+						Applications: map[string]*api.Environment_Application{
+							"foo": {
+								Name:    "foo",
+								Version: 2,
+								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+									DeployTime: "123456789",
+								},
 							},
 						},
 					},
@@ -231,7 +265,7 @@ func TestVersionClientStream(t *testing.T) {
 	}
 	emptyTestOverview := &api.GetOverviewResponse{
 		EnvironmentGroups: []*api.EnvironmentGroup{},
-		GitRevision: "000",
+		GitRevision:       "000",
 	}
 
 	tcs := []struct {
@@ -270,13 +304,15 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:     "staging",
 					Application:     "foo",
 					DeployedVersion: 1,
+					DeployTime:      time.Unix(123456789, 0).UTC(),
 				},
 			},
 			ExpectedEvents: []KuberpultEvent{
 				{
-					Environment: "staging",
-					Application: "foo",
-					Version:     1,
+					Environment:      "staging",
+					Application:      "foo",
+					EnvironmentGroup: "staging-group",
+					Version:          &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 			},
 		},
@@ -295,9 +331,10 @@ func TestVersionClientStream(t *testing.T) {
 			},
 			ExpectedEvents: []KuberpultEvent{
 				{
-					Environment: "staging",
-					Application: "foo",
-					Version:     1,
+					Environment:      "staging",
+					Application:      "foo",
+					EnvironmentGroup: "staging-group",
+					Version:          &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 			},
 		},
@@ -316,14 +353,44 @@ func TestVersionClientStream(t *testing.T) {
 			},
 			ExpectedEvents: []KuberpultEvent{
 				{
-					Environment: "staging",
-					Application: "foo",
-					Version:     1,
+					Environment:      "staging",
+					Application:      "foo",
+					EnvironmentGroup: "staging-group",
+					Version:          &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 				{
-					Environment: "staging",
-					Application: "foo",
-					Version:     0,
+					Environment:      "staging",
+					Application:      "foo",
+					EnvironmentGroup: "staging-group",
+					Version:          &VersionInfo{},
+				},
+			},
+		},
+		{
+			Name: "Updates environment groups",
+			Steps: []step{
+				{
+					Overview: testOverview,
+				},
+				{
+					Overview: testOverviewWithDifferentEnvgroup,
+				},
+				{
+					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+				},
+			},
+			ExpectedEvents: []KuberpultEvent{
+				{
+					Environment:      "staging",
+					Application:      "foo",
+					EnvironmentGroup: "staging-group",
+					Version:          &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
+				},
+				{
+					Environment:      "staging",
+					Application:      "foo",
+					EnvironmentGroup: "not-staging-group",
+					Version:          &VersionInfo{Version: 2, DeployedAt: time.Unix(123456789, 0).UTC()},
 				},
 			},
 		},
@@ -355,8 +422,11 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 			t.Errorf("expected no error for %s/%s@%s, but got %q", ev.Environment, ev.Application, ev.Revision, err)
 			continue
 		}
-		if version != ev.DeployedVersion {
-			t.Errorf("expected version %d to be deployed for %s/%s@%s but got %d", ev.DeployedVersion, ev.Environment, ev.Application, ev.Revision, version)
+		if version.Version != ev.DeployedVersion {
+			t.Errorf("expected version %d to be deployed for %s/%s@%s but got %d", ev.DeployedVersion, ev.Environment, ev.Application, ev.Revision, version.Version)
+		}
+		if version.DeployedAt != ev.DeployTime {
+			t.Errorf("expected deploy time to be %q for %s/%s@%s but got %q", ev.DeployTime, ev.Environment, ev.Application, ev.Revision, version.DeployedAt)
 		}
 		if !cmp.Equal(mc.LastMetadata, ev.Metadata) {
 			t.Errorf("mismachted metadata %s", cmp.Diff(mc.LastMetadata, ev.Metadata))

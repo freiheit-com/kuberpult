@@ -19,7 +19,7 @@ import { useOpenReleaseDialog, useReleaseOrThrow } from '../../utils/store';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { undeployTooltipExplanation } from '../ReleaseDialog/ReleaseDialog';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
-import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
+import { ReleaseVersionWithLinks } from '../ReleaseVersion/ReleaseVersion';
 
 export type ReleaseCardMiniProps = {
     className?: string;
@@ -39,16 +39,18 @@ export const ReleaseCardMini: React.FC<ReleaseCardMiniProps> = (props) => {
         <div className={classNames('release-card-mini', className)} onClick={openReleaseDialog}>
             <div className={classNames('release__details-mini', className)}>
                 <div className="release__details-header" title={displayedTitle}>
-                    {displayedMessage}
+                    <div className="release__details-header-title">{displayedMessage}</div>
+                    <div className="release__environments-mini">
+                        <EnvironmentGroupChipList app={props.app} version={props.version} />
+                    </div>
                 </div>
-                <ReleaseVersion release={release} />
+                <div className={'release__details-source-line'}>
+                    <ReleaseVersionWithLinks application={app} release={release} />
+                </div>
                 <div className="release__details-msg">
                     {sourceAuthor + ' | '}
                     {!!createdAt && <FormattedDate createdAt={createdAt} className="release__metadata-mini" />}
                 </div>
-            </div>
-            <div className="release__environments-mini">
-                <EnvironmentGroupChipList app={props.app} version={props.version} />
             </div>
         </div>
     );

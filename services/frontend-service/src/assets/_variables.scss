@@ -83,7 +83,7 @@ $environment-add-lock-button-color: var(--mdc-theme-primary);
 $environment-add-lock-button-padding-left: 1em;
 
 // Release Dialog
-$release-dialog-outer-border-radius: 15px;
+$release-dialog-outer-border-radius: 10px;
 $release-dialog-top-border-radius: $release-dialog-outer-border-radius $release-dialog-outer-border-radius 0px 0px;
 $release-dialog-bottom-border-radius: 0px 0px $release-dialog-outer-border-radius $release-dialog-outer-border-radius;
 $release-dialog-inner-border-radius: 10px;

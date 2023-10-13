@@ -19,6 +19,8 @@ package versions
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/argoproj/argo-cd/v2/util/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -37,7 +39,7 @@ var RolloutServiceUser auth.User = auth.User{
 }
 
 type VersionClient interface {
-	GetVersion(ctx context.Context, revision, environment, application string) (uint64, error)
+	GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error)
 	ConsumeEvents(ctx context.Context, processor VersionEventProcessor) error
 }
 
@@ -46,8 +48,13 @@ type versionClient struct {
 	cache  *lru.Cache
 }
 
+type VersionInfo struct {
+	Version    uint64
+	DeployedAt time.Time
+}
+
 // GetVersion implements VersionClient
-func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (uint64, error) {
+func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
 	var overview *api.GetOverviewResponse
 	entry, ok := v.cache.Get(revision)
 	if !ok {
@@ -57,7 +64,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 			GitRevision: revision,
 		})
 		if err != nil {
-			return 0, fmt.Errorf("requesting overview %q: %w", revision, err)
+			return nil, fmt.Errorf("requesting overview %q: %w", revision, err)
 		}
 		v.cache.Add(revision, overview)
 	} else {
@@ -68,19 +75,35 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 			if env.Name == environment {
 				app := env.Applications[application]
 				if app == nil {
-					return 0, nil
+					return &VersionInfo{}, nil
 				}
-				return app.Version, nil
+				return &VersionInfo{Version: app.Version, DeployedAt: deployedAt(app)}, nil
 			}
 		}
 	}
-	return 0, nil
+	return &VersionInfo{}, nil
+}
+
+func deployedAt(app *api.Environment_Application) time.Time {
+	if app.DeploymentMetaData == nil {
+		return time.Time{}
+	}
+	deployTime := app.DeploymentMetaData.DeployTime
+	if deployTime != "" {
+		dt, err := strconv.ParseInt(deployTime, 10, 64)
+		if err != nil {
+			return time.Time{}
+		}
+		return time.Unix(dt, 0).UTC()
+	}
+	return time.Time{}
 }
 
 type KuberpultEvent struct {
-	Environment string
-	Application string
-	Version     uint64
+	Environment      string
+	Application      string
+	EnvironmentGroup string
+	Version          *VersionInfo
 }
 
 type VersionEventProcessor interface {
@@ -102,6 +125,7 @@ outer:
 			continue outer
 		}
 		versions := map[key]uint64{}
+		environmentGroups := map[key]string{}
 		for {
 			select {
 			case <-ctx.Done():
@@ -129,17 +153,24 @@ outer:
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
 					for _, app := range env.Applications {
+						dt := deployedAt(app)
 
-						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version))
+						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version), zap.Time("deployedAt", dt))
 						k := key{env.Name, app.Name}
 						seen[k] = app.Version
+						environmentGroups[k] = envGroup.EnvironmentGroupName
 						if versions[k] == app.Version {
 							continue
 						}
+
 						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-							Application: app.Name,
-							Environment: env.Name,
-							Version:     app.Version,
+							Application:      app.Name,
+							Environment:      env.Name,
+							EnvironmentGroup: envGroup.EnvironmentGroupName,
+							Version: &VersionInfo{
+								Version:    app.Version,
+								DeployedAt: dt,
+							},
 						})
 					}
 				}
@@ -149,9 +180,10 @@ outer:
 			for k := range versions {
 				if seen[k] == 0 {
 					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-						Application: k.Application,
-						Environment: k.Environment,
-						Version:     0,
+						Application:      k.Application,
+						Environment:      k.Environment,
+						EnvironmentGroup: environmentGroups[k],
+						Version:          &VersionInfo{},
 					})
 				}
 			}

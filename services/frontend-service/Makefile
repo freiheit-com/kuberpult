@@ -29,7 +29,7 @@ ALL_GO_FILES := $(GO_FILES) $(PKG_GO_FILES)
 
 
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-frontend-service:${VERSION}
-
+ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:${VERSION}
 GARBAGE := *.sentinel
 
 image-name:
@@ -49,6 +49,9 @@ export KUBERPULT_ALLOWED_ORIGINS?=localhost:*
 export KUBERPULT_GIT_AUTHOR_NAME?=user-local-dev
 export KUBERPULT_GIT_AUTHOR_EMAIL?=user-local-dev@example.com
 export KUBERPULT_ARGOCD_BASE_URL=https://cd.dev.freiheit.systems/
+export KUBERPULT_SOURCE_REPO_URL=https://github.com/freiheit-com/kuberpult/commit/{commit}
+export KUBERPULT_MANIFEST_REPO_URL=https://github.com/freiheit-com/fdc-standard-setup-dev-env-manifest/tree/{branch}/{dir}
+export KUBERPULT_GIT_BRANCH=main
 run: bin/main
 	./bin/main
 
@@ -100,7 +103,10 @@ docker: bin/main | dist
 
 release: docker
 	docker push $(IMAGENAME)
-
+ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
+	docker tag $(IMAGENAME) $(ARTIFACT_REGISTRY_IMAGE_NAME)
+	docker push $(ARTIFACT_REGISTRY_IMAGE_NAME)
+endif
 all: test docker
 
 .PHONY: all release test docker clean

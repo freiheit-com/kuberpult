@@ -218,6 +218,7 @@ func runServer(ctx context.Context) error {
 					CloudInstance: c.AzureCloudInstance,
 				},
 			},
+			ManifestRepoUrl:  c.ManifestRepoUrl,
 			SourceRepoUrl:    c.SourceRepoUrl,
 			KuberpultVersion: c.Version,
 			Branch:           c.GitBranch,
@@ -228,10 +229,11 @@ func runServer(ctx context.Context) error {
 
 	grpcWebServer := grpcweb.WrapServer(gsrv)
 	httpHandler := handler.Server{
-		BatchClient: batchClient,
-		Config:      c,
-		KeyRing:     pgpKeyRing,
-		AzureAuth:   c.AzureEnableAuth,
+		BatchClient:   batchClient,
+		RolloutClient: rolloutClient,
+		Config:        c,
+		KeyRing:       pgpKeyRing,
+		AzureAuth:     c.AzureEnableAuth,
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/environments/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -468,7 +470,7 @@ func (p *GrpcProxy) StreamOverview(
 
 func (p *GrpcProxy) StreamStatus(in *api.StreamStatusRequest, stream api.RolloutService_StreamStatusServer) error {
 	if p.RolloutServiceClient == nil {
-		return status.Error(codes.Unimplemented, "rollout status not implemented")
+		return status.Error(codes.Unimplemented, "rollout service not configured")
 	}
 	if resp, err := p.RolloutServiceClient.StreamStatus(stream.Context(), in); err != nil {
 		return err
@@ -484,4 +486,11 @@ func (p *GrpcProxy) StreamStatus(in *api.StreamStatusRequest, stream api.Rollout
 			}
 		}
 	}
+}
+
+func (p *GrpcProxy) GetStatus(ctx context.Context, in *api.GetStatusRequest) (*api.GetStatusResponse, error) {
+	if p.RolloutServiceClient == nil {
+		return nil, status.Error(codes.Unimplemented, "rollout service not configured")
+	}
+	return p.RolloutServiceClient.GetStatus(ctx, in)
 }

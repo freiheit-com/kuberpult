@@ -94,7 +94,7 @@ func (s *subscriber) subscribeOnce(ctx context.Context, broadcast *service.Broad
 
 func (s *subscriber) maybeSend(ctx context.Context, ev *service.BroadcastEvent) {
 	// skip cases where we don't know the kuberpult version
-	if ev.KuberpultVersion == 0 {
+	if ev.KuberpultVersion == nil {
 		return
 	}
 	// also don't notify when the version in argocd is already the right one
@@ -104,11 +104,11 @@ func (s *subscriber) maybeSend(ctx context.Context, ev *service.BroadcastEvent) 
 	// also don't send events for the same version again
 	k := key{ev.Environment, ev.Application}
 	ns := s.notifyStatus[k]
-	if ns != nil && ns.targetVersion == ev.KuberpultVersion {
+	if ns != nil && ns.targetVersion == ev.KuberpultVersion.Version {
 		return
 	}
 	s.notifyStatus[k] = &notifyStatus{
-		targetVersion: ev.KuberpultVersion,
+		targetVersion: ev.KuberpultVersion.Version,
 	}
 	// finally send the request
 	s.notifier.NotifyArgoCd(ctx, ev.Environment, ev.Application)

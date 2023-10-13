@@ -27,10 +27,11 @@ import (
 )
 
 type Server struct {
-	BatchClient api.BatchServiceClient
-	Config      config.ServerConfig
-	KeyRing     openpgp.KeyRing
-	AzureAuth   bool
+	BatchClient   api.BatchServiceClient
+	RolloutClient api.RolloutServiceClient
+	Config        config.ServerConfig
+	KeyRing       openpgp.KeyRing
+	AzureAuth     bool
 }
 
 func (s Server) Handle(w http.ResponseWriter, req *http.Request) {

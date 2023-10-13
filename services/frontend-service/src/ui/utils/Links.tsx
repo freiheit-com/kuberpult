@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 
 import React from 'react';
-import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch } from './store';
+import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useManifestRepoUrl } from './store';
 
 export const deriveArgoAppLink = (baseUrl: string | undefined, app: string): string | undefined => {
     if (baseUrl) {
@@ -40,19 +40,31 @@ export const deriveArgoTeamLink = (baseUrl: string | undefined, team: string): s
     }
     return '';
 };
+export const deriveSourceCommitLink = (
+    baseUrl: string | undefined,
+    branch: string | undefined,
+    commit: string
+): string | undefined => {
+    if (baseUrl && branch) {
+        baseUrl = baseUrl.replace(/{branch}/gi, branch);
+        baseUrl = baseUrl.replace(/{commit}/gi, commit);
+        return baseUrl;
+    }
+    return undefined;
+};
 
 export const deriveReleaseDirLink = (
     baseUrl: string | undefined,
     branch: string | undefined,
     app: string,
-    version: string
+    version: number
 ): string | undefined => {
     if (baseUrl && branch) {
         baseUrl = baseUrl.replace(/{branch}/gi, branch);
         baseUrl = baseUrl.replace(/{dir}/gi, 'applications/' + app + '/releases/' + version);
         return baseUrl;
     }
-    return '';
+    return undefined;
 };
 
 export const ArgoTeamLink: React.FC<{ team: string | undefined }> = (props): JSX.Element | null => {
@@ -103,17 +115,31 @@ export const ArgoAppEnvLink: React.FC<{ app: string; env: string }> = (props): J
     );
 };
 
-export const DisplayLink: React.FC<{ displayString: string; app: string; version: string }> = (
+export const DisplaySourceLink: React.FC<{ displayString: string; commitId: string }> = (props): JSX.Element | null => {
+    const { commitId, displayString } = props;
+    const sourceRepo = useSourceRepoUrl();
+    const branch = useBranch();
+    const sourceLink = deriveSourceCommitLink(sourceRepo, branch, commitId);
+    if (sourceLink) {
+        return (
+            <a title={'Opens the commit for this release in the source repository'} href={sourceLink}>
+                {displayString}
+            </a>
+        );
+    }
+    return null;
+};
+
+export const DisplayManifestLink: React.FC<{ displayString: string; app: string; version: number }> = (
     props
 ): JSX.Element | null => {
     const { displayString, app, version } = props;
-    const sourceRepo = useSourceRepoUrl();
+    const manifestRepo = useManifestRepoUrl();
     const branch = useBranch();
-    if (sourceRepo) {
+    const manifestLink = deriveReleaseDirLink(manifestRepo, branch, app, version);
+    if (manifestLink && version) {
         return (
-            <a
-                title={'Opens the release directory for this release'}
-                href={deriveReleaseDirLink(sourceRepo, branch, app, version)}>
+            <a title={'Opens the release directory in the manifest repository for this release'} href={manifestLink}>
                 {displayString}
             </a>
         );

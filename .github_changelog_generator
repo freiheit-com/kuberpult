@@ -1,1 +1,1 @@
-add-sections= {"major":{"prefix":"### Major Changes (New Features)","labels":["major"]}, "renovate":{"prefix":"### Patch Changes (Bugfixes)","labels":["renovate", "patch"]}, "breaking":{"prefix":"### Breaking Changes","labels":["breaking"]}}
+add-sections= {"minor":{"prefix":"### Minor Changes (New Features)","labels":["minor"]}, "renovate":{"prefix":"### Patch Changes (Bugfixes)","labels":["renovate", "patch"]}, "breaking":{"prefix":"### Breaking Changes","labels":["breaking"]}}

@@ -34,6 +34,7 @@ describe('Release Card Mini', () => {
     type TestData = {
         name: string;
         expectedMessage: string;
+        expectedLabel: string | undefined;
         props: {
             app: string;
             version: number;
@@ -45,14 +46,31 @@ describe('Release Card Mini', () => {
         {
             name: 'using A release',
             props: { app: 'test2', version: 2 },
-            rels: [makeRelease(2)],
+            rels: [makeRelease(2, 'd1.2.3')],
             expectedMessage: 'test2',
+            expectedLabel: 'd1.2.3 ',
+            environments: [],
+        },
+        {
+            name: 'with commit id',
+            props: { app: 'test2', version: 2 },
+            rels: [makeRelease(2, '')],
+            expectedMessage: 'test2',
+            expectedLabel: 'commit2 ',
+            environments: [],
+        },
+        {
+            name: 'withthout commit id, without displayVersion',
+            props: { app: 'test2', version: 2 },
+            rels: [makeRelease(2, '', '')],
+            expectedMessage: 'test2',
+            expectedLabel: '#2 ',
             environments: [],
         },
         {
             name: 'A release three days ago with an env',
             props: { app: 'test2', version: 2 },
-            rels: [makeRelease(2)],
+            rels: [makeRelease(2, '')],
             environments: [
                 {
                     name: 'other',
@@ -71,11 +89,12 @@ describe('Release Card Mini', () => {
                 },
             ],
             expectedMessage: 'test2',
+            expectedLabel: 'commit2 ',
         },
         {
             name: 'A release with undeploy version',
             props: { app: 'test2', version: 2 },
-            rels: [makeRelease(2, true)],
+            rels: [makeRelease(2, '', '', true)],
             environments: [
                 {
                     name: 'other',
@@ -94,6 +113,7 @@ describe('Release Card Mini', () => {
                 },
             ],
             expectedMessage: 'Undeploy Version',
+            expectedLabel: 'undeploy ',
         },
     ];
 
@@ -128,7 +148,10 @@ describe('Release Card Mini', () => {
             expect(elementQuerySelectorSafe(container, '.env-group-chip-list-test').children.length).toBe(
                 testcase.environments.length
             );
-            expect(container.querySelector('.release__details-header')?.textContent).toBe(testcase.expectedMessage);
+            expect(container.querySelector('.release__details-header-title')?.textContent).toBe(
+                testcase.expectedMessage
+            );
+            expect(container.querySelector('.links-left')?.textContent).toBe(testcase.expectedLabel);
         });
     });
 });
