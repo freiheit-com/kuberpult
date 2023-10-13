@@ -51,10 +51,16 @@ div.mdc-select {
     position: absolute;
     transform: none;
     padding-top: 10px;
-    .item {
-        //padding-left: 56px;
-        //padding-top: 8px;
-        //padding-bottom: 4px;
+}
+
+.dropdown-arrow-container {
+    position: relative;
+    .dropdown-arrow {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        font-size: xx-large;
+        pointer-events: none;
     }
 }
 

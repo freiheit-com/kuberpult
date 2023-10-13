@@ -63,24 +63,26 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
     }, [handleChange]);
 
     // 1) DONE: clear button without checkmark
-    // 2) show arrow
+    // 2) DONE show arrow
     // 3) start dialog at bottom of the box
     // 4) toggle arrow direction
 
     const allTeamsLabel = 'Clear';
     return (
         <div className={'dropdown-container'}>
-            <input
-                type="text"
-                className="dropdown-input"
-                value={selectedTeams.length === 0 ? 'Filter Teams' : '' + selectedTeams.join(', ')}
-                aria-label={'Teams'}
-                disabled={open}
-                onChange={openClose}
-                onSelect={openClose}
-                data-testid="teams-dropdown-input"
-            />
-
+            <div className={'dropdown-arrow-container'}>
+                <div className={'dropdown-arrow'}>⌄</div>
+                <input
+                    type="text"
+                    className="dropdown-input"
+                    value={selectedTeams.length === 0 ? 'Filter Teams' : '' + selectedTeams.join(', ')}
+                    aria-label={'Teams'}
+                    disabled={open}
+                    onChange={openClose}
+                    onSelect={openClose}
+                    data-testid="teams-dropdown-input"
+                />
+            </div>
             <PlainDialog open={open} onClose={onCancel} classNames={'dropdown'}>
                 <div>
                     {allTeams.map((team: string) => (
