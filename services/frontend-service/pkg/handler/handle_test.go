@@ -548,7 +548,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusInternalServerError,
 			},
-			expectedBody: "Internal: Invalid Signature: openpgp: invalid signature: hash tag doesn't match",
+			expectedBody: "Internal: Invalid Signature: openpgp: invalid signature: RSA verification failure",
 		},
 		{
 			name: "lock env but missing lock ID",
