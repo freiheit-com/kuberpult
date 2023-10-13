@@ -50,6 +50,12 @@ div.mdc-select {
     top: -5px;
     position: absolute;
     transform: none;
+    padding-top: 10px;
+    .item {
+        //padding-left: 56px;
+        //padding-top: 8px;
+        //padding-bottom: 4px;
+    }
 }
 
 .dropdown-input {

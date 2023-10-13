@@ -20,6 +20,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Checkbox } from './checkbox';
 import * as React from 'react';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
+import { Button } from '../button';
 
 export type DropdownProps = {
     className?: string;
@@ -28,7 +29,7 @@ export type DropdownProps = {
 };
 
 export type DropdownSelectProps = {
-    handleChange: (id: string) => void;
+    handleChange: (id: string | undefined) => void;
     isEmpty: (arr: string[] | undefined) => boolean;
     allTeams: string[];
     selectedTeams: string[];
@@ -54,6 +55,17 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
         },
         [handleChange]
     );
+    const onClear = React.useCallback(() => {
+        handleChange(undefined);
+    }, [handleChange]);
+    const onSelectAll = React.useCallback(() => {
+        handleChange(allTeamsId);
+    }, [handleChange]);
+
+    // 1) DONE: clear button without checkmark
+    // 2) show arrow
+    // 3) start dialog at bottom of the box
+    // 4) toggle arrow direction
 
     const allTeamsLabel = 'Clear';
     return (
@@ -71,14 +83,6 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
 
             <PlainDialog open={open} onClose={onCancel} classNames={'dropdown'}>
                 <div>
-                    <div key={'all-teams'}>
-                        <Checkbox
-                            id={allTeamsId}
-                            enabled={allTeams.length === selectedTeams.length || selectedTeams.length === 0}
-                            label={allTeamsLabel}
-                            onClick={onChange}
-                        />
-                    </div>
                     {allTeams.map((team: string) => (
                         <div key={team}>
                             <Checkbox
@@ -89,6 +93,22 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
                             />
                         </div>
                     ))}
+                    <div className={'confirmation-dialog-footer'}>
+                        <div className={'item'} key={'button-menu-clear'} title={'ESC also closes the dialog'}>
+                            <Button
+                                className="mdc-button--unelevated button-confirm"
+                                label={'Select All'}
+                                onClick={onSelectAll}
+                            />
+                        </div>
+                        <div className={'item'} key={'button-menu-all'} title={'ESC also closes the dialog'}>
+                            <Button
+                                className="mdc-button--unelevated button-confirm"
+                                label={allTeamsLabel}
+                                onClick={onClear}
+                            />
+                        </div>
+                    </div>
                 </div>
             </PlainDialog>
         </div>
@@ -121,9 +141,19 @@ export const Dropdown = (props: DropdownProps): JSX.Element => {
     );
 
     const handleChange = useCallback(
-        (team: string) => {
-            if (team === allTeamsId) {
+        (team: string | undefined) => {
+            // eslint-disable-next-line no-console
+            console.info('SU DEBUG team: ', team);
+            if (team === undefined) {
                 searchParams.delete('teams');
+                setSearchParams(searchParams);
+                return;
+            }
+            if (team === allTeamsId) {
+                const newTeams = teams;
+                // eslint-disable-next-line no-console
+                console.info('SU DEBUG new team: ', newTeams);
+                searchParams.set('teams', newTeams.join(separator));
                 setSearchParams(searchParams);
                 return;
             }
@@ -142,7 +172,7 @@ export const Dropdown = (props: DropdownProps): JSX.Element => {
             }
             setSearchParams(searchParams);
         },
-        [searchParams, setSearchParams, selectedTeams]
+        [teams, searchParams, setSearchParams, selectedTeams]
     );
 
     return (
