@@ -13,12 +13,12 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
+import * as React from 'react';
 import classNames from 'classnames';
 import { useCallback, useRef } from 'react';
 import { useTeamNames } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
 import { Checkbox } from './checkbox';
-import * as React from 'react';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
 import { Button } from '../button';
 
@@ -61,11 +61,6 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
     const onSelectAll = React.useCallback(() => {
         handleChange(allTeamsId);
     }, [handleChange]);
-
-    // 1) DONE: clear button without checkmark
-    // 2) DONE show arrow
-    // 3) start dialog at bottom of the box
-    // 4) toggle arrow direction
 
     const allTeamsLabel = 'Clear';
     return (
@@ -144,18 +139,13 @@ export const Dropdown = (props: DropdownProps): JSX.Element => {
 
     const handleChange = useCallback(
         (team: string | undefined) => {
-            // eslint-disable-next-line no-console
-            console.info('SU DEBUG team: ', team);
             if (team === undefined) {
                 searchParams.delete('teams');
                 setSearchParams(searchParams);
                 return;
             }
             if (team === allTeamsId) {
-                const newTeams = teams;
-                // eslint-disable-next-line no-console
-                console.info('SU DEBUG new team: ', newTeams);
-                searchParams.set('teams', newTeams.join(separator));
+                searchParams.set('teams', teams.join(separator));
                 setSearchParams(searchParams);
                 return;
             }
