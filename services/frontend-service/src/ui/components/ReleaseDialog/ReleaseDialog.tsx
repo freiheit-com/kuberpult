@@ -270,7 +270,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const closeReleaseDialog = useCloseReleaseDialog();
 
     const dialog: JSX.Element | '' = (
-        <PlainDialog open={app !== ''} onClose={closeReleaseDialog} classNames={''}>
+        <PlainDialog open={app !== ''} onClose={closeReleaseDialog} classNames={'release-dialog'}>
             <>
                 <div className={classNames('release-dialog-app-bar', className)}>
                     <div className={classNames('release-dialog-app-bar-data')}>
