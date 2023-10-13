@@ -18,9 +18,98 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.8.0](https://github.com/freiheit-com/kuberpult/tree/1.8.0) (2023-10-10)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.7.2...1.8.0)
+
+### Minor Changes (New Features)
+
+- Add a rest endpoint for obtaining the rollout status of a whole environment group [\#990](https://github.com/freiheit-com/kuberpult/pull/990) ([hannesg](https://github.com/hannesg))
+
+---
+
+## [1.7.2](https://github.com/freiheit-com/kuberpult/tree/1.7.2) (2023-10-06)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.7.1...1.7.2)
+
+### Patch Changes (Bugfixes)
+
+- Fix: ReleaseDialog renders many environments [\#988](https://github.com/freiheit-com/kuberpult/pull/988) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Added Docs for Release Train Recommendations [\#986](https://github.com/freiheit-com/kuberpult/pull/986) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+**Closed issues:**
+
+- Release Dialog not displayed full with many environments [\#987](https://github.com/freiheit-com/kuberpult/issues/987)
+
+
+---
+
+## [1.7.1](https://github.com/freiheit-com/kuberpult/tree/1.7.1) (2023-10-02)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.7.0...1.7.1)
+
+### Patch Changes (Bugfixes)
+
+- Fix: Allow locks for groups with azure enabled [\#983](https://github.com/freiheit-com/kuberpult/pull/983) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Documentation: Add design principles [\#978](https://github.com/freiheit-com/kuberpult/pull/978) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+**Closed issues:**
+
+- Changing Domainnames [\#964](https://github.com/freiheit-com/kuberpult/issues/964)
+- Ideas from Thorsten [\#818](https://github.com/freiheit-com/kuberpult/issues/818)
+
+
+
+---
+
+## [1.7.0](https://github.com/freiheit-com/kuberpult/tree/1.7.0) (2023-10-02)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.6.0...1.7.0)
+
+### Minor Changes (New Features)
+
+- Distinguish more rollout states [\#981](https://github.com/freiheit-com/kuberpult/pull/981) ([hannesg](https://github.com/hannesg))
+- Add ingress class name as optional parameter [\#974](https://github.com/freiheit-com/kuberpult/pull/974) ([Murtaza-Solangi](https://github.com/Murtaza-Solangi))
+
+### Patch Changes (Bugfixes)
+
+- Fix: Show "deployed by" also for other versions in ReleaseDialog [\#979](https://github.com/freiheit-com/kuberpult/pull/979) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Fix: segfault in rollout service [\#975](https://github.com/freiheit-com/kuberpult/pull/975) ([hannesg](https://github.com/hannesg))
+- Refactor ReleaseDialog to not use mui [\#971](https://github.com/freiheit-com/kuberpult/pull/971) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+**Closed issues:**
+
+- "Deployed by" only shows up for the current release  [\#977](https://github.com/freiheit-com/kuberpult/issues/977)
+
+---
+
+## [1.6.0](https://github.com/freiheit-com/kuberpult/tree/1.6.0) (2023-09-28)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.5.0...1.6.0)
+
+### Minor Changes (New Features)
+
+- Add pod annotations to the rollout pod [\#972](https://github.com/freiheit-com/kuberpult/pull/972) ([hannesg](https://github.com/hannesg))
+- Refactor EnvSelection to not use mui [\#970](https://github.com/freiheit-com/kuberpult/pull/970) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Add metrics to the rollout service [\#961](https://github.com/freiheit-com/kuberpult/pull/961) ([hannesg](https://github.com/hannesg))
+- Track DeployTime of applications in the rollout service [\#960](https://github.com/freiheit-com/kuberpult/pull/960) ([hannesg](https://github.com/hannesg))
+
+### Patch Changes (Bugfixes)
+
+- Add environment group name to kuberpult events [\#963](https://github.com/freiheit-com/kuberpult/pull/963) ([hannesg](https://github.com/hannesg))
+- Also emit deploy time in version events [\#962](https://github.com/freiheit-com/kuberpult/pull/962) ([hannesg](https://github.com/hannesg))
+
+---
+
 ## [1.5.0](https://github.com/freiheit-com/kuberpult/tree/1.5.0) (2023-09-22)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.4.2...1.5.0)
+
+### Upgrade Notes
+There are no breaking changes.
+However, we now recommend to submit the whole git hash to the `/release` endpoint. Kuberpult's UI now takes care to shorten the hash when displaying it.
+We also recommend to set the helm chart parameter `git.sourceRepoUrl` to add a link to the source. Optionally you can also set `git.manifestRepoUrl` to add a link to the manifest repo.
+See [values file](https://github.com/freiheit-com/kuberpult/blob/main/charts/kuberpult/values.yaml.tpl#L25) for how to set them.
 
 ### Minor Changes (New Features)
 

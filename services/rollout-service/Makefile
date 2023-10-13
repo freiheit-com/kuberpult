@@ -28,6 +28,7 @@ PKG_GO_FILES := $(shell find ../../pkg/ -type f -name '*.go')
 ALL_GO_FILES := $(GO_FILES) $(PKG_GO_FILES)
 
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-rollout-service:${VERSION}
+ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-rollout-service:${VERSION}
 
 GARBAGE := *.sentinel
 
@@ -75,7 +76,10 @@ docker: bin/main
 
 release: docker
 	docker push $(IMAGENAME)
-
+ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
+	docker tag $(IMAGENAME) $(ARTIFACT_REGISTRY_IMAGE_NAME)
+	docker push $(ARTIFACT_REGISTRY_IMAGE_NAME)
+endif
 all: test docker
 
 .PHONY: all release test docker clean

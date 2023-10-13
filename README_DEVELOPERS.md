@@ -253,7 +253,8 @@ You can change the labels, and run the generator again if necessary.
 * Copy the `CHANGELOG.tmp.md` into a new section in `CHANGELOG.md`.
 * Create a release commit with the changelog and set the label to `exclude`.
 * Merge the release commit.
-* Delete the remote tag created earlier: `git push --delete origin "$VERSION"`.
+* Delete the remote tag created earlier:
+`git push --delete origin "$VERSION" && git tag -d "$VERSION"`.
 * Create the git tag (same as before) and push again. This will trigger the
 [release workflow pipeline](https://github.com/freiheit-com/kuberpult/actions/workflows/execution-plan-tag.yml) and create a draft release.
   Verify that the release draft is correct in the GitHub UI and publish it for release.

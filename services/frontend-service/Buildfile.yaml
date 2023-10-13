@@ -1,7 +1,7 @@
 metadata:
   name: frontend-service
-  builder: kuberpult-builder
 spec:
+  buildWith: infrastructure/docker/builder
   dependsOn:
   - ../../charts/kuberpult
   - ../../pkg

@@ -89,6 +89,8 @@ rollout:
     requests:
       cpu: 500m
       memory: 250Mi
+  # annotations given here will take precedence over the defaults defined in _helpers.tpl
+  podAnnotations: {}
 
 ingress:
   # The simplest setup involves an ingress, to make kuberpult available outside the cluster.

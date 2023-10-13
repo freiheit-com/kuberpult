@@ -29,20 +29,21 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
 )
 
-type key struct {
+type Key struct {
 	Application string
 	Environment string
 }
 
 type appState struct {
-	argocdVersion    uint64
-	kuberpultVersion uint64
+	argocdVersion    *versions.VersionInfo
+	kuberpultVersion *versions.VersionInfo
 	rolloutStatus    api.RolloutStatus
+	environmentGroup string
 }
 
 func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
 	status := rolloutStatus(ev)
-	if a.rolloutStatus != status || a.argocdVersion != ev.Version {
+	if a.rolloutStatus != status || a.argocdVersion == nil || a.argocdVersion.Version != ev.Version.Version {
 		a.rolloutStatus = status
 		a.argocdVersion = ev.Version
 		return a.getEvent(ev.Application, ev.Environment)
@@ -51,8 +52,9 @@ func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
 }
 
 func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEvent {
-	if a.kuberpultVersion != ev.Version {
+	if a.kuberpultVersion == nil || a.kuberpultVersion.Version != ev.Version.Version {
 		a.kuberpultVersion = ev.Version
+		a.environmentGroup = ev.EnvironmentGroup
 		return a.getEvent(ev.Application, ev.Environment)
 	}
 	return nil
@@ -60,12 +62,15 @@ func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEv
 
 func (a *appState) getEvent(application, environment string) *BroadcastEvent {
 	rs := a.rolloutStatus
-	if a.kuberpultVersion != 0 && a.kuberpultVersion != a.argocdVersion {
-		rs = api.RolloutStatus_RolloutStatusProgressing
+	if a.kuberpultVersion != nil && a.argocdVersion != nil && a.kuberpultVersion.Version != a.argocdVersion.Version {
+		rs = api.RolloutStatus_RolloutStatusPending
 	}
 	return &BroadcastEvent{
-		Environment:      environment,
-		Application:      application,
+		Key: Key{
+			Environment: environment,
+			Application: application,
+		},
+		EnvironmentGroup: a.environmentGroup,
 		ArgocdVersion:    a.argocdVersion,
 		RolloutStatus:    rs,
 		KuberpultVersion: a.kuberpultVersion,
@@ -73,14 +78,14 @@ func (a *appState) getEvent(application, environment string) *BroadcastEvent {
 }
 
 type Broadcast struct {
-	state    map[key]*appState
+	state    map[Key]*appState
 	mx       sync.Mutex
 	listener map[chan *BroadcastEvent]struct{}
 }
 
 func New() *Broadcast {
 	return &Broadcast{
-		state:    map[key]*appState{},
+		state:    map[Key]*appState{},
 		listener: map[chan *BroadcastEvent]struct{}{},
 	}
 }
@@ -89,7 +94,7 @@ func New() *Broadcast {
 func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 	b.mx.Lock()
 	defer b.mx.Unlock()
-	k := key{
+	k := Key{
 		Application: ev.Application,
 		Environment: ev.Environment,
 	}
@@ -117,7 +122,7 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 func (b *Broadcast) ProcessKuberpultEvent(ctx context.Context, ev versions.KuberpultEvent) {
 	b.mx.Lock()
 	defer b.mx.Unlock()
-	k := key{
+	k := Key{
 		Application: ev.Application,
 		Environment: ev.Environment,
 	}
@@ -179,6 +184,27 @@ func (b *Broadcast) StreamStatus(req *api.StreamStatusRequest, svc api.RolloutSe
 	}
 }
 
+func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*api.GetStatusResponse, error) {
+	resp, _, unsubscribe := b.Start()
+	defer unsubscribe()
+	apps := []*api.GetStatusResponse_ApplicationStatus{}
+	status := api.RolloutStatus_RolloutStatusSuccesful
+	for _, r := range resp {
+		if r.EnvironmentGroup == req.EnvironmentGroup {
+			s := getStatus(r)
+			if s.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful {
+				continue
+			}
+			apps = append(apps, s)
+			status = mostRelevantStatus(status, s.RolloutStatus)
+		}
+	}
+	return &api.GetStatusResponse{
+		Status:       status,
+		Applications: apps,
+	}, nil
+}
+
 type unsubscribe func()
 
 func (b *Broadcast) Start() ([]*BroadcastEvent, <-chan *BroadcastEvent, unsubscribe) {
@@ -198,43 +224,94 @@ func (b *Broadcast) Start() ([]*BroadcastEvent, <-chan *BroadcastEvent, unsubscr
 }
 
 type BroadcastEvent struct {
-	Environment      string
-	Application      string
-	ArgocdVersion    uint64
-	KuberpultVersion uint64
+	Key
+	EnvironmentGroup string
+	ArgocdVersion    *versions.VersionInfo
+	KuberpultVersion *versions.VersionInfo
 	RolloutStatus    api.RolloutStatus
 }
 
 func streamStatus(b *BroadcastEvent) *api.StreamStatusResponse {
+	version := uint64(0)
+	if b.ArgocdVersion != nil {
+		version = b.ArgocdVersion.Version
+	}
 	return &api.StreamStatusResponse{
 		Environment:   b.Environment,
 		Application:   b.Application,
-		Version:       b.ArgocdVersion,
+		Version:       version,
+		RolloutStatus: b.RolloutStatus,
+	}
+}
+
+func getStatus(b *BroadcastEvent) *api.GetStatusResponse_ApplicationStatus {
+	return &api.GetStatusResponse_ApplicationStatus{
+		Environment:   b.Environment,
+		Application:   b.Application,
 		RolloutStatus: b.RolloutStatus,
 	}
 }
 
 func rolloutStatus(ev *ArgoEvent) api.RolloutStatus {
+	if ev.OperationState != nil {
+		switch ev.OperationState.Phase {
+		case common.OperationError, common.OperationFailed:
+
+			return api.RolloutStatus_RolloutStatusError
+		}
+	}
+	switch ev.SyncStatusCode {
+	case v1alpha1.SyncStatusCodeOutOfSync:
+		return api.RolloutStatus_RolloutStatusProgressing
+	}
 	switch ev.HealthStatusCode {
 	case health.HealthStatusDegraded, health.HealthStatusMissing:
-		return api.RolloutStatus_RolloutStatusError
+		return api.RolloutStatus_RolloutStatusUnhealthy
 	case health.HealthStatusProgressing, health.HealthStatusSuspended:
 		return api.RolloutStatus_RolloutStatusProgressing
 	case health.HealthStatusHealthy:
-		if ev.OperationState != nil {
-			switch ev.OperationState.Phase {
-			case common.OperationError, common.OperationFailed:
-
-				return api.RolloutStatus_RolloutStatusError
-			}
-		}
-		switch ev.SyncStatusCode {
-		case v1alpha1.SyncStatusCodeOutOfSync:
-			return api.RolloutStatus_RolloutStatusProgressing
-		}
 		return api.RolloutStatus_RolloutStatusSuccesful
 	}
 	return api.RolloutStatus_RolloutStatusUnknown
+}
+
+// Depending on the rollout state, there are different things a user should do.
+// 1. Nothing because everything is fine
+// 2. Wait longer
+// 3. Stop and call an operator
+// The sorting is the same as in the UI.
+var statusPriorities []api.RolloutStatus = []api.RolloutStatus{
+	// Error is not recoverable by waiting and requires manual intervention
+	api.RolloutStatus_RolloutStatusError,
+
+	// These states may resolve by waiting longer
+	api.RolloutStatus_RolloutStatusProgressing,
+	api.RolloutStatus_RolloutStatusUnhealthy,
+	api.RolloutStatus_RolloutStatusPending,
+	api.RolloutStatus_RolloutStatusUnknown,
+
+	// This is the only successful state
+	api.RolloutStatus_RolloutStatusSuccesful,
+}
+
+// 0 is the highest priority - (RolloutStatusSuccesful) is the lowest priority
+func statusPriority(a api.RolloutStatus) int {
+	for i, p := range statusPriorities {
+		if p == a {
+			return i
+		}
+	}
+	return len(statusPriorities) - 1
+}
+
+func mostRelevantStatus(a, b api.RolloutStatus) api.RolloutStatus {
+	ap := statusPriority(a)
+	bp := statusPriority(b)
+	if ap < bp {
+		return a
+	} else {
+		return b
+	}
 }
 
 var _ ArgoEventProcessor = (*Broadcast)(nil)

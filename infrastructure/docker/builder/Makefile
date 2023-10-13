@@ -16,7 +16,7 @@
 
 include ../../../Makefile.variables
 
-IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-builder:${VERSION}
+IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:${IMAGE_TAG}
 
 build:
 	docker build -t $(IMAGENAME) .
@@ -40,7 +40,7 @@ release:
 	docker push $(IMAGENAME)
 
 publish: release
-	echo $(VERSION)
+	echo $(IMAGE_TAG)
 	echo $(IMAGENAME)
 
 .PHONY: get-builder-image

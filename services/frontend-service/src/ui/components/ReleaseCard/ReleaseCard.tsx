@@ -42,8 +42,12 @@ const RolloutStatusIcon: React.FC<{ status: RolloutStatus }> = (props) => {
             return <span className="rollout__icon_successful">✓</span>;
         case RolloutStatus.RolloutStatusProgressing:
             return <span className="rollout__icon_progressing">↻</span>;
+        case RolloutStatus.RolloutStatusPending:
+            return <span className="rollout__icon_pending">⧖</span>;
         case RolloutStatus.RolloutStatusError:
             return <span className="rollout__icon_error">!</span>;
+        case RolloutStatus.RolloutStatusUnhealthy:
+            return <span className="rollout__icon_unhealthy">⚠</span>;
     }
     return <span className="rollout__icon_unknown">?</span>;
 };
@@ -55,8 +59,12 @@ const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (props) =>
             return <span className="rollout__description_successful">✓ Done</span>;
         case RolloutStatus.RolloutStatusProgressing:
             return <span className="rollout__description_progressing">↻ In progress</span>;
+        case RolloutStatus.RolloutStatusPending:
+            return <span className="rollout__description_pending">⧖ Pending</span>;
         case RolloutStatus.RolloutStatusError:
             return <span className="rollout__description_error">! Failed</span>;
+        case RolloutStatus.RolloutStatusUnhealthy:
+            return <span className="rollout__description_unhealthy">⚠ Unhealthy</span>;
     }
     return <span className="rollout__description_unknown">? Unkwown</span>;
 };
@@ -64,10 +72,18 @@ const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (props) =>
 // note that the order is important here.
 // "most interesting" must come first.
 // see `calculateDeploymentStatus`
+// The same priority list is also implemented in pkg/service/broadcast.go.
 const rolloutStatusPriority = [
+    // Error is not recoverable by waiting and requires manual intervention
     RolloutStatus.RolloutStatusError,
+
+    // These states may resolve by waiting longer
     RolloutStatus.RolloutStatusProgressing,
+    RolloutStatus.RolloutStatusUnhealthy,
+    RolloutStatus.RolloutStatusPending,
     RolloutStatus.RolloutStatusUnknown,
+
+    // This is the only successful state
     RolloutStatus.RolloutStatusSuccesful,
 ];
 
@@ -98,7 +114,7 @@ const calculateDeploymentStatus = (
             ) {
                 // The rollout service might be sligthly behind the UI.
                 // In that case the
-                return { ...status, rolloutStatus: RolloutStatus.RolloutStatusProgressing };
+                return { ...status, rolloutStatus: RolloutStatus.RolloutStatusPending };
             }
             return status;
         })
