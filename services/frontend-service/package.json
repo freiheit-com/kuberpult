@@ -53,7 +53,7 @@
     "google-protobuf": "^3.21.0",
     "long": "^5.2.0",
     "madge": "^6.0.0",
-    "prettier": "^2.2.1",
+    "prettier": "^3.0.0",
     "protobufjs": "^7.0.0",
     "react-refresh": "^0.14.0",
     "sass": "^1.32.5",
