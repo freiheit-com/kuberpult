@@ -18,6 +18,29 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.8.1](https://github.com/freiheit-com/kuberpult/tree/1.8.1) (2023-10-16)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.8.0...1.8.1)
+
+### Patch Changes (Bugfixes)
+
+- Close dialogs on click outside the dialog [\#995](https://github.com/freiheit-com/kuberpult/pull/995) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Implement Dropdown without mui [\#996](https://github.com/freiheit-com/kuberpult/pull/996) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Update dependency node to v18.18.2 [\#1010](https://github.com/freiheit-com/kuberpult/pull/1010) ([renovate[bot]](https://github.com/apps/renovate))
+- Update opentelemetry-go monorepo [\#1008](https://github.com/freiheit-com/kuberpult/pull/1008) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module gopkg.in/DataDog/dd-trace-go.v1 to v1.55.0 [\#1007](https://github.com/freiheit-com/kuberpult/pull/1007) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module github.com/prometheus/client\_golang to v1.17.0 [\#1006](https://github.com/freiheit-com/kuberpult/pull/1006) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module golang.org/x/sync to v0.4.0 [\#1005](https://github.com/freiheit-com/kuberpult/pull/1005) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module golang.org/x/oauth2 to v0.13.0 [\#1004](https://github.com/freiheit-com/kuberpult/pull/1004) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module go.uber.org/zap to v1.26.0 [\#1002](https://github.com/freiheit-com/kuberpult/pull/1002) ([renovate[bot]](https://github.com/apps/renovate))
+- Update github.com/ProtonMail/go-crypto digest to afb1ddc [\#1001](https://github.com/freiheit-com/kuberpult/pull/1001) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Update dependency eslint-config-prettier to v9 [\#999](https://github.com/freiheit-com/kuberpult/pull/999) ([renovate[bot]](https://github.com/apps/renovate))
+- Update dependency typescript to v5.2.2 [\#998](https://github.com/freiheit-com/kuberpult/pull/998) ([renovate[bot]](https://github.com/apps/renovate))
+- Update golang Docker tag to v1.21.3 [\#997](https://github.com/freiheit-com/kuberpult/pull/997) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module github.com/argoproj/argo-cd/v2 to v2.8.4 [\#862](https://github.com/freiheit-com/kuberpult/pull/862) ([renovate[bot]](https://github.com/apps/renovate))
+
+---
+
 ## [1.8.0](https://github.com/freiheit-com/kuberpult/tree/1.8.0) (2023-10-10)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.7.2...1.8.0)
