@@ -144,7 +144,7 @@ spec:
 {{- end }}
 {{- end }}
 {{- if .Values.pgp.keyRing }}
-        - name: KUBERPULT_PGP_KEY_RING
+        - name: KUBERPULT_PGP_KEY_RING_PATH
           value: /keyring/keyring.gpg
 {{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH
