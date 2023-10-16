@@ -419,6 +419,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
         );
     const confirmationDialog: JSX.Element = hasLocks ? (
         <ConfirmationDialog
+            classNames={'confirmation-dialog'}
             headerLabel={'Please Confirm the Deployment over Locks'}
             onConfirm={applyActions}
             confirmLabel={'Confirm Deployment'}
@@ -435,6 +436,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
         </ConfirmationDialog>
     ) : (
         <ConfirmationDialog
+            classNames={'confirmation-dialog'}
             headerLabel={'Please Confirm the Planned Actions'}
             onConfirm={applyActions}
             confirmLabel={'Confirm Planned Actions'}

@@ -16,21 +16,37 @@ Copyright 2023 freiheit.com*/
 
 import * as React from 'react';
 import { Button } from '../button';
+import { useCallback } from 'react';
+
+type CheckboxEvent = React.MouseEvent<HTMLButtonElement, MouseEvent>;
 
 export type CheckboxProps = {
-    onClick?: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
+    onClick?: (id: string, e: CheckboxEvent) => void;
     classes?: string;
     id: string;
     enabled: boolean;
     label: string;
 };
 
-export const Checkbox: React.FC<CheckboxProps> = (props) => (
-    <span onClick={props.onClick} className={'checkbox-wrapper'} id={String(props.id)}>
-        <Button
-            className={'test-button-checkbox id-' + props.id + ' ' + (props.enabled ? 'enabled' : 'disabled')}
-            label={props.enabled ? '☑' : '☐'}
-        />
-        {props.label}
-    </span>
-);
+export const Checkbox: React.FC<CheckboxProps> = (props) => {
+    const onClick = useCallback(
+        (e: CheckboxEvent) => {
+            if (props.onClick) {
+                props.onClick(props.id, e);
+            }
+        },
+        [props]
+    );
+    return (
+        <label>
+            <div className={'checkbox-wrapper'} id={String(props.id)}>
+                <Button
+                    onClick={onClick}
+                    className={'test-button-checkbox id-' + props.id + ' ' + (props.enabled ? 'enabled' : 'disabled')}
+                    label={props.enabled ? '☑' : '☐'}
+                />
+                {props.label}
+            </div>
+        </label>
+    );
+};

@@ -14,10 +14,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-.checkbox-wrapper {
-    @extend .text-medium;
-    .mdc-button__label {
-        // this is the actual checkbox part of the checkbox component
-        @extend .headline1;
-    }
+.env-selection-dialog {
+    min-width: 600px;
 }

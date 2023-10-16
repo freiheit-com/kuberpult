@@ -13,13 +13,14 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { FormControl, InputLabel, MenuItem, Select } from '@material-ui/core';
+import * as React from 'react';
 import classNames from 'classnames';
 import { useCallback, useRef } from 'react';
 import { useTeamNames } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
 import { Checkbox } from './checkbox';
-import * as React from 'react';
+import { PlainDialog } from '../dialog/ConfirmationDialog';
+import { Button } from '../button';
 
 export type DropdownProps = {
     className?: string;
@@ -27,46 +28,87 @@ export type DropdownProps = {
     leadingIcon?: string;
 };
 
-export const DropdownSelect: React.FC<{
-    handleChange: (event: any) => void;
+export type DropdownSelectProps = {
+    handleChange: (id: string | undefined) => void;
     isEmpty: (arr: string[] | undefined) => boolean;
-    floatingLabel: string | undefined;
-    teams: string[];
+    allTeams: string[];
     selectedTeams: string[];
-}> = (props) => {
-    const { handleChange, isEmpty, floatingLabel, teams, selectedTeams } = props;
-    const renderValue = useCallback((selected: string[]) => selected.join(', '), []);
+};
 
+const allTeamsId = 'all-teams';
+
+// A dropdown allowing multiple selections
+export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
+    const { handleChange, allTeams, selectedTeams } = props;
+
+    const [open, setOpen] = React.useState(false);
+    const openClose = React.useCallback(() => {
+        setOpen(!open);
+    }, [open, setOpen]);
+    const onCancel = React.useCallback(() => {
+        setOpen(false);
+    }, []);
+
+    const onChange = React.useCallback(
+        (id: string) => {
+            handleChange(id);
+        },
+        [handleChange]
+    );
+    const onClear = React.useCallback(() => {
+        handleChange(undefined);
+    }, [handleChange]);
+    const onSelectAll = React.useCallback(() => {
+        handleChange(allTeamsId);
+    }, [handleChange]);
+
+    const allTeamsLabel = 'Clear';
     return (
-        <FormControl variant="outlined" fullWidth data-testid="teams-dropdown-formcontrol">
-            <InputLabel
-                className="mdc-select-label new-line-height"
-                htmlFor="teams"
-                id="teams"
-                shrink={!isEmpty(selectedTeams)}
-                data-testid="teams-dropdown-label">
-                {floatingLabel}
-            </InputLabel>
-            <Select
-                data-testid="teams-dropdown-select"
-                labelId="teams"
-                multiple={true}
-                renderValue={renderValue}
-                value={selectedTeams}
-                onChange={handleChange}
-                className={classNames('mdc-select', { 'remove-space': isEmpty(selectedTeams) })}
-                label={!isEmpty(selectedTeams) ? floatingLabel : ''}
-                variant="outlined">
-                <MenuItem data-testid="clear-option" key={''} value={''}>
-                    Clear
-                </MenuItem>
-                {teams.map((team: string) => (
-                    <MenuItem key={team} value={team}>
-                        <Checkbox id={team} enabled={selectedTeams?.includes(team)} label={team} />
-                    </MenuItem>
-                ))}
-            </Select>
-        </FormControl>
+        <div className={'dropdown-container'}>
+            <div className={'dropdown-arrow-container'}>
+                <div className={'dropdown-arrow'}>⌄</div>
+                <input
+                    type="text"
+                    className="dropdown-input"
+                    value={selectedTeams.length === 0 ? 'Filter Teams' : '' + selectedTeams.join(', ')}
+                    aria-label={'Teams'}
+                    disabled={open}
+                    onChange={openClose}
+                    onSelect={openClose}
+                    data-testid="teams-dropdown-input"
+                />
+            </div>
+            <PlainDialog open={open} onClose={onCancel} classNames={'dropdown'}>
+                <div>
+                    {allTeams.map((team: string) => (
+                        <div key={team}>
+                            <Checkbox
+                                id={team}
+                                enabled={selectedTeams?.includes(team)}
+                                label={team}
+                                onClick={onChange}
+                            />
+                        </div>
+                    ))}
+                    <div className={'confirmation-dialog-footer'}>
+                        <div className={'item'} key={'button-menu-clear'} title={'ESC also closes the dialog'}>
+                            <Button
+                                className="mdc-button--unelevated button-confirm"
+                                label={'Select All'}
+                                onClick={onSelectAll}
+                            />
+                        </div>
+                        <div className={'item'} key={'button-menu-all'} title={'ESC also closes the dialog'}>
+                            <Button
+                                className="mdc-button--unelevated button-confirm"
+                                label={allTeamsLabel}
+                                onClick={onClear}
+                            />
+                        </div>
+                    </div>
+                </div>
+            </PlainDialog>
+        </div>
     );
 };
 
@@ -85,7 +127,10 @@ export const Dropdown = (props: DropdownProps): JSX.Element => {
         },
         className
     );
-    const selectedTeams = (searchParams.get('teams') || '').split(',');
+    const separator = ',';
+    const selectedTeams = (searchParams.get('teams') || '')
+        .split(separator)
+        .filter((t: string) => t !== null && t !== '');
 
     const isEmpty = useCallback(
         (arr: string[] | undefined) => (arr ? arr.filter((val) => val !== '').length === 0 : true),
@@ -93,16 +138,33 @@ export const Dropdown = (props: DropdownProps): JSX.Element => {
     );
 
     const handleChange = useCallback(
-        (event: any) => {
-            if (event.target.value.indexOf('') > 0 || event.target.value.length === 0) searchParams.delete('teams');
-            else
-                searchParams.set(
-                    'teams',
-                    event.target.value.filter((team: string) => team !== '')
-                );
+        (team: string | undefined) => {
+            if (team === undefined) {
+                searchParams.delete('teams');
+                setSearchParams(searchParams);
+                return;
+            }
+            if (team === allTeamsId) {
+                searchParams.set('teams', teams.join(separator));
+                setSearchParams(searchParams);
+                return;
+            }
+
+            const index = selectedTeams.indexOf(team);
+            let newTeams = selectedTeams;
+            if (index >= 0) {
+                newTeams.splice(index, 1);
+            } else {
+                newTeams = selectedTeams.concat([team]);
+            }
+            if (newTeams.length === 0) {
+                searchParams.delete('teams');
+            } else {
+                searchParams.set('teams', newTeams.join(separator));
+            }
             setSearchParams(searchParams);
         },
-        [searchParams, setSearchParams]
+        [teams, searchParams, setSearchParams, selectedTeams]
     );
 
     return (
@@ -110,8 +172,7 @@ export const Dropdown = (props: DropdownProps): JSX.Element => {
             <DropdownSelect
                 handleChange={handleChange}
                 isEmpty={isEmpty}
-                floatingLabel={floatingLabel}
-                teams={teams}
+                allTeams={teams}
                 selectedTeams={selectedTeams}
             />
         </div>

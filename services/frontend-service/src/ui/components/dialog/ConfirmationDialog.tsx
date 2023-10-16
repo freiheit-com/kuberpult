@@ -24,13 +24,14 @@ export type ConfirmationDialogProps = {
     children: JSX.Element;
     headerLabel: string;
     confirmLabel: string;
+    classNames: string;
 };
 
 /**
  * A dialog that is used to confirm a question with either yes or no.
  */
 export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => (
-    <PlainDialog open={props.open} onClose={props.onCancel}>
+    <PlainDialog open={props.open} onClose={props.onCancel} classNames={props.classNames}>
         <>
             <div className={'confirmation-dialog-header'}>{props.headerLabel}</div>
             <hr />
@@ -60,6 +61,7 @@ export type PlainDialogProps = {
     open: boolean;
     onClose: () => void;
     children: JSX.Element;
+    classNames: string;
 };
 
 /**
@@ -89,11 +91,8 @@ export const PlainDialog: React.FC<PlainDialogProps> = (props) => {
         return <div className={'confirmation-dialog-hidden'}></div>;
     }
     return (
-        <div
-            className={
-                'INSIDE confirmation-dialog-container ' + (props.open ? 'confirmation-dialog-container-open' : '')
-            }>
-            <div className={'confirmation-dialog-open release-dialog'}>{children}</div>
+        <div className={'confirmation-dialog-container ' + (props.open ? 'confirmation-dialog-container-open' : '')}>
+            <div className={'confirmation-dialog-open ' + props.classNames}>{children}</div>
         </div>
     );
 };
