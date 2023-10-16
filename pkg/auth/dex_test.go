@@ -35,9 +35,9 @@ import (
 	jwtV5 "github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/lestrrat-go/jwx/jwa"
-	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 func TestNewDexAppClient(t *testing.T) {
@@ -311,21 +311,24 @@ func GetSignedJwt(signingKey any, claims jwtV5.MapClaims) ([]byte, error) {
 		_ = token.Set(key, value)
 	}
 
-	signedToken, _ := jwt.Sign(token, jwa.RS256, signingKey)
+	signedToken, _ := jwt.Sign(token, jwt.WithKey(jwa.RS256, signingKey))
 	return signedToken, nil
 }
 
 // Generates and returns a key set, private key and public key.
 func getJWKeySet() (keySet jwk.Set, jwkPrivateKey, jwkPublicKey jwk.Key) {
 	rsaPrivate, rsaPublic := getRSAKeyPair()
-	jwkPrivateKey, _ = jwk.New(rsaPrivate)
-	jwkPublicKey, _ = jwk.New(rsaPublic)
+	jwkPrivateKey, _ = jwk.FromRaw(rsaPrivate)
+	jwkPublicKey, _ = jwk.FromRaw(rsaPublic)
 
 	_ = jwkPrivateKey.Set(jwk.KeyIDKey, "my-unique-kid")
 	_ = jwkPublicKey.Set(jwk.KeyIDKey, "my-unique-kid")
 
 	keySet = jwk.NewSet()
-	keySet.Add(jwkPublicKey)
+	err := keySet.AddKey(jwkPublicKey)
+	if err != nil {
+		return nil, nil, nil
+	}
 
 	return keySet, jwkPrivateKey, jwkPublicKey
 }
