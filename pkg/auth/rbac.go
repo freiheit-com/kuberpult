@@ -173,12 +173,12 @@ func ValidateRbacPermission(line string) (p *Permission, err error) {
 	}, nil
 }
 
-func ReadRbacPolicy(dexEnabled bool, dexRbacPolicy string) (policy map[string]*Permission, err error) {
+func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy map[string]*Permission, err error) {
 	if !dexEnabled {
 		return nil, nil
 	}
 
-	file, err := os.Open(dexRbacPolicy)
+	file, err := os.Open(DexRbacPolicyPath)
 	if err != nil {
 		return nil, err
 	}
