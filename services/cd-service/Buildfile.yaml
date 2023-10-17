@@ -6,7 +6,7 @@ metadata:
   tier: backend
   version: v1
 spec:
-  buildWith: infrastructure/docker/golang
+  buildWith: infrastructure/docker/swissknife
   dependsOn:
   - ../../charts/kuberpult
   - ../../pkg

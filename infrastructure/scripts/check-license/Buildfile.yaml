@@ -1,8 +1,8 @@
 metadata:
   name: check-license
-  builder: kuberpult-builder
+  builder: kuberpult-swissknife
 spec:
-  buildWith: infrastructure/docker/builder
+  buildWith: infrastructure/docker/swissknife
   dependsOn:
   - ../../..
 pre_build_actions:
