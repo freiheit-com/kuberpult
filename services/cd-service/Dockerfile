@@ -1,5 +1,5 @@
 ARG GO_TAG
-FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/golang:${GO_TAG} as golang
+FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/swissknife:${GO_TAG} as swissknife
 
 WORKDIR /kp/
 
@@ -15,5 +15,5 @@ LABEL org.opencontainers.image.source https://github.com/freiheit-com/kuberpult
 RUN apk --update add ca-certificates tzdata libgit2 git sqlite-libs
 ENV TZ=Europe/Berlin
 COPY ${DIR}/gitconfig /etc/gitconfig
-COPY --from=golang /kp/main /kuberpult/main
+COPY --from=swissknife /kp/main /kuberpult/main
 CMD ["/kuberpult/main"]
