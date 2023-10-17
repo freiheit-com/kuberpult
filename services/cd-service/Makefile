@@ -109,7 +109,7 @@ test: $(ALL_GO_FILES) test-dependancies | proto
 	$(GO) test  ./...
 
 docker:
-	docker build -t $(IMAGENAME) ../.. -f Dockerfile
+	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="GO_TAG=$(VERSION)" --build-arg="DIR=/services/cd-service"
 
 
 # set IMAGENAME=... to the image where you want to deploy (registry of the project)

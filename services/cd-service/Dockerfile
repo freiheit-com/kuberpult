@@ -10,9 +10,10 @@ ADD pkg /kp/pkg
 RUN go build -o /kp/main /kp/services/cd-service/cmd/server/
 
 FROM alpine:3.18
+ARG DIR
 LABEL org.opencontainers.image.source https://github.com/freiheit-com/kuberpult
 RUN apk --update add ca-certificates tzdata libgit2 git sqlite-libs
 ENV TZ=Europe/Berlin
-COPY gitconfig /etc/gitconfig
+COPY ${DIR}/gitconfig /etc/gitconfig
 COPY --from=golang /kp/main /kuberpult/main
 CMD ["/kuberpult/main"]

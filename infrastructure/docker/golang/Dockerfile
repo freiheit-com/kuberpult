@@ -1,6 +1,6 @@
 FROM alpine:3.18
 
-ARG UID=1000
+#ARG UID=1000
 ARG DIR
 
 ARG BUF_VERSION=v1.26.1
@@ -23,14 +23,14 @@ RUN OS=$(uname) ARCH=$(uname -m) && \
 EXPOSE 8080
 EXPOSE 8443
 
-RUN adduser --disabled-password --gecos "" --home "/kp" --uid ${UID} kp
+#RUN adduser --disabled-password --gecos "" --home "/kp" --uid ${UID} kp
 
-RUN chown -R kp:kp /kp
+#RUN chown -R kp:kp /kp
 
 # add the GOPATH for new user to PATH
-ENV PATH $PATH:/kp/go/bin
+#ENV PATH $PATH:/kp/go/bin
 
 COPY ../../../go.sum ../../../go.mod /kp/
 RUN echo ${DIR} > /kp/echo.txt
 
-USER kp
+#USER kp
