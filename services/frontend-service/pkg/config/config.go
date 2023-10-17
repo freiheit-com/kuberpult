@@ -24,7 +24,7 @@ type ServerConfig struct {
 	GKEBackendServiceID string `default:"" split_words:"true"`
 	EnableTracing       bool   `default:"false" split_words:"true"`
 	ArgocdBaseUrl       string `default:"" split_words:"true"`
-	PgpKeyRing          string `split_words:"true"`
+	PgpKeyRingPath      string `split_words:"true"`
 	AzureEnableAuth     bool   `default:"false" split_words:"true"`
 	AzureCloudInstance  string `default:"https://login.microsoftonline.com/" split_words:"true"`
 	AzureClientId       string `default:"" split_words:"true"`

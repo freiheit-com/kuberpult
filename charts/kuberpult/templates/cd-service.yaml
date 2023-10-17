@@ -153,11 +153,11 @@ spec:
           value: "{{ .Values.dogstatsdMetrics.address }}"
 {{- end }}
 {{- if .Values.pgp.keyRing }}
-        - name: KUBERPULT_PGP_KEY_RING
+        - name: KUBERPULT_PGP_KEY_RING_PATH
           value: /keyring/keyring.gpg
 {{- end }}
 {{- if .Values.dex.enabled }}
-        - name: KUBERPULT_DEX_RBAC_POLICY
+        - name: KUBERPULT_DEX_RBAC_POLICY_PATH
           value: /kuberpult-rbac/policy.csv
 {{- end }}
         - name: KUBERPULT_AZURE_ENABLE_AUTH

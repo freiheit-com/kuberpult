@@ -60,10 +60,10 @@ func readAllAndClose(r io.ReadCloser, maxBytes int64) {
 }
 
 func readPgpKeyRing() (openpgp.KeyRing, error) {
-	if c.PgpKeyRing == "" {
+	if c.PgpKeyRingPath == "" {
 		return nil, nil
 	}
-	file, err := os.Open(c.PgpKeyRing)
+	file, err := os.Open(c.PgpKeyRingPath)
 	if err != nil {
 		return nil, err
 	}
