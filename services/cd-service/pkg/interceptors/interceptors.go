@@ -18,6 +18,8 @@ package interceptors
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"google.golang.org/grpc"
@@ -32,6 +34,10 @@ func UnaryUserContextInterceptor(ctx context.Context,
 	handler grpc.UnaryHandler,
 	reader auth.GrpcContextReader) (interface{}, error) {
 
+	if strings.HasPrefix(info.FullMethod, "/repository.RepoServerService/") {
+		fmt.Printf("%s(%#v)\n", info.FullMethod, req)
+		return handler(ctx, req)
+	}
 	user, err := reader.ReadUserFromGrpcContext(ctx)
 	if err != nil {
 		return nil, err

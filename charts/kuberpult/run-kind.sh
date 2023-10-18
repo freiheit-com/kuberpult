@@ -191,6 +191,10 @@ $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
   cm:
     accounts.kuberpult: apiKey
     timeout.reconciliation: 0s
+  params:
+    controller.repo.server.plaintext: "true"
+    server.repo.server.plaintext: "true"
+    repo.server: kuberpult-cd-service:8443
   rbac:
     policy.csv: |
       p, role:kuberpult, applications, get, */*, allow
