@@ -1,5 +1,5 @@
 services:
-  kuberpult-cd-service:
+  cd-service:
     build:
       context: .
       dockerfile: services/cd-service/Dockerfile
@@ -7,7 +7,6 @@ services:
         - UID=$USER_UID
         - DIR=services/cd-service
         - GIT_VERSION=latest
-#    container_name: kuberpult-cd-service
     environment:
       - LOG_LEVEL=INFO
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
@@ -17,10 +16,6 @@ services:
     ports:
       - "8080:8080"
       - "8443:8443"
-    command:
-      - sh
-      - -c
-      - 'pwd'
     volumes:
       - .:/kp/kuberpult
     stop_grace_period: 0.5s
@@ -31,13 +26,13 @@ services:
         - UID=$USER_UID
     container_name: kuberpult-frontend-service
     environment:
-      - KUBERPULT_CDSERVER=kuberpult-cd-service:8443
-      - KUBERPULT_HTTP_CD_SERVER=http://kuberpult-cd-service:8080
+      - KUBERPULT_CDSERVER=cd-service:8443
+      - KUBERPULT_HTTP_CD_SERVER=http://cd-service:8080
       - LOG_LEVEL=INFO
     ports:
       - "8081:8081"
     depends_on:
-      - kuberpult-cd-service
+      - cd-service
     volumes:
       - .:/kp/kuberpult
     stop_grace_period: 0.5s

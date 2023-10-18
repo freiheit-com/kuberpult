@@ -24,4 +24,7 @@ ENV TZ=Europe/Berlin
 COPY ${DIR}/gitconfig /etc/gitconfig
 COPY --from=swissknife /kp/main /kuberpult/main
 USER kp
+
+# Kuberpult expects to be able to write to "./repository", so we need to define the workdir:
+WORKDIR "/kp/"
 CMD ["/kuberpult/main"]
