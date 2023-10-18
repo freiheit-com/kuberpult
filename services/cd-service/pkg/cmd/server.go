@@ -149,7 +149,7 @@ func RunServer() {
 
 		cfg := repository.RepositoryConfig{
 			URL:            c.GitUrl,
-			Path:           "./repository",
+			Path:           "/kp/repository",
 			CommitterEmail: c.GitCommitterEmail,
 			CommitterName:  c.GitCommitterName,
 			Credentials: repository.Credentials{

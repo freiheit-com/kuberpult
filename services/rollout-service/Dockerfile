@@ -8,13 +8,13 @@ WORKDIR /kp/
 ADD services/cd-service/cmd/server/ /kp/services/cd-service/cmd/server/
 ADD services/cd-service/pkg /kp/services/cd-service/pkg
 
-
 # rollout-service:
 ADD services/rollout-service/cmd/server/ /kp/services/rollout-service/cmd/server/
 ADD services/rollout-service/pkg /kp/services/rollout-service/pkg
 
 # global pkg:
 ADD pkg /kp/pkg
+COPY go.sum go.mod /kp/
 
 RUN go build -o /kp/main /kp/services/rollout-service/cmd/server/
 

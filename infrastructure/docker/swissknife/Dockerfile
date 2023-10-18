@@ -2,7 +2,6 @@ FROM golang:1.21.3-alpine3.17 as golang
 FROM docker:23.0.6-cli-alpine3.17
 
 COPY --from=golang /usr/local/go/ /usr/local/go/
-COPY ../../../go.sum ../../../go.mod /kp/
 ENV PATH /usr/local/go/bin:$PATH
 RUN apk add --no-cache libgit2 libgit2-dev go protoc make pkgconfig build-base git tar npm sqlite sqlite-dev bash
 RUN npm install -g pnpm@8.5.1
