@@ -1,5 +1,5 @@
-ARG GO_TAG
-FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/swissknife:${GO_TAG} as swissknife
+ARG GIT_VERSION
+FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/swissknife:${GIT_VERSION} as swissknife
 RUN apk --update add ca-certificates tzdata
 
 WORKDIR /kp/

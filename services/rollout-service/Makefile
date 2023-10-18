@@ -27,6 +27,8 @@ GO_FILES := $(shell find . -type f -name '*.go')
 PKG_GO_FILES := $(shell find ../../pkg/ -type f -name '*.go')
 ALL_GO_FILES := $(GO_FILES) $(PKG_GO_FILES)
 
+GIT_VERSION := $(shell git rev-parse HEAD)
+
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-rollout-service:${VERSION}
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-rollout-service:${VERSION}
 
@@ -72,7 +74,8 @@ test-go: $(GO_FILES) proto
 	$(GO) test ./...
 
 docker:
-	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="GO_TAG=$(VERSION)" --build-arg="DIR=/services/rollout-service"
+	echo GIT_VERSION: $(GIT_VERSION)
+	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="GIT_VERSION=$(GIT_VERSION)" --build-arg="DIR=/services/rollout-service"
 
 release: docker
 	docker push $(IMAGENAME)

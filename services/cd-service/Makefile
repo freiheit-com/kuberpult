@@ -25,6 +25,9 @@ export CGO_ENABLED=1
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:$(VERSION)
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:${VERSION}
 
+GIT_VERSION := $(shell git rev-parse HEAD)
+
+
 export KUBERPULT_DEX_MOCK=false
 export KUBERPULT_DEX_ENABLED=false
 
@@ -109,7 +112,8 @@ test: $(ALL_GO_FILES) test-dependancies | proto
 	$(GO) test  ./...
 
 docker:
-	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="GO_TAG=$(VERSION)" --build-arg="DIR=/services/cd-service"
+	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="GIT_VERSION=$(GIT_VERSION)" --build-arg="DIR=/services/cd-service"
+	#docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="GIT_VERSION=$(GIT_VERSION)" --build-arg="DIR=/services/rollout-service"
 
 
 # set IMAGENAME=... to the image where you want to deploy (registry of the project)

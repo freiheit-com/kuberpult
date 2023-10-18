@@ -16,12 +16,13 @@
 
 include ../../../Makefile.variables
 
-IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/swissknife:${IMAGE_TAG}
+GIT_VERSION := $(shell git rev-parse HEAD)
+IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/swissknife:$(GIT_VERSION)
 UP=../../..
 
 build:
 #	docker build -t $(IMAGENAME) .
-	docker build -t $(IMAGENAME) -f Dockerfile ${UP} --build-arg="DIR=infrastructure/docker/golang/"
+	docker build -t $(IMAGENAME) -f Dockerfile ${UP} --build-arg="GIT_VERSION=$(GIT_VERSION)" --build-arg="DIR=infrastructure/docker/golang/"
 
 
 build-pr: build publish
