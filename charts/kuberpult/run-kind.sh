@@ -337,8 +337,8 @@ done
 
 if "$LOCAL_EXECUTION"
 then
-  echo "sleeping for 1h to allow debugging"
-  sleep 1h
+  echo "hit ctrl+c to stop"
+  read -r -d '' _ </dev/tty
 else
   echo "done. Kind cluster is up and kuberpult and argoCd are running."
 fi

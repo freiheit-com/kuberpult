@@ -13,38 +13,21 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-/*
-This file is part of kuberpult.
-
-Kuberpult is free software: you can redistribute it and/or modify
-it under the terms of the Expat(MIT) License as published by
-the Free Software Foundation.
-
-Kuberpult is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-MIT License for more details.
-
-You should have received a copy of the MIT License
-along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
-
-Copyright 2023 freiheit.com
-*/
 package integration_tests
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 )
 
 const (
@@ -156,11 +139,8 @@ func callCreateGroupLock(t *testing.T, envGroup, lockId string, requestBody *put
 }
 
 func CalcSignature(t *testing.T, manifest string) string {
-	err := os.WriteFile("./manifestA.yaml", []byte(manifest), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command("bash", "-c", "gpg  --keyring trustedkeys-kuberpult.gpg --local-user kuberpult-kind@example.com --detach --sign --armor < manifestA.yaml")
+	cmd := exec.Command("gpg", "--keyring", "trustedkeys-kuberpult.gpg", "--local-user", "kuberpult-kind@example.com", "--detach", "--sign", "--armor")
+	cmd.Stdin = strings.NewReader(manifest)
 	theSignature, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Error(err.Error())
@@ -198,7 +178,7 @@ func TestReleaseCalls(t *testing.T) {
 			// Note that this test is not repeatable. Once the version exists, it cannot be overridden.
 			// To repeat the test, we would have to reset the manifest repo.
 			name:               "Simple invocation of /release endpoint with valid version",
-			inputApp:           "my-app",
+			inputApp:           "my-app-" + appSuffix,
 			inputManifest:      theManifest,
 			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
@@ -209,7 +189,7 @@ func TestReleaseCalls(t *testing.T) {
 		{
 			// this is the same test, but this time we expect 201, because the release already exists:
 			name:               "Simple invocation of /release endpoint with valid version",
-			inputApp:           "my-app",
+			inputApp:           "my-app-" + appSuffix,
 			inputManifest:      theManifest,
 			inputSignature:     CalcSignature(t, theManifest),
 			inputManifestEnv:   devEnv,
@@ -428,6 +408,7 @@ func TestServeHttpInvalidInput(t *testing.T) {
 	}}
 
 	for _, tc := range tcs {
+		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer
