@@ -72,7 +72,6 @@ test-go: $(GO_FILES) proto
 	$(GO) test ./...
 
 docker:
-	echo GIT_VERSION: $(GIT_VERSION)
 	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="GIT_VERSION=$(GIT_VERSION)" --build-arg="DIR=/services/rollout-service"
 
 release: docker
