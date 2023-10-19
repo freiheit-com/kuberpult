@@ -19,3 +19,4 @@ KUBERPULT_BUILDER?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberp
 #GIT_VERSION=$(shell git rev-parse HEAD)
 GIT_VERSION=latest
 IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
+DOCKER_REGISTRY_URI=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
