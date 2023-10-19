@@ -20,9 +20,9 @@ IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/swissknife:$(GIT_VERSION
 UP=../../..
 
 build:
-#	docker build -t $(IMAGENAME) .
-	echo "swissknife GIT_VERSION: $(GIT_VERSION)"
-	docker build -t $(IMAGENAME) -f Dockerfile ${UP} --build-arg="GIT_VERSION=$(GIT_VERSION)" --build-arg="DIR=infrastructure/docker/golang/"
+	echo "SU DEBUG swissknife GIT_VERSION: $(GIT_VERSION)"
+	echo "SU DEBUG swissknife VERSION    : $(VERSION)"
+	docker build -t $(IMAGENAME) -f Dockerfile ${UP} --build-arg="GIT_VERSION=$(VERSION)" --build-arg="DIR=infrastructure/docker/golang/"
 
 
 build-pr: build publish
