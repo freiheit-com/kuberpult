@@ -43,6 +43,7 @@ type expectedVersion struct {
 	Application     string
 	DeployedVersion uint64
 	DeployTime      time.Time
+	SourceCommitId  string
 	Metadata        metadata.MD
 }
 
@@ -111,6 +112,16 @@ func TestVersionClient(t *testing.T) {
 	t.Parallel()
 	defaultResponses := map[string]*api.GetOverviewResponse{
 		"1234": {
+			Applications: map[string]*api.Application{
+				"foo": {
+					Releases: []*api.Release{
+						{
+							Version:        1,
+							SourceCommitId: "00001",
+						},
+					},
+				},
+			},
 			EnvironmentGroups: []*api.EnvironmentGroup{
 				{
 					Environments: []*api.Environment{
@@ -118,6 +129,7 @@ func TestVersionClient(t *testing.T) {
 							Name: "staging",
 							Applications: map[string]*api.Environment_Application{
 								"foo": {
+									Name:    "foo",
 									Version: 1,
 								},
 							},
@@ -128,6 +140,16 @@ func TestVersionClient(t *testing.T) {
 			GitRevision: "1234",
 		},
 		"5678": {
+			Applications: map[string]*api.Application{
+				"bar": {
+					Releases: []*api.Release{
+						{
+							Version:        2,
+							SourceCommitId: "00002",
+						},
+					},
+				},
+			},
 			EnvironmentGroups: []*api.EnvironmentGroup{
 				{},
 				{},
@@ -137,6 +159,7 @@ func TestVersionClient(t *testing.T) {
 							Name: "staging",
 							Applications: map[string]*api.Environment_Application{
 								"bar": {
+									Name:    "bar",
 									Version: 2,
 									DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
 										DeployTime: "123456789",
@@ -171,6 +194,7 @@ func TestVersionClient(t *testing.T) {
 					Environment:     "staging",
 					Application:     "foo",
 					DeployedVersion: 1,
+					SourceCommitId:  "00001",
 					Metadata:        defaultMetadata,
 				},
 				{
@@ -179,6 +203,7 @@ func TestVersionClient(t *testing.T) {
 					Application:     "bar",
 					DeployedVersion: 2,
 					DeployTime:      time.Unix(123456789, 0).UTC(),
+					SourceCommitId:  "00002",
 					Metadata:        defaultMetadata,
 				},
 			},
@@ -218,6 +243,16 @@ func TestVersionClient(t *testing.T) {
 func TestVersionClientStream(t *testing.T) {
 	t.Parallel()
 	testOverview := &api.GetOverviewResponse{
+		Applications: map[string]*api.Application{
+			"foo": {
+				Releases: []*api.Release{
+					{
+						Version:        1,
+						SourceCommitId: "00001",
+					},
+				},
+			},
+		},
 		EnvironmentGroups: []*api.EnvironmentGroup{
 			{
 
@@ -241,6 +276,16 @@ func TestVersionClientStream(t *testing.T) {
 		GitRevision: "1234",
 	}
 	testOverviewWithDifferentEnvgroup := &api.GetOverviewResponse{
+		Applications: map[string]*api.Application{
+			"foo": {
+				Releases: []*api.Release{
+					{
+						Version:        2,
+						SourceCommitId: "00002",
+					},
+				},
+			},
+		},
 		EnvironmentGroups: []*api.EnvironmentGroup{
 			{
 
@@ -304,6 +349,7 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:     "staging",
 					Application:     "foo",
 					DeployedVersion: 1,
+					SourceCommitId:  "00001",
 					DeployTime:      time.Unix(123456789, 0).UTC(),
 				},
 			},
@@ -312,7 +358,11 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:      "staging",
 					Application:      "foo",
 					EnvironmentGroup: "staging-group",
-					Version:          &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
+					Version: &VersionInfo{
+						Version:        1,
+						SourceCommitId: "00001",
+						DeployedAt:     time.Unix(123456789, 0).UTC(),
+					},
 				},
 			},
 		},
@@ -334,7 +384,11 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:      "staging",
 					Application:      "foo",
 					EnvironmentGroup: "staging-group",
-					Version:          &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
+					Version: &VersionInfo{
+						Version:        1,
+						SourceCommitId: "00001",
+						DeployedAt:     time.Unix(123456789, 0).UTC(),
+					},
 				},
 			},
 		},
@@ -356,7 +410,11 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:      "staging",
 					Application:      "foo",
 					EnvironmentGroup: "staging-group",
-					Version:          &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
+					Version: &VersionInfo{
+						Version:        1,
+						SourceCommitId: "00001",
+						DeployedAt:     time.Unix(123456789, 0).UTC(),
+					},
 				},
 				{
 					Environment:      "staging",
@@ -384,13 +442,21 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:      "staging",
 					Application:      "foo",
 					EnvironmentGroup: "staging-group",
-					Version:          &VersionInfo{Version: 1, DeployedAt: time.Unix(123456789, 0).UTC()},
+					Version: &VersionInfo{
+						Version:        1,
+						SourceCommitId: "00001",
+						DeployedAt:     time.Unix(123456789, 0).UTC(),
+					},
 				},
 				{
 					Environment:      "staging",
 					Application:      "foo",
 					EnvironmentGroup: "not-staging-group",
-					Version:          &VersionInfo{Version: 2, DeployedAt: time.Unix(123456789, 0).UTC()},
+					Version: &VersionInfo{
+						Version:        2,
+						SourceCommitId: "00002",
+						DeployedAt:     time.Unix(123456789, 0).UTC(),
+					},
 				},
 			},
 		},
@@ -427,6 +493,9 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 		}
 		if version.DeployedAt != ev.DeployTime {
 			t.Errorf("expected deploy time to be %q for %s/%s@%s but got %q", ev.DeployTime, ev.Environment, ev.Application, ev.Revision, version.DeployedAt)
+		}
+		if version.SourceCommitId != ev.SourceCommitId {
+			t.Errorf("expected source commit id to be %q for %s/%s@%s but got %q", ev.SourceCommitId, ev.Environment, ev.Application, ev.Revision, version.SourceCommitId)
 		}
 		if !cmp.Equal(mc.LastMetadata, ev.Metadata) {
 			t.Errorf("mismachted metadata %s", cmp.Diff(mc.LastMetadata, ev.Metadata))
