@@ -18,9 +18,12 @@ package integration_tests
 
 import (
 	"bytes"
+	"io"
 	"os/exec"
+	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"gopkg.in/yaml.v3"
 )
 
@@ -30,14 +33,21 @@ type simplifiedArgoApp struct {
 	} `yaml:"metadata"`
 	Status struct {
 		OperationState struct {
-			Operation struct {
-				Sync struct {
-					Revision string `yaml:"revision"`
-				} `yaml:"sync"`
-			} `yaml:"operation"`
 			Phase string `yaml:"phase"`
 		} `yaml:"operationState"`
 	} `yaml:"status"`
+}
+
+type simplifiedConfigMapMeta struct {
+	Name      string `yaml:"name"`
+	Namespace string `yaml:"namespace"`
+}
+
+type simplifiedConfigMap struct {
+	Metadata   simplifiedConfigMapMeta `yaml:"metadata"`
+	Data       map[string]string       `yaml:"data"`
+	Kind       string                  `yaml:"kind"`
+	ApiVersion string                  `yaml:"apiVersion"`
 }
 
 func TestArgoRolloutWork(t *testing.T) {
@@ -47,23 +57,57 @@ func TestArgoRolloutWork(t *testing.T) {
 	}{
 		{
 			name: "it can sync manifests into the cluster",
-			app:  "echo",
+			app:  "rollout-" + appSuffix,
 		},
 	}
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			appName := "development-" + tc.app
+			expectedConfig := simplifiedConfigMap{
+				ApiVersion: "v1",
+				Kind:       "ConfigMap",
+				Metadata: simplifiedConfigMapMeta{
+					Name:      tc.app,
+					Namespace: "development",
+				},
+				Data: map[string]string{
+					"key": tc.app,
+				},
+			}
+			data, err := yaml.Marshal(expectedConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Release a new app that we start completely fresh
+			releaseApp(t, tc.app, map[string]string{
+				"development": string(data),
+			})
+			// We have to sync the root app once because we have created a new app
 			runArgo(t, "app", "sync", "root")
-			runArgo(t, "app", "sync", "development-"+tc.app)
-			_, appData := runArgo(t, "app", "get", "development-"+tc.app, "-o", "yaml")
+			runArgo(t, "app", "sync", appName)
+			_, appData := runArgo(t, "app", "get", appName, "-o", "yaml")
 			var app simplifiedArgoApp
-			err := yaml.Unmarshal(appData, &app)
+			err = yaml.Unmarshal(appData, &app)
 			if err != nil {
 				t.Fatal(err)
 			}
 			appAnnotation := app.Metadata.Annotations["com.freiheit.kuberpult/application"]
 			if appAnnotation != tc.app {
 				t.Errorf("wrong value for annotation \"com.freiheit.kuberpult/application\": expected %q but got %q", tc.app, appAnnotation)
+			}
+			if app.Status.OperationState.Phase != "Succeeded" {
+				t.Errorf("wrong value for operation state phase, expected %q got %q", "Succeeded", app.Status.OperationState.Phase)
+			}
+			_, manifestData := runArgo(t, "app", "manifests", appName)
+			var actualConfig simplifiedConfigMap
+			err = yaml.Unmarshal(manifestData, &actualConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			d := cmp.Diff(expectedConfig, actualConfig)
+			if d != "" {
+				t.Errorf("unexpected diff between config maps: %s", d)
 			}
 		})
 	}
@@ -82,4 +126,22 @@ func runArgo(t *testing.T, args ...string) (*exec.Cmd, []byte) {
 		t.Fatalf("argocd command exited with code %d", cmd.ProcessState.ExitCode())
 	}
 	return cmd, out.Bytes()
+}
+
+func releaseApp(t *testing.T, application string, manifests map[string]string) {
+	values := map[string]io.Reader{
+		"application": strings.NewReader(application),
+	}
+	files := map[string]io.Reader{}
+	for env, data := range manifests {
+		files["manifests["+env+"]"] = strings.NewReader(data)
+		files["signatures["+env+"]"] = strings.NewReader(CalcSignature(t, data))
+	}
+	actualStatusCode, _, err := callRelease(values, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if actualStatusCode > 299 {
+		t.Fatalf("bad status code: %d", actualStatusCode)
+	}
 }
