@@ -24,7 +24,6 @@ import (
 )
 
 
-var runNumber uint64
 // The appSuffix is a unique string consisting of only characters that are valid app names.
 // This is used to make tests repeatable.
 var appSuffix string
@@ -42,7 +41,8 @@ func base26(i uint64) string {
 	return result
 }
 
-func calculateRunNumber() error {
+// The app suffix is calculate by storing a counter in a file called .run-number.
+func calculateAppSuffix() error {
 	content, err := os.ReadFile(".run-number")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -57,13 +57,12 @@ func calculateRunNumber() error {
 	}
 	nextRun := nr + 1
 	os.WriteFile(".run-number", []byte(fmt.Sprintf("%d", nextRun)), 0644)
-	runNumber = nr
-	appSuffix = base26(runNumber)
+	appSuffix = base26(nr)
 	return nil
 }
 
 func TestMain(m *testing.M) {
-	err := calculateRunNumber()
+	err := calculateAppSuffix()
 	if err != nil {
 		fmt.Printf("%s", err)
 		os.Exit(2)
