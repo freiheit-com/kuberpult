@@ -56,6 +56,17 @@ jobs:
           echo "No valid images found in the registry for the rollout service"
           exit 1
         fi
+
+        if docker manifest inspect ${IMAGE_REGISTRY}/ infrastructure/docker/swissknife:$(make version) > /dev/null; then
+          echo "IMAGE_TAG_ROLLOUT=$(make version)" >> $GITHUB_ENV
+        elif docker manifest inspect ${IMAGE_REGISTRY}/ infrastructure/docker/swissknife:$(git describe --always --long --tags main); then
+          echo "IMAGE_TAG_ROLLOUT=$(git describe --always --long --tags main)" >> $GITHUB_ENV
+        elif docker manifest inspect ${IMAGE_REGISTRY}/ infrastructure/docker/swissknife:$(git describe --tags --abbrev=0 main); then
+          echo "IMAGE_TAG_ROLLOUT=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
+        else
+          echo "No valid images found in the registry for the parent image"
+          exit 1
+        fi
     - name: Setup main environment
       if: inputs.trigger == 'main'
       run: |
@@ -86,6 +97,15 @@ jobs:
           echo "No valid images found in the registry for the rollout service"
           exit 1
         fi
+
+        if docker manifest inspect ${IMAGE_REGISTRY}/ infrastructure/docker/swissknife:$(make version) > /dev/null; then
+          echo "PARENT_CONTAINER=$(make version)" >> $GITHUB_ENV
+        elif docker manifest inspect ${IMAGE_REGISTRY}/ infrastructure/docker/swissknife:$(git describe --tags --abbrev=0 main); then
+          echo "PARENT_CONTAINER=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
+        else
+          echo "No valid images found in the registry for the parent image"
+          exit 1
+        fi
     - name: Print environment
       run: |
         echo Using registry: $IMAGE_REGISTRY
@@ -94,6 +114,7 @@ jobs:
         echo Using tag for cd service: $IMAGE_TAG_CD
         echo Using tag for frontend service: $IMAGE_TAG_FRONTEND
         echo Using tag for rollout service: $IMAGE_TAG_ROLLOUT
+        echo Using tag for parent: $PARENT_CONTAINER
     - name: Create bare repository # Needed for cd-service to start
       run: |
         mkdir -p ./services/cd-service/repository_remote
@@ -109,7 +130,7 @@ jobs:
     - name: Run kind
       run: |
         echo running kind
-        ./charts/kuberpult/run-kind.sh
+        export PARENT_CONTAINER="$PARENT_CONTAINER" ./charts/kuberpult/run-kind.sh
     - name: Integration test kind
       id: kindIntegrationTests
       continue-on-error: true
