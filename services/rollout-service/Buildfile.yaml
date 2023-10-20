@@ -1,8 +1,8 @@
 ---
 metadata:
-  builder: kuberpult-swissknife
+  builder: kuberpult-builder
 spec:
-  buildWith: infrastructure/docker/swissknife
+  buildWith: infrastructure/docker/builder
   dependsOn:
   - ../../pkg
   - ../../go.mod

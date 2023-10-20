@@ -17,7 +17,7 @@
 VERSION?=$(shell git describe --always --long --tags || echo 0.0.1)
 KUBERPULT_BUILDER?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-builder:1.5.0-7-g74d2058
 
-# PARENT_CONTAINER is the full docker image name of the parent image. e.g. for a go service, this would be the "go" image (could be called "swissknife", "builder", etc)
+# PARENT_CONTAINER is the full docker image name of the parent image. e.g. for a go service, this would be the "go" image (could be called "builder", etc)
 # For local development, you can set it to latest
 IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 DOCKER_REGISTRY_URI=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult

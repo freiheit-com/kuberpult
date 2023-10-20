@@ -1,7 +1,7 @@
 metadata:
   name: frontend-service
 spec:
-  buildWith: infrastructure/docker/swissknife
+  buildWith: infrastructure/docker/builder
   dependsOn:
   - ../../charts/kuberpult
   - ../../pkg

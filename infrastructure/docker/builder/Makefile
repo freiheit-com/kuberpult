@@ -16,7 +16,7 @@
 
 include ../../../Makefile.variables
 
-IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/swissknife:$(IMAGE_TAG)
+IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG)
 
 build:
 	docker build -t $(IMAGENAME) -f Dockerfile ../../..

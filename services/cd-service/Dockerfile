@@ -1,5 +1,5 @@
 ARG PARENT_CONTAINER
-FROM ${PARENT_CONTAINER} as swissknife
+FROM ${PARENT_CONTAINER} as builder
 
 WORKDIR /kp/
 
@@ -22,7 +22,7 @@ RUN adduser --disabled-password --gecos "" --home "/kp" --uid ${UID} kp
 RUN chown -R kp:kp /kp
 ENV TZ=Europe/Berlin
 COPY ${DIR}/gitconfig /etc/gitconfig
-COPY --from=swissknife /kp/main /kuberpult/main
+COPY --from=builder /kp/main /kuberpult/main
 USER kp
 
 # Kuberpult expects to be able to write to "./repository", so we need to define the workdir:
