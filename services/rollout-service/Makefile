@@ -72,7 +72,7 @@ test-go: $(GO_FILES) proto
 	$(GO) test ./...
 
 docker:
-	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="PARENT_CONTAINER_VERSION=$(PARENT_CONTAINER_VERSION)"
+	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="PARENT_CONTAINER=$(PARENT_CONTAINER)"
 
 release: docker
 	docker push $(IMAGENAME)

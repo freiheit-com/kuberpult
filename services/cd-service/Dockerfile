@@ -1,5 +1,5 @@
-ARG PARENT_CONTAINER_VERSION
-FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/swissknife:${PARENT_CONTAINER_VERSION} as swissknife
+ARG PARENT_CONTAINER
+FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/swissknife:${PARENT_CONTAINER} as swissknife
 
 WORKDIR /kp/
 
