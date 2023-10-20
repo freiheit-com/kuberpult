@@ -114,16 +114,17 @@ func TestArgoRolloutWork(t *testing.T) {
 }
 
 func runArgo(t *testing.T, args ...string) (*exec.Cmd, []byte) {
-	var out bytes.Buffer
+	var out, stderr bytes.Buffer
 	args = append([]string{"--port-forward"}, args...)
 	cmd := exec.Command("argocd", args...)
 	cmd.Stdout = &out
+	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
 		t.Fatalf("error running argocd: %s", err)
 	}
 	if cmd.ProcessState.ExitCode() != 0 {
-		t.Fatalf("argocd command exited with code %d", cmd.ProcessState.ExitCode())
+		t.Fatalf("argocd %q command exited with code %d\nstderr: %s", strings.Join(args, " "), cmd.ProcessState.ExitCode(), stderr.String())
 	}
 	return cmd, out.Bytes()
 }
