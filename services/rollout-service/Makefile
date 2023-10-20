@@ -72,7 +72,7 @@ test-go: $(GO_FILES) proto
 	$(GO) test ./...
 
 docker:
-	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="PARENT_CONTAINER_VERSION=$(PARENT_CONTAINER_VERSION)" --build-arg="DIR=/services/rollout-service"
+	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="PARENT_CONTAINER_VERSION=$(PARENT_CONTAINER_VERSION)"
 
 release: docker
 	docker push $(IMAGENAME)
