@@ -1,5 +1,5 @@
 ARG PARENT_CONTAINER
-FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/swissknife:${PARENT_CONTAINER} as swissknife
+FROM ${PARENT_CONTAINER} as swissknife
 RUN apk --update add ca-certificates tzdata
 
 WORKDIR /kp/
