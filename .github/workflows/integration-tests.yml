@@ -57,11 +57,11 @@ jobs:
           exit 1
         fi
 
-        if docker manifest inspect ${IMAGE_REGISTRY}/ infrastructure/docker/builder:$(make version) > /dev/null; then
+        if docker manifest inspect ${IMAGE_REGISTRY}/infrastructure/docker/builder:$(make version) > /dev/null; then
           echo "IMAGE_TAG_ROLLOUT=$(make version)" >> $GITHUB_ENV
-        elif docker manifest inspect ${IMAGE_REGISTRY}/ infrastructure/docker/builder:$(git describe --always --long --tags main); then
+        elif docker manifest inspect ${IMAGE_REGISTRY}/infrastructure/docker/builder:$(git describe --always --long --tags main); then
           echo "IMAGE_TAG_ROLLOUT=$(git describe --always --long --tags main)" >> $GITHUB_ENV
-        elif docker manifest inspect ${IMAGE_REGISTRY}/ infrastructure/docker/builder:$(git describe --tags --abbrev=0 main); then
+        elif docker manifest inspect ${IMAGE_REGISTRY}/infrastructure/docker/builder:$(git describe --tags --abbrev=0 main); then
           echo "IMAGE_TAG_ROLLOUT=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
         else
           echo "No valid images found in the registry for the parent image"
@@ -98,9 +98,9 @@ jobs:
           exit 1
         fi
 
-        if docker manifest inspect ${IMAGE_REGISTRY}/ infrastructure/docker/builder:$(make version) > /dev/null; then
+        if docker manifest inspect ${IMAGE_REGISTRY}/infrastructure/docker/builder:$(make version) > /dev/null; then
           echo "PARENT_CONTAINER=$(make version)" >> $GITHUB_ENV
-        elif docker manifest inspect ${IMAGE_REGISTRY}/ infrastructure/docker/builder:$(git describe --tags --abbrev=0 main); then
+        elif docker manifest inspect ${IMAGE_REGISTRY}/infrastructure/docker/builder:$(git describe --tags --abbrev=0 main); then
           echo "PARENT_CONTAINER=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
         else
           echo "No valid images found in the registry for the parent image"
