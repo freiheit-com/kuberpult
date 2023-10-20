@@ -17,10 +17,9 @@
 include ../../../Makefile.variables
 
 IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/swissknife:$(IMAGE_TAG)
-UP=../../..
 
 build:
-	docker build -t $(IMAGENAME) -f Dockerfile ${UP}
+	docker build -t $(IMAGENAME) -f Dockerfile ../../..
 
 build-pr: build publish
 	echo "Building on pull request"

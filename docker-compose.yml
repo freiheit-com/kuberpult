@@ -6,7 +6,7 @@ services:
       args:
         - UID=$USER_UID
         - DIR=services/cd-service
-        - GIT_VERSION=latest
+        - PARENT_CONTAINER_VERSION=latest
     environment:
       - LOG_LEVEL=INFO
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
