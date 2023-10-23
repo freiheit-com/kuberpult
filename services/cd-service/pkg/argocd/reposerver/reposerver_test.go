@@ -227,7 +227,7 @@ func TestGenerateManifest(t *testing.T) {
 				}
 			} else {
 				if err.Error() != tc.ExpectedArgoError {
-					t.Fatalf("got wrong error, expected %q but got %q", tc.ExpectedArgoError, err)
+					t.Fatalf("got wrong error, expected %q but got %q, diff: %s", tc.ExpectedArgoError, err, cmp.Diff(tc.ExpectedArgoError, err.Error()))
 				}
 			}
 		})
