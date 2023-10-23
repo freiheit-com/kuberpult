@@ -1,8 +1,9 @@
 ARG PARENT_CONTAINER
-FROM ${PARENT_CONTAINER} as builder
-RUN apk --update add ca-certificates tzdata
+FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:${PARENT_CONTAINER} as builder
 
 WORKDIR /kp/
+
+RUN apk --update add ca-certificates tzdata
 
 # cd-service:
 ADD services/cd-service/cmd/server/ /kp/services/cd-service/cmd/server/
