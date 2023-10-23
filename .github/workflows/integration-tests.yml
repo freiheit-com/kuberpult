@@ -130,7 +130,7 @@ jobs:
     - name: Run kind
       run: |
         echo running kind
-        export PARENT_CONTAINER="$PARENT_CONTAINER" ./charts/kuberpult/run-kind.sh
+        ./charts/kuberpult/run-kind.sh
     - name: Integration test kind
       id: kindIntegrationTests
       continue-on-error: true
