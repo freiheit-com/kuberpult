@@ -18,6 +18,16 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.10.0](https://github.com/freiheit-com/kuberpult/tree/1.10.0) (2023-10-23)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.9.0...1.10.0)
+
+### Minor Changes (New Features)
+
+- Added the first two endpoints for the repository service [\#1045](https://github.com/freiheit-com/kuberpult/pull/1045) ([hannesg](https://github.com/hannesg))
+
+---
+
 ## [1.9.0](https://github.com/freiheit-com/kuberpult/tree/1.9.0) (2023-10-20)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.8.1...1.9.0)
