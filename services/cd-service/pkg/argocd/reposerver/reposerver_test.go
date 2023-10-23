@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -80,7 +81,7 @@ func TestGenerateManifest(t *testing.T) {
 		Request           *argorepo.ManifestRequest
 		ExpectedResponse  *argorepo.ManifestResponse
 		ExpectedError     string
-		ExpectedArgoError string
+		ExpectedArgoError *regexp.Regexp
 	}{
 		{
 			Name:  "generates a manifest for HEAD",
@@ -158,7 +159,7 @@ func TestGenerateManifest(t *testing.T) {
 				},
 			},
 
-			ExpectedArgoError: "Unable to resolve 'not-our-branch' to a commit SHA",
+			ExpectedArgoError: regexp.MustCompile("\\AUnable to resolve 'not-our-branch' to a commit SHA\\z"),
 			ExpectedError:     "rpc error: code = NotFound desc = unknown revision \"not-our-branch\", I only know \"HEAD\", \"master\" and commit hashes",
 		},
 		{
@@ -174,7 +175,8 @@ func TestGenerateManifest(t *testing.T) {
 				},
 			},
 
-			ExpectedArgoError: "rpc error: code = Internal desc = Failed to checkout revision b551320bc327abfabf9df32ee5a830f8ccb1e88d: `git fetch origin b551320bc327abfabf9df32ee5a830f8ccb1e88d --tags --force --prune` failed exit status 128: fatal: git upload-pack: not our ref b551320bc327abfabf9df32ee5a830f8ccb1e88d\nfatal: remote error: upload-pack: not our ref b551320bc327abfabf9df32ee5a830f8ccb1e88d",
+			// The error message from argo cd contains the output log of git which differs slightly with the git version. Therefore, we don't match on that.
+			ExpectedArgoError: regexp.MustCompile("\\Arpc error: code = Internal desc = Failed to checkout revision b551320bc327abfabf9df32ee5a830f8ccb1e88d:"),
 			ExpectedError:     "rpc error: code = NotFound desc = unknown revision \"b551320bc327abfabf9df32ee5a830f8ccb1e88d\", I only know \"HEAD\", \"master\" and commit hashes",
 		},
 	}
@@ -226,8 +228,8 @@ func TestGenerateManifest(t *testing.T) {
 					t.Errorf("unexpected response: %s", d)
 				}
 			} else {
-				if err.Error() != tc.ExpectedArgoError {
-					t.Fatalf("got wrong error, expected %q but got %q, diff: %s", tc.ExpectedArgoError, err, cmp.Diff(tc.ExpectedArgoError, err.Error()))
+				if !tc.ExpectedArgoError.MatchString(err.Error()) {
+					t.Fatalf("got wrong error, expected to match %q but got %q", tc.ExpectedArgoError, err)
 				}
 			}
 		})
