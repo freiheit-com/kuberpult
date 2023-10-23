@@ -16,10 +16,11 @@
 
 include ../../../Makefile.variables
 
-IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:${IMAGE_TAG}
+IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(IMAGE_TAG)
+IMAGENAME_VERSIONED=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:$(VERSION)
 
 build:
-	docker build -t $(IMAGENAME) .
+	docker build -t $(IMAGENAME) -f Dockerfile ../../..
 
 build-pr: build publish
 	echo "Building on pull request"
@@ -38,6 +39,8 @@ cleanup-main:
 release:
 	echo "Releasing $(IMAGENAME)"
 	docker push $(IMAGENAME)
+	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED)
+	docker push $(IMAGENAME_VERSIONED)
 
 publish: release
 	echo $(IMAGE_TAG)

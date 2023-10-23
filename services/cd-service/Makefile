@@ -108,8 +108,8 @@ test-dependancies:
 test: $(ALL_GO_FILES) test-dependancies | proto
 	$(GO) test  ./...
 
-docker: bin/main
-	docker build -t $(IMAGENAME) .
+docker:
+	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="PARENT_CONTAINER=$(PARENT_CONTAINER)" --build-arg="DIR=/services/cd-service"
 
 
 # set IMAGENAME=... to the image where you want to deploy (registry of the project)
