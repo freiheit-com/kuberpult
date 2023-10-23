@@ -484,7 +484,8 @@ func (t *TreeBuilderFS) MkdirAll(dir string, perm os.FileMode) error {
 }
 
 func (t *TreeBuilderFS) Lstat(path string) (os.FileInfo, error) {
-	return nil, billy.ErrNotSupported
+	// TODO(HVG): implement this to support actual symlinkk (https://github.com/freiheit-com/kuberpult/issues/1046)
+	return t.Stat(path)
 }
 
 func (t *TreeBuilderFS) Readlink(path string) (string, error) {
