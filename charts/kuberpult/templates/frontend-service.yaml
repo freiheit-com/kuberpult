@@ -130,6 +130,7 @@ spec:
               fieldPath: metadata.labels['tags.datadoghq.com/version']
         - name: KUBERPULT_ENABLE_TRACING
           value: "{{ .Values.datadogTracing.enabled }}"
+{{- end }}
         - name: KUBERPULT_DEX_ENABLED
           value: "{{ .Values.dex.enabled }}"
 {{- if .Values.dex.enabled }}
@@ -141,7 +142,6 @@ spec:
           value: "{{ .Values.dex.baseURL }}"
         - name: KUBERPULT_DEX_SCOPES
           value: "{{ .Values.dex.scopes }}"
-{{- end }}
 {{- end }}
 {{- if .Values.pgp.keyRing }}
         - name: KUBERPULT_PGP_KEY_RING_PATH
