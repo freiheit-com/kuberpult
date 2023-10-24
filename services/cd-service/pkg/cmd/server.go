@@ -172,13 +172,6 @@ func RunServer() {
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
 		}
-		gsrv := grpc.NewServer(
-			grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
-			grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
-		)
-		api.RegisterGitTagsServer(gsrv, &service.TagsServer{
-			Repository: repo,
-		})
 
 		repositoryService := &service.Service{
 			Repository: repo,
@@ -224,6 +217,7 @@ func RunServer() {
 						Shutdown:   shutdownCh,
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
+					api.RegisterGitTagsServer(srv, &service.TagsServer{})
 					reflection.Register(srv)
 					reposerver.Register(srv, repo, cfg)
 
