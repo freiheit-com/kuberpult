@@ -60,6 +60,7 @@ When the services are running with `docker-compose`, start evans like this:
 ```
 header author-name=YXV0aG9y
 header author-email=YXV0aG9yQGF1dGhvcg==
+package api.v1
 service DeployService
 ```
 
