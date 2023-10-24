@@ -7,6 +7,24 @@ import "google/protobuf/timestamp.proto";
 
 package api.v1;
 
+
+service GitTags {
+  rpc GetGitTags (GetGitTagsRequest) returns (GetGitTagsResponse) {}
+}
+
+message GetGitTagsRequest {
+  string repoName = 1;
+}
+
+message GetGitTagsResponse {
+  repeated tagsList tagList = 1;
+}
+
+message tagsList {
+  string tag = 1;
+  string commitId = 2;
+}
+
 service BatchService {
   rpc ProcessBatch (BatchRequest) returns (BatchResponse) {}
 }
