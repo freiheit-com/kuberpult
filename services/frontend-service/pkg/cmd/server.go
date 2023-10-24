@@ -77,16 +77,21 @@ func RunServer() {
 
 func runServer(ctx context.Context) error {
 	err := envconfig.Process("kuberpult", &c)
+
 	if err != nil {
-		logger.FromContext(ctx).Fatal("config.parse", zap.Error(err))
+		logger.FromContext(ctx).Error("config.parse", zap.Error(err))
 		return err
 	}
 	logger.FromContext(ctx).Warn(fmt.Sprintf("config: \n%v", c))
 	if c.GitAuthorEmail == "" {
-		logger.FromContext(ctx).Fatal("DefaultGitAuthorEmail must not be empty")
+		msg := "DefaultGitAuthorEmail must not be empty"
+		logger.FromContext(ctx).Error(msg)
+		return fmt.Errorf(msg)
 	}
 	if c.GitAuthorName == "" {
-		logger.FromContext(ctx).Fatal("DefaultGitAuthorName must not be empty")
+		msg := "DefaultGitAuthorName must not be empty"
+		logger.FromContext(ctx).Error(msg)
+		return fmt.Errorf(msg)
 	}
 
 	var jwks *keyfunc.JWKS = nil
