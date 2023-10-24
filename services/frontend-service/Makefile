@@ -99,7 +99,7 @@ lint-scss: deps
 	pnpm lint-scss
 
 docker: bin/main | dist
-	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="PARENT_CONTAINER_VERSION=$(PARENT_CONTAINER_VERSION)"
+	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="PARENT_CONTAINER=$(PARENT_CONTAINER)"
 
 release: docker
 	docker push $(IMAGENAME)

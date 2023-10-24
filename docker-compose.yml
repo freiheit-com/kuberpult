@@ -25,7 +25,7 @@ services:
       dockerfile: services/frontend-service/Dockerfile
       args:
         - UID=$USER_UID
-        - PARENT_CONTAINER_VERSION=latest
+        - PARENT_CONTAINER=latest
     # Note: this `container_name` needs to be the same as in `package.json`
     container_name: kuberpult-frontend-service
     environment:
