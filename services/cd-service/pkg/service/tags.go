@@ -60,7 +60,7 @@ func (s *TagsServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) 
 		tagsResponse = append(tagsResponse, &api.TagsList{Tag: tag, CommitId: commit.Id().String()})
 
 	}
-	return &api.GetGitTagsResponse{TagList: tagsResponse /* ADD TAGS AND COMMIT HASHES */}, nil
+	return &api.GetGitTagsResponse{TagList: tagsResponse}, nil
 }
 
 var _ api.GitTagsServer = (*TagsServer)(nil)
