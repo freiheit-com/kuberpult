@@ -169,6 +169,13 @@ func RunServer() {
 			NetworkTimeout:         c.GitNetworkTimeout,
 		}
 		repo, err := repository.New(ctx, cfg)
+		gsrv := grpc.NewServer(
+			grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
+			grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
+		)
+		api.RegisterGitTagsServer(gsrv, &service.TagsServer{
+			Repository: repo,
+		})
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
 		}
