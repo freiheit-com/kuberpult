@@ -330,7 +330,7 @@ func TestGetTags(t *testing.T) {
 					URL:  "file://" + remoteDir,
 					Path: localDir,
 				},
-				"",
+				"./repository",
 				testutil.MakeTestContext(),
 			)
 			if err != nil {
