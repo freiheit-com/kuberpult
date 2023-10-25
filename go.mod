@@ -33,7 +33,7 @@ require (
 	gopkg.in/DataDog/dd-trace-go.v1 v1.56.0
 	k8s.io/apimachinery v0.27.3
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
-	sigs.k8s.io/yaml v1.3.0
+	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
@@ -110,7 +110,7 @@ require (
 	golang.org/x/sync v0.4.0
 	golang.org/x/term v0.13.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.27.3 // indirect
 	k8s.io/apiextensions-apiserver v0.24.2 // indirect
 	k8s.io/apiserver v0.24.2 // indirect
