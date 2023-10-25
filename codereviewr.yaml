@@ -88,6 +88,7 @@ ignoredFiles: [
     ".github/CODEOWNERS",
     "Jenkinsfile*",
     "Makefile*",
+    "dmake",
     "OWNERS",
     "codereviewr",
     "*/gradlew",
