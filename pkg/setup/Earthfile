@@ -1,0 +1,10 @@
+VERSION 0.7
+
+deps:
+    FROM ../../+deps
+    COPY ../logger/+artifacts/* pkg/logger/
+    WORKDIR pkg/setup
+    COPY * .
+artifacts:
+    FROM +deps
+    SAVE ARTIFACT *

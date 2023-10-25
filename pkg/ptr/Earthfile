@@ -1,0 +1,9 @@
+VERSION 0.7
+
+deps:
+    FROM ../../+deps
+    WORKDIR pkg/ptr
+    COPY * .
+artifacts:
+    FROM +deps
+    SAVE ARTIFACT *
