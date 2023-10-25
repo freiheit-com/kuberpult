@@ -29,6 +29,8 @@
 
 # Copyright 2023 freiheit.com
 
+
+# HELLO
 {{- if .Values.tag }}
 {{ fail "Values.tag cannot be used anymore. If you have to overwrite the tag, use cd.tag or frontend.tag instead"}}
 {{ end -}}
