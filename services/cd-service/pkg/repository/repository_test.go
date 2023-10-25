@@ -300,22 +300,14 @@ func TestGetTags(t *testing.T) {
 			Name: "No tags to be returned at all",
 			Setup: func(t *testing.T, remoteDir, localDir string) {
 				// run the initialization code once
-				repo, err := New(
+				// run the initialization code once
+				_, err := New(
 					testutil.MakeTestContext(),
 					RepositoryConfig{
-						URL:  remoteDir,
-						Path: t.TempDir(),
+						URL:  "file://" + remoteDir,
+						Path: localDir,
 					},
 				)
-				if err != nil {
-					t.Fatal(err)
-				}
-				err = repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
-					Application: "foo",
-					Manifests: map[string]string{
-						"development": "foo",
-					},
-				})
 				if err != nil {
 					t.Fatal(err)
 				}
