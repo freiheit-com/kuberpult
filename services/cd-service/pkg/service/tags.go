@@ -21,45 +21,23 @@ import (
 	"fmt"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
-	git "github.com/libgit2/git2go/v34"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
 type TagsServer struct {
+	Cfg repository.RepositoryConfig
 }
 
 func (s *TagsServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
-	// get repoName from request
-	repoName := in.GetRepoName()
-	if repoName == "" {
-		return nil, status.Error(codes.InvalidArgument, "Must pass a valid repoName to get git tags")
-	}
-	// get list of git tags
-
-	repo, err := git.OpenRepository(repoName)
+	tags, commits, err := repository.GetTags(s.Cfg, "./repository", ctx)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open repo: %v", err)
-	}
-	tags, err := repo.Tags.List()
-	if err != nil {
-		return nil, fmt.Errorf("unable to list tags: %v", err)
+		return nil, fmt.Errorf("unable to get tags from repository: %v", err)
 	}
 	var tagsResponse []*api.TagsList
-	for _, tag := range tags {
-
-		ref, err := repo.References.Lookup(tag)
-		if err != nil {
-			return nil, fmt.Errorf("unable to lookup tag %s: %v", tag, err)
-		}
-		oid := ref.Target()
-		commit, err := repo.LookupCommit(oid)
-		if err != nil {
-			return nil, fmt.Errorf("unable to lookup commit for tag %s: %v", tag, err)
-		}
-		tagsResponse = append(tagsResponse, &api.TagsList{Tag: tag, CommitId: commit.Id().String()})
-
+	for i, _ := range tags {
+		tagsResponse = append(tagsResponse, &api.TagsList{Tag: tags[i], CommitId: commits[i]})
 	}
+
 	return &api.GetGitTagsResponse{TagList: tagsResponse}, nil
 }
 

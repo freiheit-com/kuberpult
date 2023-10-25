@@ -13,7 +13,6 @@ service GitTags {
 }
 
 message GetGitTagsRequest {
-  string repoName = 1;
 }
 
 message GetGitTagsResponse {

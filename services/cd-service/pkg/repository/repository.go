@@ -173,6 +173,92 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 	return repo2, err
 }
 
+func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags, commits []string, err error) {
+	// get list of git tags
+	repo, err := git.OpenRepository(repoName)
+	//open or create
+	if err != nil {
+		var gerr *git.GitError
+		if errors.As(err, &gerr) {
+			if gerr.Code == git.ErrNotFound {
+				repo, err = git.InitRepository(repoName, true)
+				if err != nil {
+					return nil, nil, fmt.Errorf("unable to init repo: %v", err)
+				}
+			} else {
+				return nil, nil, fmt.Errorf("unable to open repo: %v", err)
+			}
+		} else {
+			return nil, nil, fmt.Errorf("unable to open repo: %v", err)
+		}
+	}
+
+	var credentials *credentialsStore
+	var certificates *certificateStore
+	if strings.HasPrefix(cfg.URL, "./") || strings.HasPrefix(cfg.URL, "/") {
+	} else {
+		credentials, err = cfg.Credentials.load()
+		if err != nil {
+			return nil, nil, err
+		}
+		certificates, err = cfg.Certificates.load()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	fetchOptions := git.FetchOptions{
+		RemoteCallbacks: git.RemoteCallbacks{
+			UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
+				return nil
+			},
+			CredentialsCallback:      credentials.CredentialsCallback(ctx),
+			CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+		},
+		DownloadTags: git.DownloadTagsAll,
+	}
+	remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	tags, err = repo.Tags.List()
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to list tags: %v", err)
+	}
+
+	// sort tags before getting commits
+	var temp string
+	for i := 0; i < len(tags); i++ {
+		for j := i + 1; j < len(tags); j++ {
+			if tags[i] > tags[j] {
+				temp = tags[i]
+				tags[i] = tags[j]
+				tags[j] = temp
+			}
+		}
+	}
+	for _, tag := range tags {
+		ref, err := repo.References.Lookup("refs/tags/" + tag)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to lookup tag %s: %v", "refs/tags/"+tag, err)
+		}
+		oid := ref.Target()
+		commit, err := repo.LookupCommit(oid)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to lookup commit for tag %s: %v", tag, err)
+		}
+		commits = append(commits, commit.Id().String())
+	}
+
+	return tags, commits, nil
+}
+
 // Opens a repository. The repository is initialized and updated in the background.
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	logger := logger.FromContext(ctx)

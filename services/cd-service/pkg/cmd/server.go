@@ -217,7 +217,7 @@ func RunServer() {
 						Shutdown:   shutdownCh,
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
-					api.RegisterGitTagsServer(srv, &service.TagsServer{})
+					api.RegisterGitTagsServer(srv, &service.TagsServer{Cfg: cfg})
 					reflection.Register(srv)
 					reposerver.Register(srv, repo, cfg)
 
