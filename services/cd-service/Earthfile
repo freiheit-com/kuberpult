@@ -1,0 +1,53 @@
+VERSION 0.7
+
+deps:
+    FROM ../../+deps
+    ARG service
+    COPY ../../pkg/api/+artifacts/* pkg/api/
+    COPY ../../pkg/auth/+artifacts/* pkg/auth/
+    COPY ../../pkg/logger/+artifacts/* pkg/logger/
+    COPY ../../pkg/setup/+artifacts/* pkg/setup/
+    COPY ../../pkg/tracing/+artifacts/* pkg/tracing/
+    COPY ../../pkg/path/+artifacts/* pkg/path/
+    COPY pkg services/$service/pkg
+    COPY cmd/server/* services/$service/cmd/server/
+    RUN apt update && apt install ca-certificates tzdata libgit2-dev git libsqlite3-dev -y
+    SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
+    SAVE ARTIFACT /usr/share/zoneinfo
+    SAVE IMAGE --cache-hint
+compile:
+    FROM +deps
+    ARG service
+    ARG arch=amd64
+    WORKDIR services/$service/cmd/server
+    RUN CGO_ENABLED=1 \
+        GOARCH=$arch \
+	    GOOS=linux \
+        go build -o bin/main main.go
+    SAVE ARTIFACT bin/main
+unit-test-deps:
+    FROM +deps
+    ARG service
+    COPY ../../pkg/ptr/+artifacts/* pkg/ptr/
+    COPY ../../pkg/testutil/+artifacts/* pkg/testutil/
+    COPY ../../pkg/testfs/+artifacts/* pkg/testfs/
+unit-test:
+    FROM +unit-test-deps
+    WORKDIR services/$service
+    RUN CGO_ENABLED=1 go test ./...
+
+docker:
+    FROM +deps
+    ARG service
+    ARG tag="local"
+    ENV TZ=Europe/Berlin
+    COPY +compile/main /main
+    ENTRYPOINT ["/main"] 
+    SAVE IMAGE $service:$tag
+
+release:
+    FROM +docker
+    ARG service
+    ARG tag="latest"
+    ARG registry="eu.gcr.io/fdc-standard-setup-dev-env"
+    SAVE IMAGE --push $registry/services/$service:$tag

@@ -3,7 +3,7 @@ VERSION 0.7
 deps:
     FROM ../../+deps
     WORKDIR pkg/logger
-    COPY * .
+    COPY *.go .
 artifacts:
     FROM +deps
     SAVE ARTIFACT *
