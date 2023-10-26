@@ -200,28 +200,7 @@ cd services/cd-service
 git init --bare repository_remote
 ```
 
-- for cd-service
-
-```bash
-cd services/cd-service
-# Running with docker container (recommended)
-WITH_DOCKER=true make run
-
-# For running without docker containers use
-# make run
-```
-
-- for frontend service - Note, frontend services are not
-```bash
-cd services/frontend-service
-make run
-```
-
-- for ui
-```
-cd services/frontend-service
-make start
-```
+To run the services: `make kuberpult`
 
 
 ## releasing a new version

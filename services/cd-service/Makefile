@@ -73,27 +73,9 @@ cleanup-pr:
 cleanup-main:
 	echo "Nothing to clean"
 
-ifeq ($(COMPILE_WITH_DOCKER),true)
-
-# note repository must be named repository otherwise kuberpult cannot see the repository
-run: docker
-	echo $(shell pwd)
-	docker run --rm -e KUBERPULT_GIT_URL="/repository_remote" -e KUBERPULT_GIT_BRANCH=master -p 8080:8080 -p 8443:8443 -v $(shell pwd)/repository_remote:/repository_remote $(IMAGENAME)
-else
-run: build
-	KUBERPULT_GIT_URL="./repository_remote" KUBERPULT_GIT_BRANCH=master ./bin/main
-endif
-
 bin/main: bin/ $(ALL_GO_FILES) | proto
-ifeq ($(COMPILE_WITH_DOCKER),true)
-# for "libgit reasons", we need the option to build in docker.
-	@echo "building within docker (dmake)"
-	../../dmake make -C services/cd-service bin/main
-else
 	@echo "building without docker, just plain go"
 	$(GO) build -o bin/main ./cmd/server/
-endif
-
 
 clean:
 	rm -rf pkg/api/api.gen.go

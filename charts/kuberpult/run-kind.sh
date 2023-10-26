@@ -125,7 +125,7 @@ export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kub
 if "$LOCAL_EXECUTION"
 then
   print 'building cd service...'
-  WITH_DOCKER=true make -C ../../services/cd-service/ docker
+  make -C ../../services/cd-service/ docker
 
   print 'building frontend service...'
   make -C ../../services/frontend-service/ docker
