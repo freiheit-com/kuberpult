@@ -273,7 +273,7 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 					},
 					ExpectedBody: `# HELP rollout_lag_seconds 
 # TYPE rollout_lag_seconds gauge
-rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="buz"} 1000
+rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kuberpult_environment_group="buz"} 500
 `,
 				},
 				{
