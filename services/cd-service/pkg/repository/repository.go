@@ -24,9 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	v1alpha1 "github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -38,6 +35,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	v1alpha1 "github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	backoff "github.com/cenkalti/backoff/v4"
@@ -174,9 +175,7 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 }
 
 func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags, commits []string, err error) {
-	// get list of git tags
 	repo, err := git.OpenRepository(repoName)
-	//open or create
 	if err != nil {
 		var gerr *git.GitError
 		if errors.As(err, &gerr) {
