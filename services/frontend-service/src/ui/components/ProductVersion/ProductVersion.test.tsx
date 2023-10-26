@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { MemoryRouter } from 'react-router-dom';
 import { ProductVersion } from './ProductVersion';
-import { render, screen, } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 describe('Product Version Data', () => {
     type TestData = {
