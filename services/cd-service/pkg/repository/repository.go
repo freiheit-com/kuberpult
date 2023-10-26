@@ -42,6 +42,7 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	backoff "github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -174,22 +175,11 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 	return repo2, err
 }
 
-func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags, commits []string, err error) {
-	repo, err := git.OpenRepository(repoName)
+func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags []*api.TagData, err error) {
+	var empty StorageBackend
+	repo, err := openOrCreate(repoName, empty)
 	if err != nil {
-		var gerr *git.GitError
-		if errors.As(err, &gerr) {
-			if gerr.Code == git.ErrNotFound {
-				repo, err = git.InitRepository(repoName, true)
-				if err != nil {
-					return nil, nil, fmt.Errorf("unable to init repo: %v", err)
-				}
-			} else {
-				return nil, nil, fmt.Errorf("unable to open repo: %v", err)
-			}
-		} else {
-			return nil, nil, fmt.Errorf("unable to open repo: %v", err)
-		}
+		return nil, fmt.Errorf("unable to open/create repo: %v", err)
 	}
 
 	var credentials *credentialsStore
@@ -198,20 +188,17 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags, 
 	} else {
 		credentials, err = cfg.Credentials.load()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		certificates, err = cfg.Certificates.load()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
 	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
 	fetchOptions := git.FetchOptions{
 		RemoteCallbacks: git.RemoteCallbacks{
-			UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-				return nil
-			},
 			CredentialsCallback:      credentials.CredentialsCallback(ctx),
 			CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
 		},
@@ -219,43 +206,33 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags, 
 	}
 	remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	tags, err = repo.Tags.List()
+	tagsList, err := repo.Tags.List()
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to list tags: %v", err)
+		return nil, fmt.Errorf("unable to list tags: %v", err)
 	}
 
-	// sort tags before getting commits
-	var temp string
-	for i := 0; i < len(tags); i++ {
-		for j := i + 1; j < len(tags); j++ {
-			if tags[i] > tags[j] {
-				temp = tags[i]
-				tags[i] = tags[j]
-				tags[j] = temp
-			}
-		}
-	}
-	for _, tag := range tags {
+	sort.Strings(tagsList)
+	for _, tag := range tagsList {
 		ref, err := repo.References.Lookup("refs/tags/" + tag)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to lookup tag %s: %v", "refs/tags/"+tag, err)
+			return nil, fmt.Errorf("unable to lookup tag %s: %v", "refs/tags/"+tag, err)
 		}
 		oid := ref.Target()
 		commit, err := repo.LookupCommit(oid)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to lookup commit for tag %s: %v", tag, err)
+			return nil, fmt.Errorf("unable to lookup commit for tag %s: %v", tag, err)
 		}
-		commits = append(commits, commit.Id().String())
+		tags = append(tags, &api.TagData{Tag: tag, CommitId: commit.Id().String()})
 	}
 
-	return tags, commits, nil
+	return tags, nil
 }
 
 // Opens a repository. The repository is initialized and updated in the background.

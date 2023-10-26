@@ -8,7 +8,7 @@ import "google/protobuf/timestamp.proto";
 package api.v1;
 
 
-service GitTags {
+service GitTagsService {
   rpc GetGitTags (GetGitTagsRequest) returns (GetGitTagsResponse) {}
 }
 
@@ -16,10 +16,10 @@ message GetGitTagsRequest {
 }
 
 message GetGitTagsResponse {
-  repeated tagsList tagList = 1;
+  repeated TagData TagData = 1;
 }
 
-message tagsList {
+message TagData {
   string tag = 1;
   string commitId = 2;
 }

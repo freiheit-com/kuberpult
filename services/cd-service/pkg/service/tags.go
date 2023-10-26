@@ -29,16 +29,12 @@ type TagsServer struct {
 }
 
 func (s *TagsServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
-	tags, commits, err := repository.GetTags(s.Cfg, "./repository", ctx)
+	tags, err := repository.GetTags(s.Cfg, "./repository_tags", ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get tags from repository: %v", err)
 	}
-	var tagsResponse []*api.TagsList
-	for i, _ := range tags {
-		tagsResponse = append(tagsResponse, &api.TagsList{Tag: tags[i], CommitId: commits[i]})
-	}
 
-	return &api.GetGitTagsResponse{TagList: tagsResponse}, nil
+	return &api.GetGitTagsResponse{TagData: tags}, nil
 }
 
-var _ api.GitTagsServer = (*TagsServer)(nil)
+var _ api.GitTagsServiceServer = (*TagsServer)(nil)
