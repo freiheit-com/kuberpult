@@ -18,6 +18,7 @@ import { EnvironmentsPage } from '../Pages/Environments/EnvironmentsPage';
 import { ReleasesPage } from '../Pages/Releases/ReleasesPage';
 import { LocksPage } from '../Pages/Locks/LocksPage';
 import { Routes as ReactRoutes, Route, Navigate } from 'react-router-dom';
+import { ProductVersionPage } from '../Pages/ProductVersion/ProductVersionPage';
 
 const routes = [
     {
@@ -35,6 +36,10 @@ const routes = [
     {
         path: `/ui/home/releases/:appName`,
         element: <ReleasesPage />,
+    },
+    {
+        path: `/ui/environments/productVersion/:environmentName`,
+        element: <ProductVersionPage />,
     },
     {
         path: `/*`,
