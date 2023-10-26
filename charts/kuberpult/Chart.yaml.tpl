@@ -23,6 +23,16 @@ version: $VERSION
 # It is recommended to use it with quotes.
 appVersion: "$VERSION"
 
+# This is is the DEX helm chart only to installed it RBAC is enabled.
+# Dex is an identity service that uses OpenID Connect to drive authentication through other 
+# identity providers.  
+# For more information please check: https://github.com/dexidp/dex
+dependencies:
+- name: dex
+condition: dex.enabled
+version: "0.14.2"
+repository: https://charts.dexidp.io
+
 maintainers:
  - name: hannesg
  - name: sven-urbanski-freiheit-com

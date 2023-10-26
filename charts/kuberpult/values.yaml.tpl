@@ -218,3 +218,26 @@ dex:
   baseURL: ""
   # List of scopes to validate the token. Please add them as comma separated values.
   scopes: ""
+  # List of environment variables to be added to the dex service pod.
+  # Example, if you want your DEX service to have access to to the OAUTH_CLIENT_ID, you can specify
+  # it the following way: 
+  # 
+  #  - name: OAUTH_CLIENT_ID
+  #    valueFrom:
+  #      secretKeyRef:
+  #      name: kuberpult-oauth-client-id
+  #        key: kuberpult-oauth-client-id
+  envVars: []
+  # The configuration of the OAUTH provider. 
+  # For more information on the connectors to use see https://dexidp.io/docs/connectors/
+  # Here is an example on how to connect with Google connector:
+  #
+  #     connectors:
+  #     - type: google
+  #     id: google
+  #     name: Google
+  #     config:
+  #       clientID: $GOOGLE_CLIENT_ID
+  #       clientSecret: $GOOGLE_CLIENT_SECRET
+  #       redirectURI: http://127.0.0.1:5556/callback
+  config: {}
