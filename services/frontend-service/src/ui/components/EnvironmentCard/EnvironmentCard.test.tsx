@@ -116,7 +116,7 @@ describe('Test Environment Cards', () => {
             const lockEnvElems = container.getElementsByClassName('test-lock-env');
             expect(lockEnvElems).toHaveLength(testcase.expectedNumEnvLockButtons);
             const buttons = container.getElementsByClassName('environment-action');
-            expect(buttons).toHaveLength(testcase.expectedNumButtonsEnv)
+            expect(buttons).toHaveLength(testcase.expectedNumButtonsEnv);
 
             // when
             const envGroupHeader = container.querySelector('.environment-group-lane__header');

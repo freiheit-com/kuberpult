@@ -18,13 +18,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { ProductVersionPage } from './ProductVersionPage';
 import { fakeLoadEverything } from '../../../setupTests';
 
-
 describe('ProductVersionPage', () => {
     const getNode = (): JSX.Element | any => (
         <MemoryRouter>
             <ProductVersionPage />
         </MemoryRouter>
-    )
+    );
     const getWrapper = () => render(getNode());
 
     interface dataEnvT {
@@ -53,6 +52,6 @@ describe('ProductVersionPage', () => {
             const { container } = getWrapper();
             expect(container.getElementsByClassName('main-content')).toHaveLength(testcase.expectedNumMainContent);
             expect(container.getElementsByClassName('spinner')).toHaveLength(testcase.expectedNumSpinner);
-        })
-    })
-})
+        });
+    });
+});

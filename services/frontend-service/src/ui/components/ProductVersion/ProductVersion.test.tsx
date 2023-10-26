@@ -21,13 +21,13 @@ describe('Product Version Data', () => {
     type TestData = {
         name: string;
         environmentName: string;
-    }
+    };
     const data: TestData[] = [
         {
             name: 'No tags to Display',
             environmentName: 'tester',
-        }
-    ]
+        },
+    ];
 
     describe.each(data)(`Displays Product Version Page`, (testcase) => {
         it(testcase.name, () => {
@@ -36,7 +36,7 @@ describe('Product Version Data', () => {
                     <ProductVersion environment={testcase.environmentName} />
                 </MemoryRouter>
             );
-            expect(screen.getByText(testcase.environmentName)).toBeInTheDocument
-        })
-    })
-})
+            expect(screen.getByText(testcase.environmentName)).toBeInTheDocument();
+        });
+    });
+});
