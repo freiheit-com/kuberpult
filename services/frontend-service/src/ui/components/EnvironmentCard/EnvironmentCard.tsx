@@ -61,20 +61,18 @@ export const EnvironmentCard: React.FC<{ environment: Environment }> = (props) =
                     </div>
                 )}
                 <div className="environment__actions">
-                    <div className="testing_environment">
+                    <Button
+                        className="environment-action service-action--prepare-undeploy test-lock-env"
+                        label={'Add Environment Lock in ' + environment.name}
+                        icon={<Locks />}
+                        onClick={addLock}
+                    />
+                    <div>
                         <Button
-                            className="environment-action service-action--prepare-undeploy test-lock-env"
-                            label={'Add Environment Lock in ' + environment.name}
-                            icon={<Locks />}
-                            onClick={addLock}
+                            className="environment-action"
+                            label={'Display version for ' + environment.name}
+                            onClick={navCallback}
                         />
-                        <div>
-                            <Button
-                                className="environment-action"
-                                label={'Display version for ' + environment.name}
-                                onClick={navCallback}
-                            />
-                        </div>
                     </div>
                 </div>
             </div>
