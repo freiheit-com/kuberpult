@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -39,6 +40,7 @@ type appState struct {
 	kuberpultVersion *versions.VersionInfo
 	rolloutStatus    api.RolloutStatus
 	environmentGroup string
+	isProduction     *bool
 }
 
 func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
@@ -55,6 +57,7 @@ func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEv
 	if a.kuberpultVersion == nil || a.kuberpultVersion.Version != ev.Version.Version {
 		a.kuberpultVersion = ev.Version
 		a.environmentGroup = ev.EnvironmentGroup
+		a.isProduction = ptr.Bool(ev.IsProduction)
 		return a.getEvent(ev.Application, ev.Environment)
 	}
 	return nil
@@ -71,6 +74,7 @@ func (a *appState) getEvent(application, environment string) *BroadcastEvent {
 			Application: application,
 		},
 		EnvironmentGroup: a.environmentGroup,
+		IsProduction:     a.isProduction,
 		ArgocdVersion:    a.argocdVersion,
 		RolloutStatus:    rs,
 		KuberpultVersion: a.kuberpultVersion,
@@ -226,6 +230,7 @@ func (b *Broadcast) Start() ([]*BroadcastEvent, <-chan *BroadcastEvent, unsubscr
 type BroadcastEvent struct {
 	Key
 	EnvironmentGroup string
+	IsProduction     *bool
 	ArgocdVersion    *versions.VersionInfo
 	KuberpultVersion *versions.VersionInfo
 	RolloutStatus    api.RolloutStatus

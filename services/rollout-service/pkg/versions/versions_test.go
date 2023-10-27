@@ -45,6 +45,7 @@ type expectedVersion struct {
 	DeployTime      time.Time
 	SourceCommitId  string
 	Metadata        metadata.MD
+	IsProduction    bool
 }
 
 type mockOverviewStreamMessage struct {
@@ -133,6 +134,7 @@ func TestVersionClient(t *testing.T) {
 									Version: 1,
 								},
 							},
+							Priority: api.Priority_UPSTREAM,
 						},
 					},
 				},
@@ -166,6 +168,7 @@ func TestVersionClient(t *testing.T) {
 									},
 								},
 							},
+							Priority: api.Priority_UPSTREAM,
 						},
 					},
 				},
@@ -269,6 +272,7 @@ func TestVersionClientStream(t *testing.T) {
 								},
 							},
 						},
+						Priority: api.Priority_UPSTREAM,
 					},
 				},
 			},
@@ -302,6 +306,41 @@ func TestVersionClientStream(t *testing.T) {
 								},
 							},
 						},
+						Priority: api.Priority_UPSTREAM,
+					},
+				},
+			},
+		},
+		GitRevision: "1234",
+	}
+	testOverviewWithProdEnvs := &api.GetOverviewResponse{
+		Applications: map[string]*api.Application{
+			"foo": {
+				Releases: []*api.Release{
+					{
+						Version:        2,
+						SourceCommitId: "00002",
+					},
+				},
+			},
+		},
+		EnvironmentGroups: []*api.EnvironmentGroup{
+			{
+
+				EnvironmentGroupName: "production",
+				Environments: []*api.Environment{
+					{
+						Name: "production",
+						Applications: map[string]*api.Environment_Application{
+							"foo": {
+								Name:    "foo",
+								Version: 2,
+								DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+									DeployTime: "123456789",
+								},
+							},
+						},
+						Priority: api.Priority_PROD,
 					},
 				},
 			},
@@ -452,6 +491,30 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:      "staging",
 					Application:      "foo",
 					EnvironmentGroup: "not-staging-group",
+					Version: &VersionInfo{
+						Version:        2,
+						SourceCommitId: "00002",
+						DeployedAt:     time.Unix(123456789, 0).UTC(),
+					},
+				},
+			},
+		},
+		{
+			Name: "Reports production environments",
+			Steps: []step{
+				{
+					Overview: testOverviewWithProdEnvs,
+				},
+				{
+					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+				},
+			},
+			ExpectedEvents: []KuberpultEvent{
+				{
+					Environment:      "production",
+					Application:      "foo",
+					EnvironmentGroup: "production",
+					IsProduction:     true,
 					Version: &VersionInfo{
 						Version:        2,
 						SourceCommitId: "00002",

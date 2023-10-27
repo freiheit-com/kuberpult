@@ -55,6 +55,10 @@ type Config struct {
 	ArgocdToken              string `split_words:"true"`
 	ArgocdRefreshEnabled     bool   `split_words:"true"`
 	ArgocdRefreshConcurrency int    `default:"50" split_words:"true"`
+
+	RevolutionDoraEnabled bool   `split_words:"true"`
+	RevolutionDoraUrl     string `split_words:"true"`
+	RevolutionDoraToken   string `split_words:"true"`
 }
 
 func (config *Config) ClientConfig() (apiclient.ClientOptions, error) {
