@@ -29,8 +29,8 @@ appVersion: "$VERSION"
 # For more information please check: https://github.com/dexidp/dex
 dependencies:
 - name: dex
-condition: auth.dexAuth.installDex.enabled
-version: auth.dexAuth.installDex.version
+condition: auth.dexAuth.installDex
+version: "0.14.2"
 repository: https://charts.dexidp.io
 
 maintainers:
