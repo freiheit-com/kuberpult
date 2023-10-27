@@ -1183,8 +1183,20 @@ func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
 	return lock, nil
 }
 
+func (s *State) GetEnvLocksDir(environment string) string {
+	return s.Filesystem.Join("environments", environment, "locks")
+}
+
+func (s *State) GetEnvLockDir(environment string, lockId string) string {
+	return s.Filesystem.Join(s.GetEnvLocksDir(environment), lockId)
+}
+
+func (s *State) GetAppLocksDir(environment string, application string) string {
+	return s.Filesystem.Join("environments", environment, "applications", application, "locks")
+}
+
 func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) {
-	base := s.Filesystem.Join("environments", environment, "locks")
+	base := s.GetEnvLocksDir(environment)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err
 	} else {
@@ -1204,7 +1216,7 @@ func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error)
 }
 
 func (s *State) GetEnvironmentApplicationLocks(environment, application string) (map[string]Lock, error) {
-	base := s.Filesystem.Join("environments", environment, "applications", application, "locks")
+	base := s.GetAppLocksDir(environment, application)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
 		return nil, err
 	} else {
@@ -1250,6 +1262,49 @@ func (s *State) GetDeploymentMetaData(ctx context.Context, environment, applicat
 	}
 
 	return string(author), deployedAt, nil
+}
+
+func (s *State) DeleteAppLockIfEmpty(ctx context.Context, environment string, application string) error {
+	dir := s.GetAppLocksDir(environment, application)
+	_, err := s.DeleteDirIfEmpty(dir)
+	return err
+}
+
+func (s *State) DeleteEnvLockIfEmpty(ctx context.Context, environment string) error {
+	dir := s.GetEnvLocksDir(environment)
+	_, err := s.DeleteDirIfEmpty(dir)
+	return err
+}
+
+type SuccessReason int64
+
+const (
+	NoReason SuccessReason = iota
+	DirDoesNotExist
+	DirNotEmpty
+)
+
+// DeleteDirIfEmpty if it's empty. If the dir does not exist or is not empty, nothing happens.
+// Errors are only returned if the read or delete operations fail.
+// Returns SuccessReason for unit testing.
+func (s *State) DeleteDirIfEmpty(directoryName string) (SuccessReason, error) {
+	fileInfos, err := s.Filesystem.ReadDir(directoryName)
+	if err != nil {
+		return NoReason, fmt.Errorf("DeleteDirIfEmpty: failed to read directory %q: %w", directoryName, err)
+	}
+	if fileInfos == nil {
+		// directory does not exist, nothing to do
+		return DirDoesNotExist, nil
+	}
+	if len(fileInfos) == 0 {
+		// directory exists, and is empty: delete it
+		err = s.Filesystem.Remove(directoryName)
+		if err != nil {
+			return NoReason, fmt.Errorf("DeleteDirIfEmpty: failed to delete directory %q: %w", directoryName, err)
+		}
+		return NoReason, nil
+	}
+	return DirNotEmpty, nil
 }
 
 func (s *State) GetQueuedVersion(environment string, application string) (*uint64, error) {
