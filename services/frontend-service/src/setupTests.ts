@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import '@testing-library/jest-dom/extend-expect';
+import '@testing-library/jest-dom';
 import 'react-use-sub/test-util';
 import { Lock, Release } from './api/api';
 import { DisplayLock, UpdateFrontendConfig, UpdateOverview } from './ui/utils/store';
