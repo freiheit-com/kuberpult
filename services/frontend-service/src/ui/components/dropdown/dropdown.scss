@@ -45,6 +45,7 @@ div.mdc-select {
 }
 
 .dropdown {
+    overflow-y: auto;
     min-width: 220px;
     left: 0;
     top: -5px;
