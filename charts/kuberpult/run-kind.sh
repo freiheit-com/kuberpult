@@ -312,7 +312,10 @@ VALUES
 
 helm template ./ --values vals.yaml > tmp.tmpl
 
+# Get helm dependency chartas and unzip them
 helm dependency build
+(rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
+
 helm install --values vals.yaml kuberpult-local ./
 print 'checking for pods and waiting for portforwarding to be ready...'
 
