@@ -199,49 +199,50 @@ auth:
     cloudInstance: "https://login.microsoftonline.com/"
     clientId: ""
     tenantId: ""
-
-dex:
-  enabled: false
-  # Indicates if dex is to be installed. If you want to use your own Dex instance do not enable this flag.
-  installDex:
+  dexAuth:
     enabled: false
-    version: ""
-  # Defines the rbac policy when using Dex.
-  # The permissions are added using the following format (<ROLE>, <ACTION>, <ENVIRONMENT_GROUP>:<ENVIRONMENT>, <APPLICATION>, allow).
-  #
-  # Available actions are: CreateLock, DeleteLock, CreateRelease, DeployRelease, CreateUndeploy, DeployUndeploy, CreateEnvironment, CreateEnvironmentApplication and DeployReleaseTrain.
-  # The actions CreateUndeploy, DeployUndeploy and CreateEnvironmentApplication are environment independent meaning that the environment specified on the permission
-  # needs to follow the following format <ENVIRONMENT_GROUP>:*, otherwise an error will be thrown.
-  #
-  # Example permission: Developer, CreateLock, development:development, *, allow
-  # If no group is configured for an environment, the environment group name is the same as the environment name, here "development".
-  # The policy will be available on the kuberpult-rbac config map.
-  policy_csv: ""
-  clientId: ""
-  clientSecret: ""
-  baseURL: ""
-  # List of scopes to validate the token. Please add them as comma separated values.
-  scopes: ""
-  # List of environment variables to be added to the dex service pod.
-  # Example, if you want your DEX service to have access to to the OAUTH_CLIENT_ID, you can specify
-  # it the following way: 
-  # 
-  #  - name: OAUTH_CLIENT_ID
-  #    valueFrom:
-  #      secretKeyRef:
-  #      name: kuberpult-oauth-client-id
-  #        key: kuberpult-oauth-client-id
-  envVars: []
-  # The configuration of the OAUTH provider. 
-  # For more information on the connectors to use see https://dexidp.io/docs/connectors/
-  # Here is an example on how to connect with Google connector:
-  #
-  #     connectors:
-  #     - type: google
-  #     id: google
-  #     name: Google
-  #     config:
-  #       clientID: $GOOGLE_CLIENT_ID
-  #       clientSecret: $GOOGLE_CLIENT_SECRET
-  #       redirectURI: http://127.0.0.1:5556/callback
-  config: {}
+    # Indicates if dex is to be installed. If you want to use your own Dex instance do not enable this flag.
+    installDex:
+      enabled: false
+      version: "0.14.2"
+    # Defines the rbac policy when using Dex.
+    # The permissions are added using the following format (<ROLE>, <ACTION>, <ENVIRONMENT_GROUP>:<ENVIRONMENT>, <APPLICATION>, allow).
+    #
+    # Available actions are: CreateLock, DeleteLock, CreateRelease, DeployRelease, CreateUndeploy, DeployUndeploy, CreateEnvironment, CreateEnvironmentApplication and DeployReleaseTrain.
+    # The actions CreateUndeploy, DeployUndeploy and CreateEnvironmentApplication are environment independent meaning that the environment specified on the permission
+    # needs to follow the following format <ENVIRONMENT_GROUP>:*, otherwise an error will be thrown.
+    #
+    # Example permission: Developer, CreateLock, development:development, *, allow
+    # If no group is configured for an environment, the environment group name is the same as the environment name, here "development".
+    # The policy will be available on the kuberpult-rbac config map.
+    policy_csv: ""
+    clientId: ""
+    clientSecret: ""
+    baseURL: ""
+    # List of scopes to validate the token. Please add them as comma separated values.
+    scopes: ""
+    # List of environment variables to be added to the dex service pod.
+    # Example, if you want your DEX service to have access to to the OAUTH_CLIENT_ID, you can specify
+    # it the following way: 
+    # 
+    #  - name: OAUTH_CLIENT_ID
+    #    valueFrom:
+    #      secretKeyRef:
+    #      name: kuberpult-oauth-client-id
+    #        key: kuberpult-oauth-client-id
+    envVars: []
+    # The configuration of the OAUTH provider. 
+    # For more information on the connectors to use see https://dexidp.io/docs/connectors/
+    # Here is an example on how to connect with Google connector:
+    #
+    #     connectors:
+    #     - type: google
+    #     id: google
+    #     name: Google
+    #     config:
+    #       clientID: $GOOGLE_CLIENT_ID
+    #       clientSecret: $GOOGLE_CLIENT_SECRET
+    #       redirectURI: http://127.0.0.1:5556/callback
+    config: {}
+
+
