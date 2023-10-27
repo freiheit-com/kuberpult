@@ -18,6 +18,22 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.10.1](https://github.com/freiheit-com/kuberpult/tree/1.10.1) (2023-10-27)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.10.0...1.10.1)
+
+### Patch Changes (Bugfixes)
+- Fix teams dropdown overflow [\#1069](https://github.com/freiheit-com/kuberpult/pull/1069) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Deleting empty directories in the manifest repository [\#1062](https://github.com/freiheit-com/kuberpult/pull/1062) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Fix server\_test in frontend-service [\#1052](https://github.com/freiheit-com/kuberpult/pull/1052) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Fix helm chart: always provide dex variables [\#1048](https://github.com/freiheit-com/kuberpult/pull/1048) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Build Go in docker: frontend [\#1042](https://github.com/freiheit-com/kuberpult/pull/1042) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Actually run `go build` in docker \(cd&rollout\) [\#1022](https://github.com/freiheit-com/kuberpult/pull/1022) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Update module gopkg.in/DataDog/dd-trace-go.v1 to v1.56.1 [\#1060](https://github.com/freiheit-com/kuberpult/pull/1060) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module sigs.k8s.io/yaml to v1.4.0 [\#1056](https://github.com/freiheit-com/kuberpult/pull/1056) ([renovate[bot]](https://github.com/apps/renovate))
+
+---
+
 ## [1.10.0](https://github.com/freiheit-com/kuberpult/tree/1.10.0) (2023-10-23)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.9.0...1.10.0)
