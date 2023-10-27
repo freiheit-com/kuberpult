@@ -43,9 +43,14 @@ unit-test:
 docker:
     FROM +deps
     ARG service
+    ARG UID=1000
     ARG tag="local"
     ENV TZ=Europe/Berlin
+    RUN adduser --disabled-password --gecos "" --home "/kp" --uid ${UID} kp
+    RUN chown -R kp:kp /kp
     COPY +compile/main /main
+    COPY gitconfig /etc/gitconfig
+    USER kp 
     ENTRYPOINT ["/main"] 
     SAVE IMAGE $service:$tag
 

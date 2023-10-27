@@ -1,12 +1,6 @@
 services:
   cd-service:
-    build:
-      context: .
-      dockerfile: services/cd-service/Dockerfile
-      args:
-        - UID=$USER_UID
-        - DIR=services/cd-service
-        - PARENT_CONTAINER=latest
+    image: cd-service:local
     environment:
       - LOG_LEVEL=INFO
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
@@ -20,12 +14,7 @@ services:
       - ./services/cd-service:/kp/kuberpult
     stop_grace_period: 0.5s
   frontend-service:
-    build:
-      context: .
-      dockerfile: services/frontend-service/Dockerfile
-      args:
-        - UID=$USER_UID
-        - PARENT_CONTAINER=latest
+    image: frontend-service:local
     # Note: this `container_name` needs to be the same as in `package.json`
     container_name: kuberpult-frontend-service
     environment:
@@ -47,15 +36,12 @@ services:
       - .:/kp/kuberpult
     stop_grace_period: 0.5s
   ui:
-    build:
-      context: infrastructure/docker/ui
-      args:
-        - UID=$USER_UID
+    image: ui:local
     container_name: kuberpult-ui
     ports:
       - "3000:3000"
     depends_on:
       - frontend-service
     volumes:
-      - .:/kp/kuberpult
+      - ./services/frontend-service:/kp
     stop_grace_period: 0.5s

@@ -91,4 +91,5 @@ cleanup-main:
 	@echo "Nothing to do"
 
 kuberpult:
+	earthly +all-services --UID=$(USER_UID)
 	docker-compose up --build

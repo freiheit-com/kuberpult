@@ -20,6 +20,16 @@ deps:
     SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
     SAVE ARTIFACT /usr/share/zoneinfo
     SAVE IMAGE --cache-hint
+artifacts:
+    FROM +deps
+    ARG service
+    WORKDIR services/$service
+    COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json .
+    SAVE ARTIFACT package.json
+    SAVE ARTIFACT tsconfig.json
+    SAVE ARTIFACT pnpm-lock.yaml
+    SAVE ARTIFACT pnpm-workspace.yaml
+    SAVE ARTIFACT src
 compile:
     FROM +deps
     ARG service
@@ -49,6 +59,33 @@ docker:
     COPY +compile/main /main
     ENTRYPOINT ["/main"] 
     SAVE IMAGE $service:$tag
+
+deps-ui:
+    FROM node:20.9.0-alpine3.18
+    ARG BUF_VERSION=v1.26.1
+    ARG BUF_BIN_PATH=/usr/local/bin
+
+    WORKDIR /kp
+    COPY ../../pkg/api/+artifacts/* api/
+    COPY src src
+    COPY public public
+    COPY package.json pnpm-lock.yaml pnpm-workspace.yaml buf* tsconfig.json .eslintrc .prettierrc .npmrc .nvmrc .
+    RUN npm install -g pnpm@8.9.2
+    RUN apk add --upgrade --no-cache curl 
+    RUN OS=Linux ARCH=$(uname -m) && \
+        curl -sSL \
+        "https://github.com/bufbuild/buf/releases/download/${BUF_VERSION}/buf-${OS}-${ARCH}" \
+        -o "${BUF_BIN_PATH}/buf" && \
+        chmod +x "${BUF_BIN_PATH}/buf"
+    RUN OS=Linux ARCH=$(uname -m) && \
+        SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
+        echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
+    RUN pnpm i && buf generate --path api --timeout 5m
+    
+docker-ui:
+    FROM +deps-ui
+    CMD "pnpm start" 
+    SAVE IMAGE ui:local
 
 release:
     FROM +docker
