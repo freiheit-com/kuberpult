@@ -23,7 +23,7 @@ Given a version number MAJOR.MINOR.PATCH:
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.10.0...1.10.1)
 
 ### Patch Changes (Bugfixes)
-
+- Fix teams dropdown overflow [\#1069](https://github.com/freiheit-com/kuberpult/pull/1069) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
 - Deleting empty directories in the manifest repository [\#1062](https://github.com/freiheit-com/kuberpult/pull/1062) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
 - Fix server\_test in frontend-service [\#1052](https://github.com/freiheit-com/kuberpult/pull/1052) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
 - Fix helm chart: always provide dex variables [\#1048](https://github.com/freiheit-com/kuberpult/pull/1048) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
