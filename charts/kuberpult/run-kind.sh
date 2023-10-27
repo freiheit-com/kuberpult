@@ -310,8 +310,7 @@ pgp:
 $(sed -e "s/^/    /" <./kuberpult-keyring.gpg)
 VALUES
 
-# Get helm dependency chartas and unzip them
-helm dependency build
+# Get helm dependency charts and unzip them
 (rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
 
 helm template ./ --values vals.yaml > tmp.tmpl
