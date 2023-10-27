@@ -14,7 +14,6 @@ deps:
     RUN apt update && apt install ca-certificates tzdata libgit2-dev git libsqlite3-dev -y
     SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
     SAVE ARTIFACT /usr/share/zoneinfo
-    SAVE IMAGE --cache-hint
 artifacts:
     FROM +deps
     ARG service
@@ -42,21 +41,24 @@ unit-test:
 
 docker:
     FROM +deps
-    ARG service
     ARG UID=1000
+    ARG service
     ARG tag="local"
+    ARG registry="eu.gcr.io/fdc-standard-setup-dev-env"
     ENV TZ=Europe/Berlin
-    RUN adduser --disabled-password --gecos "" --home "/kp" --uid ${UID} kp
+    RUN useradd -m -d "/kp" --uid ${UID} kp
     RUN chown -R kp:kp /kp
     COPY +compile/main /main
     COPY gitconfig /etc/gitconfig
-    USER kp 
+    USER kp
+    WORKDIR /kp
     ENTRYPOINT ["/main"] 
-    SAVE IMAGE $service:$tag
+    SAVE IMAGE --cache-from=$registry/infrastructure/services/$service:cache $service:$tag
 
 release:
     FROM +docker
     ARG service
-    ARG tag="latest"
+    ARG tag="local"
     ARG registry="eu.gcr.io/fdc-standard-setup-dev-env"
     SAVE IMAGE --push $registry/services/$service:$tag
+    SAVE IMAGE --push $registry/services/$service:cache

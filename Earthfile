@@ -13,3 +13,9 @@ all-services:
     BUILD ./services/cd-service+docker --service=cd-service --UID=$UID
     BUILD ./services/frontend-service+docker --service=frontend-service
     BUILD ./services/frontend-service+docker-ui
+
+cache:
+    ARG UID=1000
+    BUILD ./services/cd-service+release --service=cd-service --UID=$UID
+    BUILD ./services/frontend-service+release --service=frontend-service
+    BUILD ./services/frontend-service+release-ui
