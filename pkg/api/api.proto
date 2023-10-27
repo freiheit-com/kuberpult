@@ -16,12 +16,12 @@ message GetGitTagsRequest {
 }
 
 message GetGitTagsResponse {
-  repeated TagData TagData = 1;
+  repeated TagData tag_data = 1;
 }
 
 message TagData {
   string tag = 1;
-  string commitId = 2;
+  string commit_id = 2;
 }
 
 service BatchService {

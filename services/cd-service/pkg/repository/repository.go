@@ -176,8 +176,7 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 }
 
 func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags []*api.TagData, err error) {
-	var empty StorageBackend
-	repo, err := openOrCreate(repoName, empty)
+	repo, err := openOrCreate(repoName, cfg.StorageBackend)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open/create repo: %v", err)
 	}
@@ -188,11 +187,11 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	} else {
 		credentials, err = cfg.Credentials.load()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failure to load credentials: %v", err)
 		}
 		certificates, err = cfg.Certificates.load()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failure to load certificates: %v", err)
 		}
 	}
 
@@ -206,11 +205,11 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	}
 	remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failure to create anonymous remote: %v", err)
 	}
 	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failure to fetch: %v", err)
 	}
 
 	tagsList, err := repo.Tags.List()
@@ -225,11 +224,14 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 			return nil, fmt.Errorf("unable to lookup tag %s: %v", "refs/tags/"+tag, err)
 		}
 		oid := ref.Target()
+		var commitID string
 		commit, err := repo.LookupCommit(oid)
 		if err != nil {
-			return nil, fmt.Errorf("unable to lookup commit for tag %s: %v", tag, err)
+			commitID = ""
+		} else {
+			commitID = commit.Id().String()
 		}
-		tags = append(tags, &api.TagData{Tag: tag, CommitId: commit.Id().String()})
+		tags = append(tags, &api.TagData{Tag: tag, CommitId: commitID})
 	}
 
 	return tags, nil

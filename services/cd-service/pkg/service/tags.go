@@ -36,5 +36,3 @@ func (s *TagsServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) 
 
 	return &api.GetGitTagsResponse{TagData: tags}, nil
 }
-
-var _ api.GitTagsServiceServer = (*TagsServer)(nil)
