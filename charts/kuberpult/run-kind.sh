@@ -312,6 +312,7 @@ VALUES
 
 helm template ./ --values vals.yaml > tmp.tmpl
 
+helm dependency build
 helm install --values vals.yaml kuberpult-local ./
 print 'checking for pods and waiting for portforwarding to be ready...'
 

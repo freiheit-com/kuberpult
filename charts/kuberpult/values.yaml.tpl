@@ -202,6 +202,10 @@ auth:
 
 dex:
   enabled: false
+  # Indicates if dex is to be installed. If you want to use your own Dex instance do not enable this flag.
+  installDex:
+    enabled: false
+    version: ""
   # Defines the rbac policy when using Dex.
   # The permissions are added using the following format (<ROLE>, <ACTION>, <ENVIRONMENT_GROUP>:<ENVIRONMENT>, <APPLICATION>, allow).
   #
