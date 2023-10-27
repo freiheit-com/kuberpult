@@ -27,6 +27,7 @@
   "constraints": {
     "go": "1.19.5"
   },
+  "prConcurrentLimit": 25,
   "prHourlyLimit": 0,
   "labels": [
     "renovate"

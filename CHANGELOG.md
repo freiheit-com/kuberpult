@@ -18,6 +18,42 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.10.0](https://github.com/freiheit-com/kuberpult/tree/1.10.0) (2023-10-23)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.9.0...1.10.0)
+
+### Minor Changes (New Features)
+
+- Added the first two endpoints for the repository service [\#1045](https://github.com/freiheit-com/kuberpult/pull/1045) ([hannesg](https://github.com/hannesg))
+
+---
+
+## [1.9.0](https://github.com/freiheit-com/kuberpult/tree/1.9.0) (2023-10-20)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.8.1...1.9.0)
+
+### Minor Changes (New Features)
+
+- Pass through source commit ids in rollout service [\#1025](https://github.com/freiheit-com/kuberpult/pull/1025) ([hannesg](https://github.com/hannesg))
+
+### Patch Changes (Bugfixes)
+
+- Change Dex and PgpKeyRing variable name [\#1020](https://github.com/freiheit-com/kuberpult/pull/1020) ([bernardo-bastos](https://github.com/bernardo-bastos))
+- Update module github.com/coreos/go-oidc/v3 to v3.7.0 [\#1040](https://github.com/freiheit-com/kuberpult/pull/1040) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module google.golang.org/api to v0.148.0 [\#1037](https://github.com/freiheit-com/kuberpult/pull/1037) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module github.com/lestrrat-go/jwx/v2 to v2.0.15 [\#1036](https://github.com/freiheit-com/kuberpult/pull/1036) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module gopkg.in/DataDog/dd-trace-go.v1 to v1.56.0 [\#1024](https://github.com/freiheit-com/kuberpult/pull/1024) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module google.golang.org/grpc to v1.59.0 [\#1023](https://github.com/freiheit-com/kuberpult/pull/1023) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module github.com/lestrrat-go/jwx/v2 to v2.0.14 [\#1021](https://github.com/freiheit-com/kuberpult/pull/1021) ([renovate[bot]](https://github.com/apps/renovate))
+- Update dependency prettier to v3 [\#1016](https://github.com/freiheit-com/kuberpult/pull/1016) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module google.golang.org/grpc to v1.58.3 [\#1015](https://github.com/freiheit-com/kuberpult/pull/1015) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module google.golang.org/api to v0.147.0 [\#1014](https://github.com/freiheit-com/kuberpult/pull/1014) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module github.com/google/go-cmp to v0.6.0 [\#1013](https://github.com/freiheit-com/kuberpult/pull/1013) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module github.com/go-git/go-billy/v5 to v5.5.0 [\#1012](https://github.com/freiheit-com/kuberpult/pull/1012) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module github.com/lestrrat-go/jwx to v2 [\#1011](https://github.com/freiheit-com/kuberpult/pull/1011) ([renovate[bot]](https://github.com/apps/renovate))
+
+---
+
 ## [1.8.1](https://github.com/freiheit-com/kuberpult/tree/1.8.1) (2023-10-16)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.8.0...1.8.1)

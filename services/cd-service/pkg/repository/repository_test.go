@@ -1415,6 +1415,79 @@ func TestPushUpdate(t *testing.T) {
 	}
 }
 
+func TestDeleteDirIfEmpty(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		DeleteThisDir  string
+		ExpectedError  string
+		ExpectedReason SuccessReason
+		Transformers   []Transformer
+	}{
+		{
+			Name: "Should succeed: dir does not exist",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "prod-ca",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironmentLock{
+					Authentication: Authentication{},
+					Environment:    "prod-ca",
+					LockId:         "my-lock",
+					Message:        "my-message",
+				},
+			},
+			DeleteThisDir:  "does/not/exist",
+			ExpectedError:  "",
+			ExpectedReason: DirDoesNotExist,
+		},
+		{
+			Name: "Should succeed: dir exists and is not empty",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "prod-ca",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateEnvironmentLock{
+					Authentication: Authentication{},
+					Environment:    "prod-ca",
+					LockId:         "my-lock",
+					Message:        "my-message",
+				},
+			},
+			DeleteThisDir:  "environments/prod-ca/locks",
+			ExpectedError:  "",
+			ExpectedReason: DirNotEmpty,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			ctx := testutil.MakeTestContext()
+			_, state, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			if err != nil {
+				t.Fatalf("unexpected error in transformer: %v", err)
+			}
+			successReason, err := state.DeleteDirIfEmpty(tc.DeleteThisDir)
+			errString := ""
+			if err != nil {
+				errString = err.Error()
+			} else {
+				errString = ""
+			}
+
+			if !cmp.Equal(errString, tc.ExpectedError) {
+				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedError, errString))
+			}
+			if successReason != tc.ExpectedReason {
+				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReason, successReason))
+			}
+		})
+	}
+}
+
 func TestProcessQueueOnce(t *testing.T) {
 	tcs := []struct {
 		Name           string

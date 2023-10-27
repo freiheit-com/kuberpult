@@ -125,7 +125,7 @@ export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kub
 if "$LOCAL_EXECUTION"
 then
   print 'building cd service...'
-  WITH_DOCKER=true make -C ../../services/cd-service/ docker
+  make -C ../../services/cd-service/ docker
 
   print 'building frontend service...'
   make -C ../../services/frontend-service/ docker
@@ -191,6 +191,10 @@ $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
   cm:
     accounts.kuberpult: apiKey
     timeout.reconciliation: 0s
+  params:
+    controller.repo.server.plaintext: "true"
+    server.repo.server.plaintext: "true"
+    repo.server: kuberpult-cd-service:8443
   rbac:
     policy.csv: |
       p, role:kuberpult, applications, get, */*, allow
@@ -337,8 +341,8 @@ done
 
 if "$LOCAL_EXECUTION"
 then
-  echo "sleeping for 1h to allow debugging"
-  sleep 1h
+  echo "hit ctrl+c to stop"
+  read -r -d '' _ </dev/tty
 else
   echo "done. Kind cluster is up and kuberpult and argoCd are running."
 fi

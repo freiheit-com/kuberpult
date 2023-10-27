@@ -16,3 +16,6 @@
 
 VERSION?=$(shell git describe --always --long --tags || echo 0.0.1)
 KUBERPULT_BUILDER?=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-builder:1.5.0-7-g74d2058
+
+IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
+DOCKER_REGISTRY_URI=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult

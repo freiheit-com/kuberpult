@@ -11,15 +11,8 @@ jobs:
       trigger: tag
     secrets: inherit
 
-  lint-and-test-helm-chart:
-    needs: [execution-plan]
-    uses: ./.github/workflows/test-helm-chart-release.yml
-    with:
-      trigger: tag
-    secrets: inherit
-
   release:
-    needs: [execution-plan, lint-and-test-helm-chart]
+    needs: [execution-plan]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

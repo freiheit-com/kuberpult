@@ -15,6 +15,16 @@ The `cd-service` takes the URL of the repository to watch from the environment v
 - [docker](https://docs.docker.com/get-docker/)
 - [docker-compose](https://docs.docker.com/compose/install/) v1.29.2
 
+## Setup builder image
+
+You need a `builder` image that is tagged as `latest` to build services locally.
+There's 2 ways to get an image:
+* `IMAGE_TAG=latest make -C infrastructure/docker/builder build`
+* `docker pull docker pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:1.10.0` (replace with current version)
+   * Once you have the image locally, you need to tag it as `latest` (replace `${IMAGE_FROM_LAST_STEP}`): `docker tag ${IMAGE_FROM_LAST_STEP} europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:latest`
+
+There's no need to push the image.
+
 ## Setup and run instructions (with docker-compose)
 
 - in `services/cd-service`, initialize a bare repository with the name `repository_remote`
@@ -48,6 +58,7 @@ When the services are running with `docker-compose`, start evans like this:
 ```
 header author-name=YXV0aG9y
 header author-email=YXV0aG9yQGF1dGhvcg==
+package api.v1
 service DeployService
 ```
 
@@ -189,28 +200,7 @@ cd services/cd-service
 git init --bare repository_remote
 ```
 
-- for cd-service
-
-```bash
-cd services/cd-service
-# Running with docker container (recommended)
-WITH_DOCKER=true make run
-
-# For running without docker containers use
-# make run
-```
-
-- for frontend service - Note, frontend services are not
-```bash
-cd services/frontend-service
-make run
-```
-
-- for ui
-```
-cd services/frontend-service
-make start
-```
+To run the services: `make kuberpult`
 
 
 ## releasing a new version

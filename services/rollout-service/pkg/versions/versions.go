@@ -49,8 +49,9 @@ type versionClient struct {
 }
 
 type VersionInfo struct {
-	Version    uint64
-	DeployedAt time.Time
+	Version        uint64
+	SourceCommitId string
+	DeployedAt     time.Time
 }
 
 // GetVersion implements VersionClient
@@ -77,7 +78,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 				if app == nil {
 					return &VersionInfo{}, nil
 				}
-				return &VersionInfo{Version: app.Version, DeployedAt: deployedAt(app)}, nil
+				return &VersionInfo{Version: app.Version, SourceCommitId: sourceCommitId(overview, app), DeployedAt: deployedAt(app)}, nil
 			}
 		}
 	}
@@ -97,6 +98,19 @@ func deployedAt(app *api.Environment_Application) time.Time {
 		return time.Unix(dt, 0).UTC()
 	}
 	return time.Time{}
+}
+
+func sourceCommitId(overview *api.GetOverviewResponse, app *api.Environment_Application) string {
+	a := overview.Applications[app.Name]
+	if a == nil {
+		return ""
+	}
+	for _, rel := range a.Releases {
+		if rel.Version == app.Version {
+			return rel.SourceCommitId
+		}
+	}
+	return ""
 }
 
 type KuberpultEvent struct {
@@ -154,6 +168,7 @@ outer:
 				for _, env := range envGroup.Environments {
 					for _, app := range env.Applications {
 						dt := deployedAt(app)
+						sc := sourceCommitId(overview, app)
 
 						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version), zap.Time("deployedAt", dt))
 						k := key{env.Name, app.Name}
@@ -168,8 +183,9 @@ outer:
 							Environment:      env.Name,
 							EnvironmentGroup: envGroup.EnvironmentGroupName,
 							Version: &VersionInfo{
-								Version:    app.Version,
-								DeployedAt: dt,
+								Version:        app.Version,
+								SourceCommitId: sc,
+								DeployedAt:     dt,
 							},
 						})
 					}

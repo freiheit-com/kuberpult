@@ -71,8 +71,8 @@ test: test-go
 test-go: $(GO_FILES) proto
 	$(GO) test ./...
 
-docker: bin/main
-	docker build -t $(IMAGENAME) .
+docker:
+	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="PARENT_CONTAINER=$(PARENT_CONTAINER)"
 
 release: docker
 	docker push $(IMAGENAME)

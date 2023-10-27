@@ -777,13 +777,19 @@ func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (st
 		return "", nil, err
 	}
 	fs := state.Filesystem
-	lockDir := fs.Join("environments", c.Environment, "locks", c.LockId)
+	s := State{
+		Filesystem: fs,
+	}
+	//err = s.DeleteEnvLockIfEmpty(ctx, c.Environment)
+	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", nil, fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
-		s := State{
-			Filesystem: fs,
+		err := s.DeleteEnvLockIfEmpty(ctx, c.Environment)
+		if err != nil {
+			return "", nil, err
 		}
+
 		apps, err := s.GetEnvironmentApplications(c.Environment)
 		if err != nil {
 			return "", nil, fmt.Errorf("environment applications for %q not found: %v", c.Environment, err.Error())
@@ -933,6 +939,10 @@ func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state 
 		s := State{
 			Filesystem: fs,
 		}
+		err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application)
+		if err != nil {
+			return "", nil, err
+		}
 		queueMessage, err := s.ProcessQueue(ctx, fs, c.Environment, c.Application)
 		if err != nil {
 			return "", nil, err
@@ -1015,7 +1025,7 @@ type DeployApplicationVersion struct {
 }
 
 func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeployRelease,  "", c.RBACConfig)
+	err := state.checkUserPermissions(ctx, c.Environment, c.Application, auth.PermissionDeployRelease, "", c.RBACConfig)
 	if err != nil {
 		return "", nil, err
 	}

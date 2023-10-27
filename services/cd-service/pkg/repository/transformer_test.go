@@ -3834,10 +3834,22 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 			expectedError: "failed to delete directory \"environments/dev/locks/foo\": obscure error",
 		},
 		{
-			name:          "readdir fails",
+			name:          "delete lock parent dir fails",
+			operation:     testfs.READDIR,
+			filename:      "environments/dev/locks",
+			expectedError: "DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
+		},
+		{
+			name:          "readdir fails on apps",
 			operation:     testfs.READDIR,
 			filename:      "environments/dev/applications",
 			expectedError: "environment applications for \"dev\" not found: obscure error",
+		},
+		{
+			name:          "readdir fails on locks",
+			operation:     testfs.READDIR,
+			filename:      "environments/dev/locks",
+			expectedError: "DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
 		},
 	}
 	for _, tc := range tcs {
@@ -3861,9 +3873,14 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 				filename:  tc.filename,
 				err:       fmt.Errorf("obscure error"),
 			})
+
 			if tc.expectedError != "" {
-				if err.Error() != tc.expectedError {
-					t.Errorf("expected error to be %q but got %q", tc.expectedError, err)
+				if err == nil {
+					t.Fatalf("expected error %q, but got nil", tc.expectedError)
+				}
+				actualErr := err.Error()
+				if diff := cmp.Diff(actualErr, tc.expectedError); diff != "" {
+					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
 			} else {
 				if err != nil {
@@ -3872,6 +3889,7 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 			}
 		})
 	}
+	// Note: We have to run this after all tests in the array, in order to collect all untested operations:
 	untested := collector.UntestedOps()
 	for _, op := range untested {
 		t.Errorf("Untested operations %s %s", op.Operation, op.Filename)
@@ -3888,13 +3906,19 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 		expectedError string
 	}{
 		{
-			name: "delete lock succedes",
+			name: "delete lock succeeds",
 		},
 		{
 			name:          "delete lock fails",
 			operation:     testfs.REMOVE,
 			filename:      "environments/dev/applications/bar/locks/foo",
 			expectedError: "failed to delete directory \"environments/dev/applications/bar/locks/foo\": obscure error",
+		},
+		{
+			name:          "delete lock fails",
+			operation:     testfs.READDIR,
+			filename:      "environments/dev/applications/bar/locks",
+			expectedError: "DeleteDirIfEmpty: failed to read directory \"environments/dev/applications/bar/locks\": obscure error",
 		},
 		{
 			name:          "stat queue failes",
@@ -3928,7 +3952,6 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 				if err == nil {
 					t.Errorf("expected error to be %q but got <nil>", tc.expectedError)
 				} else if err.Error() != tc.expectedError {
-
 					t.Errorf("expected error to be %q but got %q", tc.expectedError, err)
 				}
 			} else {
@@ -3938,6 +3961,7 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 			}
 		})
 	}
+	// Note: We have to run this after all tests in the array, in order to collect all untested operations:
 	untested := collector.UntestedOps()
 	for _, op := range untested {
 		t.Errorf("Untested operations %s %s", op.Operation, op.Filename)

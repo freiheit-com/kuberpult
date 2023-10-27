@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
@@ -52,10 +53,10 @@ type Config struct {
 	GitSshKey         string        `default:"/etc/ssh/identity" split_words:"true"`
 	GitSshKnownHosts  string        `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
 	GitNetworkTimeout time.Duration `default:"1m" split_words:"true"`
-	PgpKeyRing        string        `split_words:"true"`
+	PgpKeyRingPath    string        `split_words:"true"`
 	AzureEnableAuth   bool          `default:"false" split_words:"true"`
 	DexEnabled        bool          `default:"false" split_words:"true"`
-	DexRbacPolicy     string        `split_words:"true"`
+	DexRbacPolicyPath string        `split_words:"true"`
 	EnableTracing     bool          `default:"false" split_words:"true"`
 	EnableMetrics     bool          `default:"false" split_words:"true"`
 	DogstatsdAddr     string        `default:"127.0.0.1:8125" split_words:"true"`
@@ -99,7 +100,7 @@ func RunServer() {
 		} else {
 			reader = &auth.DexGrpcContextReader{DexEnabled: c.DexEnabled}
 		}
-		dexRbacPolicy, err := auth.ReadRbacPolicy(c.DexEnabled)
+		dexRbacPolicy, err := auth.ReadRbacPolicy(c.DexEnabled, c.DexRbacPolicyPath)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("dex.read.error", zap.Error(err))
 		}
@@ -146,7 +147,7 @@ func RunServer() {
 		// If the tracer is not started, calling this function is a no-op.
 		span, ctx := tracer.StartSpanFromContext(ctx, "Start server")
 
-		repo, err := repository.New(ctx, repository.RepositoryConfig{
+		cfg := repository.RepositoryConfig{
 			URL:            c.GitUrl,
 			Path:           "./repository",
 			CommitterEmail: c.GitCommitterEmail,
@@ -166,7 +167,8 @@ func RunServer() {
 			ArgoWebhookUrl:         c.ArgoCdServer,
 			WebURL:                 c.GitWebUrl,
 			NetworkTimeout:         c.GitNetworkTimeout,
-		})
+		}
+		repo, err := repository.New(ctx, cfg)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
 		}
@@ -216,6 +218,8 @@ func RunServer() {
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
 					reflection.Register(srv)
+					reposerver.Register(srv, repo, cfg)
+
 				},
 			},
 			Shutdown: func(ctx context.Context) error {
