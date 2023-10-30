@@ -53,11 +53,18 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 	bfs := state.Filesystem
 	path := req.ApplicationSource.Path
 	mn := []string{}
+	filter := func(p string) bool { return true }
+	if req.ApplicationSource.Directory != nil {
+		if req.ApplicationSource.Directory.Include != "" {
+			inc := req.ApplicationSource.Directory.Include
+			filter = func(p string) bool { return p == inc }
+		}
+	}
 	err = util.Walk(bfs, path, func(file string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() {
+		if !info.IsDir() && filter(info.Name()) {
 			m, err := util.ReadFile(bfs, file)
 			if err != nil {
 				return fmt.Errorf("reading %s: %w", file, err)

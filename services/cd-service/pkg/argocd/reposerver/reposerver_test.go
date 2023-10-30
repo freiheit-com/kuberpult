@@ -23,6 +23,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,6 +75,56 @@ data:
 	},
 }
 
+var createOneAppInDevelopmentAndTesting []repository.Transformer = []repository.Transformer{
+	&repository.CreateEnvironment{
+		Environment: "development",
+		Config: config.EnvironmentConfig{
+			Upstream: &config.EnvironmentConfigUpstream{
+				Latest: true,
+			},
+			ArgoCd: &config.EnvironmentConfigArgoCd{
+				Destination: config.ArgoCdDestination{
+					Server: "development",
+				},
+			},
+		},
+	},
+	&repository.CreateEnvironment{
+		Environment: "testing",
+		Config: config.EnvironmentConfig{
+			Upstream: &config.EnvironmentConfigUpstream{
+				Latest: true,
+			},
+			ArgoCd: &config.EnvironmentConfigArgoCd{
+				Destination: config.ArgoCdDestination{
+					Server: "testing",
+				},
+			},
+		},
+	},
+	&repository.CreateApplicationVersion{
+		Application: "app",
+		Manifests: map[string]string{
+			"development": `
+api: v1
+kind: ConfigMap
+metadata:
+  name: something
+  namespace: something
+data:
+  key: value`,
+			"testing": `
+api: v1
+kind: ConfigMap
+metadata:
+  name: something
+  namespace: something
+data:
+  key: value`,
+		},
+	},
+}
+
 func TestGenerateManifest(t *testing.T) {
 	tcs := []struct {
 		Name              string
@@ -121,6 +172,30 @@ func TestGenerateManifest(t *testing.T) {
 				Manifests: []string{
 					`{"api":"v1","data":{"key":"value"},"kind":"ConfigMap","metadata":{"name":"something","namespace":"something"}}`,
 					`{"api":"v1","data":{"key":"value"},"kind":"ConfigMap","metadata":{"name":"somethingelse","namespace":"somethingelse"}}`,
+				},
+				SourceType: "Directory",
+			},
+		},
+		{
+			Name:  "supports the include filter",
+			Setup: createOneAppInDevelopmentAndTesting,
+			Request: &argorepo.ManifestRequest{
+				Revision: "master",
+				Repo: &v1alpha1.Repository{
+					Repo: "<the-repo-url>",
+				},
+				ApplicationSource: &v1alpha1.ApplicationSource{
+					Path: "argocd/v1alpha1",
+					Directory: &v1alpha1.ApplicationSourceDirectory{
+						Include: "development.yaml",
+					},
+				},
+			},
+
+			ExpectedResponse: &argorepo.ManifestResponse{
+				Manifests: []string{
+					`{"apiVersion":"argoproj.io/v1alpha1","kind":"AppProject","metadata":{"name":"development"},"spec":{"description":"development","destinations":[{"server":"development"}],"sourceRepos":["*"]}}`,
+					`{"apiVersion":"argoproj.io/v1alpha1","kind":"Application","metadata":{"annotations":{"argocd.argoproj.io/manifest-generate-paths":"/environments/development/applications/app/manifests","com.freiheit.kuberpult/application":"app","com.freiheit.kuberpult/environment":"development","com.freiheit.kuberpult/team":""},"finalizers":["resources-finalizer.argocd.argoproj.io"],"labels":{"com.freiheit.kuberpult/team":""},"name":"development-app"},"spec":{"destination":{"server":"development"},"project":"development","source":{"path":"environments/development/applications/app/manifests","repoURL":"<the-repo-url>","targetRevision":"master"},"syncPolicy":{"automated":{"allowEmpty":true,"prune":true,"selfHeal":true}}}}`,
 				},
 				SourceType: "Directory",
 			},
@@ -198,6 +273,11 @@ func TestGenerateManifest(t *testing.T) {
 			}
 			if tc.ExpectedResponse != nil {
 				tc.ExpectedResponse.Revision = repo.State().Commit.Id().String()
+				mn := make([]string, 0)
+				for _, m := range tc.ExpectedResponse.Manifests {
+					mn = append(mn, strings.ReplaceAll(m, "<the-repo-url>", cfg.URL))
+				}
+				tc.ExpectedResponse.Manifests = mn
 			}
 
 			srv := New(repo, cfg)
