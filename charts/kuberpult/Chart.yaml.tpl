@@ -23,6 +23,16 @@ version: $VERSION
 # It is recommended to use it with quotes.
 appVersion: "$VERSION"
 
+# This is the DEX helm chart which will only be installed if `auth.dexAuth.installDex.enabled` is true.
+# Dex is an identity service that uses OpenID Connect to drive authentication through other 
+# identity providers.  
+# For more information please check: https://github.com/dexidp/dex
+dependencies:
+- name: dex
+  condition: auth.dexAuth.installDex
+  version: "0.14.2"
+  repository: https://charts.dexidp.io
+
 maintainers:
  - name: hannesg
  - name: sven-urbanski-freiheit-com
