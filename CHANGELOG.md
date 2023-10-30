@@ -16,6 +16,19 @@ Given a version number MAJOR.MINOR.PATCH:
 * PATCH version when you make backward compatible bug fixes
   * This includes most dependency upgrades.
 
+
+---
+
+## [1.10.2](https://github.com/freiheit-com/kuberpult/tree/1.10.2) (2023-10-30)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.10.1...1.10.2)
+
+### Patch Changes (Bugfixes)
+
+- Implement include feature of repo server [\#1070](https://github.com/freiheit-com/kuberpult/pull/1070) ([hannesg](https://github.com/hannesg))
+- Update dependency node to v20 [\#1050](https://github.com/freiheit-com/kuberpult/pull/1050) ([renovate[bot]](https://github.com/apps/renovate))
+- Update dependency @testing-library/jest-dom to v6 [\#888](https://github.com/freiheit-com/kuberpult/pull/888) ([renovate[bot]](https://github.com/apps/renovate))
+
 ---
 
 ## [1.10.1](https://github.com/freiheit-com/kuberpult/tree/1.10.1) (2023-10-27)
