@@ -54,7 +54,7 @@ func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
 }
 
 func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEvent {
-	if a.kuberpultVersion == nil || a.kuberpultVersion.Version != ev.Version.Version {
+	if a.kuberpultVersion == nil || a.kuberpultVersion.Version != ev.Version.Version || a.isProduction == nil || *a.isProduction != ev.IsProduction {
 		a.kuberpultVersion = ev.Version
 		a.environmentGroup = ev.EnvironmentGroup
 		a.isProduction = ptr.Bool(ev.IsProduction)

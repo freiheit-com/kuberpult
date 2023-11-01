@@ -45,6 +45,9 @@ func New(config Config) *Subscriber {
 		group: errgroup.Group{},
 	}
 	sub.group.SetLimit(config.MaximumConcurrency)
+	sub.url = config.URL
+	sub.token = config.Token
+	sub.ready = func() {}
 	return sub
 }
 
@@ -52,6 +55,8 @@ type Subscriber struct {
 	group errgroup.Group
 	token []byte
 	url   string
+	// The ready function is needed to sync tests
+	ready func()
 }
 
 func (s *Subscriber) Subscribe(ctx context.Context, b *service.Broadcast) error {
@@ -63,6 +68,7 @@ func (s *Subscriber) Subscribe(ctx context.Context, b *service.Broadcast) error 
 			state[ev.Key] = ev
 		}
 	}
+	s.ready()
 	for {
 		select {
 		case <-ctx.Done():
@@ -118,6 +124,7 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 		}
 		r.Header.Set("Content-Type", "application/json")
 		r.Header.Set("X-Hub-Signature-256", sha)
+		r.Header.Set("User-Agent", "kuberpult")
 		s, err := http.DefaultClient.Do(r)
 		if err != nil {
 			return fmt.Errorf("sending req: %w", err)

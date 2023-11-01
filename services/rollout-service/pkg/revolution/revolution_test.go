@@ -19,36 +19,123 @@ package revolution
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
+	"github.com/google/go-cmp/cmp"
 )
 
-func TestSubscriber(t *testing.T) {
+func TestRevolution(t *testing.T) {
+	type request struct {
+		Url    string
+		Header http.Header
+		Body   string
+	}
 	type step struct {
+		ArgoEvent       *service.ArgoEvent
+		KuberpultEvent  *versions.KuberpultEvent
+		ExpectedRequest *request
 	}
 	tcs := []struct {
 		Name  string
 		Steps []step
 	}{
 		{
-			Name:  "works",
-			Steps: []step{},
+			Name: "send out deployment events with timestamp",
+			Steps: []step{
+				{
+					ArgoEvent: &service.ArgoEvent{
+						Environment:      "foo",
+						Application:      "bar",
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusHealthy,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0),
+						},
+					},
+					KuberpultEvent: &versions.KuberpultEvent{
+						Environment:  "foo",
+						Application:  "bar",
+						IsProduction: true,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0),
+						},
+					},
+
+					ExpectedRequest: &request{
+						Url: "/",
+						Header: http.Header{
+							"Content-Type":        []string{"application/json"},
+							"User-Agent":          []string{"kuberpult"},
+							"X-Hub-Signature-256": []string{"sha256=76903a105ca442d285d7eb3968b7d980f4f0b9aac309080ba7397ac8e5cbdde4"},
+						},
+						Body: `{"id":"743b08b4-a5a5-5931-8207-fb22128d180c","commitHash":"123456","eventTime":"1973-11-29T22:33:09+01:00","url":"","serviceName":"bar"}`,
+					},
+				},
+			},
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			reqCh := make(chan *request)
+			revolution := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, _ := io.ReadAll(r.Body)
+				hdr := r.Header.Clone()
+				hdr.Del("Accept-Encoding")
+				hdr.Del("Content-Length")
+				reqCh <- &request{
+					Url:    r.URL.String(),
+					Header: hdr,
+					Body:   string(body),
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+			readyCh := make(chan struct{}, 1)
 			bc := service.New()
 			errCh := make(chan error, 1)
-			cs := New(Config{})
+			cs := New(Config{
+				URL:                revolution.URL,
+				Token:              []byte("revolution"),
+				MaximumConcurrency: 100,
+			})
+			cs.ready = func() { readyCh <- struct{}{} }
 			ctx, cancel := context.WithCancel(context.Background())
 			go func() {
 				errCh <- cs.Subscribe(ctx, bc)
 			}()
-      for i, s := range tc.Steps {
+			<-readyCh
+			for i, s := range tc.Steps {
+				if s.ArgoEvent != nil {
+					bc.ProcessArgoEvent(context.Background(), *s.ArgoEvent)
+				}
+				if s.KuberpultEvent != nil {
+					bc.ProcessKuberpultEvent(context.Background(), *s.KuberpultEvent)
+				}
+				if s.ExpectedRequest != nil {
+					select {
+					case <-time.After(5 * time.Second):
+						t.Fatalf("expexted request in step %d, but didn't receive any", i)
+					case req := <-reqCh:
+						d := cmp.Diff(req, s.ExpectedRequest)
+						if d != "" {
+							t.Errorf("unexpected requests diff in step %d: %s", i, d)
+						}
+					}
 
-      }
+				}
+			}
 			cancel()
 			err := <-errCh
 			if err != nil {
