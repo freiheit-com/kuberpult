@@ -48,7 +48,7 @@ func TestRevolution(t *testing.T) {
 		Steps []step
 	}{
 		{
-			Name: "send out deployment events with timestamp",
+			Name: "send out deployment events with timestamp once",
 			Steps: []step{
 				{
 					ArgoEvent: &service.ArgoEvent{
@@ -82,6 +82,21 @@ func TestRevolution(t *testing.T) {
 						},
 						Body: `{"id":"743b08b4-a5a5-5931-8207-fb22128d180c","commitHash":"123456","eventTime":"1973-11-29T22:33:09+01:00","serviceName":"bar"}`,
 					},
+				},
+				{
+					ArgoEvent: &service.ArgoEvent{
+						Environment:      "foo",
+						Application:      "bar",
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusDegraded,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Unix(123456789, 0),
+						},
+					},
+
+					ExpectedRequest: nil,
 				},
 			},
 		},
@@ -134,6 +149,12 @@ func TestRevolution(t *testing.T) {
 						}
 					}
 
+				} else {
+					select {
+					case req := <-reqCh:
+						t.Errorf("unexpected requests in step %d: %#v", i, req)
+					default:
+					}
 				}
 			}
 			cancel()

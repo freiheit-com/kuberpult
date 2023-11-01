@@ -89,7 +89,14 @@ func (s *Subscriber) Subscribe(ctx context.Context, b *service.Broadcast) error 
 }
 
 func shouldNotify(old *service.BroadcastEvent, nu *service.BroadcastEvent) bool {
-	if old == nil {
+	// check for fields that must be present to generate the request
+	if nu.ArgocdVersion == nil || nu.IsProduction == nil || nu.ArgocdVersion.SourceCommitId == "" {
+		return false
+	}
+	if old == nil || old.ArgocdVersion == nil || old.IsProduction == nil {
+		return true
+	}
+	if old.ArgocdVersion.SourceCommitId != nu.ArgocdVersion.SourceCommitId || old.ArgocdVersion.DeployedAt != nu.ArgocdVersion.DeployedAt {
 		return true
 	}
 	return false
