@@ -3,6 +3,7 @@ VERSION 0.7
 deps:
     FROM ../../+deps
     ARG service
+    ARG tag="deps"
     COPY ../../pkg/api/+artifacts/* pkg/api/
     COPY ../../pkg/auth/+artifacts/* pkg/auth/
     COPY ../../pkg/logger/+artifacts/* pkg/logger/
@@ -14,6 +15,7 @@ deps:
     RUN apt update && apt install ca-certificates tzdata libgit2-dev git libsqlite3-dev -y
     SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
     SAVE ARTIFACT /usr/share/zoneinfo
+    SAVE IMAGE --cache-hint
 artifacts:
     FROM +deps
     ARG service
@@ -28,6 +30,7 @@ compile:
 	    GOOS=linux \
         go build -o bin/main main.go
     SAVE ARTIFACT bin/main
+    SAVE IMAGE --cache-hint
 unit-test-deps:
     FROM +deps
     ARG service
@@ -44,7 +47,6 @@ docker:
     ARG UID=1000
     ARG service
     ARG tag="local"
-    ARG registry="eu.gcr.io/fdc-standard-setup-dev-env"
     ENV TZ=Europe/Berlin
     RUN useradd -m -d "/kp" --uid ${UID} kp
     RUN chown -R kp:kp /kp
@@ -53,12 +55,11 @@ docker:
     USER kp
     WORKDIR /kp
     ENTRYPOINT ["/main"] 
-    SAVE IMAGE --cache-from=$registry/services/$service:cache $service:$tag
+    SAVE IMAGE $service:$tag
 
 release:
     FROM +docker
     ARG service
     ARG tag="local"
-    ARG registry="eu.gcr.io/fdc-standard-setup-dev-env"
+    ARG registry="ghcr.io/freiheit-com/kuberpult"
     SAVE IMAGE --push $registry/services/$service:$tag
-    SAVE IMAGE --push $registry/services/$service:cache

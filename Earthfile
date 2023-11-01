@@ -18,6 +18,21 @@ deps:
     SAVE ARTIFACT go.sum
     SAVE ARTIFACT buf_sha256.txt
 
+cd-service:
+    ARG UID=1000
+    ARG target=docker
+    BUILD ./services/cd-service+$target --UID=$UID --service=cd-service
+
+frontend-service:
+    ARG UID=1000
+    ARG target=docker
+    BUILD ./services/frontend-service+$target --UID=$UID --service=frontend-service
+
+ui:
+    ARG UID=1000
+    ARG target=docker
+    BUILD ./services/frontend-service+$target-ui --UID=$UID
+
 all-services:
     ARG UID=1000
     BUILD ./services/cd-service+docker --service=cd-service --UID=$UID

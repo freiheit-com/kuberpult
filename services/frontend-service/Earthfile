@@ -3,6 +3,7 @@ VERSION 0.7
 deps:
     FROM ../../+deps
     ARG service
+    ARG tag="deps"
     COPY ../../pkg/api/+artifacts/* pkg/api/
     COPY ../../pkg/api/+artifacts/* services/$service/api/
     COPY ../../pkg/auth/+artifacts/* pkg/auth/
@@ -19,6 +20,7 @@ deps:
     RUN apt update && apt --auto-remove install ca-certificates tzdata libgit2-dev libsqlite3-dev -y
     SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
     SAVE ARTIFACT /usr/share/zoneinfo
+    SAVE IMAGE --cache-hint
 artifacts:
     FROM +deps
     ARG service
@@ -39,6 +41,7 @@ compile:
 	    GOOS=linux \
         go build -o bin/main main.go
     SAVE ARTIFACT bin/main
+    SAVE IMAGE --cache-hint
 unit-test-deps:
     FROM +deps
     ARG service
@@ -53,13 +56,12 @@ unit-test:
 docker:
     FROM +deps
     ARG service
-    ARG registry="eu.gcr.io/fdc-standard-setup-dev-env"
     ARG tag="local"
     ENV TZ=Europe/Berlin
     COPY +compile/main /main
     WORKDIR /kp
     ENTRYPOINT ["/main"] 
-    SAVE IMAGE --cache-from=$registry/$service:cache $service:$tag
+    SAVE IMAGE $service:$tag
 
 deps-ui:
     FROM node:20.9.0-alpine3.18
@@ -81,6 +83,7 @@ deps-ui:
     COPY src src
     COPY public public
     COPY ../../pkg/api/+artifacts/* api/
+    SAVE IMAGE --cache-hint
 
 unit-test-ui:
     FROM +deps-ui
@@ -91,18 +94,17 @@ docker-ui:
     FROM +deps-ui
     ARG registry="eu.gcr.io/fdc-standard-setup-dev-env"
     CMD "pnpm start" 
-    SAVE IMAGE --cache-from=$registry/services/ui:local ui:local
+    SAVE IMAGE ui:local
 
 release:
     FROM +docker
     ARG service
     ARG tag="local"
-    ARG registry="eu.gcr.io/fdc-standard-setup-dev-env"
+    ARG registry="ghcr.io/freiheit-com/kuberpult"
     SAVE IMAGE --push $registry/services/$service:$tag
-    SAVE IMAGE --push $registry/services/$service:cache
 
 release-ui:
     FROM +docker-ui
     ARG service
-    ARG registry="eu.gcr.io/fdc-standard-setup-dev-env"
+    ARG registry="ghcr.io/freiheit-com/kuberpult"
     SAVE IMAGE --push $registry/services/ui:local
