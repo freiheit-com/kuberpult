@@ -2,11 +2,21 @@ VERSION 0.7
 FROM golang:1.21-bookworm
 
 deps:
+    ARG BUF_VERSION=v1.26.1
+    ARG BUF_BIN_PATH=/usr/local/bin
     WORKDIR /kp
-    COPY go.mod go.sum ./
+    COPY go.mod go.sum buf_sha256.txt ./
     RUN go mod download
+    RUN OS=Linux ARCH=$(uname -m) && \
+        wget "https://github.com/bufbuild/buf/releases/download/${BUF_VERSION}/buf-${OS}-${ARCH}" \
+        -O "${BUF_BIN_PATH}/buf" && \
+        chmod +x "${BUF_BIN_PATH}/buf"
+    RUN OS=Linux ARCH=$(uname -m) && \
+        SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
+        echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
     SAVE ARTIFACT go.mod
     SAVE ARTIFACT go.sum
+    SAVE ARTIFACT buf_sha256.txt
 
 all-services:
     ARG UID=1000

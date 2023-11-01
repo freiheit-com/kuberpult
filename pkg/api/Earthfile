@@ -4,6 +4,7 @@ deps:
     FROM ../../+deps
     WORKDIR pkg/api
     COPY * .
+    RUN buf generate
 artifacts:
     FROM +deps
     SAVE ARTIFACT *
