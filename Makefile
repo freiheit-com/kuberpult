@@ -25,8 +25,6 @@ CODE_REVIEWER_LOCATION?=$(HOME)/bin/codereviewr
 MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg/api pkg
 
 export USER_UID := $(shell id -u)
-export EARTHLY_USE_INLINE_CACHE := true
-export EARTHLY_SAVE_INLINE_CACHE := true
 
 .install:
 	touch .install
@@ -96,7 +94,7 @@ kuberpult:
 	docker-compose up --build
 
 kuberpult-earthly:
-	earthly +all-services --UID=$(USER_UID)
+	earthly --use-inline-cache +all-services --UID=$(USER_UID)
 	docker-compose -f docker-compose-earthly.yml up 
 
 cache:
