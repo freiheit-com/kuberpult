@@ -46,6 +46,9 @@ For details on how to fill the repo, see the
 
 - the `cd-service` is available at `localhost:8080`. And Kuberpult ui is available at `localhost:3000`
 
+## Build and run kuberpult with Earthly
+- Download [Earthly](https://github.com/earthly/earthly/releases) binary and add it to your PATH.
+- In the root of the repository run `make kuberpult-earthly`. This will build the services (frontend/cd/ui) in a containerised environment and run docker-compose using the built images.
 ## GRCP Calls (with docker-compose setup)
 
 Most calls can be made directly from the UI.
