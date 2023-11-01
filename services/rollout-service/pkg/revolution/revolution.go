@@ -101,7 +101,7 @@ type kuberpultEvent struct {
 	CommitHash string `json:"commitHash"`
 	EventTime  string `json:"eventTime"`
 	// optimally in RFC3339 format
-	URL string `json:"url"`
+	URL string `json:"url,omitempty"`
 	// where to see the logs/status of the deployment
 	ServiceName string `json:"serviceName"`
 }

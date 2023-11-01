@@ -78,9 +78,9 @@ func TestRevolution(t *testing.T) {
 						Header: http.Header{
 							"Content-Type":        []string{"application/json"},
 							"User-Agent":          []string{"kuberpult"},
-							"X-Hub-Signature-256": []string{"sha256=76903a105ca442d285d7eb3968b7d980f4f0b9aac309080ba7397ac8e5cbdde4"},
+							"X-Hub-Signature-256": []string{"sha256=6226a9b12f3de5b35cf7bef299be1bc21fdb0bcab4e5e71e3977881e251c06a7"},
 						},
-						Body: `{"id":"743b08b4-a5a5-5931-8207-fb22128d180c","commitHash":"123456","eventTime":"1973-11-29T22:33:09+01:00","url":"","serviceName":"bar"}`,
+						Body: `{"id":"743b08b4-a5a5-5931-8207-fb22128d180c","commitHash":"123456","eventTime":"1973-11-29T22:33:09+01:00","serviceName":"bar"}`,
 					},
 				},
 			},
