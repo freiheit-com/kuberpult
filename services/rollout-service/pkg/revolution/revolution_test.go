@@ -123,7 +123,7 @@ func TestRevolution(t *testing.T) {
 			cs := New(Config{
 				URL:                revolution.URL,
 				Token:              []byte("revolution"),
-				MaximumConcurrency: 100,
+				Concurrency: 100,
 			})
 			cs.ready = func() { readyCh <- struct{}{} }
 			ctx, cancel := context.WithCancel(context.Background())

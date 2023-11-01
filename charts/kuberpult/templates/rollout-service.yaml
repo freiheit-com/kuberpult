@@ -132,6 +132,17 @@ spec:
             secretKeyRef:
               name: kuberpult-rollout-service
               key: KUBERPULT_ARGOCD_TOKEN
+        - name: KUBERPULT_REVOLUTION_DORA_ENABLED
+          value: {{ .Values.revolution.dora.enabled | quote }}
+        - name: KUBERPULT_REVOLUTION_DORA_URL
+          value: {{ .Values.revolution.dora.url | quote }}
+        - name: KUBERPULT_REVOLUTION_DORA_CONCURRENCY
+          value: {{ .Values.revolution.dora.concurrency | quote }}
+        - name: KUBERPULT_REVOLUTION_DORA_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-rollout-service
+              key: KUBERPULT_REVOLUTION_DORA_TOKEN
         volumeMounts:
         # We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115
         - name: tmp
@@ -174,4 +185,5 @@ metadata:
 type: Opaque
 data:
   KUBERPULT_ARGOCD_TOKEN: {{ .Values.argocd.token | b64enc }}
+  KUBERPULT_REVOLUTION_DORA_TOKEN: {{ .Values.revolution.dora.token | b64enc }}
 {{- end }}

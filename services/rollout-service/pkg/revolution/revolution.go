@@ -37,14 +37,14 @@ import (
 type Config struct {
 	URL                string
 	Token              []byte
-	MaximumConcurrency int
+	Concurrency int
 }
 
 func New(config Config) *Subscriber {
 	sub := &Subscriber{
 		group: errgroup.Group{},
 	}
-	sub.group.SetLimit(config.MaximumConcurrency)
+	sub.group.SetLimit(config.Concurrency)
 	sub.url = config.URL
 	sub.token = config.Token
 	sub.ready = func() {}

@@ -245,5 +245,13 @@ dex:
   #       clientSecret: $GOOGLE_CLIENT_SECRET
   #       redirectURI: http://127.0.0.1:5556/callback
   config: {}
-
-
+# Configuration for revolution dora metrics. If you are not using revolution you can safely ignore this.
+revolution:
+  dora:
+    enabled: false
+    # The default url in revolution is https://revolution.dev/api/dora/kuberpult?companyID=myCompany&productID=myProductID&projectID=myProductId
+    url: ""
+    # The token can be obtained from revolution.
+    token: ""
+    # Maximum number of requests send in parallel.
+    concurrency: 20
