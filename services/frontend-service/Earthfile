@@ -59,7 +59,7 @@ docker:
     COPY +compile/main /main
     WORKDIR /kp
     ENTRYPOINT ["/main"] 
-    SAVE IMAGE --cache-from=$registry/infrastructure/$service:cache $service:$tag
+    SAVE IMAGE --cache-from=$registry/$service:cache $service:$tag
 
 deps-ui:
     FROM node:20.9.0-alpine3.18
@@ -67,12 +67,7 @@ deps-ui:
     ARG BUF_BIN_PATH=/usr/local/bin
 
     WORKDIR /kp
-    COPY ../../pkg/api/+artifacts/* api/
     COPY ../../+deps/buf_sha256.txt .
-    COPY src src
-    COPY public public
-    COPY package.json pnpm-lock.yaml pnpm-workspace.yaml buf* tsconfig.json .eslintrc .prettierrc .npmrc .nvmrc .
-    RUN npm install -g pnpm@8.9.2
     RUN OS=Linux ARCH=$(uname -m) && \
         wget "https://github.com/bufbuild/buf/releases/download/${BUF_VERSION}/buf-${OS}-${ARCH}" \
         -O "${BUF_BIN_PATH}/buf" && \
@@ -80,7 +75,12 @@ deps-ui:
     RUN OS=Linux ARCH=$(uname -m) && \
         SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
         echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
+    RUN npm install -g pnpm@8.9.2
+    COPY package.json pnpm-lock.yaml pnpm-workspace.yaml buf.yaml tsconfig.json .eslintrc .prettierrc .npmrc .nvmrc .
     RUN pnpm i
+    COPY src src
+    COPY public public
+    COPY ../../pkg/api/+artifacts/* api/
 
 unit-test-ui:
     FROM +deps-ui

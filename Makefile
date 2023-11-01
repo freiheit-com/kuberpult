@@ -93,8 +93,11 @@ cleanup-main:
 	@echo "Nothing to do"
 
 kuberpult:
-	earthly +all-services --UID=$(USER_UID)
 	docker-compose up --build
 
+kuberpult-earthly:
+	earthly +all-services --UID=$(USER_UID)
+	docker-compose -f docker-compose-earthly.yml up 
+
 cache:
-	earthly --push +cache --UID=$(USER_UID)
+	earthly --use-inline-cache --save-inline-cache --push +cache --UID=$(USER_UID)

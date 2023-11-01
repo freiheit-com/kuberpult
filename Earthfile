@@ -29,3 +29,8 @@ cache:
     BUILD ./services/cd-service+release --service=cd-service --UID=$UID
     BUILD ./services/frontend-service+release --service=frontend-service
     BUILD ./services/frontend-service+release-ui
+
+test-all:
+    BUILD ./services/cd-service+unit-test --service=cd-service
+    BUILD ./services/frontend-service+unit-test --service=frontend-service
+    BUILD ./services/frontend-service+unit-test-ui

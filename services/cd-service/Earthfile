@@ -53,7 +53,7 @@ docker:
     USER kp
     WORKDIR /kp
     ENTRYPOINT ["/main"] 
-    SAVE IMAGE --cache-from=$registry/infrastructure/services/$service:cache $service:$tag
+    SAVE IMAGE --cache-from=$registry/services/$service:cache $service:$tag
 
 release:
     FROM +docker
