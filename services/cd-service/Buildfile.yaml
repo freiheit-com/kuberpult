@@ -12,3 +12,4 @@ spec:
   - ../../pkg
   - ../../go.mod
   - ../../go.sum
+  - ../../tests/integration-tests/

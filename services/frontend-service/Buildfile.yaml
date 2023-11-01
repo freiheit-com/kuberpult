@@ -7,4 +7,4 @@ spec:
   - ../../pkg
   - ../../go.mod
   - ../../go.sum
-# rebuild-counter: 1
+  - ../../tests/integration-tests/
