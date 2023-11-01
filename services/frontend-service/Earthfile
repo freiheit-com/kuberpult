@@ -81,6 +81,12 @@ deps-ui:
         SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
         echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
     RUN pnpm i
+
+unit-test-ui:
+    FROM +deps-ui
+    RUN pnpm eslint
+    RUN pnpm test -- --watchAll=false
+
 docker-ui:
     FROM +deps-ui
     ARG registry="eu.gcr.io/fdc-standard-setup-dev-env"
