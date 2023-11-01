@@ -32,11 +32,12 @@ import (
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type Config struct {
-	URL                string
-	Token              []byte
+	URL         string
+	Token       []byte
 	Concurrency int
 }
 
@@ -121,6 +122,12 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 		ServiceName: ev.Application,
 	}
 	return func() error {
+		span, _ := tracer.StartSpanFromContext(ctx, "revolution.notify")
+		defer span.Finish()
+		span.SetTag("revolution.url", s.url)
+		span.SetTag("revolution.id", event.Id)
+		span.SetTag("environment", ev.Environment)
+		span.SetTag("application", ev.Application)
 		body, err := json.Marshal(event)
 		h := hmac.New(sha256.New, s.token)
 		h.Write([]byte(body))
@@ -134,8 +141,10 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 		r.Header.Set("User-Agent", "kuberpult")
 		s, err := http.DefaultClient.Do(r)
 		if err != nil {
-			return fmt.Errorf("sending req: %w", err)
+			span.Finish(tracer.WithError(err))
+			return nil
 		}
+		span.SetTag("http.status_code", s.Status)
 		defer s.Body.Close()
 		content, _ := io.ReadAll(s.Body)
 		if s.StatusCode > 299 {
