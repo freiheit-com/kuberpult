@@ -7,3 +7,4 @@ spec:
   - ../../pkg
   - ../../go.mod
   - ../../go.sum
+# rebuild-counter: 1
