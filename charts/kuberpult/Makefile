@@ -39,6 +39,8 @@ values.yaml: values.yaml.tpl
 	env VERSION="$(VERSION)" envsubst < values.yaml.tpl > $@
 
 $(TGZ_FILE): Chart.yaml values.yaml templates/*
+	helm dependency update
+	(rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xvzf $$filename && rm -f $$filename; done;)
 	helm package .
 
 ci/test-values.yaml: Chart.yaml values.yaml
@@ -63,8 +65,9 @@ clean:
 	rm -f Chart.yaml values.yaml
 	rm -f kuberpult-*.tgz
 	rm -f ci/test-values.yaml
+	rm -fr ./charts/
 
-release-tag: test $(TGZ_FILE)
+release-tag: $(TGZ_FILE)
 	echo "Creating release via git tag pipeline"
 
 .PHONY: clean
