@@ -1,5 +1,4 @@
-/*
-This file is part of kuberpult.
+/*This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -13,8 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com
-*/
+Copyright 2023 freiheit.com*/
 package revolution
 
 import (
@@ -58,15 +56,29 @@ type Subscriber struct {
 	url   string
 	// The ready function is needed to sync tests
 	ready func()
+	state map[service.Key]*service.BroadcastEvent
 }
 
 func (s *Subscriber) Subscribe(ctx context.Context, b *service.Broadcast) error {
+	if s.state == nil {
+		s.state = map[service.Key]*service.BroadcastEvent{}
+	}
+	for {
+		err := s.subscribeOnce(ctx, b)
+		select {
+		case <-ctx.Done():
+			return err
+		default:
+		}
+	}
+}
+
+func (s *Subscriber) subscribeOnce(ctx context.Context, b *service.Broadcast) error {
 	event, ch, unsub := b.Start()
 	defer unsub()
-	state := map[service.Key]*service.BroadcastEvent{}
 	for _, ev := range event {
 		if ev.IsProduction != nil && *ev.IsProduction {
-			state[ev.Key] = ev
+			s.state[ev.Key] = ev
 		}
 	}
 	s.ready()
@@ -81,10 +93,10 @@ func (s *Subscriber) Subscribe(ctx context.Context, b *service.Broadcast) error 
 			if ev.IsProduction == nil || !*ev.IsProduction {
 				continue
 			}
-			if shouldNotify(state[ev.Key], ev) {
+			if shouldNotify(s.state[ev.Key], ev) {
 				s.group.Go(s.notify(ctx, ev))
 			}
-			state[ev.Key] = ev
+			s.state[ev.Key] = ev
 		}
 	}
 }
