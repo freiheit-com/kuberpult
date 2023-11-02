@@ -120,8 +120,8 @@ github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kd
 github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210826220005-b48c857c3a0e/go.mod h1:F7bn7fEU90QkQ3tnmaTx3LTKLEDqnwWODIYppRQ5hnY=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
-github.com/argoproj/argo-cd/v2 v2.8.4 h1:V3jBZdWsgIB/bhpsGcRo4ryGSYELnXZMYZ2taAwH0+o=
-github.com/argoproj/argo-cd/v2 v2.8.4/go.mod h1:8UQOF1UmocJR7lNkwe3IhSVLTaxvLcNgCBI/RPbszuE=
+github.com/argoproj/argo-cd/v2 v2.8.6 h1:0Fh9EaOj3C3MUwW/lNehWkwXU3sUPCkdKdDuesOBYrk=
+github.com/argoproj/argo-cd/v2 v2.8.6/go.mod h1:tTVb2cffiAxi7a0M8LFNU+KtLVNp8z4aCB4CJjRFs/A=
 github.com/argoproj/gitops-engine v0.7.1-0.20230607163028-425d65e07695 h1:w8OPbqHyhWxLyC4LZgs5JBUe7AOkJpNZqFa92yy7Kmc=
 github.com/argoproj/gitops-engine v0.7.1-0.20230607163028-425d65e07695/go.mod h1:WpA/B7tgwfz+sdNE3LqrTrb7ArEY1FOPI2pAGI0hfPc=
 github.com/argoproj/pkg v0.13.7-0.20230627120311-a4dd357b057e h1:kuLQvJqwwRMQTheT4MFyKVM8Txncu21CHT4yBWUl1Mk=
