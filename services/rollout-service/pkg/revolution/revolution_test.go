@@ -74,7 +74,7 @@ func TestRevolution(t *testing.T) {
 						Version: &versions.VersionInfo{
 							Version:        1,
 							SourceCommitId: "123456",
-							DeployedAt:     time.Unix(123456789, 0),
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
 						},
 					},
 					KuberpultEvent: &versions.KuberpultEvent{
@@ -84,7 +84,7 @@ func TestRevolution(t *testing.T) {
 						Version: &versions.VersionInfo{
 							Version:        1,
 							SourceCommitId: "123456",
-							DeployedAt:     time.Unix(123456789, 0),
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
 						},
 					},
 
@@ -93,9 +93,9 @@ func TestRevolution(t *testing.T) {
 						Header: http.Header{
 							"Content-Type":        []string{"application/json"},
 							"User-Agent":          []string{"kuberpult"},
-							"X-Hub-Signature-256": []string{"sha256=6226a9b12f3de5b35cf7bef299be1bc21fdb0bcab4e5e71e3977881e251c06a7"},
+							"X-Hub-Signature-256": []string{"sha256=c227a4f702ce00368a15bd00c3678dd20c76ed7275d82c5a2d48009beb78b5ee"},
 						},
-						Body: `{"id":"743b08b4-a5a5-5931-8207-fb22128d180c","commitHash":"123456","eventTime":"1973-11-29T22:33:09+01:00","serviceName":"bar"}`,
+						Body: `{"id":"0ee3e568-0f9d-5be9-b75c-caa9025599c2","commitHash":"123456","eventTime":"1973-11-29T21:33:09Z","serviceName":"bar"}`,
 					},
 				},
 				{
@@ -107,7 +107,7 @@ func TestRevolution(t *testing.T) {
 						Version: &versions.VersionInfo{
 							Version:        1,
 							SourceCommitId: "123456",
-							DeployedAt:     time.Unix(123456789, 0),
+							DeployedAt:     time.Unix(123456789, 0).UTC(),
 						},
 					},
 
