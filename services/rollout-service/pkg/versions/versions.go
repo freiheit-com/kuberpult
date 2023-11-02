@@ -78,7 +78,11 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 				if app == nil {
 					return &VersionInfo{}, nil
 				}
-				return &VersionInfo{Version: app.Version, SourceCommitId: sourceCommitId(overview, app), DeployedAt: deployedAt(app)}, nil
+				return &VersionInfo{
+					Version:        app.Version,
+					SourceCommitId: sourceCommitId(overview, app),
+					DeployedAt:     deployedAt(app),
+				}, nil
 			}
 		}
 	}
@@ -117,6 +121,7 @@ type KuberpultEvent struct {
 	Environment      string
 	Application      string
 	EnvironmentGroup string
+	IsProduction     bool
 	Version          *VersionInfo
 }
 
@@ -182,10 +187,12 @@ outer:
 							Application:      app.Name,
 							Environment:      env.Name,
 							EnvironmentGroup: envGroup.EnvironmentGroupName,
+							IsProduction:   env.Priority == api.Priority_PROD,
 							Version: &VersionInfo{
 								Version:        app.Version,
 								SourceCommitId: sc,
 								DeployedAt:     dt,
+
 							},
 						})
 					}
