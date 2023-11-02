@@ -37,6 +37,6 @@
     "gomodTidy"
   ],
   "schedule": [
-    "before 10am"
+    "at any time"
   ]
 }
