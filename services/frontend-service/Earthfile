@@ -1,0 +1,96 @@
+VERSION 0.7
+ARG --global service=frontend-service
+
+deps:
+    FROM ../../+deps
+    ARG tag="deps"
+    RUN apt update && apt --auto-remove install ca-certificates tzdata libgit2-dev libsqlite3-dev -y
+    COPY ../../pkg+artifacts/* pkg/
+    BUILD ../cd-service/+artifacts --service=cd-service
+    COPY (../cd-service/+artifacts/pkg --service=cd-service) services/cd-service/pkg/
+    COPY pkg services/$service/pkg
+    COPY public services/$service/public
+    COPY src services/$service/src
+    COPY cmd/server/* services/$service/cmd/server/
+    RUN ln -s pkg/api services/$service/api
+    SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
+    SAVE ARTIFACT /usr/share/zoneinfo
+    SAVE IMAGE --cache-hint
+artifacts:
+    FROM +deps
+    WORKDIR services/$service
+    COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json .
+    SAVE ARTIFACT package.json
+    SAVE ARTIFACT tsconfig.json
+    SAVE ARTIFACT pnpm-lock.yaml
+    SAVE ARTIFACT pnpm-workspace.yaml
+    SAVE ARTIFACT src
+compile:
+    FROM +deps
+    ARG USERARCH
+    WORKDIR services/$service/cmd/server
+    RUN CGO_ENABLED=1 \
+        GOARCH=$USERARCH \
+	    GOOS=linux \
+        go build -o bin/main main.go
+    SAVE ARTIFACT bin/main
+    SAVE IMAGE --cache-hint
+
+unit-test:
+    FROM +deps
+    WORKDIR services/$service
+    RUN CGO_ENABLED=1 go test ./...
+
+docker:
+    FROM +deps
+    ARG tag="local"
+    ENV TZ=Europe/Berlin
+    COPY +compile/main /main
+    WORKDIR /kp
+    ENTRYPOINT ["/main"] 
+    SAVE IMAGE $service:$tag
+
+deps-ui:
+    FROM node:20.9.0-alpine3.18
+    ARG BUF_VERSION=v1.26.1
+    ARG BUF_BIN_PATH=/usr/local/bin
+
+    WORKDIR /kp
+    COPY ../../+deps/buf_sha256.txt .
+    RUN OS=Linux ARCH=$(uname -m) && \
+        wget "https://github.com/bufbuild/buf/releases/download/${BUF_VERSION}/buf-${OS}-${ARCH}" \
+        -O "${BUF_BIN_PATH}/buf" && \
+        chmod +x "${BUF_BIN_PATH}/buf"
+    RUN OS=Linux ARCH=$(uname -m) && \
+        SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
+        echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
+    RUN npm install -g pnpm@8.9.2
+    COPY package.json pnpm-lock.yaml pnpm-workspace.yaml buf.yaml buf.gen.yaml buf.lock tsconfig.json .eslintrc .prettierrc .npmrc .nvmrc .
+    RUN pnpm i
+    COPY ../../pkg+artifacts/pkg/api api
+    COPY src src
+    COPY public public
+    RUN rm -rf src/api && buf generate --path api --timeout 5m
+    SAVE IMAGE --cache-hint
+
+unit-test-ui:
+    FROM +deps-ui
+    RUN pnpm eslint
+    RUN pnpm test -- --watchAll=false
+
+docker-ui:
+    FROM +deps-ui
+    ARG registry="eu.gcr.io/fdc-standard-setup-dev-env"
+    CMD "pnpm start" 
+    SAVE IMAGE ui:local
+
+release:
+    FROM +docker
+    ARG tag="local"
+    ARG registry="ghcr.io/freiheit-com/kuberpult"
+    SAVE IMAGE --push $registry/services/$service:$tag
+
+release-ui:
+    FROM +docker-ui
+    ARG registry="ghcr.io/freiheit-com/kuberpult"
+    SAVE IMAGE --push $registry/services/ui:local

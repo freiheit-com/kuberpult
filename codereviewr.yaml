@@ -89,6 +89,7 @@ ignoredFiles: [
     "Jenkinsfile*",
     "Makefile*",
     "dmake",
+    "Earthfile",
     "OWNERS",
     "codereviewr",
     "*/gradlew",
@@ -105,6 +106,7 @@ ignoredFiles: [
     "*/Fastfile",
     "*/Pluginfile",
     "*/Makefile",
+    "*/Earthfile",
     "*/env.config",
     "*/global.config",
     "*/service.config",
@@ -125,7 +127,8 @@ ignoredFiles: [
     ".go-version",
     "services/cd-service/gitconfig",
     "*.csv",
-    ".github_changelog_generator"
+    ".github_changelog_generator",
+    "*.arg"
   ] #ignored file extensions
 testFiles: ["_test.go", "_test.dart"]
 languagesConfig:

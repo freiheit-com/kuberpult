@@ -1,0 +1,50 @@
+VERSION 0.7
+ARG --global service=cd-service
+
+deps:
+    FROM ../../+deps
+    RUN apt update && apt install ca-certificates tzdata libgit2-dev git libsqlite3-dev -y
+    COPY ../../pkg+artifacts/* pkg/
+    COPY pkg services/$service/pkg
+    COPY cmd/server/* services/$service/cmd/server/
+    SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
+    SAVE ARTIFACT /usr/share/zoneinfo
+    SAVE IMAGE --cache-hint
+artifacts:
+    FROM +deps
+    SAVE ARTIFACT services/$service/pkg
+compile:
+    FROM +deps
+    ARG USERARCH
+    WORKDIR services/$service/cmd/server
+    RUN CGO_ENABLED=1 \
+        GOARCH=$USERARCH \
+	    GOOS=linux \
+        go build -o bin/main main.go
+    SAVE ARTIFACT bin/main
+    SAVE IMAGE --cache-hint
+
+unit-test:
+    FROM +deps
+    WORKDIR services/$service
+    RUN CGO_ENABLED=1 go test ./...
+
+docker:
+    FROM +deps
+    ARG UID=1000
+    ARG tag="local"
+    ENV TZ=Europe/Berlin
+    RUN useradd -m -d "/kp" --uid ${UID} kp
+    RUN chown -R kp:kp /kp
+    COPY +compile/main /main
+    COPY gitconfig /etc/gitconfig
+    USER kp
+    WORKDIR /kp
+    ENTRYPOINT ["/main"] 
+    SAVE IMAGE $service:$tag
+
+release:
+    FROM +docker
+    ARG tag="local"
+    ARG registry="ghcr.io/freiheit-com/kuberpult"
+    SAVE IMAGE --push $registry/services/$service:$tag

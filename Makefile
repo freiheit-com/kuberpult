@@ -25,6 +25,7 @@ CODE_REVIEWER_LOCATION?=$(HOME)/bin/codereviewr
 MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg/api pkg
 
 export USER_UID := $(shell id -u)
+export USER_ARCH := $(shell uname -m)
 
 .install:
 	touch .install
@@ -92,3 +93,12 @@ cleanup-main:
 
 kuberpult:
 	docker-compose up --build
+
+kuberpult-earthly:
+	earthly +all-services --UID=$(USER_UID) --target docker
+	docker-compose -f docker-compose-earthly.yml up 
+
+cache:
+	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/frontend-service:$(USER_ARCH) --push +frontend-service --target release --UID=$(USER_UID)
+	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/ui:$(USER_ARCH) --push +ui --UID=$(USER_UID) --target release
+	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/cd-service:$(USER_ARCH) --push +cd-service --UID=$(USER_UID) --target release
