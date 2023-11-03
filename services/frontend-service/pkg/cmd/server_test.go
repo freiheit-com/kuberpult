@@ -176,6 +176,14 @@ func TestServerHeader(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			err = os.Setenv("KUBERPULT_GIT_AUTHOR_EMAIL", "mail2")
+			if err != nil {
+				t.Fatalf("expected no error, but got %q", err)
+			}
+			err = os.Setenv("KUBERPULT_GIT_AUTHOR_NAME", "name1")
+			if err != nil {
+				t.Fatalf("expected no error, but got %q", err)
+			}
 			err = runServer(ctx)
 			if err != nil {
 				t.Fatalf("expected no error, but got %q", err)
@@ -248,7 +256,16 @@ func TestGrpcForwardHeader(t *testing.T) {
 			for k, v := range tc.Environment {
 				t.Setenv(k, v)
 			}
-			err := runServer(ctx)
+			err := os.Setenv("KUBERPULT_GIT_AUTHOR_EMAIL", "mail2")
+			if err != nil {
+				t.Fatalf("expected no error, but got %q", err)
+			}
+			err = os.Setenv("KUBERPULT_GIT_AUTHOR_NAME", "name1")
+			if err != nil {
+				t.Fatalf("expected no error, but got %q", err)
+			}
+			t.Logf("env var: %s", os.Getenv("KUBERPULT_GIT_AUTHOR_EMAIL"))
+			err = runServer(ctx)
 			if err != nil {
 				t.Fatalf("expected no error, but got %q", err)
 			}
