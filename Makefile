@@ -95,9 +95,7 @@ kuberpult:
 	docker-compose up --build
 
 kuberpult-earthly:
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/frontend-service:$(USER_ARCH) +frontend-service --target docker --UID=$(USER_UID)
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/ui:$(USER_ARCH) +ui --UID=$(USER_UID) --target docker
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/cd-service:$(USER_ARCH) +cd-service --UID=$(USER_UID) --target docker
+	earthly +all-services --UID=$(USER_UID) --target docker
 	docker-compose -f docker-compose-earthly.yml up 
 
 cache:
