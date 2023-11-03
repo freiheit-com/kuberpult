@@ -18,12 +18,17 @@ package setup
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/metrics"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestBasicAuthHandler(t *testing.T) {
@@ -172,6 +177,75 @@ func TestGracefulShutdown(t *testing.T) {
 		})
 	}
 
+}
+
+func TestMetrics(t *testing.T) {
+	tcs := []struct {
+		desc string
+		port string
+	}{
+		{
+			desc: "registers metrics server automatically",
+			port: "8384",
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			metricAdded := make(chan struct{})
+			cfg := ServerConfig{
+				HTTP: []HTTPConfig{
+					{
+						Port:     tc.port,
+						Register: func(*http.ServeMux) {},
+					},
+				},
+				Background: []BackgroundTaskConfig{
+					{
+						Name: "something",
+						Run: func(ctx context.Context) error {
+							pv := metrics.FromContext(ctx)
+							counter, _ := pv.Meter("something").Int64Counter("something")
+							counter.Add(ctx, 1)
+							metricAdded <- struct{}{}
+							<-ctx.Done()
+							return nil
+						},
+					},
+				},
+			}
+
+			mainExited := make(chan bool, 1)
+			ctx, cancel := context.WithCancel(context.Background())
+			go func() {
+				Run(ctx, cfg)
+				mainExited <- true
+			}()
+			<-metricAdded
+			var response *http.Response
+			for i := 0; i < 10; i = i + 1 {
+				res, err := http.Get(fmt.Sprintf("http://localhost:%s/metrics", tc.port))
+				if err != nil {
+					if i == 9 {
+						t.Errorf("error getting metrics: %s", err)
+					}
+					continue
+				}
+				response = res
+				time.After(time.Second)
+			}
+			body, _ := io.ReadAll(response.Body)
+			expectedBody := `# HELP something_total 
+# TYPE something_total counter
+something_total 1
+`
+			if string(body) != expectedBody {
+				t.Errorf("got wrong metric body, diff %s", cmp.Diff(string(body), expectedBody))
+			}
+			cancel()
+			<-mainExited
+		})
+	}
 }
 
 //helper

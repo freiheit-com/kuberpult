@@ -86,8 +86,8 @@ func (config *Config) RevolutionConfig() (revolution.Config, error) {
 		return revolution.Config{}, fmt.Errorf("KUBERPULT_REVOLUTION_DORA_TOKEN must not be empty")
 	}
 	return revolution.Config{
-		URL:            config.RevolutionDoraUrl,
-		Token:          []byte(config.RevolutionDoraToken),
+		URL:         config.RevolutionDoraUrl,
+		Token:       []byte(config.RevolutionDoraToken),
 		Concurrency: config.RevolutionDoraConcurrency,
 	}, nil
 }
@@ -224,14 +224,10 @@ func runServer(ctx context.Context, config Config) error {
 		})
 	}
 
-	meter, handler, err := pkgmetrics.Init()
-	if err != nil {
-		return err
-	}
 	backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 		Name: "create metrics",
 		Run: func(ctx context.Context) error {
-			return metrics.Metrics(ctx, broadcast, meter, nil)
+			return metrics.Metrics(ctx, broadcast, pkgmetrics.FromContext(ctx), nil)
 		},
 	})
 
@@ -247,7 +243,6 @@ func runServer(ctx context.Context, config Config) error {
 							w.WriteHeader(500)
 						}
 					}))
-					mux.Handle("/metrics", handler)
 				},
 			},
 		},
