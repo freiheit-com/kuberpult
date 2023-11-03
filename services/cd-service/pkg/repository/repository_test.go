@@ -1418,44 +1418,29 @@ func TestPushUpdate(t *testing.T) {
 func TestDeleteDirIfEmpty(t *testing.T) {
 	tcs := []struct {
 		Name           string
+		CreateThisDir  string
 		DeleteThisDir  string
 		ExpectedError  string
 		ExpectedReason SuccessReason
-		Transformers   []Transformer
 	}{
 		{
-			Name: "Should succeed: dir does not exist",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "prod-ca",
-					Config:      testutil.MakeEnvConfigLatest(nil),
-				},
-				&CreateEnvironmentLock{
-					Authentication: Authentication{},
-					Environment:    "prod-ca",
-					LockId:         "my-lock",
-					Message:        "my-message",
-				},
-			},
-			DeleteThisDir:  "does/not/exist",
+			Name:           "Should succeed: dir exists and is empty",
+			CreateThisDir:  "foo/bar",
+			DeleteThisDir:  "foo/bar",
+			ExpectedError:  "",
+			ExpectedReason: NoReason,
+		},
+		{
+			Name:           "Should succeed: dir does not exist",
+			CreateThisDir:  "foo/bar",
+			DeleteThisDir:  "foo/bar/pow",
 			ExpectedError:  "",
 			ExpectedReason: DirDoesNotExist,
 		},
 		{
-			Name: "Should succeed: dir exists and is not empty",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: "prod-ca",
-					Config:      testutil.MakeEnvConfigLatest(nil),
-				},
-				&CreateEnvironmentLock{
-					Authentication: Authentication{},
-					Environment:    "prod-ca",
-					LockId:         "my-lock",
-					Message:        "my-message",
-				},
-			},
-			DeleteThisDir:  "environments/prod-ca/locks",
+			Name:           "Should succeed: dir does not exist",
+			CreateThisDir:  "foo/bar/pow",
+			DeleteThisDir:  "foo/bar",
 			ExpectedError:  "",
 			ExpectedReason: DirNotEmpty,
 		},
@@ -1465,10 +1450,11 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			ctx := testutil.MakeTestContext()
-			_, state, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			state := repo.State()
+			err := state.Filesystem.MkdirAll(tc.CreateThisDir, 0777)
 			if err != nil {
-				t.Fatalf("unexpected error in transformer: %v", err)
+				t.Fatalf("error in mkdir: %v", err)
+				return
 			}
 			successReason, err := state.DeleteDirIfEmpty(tc.DeleteThisDir)
 			errString := ""
