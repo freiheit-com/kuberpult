@@ -1,0 +1,9 @@
+VERSION 0.7
+
+deps:
+    FROM ../+deps
+    COPY . pkg/
+    RUN cd pkg/api && buf generate
+artifacts:
+    FROM +deps
+    SAVE ARTIFACT pkg
