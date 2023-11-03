@@ -16,6 +16,24 @@ Given a version number MAJOR.MINOR.PATCH:
 * PATCH version when you make backward compatible bug fixes
   * This includes most dependency upgrades.
 
+---
+
+## [1.11.0](https://github.com/freiheit-com/kuberpult/tree/1.11.0) (2023-11-02)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.10.2...1.11.0)
+
+### Minor Changes (New Features)
+
+- Send dora events to revolution [\#1077](https://github.com/freiheit-com/kuberpult/pull/1077) ([hannesg](https://github.com/hannesg))
+- Add DEX helm chart to Kuberpult helm chart  [\#1064](https://github.com/freiheit-com/kuberpult/pull/1064) ([bernardo-bastos](https://github.com/bernardo-bastos))
+
+### Patch Changes (Bugfixes)
+
+- Integration test for frontend main page [\#1076](https://github.com/freiheit-com/kuberpult/pull/1076) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Fix frontend service docker image [\#1074](https://github.com/freiheit-com/kuberpult/pull/1074) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Update module google.golang.org/api to v0.149.0 [\#1073](https://github.com/freiheit-com/kuberpult/pull/1073) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module github.com/lestrrat-go/jwx/v2 to v2.0.16 [\#1072](https://github.com/freiheit-com/kuberpult/pull/1072) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module github.com/argoproj/argo-cd/v2 to v2.8.6 [\#1065](https://github.com/freiheit-com/kuberpult/pull/1065) ([renovate[bot]](https://github.com/apps/renovate))
 
 ---
 

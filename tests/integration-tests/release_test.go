@@ -13,6 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
+
 package integration_tests
 
 import (
@@ -431,6 +432,42 @@ func TestServeHttpInvalidInput(t *testing.T) {
 				if bodyString != tc.ExpectedError {
 					t.Fatalf(`expected http body "%s", received "%s"`, tc.ExpectedError, bodyString)
 				}
+			}
+		})
+	}
+}
+
+func TestServeHttpBasics(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		ExpectedStatus int
+	}{{
+		Name:           "Main page returns 200",
+		ExpectedStatus: 200,
+	}}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			var buf bytes.Buffer
+			body := multipart.NewWriter(&buf)
+			body.Close()
+
+			if resp, err := http.Get("http://localhost:" + frontendPort + "/"); err != nil {
+				t.Logf("response failure %s", err.Error())
+				t.Fatal(err)
+			} else {
+				t.Logf("response: %v", resp.StatusCode)
+				if resp.StatusCode != tc.ExpectedStatus {
+					t.Fatalf("expected http status %d, received %d", tc.ExpectedStatus, resp.StatusCode)
+				}
+				bodyBytes, err := io.ReadAll(resp.Body)
+				if err != nil {
+					t.Fatal(err)
+				}
+				bodyString := string(bodyBytes)
+				t.Logf("Body:\n%s\n", bodyString)
 			}
 		})
 	}

@@ -32,6 +32,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/metrics"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/notifier"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/revolution"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/kelseyhightower/envconfig"
@@ -55,6 +56,11 @@ type Config struct {
 	ArgocdToken              string `split_words:"true"`
 	ArgocdRefreshEnabled     bool   `split_words:"true"`
 	ArgocdRefreshConcurrency int    `default:"50" split_words:"true"`
+
+	RevolutionDoraEnabled     bool   `split_words:"true"`
+	RevolutionDoraUrl         string `split_words:"true" default:""`
+	RevolutionDoraToken       string `split_words:"true" default:""`
+	RevolutionDoraConcurrency int    `default:"10" split_words:"true"`
 }
 
 func (config *Config) ClientConfig() (apiclient.ClientOptions, error) {
@@ -70,6 +76,20 @@ func (config *Config) ClientConfig() (apiclient.ClientOptions, error) {
 	opts.Insecure = config.ArgocdInsecure
 	opts.AuthToken = config.ArgocdToken
 	return opts, nil
+}
+
+func (config *Config) RevolutionConfig() (revolution.Config, error) {
+	if config.RevolutionDoraUrl == "" {
+		return revolution.Config{}, fmt.Errorf("KUBERPULT_REVOLUTION_DORA_URL must be a valid url")
+	}
+	if config.RevolutionDoraToken == "" {
+		return revolution.Config{}, fmt.Errorf("KUBERPULT_REVOLUTION_DORA_TOKEN must not be empty")
+	}
+	return revolution.Config{
+		URL:            config.RevolutionDoraUrl,
+		Token:          []byte(config.RevolutionDoraToken),
+		Concurrency: config.RevolutionDoraConcurrency,
+	}, nil
 }
 
 func RunServer() {
@@ -186,6 +206,20 @@ func runServer(ctx context.Context, config Config) error {
 			Run: func(ctx context.Context) error {
 				notify := notifier.New(appClient, config.ArgocdRefreshConcurrency)
 				return notifier.Subscribe(ctx, notify, broadcast)
+			},
+		})
+	}
+
+	if config.RevolutionDoraEnabled {
+		revolutionConfig, err := config.RevolutionConfig()
+		if err != nil {
+			return err
+		}
+		revolutionDora := revolution.New(revolutionConfig)
+		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
+			Name: "revolution dora",
+			Run: func(ctx context.Context) error {
+				return revolutionDora.Subscribe(ctx, broadcast)
 			},
 		})
 	}
