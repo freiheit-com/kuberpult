@@ -24,9 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	v1alpha1 "github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -39,8 +36,13 @@ import (
 	"sync"
 	"time"
 
+	v1alpha1 "github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
+
 	"github.com/DataDog/datadog-go/v5/statsd"
 	backoff "github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -171,6 +173,75 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 		}
 	}
 	return repo2, err
+}
+
+func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags []*api.TagData, err error) {
+	repo, err := openOrCreate(repoName, cfg.StorageBackend)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open/create repo: %v", err)
+	}
+
+	var credentials *credentialsStore
+	var certificates *certificateStore
+	if strings.HasPrefix(cfg.URL, "./") || strings.HasPrefix(cfg.URL, "/") {
+	} else {
+		credentials, err = cfg.Credentials.load()
+		if err != nil {
+			return nil, fmt.Errorf("failure to load credentials: %v", err)
+		}
+		certificates, err = cfg.Certificates.load()
+		if err != nil {
+			return nil, fmt.Errorf("failure to load certificates: %v", err)
+		}
+	}
+
+	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	fetchOptions := git.FetchOptions{
+		RemoteCallbacks: git.RemoteCallbacks{
+			CredentialsCallback:      credentials.CredentialsCallback(ctx),
+			CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+		},
+		DownloadTags: git.DownloadTagsAll,
+	}
+	remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failure to create anonymous remote: %v", err)
+	}
+	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+	if err != nil {
+		return nil, fmt.Errorf("failure to fetch: %v", err)
+	}
+
+	tagsList, err := repo.Tags.List()
+	if err != nil {
+		return nil, fmt.Errorf("unable to list tags: %v", err)
+	}
+
+	sort.Strings(tagsList)
+	iters, err := repo.NewReferenceIteratorGlob("refs/tags/*")
+	if err != nil {
+		return nil, fmt.Errorf("unable to get list of tags: %v", err)
+	}
+	for {
+		tagObject, err := iters.Next()
+		if err != nil {
+			break
+		}
+		tagRef, lookupErr := repo.LookupTag(tagObject.Target())
+		if lookupErr != nil {
+			tagCommit, err := repo.LookupCommit(tagObject.Target())
+			// If LookupTag fails, fallback to LookupCommit
+			// to cover all tags, annotated and lightweight
+			if err != nil {
+				return nil, fmt.Errorf("unable to lookup tag [%s]: %v - original err: %v", tagObject.Name(), err, lookupErr)
+			}
+			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
+		} else {
+			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagRef.Id().String()})
+		}
+	}
+
+	return tags, nil
 }
 
 // Opens a repository. The repository is initialized and updated in the background.
