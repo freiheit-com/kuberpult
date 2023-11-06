@@ -227,11 +227,13 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 		if err != nil {
 			break
 		}
-		tagRef, err := repo.LookupTag(tagObject.Target())
-		if err != nil {
+		tagRef, lookupErr := repo.LookupTag(tagObject.Target())
+		if lookupErr != nil {
 			tagCommit, err := repo.LookupCommit(tagObject.Target())
+			// If LookupTag fails, fallback to LookupCommit
+			// to cover all tags, annotated and lightweight
 			if err != nil {
-				return nil, fmt.Errorf("unable to lookup tag [%s]: %v", tagObject.Name(), err)
+				return nil, fmt.Errorf("unable to lookup tag [%s]: %v - original err: %v", tagObject.Name(), err, lookupErr)
 			}
 			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
 		} else {
