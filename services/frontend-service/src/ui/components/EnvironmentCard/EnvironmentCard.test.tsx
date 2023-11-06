@@ -48,7 +48,7 @@ describe('Test Environment Cards', () => {
             expectedNumGroupsLockButtons: 1,
             expectedNumEnvLockButtons: 0,
             expectedPriorityClassName: 'environment-priority-unrecognized', // group priority is UNRECOGNIZED / unknown
-            expectedNumButtonsEnv: 0,
+            expectedNumButtonsEnv: 1,
         },
         {
             name: '1 group 1 env',
@@ -69,7 +69,7 @@ describe('Test Environment Cards', () => {
             expectedNumGroupsLockButtons: 1,
             expectedNumEnvLockButtons: 1,
             expectedPriorityClassName: 'environment-priority-pre_prod',
-            expectedNumButtonsEnv: 2,
+            expectedNumButtonsEnv: 3,
         },
         {
             name: '1 group 2 env',
@@ -98,7 +98,7 @@ describe('Test Environment Cards', () => {
             expectedNumGroupsLockButtons: 1,
             expectedNumEnvLockButtons: 2,
             expectedPriorityClassName: 'environment-priority-upstream',
-            expectedNumButtonsEnv: 4,
+            expectedNumButtonsEnv: 5,
         },
     ];
 

@@ -19,6 +19,7 @@ import { Environment, EnvironmentGroup, Priority } from '../../../api/api';
 import React from 'react';
 import { EnvironmentsPage } from './EnvironmentsPage';
 import { fakeLoadEverything } from '../../../setupTests';
+import { MemoryRouter } from 'react-router-dom';
 
 const sampleEnvsA: Environment[] = [
     {
@@ -55,7 +56,11 @@ const sampleEnvsB: Environment[] = [
 ];
 
 describe('Environment Lane', () => {
-    const getNode = () => <EnvironmentsPage />;
+    const getNode = () => (
+        <MemoryRouter>
+            <EnvironmentsPage />
+        </MemoryRouter>
+    );
     const getWrapper = () => render(getNode());
 
     interface dataT {
