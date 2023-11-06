@@ -218,20 +218,25 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	}
 
 	sort.Strings(tagsList)
-	for _, tag := range tagsList {
-		ref, err := repo.References.Lookup("refs/tags/" + tag)
+	iters, err := repo.NewReferenceIteratorGlob("refs/tags/*")
+	if err != nil {
+		return nil, fmt.Errorf("unable to get list of tags: %v", err)
+	}
+	for {
+		tagObject, err := iters.Next()
 		if err != nil {
-			return nil, fmt.Errorf("unable to lookup tag %s: %v", "refs/tags/"+tag, err)
+			break
 		}
-		oid := ref.Target()
-		var commitID string
-		commit, err := repo.LookupCommit(oid)
+		tagRef, err := repo.LookupTag(tagObject.Target())
 		if err != nil {
-			commitID = ""
+			tagCommit, err := repo.LookupCommit(tagObject.Target())
+			if err != nil {
+				return nil, fmt.Errorf("unable to lookup tag [%s]: %v", tagObject.Name(), err)
+			}
+			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
 		} else {
-			commitID = commit.Id().String()
+			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagRef.Id().String()})
 		}
-		tags = append(tags, &api.TagData{Tag: tag, CommitId: commitID})
 	}
 
 	return tags, nil

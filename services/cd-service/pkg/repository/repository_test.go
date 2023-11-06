@@ -290,113 +290,61 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestGetTagsNoTags(t *testing.T) {
+	name := "No tags to be returned at all"
+
+	t.Run(name, func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		remoteDir := path.Join(dir, "remote")
+		localDir := path.Join(dir, "local")
+		repoConfig := RepositoryConfig{
+			StorageBackend: 0,
+			URL:            "file://" + remoteDir,
+			Path:           localDir,
+			Branch:         "master",
+		}
+		cmd := exec.Command("git", "init", "--bare", remoteDir)
+		cmd.Start()
+		cmd.Wait()
+		_, err := New(
+			testutil.MakeTestContext(),
+			repoConfig,
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+		tags, err := GetTags(
+			repoConfig,
+			localDir,
+			testutil.MakeTestContext(),
+		)
+		if err != nil {
+			t.Fatalf("new: expected no error, got '%e'", err)
+		}
+		if len(tags) != 0 {
+			t.Fatalf("expected %v tags but got %v", 0, len(tags))
+		}
+	})
+
+}
+
 func TestGetTags(t *testing.T) {
-	// git.InitRepository(tempDir, true)
 	tcs := []struct {
 		Name         string
-		Setup        func(t *testing.T, remoteDir, localDir string, repoConfig RepositoryConfig)
 		expectedTags []api.TagData
+		tagsToAdd    []string
 	}{
 		{
-			Name: "No tags to be returned at all",
-			Setup: func(t *testing.T, remoteDir, localDir string, repoConfig RepositoryConfig) {
-				_, err := New(
-					testutil.MakeTestContext(),
-					repoConfig,
-				)
-
-				if err != nil {
-					t.Fatal(err)
-				}
-			},
+			Name:         "Tags added to be returned",
+			tagsToAdd:    []string{"v1.0.0"},
+			expectedTags: []api.TagData{{Tag: "refs/tags/v1.0.0", CommitId: ""}},
 		},
 		{
-			Name: "Tags added to be returned",
-			Setup: func(t *testing.T, remoteDir, localDir string, repoConfig RepositoryConfig) {
-				_, err := New(
-					testutil.MakeTestContext(),
-					repoConfig,
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
-				repo, err := git.OpenRepository(localDir)
-				if err != nil {
-					t.Fatal(err)
-				}
-				idx, err := repo.Index()
-				if err != nil {
-					t.Fatal(err)
-				}
-				treeId, err := idx.WriteTree()
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				tree, err := repo.LookupTree(treeId)
-				if err != nil {
-					t.Fatal(err)
-				}
-				oid, err := repo.CreateCommit("", &git.Signature{Name: "SRE", Email: "testing@gmail"}, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing", tree, &git.Commit{Object: git.Object{}})
-				if err != nil {
-					t.Fatal(err)
-				}
-				commit, err := repo.LookupCommit(oid)
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, err = repo.Tags.Create("v1.0.0", commit, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing")
-				if err != nil {
-					t.Fatal(err)
-				}
-			},
-			expectedTags: []api.TagData{{Tag: "v1.0.0", CommitId: ""}},
-		},
-		{
-			Name: "Tags added in opposite order and are sorted",
-			Setup: func(t *testing.T, remoteDir, localDir string, repoConfig RepositoryConfig) {
-				_, err := New(
-					testutil.MakeTestContext(),
-					repoConfig,
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
-				repo, err := git.OpenRepository(localDir)
-				if err != nil {
-					t.Fatal(err)
-				}
-				idx, err := repo.Index()
-				if err != nil {
-					t.Fatal(err)
-				}
-				treeId, err := idx.WriteTree()
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				tree, err := repo.LookupTree(treeId)
-				if err != nil {
-					t.Fatal(err)
-				}
-				oid, err := repo.CreateCommit("", &git.Signature{Name: "SRE", Email: "testing@gmail"}, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing", tree, &git.Commit{Object: git.Object{}})
-				if err != nil {
-					t.Fatal(err)
-				}
-				commit, err := repo.LookupCommit(oid)
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, err = repo.Tags.Create("v1.0.0", commit, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing")
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, err = repo.Tags.Create("v0.0.1", commit, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing")
-				if err != nil {
-					t.Fatal(err)
-				}
-			},
-			expectedTags: []api.TagData{{Tag: "v0.0.1", CommitId: ""}, {Tag: "v1.0.0", CommitId: ""}},
+			Name:         "Tags added in opposite order and are sorted",
+			tagsToAdd:    []string{"v1.0.1", "v0.0.1"},
+			expectedTags: []api.TagData{{Tag: "refs/tags/v0.0.1", CommitId: ""}, {Tag: "refs/tags/v1.0.1", CommitId: ""}},
 		},
 	}
 	for _, tc := range tcs {
@@ -415,7 +363,46 @@ func TestGetTags(t *testing.T) {
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
 			cmd.Start()
 			cmd.Wait()
-			tc.Setup(t, remoteDir, localDir, repoConfig)
+			_, err := New(
+				testutil.MakeTestContext(),
+				repoConfig,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			repo, err := git.OpenRepository(localDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			idx, err := repo.Index()
+			if err != nil {
+				t.Fatal(err)
+			}
+			treeId, err := idx.WriteTree()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			tree, err := repo.LookupTree(treeId)
+			if err != nil {
+				t.Fatal(err)
+			}
+			oid, err := repo.CreateCommit("HEAD", &git.Signature{Name: "SRE", Email: "testing@gmail"}, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing", tree)
+			if err != nil {
+				t.Fatal(err)
+			}
+			commit, err := repo.LookupCommit(oid)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var expectedCommits []api.TagData
+			for addTag := range tc.tagsToAdd {
+				_, err := repo.Tags.Create(tc.tagsToAdd[addTag], commit, &git.Signature{Name: "SRE", Email: "testing@gmail"}, "testing")
+				expectedCommits = append(expectedCommits, api.TagData{Tag: tc.tagsToAdd[addTag], CommitId: commit.Id().String()})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
 			tags, err := GetTags(
 				repoConfig,
 				localDir,
@@ -430,8 +417,12 @@ func TestGetTags(t *testing.T) {
 
 			iter := 0
 			for _, tagData := range tags {
-				if tagData.CommitId != tc.expectedTags[iter].CommitId {
-					t.Fatalf("expected [%v] for TagList commit but got [%v]", tc.expectedTags[iter].CommitId, tagData.CommitId)
+				for commit := range expectedCommits {
+					if tagData.Tag != expectedCommits[commit].Tag {
+						if tagData.CommitId == expectedCommits[commit].CommitId {
+							t.Fatalf("expected [%v] for TagList commit but got [%v]", expectedCommits[commit].CommitId, tagData.CommitId)
+						}
+					}
 				}
 				if tagData.Tag != tc.expectedTags[iter].Tag {
 					t.Fatalf("expected [%v] for TagList tag but got [%v] with tagList %v", tc.expectedTags[iter].Tag, tagData.Tag, tags)
