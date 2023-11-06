@@ -33,6 +33,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/metrics"
 	"google.golang.org/grpc"
 )
 
@@ -104,10 +105,12 @@ func Run(ctx context.Context, config ServerConfig) {
 	s := &setup{}
 
 	ctx, cancel := context.WithCancel(ctx)
+	pv, handler, _ := metrics.Init()
+	ctx = metrics.WithProvider(ctx, pv)
 
 	// Start the listening on each protocol
 	for _, cfg := range config.HTTP {
-		setupHTTP(ctx, s, cfg, cancel)
+		setupHTTP(ctx, s, cfg, cancel, handler)
 	}
 	if config.GRPC != nil {
 		setupGRPC(ctx, s, *config.GRPC, cancel)
@@ -199,10 +202,10 @@ func serveGRPC(ctx context.Context, grpcS *grpc.Server, grpcL net.Listener, canc
 	}
 }
 
-func setupHTTP(ctx context.Context, s *setup, config HTTPConfig, cancel context.CancelFunc) {
+func setupHTTP(ctx context.Context, s *setup, config HTTPConfig, cancel context.CancelFunc, metricHandler http.Handler) {
 	mux := http.NewServeMux()
 	config.Register(mux)
-
+	mux.Handle("/metrics", metricHandler)
 	runHTTPHandler(ctx, s, mux, config.Port, config.BasicAuth, config.Shutdown, cancel)
 }
 
