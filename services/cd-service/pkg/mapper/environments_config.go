@@ -153,7 +153,7 @@ func DeriveGroupName(env config.EnvironmentConfig, envName string) string {
 
 func calculateEnvironmentPriorities(environments []*api.Environment) {
 	// first find the maximum:
-	var maxDistance uint32 = 0
+	var maxDistance uint32 = 0 // FIXHERE!
 	for i := 0; i < len(environments); i++ {
 		maxDistance = max(maxDistance, environments[i].DistanceToUpstream)
 	}
