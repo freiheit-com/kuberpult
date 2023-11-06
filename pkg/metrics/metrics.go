@@ -51,6 +51,6 @@ func FromContext(ctx context.Context) metric.MeterProvider {
 	return ctx.Value(ctxKey).(metric.MeterProvider)
 }
 
-func With(ctx context.Context, pv metric.MeterProvider) context.Context {
+func WithProvider(ctx context.Context, pv metric.MeterProvider) context.Context {
 	return context.WithValue(ctx, ctxKey, pv)
 }
