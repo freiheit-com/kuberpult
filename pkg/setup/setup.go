@@ -106,7 +106,7 @@ func Run(ctx context.Context, config ServerConfig) {
 
 	ctx, cancel := context.WithCancel(ctx)
 	pv, handler, _ := metrics.Init()
-	ctx = metrics.With(ctx, pv)
+	ctx = metrics.WithProvider(ctx, pv)
 
 	// Start the listening on each protocol
 	for _, cfg := range config.HTTP {
