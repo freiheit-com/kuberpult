@@ -29,12 +29,14 @@ type TestDataSelection = {
 const mySubmitSpy = jest.fn();
 const myCancelSpy = jest.fn();
 
+const confirmButtonSelector = '.test-button-confirm';
+
 const dataSelection: TestDataSelection[] = [
     {
         name: 'renders 2 item list',
         input: { environments: ['dev', 'staging'], open: true, onSubmit: mySubmitSpy, onCancel: myCancelSpy },
         expectedNumItems: 2,
-        clickOnButton: '0',
+        clickOnButton: 'dev',
         expectedNumSelectedAfterClick: 1,
         expectedNumDeselectedAfterClick: 1,
     },
@@ -42,7 +44,7 @@ const dataSelection: TestDataSelection[] = [
         name: 'renders 3 item list',
         input: { environments: ['dev', 'staging', 'prod'], open: true, onSubmit: mySubmitSpy, onCancel: myCancelSpy },
         expectedNumItems: 3,
-        clickOnButton: '1',
+        clickOnButton: 'staging',
         expectedNumSelectedAfterClick: 1,
         expectedNumDeselectedAfterClick: 2,
     },
@@ -56,12 +58,22 @@ type TestDataOpenClose = {
 const dataOpenClose: TestDataOpenClose[] = [
     {
         name: 'renders open dialog',
-        input: { environments: ['dev', 'staging', 'prod'], open: true, onSubmit: mySubmitSpy, onCancel: myCancelSpy },
+        input: {
+            environments: ['dev', 'staging', 'prod'],
+            open: true,
+            onSubmit: mySubmitSpy,
+            onCancel: myCancelSpy,
+        },
         expectedNumElements: 1,
     },
     {
         name: 'renders closed dialog',
-        input: { environments: ['dev', 'staging', 'prod'], open: false, onSubmit: mySubmitSpy, onCancel: myCancelSpy },
+        input: {
+            environments: ['dev', 'staging', 'prod'],
+            open: false,
+            onSubmit: mySubmitSpy,
+            onCancel: myCancelSpy,
+        },
         expectedNumElements: 0,
     },
 ];
@@ -76,15 +88,25 @@ type TestDataCallbacks = {
 const dataCallbacks: TestDataCallbacks[] = [
     {
         name: 'renders open dialog',
-        input: { environments: ['dev', 'staging', 'prod'], open: true, onSubmit: mySubmitSpy, onCancel: myCancelSpy },
+        input: {
+            environments: ['dev', 'staging', 'prod'],
+            open: true,
+            onSubmit: mySubmitSpy,
+            onCancel: myCancelSpy,
+        },
         clickThis: '.test-button-cancel',
         expectedCancelCallCount: 1,
         expectedSubmitCallCount: 0,
     },
     {
         name: 'renders closed dialog',
-        input: { environments: ['dev', 'staging', 'prod'], open: true, onSubmit: mySubmitSpy, onCancel: myCancelSpy },
-        clickThis: '.test-button-confirm',
+        input: {
+            environments: ['dev', 'staging', 'prod'],
+            open: true,
+            onSubmit: mySubmitSpy,
+            onCancel: myCancelSpy,
+        },
+        clickThis: confirmButtonSelector,
         expectedCancelCallCount: 0,
         expectedSubmitCallCount: 1,
     },
@@ -93,8 +115,8 @@ const dataCallbacks: TestDataCallbacks[] = [
 const getNode = (overrides: EnvSelectionDialogProps) => <EnvSelectionDialog {...overrides} />;
 const getWrapper = (overrides: EnvSelectionDialogProps) => render(getNode(overrides));
 
-describe('EnvSelectionDialog Rendering', () => {
-    describe.each(dataSelection)('EnvSelectionDialog Test', (testcase) => {
+describe('EnvSelectionDialog', () => {
+    describe.each(dataSelection)('Test checkbox enabled', (testcase) => {
         it(testcase.name, () => {
             mySubmitSpy.mockReset();
             myCancelSpy.mockReset();
@@ -118,13 +140,13 @@ describe('EnvSelectionDialog Rendering', () => {
             );
         });
     });
-    describe.each(dataOpenClose)('EnvSelectionDialog open/close', (testcase) => {
+    describe.each(dataOpenClose)('open/close', (testcase) => {
         it(testcase.name, () => {
             getWrapper(testcase.input);
             expect(document.querySelectorAll('.envs-dropdown-select').length).toEqual(testcase.expectedNumElements);
         });
     });
-    describe.each(dataCallbacks)('EnvSelectionDialog callbacks', (testcase) => {
+    describe.each(dataCallbacks)('submit/cancel callbacks', (testcase) => {
         it(testcase.name, () => {
             mySubmitSpy.mockReset();
             myCancelSpy.mockReset();
@@ -141,6 +163,81 @@ describe('EnvSelectionDialog Rendering', () => {
 
             expect(myCancelSpy).toHaveBeenCalledTimes(testcase.expectedCancelCallCount);
             expect(mySubmitSpy).toHaveBeenCalledTimes(testcase.expectedSubmitCallCount);
+        });
+    });
+
+    type TestDataAddTeam = {
+        name: string;
+        input: EnvSelectionDialogProps;
+        clickTheseTeams: string[];
+        expectedCancelCallCount: number;
+        expectedSubmitCallCount: number;
+        expectedSubmitCalledWith: string[];
+    };
+    const addTeamArray: TestDataAddTeam[] = [
+        {
+            name: '1 env',
+            input: {
+                environments: ['dev', 'staging', 'prod'],
+                open: true,
+                onSubmit: mySubmitSpy,
+                onCancel: myCancelSpy,
+            },
+            clickTheseTeams: ['dev'],
+            expectedCancelCallCount: 0,
+            expectedSubmitCallCount: 1,
+            expectedSubmitCalledWith: ['dev'],
+        },
+        {
+            name: '2 envs',
+            input: {
+                environments: ['dev', 'staging', 'prod'],
+                open: true,
+                onSubmit: mySubmitSpy,
+                onCancel: myCancelSpy,
+            },
+            clickTheseTeams: ['staging', 'prod'],
+            expectedCancelCallCount: 0,
+            expectedSubmitCallCount: 1,
+            expectedSubmitCalledWith: ['staging', 'prod'],
+        },
+        {
+            name: '1 env clicked twice',
+            input: {
+                environments: ['dev', 'staging', 'prod'],
+                open: true,
+                onSubmit: mySubmitSpy,
+                onCancel: myCancelSpy,
+            },
+            clickTheseTeams: ['dev', 'staging', 'staging'],
+            expectedCancelCallCount: 0,
+            expectedSubmitCallCount: 1,
+            expectedSubmitCalledWith: ['dev'],
+        },
+    ];
+    describe.each(addTeamArray)('adding 2 teams works', (testcase) => {
+        it(testcase.name, () => {
+            mySubmitSpy.mockReset();
+            myCancelSpy.mockReset();
+            expect(mySubmitSpy).toHaveBeenCalledTimes(0);
+            expect(myCancelSpy).toHaveBeenCalledTimes(0);
+
+            getWrapper(testcase.input);
+
+            testcase.clickTheseTeams.forEach((value, index) => {
+                const teamButton = documentQuerySelectorSafe('.id-' + value);
+                act(() => {
+                    teamButton.click();
+                });
+            });
+            const confirmButton = documentQuerySelectorSafe(confirmButtonSelector);
+            act(() => {
+                confirmButton.click();
+            });
+
+            expect(myCancelSpy).toHaveBeenCalledTimes(testcase.expectedCancelCallCount);
+            expect(mySubmitSpy).toHaveBeenCalledTimes(testcase.expectedSubmitCallCount);
+            expect(mySubmitSpy).toHaveBeenCalledWith(testcase.expectedSubmitCalledWith);
         });
     });
 });
