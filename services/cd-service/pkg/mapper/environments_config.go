@@ -152,22 +152,55 @@ func DeriveGroupName(env config.EnvironmentConfig, envName string) string {
 }
 
 func calculateEnvironmentPriorities(environments []*api.Environment) {
-	// first find the maximum:
-	var maxDistance uint32 = 0 // FIXHERE!
-	for i := 0; i < len(environments); i++ {
-		maxDistance = max(maxDistance, environments[i].DistanceToUpstream)
-	}
-	// now we can assign each environment a priority
+	type EnvsByName map[string]*api.Environment
+	type Childs []string
+	type ChildsByName map[string]Childs
+	var envsByName = make(EnvsByName)
+	var childsByName = make(ChildsByName)
+	// latest is UPSTREAM, so mark them as such, and the rest as OTHER for now
+	// oherwise append us to the list of the childs of the upstream env
 	for i := 0; i < len(environments); i++ {
 		var env = environments[i]
-		if env.DistanceToUpstream == maxDistance {
-			env.Priority = api.Priority_PROD
-		} else if env.DistanceToUpstream == maxDistance-1 {
-			env.Priority = api.Priority_PRE_PROD
-		} else if env.DistanceToUpstream == 0 {
+		envsByName[env.Name] = env
+		if env.Config.Upstream.GetLatest() {
 			env.Priority = api.Priority_UPSTREAM
 		} else {
 			env.Priority = api.Priority_OTHER
+			// should we barf about a config that neither has is upstream nor has one?
+			if env.Config != nil && env.Config.Upstream != nil {
+				var upstream = env.Config.Upstream.Environment
+				if upstream != nil {
+					var upstreamChildsBefore = childsByName[*upstream]
+					childsByName[*upstream] = append(upstreamChildsBefore, env.Name)
+				}
+			}
+		}
+	}
+	// remaining childless envs can now be identified as PROD
+	for i := 0; i < len(environments); i++ {
+		var env = environments[i]
+		// even if an env is UPSTREAM, if it is a leaf, PROD takes precedence!
+		// so there is no guarantee UPSTREAM will always exist.
+		if len(childsByName[env.Name]) == 0 {
+			env.Priority = api.Priority_PROD
+		}
+	}
+	for i := 0; i < len(environments); i++ {
+		var env = environments[i]
+		// even if an env is UPSTREAM, if it is the upstream of a leaf, PRE_PROD takes precedence!
+		// so UPSTREAM can only ever exist, if three envs are daisy-chained.
+		if env.Priority == api.Priority_PROD {
+			continue // we already handled these
+		}
+		// what is the exact definition of PRE_PROD?
+		// assuming any env that is an upstream of a PROD
+		// (regardless if it is also the upstream of non-PRODs)
+		for j := 0; j < len(childsByName[env.Name]); j++ {
+			var childName = childsByName[env.Name][j]
+			if envsByName[childName].Priority == api.Priority_PROD {
+				env.Priority = api.Priority_PRE_PROD
+				break
+			}
 		}
 	}
 }
