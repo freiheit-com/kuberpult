@@ -20,7 +20,6 @@ export type ProductVersionProps = {
 };
 export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
     const { environment } = props;
-    // TODO(GS): call tags endpoint
     return (
         <div className="product_version">
             <h1 className="environment_name">{'Product Version for ' + environment}</h1>
