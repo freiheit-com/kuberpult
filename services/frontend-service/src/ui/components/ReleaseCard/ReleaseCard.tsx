@@ -66,7 +66,7 @@ const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (props) =>
         case RolloutStatus.RolloutStatusUnhealthy:
             return <span className="rollout__description_unhealthy">⚠ Unhealthy</span>;
     }
-    return <span className="rollout__description_unknown">? Unknown</span>; //
+    return <span className="rollout__description_unknown">? Unknown</span>;
 };
 
 // note that the order is important here.
