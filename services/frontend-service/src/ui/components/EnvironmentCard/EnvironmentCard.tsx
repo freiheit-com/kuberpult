@@ -13,7 +13,12 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { addAction, getPriorityClassName, useFilteredEnvironmentLockIDs } from '../../utils/store';
+import {
+    addAction,
+    getPriorityClassName,
+    useFilteredEnvironmentLockIDs,
+    useNavigateWithSearchParams,
+} from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import * as React from 'react';
@@ -25,6 +30,7 @@ export const EnvironmentCard: React.FC<{ environment: Environment }> = (props) =
     const { environment } = props;
     const locks = useFilteredEnvironmentLockIDs(environment.name);
     const priorityClassName = getPriorityClassName(environment);
+    const { navCallback } = useNavigateWithSearchParams('productVersion/' + environment.name);
 
     const addLock = React.useCallback(() => {
         addAction({
@@ -61,6 +67,13 @@ export const EnvironmentCard: React.FC<{ environment: Environment }> = (props) =
                         icon={<Locks />}
                         onClick={addLock}
                     />
+                    <div>
+                        <Button
+                            className="environment-action"
+                            label={'Display versions for ' + environment.name}
+                            onClick={navCallback}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
