@@ -21,7 +21,8 @@ Copyright 2023 freiheit.com*/
 }
 
 .environment_name {
-    @extend .sub-headline1;
+    font-weight: 700;
+    font-size: 28px;
     line-height: 48px;
     padding-left: 35px;
     align-items: center;
