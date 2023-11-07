@@ -39,7 +39,7 @@ describe('Checkbox', () => {
     ];
 
     describe.each(data)(`Renders a navigation item with selected`, (testcase) => {
-        it.only(testcase.name, () => {
+        it(testcase.name, () => {
             // given
             mySubmitSpy.mockReset();
             // when
@@ -51,6 +51,7 @@ describe('Checkbox', () => {
                 result.click();
             });
             expect(mySubmitSpy).toHaveBeenCalledTimes(1);
+            expect(mySubmitSpy).toHaveBeenCalledWith(testcase.input.id);
 
             expect(document.querySelectorAll('.checkbox-wrapper').length).toEqual(1);
             expect(document.querySelectorAll('.checkbox-wrapper')[0]).toHaveTextContent(testcase.expectedText);

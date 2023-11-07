@@ -92,7 +92,7 @@ cleanup-main:
 	@echo "Nothing to do"
 
 kuberpult:
-	docker-compose up --build
+	docker compose up --build
 
 kuberpult-earthly:
 	earthly +all-services --UID=$(USER_UID) --target docker
