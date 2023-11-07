@@ -25,7 +25,7 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
             <h1 className="environment_name">{'Product Version for ' + environment}</h1>
             <div className="page_description">
                 {
-                    'This page shows the version of the product for the selected environment based on tags to the repository.\nIf there are no tags, then no data can be shown.'
+                    'This page shows the version of the product for the selected environment based on tags to the repository. If there are no tags, then no data can be shown.'
                 }
             </div>
         </div>

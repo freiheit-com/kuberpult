@@ -70,7 +70,7 @@ export const EnvironmentCard: React.FC<{ environment: Environment }> = (props) =
                     <div>
                         <Button
                             className="environment-action"
-                            label={'Display version for ' + environment.name}
+                            label={'Display versions for ' + environment.name}
                             onClick={navCallback}
                         />
                     </div>
