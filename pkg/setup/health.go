@@ -56,8 +56,12 @@ type HealthReporter struct {
 }
 
 type report struct {
-	Health  Health        `json:"health"`
-	Message string        `json:"message,omitempty"`
+	Health  Health `json:"health"`
+	Message string `json:"message,omitempty"`
+}
+
+func (r *report) isReady() bool {
+	return r.Health == HealthReady
 }
 
 func (r *HealthReporter) ReportReady(message string) {

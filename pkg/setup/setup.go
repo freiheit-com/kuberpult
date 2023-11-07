@@ -30,6 +30,8 @@ import (
 	"syscall"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -110,6 +112,18 @@ func Run(ctx context.Context, config ServerConfig) {
 	ctx, cancel := context.WithCancel(ctx)
 	pv, handler, _ := metrics.Init()
 	ctx = metrics.WithProvider(ctx, pv)
+
+	pv.Meter("setup").Int64ObservableGauge("background_job_ready", metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+		reports := s.health.reports()
+		for name, report := range reports {
+			var value int64
+			if report.isReady() {
+				value = 1
+			}
+			o.Observe(value, metric.WithAttributes(attribute.String("name", name)))
+		}
+		return nil
+	}))
 
 	// Start the listening on each protocol
 	for _, cfg := range config.HTTP {
