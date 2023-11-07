@@ -166,7 +166,6 @@ func calculateEnvironmentPriorities(environments []*api.Environment) {
 			env.Priority = api.Priority_UPSTREAM
 		} else {
 			env.Priority = api.Priority_OTHER
-			// should we barf about a config that neither has is upstream nor has one?
 			if env.Config != nil && env.Config.Upstream != nil {
 				var upstream = env.Config.Upstream.Environment
 				if upstream != nil {
@@ -179,29 +178,25 @@ func calculateEnvironmentPriorities(environments []*api.Environment) {
 	// remaining childless envs can now be identified as PROD
 	for i := 0; i < len(environments); i++ {
 		var env = environments[i]
+		if len(childsByName[env.Name]) > 0 {
+			continue
+		}
 		// even if an env is UPSTREAM, if it is a leaf, PROD takes precedence!
-		// so there is no guarantee UPSTREAM will always exist.
-		if len(childsByName[env.Name]) == 0 {
-			env.Priority = api.Priority_PROD
+		env.Priority = api.Priority_PROD
+		// if PROD has an upstream ...
+		if env.Config == nil || env.Config.Upstream == nil {
+			continue
 		}
-	}
-	for i := 0; i < len(environments); i++ {
-		var env = environments[i]
-		// even if an env is UPSTREAM, if it is the upstream of a leaf, PRE_PROD takes precedence!
-		// so UPSTREAM can only ever exist, if three envs are daisy-chained.
-		if env.Priority == api.Priority_PROD {
-			continue // we already handled these
+		var upstream = env.Config.Upstream.Environment
+		if upstream == nil || envsByName[*upstream] == nil {
+			continue
 		}
-		// what is the exact definition of PRE_PROD?
-		// assuming any env that is an upstream of a PROD
-		// (regardless if it is also the upstream of non-PRODs)
-		for j := 0; j < len(childsByName[env.Name]); j++ {
-			var childName = childsByName[env.Name][j]
-			if envsByName[childName].Priority == api.Priority_PROD {
-				env.Priority = api.Priority_PRE_PROD
-				break
-			}
+		// ... and that upstream is not an UPSTREAM ...
+		if envsByName[*upstream].Priority == api.Priority_UPSTREAM {
+			continue
 		}
+		// ... then we mark it as PRE_PROD.
+		envsByName[*upstream].Priority = api.Priority_PRE_PROD
 	}
 }
 

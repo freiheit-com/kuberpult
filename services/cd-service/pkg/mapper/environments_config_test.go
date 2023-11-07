@@ -116,7 +116,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameDevDe,
 					Environments: []*api.Environment{
-						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_PRE_PROD),
+						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 					},
 					DistanceToUpstream: 0,
 				},
