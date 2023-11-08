@@ -27,6 +27,10 @@ describe('Product Version Data', () => {
             name: 'No tags to Display',
             environmentName: 'tester',
         },
+        {
+            name: 'tags to Display',
+            environmentName: 'tester2',
+        },
     ];
 
     describe.each(data)(`Displays Product Version Page`, (testCase) => {

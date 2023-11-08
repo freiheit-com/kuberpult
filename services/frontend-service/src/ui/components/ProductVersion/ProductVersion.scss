@@ -40,3 +40,11 @@ Copyright 2023 freiheit.com*/
     display: flex;
     background: linear-gradient(var(--mdc-theme-primary), var(--mdc-theme-primary)) left 9px top 14px/2px 100% no-repeat;
 }
+
+.drop_down {
+    border-radius: 3px;
+    min-width: 220px;
+    height: 50px;
+    border: 1px solid blue;
+    padding-left: 1em;
+}

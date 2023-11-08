@@ -17,6 +17,7 @@ import { createStore } from 'react-use-sub';
 import {
     Application,
     BatchAction,
+    TagData,
     BatchRequest,
     Environment,
     EnvironmentGroup,
@@ -26,6 +27,7 @@ import {
     Release,
     StreamStatusResponse,
     Warning,
+    GetGitTagsResponse,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -63,13 +65,15 @@ export const useOverviewLoaded = (): boolean => useOverview(({ loaded }) => load
 
 const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
-
+const tagsResponse: GetGitTagsResponse = { tagData: [] };
+export const [useTag, updateTag] = createStore(tagsResponse);
 export const [_, PanicOverview] = createStore({ error: '' });
 
 const randBase36 = (): string => Math.random().toString(36).substring(7);
 export const randomLockId = (): string => 'ui-v2-' + randBase36();
 
 export const useActions = (): BatchAction[] => useAction(({ actions }) => actions);
+export const useTags = (): TagData[] => useTag(({ tagData }) => tagData);
 
 export const [useSidebar, UpdateSidebar] = createStore({ shown: false });
 

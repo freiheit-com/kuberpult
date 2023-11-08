@@ -24,6 +24,8 @@ export interface Api {
     configService(): api.FrontendConfigService;
     // rollout service
     rolloutService(): api.RolloutService;
+    // tags service
+    tagsService(): api.GitTagsService;
 }
 
 class GrpcApi implements Api {
@@ -31,6 +33,7 @@ class GrpcApi implements Api {
     _batchService: api.BatchService;
     _configService: api.FrontendConfigService;
     _rolloutService: api.RolloutService;
+    _tagsService: api.GitTagsService;
     constructor() {
         // eslint-disable-next-line no-restricted-globals
         const gcli = new api.GrpcWebImpl(location.protocol + '//' + location.host, {});
@@ -38,6 +41,7 @@ class GrpcApi implements Api {
         this._batchService = new api.BatchServiceClientImpl(gcli);
         this._configService = new api.FrontendConfigServiceClientImpl(gcli);
         this._rolloutService = new api.RolloutServiceClientImpl(gcli);
+        this._tagsService = new api.GitTagsServiceClientImpl(gcli);
     }
     overviewService(): api.OverviewService {
         return this._overviewService;
@@ -50,6 +54,9 @@ class GrpcApi implements Api {
     }
     rolloutService(): api.RolloutService {
         return this._rolloutService;
+    }
+    tagsService(): api.GitTagsService {
+        return this._tagsService;
     }
 }
 

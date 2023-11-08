@@ -14,15 +14,39 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import './ProductVersion.scss';
+import * as React from 'react';
+import { useTags, updateTag } from '../../utils/store';
+import { GetGitTagsResponse } from '../../../api/api';
+import { useApi } from '../../utils/GrpcApi';
 
 export type ProductVersionProps = {
     environment: string;
 };
 export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
+    const api = useApi;
+    React.useEffect(() => {
+        api.tagsService()
+            .GetGitTags({})
+            .then((result: GetGitTagsResponse) => {
+                updateTag.set(result);
+            });
+    }, [api]);
     const { environment } = props;
+    const [open, setOpen] = React.useState(false);
+    const openClose = React.useCallback(() => {
+        setOpen(!open);
+    }, [open, setOpen]);
+    const tags = useTags();
     return (
         <div className="product_version">
             <h1 className="environment_name">{'Product Version for ' + environment}</h1>
+            <div>
+                <select onChange={openClose} onSelect={openClose} className="drop_down">
+                    {tags.map((tag) => (
+                        <option key={tag.tag}>{tag.tag.slice(10)}</option>
+                    ))}
+                </select>
+            </div>
             <div className="page_description">
                 {
                     'This page shows the version of the product for the selected environment based on tags to the repository. If there are no tags, then no data can be shown.'
