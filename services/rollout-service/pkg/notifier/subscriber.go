@@ -19,9 +19,9 @@ package notifier
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 )
 
@@ -31,31 +31,36 @@ var backOffFactory func() backoff.BackOff = func() backoff.BackOff {
 	return backoff.NewExponentialBackOff()
 }
 
-func Subscribe(ctx context.Context, notifier Notifier, broadcast *service.Broadcast) error {
+func Subscribe(ctx context.Context, notifier Notifier, broadcast *service.Broadcast, health *setup.HealthReporter) error {
 	s := subscriber{notifier: notifier, notifyStatus: map[key]*notifyStatus{}}
-	bo := backOffFactory()
-	for {
-		err := s.subscribeOnce(ctx, broadcast)
-		select {
-		case <-ctx.Done():
-			// the channel closed error is irrelevant when we shutdown
-			if err == errChannelClosed {
+	return health.Retry(ctx, func() error {
+		initial, ch, unsubscribe := broadcast.Start()
+		health.ReportReady("notifying")
+		defer unsubscribe()
+		for _, ev := range initial {
+			s.maybeSend(ctx, ev)
+		}
+		for {
+			select {
+			case <-ctx.Done():
 				return nil
-			}
-			return err
-		default:
-			nb := bo.NextBackOff()
-			if nb == backoff.Stop {
-				return err
-			} else {
-				select {
-				case <-ctx.Done():
-					return nil
-				case <-time.After(nb):
+			case ev, ok := <-ch:
+				if !ok {
+					// channel closed
+					// this can happen in two cases
+					select {
+					// 1. we are shutting down. Then it's expected and not an error
+					case <-ctx.Done():
+						return nil
+					// 2. when this subscriber fell behind too much when consuming. Then it's an error and should be handled
+					default:
+						return errChannelClosed
+					}
 				}
+				s.maybeSend(ctx, ev)
 			}
 		}
-	}
+	})
 }
 
 type key struct {
@@ -70,26 +75,6 @@ type notifyStatus struct {
 type subscriber struct {
 	notifier     Notifier
 	notifyStatus map[key]*notifyStatus
-}
-
-func (s *subscriber) subscribeOnce(ctx context.Context, broadcast *service.Broadcast) error {
-	initial, ch, unsubscribe := broadcast.Start()
-	defer unsubscribe()
-	for _, ev := range initial {
-		s.maybeSend(ctx, ev)
-	}
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case ev, ok := <-ch:
-			if !ok {
-				// channel closed
-				return errChannelClosed
-			}
-			s.maybeSend(ctx, ev)
-		}
-	}
 }
 
 func (s *subscriber) maybeSend(ctx context.Context, ev *service.BroadcastEvent) {

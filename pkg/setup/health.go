@@ -20,10 +20,15 @@ Copyright 2023 freiheit.com*/
 package setup
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
+
+	"github.com/cenkalti/backoff/v4"
 )
 
 type Health uint
@@ -31,6 +36,7 @@ type Health uint
 const (
 	HealthStarting Health = iota
 	HealthReady
+	HealthBackoff
 	HealthFailed
 )
 
@@ -40,6 +46,8 @@ func (h Health) String() string {
 		return "starting"
 	case HealthReady:
 		return "ready"
+	case HealthBackoff:
+		return "backoff"
 	case HealthFailed:
 		return "failed"
 	}
@@ -51,8 +59,9 @@ func (h Health) MarshalJSON() ([]byte, error) {
 }
 
 type HealthReporter struct {
-	server *HealthServer
-	name   string
+	server  *HealthServer
+	name    string
+	backoff backoff.BackOff
 }
 
 type report struct {
@@ -72,6 +81,9 @@ func (r *HealthReporter) ReportHealth(health Health, message string) {
 	if r == nil {
 		return
 	}
+	if health == HealthReady {
+		r.backoff.Reset()
+	}
 	r.server.mx.Lock()
 	defer r.server.mx.Unlock()
 	if r.server.parts == nil {
@@ -83,9 +95,41 @@ func (r *HealthReporter) ReportHealth(health Health, message string) {
 	}
 }
 
+func (r *HealthReporter) Retry(ctx context.Context, fn func() error) error {
+	bo := r.backoff
+	for {
+		err := fn()
+		select {
+		case <-ctx.Done():
+			return err
+		default:
+		}
+		if err != nil {
+			var perr *backoff.PermanentError
+			if errors.As(err, &perr) {
+				return perr.Unwrap()
+			}
+			r.ReportHealth(HealthBackoff, err.Error())
+		} else {
+			r.ReportHealth(HealthBackoff, "")
+                }
+		next := bo.NextBackOff()
+		if next == backoff.Stop {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(next):
+			continue
+		}
+	}
+}
+
 type HealthServer struct {
-	parts map[string]report
-	mx    sync.Mutex
+	parts          map[string]report
+	mx             sync.Mutex
+	BackOffFactory func() backoff.BackOff
 }
 
 func (h *HealthServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -130,12 +174,23 @@ func (h *HealthServer) reports() map[string]report {
 }
 
 func (h *HealthServer) Reporter(name string) *HealthReporter {
+	var bo backoff.BackOff
+	if h.BackOffFactory != nil {
+		bo = h.BackOffFactory()
+	} else {
+		bo = backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 5)
+	}
 	r := &HealthReporter{
-		server: h,
-		name:   name,
+		server:  h,
+		name:    name,
+		backoff: bo,
 	}
 	r.ReportHealth(HealthStarting, "starting")
 	return r
+}
+
+func Permanent(err error) error {
+	return backoff.Permanent(err)
 }
 
 var (
