@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/google/go-cmp/cmp"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -32,9 +33,10 @@ import (
 )
 
 type step struct {
-	Overview   *api.GetOverviewResponse
-	ConnectErr error
-	RecvErr    error
+	Overview      *api.GetOverviewResponse
+	ConnectErr    error
+	RecvErr       error
+	CancelContext bool
 }
 
 type expectedVersion struct {
@@ -60,6 +62,7 @@ type mockOverviewClient struct {
 	LastMetadata metadata.MD
 	Steps        []step
 	current      int
+	cancel       context.CancelFunc
 }
 
 func (m *mockOverviewClient) testAllConsumed(t *testing.T) {
@@ -84,6 +87,9 @@ func (m *mockOverviewClient) StreamOverview(ctx context.Context, in *api.GetOver
 	}
 	reply := m.Steps[m.current]
 	if reply.ConnectErr != nil {
+		if reply.CancelContext {
+			m.cancel()
+		}
 		m.current = m.current + 1
 		return nil, reply.ConnectErr
 	}
@@ -95,6 +101,9 @@ func (m *mockOverviewClient) Recv() (*api.GetOverviewResponse, error) {
 		return nil, fmt.Errorf("exhausted: %w", io.EOF)
 	}
 	reply := m.Steps[m.current]
+	if reply.CancelContext {
+		m.cancel()
+	}
 	m.current = m.current + 1
 	return reply.Overview, reply.RecvErr
 }
@@ -368,7 +377,8 @@ func TestVersionClientStream(t *testing.T) {
 					RecvErr: fmt.Errorf("no"),
 				},
 				{
-					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
 				},
 			},
 		},
@@ -379,7 +389,8 @@ func TestVersionClientStream(t *testing.T) {
 					Overview: testOverview,
 				},
 				{
-					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
 				},
 			},
 			ExpectedVersions: []expectedVersion{
@@ -415,7 +426,8 @@ func TestVersionClientStream(t *testing.T) {
 					Overview: testOverview,
 				},
 				{
-					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
 				},
 			},
 			ExpectedEvents: []KuberpultEvent{
@@ -441,7 +453,8 @@ func TestVersionClientStream(t *testing.T) {
 					Overview: emptyTestOverview,
 				},
 				{
-					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
 				},
 			},
 			ExpectedEvents: []KuberpultEvent{
@@ -473,7 +486,8 @@ func TestVersionClientStream(t *testing.T) {
 					Overview: testOverviewWithDifferentEnvgroup,
 				},
 				{
-					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
 				},
 			},
 			ExpectedEvents: []KuberpultEvent{
@@ -506,7 +520,8 @@ func TestVersionClientStream(t *testing.T) {
 					Overview: testOverviewWithProdEnvs,
 				},
 				{
-					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
 				},
 			},
 			ExpectedEvents: []KuberpultEvent{
@@ -527,11 +542,12 @@ func TestVersionClientStream(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, cancel := context.WithCancel(context.Background())
 			vp := &mockVersionEventProcessor{}
-			mc := &mockOverviewClient{Steps: tc.Steps}
+			mc := &mockOverviewClient{Steps: tc.Steps, cancel: cancel}
 			vc := New(mc)
-			err := vc.ConsumeEvents(ctx, vp)
+			hs := &setup.HealthServer{}
+			err := vc.ConsumeEvents(ctx, vp, hs.Reporter("versions"))
 			if err != nil {
 				t.Errorf("expected no error, but received %q", err)
 			}

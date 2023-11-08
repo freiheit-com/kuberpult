@@ -26,6 +26,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"k8s.io/utils/lru"
@@ -40,7 +41,7 @@ var RolloutServiceUser auth.User = auth.User{
 
 type VersionClient interface {
 	GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error)
-	ConsumeEvents(ctx context.Context, processor VersionEventProcessor) error
+	ConsumeEvents(ctx context.Context, processor VersionEventProcessor, hr *setup.HealthReporter) error
 }
 
 type versionClient struct {
@@ -134,14 +135,12 @@ type key struct {
 	Application string
 }
 
-func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEventProcessor) error {
+func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEventProcessor, hr *setup.HealthReporter) error {
 	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
-outer:
-	for {
+	return hr.Retry(ctx, func() error {
 		client, err := v.client.StreamOverview(ctx, &api.GetOverviewRequest{})
 		if err != nil {
-			logger.FromContext(ctx).Warn("overview.connect", zap.Error(err))
-			continue outer
+			return fmt.Errorf("overview.connect: %w", err)
 		}
 		versions := map[key]uint64{}
 		environmentGroups := map[key]string{}
@@ -158,12 +157,8 @@ outer:
 					if grpcErr.Code() == codes.Canceled {
 						return nil
 					}
-
-					logger.FromContext(ctx).Warn("overview.stream", zap.Error(err), zap.String("grpc.code", grpcErr.Code().String()), zap.String("grpc.message", grpcErr.Message()))
-				} else {
-					logger.FromContext(ctx).Warn("overview.stream", zap.Error(err))
 				}
-				continue
+				return fmt.Errorf("overview.recv: %w", err)
 			}
 			l := logger.FromContext(ctx).With(zap.String("git.revision", overview.GitRevision))
 			v.cache.Add(overview.GitRevision, overview)
@@ -187,12 +182,11 @@ outer:
 							Application:      app.Name,
 							Environment:      env.Name,
 							EnvironmentGroup: envGroup.EnvironmentGroupName,
-							IsProduction:   env.Priority == api.Priority_PROD,
+							IsProduction:     env.Priority == api.Priority_PROD,
 							Version: &VersionInfo{
 								Version:        app.Version,
 								SourceCommitId: sc,
 								DeployedAt:     dt,
-
 							},
 						})
 					}
@@ -212,8 +206,7 @@ outer:
 			}
 			versions = seen
 		}
-	}
-
+	})
 }
 
 func New(client api.OverviewServiceClient) VersionClient {
