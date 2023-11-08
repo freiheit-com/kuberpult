@@ -95,6 +95,29 @@ func (r *HealthReporter) ReportHealth(health Health, message string) {
 	}
 }
 
+// Retry allows background services to setup reliable streaming with backoff.
+//
+// This can be used to create background tasks that look like this:
+//
+//	func Consume(ctx context.Context, hr *setup.HealthReporter) error {
+//		state := initState()
+//		return hr.Retry(ctx, func() error {
+//	        	stream, err := startConsumer()
+//	        	if err != nil {
+// 				return err
+// 			}
+//			hr.ReportReady("receiving")
+//			for {
+//				select {
+//				case <-ctx.Done(): return nil
+//				case ev := <-stream: handleEvent(state, event)
+//				}
+//              	}
+//	      })
+//	}
+//
+// In the example above, connecting to  the consumer will be retried a few times with backoff.
+// The number of retries is reset whenever ReportReady is called so that successful connection heal the service.
 func (r *HealthReporter) Retry(ctx context.Context, fn func() error) error {
 	bo := r.backoff
 	for {
@@ -112,7 +135,7 @@ func (r *HealthReporter) Retry(ctx context.Context, fn func() error) error {
 			r.ReportHealth(HealthBackoff, err.Error())
 		} else {
 			r.ReportHealth(HealthBackoff, "")
-                }
+		}
 		next := bo.NextBackOff()
 		if next == backoff.Stop {
 			return err
