@@ -263,6 +263,7 @@ func TestVersionClientStream(t *testing.T) {
 						SourceCommitId: "00001",
 					},
 				},
+				Team: "footeam",
 			},
 		},
 		EnvironmentGroups: []*api.EnvironmentGroup{
@@ -408,6 +409,7 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:      "staging",
 					Application:      "foo",
 					EnvironmentGroup: "staging-group",
+					Team:             "footeam",
 					Version: &VersionInfo{
 						Version:        1,
 						SourceCommitId: "00001",
@@ -435,6 +437,7 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:      "staging",
 					Application:      "foo",
 					EnvironmentGroup: "staging-group",
+					Team:             "footeam",
 					Version: &VersionInfo{
 						Version:        1,
 						SourceCommitId: "00001",
@@ -462,6 +465,7 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:      "staging",
 					Application:      "foo",
 					EnvironmentGroup: "staging-group",
+					Team:             "footeam",
 					Version: &VersionInfo{
 						Version:        1,
 						SourceCommitId: "00001",
@@ -472,6 +476,7 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:      "staging",
 					Application:      "foo",
 					EnvironmentGroup: "staging-group",
+					Team:             "footeam",
 					Version:          &VersionInfo{},
 				},
 			},
@@ -495,6 +500,7 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:      "staging",
 					Application:      "foo",
 					EnvironmentGroup: "staging-group",
+					Team:             "footeam",
 					Version: &VersionInfo{
 						Version:        1,
 						SourceCommitId: "00001",
@@ -505,6 +511,7 @@ func TestVersionClientStream(t *testing.T) {
 					Environment:      "staging",
 					Application:      "foo",
 					EnvironmentGroup: "not-staging-group",
+					Team:             "",
 					Version: &VersionInfo{
 						Version:        2,
 						SourceCommitId: "00002",

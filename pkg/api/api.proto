@@ -386,6 +386,7 @@ service RolloutService {
 message StreamStatusRequest {}
 message GetStatusRequest {
   string environmentGroup = 1;
+  string team = 2;
 }
 
 /*

@@ -105,6 +105,14 @@ func deployedAt(app *api.Environment_Application) time.Time {
 	return time.Time{}
 }
 
+func team(overview *api.GetOverviewResponse, app string) string {
+	a := overview.Applications[app]
+	if a == nil {
+		return ""
+	}
+	return a.Team
+}
+
 func sourceCommitId(overview *api.GetOverviewResponse, app *api.Environment_Application) string {
 	a := overview.Applications[app.Name]
 	if a == nil {
@@ -123,6 +131,7 @@ type KuberpultEvent struct {
 	Application      string
 	EnvironmentGroup string
 	IsProduction     bool
+	Team             string
 	Version          *VersionInfo
 }
 
@@ -144,6 +153,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 		}
 		versions := map[key]uint64{}
 		environmentGroups := map[key]string{}
+		teams := map[key]string{}
 		for {
 			select {
 			case <-ctx.Done():
@@ -169,11 +179,13 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 					for _, app := range env.Applications {
 						dt := deployedAt(app)
 						sc := sourceCommitId(overview, app)
+						tm := team(overview, app.Name)
 
 						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version), zap.Time("deployedAt", dt))
 						k := key{env.Name, app.Name}
 						seen[k] = app.Version
 						environmentGroups[k] = envGroup.EnvironmentGroupName
+						teams[k] = tm
 						if versions[k] == app.Version {
 							continue
 						}
@@ -182,6 +194,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 							Application:      app.Name,
 							Environment:      env.Name,
 							EnvironmentGroup: envGroup.EnvironmentGroupName,
+							Team:             tm,
 							IsProduction:     env.Priority == api.Priority_PROD,
 							Version: &VersionInfo{
 								Version:        app.Version,
@@ -200,6 +213,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 						Application:      k.Application,
 						Environment:      k.Environment,
 						EnvironmentGroup: environmentGroups[k],
+						Team:             teams[k],
 						Version:          &VersionInfo{},
 					})
 				}

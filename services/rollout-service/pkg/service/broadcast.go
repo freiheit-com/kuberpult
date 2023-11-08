@@ -41,6 +41,7 @@ type appState struct {
 	rolloutStatus    api.RolloutStatus
 	environmentGroup string
 	isProduction     *bool
+	team             string
 }
 
 func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
@@ -57,6 +58,7 @@ func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEv
 	if a.kuberpultVersion == nil || a.kuberpultVersion.Version != ev.Version.Version || a.isProduction == nil || *a.isProduction != ev.IsProduction {
 		a.kuberpultVersion = ev.Version
 		a.environmentGroup = ev.EnvironmentGroup
+		a.team = ev.Team
 		a.isProduction = ptr.Bool(ev.IsProduction)
 		return a.getEvent(ev.Application, ev.Environment)
 	}
@@ -77,6 +79,7 @@ func (a *appState) getEvent(application, environment string) *BroadcastEvent {
 		IsProduction:     a.isProduction,
 		ArgocdVersion:    a.argocdVersion,
 		RolloutStatus:    rs,
+		Team:             a.team,
 		KuberpultVersion: a.kuberpultVersion,
 	}
 }
@@ -199,6 +202,9 @@ func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*
 			if s.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful {
 				continue
 			}
+			if req.Team != "" && req.Team != r.Team {
+				continue
+			}
 			apps = append(apps, s)
 			status = mostRelevantStatus(status, s.RolloutStatus)
 		}
@@ -230,6 +236,7 @@ func (b *Broadcast) Start() ([]*BroadcastEvent, <-chan *BroadcastEvent, unsubscr
 type BroadcastEvent struct {
 	Key
 	EnvironmentGroup string
+	Team             string
 	IsProduction     *bool
 	ArgocdVersion    *versions.VersionInfo
 	KuberpultVersion *versions.VersionInfo
