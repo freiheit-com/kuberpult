@@ -30,6 +30,8 @@ import (
 	"syscall"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -53,6 +55,7 @@ type shutdown struct {
 // Setup structure that holds only the shutdown callbacks for all
 // grpc and http server for endpoints, metrics, health checks, etc.
 type setup struct {
+	health          HealthServer
 	shutdown        []shutdown
 	shutdownChannel chan bool
 }
@@ -82,9 +85,11 @@ type HTTPConfig struct {
 	Shutdown  func(context.Context) error
 }
 
+type BackgroundFunc func(context.Context, *HealthReporter) error
+
 type BackgroundTaskConfig struct {
 	// a function that triggers a graceful shutdown of all other resources after completion
-	Run  func(context.Context) error
+	Run  BackgroundFunc
 	Name string
 	// optional
 	Shutdown func(context.Context) error
@@ -107,6 +112,18 @@ func Run(ctx context.Context, config ServerConfig) {
 	ctx, cancel := context.WithCancel(ctx)
 	pv, handler, _ := metrics.Init()
 	ctx = metrics.WithProvider(ctx, pv)
+
+	pv.Meter("setup").Int64ObservableGauge("background_job_ready", metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+		reports := s.health.reports()
+		for name, report := range reports {
+			var value int64
+			if report.isReady() {
+				value = 1
+			}
+			o.Observe(value, metric.WithAttributes(attribute.String("name", name)))
+		}
+		return nil
+	}))
 
 	// Start the listening on each protocol
 	for _, cfg := range config.HTTP {
@@ -204,8 +221,11 @@ func serveGRPC(ctx context.Context, grpcS *grpc.Server, grpcL net.Listener, canc
 
 func setupHTTP(ctx context.Context, s *setup, config HTTPConfig, cancel context.CancelFunc, metricHandler http.Handler) {
 	mux := http.NewServeMux()
-	config.Register(mux)
+	if config.Register != nil {
+		config.Register(mux)
+	}
 	mux.Handle("/metrics", metricHandler)
+	mux.Handle("/healthz", &s.health)
 	runHTTPHandler(ctx, s, mux, config.Port, config.BasicAuth, config.Shutdown, cancel)
 }
 
@@ -264,13 +284,14 @@ func setupBackgroundTask(ctx context.Context, s *setup, config BackgroundTaskCon
 			config.Shutdown,
 		)
 	}
+	reporter := s.health.Reporter(config.Name)
 
-	go runBackgroundTask(ctx, config, cancel)
+	go runBackgroundTask(ctx, config, cancel, reporter)
 }
 
-func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig, cancel context.CancelFunc) {
+func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig, cancel context.CancelFunc, reporter *HealthReporter) {
 	defer cancel()
-	if err := config.Run(ctx); err != nil {
+	if err := config.Run(ctx, reporter); err != nil {
 		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job", config.Name))
 	}
 }

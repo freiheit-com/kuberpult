@@ -203,7 +203,7 @@ func TestMetrics(t *testing.T) {
 				Background: []BackgroundTaskConfig{
 					{
 						Name: "something",
-						Run: func(ctx context.Context) error {
+						Run: func(ctx context.Context, hr *HealthReporter) error {
 							pv := metrics.FromContext(ctx)
 							counter, _ := pv.Meter("something").Int64Counter("something")
 							counter.Add(ctx, 1)
@@ -235,7 +235,10 @@ func TestMetrics(t *testing.T) {
 				time.After(time.Second)
 			}
 			body, _ := io.ReadAll(response.Body)
-			expectedBody := `# HELP something_total 
+			expectedBody := `# HELP background_job_ready 
+# TYPE background_job_ready gauge
+background_job_ready{name="something"} 0
+# HELP something_total 
 # TYPE something_total counter
 something_total 1
 `

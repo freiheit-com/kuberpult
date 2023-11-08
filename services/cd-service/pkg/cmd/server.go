@@ -19,7 +19,6 @@ package cmd
 import (
 	"context"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
@@ -81,7 +80,6 @@ func RunServer() {
 
 		var c Config
 
-		var wg sync.WaitGroup
 
 		err := envconfig.Process("kuberpult", &c)
 		if err != nil {
@@ -168,7 +166,7 @@ func RunServer() {
 			WebURL:                 c.GitWebUrl,
 			NetworkTimeout:         c.GitNetworkTimeout,
 		}
-		repo, err := repository.New(ctx, cfg)
+		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("repository.new.error", zap.Error(err), zap.String("git.url", c.GitUrl), zap.String("git.branch", c.GitBranch))
 		}
@@ -178,9 +176,6 @@ func RunServer() {
 		}
 
 		span.Finish()
-
-		wg.Add(1)
-		go repository.RegularlySendDatadogMetrics(repo, 300, repository.GetRepositoryStateAndUpdateMetrics)
 
 		// Shutdown channel is used to terminate server side streams.
 		shutdownCh := make(chan struct{})
@@ -223,9 +218,22 @@ func RunServer() {
 
 				},
 			},
+			Background: []setup.BackgroundTaskConfig{
+				{
+					Name: "ddmetrics",
+					Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
+						reporter.ReportReady("sending metrics")
+						repository.RegularlySendDatadogMetrics(repo, 300, repository.GetRepositoryStateAndUpdateMetrics)
+						return nil
+					},
+				},
+				{
+					Name: "push queue",
+					Run:  repoQueue,
+				},
+			},
 			Shutdown: func(ctx context.Context) error {
 				close(shutdownCh)
-				wg.Done()
 				return nil
 			},
 		})

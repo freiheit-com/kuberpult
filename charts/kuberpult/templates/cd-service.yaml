@@ -85,13 +85,13 @@ spec:
             protocol: TCP
         readinessProbe:
           httpGet:
-            path: /health
+            path: /healthz
             port: http
           initialDelaySeconds: {{ .Values.cd.probes.readiness.initialDelaySeconds }}
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /health
+            path: /healthz
             port: http
           initialDelaySeconds: {{ .Values.cd.probes.liveness.initialDelaySeconds }}
         resources:

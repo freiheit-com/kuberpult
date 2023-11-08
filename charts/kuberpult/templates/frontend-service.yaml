@@ -67,13 +67,13 @@ spec:
             protocol: TCP
         readinessProbe:
           httpGet:
-            path: /health
+            path: /healthz
             port: http
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /health
+            path: /healthz
             port: http
         resources:
           limits:

@@ -1117,7 +1117,7 @@ func TestApplyQueuePanic(t *testing.T) {
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
 			cmd.Start()
 			cmd.Wait()
-			repo, err := New(
+			repo, processQueue, err := New2(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
 					URL:  "file://" + remoteDir,
@@ -1127,22 +1127,23 @@ func TestApplyQueuePanic(t *testing.T) {
 			if err != nil {
 				t.Fatalf("new: expected no error, got '%e'", err)
 			}
-			repoInternal := repo.(*repository)
-			// Block the worker so that we have multiple items in the queue
-			finished := make(chan struct{})
-			started := make(chan struct{}, 1)
-			go func() {
-				repo.Apply(testutil.MakeTestContext(), &SlowTransformer{finished, started})
-			}()
-			<-started
-			// The worker go routine is now blocked. We can move some items into the queue now.
+			// The worker go routine is not started. We can move some items into the queue now.
 			results := make([]<-chan error, len(tc.Actions))
 			for i, action := range tc.Actions {
-				results[i] = repoInternal.applyDeferred(testutil.MakeTestContext(), action.Transformer)
+				// We are using the internal interface here as an optimization to avoid spinning up one go-routine per action
+				t := action.Transformer
+				if t == nil {
+					t = &EmptyTransformer{}
+				}
+				results[i] = repo.(*repository).applyDeferred(testutil.MakeTestContext(), t)
 			}
 			defer func() {
-				if r := recover(); r == nil {
+				r := recover()
+				if r == nil {
 					t.Errorf("The code did not panic")
+				} else if r != "panic tranformer" {
+					t.Logf("The code did not panic with the correct string but %#v", r)
+					panic(r)
 				}
 				// Check for the correct errors
 				for i, action := range tc.Actions {
@@ -1151,7 +1152,9 @@ func TestApplyQueuePanic(t *testing.T) {
 					}
 				}
 			}()
-			repoInternal.ProcessQueue(testutil.MakeTestContext())
+			ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
+			defer cancel()
+			processQueue(ctx, nil)
 		})
 	}
 }
