@@ -1,0 +1,42 @@
+/*This file is part of kuberpult.
+
+Kuberpult is free software: you can redistribute it and/or modify
+it under the terms of the Expat(MIT) License as published by
+the Free Software Foundation.
+
+Kuberpult is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+MIT License for more details.
+
+You should have received a copy of the MIT License
+along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+Copyright 2023 freiheit.com*/
+/* The actual timeline (the vertical ruler) */
+.product_version {
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.environment_name {
+    font-weight: 700;
+    font-size: 28px;
+    line-height: 48px;
+    padding-left: 35px;
+    align-items: center;
+    color: var(--mdc-theme-primary);
+}
+
+.page_description {
+    font-style: normal;
+    position: relative;
+    font-weight: 700;
+    line-height: 32px;
+    padding: 10px 40px;
+    color: var(--mdc-theme-on-surface);
+    justify-content: space-between;
+    display: flex;
+    background: linear-gradient(var(--mdc-theme-primary), var(--mdc-theme-primary)) left 9px top 14px/2px 100% no-repeat;
+}

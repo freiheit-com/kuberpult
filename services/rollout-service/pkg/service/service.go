@@ -24,6 +24,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -45,7 +46,7 @@ type ArgoEventProcessor interface {
 	ProcessArgoEvent(ctx context.Context, ev ArgoEvent)
 }
 
-func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, version versions.VersionClient, sink ArgoEventProcessor, ready func()) error {
+func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, version versions.VersionClient, sink ArgoEventProcessor, hlth *setup.HealthReporter) error {
 	for {
 		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
@@ -55,7 +56,7 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 			}
 			return fmt.Errorf("watching applications: %w", err)
 		}
-		ready()
+		hlth.ReportReady("consuming events")
 	recv:
 		for {
 			ev, err := watch.Recv()

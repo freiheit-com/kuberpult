@@ -19,7 +19,6 @@ include ./Makefile.variables
 MAKEFLAGS += --no-builtin-rules
 
 SCRIPTS_BASE:=infrastructure/scripts/make
-CODE_REVIEWER_LOCATION?=$(HOME)/bin/codereviewr
 
 
 MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg/api pkg
@@ -56,23 +55,6 @@ all: $(addsuffix /all,$(MAKEDIRS))
 
 init:
 
-$(CODE_REVIEWER_LOCATION):
-ifeq ($(CI),true)
-	@wget -O /tmp/codereviewr https://storage.googleapis.com/codereviewr_a7ed108e-470d-4be0-b5bc-001e4d64f0a2/latest/codereviewr
-	install -m 755 /tmp/codereviewr $@
-else
-	@wget -O /tmp/codereviewr https://storage.googleapis.com/codereviewr_a7ed108e-470d-4be0-b5bc-001e4d64f0a2/latest/codereviewr
-	install -m 755 /tmp/codereviewr $@
-endif
-
-analyze/download: $(CODE_REVIEWER_LOCATION)
-
-analyze/merge: $(CODE_REVIEWER_LOCATION)
-	${SCRIPTS_BASE}/analyze.sh ${FROM}
-
-analyze/pull-request: $(CODE_REVIEWER_LOCATION)
-	${SCRIPTS_BASE}/analyze.sh --dry-run ${FROM}
-
 .PHONY: release  $(addsuffix /release,$(MAKEDIRS)) all $(addsuffix /all,$(MAKEDIRS)) clean $(addsuffix /clean,$(MAKEDIRS))
 
 .PHONY: check-license
@@ -92,7 +74,7 @@ cleanup-main:
 	@echo "Nothing to do"
 
 kuberpult:
-	docker-compose up --build
+	docker compose up --build
 
 kuberpult-earthly:
 	earthly +all-services --UID=$(USER_UID) --target docker

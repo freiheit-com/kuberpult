@@ -39,9 +39,8 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
     }, [props]);
 
     const addTeam = React.useCallback(
-        (id: string, e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
-            const index = Number(e.currentTarget.id);
-            const newTeam = props.environments[index];
+        (env: string) => {
+            const newTeam = env;
             const indexOf = selectedEnvs.indexOf(newTeam);
             if (indexOf >= 0) {
                 const copy = selectedEnvs.concat();
@@ -51,7 +50,7 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
                 setSelectedEnvs(selectedEnvs.concat(newTeam));
             }
         },
-        [props.environments, selectedEnvs]
+        [selectedEnvs]
     );
 
     return (
@@ -70,7 +69,7 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
                             <Checkbox
                                 enabled={enabled}
                                 onClick={addTeam}
-                                id={String(index)}
+                                id={String(env)}
                                 label={env}
                                 classes={'env' + env}
                             />

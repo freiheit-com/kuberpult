@@ -19,7 +19,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"net/url"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
@@ -86,8 +85,8 @@ func (config *Config) RevolutionConfig() (revolution.Config, error) {
 		return revolution.Config{}, fmt.Errorf("KUBERPULT_REVOLUTION_DORA_TOKEN must not be empty")
 	}
 	return revolution.Config{
-		URL:            config.RevolutionDoraUrl,
-		Token:          []byte(config.RevolutionDoraToken),
+		URL:         config.RevolutionDoraUrl,
+		Token:       []byte(config.RevolutionDoraToken),
 		Concurrency: config.RevolutionDoraConcurrency,
 	}, nil
 }
@@ -181,19 +180,19 @@ func runServer(ctx context.Context, config Config) error {
 	}
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
-	ready := false
 	versionC := versions.New(overview)
 
 	backgroundTasks := []setup.BackgroundTaskConfig{
 		{
 			Name: "consume argocd events",
-			Run: func(ctx context.Context) error {
-				return service.ConsumeEvents(ctx, appClient, versionC, broadcast, func() { ready = true })
+			Run: func(ctx context.Context, health *setup.HealthReporter) error {
+				return service.ConsumeEvents(ctx, appClient, versionC, broadcast, health)
 			},
 		},
 		{
 			Name: "consume kuberpult events",
-			Run: func(ctx context.Context) error {
+			Run: func(ctx context.Context, health *setup.HealthReporter) error {
+				health.ReportReady("consuming")
 				return versionC.ConsumeEvents(ctx, broadcast)
 			},
 		},
@@ -203,7 +202,8 @@ func runServer(ctx context.Context, config Config) error {
 
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 			Name: "refresh argocd",
-			Run: func(ctx context.Context) error {
+			Run: func(ctx context.Context, health *setup.HealthReporter) error {
+				health.ReportReady("refreshing")
 				notify := notifier.New(appClient, config.ArgocdRefreshConcurrency)
 				return notifier.Subscribe(ctx, notify, broadcast)
 			},
@@ -218,20 +218,18 @@ func runServer(ctx context.Context, config Config) error {
 		revolutionDora := revolution.New(revolutionConfig)
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 			Name: "revolution dora",
-			Run: func(ctx context.Context) error {
+			Run: func(ctx context.Context, health *setup.HealthReporter) error {
+				health.ReportReady("pushing")
 				return revolutionDora.Subscribe(ctx, broadcast)
 			},
 		})
 	}
 
-	meter, handler, err := pkgmetrics.Init()
-	if err != nil {
-		return err
-	}
 	backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 		Name: "create metrics",
-		Run: func(ctx context.Context) error {
-			return metrics.Metrics(ctx, broadcast, meter, nil)
+		Run: func(ctx context.Context, health *setup.HealthReporter) error {
+			health.ReportReady("reporting")
+			return metrics.Metrics(ctx, broadcast, pkgmetrics.FromContext(ctx), nil)
 		},
 	})
 
@@ -239,16 +237,6 @@ func runServer(ctx context.Context, config Config) error {
 		HTTP: []setup.HTTPConfig{
 			{
 				Port: "8080",
-				Register: func(mux *http.ServeMux) {
-					mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						if ready {
-							w.WriteHeader(200)
-						} else {
-							w.WriteHeader(500)
-						}
-					}))
-					mux.Handle("/metrics", handler)
-				},
 			},
 		},
 		Background: backgroundTasks,

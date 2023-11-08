@@ -251,7 +251,7 @@ func TestGenerateManifest(t *testing.T) {
 			},
 
 			// The error message from argo cd contains the output log of git which differs slightly with the git version. Therefore, we don't match on that.
-			ExpectedArgoError: regexp.MustCompile("\\Arpc error: code = Internal desc = Failed to checkout revision b551320bc327abfabf9df32ee5a830f8ccb1e88d:"),
+			ExpectedArgoError: regexp.MustCompile("\\A.*rpc error: code = Internal desc = Failed to checkout revision b551320bc327abfabf9df32ee5a830f8ccb1e88d:"),
 			ExpectedError:     "rpc error: code = NotFound desc = unknown revision \"b551320bc327abfabf9df32ee5a830f8ccb1e88d\", I only know \"HEAD\", \"master\" and commit hashes",
 		},
 	}
@@ -309,6 +309,8 @@ func TestGenerateManifest(t *testing.T) {
 				}
 			} else {
 				if !tc.ExpectedArgoError.MatchString(err.Error()) {
+					t.Logf("actual error:\n%s\n", err.Error())
+					t.Logf("expected error:\n%s\n", tc.ExpectedArgoError.String())
 					t.Fatalf("got wrong error, expected to match %q but got %q", tc.ExpectedArgoError, err)
 				}
 			}

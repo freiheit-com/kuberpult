@@ -24,9 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	v1alpha1 "github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -39,9 +36,15 @@ import (
 	"sync"
 	"time"
 
+	v1alpha1 "github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
+
 	"github.com/DataDog/datadog-go/v5/statsd"
 	backoff "github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
@@ -173,8 +176,86 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 	return repo2, err
 }
 
+func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags []*api.TagData, err error) {
+	repo, err := openOrCreate(repoName, cfg.StorageBackend)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open/create repo: %v", err)
+	}
+
+	var credentials *credentialsStore
+	var certificates *certificateStore
+	if strings.HasPrefix(cfg.URL, "./") || strings.HasPrefix(cfg.URL, "/") {
+	} else {
+		credentials, err = cfg.Credentials.load()
+		if err != nil {
+			return nil, fmt.Errorf("failure to load credentials: %v", err)
+		}
+		certificates, err = cfg.Certificates.load()
+		if err != nil {
+			return nil, fmt.Errorf("failure to load certificates: %v", err)
+		}
+	}
+
+	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	fetchOptions := git.FetchOptions{
+		RemoteCallbacks: git.RemoteCallbacks{
+			CredentialsCallback:      credentials.CredentialsCallback(ctx),
+			CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+		},
+		DownloadTags: git.DownloadTagsAll,
+	}
+	remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failure to create anonymous remote: %v", err)
+	}
+	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+	if err != nil {
+		return nil, fmt.Errorf("failure to fetch: %v", err)
+	}
+
+	tagsList, err := repo.Tags.List()
+	if err != nil {
+		return nil, fmt.Errorf("unable to list tags: %v", err)
+	}
+
+	sort.Strings(tagsList)
+	iters, err := repo.NewReferenceIteratorGlob("refs/tags/*")
+	if err != nil {
+		return nil, fmt.Errorf("unable to get list of tags: %v", err)
+	}
+	for {
+		tagObject, err := iters.Next()
+		if err != nil {
+			break
+		}
+		tagRef, lookupErr := repo.LookupTag(tagObject.Target())
+		if lookupErr != nil {
+			tagCommit, err := repo.LookupCommit(tagObject.Target())
+			// If LookupTag fails, fallback to LookupCommit
+			// to cover all tags, annotated and lightweight
+			if err != nil {
+				return nil, fmt.Errorf("unable to lookup tag [%s]: %v - original err: %v", tagObject.Name(), err, lookupErr)
+			}
+			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
+		} else {
+			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagRef.Id().String()})
+		}
+	}
+
+	return tags, nil
+}
+
 // Opens a repository. The repository is initialized and updated in the background.
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
+	repo, bg, err := New2(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	go bg(ctx, nil)
+	return repo, err
+}
+
+func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.BackgroundFunc, error) {
 	logger := logger.FromContext(ctx)
 
 	ddMetricsFromCtx := ctx.Value("ddMetrics")
@@ -205,20 +286,20 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	} else {
 		credentials, err = cfg.Credentials.load()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		certificates, err = cfg.Certificates.load()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	if repo2, err := openOrCreate(cfg.Path, cfg.StorageBackend); err != nil {
-		return nil, err
+		return nil, nil, err
 	} else {
 		// configure remotes
 		if remote, err := repo2.Remotes.CreateAnonymous(cfg.URL); err != nil {
-			return nil, err
+			return nil, nil, err
 		} else {
 			result := &repository{
 				config:          &cfg,
@@ -247,7 +328,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 			}
 			err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			var zero git.Oid
 			var rev *git.Oid = &zero
@@ -257,43 +338,47 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 					// not found
 					// nothing to do
 				} else {
-					return nil, err
+					return nil, nil, err
 				}
 			} else {
 				rev = remoteRef.Target()
 				if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 			}
 
 			// check that we can build the current state
 			state, err := result.StateAt(nil)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			// Check configuration for errors and abort early if any:
 			_, err = state.GetEnvironmentConfigsAndValidate(ctx)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-			go result.ProcessQueue(ctx)
-			return result, nil
+
+			return result, result.ProcessQueue, nil
 		}
 	}
 }
 
-func (r *repository) ProcessQueue(ctx context.Context) {
+func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthReporter) error {
 	defer func() {
 		close(r.queue.elements)
 		for e := range r.queue.elements {
 			e.result <- ctx.Err()
 		}
 	}()
+	tick := time.Tick(r.config.NetworkTimeout)
 	for {
+		health.ReportReady("processing queue")
 		select {
+		case <-tick:
+			// this triggers a for loop every `NetworkTimeout` to refresh the readyness
 		case <-ctx.Done():
-			return
+			return nil
 		case e := <-r.queue.elements:
 			r.ProcessQueueOnce(ctx, e, defaultPushUpdate, DefaultPushActionCallback)
 		}

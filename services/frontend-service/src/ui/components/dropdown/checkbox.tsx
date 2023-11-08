@@ -18,10 +18,8 @@ import * as React from 'react';
 import { Button } from '../button';
 import { useCallback } from 'react';
 
-type CheckboxEvent = React.MouseEvent<HTMLButtonElement, MouseEvent>;
-
 export type CheckboxProps = {
-    onClick?: (id: string, e: CheckboxEvent) => void;
+    onClick?: (id: string) => void;
     classes?: string;
     id: string;
     enabled: boolean;
@@ -29,17 +27,14 @@ export type CheckboxProps = {
 };
 
 export const Checkbox: React.FC<CheckboxProps> = (props) => {
-    const onClick = useCallback(
-        (e: CheckboxEvent) => {
-            if (props.onClick) {
-                props.onClick(props.id, e);
-            }
-        },
-        [props]
-    );
+    const onClick = useCallback(() => {
+        if (props.onClick) {
+            props.onClick(props.id);
+        }
+    }, [props]);
     return (
         <label>
-            <div className={'checkbox-wrapper'} id={String(props.id)}>
+            <div className={'checkbox-wrapper'}>
                 <Button
                     onClick={onClick}
                     className={'test-button-checkbox id-' + props.id + ' ' + (props.enabled ? 'enabled' : 'disabled')}

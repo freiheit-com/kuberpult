@@ -17,6 +17,7 @@ Copyright 2023 freiheit.com*/
 package metrics
 
 import (
+	"context"
 	"net/http"
 
 	"go.opentelemetry.io/otel/metric"
@@ -40,4 +41,16 @@ func Init() (metric.MeterProvider, http.Handler, error) {
 	)
 
 	return meterProvider, promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), nil
+}
+
+type ctxKeyType struct{}
+
+var ctxKey ctxKeyType = ctxKeyType{}
+
+func FromContext(ctx context.Context) metric.MeterProvider {
+	return ctx.Value(ctxKey).(metric.MeterProvider)
+}
+
+func WithProvider(ctx context.Context, pv metric.MeterProvider) context.Context {
+	return context.WithValue(ctx, ctxKey, pv)
 }

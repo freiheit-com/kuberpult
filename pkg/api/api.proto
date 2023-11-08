@@ -7,6 +7,23 @@ import "google/protobuf/timestamp.proto";
 
 package api.v1;
 
+
+service GitTagsService {
+  rpc GetGitTags (GetGitTagsRequest) returns (GetGitTagsResponse) {}
+}
+
+message GetGitTagsRequest {
+}
+
+message GetGitTagsResponse {
+  repeated TagData tag_data = 1;
+}
+
+message TagData {
+  string tag = 1;
+  string commit_id = 2;
+}
+
 service BatchService {
   rpc ProcessBatch (BatchRequest) returns (BatchResponse) {}
 }
@@ -201,9 +218,16 @@ message EnvironmentGroup {
 }
 
 enum Priority {
+  // PROD is an environment that no environment names as its upstream
+  // PROD takes precedence over UPSTREAM and PRE_PROD
+  // (e.g. if an environment is qualifies as both PROD and UPSTREAM, it shall be marked as PROD)
   PROD = 0;
+  // PRE_PROD is an evironment that is the upstream of a PROD environment (unless it is also an UPSTREAM)
   PRE_PROD = 1;
+  // UPSTREAM is an environment that has no upstream environment of its own
+  // UPSTREAM takes precendence over PRE_PROD
   UPSTREAM = 2;
+  // any remaining environment is marked OTHER
   OTHER = 3;
 }
 
