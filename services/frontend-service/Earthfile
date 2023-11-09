@@ -4,7 +4,7 @@ ARG --global service=frontend-service
 deps:
     FROM ../../+deps
     ARG tag="deps"
-    RUN apt update && apt --auto-remove install ca-certificates tzdata libgit2-dev libsqlite3-dev -y
+    RUN apt update && apt --auto-remove install ca-certificates tzdata -y
     COPY ../../pkg+artifacts/* pkg/
     BUILD ../cd-service/+artifacts --service=cd-service
     COPY (../cd-service/+artifacts/pkg --service=cd-service) services/cd-service/pkg/
@@ -29,7 +29,7 @@ compile:
     FROM +deps
     ARG USERARCH
     WORKDIR services/$service/cmd/server
-    RUN CGO_ENABLED=1 \
+    RUN CGO_ENABLED=0 \
         GOARCH=$USERARCH \
 	    GOOS=linux \
         go build -o bin/main main.go
@@ -39,14 +39,17 @@ compile:
 unit-test:
     FROM +deps
     WORKDIR services/$service
-    RUN CGO_ENABLED=1 go test ./...
+    RUN CGO_ENABLED=0 go test ./...
+    RUN go test ../../pkg/...
 
 docker:
-    FROM +deps
+    FROM alpine:3.18
     ARG tag="local"
     ENV TZ=Europe/Berlin
     COPY +compile/main /main
-    WORKDIR /kp
+    COPY +deps/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+    COPY +deps/zoneinfo /usr/share/zoneinfo
+    COPY +deps-ui/build /build
     ENTRYPOINT ["/main"] 
     SAVE IMAGE $service:$tag
 
@@ -71,11 +74,14 @@ deps-ui:
     COPY src src
     COPY public public
     RUN rm -rf src/api && buf generate --path api --timeout 5m
+    RUN pnpm build
+    SAVE ARTIFACT build
     SAVE IMAGE --cache-hint
 
 unit-test-ui:
     FROM +deps-ui
     RUN pnpm eslint
+    RUN pnpm lint-scss
     RUN pnpm test -- --watchAll=false
 
 docker-ui:
@@ -88,9 +94,9 @@ release:
     FROM +docker
     ARG tag="local"
     ARG registry="ghcr.io/freiheit-com/kuberpult"
-    SAVE IMAGE --push $registry/services/$service:$tag
+    SAVE IMAGE --push $registry/kuberpult-$service:$tag
 
 release-ui:
     FROM +docker-ui
     ARG registry="ghcr.io/freiheit-com/kuberpult"
-    SAVE IMAGE --push $registry/services/ui:local
+    SAVE IMAGE --push $registry/kuberpult-ui:local

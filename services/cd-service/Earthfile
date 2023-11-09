@@ -30,12 +30,11 @@ unit-test:
     RUN CGO_ENABLED=1 go test ./...
 
 docker:
-    FROM alpine:3.18
+    FROM +deps
     ARG UID=1000
     ARG tag="local"
     ENV TZ=Europe/Berlin
-    RUN apk add --no-cache libgit2-dev sqlite-dev
-    RUN adduser -D -h "/kp" --uid ${UID} kp
+    RUN useradd -m -d "/kp" --uid ${UID} kp
     RUN chown -R kp:kp /kp
     COPY +compile/main /main
     COPY gitconfig /etc/gitconfig

@@ -32,6 +32,8 @@ IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-frontend-service:${VERSION}
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:${VERSION}
 GARBAGE := *.sentinel
 
+SERVICE_NAME := $(shell basename $$PWD)
+EARTHLY := earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-$(SERVICE_NAME):cache
 image-name:
 	@echo "$(IMAGENAME)"
 
@@ -55,10 +57,10 @@ run: bin/main
 
 build: bin/main
 
-build-pr: test docker publish
+build-pr: test release
 	echo "build on pull request"
 
-build-main: test docker publish
+build-main: test release
 	echo "build on main"
 
 .PHONY: cleanup-pr
@@ -83,7 +85,9 @@ test-dependencies:
 	make -C ../../pkg test
 	make -C ../../pkg/api test
 
-test: test-go lint-scss test-ts test-dependencies
+test:
+	$(EARTHLY) +unit-test
+	$(EARTHLY) +unit-test-ui
 
 test-go: $(ALL_GO_FILES) | proto
 	$(GO) test ./...
@@ -97,13 +101,12 @@ lint-scss: deps
 	pnpm lint-scss
 
 docker: bin/main | dist
-	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="PARENT_CONTAINER=$(PARENT_CONTAINER)"
+	$(EARTHLY) +docker
 
-release: docker
-	docker push $(IMAGENAME)
+release:
+	$(EARTHLY) --push +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
 ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
-	docker tag $(IMAGENAME) $(ARTIFACT_REGISTRY_IMAGE_NAME)
-	docker push $(ARTIFACT_REGISTRY_IMAGE_NAME)
+	$(EARTHLY) --push +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
 endif
 all: test docker
 
