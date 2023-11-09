@@ -4,7 +4,4 @@ metadata:
 spec:
   buildWith: infrastructure/docker/builder
   dependsOn:
-  - ../../pkg
-  - ../../go.mod
-  - ../../go.sum
-  - ../../tests/integration-tests/
+  - ../../
