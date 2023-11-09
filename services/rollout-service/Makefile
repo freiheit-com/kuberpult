@@ -75,9 +75,9 @@ docker:
 	earthly +docker
 
 release: docker
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/$(SERVICE_NAME):$(USER_ARCH) --push +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
+	earthly --platform=linux/amd64 --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/$(SERVICE_NAME):$(USER_ARCH) --push +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
 ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/$(SERVICE_NAME):$(USER_ARCH) --push +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
+	earthly --platform=linux/amd64 --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/$(SERVICE_NAME):$(USER_ARCH) --push +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
 endif
 all: test docker
 
