@@ -8,4 +8,4 @@ spec:
   - ../../go.mod
   - ../../go.sum
   - ../../tests/integration-tests/
-# rebuild-counter: 1
+# rebuild-counter: 2
