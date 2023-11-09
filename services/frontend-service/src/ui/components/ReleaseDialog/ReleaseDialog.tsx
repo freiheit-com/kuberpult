@@ -31,6 +31,7 @@ import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { ArgoAppLink, ArgoTeamLink, DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
+// import { Checkbox } from '../dropdown/checkbox';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -224,6 +225,16 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                                 onClick={deployAndLockClick}
                                 label="Deploy & Lock"
                             />
+                            {/*<Checkbox*/}
+                            {/*    id={*/}
+                            {/*        'lock-' +*/}
+                            {/*        ((application && application.name) || 'no-app') +*/}
+                            {/*        '-' +*/}
+                            {/*        ((env && env.name) || 'no-env')*/}
+                            {/*    }*/}
+                            {/*    enabled={true}*/}
+                            {/*    label={'also lock'}*/}
+                            {/*/>*/}
                         </div>
                     </div>
                 </div>
