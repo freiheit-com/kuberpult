@@ -45,13 +45,14 @@ unit-test:
 docker:
     FROM alpine:3.18
     ARG tag="local"
+    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
     ENV TZ=Europe/Berlin
     COPY +compile/main /main
     COPY +deps/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
     COPY +deps/zoneinfo /usr/share/zoneinfo
     COPY +deps-ui/build /build
     ENTRYPOINT ["/main"] 
-    SAVE IMAGE $service:$tag
+    SAVE IMAGE $registry/kuberpult-$service:$tag
 
 deps-ui:
     FROM node:20.9.0-alpine3.18

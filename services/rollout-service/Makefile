@@ -71,7 +71,7 @@ test-go: $(GO_FILES) proto
 	$(GO) test ./...
 
 docker:
-	$(EARTHLY) +docker
+	$(EARTHLY) +docker --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
 
 release:
 	$(EARTHLY) --push +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)

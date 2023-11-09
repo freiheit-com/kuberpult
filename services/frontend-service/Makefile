@@ -100,8 +100,8 @@ test-ts: src/api/api.ts
 lint-scss: deps
 	pnpm lint-scss
 
-docker: bin/main | dist
-	$(EARTHLY) +docker
+docker:
+	$(EARTHLY) +docker --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
 
 release:
 	$(EARTHLY) --push +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)

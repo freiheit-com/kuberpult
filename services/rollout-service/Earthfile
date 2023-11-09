@@ -34,6 +34,7 @@ docker:
     FROM alpine:3.18
     ARG UID=1000
     ARG tag="local"
+    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
     ENV TZ=Europe/Berlin
     RUN adduser -D -h "/kp" --uid ${UID} kp
     RUN chown -R kp:kp /kp
@@ -43,7 +44,7 @@ docker:
     USER kp
     WORKDIR /kp
     ENTRYPOINT ["/main"] 
-    SAVE IMAGE $service:$tag
+    SAVE IMAGE $registry/kuberpult-$service:$tag
 
 release:
     FROM +docker

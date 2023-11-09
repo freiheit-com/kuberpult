@@ -94,7 +94,7 @@ test:
 	$(EARTHLY) +unit-test
 
 docker:
-	$(EARTHLY) +docker
+	$(EARTHLY) +docker --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
 
 # set IMAGENAME=... to the image where you want to deploy (registry of the project)
 # e.g IMAGENAME=ghcr.io/replace_me...cd-service:1.2.3 make release
