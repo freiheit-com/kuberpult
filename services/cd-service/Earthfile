@@ -47,4 +47,4 @@ release:
     FROM +docker
     ARG tag="local"
     ARG registry="ghcr.io/freiheit-com/kuberpult"
-    SAVE IMAGE --push $registry/services/$service:$tag
+    SAVE IMAGE --push $registry/kuberpult-$service:$tag

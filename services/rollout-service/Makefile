@@ -28,7 +28,7 @@ ALL_GO_FILES := $(GO_FILES) $(PKG_GO_FILES)
 SERVICE_NAME := $(shell basename $$PWD)
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-rollout-service:${VERSION}
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-rollout-service:${VERSION}
-EARTHLY := earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-rollout-service:cache
+EARTHLY := earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-$(SERVICE_NAME):cache
 GARBAGE := *.sentinel
 proto:
 	$(MAKE) -C../../pkg/api all
