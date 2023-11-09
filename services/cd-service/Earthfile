@@ -25,16 +25,17 @@ compile:
     SAVE IMAGE --cache-hint
 
 unit-test:
-    FROM +deps
-    WORKDIR services/$service
+    FROM +compile
+    WORKDIR /kp/services/$service
     RUN CGO_ENABLED=1 go test ./...
 
 docker:
-    FROM +deps
+    FROM alpine:3.18
     ARG UID=1000
     ARG tag="local"
     ENV TZ=Europe/Berlin
-    RUN useradd -m -d "/kp" --uid ${UID} kp
+    RUN apk add --no-cache libgit2-dev sqlite-dev
+    RUN adduser -D -h "/kp" --uid ${UID} kp
     RUN chown -R kp:kp /kp
     COPY +compile/main /main
     COPY gitconfig /etc/gitconfig
