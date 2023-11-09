@@ -18,6 +18,39 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.12.0](https://github.com/freiheit-com/kuberpult/tree/1.12.0) (2023-11-08)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.11.0...1.12.0)
+
+### Minor Changes (New Features)
+
+- Add Initial Product Version Page [\#1063](https://github.com/freiheit-com/kuberpult/pull/1063) ([gsandok](https://github.com/gsandok))
+- Create endpoint that returns list of tags and commit hashes [\#1051](https://github.com/freiheit-com/kuberpult/pull/1051) ([gsandok](https://github.com/gsandok))
+- Add dedicated setup for health checking [\#943](https://github.com/freiheit-com/kuberpult/pull/943) ([hannesg](https://github.com/hannesg))
+
+### Patch Changes (Bugfixes)
+
+- Bugfix: Allow selection of envs to delete from an app [\#1098](https://github.com/freiheit-com/kuberpult/pull/1098) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- SRX-57Q3B7: Remove codereviewr [\#1102](https://github.com/freiheit-com/kuberpult/pull/1102) ([bjoern-michaelsen-freiheit](https://github.com/bjoern-michaelsen-freiheit))
+- SRX-FZ6M63/\#1043: fix colors for environments [\#1101](https://github.com/freiheit-com/kuberpult/pull/1101) ([bjoern-michaelsen-freiheit](https://github.com/bjoern-michaelsen-freiheit))
+- UI: Fix typo Unkwown → Unknown [\#1104](https://github.com/freiheit-com/kuberpult/pull/1104) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- tweak: use compose plugin of docker, should be available ~everywhere now [\#1103](https://github.com/freiheit-com/kuberpult/pull/1103) ([bjoern-michaelsen-freiheit](https://github.com/bjoern-michaelsen-freiheit))
+- Always add /metrics endpoint [\#1094](https://github.com/freiheit-com/kuberpult/pull/1094) ([hannesg](https://github.com/hannesg))
+- Fix: set env vars in tests [\#1093](https://github.com/freiheit-com/kuberpult/pull/1093) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- More and better tests for DeleteDirIfEmpty [\#1092](https://github.com/freiheit-com/kuberpult/pull/1092) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Update golang Docker tag to v1.21.4 [\#1106](https://github.com/freiheit-com/kuberpult/pull/1106) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module google.golang.org/api to v0.150.0 [\#1100](https://github.com/freiheit-com/kuberpult/pull/1100) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module gopkg.in/DataDog/dd-trace-go.v1 to v1.57.0 [\#1099](https://github.com/freiheit-com/kuberpult/pull/1099) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module github.com/argoproj/argo-cd/v2 to v2.9.0 [\#1097](https://github.com/freiheit-com/kuberpult/pull/1097) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module golang.org/x/sync to v0.5.0 [\#1095](https://github.com/freiheit-com/kuberpult/pull/1095) ([renovate[bot]](https://github.com/apps/renovate))
+
+**Closed issues:**
+
+- Cannot select multiple environments to be removed [\#1091](https://github.com/freiheit-com/kuberpult/issues/1091)
+- Inconsistent Coloring Scheme on Environment Groups [\#1043](https://github.com/freiheit-com/kuberpult/issues/1043)
+
+---
+
 ## [1.11.0](https://github.com/freiheit-com/kuberpult/tree/1.11.0) (2023-11-02)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.10.2...1.11.0)
