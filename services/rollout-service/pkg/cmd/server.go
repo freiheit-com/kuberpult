@@ -192,8 +192,7 @@ func runServer(ctx context.Context, config Config) error {
 		{
 			Name: "consume kuberpult events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				health.ReportReady("consuming")
-				return versionC.ConsumeEvents(ctx, broadcast)
+				return versionC.ConsumeEvents(ctx, broadcast, health)
 			},
 		},
 	}
@@ -203,9 +202,8 @@ func runServer(ctx context.Context, config Config) error {
 		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
 			Name: "refresh argocd",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				health.ReportReady("refreshing")
 				notify := notifier.New(appClient, config.ArgocdRefreshConcurrency)
-				return notifier.Subscribe(ctx, notify, broadcast)
+				return notifier.Subscribe(ctx, notify, broadcast, health)
 			},
 		})
 	}

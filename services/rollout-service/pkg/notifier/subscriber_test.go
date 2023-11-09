@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/google/go-cmp/cmp"
@@ -152,8 +153,9 @@ func TestSubscribe(t *testing.T) {
 			bc := service.New()
 			ctx, cancel := context.WithCancel(ctx)
 			eCh := make(chan error, 1)
+			hs := &setup.HealthServer{}
 			go func() {
-				eCh <- Subscribe(ctx, mn, bc)
+				eCh <- Subscribe(ctx, mn, bc, hs.Reporter("notify"))
 			}()
 
 			for _, s := range tc.Steps {
@@ -184,34 +186,14 @@ func TestSubscribe(t *testing.T) {
 	}
 }
 
-type mockBackoff struct {
-	called uint
-}
-
-func (b *mockBackoff) NextBackOff() time.Duration {
-	b.called = b.called + 1
-	return 1 * time.Nanosecond
-}
-
-func (b *mockBackoff) Reset() {
-	return
-}
-
 func TestSubscriberHandlesReconnects(t *testing.T) {
-	defer func(oldBackOffFactory func() backoff.BackOff) {
-		backOffFactory = oldBackOffFactory
-	}(backOffFactory)
-	var bo *mockBackoff = nil
-	backOffFactory = func() backoff.BackOff {
-		return bo
-	}
 	tcs := []struct {
 		Name        string
 		Disconnects uint
 	}{
 		{
 			Name:        "reconnects are handled",
-			Disconnects: 5,
+			Disconnects: 3,
 		},
 	}
 	for _, tc := range tcs {
@@ -223,9 +205,10 @@ func TestSubscriberHandlesReconnects(t *testing.T) {
 			bc := service.New()
 			ctx, cancel := context.WithCancel(ctx)
 			eCh := make(chan error, 1)
-			bo = &mockBackoff{}
+			hs := &setup.HealthServer{}
+			hs.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(1*time.Nanosecond) }
 			go func() {
-				eCh <- Subscribe(ctx, mn, bc)
+				eCh <- Subscribe(ctx, mn, bc, hs.Reporter("notify"))
 			}()
 			for i := uint64(1); i < uint64(tc.Disconnects); i += 1 {
 				bc.ProcessKuberpultEvent(ctx, versions.KuberpultEvent{
@@ -240,10 +223,6 @@ func TestSubscriberHandlesReconnects(t *testing.T) {
 			err := <-eCh
 			if err != nil {
 				t.Errorf("expected no error, but got %q", err)
-			}
-			// The exact number is not relevant as long as it is called sometimes.
-			if bo.called == 0 {
-				t.Errorf("expected backoff to be called at least once but it wasn't")
 			}
 		})
 	}

@@ -47,26 +47,24 @@ type ArgoEventProcessor interface {
 }
 
 func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, version versions.VersionClient, sink ArgoEventProcessor, hlth *setup.HealthReporter) error {
-	for {
+	return hlth.Retry(ctx, func() error {
 		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
 			if status.Code(err) == codes.Canceled {
 				// context is cancelled -> we are shutting down
-				return nil
+				return setup.Permanent(nil)
 			}
 			return fmt.Errorf("watching applications: %w", err)
 		}
 		hlth.ReportReady("consuming events")
-	recv:
 		for {
 			ev, err := watch.Recv()
 			if err != nil {
 				if status.Code(err) == codes.Canceled {
 					// context is cancelled -> we are shutting down
-					return nil
+					return setup.Permanent(nil)
 				}
-				logger.FromContext(ctx).Warn("argocd.application.recv", zap.Error(err))
-				break
+				return err
 			}
 			environment, application := getEnvironmentAndName(ev.Application.Annotations)
 			if application == "" {
@@ -96,14 +94,13 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 					OperationState: ev.Application.Status.OperationState,
 					Version:        &versions.VersionInfo{Version: 0},
 				})
-				continue recv
 			case "BOOKMARK":
 				// ignore this event
 			default:
 				logger.FromContext(ctx).Warn("argocd.application.unknown_type", zap.String("event.type", string(ev.Type)))
 			}
 		}
-	}
+	})
 }
 
 func getEnvironmentAndName(annotations map[string]string) (string, string) {

@@ -24,8 +24,9 @@ import (
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -34,9 +35,10 @@ import (
 )
 
 type step struct {
-	Event    *v1alpha1.ApplicationWatchEvent
-	WatchErr error
-	RecvErr  error
+	Event         *v1alpha1.ApplicationWatchEvent
+	WatchErr      error
+	RecvErr       error
+	CancelContext bool
 
 	ExpectedEvent *ArgoEvent
 }
@@ -53,6 +55,9 @@ func (m *mockApplicationServiceClient) Recv() (*v1alpha1.ApplicationWatchEvent, 
 	}
 	m.lastEvent = nil
 	reply := m.Steps[m.current]
+	if reply.CancelContext {
+		m.cancel()
+	}
 	m.current = m.current + 1
 	return reply.Event, reply.RecvErr
 }
@@ -62,15 +67,19 @@ type mockApplicationServiceClient struct {
 	current   int
 	t         *testing.T
 	lastEvent *ArgoEvent
+	cancel    context.CancelFunc
 	grpc.ClientStream
 }
 
 func (m *mockApplicationServiceClient) Watch(ctx context.Context, qry *application.ApplicationQuery, opts ...grpc.CallOption) (application.ApplicationService_WatchClient, error) {
 	if m.current >= len(m.Steps) {
-		return nil, fmt.Errorf("exhausted: %w", io.EOF)
+		return nil, setup.Permanent(fmt.Errorf("exhausted: %w", io.EOF))
 	}
 	reply := m.Steps[m.current]
 	if reply.WatchErr != nil {
+		if reply.CancelContext {
+			m.cancel()
+		}
 		m.current = m.current + 1
 		return nil, reply.WatchErr
 	}
@@ -110,7 +119,7 @@ func (m *mockVersionClient) GetVersion(ctx context.Context, revision string, env
 	return nil, nil
 }
 
-func (m *mockVersionClient) ConsumeEvents(ctx context.Context, pc versions.VersionEventProcessor) error {
+func (m *mockVersionClient) ConsumeEvents(ctx context.Context, pc versions.VersionEventProcessor, hr *setup.HealthReporter) error {
 	panic("not implemented")
 }
 
@@ -129,28 +138,32 @@ func TestArgoConection(t *testing.T) {
 			Name: "stops without error when ctx is closed on Recv call",
 			Steps: []step{
 				{
-					WatchErr: status.Error(codes.Canceled, "context cancelled"),
+					WatchErr:      status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
 				},
 			},
 			ExpectedReady: false,
 		},
 		{
-			Name: "stops with error on other watch errors",
+			Name: "does not stop for watch errors",
 			Steps: []step{
 				{
 					WatchErr: fmt.Errorf("no"),
 				},
+				{
+					WatchErr:      status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
 			},
 
-			ExpectedError: "watching applications: no",
 			ExpectedReady: false,
 		},
-
 		{
 			Name: "stops when ctx closes in the watch call",
 			Steps: []step{
 				{
 					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
 				},
 			},
 			ExpectedReady: true,
@@ -162,7 +175,8 @@ func TestArgoConection(t *testing.T) {
 					RecvErr: fmt.Errorf("no"),
 				},
 				{
-					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
 				},
 			},
 			ExpectedReady: true,
@@ -192,7 +206,8 @@ func TestArgoConection(t *testing.T) {
 					ExpectedEvent: nil,
 				},
 				{
-					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
 				},
 			},
 			ExpectedReady: true,
@@ -235,7 +250,8 @@ func TestArgoConection(t *testing.T) {
 					},
 				},
 				{
-					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
 				},
 			},
 			ExpectedReady: true,
@@ -278,7 +294,8 @@ func TestArgoConection(t *testing.T) {
 					},
 				},
 				{
-					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
 				},
 			},
 			ExpectedReady: true,
@@ -288,12 +305,14 @@ func TestArgoConection(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			ctx := context.Background()
+			ctx, cancel := context.WithCancel(context.Background())
 			as := mockApplicationServiceClient{
-				Steps: tc.Steps,
-				t:     t,
+				Steps:  tc.Steps,
+				cancel: cancel,
+				t:      t,
 			}
 			hlth := &setup.HealthServer{}
+			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			err := ConsumeEvents(ctx, &as, &mockVersionClient{versions: tc.Versions}, &as, hlth.Reporter("consume"))
 			if tc.ExpectedError == "" {
 				if err != nil {
