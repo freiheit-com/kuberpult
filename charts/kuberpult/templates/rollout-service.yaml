@@ -184,6 +184,6 @@ metadata:
   name: kuberpult-rollout-service
 type: Opaque
 data:
-  KUBERPULT_ARGOCD_TOKEN: {{ .Values.argocd.token | b64enc }}
-  KUBERPULT_REVOLUTION_DORA_TOKEN: {{ .Values.revolution.dora.token | b64enc }}
+  KUBERPULT_ARGOCD_TOKEN: {{ .Values.argocd.token | b64enc | quote }}
+  KUBERPULT_REVOLUTION_DORA_TOKEN: {{ .Values.revolution.dora.token | b64enc | quote }}
 {{- end }}
