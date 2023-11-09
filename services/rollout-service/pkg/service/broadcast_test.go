@@ -594,6 +594,61 @@ func TestGetStatus(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "filters for environmentGroup and team",
+			ArgoEvents: []ArgoEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 2},
+					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+					HealthStatusCode: health.HealthStatusHealthy,
+				},
+				{
+					Application:      "foo",
+					Environment:      "prd",
+					Version:          &versions.VersionInfo{Version: 1},
+					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+					HealthStatusCode: health.HealthStatusHealthy,
+				},
+			},
+			KuberpultEvents: []versions.KuberpultEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 3},
+					EnvironmentGroup: "dev-group",
+					Team:             "a",
+				},
+				{
+					Application:      "foo",
+					Environment:      "bar",
+					Version:          &versions.VersionInfo{Version: 3},
+					EnvironmentGroup: "dev-group",
+					Team:             "b",
+				},
+				{
+					Application:      "foo",
+					Environment:      "prd",
+					Version:          &versions.VersionInfo{Version: 3},
+					EnvironmentGroup: "prd-group",
+				},
+			},
+			Request: &api.GetStatusRequest{
+				EnvironmentGroup: "dev-group",
+				Team:             "b",
+			},
+			ExpectedResponse: &api.GetStatusResponse{
+				Status: api.RolloutStatus_RolloutStatusUnknown,
+				Applications: []*api.GetStatusResponse_ApplicationStatus{
+					{
+						Environment:   "bar",
+						Application:   "foo",
+						RolloutStatus: api.RolloutStatus_RolloutStatusUnknown,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
