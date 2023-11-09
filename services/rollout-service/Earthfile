@@ -26,8 +26,8 @@ compile:
     SAVE IMAGE --cache-hint
 
 unit-test:
-    FROM +deps
-    WORKDIR services/$service
+    FROM +compile
+    WORKDIR /kp/services/$service
     RUN CGO_ENABLED=0 go test ./...
 
 docker:
