@@ -26,12 +26,11 @@ GO := go
 GO_FILES := $(shell find . -type f -name '*.go')
 PKG_GO_FILES := $(shell find ../../pkg/ -type f -name '*.go')
 ALL_GO_FILES := $(GO_FILES) $(PKG_GO_FILES)
-
+SERVICE_NAME := $(shell basename $$PWD)
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-rollout-service:${VERSION}
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-rollout-service:${VERSION}
 
 GARBAGE := *.sentinel
-
 proto:
 	$(MAKE) -C../../pkg/api all
 
@@ -46,10 +45,10 @@ run: bin/main
 
 build: bin/main
 
-build-pr: test docker publish
+build-pr: test release
 	echo "build on pull request"
 
-build-main: test docker publish
+build-main: test release
 	echo "build on main"
 
 .PHONY: cleanup-pr
@@ -66,19 +65,19 @@ publish: release
 clean:
 	git clean -Xfd
 
-test: test-go
+test:
+	earthly +unit-test
 
 test-go: $(GO_FILES) proto
 	$(GO) test ./...
 
 docker:
-	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="PARENT_CONTAINER=$(PARENT_CONTAINER)"
+	earthly +docker
 
 release: docker
-	docker push $(IMAGENAME)
+	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/$(SERVICE_NAME):$(USER_ARCH) --push +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
 ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
-	docker tag $(IMAGENAME) $(ARTIFACT_REGISTRY_IMAGE_NAME)
-	docker push $(ARTIFACT_REGISTRY_IMAGE_NAME)
+	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/$(SERVICE_NAME):$(USER_ARCH) --push +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
 endif
 all: test docker
 
