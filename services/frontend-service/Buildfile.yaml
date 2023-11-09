@@ -3,9 +3,4 @@ metadata:
 spec:
   buildWith: infrastructure/docker/builder
   dependsOn:
-  - ../../charts/kuberpult
-  - ../../pkg
-  - ../../go.mod
-  - ../../go.sum
-  - ../../tests/integration-tests/
-# rebuild-counter: 2
+  - ../../
