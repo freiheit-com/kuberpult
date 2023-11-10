@@ -41,6 +41,7 @@ func (s *Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req 
 
 	var reqBody struct {
 		Signature string `json:"signature"`
+		Team      string `json:"team"`
 	}
 	err := json.NewDecoder(req.Body).Decode(&reqBody)
 	if err != nil {
@@ -71,6 +72,7 @@ func (s *Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req 
 	}
 	res, err := s.RolloutClient.GetStatus(ctx, &api.GetStatusRequest{
 		EnvironmentGroup: environmentGroup,
+		Team:             reqBody.Team,
 	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Internal error: %s", err), http.StatusInternalServerError)
