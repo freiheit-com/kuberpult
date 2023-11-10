@@ -4,7 +4,6 @@ ARG --global service=frontend-service
 deps:
     FROM ../../+deps
     ARG tag="deps"
-    RUN apt update && apt --auto-remove install ca-certificates tzdata -y
     COPY ../../pkg+artifacts/* pkg/
     BUILD ../cd-service/+artifacts --service=cd-service
     COPY (../cd-service/+artifacts/pkg --service=cd-service) services/cd-service/pkg/

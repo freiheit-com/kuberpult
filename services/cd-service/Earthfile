@@ -3,7 +3,6 @@ ARG --global service=cd-service
 
 deps:
     FROM ../../+deps
-    RUN apt update && apt install ca-certificates tzdata libgit2-dev git libsqlite3-dev -y
     COPY ../../pkg+artifacts/* pkg/
     COPY pkg services/$service/pkg
     COPY cmd/server/* services/$service/cmd/server/
@@ -35,10 +34,10 @@ docker:
     ARG tag="local"
     ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
     ENV TZ=Europe/Berlin
-    RUN useradd -m -d "/kp" --uid ${UID} kp
-    RUN chown -R kp:kp /kp
+    RUN adduser --disabled-password --home "/kp" --uid ${UID} kp
     COPY +compile/main /main
     COPY gitconfig /etc/gitconfig
+    RUN chown -R kp:kp /kp
     USER kp
     WORKDIR /kp
     ENTRYPOINT ["/main"] 
