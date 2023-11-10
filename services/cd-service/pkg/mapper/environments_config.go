@@ -151,8 +151,16 @@ func DeriveGroupName(env config.EnvironmentConfig, envName string) string {
 	return *groupName
 }
 
+type EnvsByName map[string]*api.Environment
+
+func getUpstreamEnvironment(env *api.Environment, envsByName EnvsByName) *api.Environment {
+	if env == nil || env.Config == nil || env.Config.Upstream == nil || env.Config.Upstream.Environment == nil {
+		return nil
+	}
+	return envsByName[*env.Config.Upstream.Environment]
+}
+
 func calculateEnvironmentPriorities(environments []*api.Environment) {
-	type EnvsByName map[string]*api.Environment
 	type Childs []string
 	type ChildsByName map[string]Childs
 	var envsByName = make(EnvsByName)
@@ -181,22 +189,27 @@ func calculateEnvironmentPriorities(environments []*api.Environment) {
 		if len(childsByName[env.Name]) > 0 {
 			continue
 		}
-		// even if an env is UPSTREAM, if it is a leaf, PROD takes precedence!
-		env.Priority = api.Priority_PROD
-		// if PROD has an upstream ...
-		if env.Config == nil || env.Config.Upstream == nil {
-			continue
+		// even if an env is UPSTREAM, if it is a leaf too, it is a Priority_YOLO
+		if env.Priority == api.Priority_UPSTREAM {
+			env.Priority = api.Priority_YOLO
+		} else {
+			env.Priority = api.Priority_PROD
 		}
-		var upstream = env.Config.Upstream.Environment
-		if upstream == nil || envsByName[*upstream] == nil {
-			continue
+
+		// find the two environments before PROD, if available
+		var upstream = getUpstreamEnvironment(env, envsByName)
+		var upstreamsUpstream = getUpstreamEnvironment(upstream, envsByName)
+
+		if upstreamsUpstream == nil || upstreamsUpstream.Priority == api.Priority_UPSTREAM {
+			// we only have at most one environment to mark, so its PRE_PROD
+			if upstream != nil && upstream.Priority != api.Priority_UPSTREAM {
+				upstream.Priority = api.Priority_PRE_PROD
+			}
+		} else {
+			// we have two non-UPSTREAM environments to mark.
+			upstream.Priority = api.Priority_CANARY
+			upstreamsUpstream.Priority = api.Priority_PRE_PROD
 		}
-		// ... and that upstream is not an UPSTREAM ...
-		if envsByName[*upstream].Priority == api.Priority_UPSTREAM {
-			continue
-		}
-		// ... then we mark it as PRE_PROD.
-		envsByName[*upstream].Priority = api.Priority_PRE_PROD
 	}
 }
 
