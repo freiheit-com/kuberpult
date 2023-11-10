@@ -37,6 +37,9 @@ type step struct {
 	ConnectErr    error
 	RecvErr       error
 	CancelContext bool
+
+	ExpectReady    bool
+	ExpectedEvents []KuberpultEvent
 }
 
 type expectedVersion struct {
@@ -60,10 +63,10 @@ type mockOverviewClient struct {
 	grpc.ClientStream
 	Responses    map[string]*api.GetOverviewResponse
 	LastMetadata metadata.MD
+	StartStep    chan struct{}
 	Steps        chan step
 	savedStep    *step
 	current      int
-	cancel       context.CancelFunc
 }
 
 // GetOverview implements api.OverviewServiceClient
@@ -77,14 +80,12 @@ func (m *mockOverviewClient) GetOverview(ctx context.Context, in *api.GetOvervie
 
 // StreamOverview implements api.OverviewServiceClient
 func (m *mockOverviewClient) StreamOverview(ctx context.Context, in *api.GetOverviewRequest, opts ...grpc.CallOption) (api.OverviewService_StreamOverviewClient, error) {
+	m.StartStep <- struct{}{}
 	reply, ok := <-m.Steps
 	if !ok {
 		return nil, fmt.Errorf("exhausted: %w", io.EOF)
 	}
 	if reply.ConnectErr != nil {
-		if reply.CancelContext {
-			m.cancel()
-		}
 		return nil, reply.ConnectErr
 	}
 	m.savedStep = &reply
@@ -99,13 +100,11 @@ func (m *mockOverviewClient) Recv() (*api.GetOverviewResponse, error) {
 		m.savedStep = nil
 		ok = true
 	} else {
+		m.StartStep <- struct{}{}
 		reply, ok = <-m.Steps
 	}
 	if !ok {
 		return nil, fmt.Errorf("exhausted: %w", io.EOF)
-	}
-	if reply.CancelContext {
-		m.cancel()
 	}
 	return reply.Overview, reply.RecvErr
 }
@@ -368,16 +367,19 @@ func TestVersionClientStream(t *testing.T) {
 		Name             string
 		Steps            []step
 		ExpectedVersions []expectedVersion
-		ExpectedEvents   []KuberpultEvent
 	}{
 		{
 			Name: "Retries connections and finishes",
 			Steps: []step{
 				{
 					ConnectErr: fmt.Errorf("no"),
+
+					ExpectReady: false,
 				},
 				{
 					RecvErr: fmt.Errorf("no"),
+
+					ExpectReady: false,
 				},
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
@@ -390,6 +392,21 @@ func TestVersionClientStream(t *testing.T) {
 			Steps: []step{
 				{
 					Overview: testOverview,
+
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
 				},
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
@@ -406,45 +423,36 @@ func TestVersionClientStream(t *testing.T) {
 					DeployTime:      time.Unix(123456789, 0).UTC(),
 				},
 			},
-			ExpectedEvents: []KuberpultEvent{
-				{
-					Environment:      "staging",
-					Application:      "foo",
-					EnvironmentGroup: "staging-group",
-					Team:             "footeam",
-					Version: &VersionInfo{
-						Version:        1,
-						SourceCommitId: "00001",
-						DeployedAt:     time.Unix(123456789, 0).UTC(),
-					},
-				},
-			},
 		},
 		{
 			Name: "Don't notify twice for the same version",
 			Steps: []step{
 				{
 					Overview: testOverview,
+
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
 				},
 				{
 					Overview: testOverview,
+
+					ExpectReady:    true,
 				},
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
 					CancelContext: true,
-				},
-			},
-			ExpectedEvents: []KuberpultEvent{
-				{
-					Environment:      "staging",
-					Application:      "foo",
-					EnvironmentGroup: "staging-group",
-					Team:             "footeam",
-					Version: &VersionInfo{
-						Version:        1,
-						SourceCommitId: "00001",
-						DeployedAt:     time.Unix(123456789, 0).UTC(),
-					},
 				},
 			},
 		},
@@ -453,33 +461,39 @@ func TestVersionClientStream(t *testing.T) {
 			Steps: []step{
 				{
 					Overview: testOverview,
+
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
 				},
 				{
 					Overview: emptyTestOverview,
+
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version:          &VersionInfo{},
+						},
+					},
 				},
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
 					CancelContext: true,
-				},
-			},
-			ExpectedEvents: []KuberpultEvent{
-				{
-					Environment:      "staging",
-					Application:      "foo",
-					EnvironmentGroup: "staging-group",
-					Team:             "footeam",
-					Version: &VersionInfo{
-						Version:        1,
-						SourceCommitId: "00001",
-						DeployedAt:     time.Unix(123456789, 0).UTC(),
-					},
-				},
-				{
-					Environment:      "staging",
-					Application:      "foo",
-					EnvironmentGroup: "staging-group",
-					Team:             "footeam",
-					Version:          &VersionInfo{},
 				},
 			},
 		},
@@ -488,36 +502,44 @@ func TestVersionClientStream(t *testing.T) {
 			Steps: []step{
 				{
 					Overview: testOverview,
+
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
 				},
 				{
 					RecvErr: fmt.Errorf("no"),
+
+					ExpectReady:    false,
 				},
 				{
 					Overview: emptyTestOverview,
+
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version:          &VersionInfo{},
+						},
+					},
 				},
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
 					CancelContext: true,
-				},
-			},
-			ExpectedEvents: []KuberpultEvent{
-				{
-					Environment:      "staging",
-					Application:      "foo",
-					EnvironmentGroup: "staging-group",
-					Team:             "footeam",
-					Version: &VersionInfo{
-						Version:        1,
-						SourceCommitId: "00001",
-						DeployedAt:     time.Unix(123456789, 0).UTC(),
-					},
-				},
-				{
-					Environment:      "staging",
-					Application:      "foo",
-					EnvironmentGroup: "staging-group",
-					Team:             "footeam",
-					Version:          &VersionInfo{},
 				},
 			},
 		},
@@ -526,37 +548,43 @@ func TestVersionClientStream(t *testing.T) {
 			Steps: []step{
 				{
 					Overview: testOverview,
+
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "staging-group",
+							Team:             "footeam",
+							Version: &VersionInfo{
+								Version:        1,
+								SourceCommitId: "00001",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
 				},
 				{
 					Overview: testOverviewWithDifferentEnvgroup,
+
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "staging",
+							Application:      "foo",
+							EnvironmentGroup: "not-staging-group",
+							Team:             "",
+							Version: &VersionInfo{
+								Version:        2,
+								SourceCommitId: "00002",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
 				},
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
 					CancelContext: true,
-				},
-			},
-			ExpectedEvents: []KuberpultEvent{
-				{
-					Environment:      "staging",
-					Application:      "foo",
-					EnvironmentGroup: "staging-group",
-					Team:             "footeam",
-					Version: &VersionInfo{
-						Version:        1,
-						SourceCommitId: "00001",
-						DeployedAt:     time.Unix(123456789, 0).UTC(),
-					},
-				},
-				{
-					Environment:      "staging",
-					Application:      "foo",
-					EnvironmentGroup: "not-staging-group",
-					Team:             "",
-					Version: &VersionInfo{
-						Version:        2,
-						SourceCommitId: "00002",
-						DeployedAt:     time.Unix(123456789, 0).UTC(),
-					},
 				},
 			},
 		},
@@ -565,23 +593,25 @@ func TestVersionClientStream(t *testing.T) {
 			Steps: []step{
 				{
 					Overview: testOverviewWithProdEnvs,
+
+					ExpectReady: true,
+					ExpectedEvents: []KuberpultEvent{
+						{
+							Environment:      "production",
+							Application:      "foo",
+							EnvironmentGroup: "production",
+							IsProduction:     true,
+							Version: &VersionInfo{
+								Version:        2,
+								SourceCommitId: "00002",
+								DeployedAt:     time.Unix(123456789, 0).UTC(),
+							},
+						},
+					},
 				},
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
 					CancelContext: true,
-				},
-			},
-			ExpectedEvents: []KuberpultEvent{
-				{
-					Environment:      "production",
-					Application:      "foo",
-					EnvironmentGroup: "production",
-					IsProduction:     true,
-					Version: &VersionInfo{
-						Version:        2,
-						SourceCommitId: "00002",
-						DeployedAt:     time.Unix(123456789, 0).UTC(),
-					},
 				},
 			},
 		},
@@ -591,15 +621,23 @@ func TestVersionClientStream(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			vp := &mockVersionEventProcessor{}
+			startSteps := make(chan struct{})
 			steps := make(chan step)
-			mc := &mockOverviewClient{Steps: steps, cancel: cancel}
+			mc := &mockOverviewClient{StartStep: startSteps, Steps: steps}
 			vc := New(mc)
 			hs := &setup.HealthServer{}
 			errCh := make(chan error)
 			go func() {
 				errCh <- vc.ConsumeEvents(ctx, vp, hs.Reporter("versions"))
 			}()
-			for _, s := range tc.Steps {
+			for i, s := range tc.Steps {
+				<-startSteps
+				if i > 0 {
+					assertStep(t, i-1, tc.Steps[i-1], vp, hs)
+				}
+				if s.CancelContext {
+					cancel()
+				}
 				select {
 				case steps <- s:
 				case err := <-errCh:
@@ -608,6 +646,7 @@ func TestVersionClientStream(t *testing.T) {
 					t.Fatal("test got stuck after 10 seconds")
 				}
 			}
+			cancel()
 			err := <-errCh
 			if err != nil {
 				t.Errorf("expected no error, but received %q", err)
@@ -616,11 +655,19 @@ func TestVersionClientStream(t *testing.T) {
 				t.Errorf("expected all events to be consumed, but got %d left", len(steps))
 			}
 			assertExpectedVersions(t, tc.ExpectedVersions, vc, mc)
-			if !cmp.Equal(tc.ExpectedEvents, vp.events) {
-				t.Errorf("version events differ: %s", cmp.Diff(tc.ExpectedEvents, vp.events))
-			}
+
 		})
 	}
+}
+
+func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *setup.HealthServer) {
+	if hs.IsReady("versions") != s.ExpectReady {
+		t.Errorf("wrong readyness in step %d, expected %t but got %t", i, s.ExpectReady, hs.IsReady("versions"))
+	}
+	if !cmp.Equal(s.ExpectedEvents, vp.events) {
+		t.Errorf("version events differ: %s", cmp.Diff(s.ExpectedEvents, vp.events))
+	}
+	vp.events = nil
 }
 
 func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc VersionClient, mc *mockOverviewClient) {
