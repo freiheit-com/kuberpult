@@ -63,3 +63,19 @@ test-all:
     BUILD ./services/rollout-service+unit-test --service=rollout-service
     BUILD ./services/frontend-service+unit-test --service=frontend-service
     BUILD ./services/frontend-service+unit-test-ui
+
+integration-test:
+    FROM docker:24.0.7-dind-alpine3.18
+    RUN apk add --no-cache curl
+    RUN adduser -D -h "/kp" --uid 1000 kp
+    WORKDIR /kp
+    COPY services/cd-service services/cd-service
+    COPY docker-compose-earthly.yml ./ 
+    RUN chown -R kp:kp services/
+    WITH DOCKER --compose docker-compose-earthly.yml \
+                --pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:1.12.0-24-g2e3316a \
+                --pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:1.12.0-24-g2e3316a
+        RUN docker ps -a && sleep 3 && docker ps && docker logs default-cd-service-1; until $(curl --output /dev/null --silent --head --fail localhost:8081/healthz);do echo Waiting for frontend-service && sleep 1;done; \
+            until $(curl --output /dev/null --silent --head --fail localhost:8080/healthz);do echo Waiting for cd-service && sleep 1;done; \
+            curl localhost:8080; curl localhost:8081; echo SUCCESSFULL
+    END
