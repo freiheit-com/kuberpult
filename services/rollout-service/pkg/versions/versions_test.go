@@ -60,15 +60,10 @@ type mockOverviewClient struct {
 	grpc.ClientStream
 	Responses    map[string]*api.GetOverviewResponse
 	LastMetadata metadata.MD
-	Steps        []step
+	Steps        chan step
+	savedStep    *step
 	current      int
 	cancel       context.CancelFunc
-}
-
-func (m *mockOverviewClient) testAllConsumed(t *testing.T) {
-	if m.current < len(m.Steps) {
-		t.Errorf("expected to consume all %d replies, only consumed %d", len(m.Steps), m.current)
-	}
 }
 
 // GetOverview implements api.OverviewServiceClient
@@ -82,29 +77,36 @@ func (m *mockOverviewClient) GetOverview(ctx context.Context, in *api.GetOvervie
 
 // StreamOverview implements api.OverviewServiceClient
 func (m *mockOverviewClient) StreamOverview(ctx context.Context, in *api.GetOverviewRequest, opts ...grpc.CallOption) (api.OverviewService_StreamOverviewClient, error) {
-	if m.current >= len(m.Steps) {
+	reply, ok := <-m.Steps
+	if !ok {
 		return nil, fmt.Errorf("exhausted: %w", io.EOF)
 	}
-	reply := m.Steps[m.current]
 	if reply.ConnectErr != nil {
 		if reply.CancelContext {
 			m.cancel()
 		}
-		m.current = m.current + 1
 		return nil, reply.ConnectErr
 	}
+	m.savedStep = &reply
 	return m, nil
 }
 
 func (m *mockOverviewClient) Recv() (*api.GetOverviewResponse, error) {
-	if m.current >= len(m.Steps) {
+	var reply step
+	var ok bool
+	if m.savedStep != nil {
+		reply = *m.savedStep
+		m.savedStep = nil
+		ok = true
+	} else {
+		reply, ok = <-m.Steps
+	}
+	if !ok {
 		return nil, fmt.Errorf("exhausted: %w", io.EOF)
 	}
-	reply := m.Steps[m.current]
 	if reply.CancelContext {
 		m.cancel()
 	}
-	m.current = m.current + 1
 	return reply.Overview, reply.RecvErr
 }
 
@@ -589,14 +591,30 @@ func TestVersionClientStream(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			vp := &mockVersionEventProcessor{}
-			mc := &mockOverviewClient{Steps: tc.Steps, cancel: cancel}
+			steps := make(chan step)
+			mc := &mockOverviewClient{Steps: steps, cancel: cancel}
 			vc := New(mc)
 			hs := &setup.HealthServer{}
-			err := vc.ConsumeEvents(ctx, vp, hs.Reporter("versions"))
+			errCh := make(chan error)
+			go func() {
+				errCh <- vc.ConsumeEvents(ctx, vp, hs.Reporter("versions"))
+			}()
+			for _, s := range tc.Steps {
+				select {
+				case steps <- s:
+				case err := <-errCh:
+					t.Fatalf("expected no error but received %q", err)
+				case <-time.After(10 * time.Second):
+					t.Fatal("test got stuck after 10 seconds")
+				}
+			}
+			err := <-errCh
 			if err != nil {
 				t.Errorf("expected no error, but received %q", err)
 			}
-			mc.testAllConsumed(t)
+			if len(steps) != 0 {
+				t.Errorf("expected all events to be consumed, but got %d left", len(steps))
+			}
 			assertExpectedVersions(t, tc.ExpectedVersions, vc, mc)
 			if !cmp.Equal(tc.ExpectedEvents, vp.events) {
 				t.Errorf("version events differ: %s", cmp.Diff(tc.ExpectedEvents, vp.events))
