@@ -45,6 +45,9 @@ else
 $(error "$(IMAGENAME) doesn't end with $(VERSION). Please set the correct version.")
 endif
 
+SERVICE_NAME := $(shell basename $$PWD)
+EARTHLY := earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-$(SERVICE_NAME):cache
+
 image-name:
 	@echo "$(IMAGENAME)"
 
@@ -59,10 +62,10 @@ bin/:
 
 build: bin/main
 
-build-pr: test docker publish
+build-pr: test release
 	echo "build on pull request"
 
-build-main: test docker publish
+build-main: test release
 	echo "build on main"
 
 .PHONY: cleanup-pr
@@ -87,20 +90,18 @@ test-dependancies:
 	make -C ../../pkg test
 	make -C ../../pkg/api test
 
-test: $(ALL_GO_FILES) test-dependancies | proto
-	$(GO) test  ./...
+test:
+	$(EARTHLY) +unit-test
 
 docker:
-	docker build -t $(IMAGENAME) ../.. -f Dockerfile --build-arg="PARENT_CONTAINER=$(PARENT_CONTAINER)" --build-arg="DIR=/services/cd-service"
-
+	$(EARTHLY) +docker --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
 
 # set IMAGENAME=... to the image where you want to deploy (registry of the project)
 # e.g IMAGENAME=ghcr.io/replace_me...cd-service:1.2.3 make release
-release: docker
-	docker push $(IMAGENAME)
+release:
+	$(EARTHLY) --push +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
 ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
-	docker tag $(IMAGENAME) $(ARTIFACT_REGISTRY_IMAGE_NAME)
-	docker push $(ARTIFACT_REGISTRY_IMAGE_NAME)
+	$(EARTHLY) --push +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
 endif
 all: test docker
 

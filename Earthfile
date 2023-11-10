@@ -28,6 +28,9 @@ deps:
 cd-service:
     BUILD ./services/cd-service+$target --UID=$UID --service=cd-service
 
+rollout-service:
+    BUILD ./services/rollout-service+$target --UID=$UID --service=rollout-service
+
 frontend-service:
     BUILD ./services/frontend-service+$target --UID=$UID --service=frontend-service
 
@@ -41,10 +44,12 @@ all-services:
 
 cache:
     BUILD ./services/cd-service+release --service=cd-service --UID=$UID
+    BUILD ./services/rollout-service+release --service=rollout-service --UID=$UID
     BUILD ./services/frontend-service+release --service=frontend-service
     BUILD ./services/frontend-service+release-ui
 
 test-all:
     BUILD ./services/cd-service+unit-test --service=cd-service
+    BUILD ./services/rollout-service+unit-test --service=rollout-service
     BUILD ./services/frontend-service+unit-test --service=frontend-service
     BUILD ./services/frontend-service+unit-test-ui

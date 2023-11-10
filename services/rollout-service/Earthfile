@@ -1,12 +1,13 @@
 VERSION 0.7
-ARG --global service=cd-service
+ARG --global service=rollout-service
 
 deps:
     FROM ../../+deps
-    RUN apt update && apt install ca-certificates tzdata libgit2-dev git libsqlite3-dev -y
+    RUN apt update && apt install ca-certificates tzdata -y
     COPY ../../pkg+artifacts/* pkg/
     COPY pkg services/$service/pkg
     COPY cmd/server/* services/$service/cmd/server/
+    COPY (../cd-service/+artifacts/pkg --service=cd-service) services/cd-service/pkg/
     SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
     SAVE ARTIFACT /usr/share/zoneinfo
     SAVE IMAGE --cache-hint
@@ -17,7 +18,7 @@ compile:
     FROM +deps
     ARG USERARCH
     WORKDIR services/$service/cmd/server
-    RUN CGO_ENABLED=1 \
+    RUN CGO_ENABLED=0 \
         GOARCH=$USERARCH \
 	    GOOS=linux \
         go build -o bin/main main.go
@@ -27,18 +28,19 @@ compile:
 unit-test:
     FROM +compile
     WORKDIR /kp/services/$service
-    RUN CGO_ENABLED=1 go test ./...
+    RUN CGO_ENABLED=0 go test ./...
 
 docker:
-    FROM +deps
+    FROM alpine:3.18
     ARG UID=1000
     ARG tag="local"
     ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
     ENV TZ=Europe/Berlin
-    RUN useradd -m -d "/kp" --uid ${UID} kp
+    RUN adduser -D -h "/kp" --uid ${UID} kp
     RUN chown -R kp:kp /kp
     COPY +compile/main /main
-    COPY gitconfig /etc/gitconfig
+    COPY +deps/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+    COPY +deps/zoneinfo /usr/share/zoneinfo
     USER kp
     WORKDIR /kp
     ENTRYPOINT ["/main"] 

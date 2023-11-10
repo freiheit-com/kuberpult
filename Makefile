@@ -24,8 +24,6 @@ SCRIPTS_BASE:=infrastructure/scripts/make
 MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg/api pkg
 
 export USER_UID := $(shell id -u)
-export USER_ARCH := $(shell uname -m)
-
 .install:
 	touch .install
 
@@ -81,6 +79,6 @@ kuberpult-earthly:
 	docker-compose -f docker-compose-earthly.yml up 
 
 cache:
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/frontend-service:$(USER_ARCH) --push +frontend-service --target release --UID=$(USER_UID)
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/ui:$(USER_ARCH) --push +ui --UID=$(USER_UID) --target release
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/cd-service:$(USER_ARCH) --push +cd-service --UID=$(USER_UID) --target release
+	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-frontend-service:cache --push +frontend-service --target release --UID=$(USER_UID)
+	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-cd-service:cache --push +cd-service --UID=$(USER_UID) --target release
+	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-rollout-service:cache --push +rollout-service --UID=$(USER_UID) --target release
