@@ -79,7 +79,6 @@ kuberpult-earthly:
 	docker-compose -f docker-compose-earthly.yml up 
 
 cache:
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/frontend-service:$(USER_ARCH) --push +frontend-service --target release --UID=$(USER_UID)
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/ui:$(USER_ARCH) --push +ui --UID=$(USER_UID) --target release
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/cd-service:$(USER_ARCH) --push +cd-service --UID=$(USER_UID) --target release
-	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/cache/rollout-service:$(USER_ARCH) --push +rollout-service --UID=$(USER_UID) --target release
+	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-frontend-service:cache --push +frontend-service --target release --UID=$(USER_UID)
+	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-cd-service:cache --push +cd-service --UID=$(USER_UID) --target release
+	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-rollout-service:cache --push +rollout-service --UID=$(USER_UID) --target release
