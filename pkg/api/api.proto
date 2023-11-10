@@ -227,7 +227,7 @@ enum Priority {
   UPSTREAM = 2;
   // any remaining environment once PROD, PRE_PROD, UPSTREAM and CANARY are assigned in a chain is OTHER
   OTHER = 3;
-  // CANARY is an optional environment between PRE_PROD and PROD, if both exist and there are more environments in the chain
+  // CANARY will appear between PRE_PROD and PROD in chains of 4 or more environments
   CANARY = 4;
   // YOLO is an environment that is both the first and last in the chain, so it is essentially both upstream and production
   YOLO = 5;
