@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
-import React, { ReactElement, useCallback } from 'react';
+import React, { ReactElement, useCallback, useState } from 'react';
 import { Environment, Environment_Application, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import {
     addAction,
@@ -131,6 +131,12 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         }
     }, [release.version, app, env.name, createAppLock]);
 
+    const [shouldLockToo, setShouldLockToo] = useState(true);
+
+    const toggleAddLock = useCallback(() => {
+        setShouldLockToo(!shouldLockToo);
+    }, [shouldLockToo, setShouldLockToo]);
+
     const queueInfo =
         queuedVersion === 0 ? null : (
             <div
@@ -219,12 +225,21 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             title={
                                 'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, you can remove it from the "planned actions".'
                             }>
-                            <Button
-                                disabled={application && application.version === release.version}
-                                className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
-                                onClick={deployAndLockClick}
-                                label="Deploy & Lock"
-                            />
+                            <div className={'dropdown-arrow-container'}>
+                                <Button
+                                    disabled={application && application.version === release.version}
+                                    className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
+                                    onClick={deployAndLockClick}
+                                    label="Deploy & Lock"
+                                />
+                                <Button
+                                    disabled={application && application.version === release.version}
+                                    className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
+                                    onClick={toggleAddLock}
+                                    icon={<div className={'dropdown-arrow'}>⌄</div>}
+                                    label=""
+                                />
+                            </div>
                             {/*<Checkbox*/}
                             {/*    id={*/}
                             {/*        'lock-' +*/}
