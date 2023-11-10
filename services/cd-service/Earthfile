@@ -31,13 +31,25 @@ unit-test:
 docker:
     FROM +deps
     ARG UID=1000
+    ARG USERARCH
     ARG tag="local"
     ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+
+    IF [ "$USERARCH" = "arm64" ]
+        FROM golang:1.21-bookworm
+        RUN apt update && apt install --auto-remove libgit2-dev libsqlite3-dev -y
+    ELSE
+        FROM golang:1.21-alpine3.18
+        RUN apk add --no-cache libgit2-dev sqlite-dev
+    END
+    
     ENV TZ=Europe/Berlin
     RUN adduser --disabled-password --home "/kp" --uid ${UID} kp
     COPY +compile/main /main
     COPY gitconfig /etc/gitconfig
     RUN chown -R kp:kp /kp
+    COPY +deps/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+    COPY +deps/zoneinfo /usr/share/zoneinfo
     USER kp
     WORKDIR /kp
     ENTRYPOINT ["/main"] 
