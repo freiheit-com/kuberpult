@@ -482,6 +482,44 @@ func TestVersionClientStream(t *testing.T) {
 			},
 		},
 		{
+			Name: "Notify for apps that are deleted across reconnects",
+			Steps: []step{
+				{
+					Overview: testOverview,
+				},
+				{
+					RecvErr: fmt.Errorf("no"),
+				},
+				{
+					Overview: emptyTestOverview,
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			ExpectedEvents: []KuberpultEvent{
+				{
+					Environment:      "staging",
+					Application:      "foo",
+					EnvironmentGroup: "staging-group",
+					Team:             "footeam",
+					Version: &VersionInfo{
+						Version:        1,
+						SourceCommitId: "00001",
+						DeployedAt:     time.Unix(123456789, 0).UTC(),
+					},
+				},
+				{
+					Environment:      "staging",
+					Application:      "foo",
+					EnvironmentGroup: "staging-group",
+					Team:             "footeam",
+					Version:          &VersionInfo{},
+				},
+			},
+		},
+		{
 			Name: "Updates environment groups",
 			Steps: []step{
 				{
