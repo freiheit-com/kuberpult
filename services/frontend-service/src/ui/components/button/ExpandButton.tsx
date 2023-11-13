@@ -24,13 +24,14 @@ import { PlainDialog } from '../dialog/ConfirmationDialog';
  * Displays one normal button on the left, and one arrow on the right to select a different option.
  */
 export const ExpandButton = (props: {
-    onClickSubmit: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
+    onClickSubmit: (shouldLockToo: boolean) => void;
     defaultButtonLabel: string;
     defaultButtonIcon: JSX.Element;
 }): JSX.Element => {
     const { onClickSubmit } = props;
 
     const [expanded, setExpanded] = useState(false);
+    // const [shouldLock, setShouldLock] = useState(true);
 
     const onClickExpand = useCallback(() => {
         // eslint-disable-next-line no-console
@@ -41,29 +42,38 @@ export const ExpandButton = (props: {
         setExpanded(false);
     }, [setExpanded]);
 
+    const onClickSubmitMain = useCallback(() => {
+        onClickSubmit(true);
+    }, [onClickSubmit]);
+    const onClickSubmitAlternative = useCallback(() => {
+        onClickSubmit(false);
+    }, [onClickSubmit]);
+
     // const  = useCallback(() => {
     //     setShouldLockToo(!shouldLockToo);
     // }, [shouldLockToo, setShouldLockToo]);
 
     return (
         <div className={'expand-button'}>
-            {/* the main button: */}
-            <Button
-                id={'expand-1'}
-                onClick={onClickSubmit}
-                className={'button-first env-card-deploy-btn mdc-button--unelevated'}
-                key={'button-first-key'}
-                label={props.defaultButtonLabel}
-            />
-            {/* the button to expand the dialog: */}
-            <Button
-                id={'expand-2'}
-                onClick={onClickExpand}
-                className={'button-second'}
-                key={'button-second-key'}
-                label={''}
-                icon={<div className={'dropdown-arrow'}>⌄</div>}
-            />
+            <div className={'first-two'}>
+                {/* the main button: */}
+                <Button
+                    id={'expand-1'}
+                    onClick={onClickSubmitMain}
+                    className={'button-first env-card-deploy-btn mdc-button--unelevated'}
+                    key={'button-first-key'}
+                    label={props.defaultButtonLabel}
+                />
+                {/* the button to expand the dialog: */}
+                <Button
+                    id={'expand-2'}
+                    onClick={onClickExpand}
+                    className={'button-second'}
+                    key={'button-second-key'}
+                    label={''}
+                    icon={<div className={'dropdown-arrow'}>⌄</div>}
+                />
+            </div>
             {/*TODO SU REMOVE: */}
             {/*{expanded ? 'exp' : 'not-exp'}*/}
             {expanded && (
@@ -73,17 +83,18 @@ export const ExpandButton = (props: {
                     classNames={'expand-dialog'}
                     disableBackground={false}
                     center={false}>
-                    <div>
-                        {/*<div>Deploy without creating a lock:</div>*/}
-                        <Button
-                            id={'expand-3'}
-                            onClick={onClickExpand}
-                            className={'button-second env-card-deploy-btn mdc-button--unelevated'}
-                            key={'button-second-key'}
-                            label={'Deploy only'}
-                            icon={undefined}
-                        />
-                    </div>
+                    <>
+                        <div>
+                            <Button
+                                id={'expand-3'}
+                                onClick={onClickSubmitAlternative}
+                                className={'button-second env-card-deploy-btn mdc-button--unelevated'}
+                                key={'button-second-key'}
+                                label={'Deploy only'}
+                                icon={undefined}
+                            />
+                        </div>
+                    </>
                 </PlainDialog>
             )}
         </div>

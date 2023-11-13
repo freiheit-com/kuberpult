@@ -29,9 +29,13 @@ Copyright 2023 freiheit.com*/
         display: flex;
     }
     .content-right {
+        max-width: 45%;
         margin-right: 20px;
         margin-left: auto;
         display: flex;
+    }
+    .content-left {
+        max-width: 55%;
     }
 
     .release-dialog-app-bar {

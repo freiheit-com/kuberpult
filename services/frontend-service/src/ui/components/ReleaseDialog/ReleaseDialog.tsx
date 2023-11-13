@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
-import React, { ReactElement, useCallback, useState } from 'react';
+import React, { ReactElement, useCallback } from 'react';
 import { Environment, Environment_Application, EnvironmentGroup, Lock, LockBehavior, Release } from '../../../api/api';
 import {
     addAction,
@@ -114,29 +114,34 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             },
         });
     }, [app, env.name]);
-    const deployAndLockClick = useCallback(() => {
-        if (release.version) {
-            addAction({
-                action: {
-                    $case: 'deploy',
-                    deploy: {
-                        environment: env.name,
-                        application: app,
-                        version: release.version,
-                        ignoreAllLocks: false,
-                        lockBehavior: LockBehavior.Ignore,
+    const deployAndLockClick = useCallback(
+        (shouldLockToo: boolean) => {
+            if (release.version) {
+                addAction({
+                    action: {
+                        $case: 'deploy',
+                        deploy: {
+                            environment: env.name,
+                            application: app,
+                            version: release.version,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.Ignore,
+                        },
                     },
-                },
-            });
-            createAppLock();
-        }
-    }, [release.version, app, env.name, createAppLock]);
+                });
+                if (shouldLockToo) {
+                    createAppLock();
+                }
+            }
+        },
+        [release.version, app, env.name, createAppLock]
+    );
 
-    const [shouldLockToo, setShouldLockToo] = useState(true);
+    // const [shouldLockToo, setShouldLockToo] = useState(true);
 
-    const toggleAddLock = useCallback(() => {
-        setShouldLockToo(!shouldLockToo);
-    }, [shouldLockToo, setShouldLockToo]);
+    // const toggleAddLock = useCallback(() => {
+    //     setShouldLockToo(!shouldLockToo);
+    // }, [shouldLockToo, setShouldLockToo]);
 
     const queueInfo =
         queuedVersion === 0 ? null : (
@@ -225,7 +230,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                         />
                         <div
                             title={
-                                'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, you can remove it from the "planned actions".'
+                                'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
                             }>
                             <ExpandButton
                                 onClickSubmit={deployAndLockClick}
@@ -238,13 +243,13 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                                     <Button
                                         disabled={application && application.version === release.version}
                                         className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
-                                        onClick={deployAndLockClick}
+                                        // onClick={() => {}}
                                         label="Deploy & Lock"
                                     />
                                     <Button
                                         disabled={application && application.version === release.version}
                                         className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
-                                        onClick={toggleAddLock}
+                                        // onClick={toggleAddLock}
                                         icon={<div className={'dropdown-arrow'}>⌄</div>}
                                         label=""
                                     />
