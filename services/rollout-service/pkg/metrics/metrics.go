@@ -29,9 +29,9 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-func Metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.MeterProvider, clock func() time.Time) error {
+func Metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.MeterProvider, clock func() time.Time, done func()) error {
 	for {
-		err := metrics(ctx, bc, meterProvider, clock)
+		err := metrics(ctx, bc, meterProvider, clock, done)
 		select {
 		case <-ctx.Done():
 			return err
@@ -40,7 +40,7 @@ func Metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.Me
 	}
 }
 
-func metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.MeterProvider, clock func() time.Time) error {
+func metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.MeterProvider, clock func() time.Time, done func()) error {
 	if clock == nil {
 		clock = time.Now
 	}
@@ -81,6 +81,7 @@ func metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.Me
 	for _, ev := range st {
 		state[ev.Key] = state[ev.Key].update(ev)
 	}
+	done()
 	stateMx.Unlock()
 	for {
 		select {
@@ -90,6 +91,7 @@ func metrics(ctx context.Context, bc *service.Broadcast, meterProvider metric.Me
 			}
 			stateMx.Lock()
 			state[ev.Key] = state[ev.Key].update(ev)
+			done()
 			stateMx.Unlock()
 		case <-ctx.Done():
 			return err
