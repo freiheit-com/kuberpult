@@ -18,6 +18,34 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.13.0](https://github.com/freiheit-com/kuberpult/tree/1.13.0) (2023-11-13)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.12.0...1.13.0)
+
+### Minor Changes (New Features)
+
+- Add filtering by team to the frontend-service [\#1120](https://github.com/freiheit-com/kuberpult/pull/1120) ([hannesg](https://github.com/hannesg))
+- Add filtering by team for the GetStatus endpoint [\#1112](https://github.com/freiheit-com/kuberpult/pull/1112) ([hannesg](https://github.com/hannesg))
+- Add a unified retry mechanism for background tasks [\#1109](https://github.com/freiheit-com/kuberpult/pull/1109) ([hannesg](https://github.com/hannesg))
+
+### Patch Changes (Bugfixes)
+
+- Restore original builder image [\#1128](https://github.com/freiheit-com/kuberpult/pull/1128) ([ahmed-nour-fdc](https://github.com/ahmed-nour-fdc))
+- Fix race condition in rollout-service metrics [\#1127](https://github.com/freiheit-com/kuberpult/pull/1127) ([hannesg](https://github.com/hannesg))
+- Added missing dependency for make kuberpult [\#1126](https://github.com/freiheit-com/kuberpult/pull/1126) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Update opentelemetry-go monorepo [\#1125](https://github.com/freiheit-com/kuberpult/pull/1125) ([renovate[bot]](https://github.com/apps/renovate))
+- Fix readyness reporting for the kuberpult event consumer [\#1124](https://github.com/freiheit-com/kuberpult/pull/1124) ([hannesg](https://github.com/hannesg))
+- simplify onbording [\#1123](https://github.com/freiheit-com/kuberpult/pull/1123) ([bjoern-michaelsen-freiheit](https://github.com/bjoern-michaelsen-freiheit))
+- Optimize Earthfiles [\#1122](https://github.com/freiheit-com/kuberpult/pull/1122) ([ahmed-nour-fdc](https://github.com/ahmed-nour-fdc))
+- SRX-53QJKO: improve longer environment chains [\#1121](https://github.com/freiheit-com/kuberpult/pull/1121) ([bjoern-michaelsen-freiheit](https://github.com/bjoern-michaelsen-freiheit))
+- Always build all services [\#1117](https://github.com/freiheit-com/kuberpult/pull/1117) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Build services in CI using Earthly [\#1115](https://github.com/freiheit-com/kuberpult/pull/1115) ([ahmed-nour-fdc](https://github.com/ahmed-nour-fdc))
+- Update module golang.org/x/oauth2 to v0.14.0 [\#1114](https://github.com/freiheit-com/kuberpult/pull/1114) ([renovate[bot]](https://github.com/apps/renovate))
+- Update module golang.org/x/crypto to v0.15.0 [\#1113](https://github.com/freiheit-com/kuberpult/pull/1113) ([renovate[bot]](https://github.com/apps/renovate))
+- Fix: empty dora token break rollout service deployment [\#1105](https://github.com/freiheit-com/kuberpult/pull/1105) ([hannesg](https://github.com/hannesg))
+
+---
+
 ## [1.12.0](https://github.com/freiheit-com/kuberpult/tree/1.12.0) (2023-11-08)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.11.0...1.12.0)
