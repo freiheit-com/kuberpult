@@ -72,6 +72,7 @@ cleanup-main:
 	@echo "Nothing to do"
 
 kuberpult:
+	make -C pkg/api all
 	docker compose up --build
 
 kuberpult-earthly:
