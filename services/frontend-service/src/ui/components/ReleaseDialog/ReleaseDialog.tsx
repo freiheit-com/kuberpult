@@ -31,6 +31,7 @@ import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { ArgoAppLink, ArgoTeamLink, DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
+import { ExpandButton } from '../button/ExpandButton';
 // import { Checkbox } from '../dropdown/checkbox';
 
 export type ReleaseDialogProps = {
@@ -225,6 +226,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             title={
                                 'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, you can remove it from the "planned actions".'
                             }>
+                            <ExpandButton onClick={todo} />
                             <div className={'dropdown-arrow-container'}>
                                 <Button
                                     disabled={application && application.version === release.version}
