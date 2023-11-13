@@ -17,6 +17,11 @@ import { useCallback, useState } from 'react';
 import * as React from 'react';
 import { Button } from './button';
 
+/**
+ * Two buttons combined into one.
+ * Inspired by GitHubs merge button.
+ * Displays one normal button on the left, and one arrow on the right to select a different option.
+ */
 export const ExpandButton = (props: {
     onClickSubmit: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
 }): JSX.Element => {
