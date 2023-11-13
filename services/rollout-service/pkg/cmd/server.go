@@ -227,7 +227,7 @@ func runServer(ctx context.Context, config Config) error {
 		Name: "create metrics",
 		Run: func(ctx context.Context, health *setup.HealthReporter) error {
 			health.ReportReady("reporting")
-			return metrics.Metrics(ctx, broadcast, pkgmetrics.FromContext(ctx), nil)
+			return metrics.Metrics(ctx, broadcast, pkgmetrics.FromContext(ctx), nil, func() {})
 		},
 	})
 
