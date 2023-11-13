@@ -146,14 +146,15 @@ type key struct {
 
 func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEventProcessor, hr *setup.HealthReporter) error {
 	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
+	versions := map[key]uint64{}
+	environmentGroups := map[key]string{}
+	teams := map[key]string{}
 	return hr.Retry(ctx, func() error {
 		client, err := v.client.StreamOverview(ctx, &api.GetOverviewRequest{})
 		if err != nil {
 			return fmt.Errorf("overview.connect: %w", err)
 		}
-		versions := map[key]uint64{}
-		environmentGroups := map[key]string{}
-		teams := map[key]string{}
+		hr.ReportReady("consuming")
 		for {
 			select {
 			case <-ctx.Done():
