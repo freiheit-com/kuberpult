@@ -76,7 +76,7 @@ builder:
 	IMAGE_TAG=latest make -C infrastructure/docker/builder build
 
 kuberpult:
-	make -C pkg/api all
+	make -C services/frontend-service src/api/api.ts
 	docker compose up --build
 
 kuberpult-earthly:
