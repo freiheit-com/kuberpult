@@ -952,6 +952,106 @@ func TestServer_Handle(t *testing.T) {
 	}
 }
 
+type mockRolloutClient struct {
+	api.RolloutServiceClient
+	request  *api.GetStatusRequest
+	response *api.GetStatusResponse
+}
+
+func (m *mockRolloutClient) GetStatus(_ context.Context, in *api.GetStatusRequest, _ ...grpc.CallOption) (*api.GetStatusResponse, error) {
+	m.request = in
+	return m.response, nil
+}
+
+func TestServer_Rollout(t *testing.T) {
+	tests := []struct {
+		name                  string
+		req                   *http.Request
+		KeyRing               openpgp.KeyRing
+		signature             string
+		AzureAuthEnabled      bool
+		statusResponse        *api.GetStatusResponse
+		expectedResp          *http.Response
+		expectedBody          string
+		expectedStatusRequest *api.GetStatusRequest
+	}{
+		{
+			name: "propagates the environment group",
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/environment-groups/development/rollout-status",
+				},
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{}`)),
+			},
+			statusResponse: &api.GetStatusResponse{},
+
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: `{"status":"unknown","applications":[]}`,
+			expectedStatusRequest: &api.GetStatusRequest{
+				EnvironmentGroup: "development",
+			},
+		},
+		{
+			name: "propagates the team",
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/environment-groups/development/rollout-status",
+				},
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{"team":"foo"}`)),
+			},
+			statusResponse: &api.GetStatusResponse{},
+
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: `{"status":"unknown","applications":[]}`,
+			expectedStatusRequest: &api.GetStatusRequest{
+				EnvironmentGroup: "development",
+				Team:             "foo",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rolloutClient := &mockRolloutClient{response: tt.statusResponse}
+			s := Server{
+				RolloutClient: rolloutClient,
+				KeyRing:       tt.KeyRing,
+				AzureAuth:     tt.AzureAuthEnabled,
+			}
+
+			w := httptest.NewRecorder()
+			s.Handle(w, tt.req)
+			resp := w.Result()
+
+			if d := cmp.Diff(tt.expectedResp, resp, cmpopts.IgnoreFields(http.Response{}, "Status", "Proto", "ProtoMajor", "ProtoMinor", "Header", "Body", "ContentLength")); d != "" {
+				t.Errorf("response mismatch: %s", d)
+			}
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Errorf("error reading response body: %s", err)
+			}
+			if d := cmp.Diff(tt.expectedBody, string(body)); d != "" {
+				t.Errorf("response body mismatch:\ngot:  %s\nwant: %s\ndiff: \n%s", string(body), tt.expectedBody, d)
+
+			}
+			if d := cmp.Diff(tt.expectedStatusRequest, rolloutClient.request, protocmp.Transform()); d != "" {
+				t.Errorf("create get status request mismatch: %s", d)
+			}
+		})
+	}
+}
+
 type mockBatchClient struct {
 	batchRequest  *api.BatchRequest
 	batchResponse *api.BatchResponse
