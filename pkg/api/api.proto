@@ -218,17 +218,19 @@ message EnvironmentGroup {
 }
 
 enum Priority {
-  // PROD is an environment that no environment names as its upstream
-  // PROD takes precedence over UPSTREAM and PRE_PROD
-  // (e.g. if an environment is qualifies as both PROD and UPSTREAM, it shall be marked as PROD)
+  // PROD is an environment that no environment names as its upstream and has an upstream itself
   PROD = 0;
-  // PRE_PROD is an evironment that is the upstream of a PROD environment (unless it is also an UPSTREAM)
+  // PRE_PROD is an environment that is the upstream of a PROD environment (unless it is also an UPSTREAM)
   PRE_PROD = 1;
   // UPSTREAM is an environment that has no upstream environment of its own
   // UPSTREAM takes precendence over PRE_PROD
   UPSTREAM = 2;
-  // any remaining environment is marked OTHER
+  // any remaining environment once PROD, PRE_PROD, UPSTREAM and CANARY are assigned in a chain is OTHER
   OTHER = 3;
+  // CANARY will appear between PRE_PROD and PROD in chains of 4 or more environments
+  CANARY = 4;
+  // YOLO is an environment that is both the first and last in the chain, so it is essentially both upstream and production
+  YOLO = 5;
 }
 
 message EnvironmentConfig {
