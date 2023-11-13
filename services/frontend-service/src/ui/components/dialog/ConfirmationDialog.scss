@@ -16,6 +16,12 @@ Copyright 2023 freiheit.com*/
 
 .confirmation-dialog-container {
     display: flex;
+    //position: relative;
+}
+
+.plain-dialog-container {
+    display: flex;
+    position: relative;
 }
 
 .confirmation-dialog-container-open {
@@ -32,7 +38,36 @@ Copyright 2023 freiheit.com*/
     }
 }
 
+.plain-dialog-open {
+    position: absolute;
+    //min-width: 200px;
+
+    max-height: 80vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    background: white;
+    color: black;
+    //position: fixed;
+    float: left;
+    //left: 50%;
+    //top: 50%;
+    //transform: translate(-50%, -50%);
+
+    z-index: 1000;
+    // the border radius has to align with the border radius of the release dialog:
+    border-radius: $release-dialog-outer-border-radius;
+    box-shadow:
+            rgba(0, 0, 0, 0.2) 0 5px 5px -3px,
+            rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+            rgba(0, 0, 0, 0.12) 0px 3px 14px 2px;
+
+
+}
+
 .confirmation-dialog-open {
+    //position: absolute;
+    //min-width: 200px;
+
     max-height: 80vh;
     display: grid;
     grid-template-rows: auto 1fr auto;

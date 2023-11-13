@@ -172,6 +172,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
 
         return [returnString, time];
     };
+    const sven = false;
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -226,23 +227,29 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             title={
                                 'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, you can remove it from the "planned actions".'
                             }>
-                            <ExpandButton onClickSubmit={deployAndLockClick} />
-                            <div>-----</div>
-                            <div className={'dropdown-arrow-container'}>
-                                <Button
-                                    disabled={application && application.version === release.version}
-                                    className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
-                                    onClick={deployAndLockClick}
-                                    label="Deploy & Lock"
-                                />
-                                <Button
-                                    disabled={application && application.version === release.version}
-                                    className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
-                                    onClick={toggleAddLock}
-                                    icon={<div className={'dropdown-arrow'}>⌄</div>}
-                                    label=""
-                                />
-                            </div>
+                            <ExpandButton
+                                onClickSubmit={deployAndLockClick}
+                                defaultButtonLabel={'lock & deploy'}
+                                defaultButtonIcon={<></>}
+                            />
+                            {/*<div>-----</div>*/}
+                            {sven && (
+                                <div className={'dropdown-arrow-container'}>
+                                    <Button
+                                        disabled={application && application.version === release.version}
+                                        className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
+                                        onClick={deployAndLockClick}
+                                        label="Deploy & Lock"
+                                    />
+                                    <Button
+                                        disabled={application && application.version === release.version}
+                                        className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
+                                        onClick={toggleAddLock}
+                                        icon={<div className={'dropdown-arrow'}>⌄</div>}
+                                        label=""
+                                    />
+                                </div>
+                            )}
                             {/*<Checkbox*/}
                             {/*    id={*/}
                             {/*        'lock-' +*/}
@@ -299,7 +306,12 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const closeReleaseDialog = useCloseReleaseDialog();
 
     const dialog: JSX.Element | '' = (
-        <PlainDialog open={app !== ''} onClose={closeReleaseDialog} classNames={'release-dialog'}>
+        <PlainDialog
+            open={app !== ''}
+            onClose={closeReleaseDialog}
+            classNames={'release-dialog'}
+            disableBackground={true}
+            center={true}>
             <>
                 <div className={classNames('release-dialog-app-bar', className)}>
                     <div className={classNames('release-dialog-app-bar-data')}>
