@@ -1,12 +1,21 @@
 VERSION 0.7
-FROM golang:1.21-bookworm
+FROM busybox
 ARG --global UID=1000
 ARG --global target=docker
 
 deps:
+    ARG USERARCH
     ARG BUF_VERSION=v1.26.1
     ARG BUF_BIN_PATH=/usr/local/bin
 
+    IF [ "$USERARCH" = "arm64" ]
+        FROM golang:1.21-bookworm
+        RUN apt update && apt install --auto-remove ca-certificates tzdata libgit2-dev libsqlite3-dev -y
+    ELSE
+        FROM golang:1.21-alpine3.18
+        RUN apk add --no-cache ca-certificates tzdata libgit2-dev sqlite-dev alpine-sdk
+    END
+    
     WORKDIR /kp
 
     COPY go.mod go.sum ./
