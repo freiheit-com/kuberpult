@@ -71,6 +71,10 @@ cleanup-pr:
 cleanup-main:
 	@echo "Nothing to do"
 
+.PHONY: builder
+builder:
+	IMAGE_TAG=latest make -C infrastructure/docker/builder build
+
 kuberpult:
 	docker compose up --build
 

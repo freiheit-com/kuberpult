@@ -11,6 +11,7 @@ ADD services/cd-service/pkg /kp/services/cd-service/pkg
 ADD pkg /kp/pkg
 COPY go.sum go.mod /kp/
 
+RUN make -C /kp/pkg/api
 RUN go build -o /kp/main /kp/services/cd-service/cmd/server/
 
 FROM alpine:3.18

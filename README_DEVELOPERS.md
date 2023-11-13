@@ -18,10 +18,8 @@ The `cd-service` takes the URL of the repository to watch from the environment v
 ## Setup builder image
 
 You need a `builder` image that is tagged as `latest` to build services locally.
-There's 2 ways to get an image:
-* `IMAGE_TAG=latest make -C infrastructure/docker/builder build`
-* `docker pull docker pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:1.10.0` (replace with current version)
-   * Once you have the image locally, you need to tag it as `latest` (replace `${IMAGE_FROM_LAST_STEP}`): `docker tag ${IMAGE_FROM_LAST_STEP} europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:latest`
+The following command should do this for you.
+* `make builder` 
 
 There's no need to push the image.
 

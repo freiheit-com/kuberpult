@@ -15,6 +15,7 @@ ADD services/rollout-service/pkg /kp/services/rollout-service/pkg
 
 # global pkg:
 ADD pkg /kp/pkg
+RUN make -C /kp/pkg/api
 COPY go.sum go.mod /kp/
 
 RUN GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -o /kp/main /kp/services/rollout-service/cmd/server/main.go
