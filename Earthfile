@@ -19,6 +19,7 @@ deps:
     WORKDIR /kp
 
     COPY go.mod go.sum ./
+    RUN go mod download
 
     COPY buf_sha256.txt .
     RUN OS=Linux ARCH=$(uname -m) && \

@@ -17,7 +17,6 @@ compile:
     FROM +deps
     ARG USERARCH
     WORKDIR services/$service/cmd/server
-    RUN go mod download
     RUN CGO_ENABLED=0 \
         GOARCH=$USERARCH \
 	    GOOS=linux \

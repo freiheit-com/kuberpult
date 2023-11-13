@@ -5,6 +5,7 @@ deps:
     FROM ../../+deps
     ARG tag="deps"
     COPY ../../pkg+artifacts/* pkg/
+    BUILD ../cd-service/+artifacts --service=cd-service
     COPY (../cd-service/+artifacts/pkg --service=cd-service) services/cd-service/pkg/
     COPY pkg services/$service/pkg
     COPY public services/$service/public
@@ -27,7 +28,6 @@ compile:
     FROM +deps
     ARG USERARCH
     WORKDIR services/$service/cmd/server
-    RUN go mod download
     RUN CGO_ENABLED=0 \
         GOARCH=$USERARCH \
 	    GOOS=linux \
