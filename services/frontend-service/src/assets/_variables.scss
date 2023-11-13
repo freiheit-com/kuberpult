@@ -95,9 +95,13 @@ $release-dialog-lock-icon-size: 24px;
 $env-group-chip-margin: 4px;
 $env-chip-height: 20px;
 $env-chip-padding: 4px;
+$env-color-yolo: #dc00dc;
 $env-color-prod: #dc0000;
+$env-color-canary: #f37e00;
 $env-color-pre_prod: #f3be00;
+$env-color-other: #a5d8ff;
 $env-color-upstream: #50c241;
+$env-color-unrecognized: #887799;
 
 // Release Card
 $release-card-height: 75px;

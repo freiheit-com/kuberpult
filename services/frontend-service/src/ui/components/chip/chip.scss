@@ -50,12 +50,24 @@ Copyright 2023 freiheit.com*/
     }
 }
 
+.environment-priority-yolo {
+    background-color: $env-color-yolo;
+}
 .environment-priority-prod {
     background-color: $env-color-prod;
+}
+.environment-priority-canary {
+    background-color: $env-color-canary;
 }
 .environment-priority-pre_prod {
     background-color: $env-color-pre_prod;
 }
+.environment-priority-other {
+    background-color: $env-color-other;
+}
 .environment-priority-upstream {
     background-color: $env-color-upstream;
+}
+.environment-priority-unrecognized {
+    background-color: $env-color-unrecognized;
 }

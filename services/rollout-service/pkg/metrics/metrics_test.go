@@ -311,8 +311,9 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 			defer srv.Close()
 			bc := service.New()
 			eCh := make(chan error)
+			doneCh := make(chan struct{})
 			go func() {
-				eCh <- Metrics(ctx, bc, mpv, func() time.Time { return time.Unix(2000, 0).UTC() })
+				eCh <- Metrics(ctx, bc, mpv, func() time.Time { return time.Unix(2000, 0).UTC() }, func() { doneCh <- struct{}{} })
 			}()
 			for i, s := range tc.Steps {
 				if s.Disconnect {
@@ -324,12 +325,12 @@ rollout_lag_seconds{kuberpult_application="foo",kuberpult_environment="bar",kube
 				if s.ArgoEvent != nil {
 					bc.ProcessArgoEvent(ctx, *s.ArgoEvent)
 				}
+				<-doneCh
 				resp, err := srv.Client().Get(srv.URL + "/metrics")
 				if err != nil {
 					t.Errorf("error in step %d: %q", i, err)
 				}
 				if resp.StatusCode != 200 {
-
 					t.Errorf("invalid status in step %d: %d", i, resp.StatusCode)
 				}
 				body, err := io.ReadAll(resp.Body)

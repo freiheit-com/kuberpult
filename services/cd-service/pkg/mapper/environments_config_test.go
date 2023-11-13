@@ -39,8 +39,9 @@ func makeUpstreamEnvironment(env string) *api.EnvironmentConfig_Upstream {
 }
 
 var nameStagingDe = "staging-de"
+var nameOtherDe = "other-de"
 var nameDevDe = "dev-de"
-var nameCanaryStagingDe = "canary-staging-de"
+var nameCanaryDe = "canary-de"
 var nameProdDe = "prod-de"
 var nameWhoKnowsDe = "whoknows-de"
 
@@ -90,7 +91,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameDevDe,
 					Environments: []*api.Environment{
-						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_PROD),
+						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_YOLO),
 					},
 					DistanceToUpstream: 0,
 				},
@@ -186,7 +187,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameDevDe,
 					Environments: []*api.Environment{
-						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_PROD),
+						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_YOLO),
 					},
 					DistanceToUpstream: 0,
 				},
@@ -280,14 +281,14 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
-						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_OTHER),
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 1,
 				},
 				{
 					EnvironmentGroupName: nameProdDe,
 					Environments: []*api.Environment{
-						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PRE_PROD),
+						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_CANARY),
 					},
 					DistanceToUpstream: 2,
 				},
@@ -301,7 +302,74 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 			},
 		},
 		{
-			Name: "Two chains of environments, one d->cs->s->p and one d->s->p should have both p as prod and both s as staging",
+			Name: "five in a chain should be u->o->pp->c->p",
+			InputEnvs: map[string]config.EnvironmentConfig{
+				nameDevDe: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Latest: true,
+					},
+				},
+				nameOtherDe: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameDevDe,
+					},
+				},
+				nameStagingDe: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameOtherDe,
+					},
+				},
+				nameCanaryDe: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameStagingDe,
+					},
+				},
+				nameProdDe: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameCanaryDe,
+					},
+				},
+			},
+			ExpectedResult: []*api.EnvironmentGroup{
+				{
+					EnvironmentGroupName: nameDevDe,
+					Environments: []*api.Environment{
+						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
+					},
+					DistanceToUpstream: 0,
+				},
+				{
+					EnvironmentGroupName: nameOtherDe,
+					Environments: []*api.Environment{
+						makeEnv(nameOtherDe, nameOtherDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_OTHER),
+					},
+					DistanceToUpstream: 1,
+				},
+				{
+					EnvironmentGroupName: nameStagingDe,
+					Environments: []*api.Environment{
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameOtherDe), 2, api.Priority_PRE_PROD),
+					},
+					DistanceToUpstream: 2,
+				},
+				{
+					EnvironmentGroupName: nameCanaryDe,
+					Environments: []*api.Environment{
+						makeEnv(nameCanaryDe, nameCanaryDe, makeUpstreamEnvironment(nameStagingDe), 3, api.Priority_CANARY),
+					},
+					DistanceToUpstream: 3,
+				},
+				{
+					EnvironmentGroupName: nameProdDe,
+					Environments: []*api.Environment{
+						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameCanaryDe), 4, api.Priority_PROD),
+					},
+					DistanceToUpstream: 4,
+				},
+			},
+		},
+		{
+			Name: "Two chains of environments, one d->s->c->p and one d->s->p should have both p as prod and both s as staging",
 			InputEnvs: map[string]config.EnvironmentConfig{
 				nameDevDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
@@ -313,14 +381,9 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						Latest: true,
 					},
 				},
-				nameCanaryStagingDe: {
-					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: nameDevDe,
-					},
-				},
 				nameStagingDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: nameCanaryStagingDe,
+						Environment: nameDevDe,
 					},
 				},
 				nameStagingFr: {
@@ -328,9 +391,14 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						Environment: nameDevFr,
 					},
 				},
-				nameProdDe: {
+				nameCanaryDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameStagingDe,
+					},
+				},
+				nameProdDe: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameCanaryDe,
 					},
 				},
 				nameProdFr: {
@@ -355,9 +423,9 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 					DistanceToUpstream: 0,
 				},
 				{
-					EnvironmentGroupName: nameCanaryStagingDe,
+					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
-						makeEnv(nameCanaryStagingDe, nameCanaryStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_OTHER),
+						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 1,
 				},
@@ -369,6 +437,13 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 					DistanceToUpstream: 1,
 				},
 				{
+					EnvironmentGroupName: nameCanaryDe,
+					Environments: []*api.Environment{
+						makeEnv(nameCanaryDe, nameCanaryDe, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_CANARY),
+					},
+					DistanceToUpstream: 2,
+				},
+				{
 					EnvironmentGroupName: nameProdFr,
 					Environments: []*api.Environment{
 						makeEnv(nameProdFr, nameProdFr, makeUpstreamEnvironment(nameStagingFr), 2, api.Priority_PROD),
@@ -376,16 +451,9 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 					DistanceToUpstream: 2,
 				},
 				{
-					EnvironmentGroupName: nameStagingDe,
-					Environments: []*api.Environment{
-						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameCanaryStagingDe), 2, api.Priority_PRE_PROD),
-					},
-					DistanceToUpstream: 2,
-				},
-				{
 					EnvironmentGroupName: nameProdDe,
 					Environments: []*api.Environment{
-						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameStagingDe), 3, api.Priority_PROD),
+						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameCanaryDe), 3, api.Priority_PROD),
 					},
 					DistanceToUpstream: 3,
 				},
