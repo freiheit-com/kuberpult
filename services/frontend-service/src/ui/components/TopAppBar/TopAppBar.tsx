@@ -26,7 +26,12 @@ import classNames from 'classnames';
 import { UpdateSidebar, useAllWarnings, useKuberpultVersion, useSidebarShown } from '../../utils/store';
 import { Warning } from '../../../api/api';
 
-export const TopAppBar: React.FC = () => {
+export type TopAppBarProps = {
+    showAppFilter: boolean;
+    showTeamFilter: boolean;
+};
+
+export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const control = useRef<HTMLDivElement>(null);
     const MDComponent = useRef<MDCTopAppBar>();
     const sideBar = useSidebarShown();
@@ -52,6 +57,27 @@ export const TopAppBar: React.FC = () => {
             <div className="service-lane__warning">There are {allWarnings.length} warnings total.</div>
         );
 
+    const renderedAppFilter =
+        props.showAppFilter === true ? (
+            <div className="mdc-top-app-bar__section">
+                <Textfield
+                    className={'top-app-bar-search-field'}
+                    floatingLabel={'Application Name'}
+                    value={query}
+                    leadingIcon={'search'}
+                />
+            </div>
+        ) : (
+            ''
+        );
+    const renderedTeamsFilter =
+        props.showTeamFilter === true ? (
+            <div className="mdc-top-app-bar__section">
+                <Dropdown className={'top-app-bar-search-field'} floatingLabel={'Teams'} leadingIcon={'search'} />
+            </div>
+        ) : (
+            ''
+        );
     return (
         <div className="mdc-top-app-bar" ref={control}>
             <div className="mdc-top-app-bar__row">
@@ -59,15 +85,8 @@ export const TopAppBar: React.FC = () => {
                     <span className="mdc-top-app-bar__title">Kuberpult v{version}</span>
                 </div>
                 <div className="mdc-top-app-bar__section">{renderedWarnings}</div>
-                <div className="mdc-top-app-bar__section">
-                    <Textfield
-                        className={'top-app-bar-search-field'}
-                        floatingLabel={'Application Name'}
-                        value={query}
-                        leadingIcon={'search'}
-                    />
-                    <Dropdown className={'top-app-bar-search-field'} floatingLabel={'Teams'} leadingIcon={'search'} />
-                </div>
+                {renderedAppFilter}
+                {renderedTeamsFilter}
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong className="sub-headline1">Planned Actions</strong>
                     <Button

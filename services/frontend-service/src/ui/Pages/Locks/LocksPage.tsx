@@ -18,6 +18,7 @@ import { LocksTable } from '../../components/LocksTable/LocksTable';
 import { searchCustomFilter, sortLocks, useEnvironments, useGlobalLoadingState } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
 import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
+import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 
 const applicationFieldHeaders = [
     'Date',
@@ -84,9 +85,12 @@ export const LocksPage: React.FC = () => {
         return <LoadingStateSpinner loadingState={loadingState} />;
     }
     return (
-        <main className="main-content">
-            <LocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} locks={envLocks} />
-            <LocksTable headerTitle="Application Locks" columnHeaders={applicationFieldHeaders} locks={appLocks} />
-        </main>
+        <div>
+            <TopAppBar showAppFilter={false} showTeamFilter={false} />
+            <main className="main-content">
+                <LocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} locks={envLocks} />
+                <LocksTable headerTitle="Application Locks" columnHeaders={applicationFieldHeaders} locks={appLocks} />
+            </main>
+        </div>
     );
 };
