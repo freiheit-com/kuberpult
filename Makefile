@@ -77,6 +77,7 @@ builder:
 
 kuberpult:
 	make -C services/frontend-service src/api/api.ts
+	make -C pkg/api all
 	docker compose up --build
 
 kuberpult-earthly:

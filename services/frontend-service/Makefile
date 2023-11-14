@@ -74,7 +74,7 @@ cleanup-main:
 .PHONY: publish
 publish: release
 
-start: src/api/api.ts
+start: buf-generate
 	pnpm i && pnpm start
 
 clean:
@@ -121,12 +121,13 @@ deps: .deps.sentinel
 	pnpm i && touch .deps.sentinel
 
 src/api/api.ts: ../../pkg/api/api.proto | deps
+buf-generate: src/api/api.ts
 	mkdir -p src/api
 	buf generate --path api --timeout 5m
 
 dist: .dist.sentinel
 
-.dist.sentinel: src/api/api.ts $(shell find public src -type f)
+.dist.sentinel: buf-generate $(shell find public src -type f)
 	rm -rf build/*
 	pnpm build && touch .dist.sentinel
 
