@@ -1,6 +1,6 @@
 services:
   cd-service:
-    image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:1.12.0-24-g2e3316a
+    image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:1.13.0
     environment:
       - LOG_LEVEL=INFO
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
@@ -15,7 +15,7 @@ services:
       - ./services/cd-service:/kp/kuberpult
     stop_grace_period: 0.5s
   frontend-service:
-    image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:1.12.0-24-g2e3316a
+    image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:1.13.0
     # Note: this `container_name` needs to be the same as in `package.json`
     container_name: kuberpult-frontend-service
     environment:

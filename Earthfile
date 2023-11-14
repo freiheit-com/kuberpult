@@ -64,18 +64,26 @@ test-all:
     BUILD ./services/frontend-service+unit-test --service=frontend-service
     BUILD ./services/frontend-service+unit-test-ui
 
+kubectl:
+    FROM alpine/k8s:1.25.15
+    SAVE ARTIFACT /usr/bin/kubectl
+
 integration-test:
     FROM docker:24.0.7-dind-alpine3.18
     RUN apk add --no-cache curl
     RUN adduser -D -h "/kp" --uid 1000 kp
     WORKDIR /kp
+    COPY +kubectl/kubectl /usr/bin/kubectl
     COPY services/cd-service services/cd-service
-    COPY docker-compose-earthly.yml ./ 
+    COPY docker-compose-earthly.yml ./
+    COPY docker-compose-k3s.yml ./
     RUN chown -R kp:kp services/
-    WITH DOCKER --compose docker-compose-earthly.yml \
-                --pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:1.12.0-24-g2e3316a \
-                --pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:1.12.0-24-g2e3316a
-        RUN docker ps -a && sleep 3 && docker ps && docker logs default-cd-service-1; until $(curl --output /dev/null --silent --head --fail localhost:8081/healthz);do echo Waiting for frontend-service && sleep 1;done; \
-            until $(curl --output /dev/null --silent --head --fail localhost:8080/healthz);do echo Waiting for cd-service && sleep 1;done; \
-            curl localhost:8080; curl localhost:8081; echo SUCCESSFULL
+    ENV KUBECONFIG=kubeconfig.yaml
+    ENV K3S_TOKEN="Random"
+    WITH DOCKER --compose docker-compose-k3s.yml \
+                --compose docker-compose-earthly.yml
+        RUN until $(curl --output /dev/null --silent --head --fail localhost:8080/healthz);do echo Waiting for cd-service && sleep 2;done; \
+            until $(curl --output /dev/null --silent --head --fail localhost:8081/healthz);do echo Waiting for frontend-service && sleep 2;done; \
+            sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 10; \
+            kubectl run test-pod --image=busybox -n default
     END
