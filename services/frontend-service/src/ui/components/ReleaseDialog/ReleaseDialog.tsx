@@ -255,16 +255,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                                     />
                                 </div>
                             )}
-                            {/*<Checkbox*/}
-                            {/*    id={*/}
-                            {/*        'lock-' +*/}
-                            {/*        ((application && application.name) || 'no-app') +*/}
-                            {/*        '-' +*/}
-                            {/*        ((env && env.name) || 'no-env')*/}
-                            {/*    }*/}
-                            {/*    enabled={true}*/}
-                            {/*    label={'also lock'}*/}
-                            {/*/>*/}
                         </div>
                     </div>
                 </div>
