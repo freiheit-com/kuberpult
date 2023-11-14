@@ -14,7 +14,6 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import { NavigationBar } from '../components/NavigationBar/NavigationBar';
-import { TopAppBar } from '../components/TopAppBar/TopAppBar';
 import { ReleaseDialog } from '../components/ReleaseDialog/ReleaseDialog';
 import { PageRoutes } from './PageRoutes';
 import '../../assets/app-v2.scss';
@@ -139,7 +138,6 @@ export const App: React.FC = () => {
                 {app && version ? <ReleaseDialog app={app} version={version} /> : null}
                 <NavigationBar />
                 <div className="mdc-drawer-app-content">
-                    <TopAppBar />
                     <PageRoutes />
                     <Snackbar />
                 </div>

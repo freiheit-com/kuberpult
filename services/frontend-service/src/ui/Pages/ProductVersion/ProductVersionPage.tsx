@@ -17,6 +17,7 @@ Copyright 2023 freiheit.com*/
 import { useGlobalLoadingState } from '../../utils/store';
 import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import { ProductVersion } from '../../components/ProductVersion/ProductVersion';
+import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 
 export const ProductVersionPage: React.FC = () => {
     const url = window.location.pathname.split('/');
@@ -26,8 +27,11 @@ export const ProductVersionPage: React.FC = () => {
         return <LoadingStateSpinner loadingState={loadingState} />;
     }
     return (
-        <main className="main-content">
-            <ProductVersion environment={environmentName} />
-        </main>
+        <div>
+            <TopAppBar showAppFilter={true} showTeamFilter={true} />
+            <main className="main-content">
+                <ProductVersion environment={environmentName} />
+            </main>
+        </div>
     );
 };

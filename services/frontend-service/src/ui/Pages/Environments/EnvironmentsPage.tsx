@@ -17,6 +17,7 @@ import { useEnvironmentGroups, useEnvironments, useGlobalLoadingState } from '..
 import { EnvironmentCard, EnvironmentGroupCard } from '../../components/EnvironmentCard/EnvironmentCard';
 import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import React from 'react';
+import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 
 export const EnvironmentsPage: React.FC = () => {
     const envsGroups = useEnvironmentGroups();
@@ -30,16 +31,13 @@ export const EnvironmentsPage: React.FC = () => {
         return <LoadingStateSpinner loadingState={loadingState} />;
     }
 
-    if (useGroups) {
-        return (
-            <main className="main-content">
-                {envsGroups.map((envGroup) => (
-                    <EnvironmentGroupCard environmentGroup={envGroup} key={envGroup.environmentGroupName} />
-                ))}
-            </main>
-        );
-    }
-    return (
+    const mainContent: JSX.Element = useGroups ? (
+        <main className="main-content">
+            {envsGroups.map((envGroup) => (
+                <EnvironmentGroupCard environmentGroup={envGroup} key={envGroup.environmentGroupName} />
+            ))}
+        </main>
+    ) : (
         <main className="main-content">
             {/*if there are no groups, wrap everything in one group: */}
             <div className="environment-group-lane">
@@ -48,5 +46,11 @@ export const EnvironmentsPage: React.FC = () => {
                 ))}
             </div>
         </main>
+    );
+    return (
+        <div>
+            <TopAppBar showAppFilter={true} showTeamFilter={true} />
+            {mainContent}
+        </div>
     );
 };

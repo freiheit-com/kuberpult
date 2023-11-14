@@ -17,6 +17,7 @@ import { Releases } from '../../components/Releases/Releases';
 import { useGlobalLoadingState } from '../../utils/store';
 import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import React from 'react';
+import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 
 export const ReleasesPage: React.FC = () => {
     const url = window.location.pathname.split('/');
@@ -28,8 +29,11 @@ export const ReleasesPage: React.FC = () => {
     }
 
     return (
-        <main className="main-content">
-            <Releases app={app_name} />
-        </main>
+        <div>
+            <TopAppBar showAppFilter={true} showTeamFilter={true} />
+            <main className="main-content">
+                <Releases app={app_name} />
+            </main>
+        </div>
     );
 };

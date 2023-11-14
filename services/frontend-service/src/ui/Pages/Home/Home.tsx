@@ -18,6 +18,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useFilteredApps, useGlobalLoadingState, useSearchedApplications } from '../../utils/store';
 import React from 'react';
 import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
+import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 
 export const Home: React.FC = () => {
     const [params] = useSearchParams();
@@ -34,10 +35,13 @@ export const Home: React.FC = () => {
     }
 
     return (
-        <main className="main-content">
-            {apps.map((app) => (
-                <ServiceLane application={app} key={app.name} />
-            ))}
-        </main>
+        <div>
+            <TopAppBar showAppFilter={true} showTeamFilter={true} />
+            <main className="main-content">
+                {apps.map((app) => (
+                    <ServiceLane application={app} key={app.name} />
+                ))}
+            </main>
+        </div>
     );
 };
