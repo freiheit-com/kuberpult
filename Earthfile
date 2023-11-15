@@ -64,26 +64,46 @@ test-all:
     BUILD ./services/frontend-service+unit-test --service=frontend-service
     BUILD ./services/frontend-service+unit-test-ui
 
-kubectl:
+integration-test-deps:
     FROM alpine/k8s:1.25.15
     SAVE ARTIFACT /usr/bin/kubectl
+    SAVE ARTIFACT /usr/bin/helm
 
 integration-test:
     FROM docker:24.0.7-dind-alpine3.18
-    RUN apk add --no-cache curl
-    RUN adduser -D -h "/kp" --uid 1000 kp
-    WORKDIR /kp
-    COPY +kubectl/kubectl /usr/bin/kubectl
-    COPY services/cd-service services/cd-service
-    COPY docker-compose-earthly.yml ./
-    COPY docker-compose-k3s.yml ./
-    RUN chown -R kp:kp services/
+
+    ARG --required version
     ENV KUBECONFIG=kubeconfig.yaml
     ENV K3S_TOKEN="Random"
-    WITH DOCKER --compose docker-compose-k3s.yml \
-                --compose docker-compose-earthly.yml
-        RUN until $(curl --output /dev/null --silent --head --fail localhost:8080/healthz);do echo Waiting for cd-service && sleep 2;done; \
-            until $(curl --output /dev/null --silent --head --fail localhost:8081/healthz);do echo Waiting for frontend-service && sleep 2;done; \
-            sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 10; \
-            kubectl run test-pod --image=busybox -n default
+    ENV VERSION=$version
+    ENV GIT_NAMESPACE=git
+    ENV ARGO_NAMESPACE=default
+    ENV GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ./client'
+    ENV SSH_HOST_PORT=2222
+    WORKDIR /kp
+
+    RUN apk add --no-cache curl gpg gpg-agent gettext bash git
+
+    COPY +integration-test-deps/* /usr/bin/
+    COPY docker-compose-earthly.yml ./
+    COPY docker-compose-k3s.yml ./
+    COPY charts/kuberpult .
+    
+    RUN envsubst < Chart.yaml.tpl > Chart.yaml
+    RUN envsubst < values.yaml.tpl > values.yaml
+
+    ARG KEYRING_NAME=trustedkeys-kuberpult.gpg
+    RUN gpg --keyring $KEYRING_NAME --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
+    RUN gpg --keyring $KEYRING_NAME --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
+    
+    WITH DOCKER --compose docker-compose-k3s.yml
+        RUN --no-cache \
+            echo Waiting for K3s cluster to be ready; \
+            sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 3; \
+            ./setup-cluster-ssh.sh; sleep 3; \
+            echo Waiting for git server to be ready; \
+            kubectl wait --for=condition=Ready pods -l app=git-server -n $GIT_NAMESPACE --timeout=60s || exit 1; \
+            kubectl port-forward -n $GIT_NAMESPACE deployment/server $SSH_HOST_PORT:22 & sleep 3; \
+            git clone ssh://git@localhost:$SSH_HOST_PORT/git/repos/manifests && \
+            echo ============ SUCCESS ============
     END
