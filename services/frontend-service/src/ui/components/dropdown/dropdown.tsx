@@ -66,7 +66,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
     return (
         <div className={'dropdown-container'}>
             <div className={'dropdown-arrow-container'}>
-                <div className={'dropdown-arrow aha123'}>⌄</div>
+                <div className={'dropdown-arrow'}>⌄</div>
                 <input
                     type="text"
                     className="dropdown-input"
