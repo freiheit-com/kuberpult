@@ -44,7 +44,7 @@ describe('Product Version Data', () => {
     describe.each(data)(`Displays Product Version Page`, (testCase) => {
         // given
         it(testCase.name, () => {
-            var tagsResponse: GetGitTagsResponse = { tagData: testCase.tags };
+            const tagsResponse: GetGitTagsResponse = { tagData: testCase.tags };
             updateTag.set(tagsResponse);
             render(
                 <MemoryRouter>
