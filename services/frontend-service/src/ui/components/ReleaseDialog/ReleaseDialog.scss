@@ -29,13 +29,12 @@ Copyright 2023 freiheit.com*/
         display: flex;
     }
     .content-right {
-        max-width: 45%;
-        margin-right: 20px;
+        max-width: 40%;
         margin-left: auto;
         display: flex;
     }
     .content-left {
-        max-width: 55%;
+        max-width: 60%;
     }
 
     .release-dialog-app-bar {
@@ -85,6 +84,10 @@ Copyright 2023 freiheit.com*/
         .release-env-list {
             padding-left: 0;
             margin-bottom: 0;
+        }
+
+        button {
+            padding: 8px 19px;
         }
 
         .env-card {
@@ -154,9 +157,6 @@ Copyright 2023 freiheit.com*/
                 flex-direction: row;
                 gap: 20px;
                 min-width: 300px;
-                button {
-                    padding: 8px 19px;
-                }
 
                 .env-card-add-lock-btn {
                     border: 1px solid var(--mdc-theme-primary);
