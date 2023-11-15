@@ -17,33 +17,28 @@ jobs:
       uses: actions/checkout@v3.1.0
       with:
         fetch-depth: 0
-    - name: Setup PR environment
+    - name: Setup environment
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       # If the image with PR branch's version as tag doesn't exist, use the one in main that should already exist.
       # If main's doesn't exist, that means there was an official release, so the short version is chosen
       run: |
         git fetch -q origin main:main
 
-        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(make version) > /dev/null; then
-          echo "IMAGE_TAG_CD=$(make version)" >> $GITHUB_ENV
-        else
+        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(make version) > /dev/null; then
           echo "No valid images found in the registry for the backend service"
           exit 1
         fi
 
-        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(make version) > /dev/null; then
-          echo "IMAGE_TAG_FRONTEND=$(make version)" >> $GITHUB_ENV
-        else
+        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(make version) > /dev/null; then
           echo "No valid images found in the registry for the frontend service"
           exit 1
         fi
 
-        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(make version) > /dev/null; then
-          echo "IMAGE_TAG_ROLLOUT=$(make version)" >> $GITHUB_ENV
-        else
+        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(make version) > /dev/null; then
           echo "No valid images found in the registry for the rollout service"
           exit 1
         fi
+        echo "IMAGE_TAG_KUBERPULT=$(make version)" >> $GITHUB_ENV
     - name: Print environment
       run: |
         echo Using registry: $IMAGE_REGISTRY
