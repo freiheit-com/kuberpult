@@ -224,11 +224,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             title={
                                 'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
                             }>
-                            <ExpandButton
-                                onClickSubmit={deployAndLockClick}
-                                defaultButtonLabel={'lock & deploy'}
-                                defaultButtonIcon={<></>}
-                            />
+                            <ExpandButton onClickSubmit={deployAndLockClick} defaultButtonLabel={'lock & deploy'} />
                         </div>
                     </div>
                 </div>

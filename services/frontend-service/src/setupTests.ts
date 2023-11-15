@@ -41,11 +41,11 @@ export const documentQuerySelectorSafe = (selectors: string): HTMLElement => {
 export const elementQuerySelectorSafe = (element: HTMLElement, selectors: string): HTMLElement => {
     const result = element.querySelector(selectors);
     if (!result) {
-        throw new Error('elementQuerySelectorSafe: did not find in selector in element ' + selectors);
+        throw new Error('elementQuerySelectorSafe: did not find in selector in element "' + selectors + '"');
     }
     if (!(result instanceof HTMLElement)) {
         throw new Error(
-            'elementQuerySelectorSafe: did find element in selector but it is not an html element: ' + selectors
+            'elementQuerySelectorSafe: did find element in selector but it is not an html element: "' + selectors + '"'
         );
     }
     return result;
@@ -54,7 +54,7 @@ export const elementQuerySelectorSafe = (element: HTMLElement, selectors: string
 export const getElementsByClassNameSafe = (element: HTMLElement, selectors: string): HTMLCollectionOf<Element> => {
     const result = element.getElementsByClassName(selectors);
     if (!result || result.length === 0) {
-        throw new Error('getElementsByClassNameSafe: did not find in selector in element ' + selectors);
+        throw new Error('getElementsByClassNameSafe: did not find in selector in element "' + selectors + '"');
     }
     return result;
 };

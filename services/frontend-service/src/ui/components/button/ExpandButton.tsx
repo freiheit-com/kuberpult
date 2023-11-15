@@ -23,11 +23,12 @@ import { PlainDialog } from '../dialog/ConfirmationDialog';
  * Inspired by GitHubs merge button.
  * Displays one normal button on the left, and one arrow on the right to select a different option.
  */
-export const ExpandButton = (props: {
+export type ExpandButtonProps = {
     onClickSubmit: (shouldLockToo: boolean) => void;
     defaultButtonLabel: string;
-    defaultButtonIcon: JSX.Element;
-}): JSX.Element => {
+};
+
+export const ExpandButton = (props: ExpandButtonProps): JSX.Element => {
     const { onClickSubmit } = props;
 
     const [expanded, setExpanded] = useState(false);
@@ -54,14 +55,14 @@ export const ExpandButton = (props: {
                 {/* the main button: */}
                 <Button
                     onClick={onClickSubmitMain}
-                    className={'button-first env-card-deploy-btn mdc-button--unelevated'}
+                    className={'button-main env-card-deploy-btn mdc-button--unelevated'}
                     key={'button-first-key'}
                     label={props.defaultButtonLabel}
                 />
                 {/* the button to expand the dialog: */}
                 <Button
                     onClick={onClickExpand}
-                    className={'button-second'}
+                    className={'button-expand'}
                     key={'button-second-key'}
                     label={''}
                     icon={<div className={'dropdown-arrow'}>⌄</div>}
@@ -77,9 +78,8 @@ export const ExpandButton = (props: {
                     <>
                         <div>
                             <Button
-                                id={'expand-3'}
                                 onClick={onClickSubmitAlternative}
-                                className={'button-second env-card-deploy-btn mdc-button--unelevated'}
+                                className={'button-popup env-card-deploy-btn mdc-button--unelevated'}
                                 key={'button-second-key'}
                                 label={'Deploy only'}
                                 icon={undefined}

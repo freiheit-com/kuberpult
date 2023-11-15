@@ -216,7 +216,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                           >
                             <button
                               aria-label="lock & deploy"
-                              class="mdc-button button-first env-card-deploy-btn mdc-button--unelevated"
+                              class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -229,7 +229,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                             </button>
                             <button
                               aria-label=""
-                              class="mdc-button button-second"
+                              class="mdc-button button-expand"
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -475,7 +475,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                           >
                             <button
                               aria-label="lock & deploy"
-                              class="mdc-button button-first env-card-deploy-btn mdc-button--unelevated"
+                              class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -488,7 +488,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                             </button>
                             <button
                               aria-label=""
-                              class="mdc-button button-second"
+                              class="mdc-button button-expand"
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -734,7 +734,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           >
                             <button
                               aria-label="lock & deploy"
-                              class="mdc-button button-first env-card-deploy-btn mdc-button--unelevated"
+                              class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -747,7 +747,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                             </button>
                             <button
                               aria-label=""
-                              class="mdc-button button-second"
+                              class="mdc-button button-expand"
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -919,7 +919,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                           >
                             <button
                               aria-label="lock & deploy"
-                              class="mdc-button button-first env-card-deploy-btn mdc-button--unelevated"
+                              class="mdc-button button-main env-card-deploy-btn mdc-button--unelevated"
                             >
                               <div
                                 class="mdc-button__ripple"
@@ -932,7 +932,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                             </button>
                             <button
                               aria-label=""
-                              class="mdc-button button-second"
+                              class="mdc-button button-expand"
                             >
                               <div
                                 class="mdc-button__ripple"
