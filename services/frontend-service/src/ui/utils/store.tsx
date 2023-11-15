@@ -33,6 +33,7 @@ import * as React from 'react';
 import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useIsAuthenticated } from '@azure/msal-react';
+import { useApi } from './GrpcApi';
 
 // see maxBatchActions in batch.go
 export const maxBatchActions = 100;
@@ -66,6 +67,14 @@ export const useOverviewLoaded = (): boolean => useOverview(({ loaded }) => load
 const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
+export const refreshTags = (): void => {
+    const api = useApi;
+    api.tagsService()
+        .GetGitTags({})
+        .then((result: GetGitTagsResponse) => {
+            updateTag.set(result);
+        });
+};
 export const [useTag, updateTag] = createStore(tagsResponse);
 export const [_, PanicOverview] = createStore({ error: '' });
 

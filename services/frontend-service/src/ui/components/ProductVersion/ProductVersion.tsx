@@ -15,8 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import './ProductVersion.scss';
 import * as React from 'react';
-import { useTags, updateTag } from '../../utils/store';
-import { GetGitTagsResponse } from '../../../api/api';
+import { refreshTags, useTags } from '../../utils/store';
 import { useApi } from '../../utils/GrpcApi';
 
 export type ProductVersionProps = {
@@ -25,11 +24,7 @@ export type ProductVersionProps = {
 export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
     const api = useApi;
     React.useEffect(() => {
-        api.tagsService()
-            .GetGitTags({})
-            .then((result: GetGitTagsResponse) => {
-                updateTag.set(result);
-            });
+        refreshTags();
     }, [api]);
     const { environment } = props;
     const [open, setOpen] = React.useState(false);
@@ -41,9 +36,14 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
         <div className="product_version">
             <h1 className="environment_name">{'Product Version for ' + environment}</h1>
             <div>
-                <select onChange={openClose} onSelect={openClose} className="drop_down">
+                <select onChange={openClose} onSelect={openClose} className="drop_down" data-testid="drop_down">
+                    <option value="default" disabled selected>
+                        Select a Tag
+                    </option>
                     {tags.map((tag) => (
-                        <option key={tag.tag}>{tag.tag.slice(10)}</option>
+                        <option value={tag.tag} key={tag.tag}>
+                            {tag.tag.slice(10)}
+                        </option>
                     ))}
                 </select>
             </div>
