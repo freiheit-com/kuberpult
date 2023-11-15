@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/DataDog/datadog-go/v5 v5.3.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
-	github.com/argoproj/argo-cd/v2 v2.9.0
+	github.com/argoproj/argo-cd/v2 v2.9.1
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/coreos/go-oidc/v3 v3.7.0
