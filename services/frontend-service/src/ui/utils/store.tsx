@@ -73,6 +73,9 @@ export const refreshTags = (): void => {
         .GetGitTags({})
         .then((result: GetGitTagsResponse) => {
             updateTag.set(result);
+        })
+        .catch((e) => {
+            showSnackbarError(e.message);
         });
 };
 export const [useTag, updateTag] = createStore(tagsResponse);

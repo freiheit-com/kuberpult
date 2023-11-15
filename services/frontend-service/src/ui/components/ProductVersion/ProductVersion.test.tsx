@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { screen, render } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { GetGitTagsResponse, TagData } from '../../../api/api';
 import { updateTag } from '../../utils/store';
@@ -52,7 +52,7 @@ describe('Product Version Data', () => {
                 </MemoryRouter>
             );
             expect(document.querySelector('.environment_name')?.textContent).toContain(testCase.environmentName);
-            expect(screen.getByText(testCase.expectedDropDown)).toBeInTheDocument();
+            expect(document.querySelector('.drop_down')?.textContent).toContain(testCase.expectedDropDown);
         });
     });
 });

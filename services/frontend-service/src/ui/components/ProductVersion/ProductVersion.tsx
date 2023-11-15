@@ -16,16 +16,14 @@ Copyright 2023 freiheit.com*/
 import './ProductVersion.scss';
 import * as React from 'react';
 import { refreshTags, useTags } from '../../utils/store';
-import { useApi } from '../../utils/GrpcApi';
 
 export type ProductVersionProps = {
     environment: string;
 };
 export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
-    const api = useApi;
     React.useEffect(() => {
         refreshTags();
-    }, [api]);
+    }, []);
     const { environment } = props;
     const [open, setOpen] = React.useState(false);
     const openClose = React.useCallback(() => {
