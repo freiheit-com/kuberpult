@@ -31,13 +31,11 @@ export const ExpandButton = (props: {
     const { onClickSubmit } = props;
 
     const [expanded, setExpanded] = useState(false);
-    // const [shouldLock, setShouldLock] = useState(true);
 
     const onClickExpand = useCallback(() => {
-        // eslint-disable-next-line no-console
-        console.info('SU DEBUG: click old: expanded=', expanded); // eslint-disable-next-line no-console
         setExpanded(!expanded);
     }, [setExpanded, expanded]);
+
     const onClickClose = useCallback(() => {
         setExpanded(false);
     }, [setExpanded]);
@@ -45,20 +43,16 @@ export const ExpandButton = (props: {
     const onClickSubmitMain = useCallback(() => {
         onClickSubmit(true);
     }, [onClickSubmit]);
+
     const onClickSubmitAlternative = useCallback(() => {
         onClickSubmit(false);
     }, [onClickSubmit]);
-
-    // const  = useCallback(() => {
-    //     setShouldLockToo(!shouldLockToo);
-    // }, [shouldLockToo, setShouldLockToo]);
 
     return (
         <div className={'expand-button'}>
             <div className={'first-two'}>
                 {/* the main button: */}
                 <Button
-                    id={'expand-1'}
                     onClick={onClickSubmitMain}
                     className={'button-first env-card-deploy-btn mdc-button--unelevated'}
                     key={'button-first-key'}
@@ -66,7 +60,6 @@ export const ExpandButton = (props: {
                 />
                 {/* the button to expand the dialog: */}
                 <Button
-                    id={'expand-2'}
                     onClick={onClickExpand}
                     className={'button-second'}
                     key={'button-second-key'}
@@ -74,8 +67,6 @@ export const ExpandButton = (props: {
                     icon={<div className={'dropdown-arrow'}>⌄</div>}
                 />
             </div>
-            {/*TODO SU REMOVE: */}
-            {/*{expanded ? 'exp' : 'not-exp'}*/}
             {expanded && (
                 <PlainDialog
                     open={expanded}

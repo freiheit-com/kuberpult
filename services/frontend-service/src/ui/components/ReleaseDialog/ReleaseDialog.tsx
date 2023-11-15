@@ -32,7 +32,6 @@ import { ArgoAppLink, ArgoTeamLink, DisplayManifestLink, DisplaySourceLink } fro
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
 import { ExpandButton } from '../button/ExpandButton';
-// import { Checkbox } from '../dropdown/checkbox';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -137,12 +136,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         [release.version, app, env.name, createAppLock]
     );
 
-    // const [shouldLockToo, setShouldLockToo] = useState(true);
-
-    // const toggleAddLock = useCallback(() => {
-    //     setShouldLockToo(!shouldLockToo);
-    // }, [shouldLockToo, setShouldLockToo]);
-
     const queueInfo =
         queuedVersion === 0 ? null : (
             <div
@@ -177,7 +170,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
 
         return [returnString, time];
     };
-    const sven = false;
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -237,24 +229,6 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                                 defaultButtonLabel={'lock & deploy'}
                                 defaultButtonIcon={<></>}
                             />
-                            {/*<div>-----</div>*/}
-                            {sven && (
-                                <div className={'dropdown-arrow-container'}>
-                                    <Button
-                                        disabled={application && application.version === release.version}
-                                        className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
-                                        // onClick={() => {}}
-                                        label="Deploy & Lock"
-                                    />
-                                    <Button
-                                        disabled={application && application.version === release.version}
-                                        className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
-                                        // onClick={toggleAddLock}
-                                        icon={<div className={'dropdown-arrow'}>⌄</div>}
-                                        label=""
-                                    />
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>

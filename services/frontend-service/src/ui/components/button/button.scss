@@ -27,11 +27,11 @@ Copyright 2023 freiheit.com*/
 
     .first-two {
         height: 36px;
-        #expand-1 {
+        .button-first {
             border-top-right-radius: 0;
             border-bottom-right-radius: 0;
         }
-        #expand-2 {
+        .button-second {
             padding: 0;
             min-width: 36px;
             .dropdown-arrow {
