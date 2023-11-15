@@ -139,21 +139,17 @@ fi
 print version...
 VERSION=$(make --no-print-directory -C ../../services/cd-service/ version)
 print "version is ${VERSION}"
-IMAGE_TAG_FRONTEND=${IMAGE_TAG_FRONTEND:-$VERSION}
-print "IMAGE_TAG_FRONTEND is now ${IMAGE_TAG_FRONTEND}"
-IMAGE_TAG_CD=${IMAGE_TAG_CD:-$VERSION}
-print "IMAGE_TAG_CD is now ${IMAGE_TAG_CD}"
-IMAGE_TAG_ROLLOUT=${IMAGE_TAG_ROLLOUT:-$VERSION}
-print "IMAGE_TAG_ROLLOUT is now ${IMAGE_TAG_ROLLOUT}"
+IMAGE_TAG_KUBERPULT=${IMAGE_TAG_KUBERPULT:-$VERSION}
+print "IMAGE_TAG_KUBERPULT is now ${IMAGE_TAG_KUBERPULT}"
 
-cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_CD}"
-frontend_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_FRONTEND}"
-rollout_imagename="${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_ROLLOUT}"
+cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_KUBERPULT}"
+frontend_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_KUBERPULT}"
+rollout_imagename="${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_KUBERPULT}"
 
 print "cd image: $cd_imagename"
-print "cd image tag: $IMAGE_TAG_CD"
+print "cd image tag: $IMAGE_TAG_KUBERPULT"
 print "frontend image: $frontend_imagename"
-print "frontend image tag: $IMAGE_TAG_FRONTEND"
+print "frontend image tag: $IMAGE_TAG_KUBERPULT"
 
 if ! "$LOCAL_EXECUTION"
 then
@@ -267,7 +263,7 @@ cd:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${IMAGE_TAG_CD}"
+  tag: "${IMAGE_TAG_KUBERPULT}"
 frontend:
   resources:
     limits:
@@ -276,7 +272,7 @@ frontend:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${IMAGE_TAG_FRONTEND}"
+  tag: "${IMAGE_TAG_KUBERPULT}"
 rollout:
   enabled: true
   resources:
@@ -286,7 +282,7 @@ rollout:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${IMAGE_TAG_ROLLOUT}"
+  tag: "${IMAGE_TAG_KUBERPULT}"
 ingress:
   domainName: kuberpult.example.com
 log:
