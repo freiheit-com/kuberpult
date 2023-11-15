@@ -16,7 +16,6 @@ Copyright 2023 freiheit.com*/
 
 .confirmation-dialog-container {
     display: flex;
-    //position: relative;
 }
 
 .plain-dialog-container {
@@ -40,18 +39,12 @@ Copyright 2023 freiheit.com*/
 
 .plain-dialog-open {
     position: absolute;
-    //min-width: 200px;
-
     max-height: 80vh;
     display: grid;
     grid-template-rows: auto 1fr auto;
     background: white;
     color: black;
-    //position: fixed;
     float: left;
-    //left: 50%;
-    //top: 50%;
-    //transform: translate(-50%, -50%);
 
     z-index: 1000;
     // the border radius has to align with the border radius of the release dialog:
@@ -65,9 +58,6 @@ Copyright 2023 freiheit.com*/
 }
 
 .confirmation-dialog-open {
-    //position: absolute;
-    //min-width: 200px;
-
     max-height: 80vh;
     display: grid;
     grid-template-rows: auto 1fr auto;
@@ -77,6 +67,8 @@ Copyright 2023 freiheit.com*/
     float: left;
     left: 50%;
     top: 50%;
+    // confirmation dialogs are centered around the middle of the screen
+    // (plain dialogs are centered around an ancestor element)
     transform: translate(-50%, -50%);
 
     z-index: 1000;
