@@ -17,6 +17,7 @@ import { createStore } from 'react-use-sub';
 import {
     Application,
     BatchAction,
+    TagData,
     BatchRequest,
     Environment,
     EnvironmentGroup,
@@ -26,11 +27,13 @@ import {
     Release,
     StreamStatusResponse,
     Warning,
+    GetGitTagsResponse,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useIsAuthenticated } from '@azure/msal-react';
+import { useApi } from './GrpcApi';
 
 // see maxBatchActions in batch.go
 export const maxBatchActions = 100;
@@ -63,13 +66,26 @@ export const useOverviewLoaded = (): boolean => useOverview(({ loaded }) => load
 
 const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
-
+const tagsResponse: GetGitTagsResponse = { tagData: [] };
+export const refreshTags = (): void => {
+    const api = useApi;
+    api.tagsService()
+        .GetGitTags({})
+        .then((result: GetGitTagsResponse) => {
+            updateTag.set(result);
+        })
+        .catch((e) => {
+            showSnackbarError(e.message);
+        });
+};
+export const [useTag, updateTag] = createStore(tagsResponse);
 export const [_, PanicOverview] = createStore({ error: '' });
 
 const randBase36 = (): string => Math.random().toString(36).substring(7);
 export const randomLockId = (): string => 'ui-v2-' + randBase36();
 
 export const useActions = (): BatchAction[] => useAction(({ actions }) => actions);
+export const useTags = (): TagData[] => useTag(({ tagData }) => tagData);
 
 export const [useSidebar, UpdateSidebar] = createStore({ shown: false });
 
