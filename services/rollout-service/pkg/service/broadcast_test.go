@@ -515,9 +515,11 @@ func TestGetStatus(t *testing.T) {
 					HealthStatusCode: health.HealthStatusHealthy,
 				},
 				{
-					Application: "foo",
-					Environment: "prd",
-					Version: &versions.VersionInfo{Version: 1},
+					Application:      "foo",
+					Environment:      "prd",
+					Version:          &versions.VersionInfo{Version: 1},
+					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+					HealthStatusCode: health.HealthStatusHealthy,
 				},
 			},
 			KuberpultEvents: []versions.KuberpultEvent{
