@@ -89,6 +89,9 @@ type Broadcast struct {
 	state    map[Key]*appState
 	mx       sync.Mutex
 	listener map[chan *BroadcastEvent]struct{}
+
+	// used for testing
+	waiting func()
 }
 
 func New() *Broadcast {
@@ -201,41 +204,38 @@ func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*
 	defer unsubscribe()
 	apps := map[Key]*api.GetStatusResponse_ApplicationStatus{}
 	for _, r := range resp {
-		if r.EnvironmentGroup == req.EnvironmentGroup {
-			s := getStatus(r)
-			if s.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful {
-				continue
-			}
-			if req.Team != "" && req.Team != r.Team {
-				continue
-			}
+		s := filterApplication(req, r)
+		if s != nil {
 			apps[r.Key] = s
 		}
 	}
 	status := aggregateStatus(apps)
 	if wait != nil {
+		// The waiting function is used in testing to make sure, we are really processing delayed events.
+		if b.waiting != nil {
+			b.waiting()
+		}
+	waiting:
 		for {
 			status = aggregateStatus(apps)
 			if status == api.RolloutStatus_RolloutStatusSuccesful || status == api.RolloutStatus_RolloutStatusError {
 				break
 			}
 			select {
-			case r := <-ch:
-				if r.EnvironmentGroup == req.EnvironmentGroup {
-					s := getStatus(r)
-					if s.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful {
-						delete(apps, r.Key)
-						continue
-					}
-					if req.Team != "" && req.Team != r.Team {
-						continue
-					}
-					status = mostRelevantStatus(status, s.RolloutStatus)
+			case r, ok := <-ch:
+				if !ok {
+					break waiting
+				}
+				s := filterApplication(req, r)
+				if s != nil {
+					apps[r.Key] = s
+				} else {
+					delete(apps, r.Key)
 				}
 			case <-ctx.Done():
-				break
+				break waiting
 			case <-wait:
-				break
+				break waiting
 			}
 		}
 	}
@@ -251,6 +251,22 @@ func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*
 	}, nil
 }
 
+// Removes irrelevant apps from
+func filterApplication(req *api.GetStatusRequest, ev *BroadcastEvent) *api.GetStatusResponse_ApplicationStatus {
+	if ev.EnvironmentGroup != req.EnvironmentGroup {
+		return nil
+	}
+	if req.Team != "" && req.Team != ev.Team {
+		return nil
+	}
+	s := getStatus(ev)
+	if s.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful {
+		return nil
+	}
+	return s
+}
+
+// Calculates an aggregatted rollout status
 func aggregateStatus(apps map[Key]*api.GetStatusResponse_ApplicationStatus) api.RolloutStatus {
 	status := api.RolloutStatus_RolloutStatusSuccesful
 	for _, app := range apps {

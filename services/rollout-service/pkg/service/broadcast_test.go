@@ -488,10 +488,12 @@ func TestGetStatus(t *testing.T) {
 	t.Parallel()
 
 	tcs := []struct {
-		Name            string
-		ArgoEvents      []ArgoEvent
-		KuberpultEvents []versions.KuberpultEvent
-		Request         *api.GetStatusRequest
+		Name                   string
+		ArgoEvents             []ArgoEvent
+		KuberpultEvents        []versions.KuberpultEvent
+		Request                *api.GetStatusRequest
+		DelayedArgoEvents      []ArgoEvent
+		DelayedKuberpultEvents []versions.KuberpultEvent
 
 		ExpectedResponse *api.GetStatusResponse
 	}{
@@ -509,13 +511,6 @@ func TestGetStatus(t *testing.T) {
 					Application:      "foo",
 					Environment:      "dev",
 					Version:          &versions.VersionInfo{Version: 2},
-					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
-					HealthStatusCode: health.HealthStatusHealthy,
-				},
-				{
-					Application:      "foo",
-					Environment:      "prd",
-					Version:          &versions.VersionInfo{Version: 1},
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 					HealthStatusCode: health.HealthStatusHealthy,
 				},
@@ -544,6 +539,91 @@ func TestGetStatus(t *testing.T) {
 						Environment:   "dev",
 						Application:   "foo",
 						RolloutStatus: api.RolloutStatus_RolloutStatusPending,
+					},
+				},
+			},
+		},
+		{
+			Name: "processes late health events",
+			ArgoEvents: []ArgoEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 2},
+					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+					HealthStatusCode: health.HealthStatusHealthy,
+				},
+			},
+			KuberpultEvents: []versions.KuberpultEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 3},
+					EnvironmentGroup: "dev-group",
+				},
+			},
+			// This signals that the application is now healthy
+			DelayedArgoEvents: []ArgoEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 3},
+					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+					HealthStatusCode: health.HealthStatusHealthy,
+				},
+			},
+			Request: &api.GetStatusRequest{
+				EnvironmentGroup: "dev-group",
+				WaitSeconds:      1,
+			},
+			ExpectedResponse: &api.GetStatusResponse{
+				Status:       api.RolloutStatus_RolloutStatusSuccesful,
+				Applications: []*api.GetStatusResponse_ApplicationStatus{},
+			},
+		},
+		{
+			Name: "processes late error events",
+			ArgoEvents: []ArgoEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 2},
+					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+					HealthStatusCode: health.HealthStatusHealthy,
+				},
+			},
+			KuberpultEvents: []versions.KuberpultEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 3},
+					EnvironmentGroup: "dev-group",
+				},
+			},
+			// This signals that the application is now broken
+			DelayedArgoEvents: []ArgoEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 3},
+					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+					HealthStatusCode: health.HealthStatusDegraded,
+					OperationState: &v1alpha1.OperationState{
+						Phase: common.OperationFailed,
+					},
+				},
+			},
+			Request: &api.GetStatusRequest{
+				EnvironmentGroup: "dev-group",
+				WaitSeconds:      1,
+			},
+			ExpectedResponse: &api.GetStatusResponse{
+				Status:       api.RolloutStatus_RolloutStatusError,
+				Applications: []*api.GetStatusResponse_ApplicationStatus{
+					{
+						Environment:   "dev",
+						Application:   "foo",
+						RolloutStatus: api.RolloutStatus_RolloutStatusError,
 					},
 				},
 			},
@@ -660,6 +740,15 @@ func TestGetStatus(t *testing.T) {
 			}
 			for _, s := range tc.KuberpultEvents {
 				bc.ProcessKuberpultEvent(context.Background(), s)
+			}
+
+			bc.waiting = func() {
+				for _, s := range tc.DelayedArgoEvents {
+					bc.ProcessArgoEvent(context.Background(), s)
+				}
+				for _, s := range tc.DelayedKuberpultEvents {
+					bc.ProcessKuberpultEvent(context.Background(), s)
+				}
 			}
 
 			resp, err := bc.GetStatus(context.Background(), tc.Request)
