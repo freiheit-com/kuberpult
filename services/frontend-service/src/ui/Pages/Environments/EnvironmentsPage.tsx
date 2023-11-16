@@ -49,7 +49,7 @@ export const EnvironmentsPage: React.FC = () => {
     );
     return (
         <div>
-            <TopAppBar showAppFilter={true} showTeamFilter={true} />
+            <TopAppBar showAppFilter={false} showTeamFilter={false} />
             {mainContent}
         </div>
     );
