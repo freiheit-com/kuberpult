@@ -7,7 +7,7 @@ set -o pipefail
 # To run/debug/develop this locally, you probably want to run like this:
 # rm -rf ./manifests/; make clean; LOCAL_EXECUTION=true ./run-kind.sh
 
-cd "$(dirname $0)"
+cd "$(dirname "$0")"
 
 
 # prefix every call to "echo" with the name of the script:
@@ -91,7 +91,9 @@ then
   if "$LOCAL_EXECUTION"
   then
     echo "is it ok to delete the file? Press enter twice to delete"
+    # shellcheck disable=SC2162
     read
+    # shellcheck disable=SC2162
     read
     rm "$gpgFile"
   else
@@ -139,21 +141,15 @@ fi
 print version...
 VERSION=$(make --no-print-directory -C ../../services/cd-service/ version)
 print "version is ${VERSION}"
-IMAGE_TAG_FRONTEND=${IMAGE_TAG_FRONTEND:-$VERSION}
-print "IMAGE_TAG_FRONTEND is now ${IMAGE_TAG_FRONTEND}"
-IMAGE_TAG_CD=${IMAGE_TAG_CD:-$VERSION}
-print "IMAGE_TAG_CD is now ${IMAGE_TAG_CD}"
-IMAGE_TAG_ROLLOUT=${IMAGE_TAG_ROLLOUT:-$VERSION}
-print "IMAGE_TAG_ROLLOUT is now ${IMAGE_TAG_ROLLOUT}"
+IMAGE_TAG_KUBERPULT=${IMAGE_TAG_KUBERPULT:-$VERSION}
+print "IMAGE_TAG_KUBERPULT is now ${IMAGE_TAG_KUBERPULT}"
 
-cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_CD}"
-frontend_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_FRONTEND}"
-rollout_imagename="${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_ROLLOUT}"
+cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_KUBERPULT}"
+frontend_imagename="${IMAGE_REGISTRY}/kuberpult-frontend-service:${IMAGE_TAG_KUBERPULT}"
+rollout_imagename="${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_KUBERPULT}"
 
 print "cd image: $cd_imagename"
-print "cd image tag: $IMAGE_TAG_CD"
 print "frontend image: $frontend_imagename"
-print "frontend image tag: $IMAGE_TAG_FRONTEND"
 
 if ! "$LOCAL_EXECUTION"
 then
@@ -267,7 +263,7 @@ cd:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${IMAGE_TAG_CD}"
+  tag: "${IMAGE_TAG_KUBERPULT}"
 frontend:
   resources:
     limits:
@@ -276,7 +272,7 @@ frontend:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${IMAGE_TAG_FRONTEND}"
+  tag: "${IMAGE_TAG_KUBERPULT}"
 rollout:
   enabled: true
   resources:
@@ -286,7 +282,7 @@ rollout:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${IMAGE_TAG_ROLLOUT}"
+  tag: "${IMAGE_TAG_KUBERPULT}"
 ingress:
   domainName: kuberpult.example.com
 log:
@@ -328,14 +324,10 @@ waitForDeployment "default" "app=kuberpult-frontend-service"
 portForwardAndWait "default" "deployment/kuberpult-frontend-service" "8081" "8081"
 print "connection to frontend service successful"
 
-
-
-
-
 kubectl get deployment
 kubectl get pods
 
-for i in $(seq 1 3)
+for _ in $(seq 1 3)
 do
    ../../infrastructure/scripts/create-testdata/create-release.sh echo;
 done

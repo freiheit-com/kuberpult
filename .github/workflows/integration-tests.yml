@@ -17,83 +17,32 @@ jobs:
       uses: actions/checkout@v3.1.0
       with:
         fetch-depth: 0
-    - name: Setup PR environment
-      if: inputs.trigger == 'pull-request'
+    - name: Setup environment
+      if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       # If the image with PR branch's version as tag doesn't exist, use the one in main that should already exist.
       # If main's doesn't exist, that means there was an official release, so the short version is chosen
       run: |
         git fetch -q origin main:main
 
-        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(make version) > /dev/null; then
-          echo "IMAGE_TAG_CD=$(make version)" >> $GITHUB_ENV
-        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(git describe --always --long --tags main) > /dev/null; then
-          echo "IMAGE_TAG_CD=$(git describe --always --long --tags main)" >> $GITHUB_ENV
-        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(git describe --tags --abbrev=0 main) > /dev/null; then
-          echo "IMAGE_TAG_CD=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
-        else
+        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(make version) > /dev/null; then
           echo "No valid images found in the registry for the backend service"
           exit 1
         fi
 
-        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(make version) > /dev/null; then
-          echo "IMAGE_TAG_FRONTEND=$(make version)" >> $GITHUB_ENV
-        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(git describe --always --long --tags main); then
-          echo "IMAGE_TAG_FRONTEND=$(git describe --always --long --tags main)" >> $GITHUB_ENV
-        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(git describe --tags --abbrev=0 main); then
-          echo "IMAGE_TAG_FRONTEND=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
-        else
+        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(make version) > /dev/null; then
           echo "No valid images found in the registry for the frontend service"
           exit 1
         fi
 
-        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(make version) > /dev/null; then
-          echo "IMAGE_TAG_ROLLOUT=$(make version)" >> $GITHUB_ENV
-        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(git describe --always --long --tags main); then
-          echo "IMAGE_TAG_ROLLOUT=$(git describe --always --long --tags main)" >> $GITHUB_ENV
-        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(git describe --tags --abbrev=0 main); then
-          echo "IMAGE_TAG_ROLLOUT=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
-        else
+        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(make version) > /dev/null; then
           echo "No valid images found in the registry for the rollout service"
           exit 1
         fi
-    - name: Setup main environment
-      if: inputs.trigger == 'main'
-      run: |
-
-        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(make version) > /dev/null; then
-          echo "IMAGE_TAG_CD=$(make version)" >> $GITHUB_ENV
-        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(git describe --tags --abbrev=0 main) > /dev/null; then
-          echo "IMAGE_TAG_CD=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
-        else
-          echo "No valid images found in the registry for the backend service"
-          exit 1
-        fi
-
-        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(make version) > /dev/null; then
-          echo "IMAGE_TAG_FRONTEND=$(make version)" >> $GITHUB_ENV
-        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-frontend-service:$(git describe --tags --abbrev=0 main); then
-          echo "IMAGE_TAG_FRONTEND=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
-        else
-          echo "No valid images found in the registry for the frontend service"
-          exit 1
-        fi
-
-        if docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(make version) > /dev/null; then
-          echo "IMAGE_TAG_ROLLOUT=$(make version)" >> $GITHUB_ENV
-        elif docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:$(git describe --tags --abbrev=0 main); then
-          echo "IMAGE_TAG_ROLLOUT=$(git describe --tags --abbrev=0 main)" >> $GITHUB_ENV
-        else
-          echo "No valid images found in the registry for the rollout service"
-          exit 1
-        fi
+        echo "IMAGE_TAG_KUBERPULT=$(make version)" >> $GITHUB_ENV
     - name: Print environment
       run: |
         echo Using registry: $IMAGE_REGISTRY
         echo PR tag: $(make version)
-        echo main tag: $(git describe --always --long --tags main)
-        echo Using tag for cd service: $IMAGE_TAG_CD
-        echo Using tag for frontend service: $IMAGE_TAG_FRONTEND
-        echo Using tag for rollout service: $IMAGE_TAG_ROLLOUT
     - name: Create bare repository # Needed for cd-service to start
       run: |
         mkdir -p ./services/cd-service/repository_remote
