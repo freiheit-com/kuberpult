@@ -68,13 +68,15 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 	for _, row := range summaryFromEnv {
 		for _, app := range response.Applications {
 			if row.App == app.Name {
-				if app.Releases[0].DisplayVersion != "" {
-					productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: app.Releases[0].DisplayVersion})
-				} else if app.Releases[0].SourceCommitId != "" {
-					productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: app.Releases[0].SourceCommitId})
+				length := len(app.Releases) - 1
+				if app.Releases[length].DisplayVersion != "" {
+					productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: app.Releases[length].DisplayVersion})
+				} else if app.Releases[length].SourceCommitId != "" {
+					productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: app.Releases[length].SourceCommitId})
 				} else {
-					productVersion = append(productVersion, &row)
+					productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version})
 				}
+				break
 			}
 		}
 	}
