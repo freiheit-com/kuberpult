@@ -29,6 +29,7 @@ import (
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -488,10 +489,11 @@ func TestGetStatus(t *testing.T) {
 	t.Parallel()
 
 	tcs := []struct {
-		Name            string
-		ArgoEvents      []ArgoEvent
-		KuberpultEvents []versions.KuberpultEvent
-		Request         *api.GetStatusRequest
+		Name              string
+		ArgoEvents        []ArgoEvent
+		KuberpultEvents   []versions.KuberpultEvent
+		Request           *api.GetStatusRequest
+		DelayedArgoEvents []ArgoEvent
 
 		ExpectedResponse *api.GetStatusResponse
 	}{
@@ -544,6 +546,91 @@ func TestGetStatus(t *testing.T) {
 						Environment:   "dev",
 						Application:   "foo",
 						RolloutStatus: api.RolloutStatus_RolloutStatusPending,
+					},
+				},
+			},
+		},
+		{
+			Name: "processes late health events",
+			ArgoEvents: []ArgoEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 2},
+					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+					HealthStatusCode: health.HealthStatusHealthy,
+				},
+			},
+			KuberpultEvents: []versions.KuberpultEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 3},
+					EnvironmentGroup: "dev-group",
+				},
+			},
+			// This signals that the application is now healthy
+			DelayedArgoEvents: []ArgoEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 3},
+					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+					HealthStatusCode: health.HealthStatusHealthy,
+				},
+			},
+			Request: &api.GetStatusRequest{
+				EnvironmentGroup: "dev-group",
+				WaitSeconds:      1,
+			},
+			ExpectedResponse: &api.GetStatusResponse{
+				Status:       api.RolloutStatus_RolloutStatusSuccesful,
+				Applications: []*api.GetStatusResponse_ApplicationStatus{},
+			},
+		},
+		{
+			Name: "processes late error events",
+			ArgoEvents: []ArgoEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 2},
+					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+					HealthStatusCode: health.HealthStatusHealthy,
+				},
+			},
+			KuberpultEvents: []versions.KuberpultEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 3},
+					EnvironmentGroup: "dev-group",
+				},
+			},
+			// This signals that the application is now broken
+			DelayedArgoEvents: []ArgoEvent{
+				{
+					Application:      "foo",
+					Environment:      "dev",
+					Version:          &versions.VersionInfo{Version: 3},
+					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+					HealthStatusCode: health.HealthStatusDegraded,
+					OperationState: &v1alpha1.OperationState{
+						Phase: common.OperationFailed,
+					},
+				},
+			},
+			Request: &api.GetStatusRequest{
+				EnvironmentGroup: "dev-group",
+				WaitSeconds:      1,
+			},
+			ExpectedResponse: &api.GetStatusResponse{
+				Status: api.RolloutStatus_RolloutStatusError,
+				Applications: []*api.GetStatusResponse_ApplicationStatus{
+					{
+						Environment:   "dev",
+						Application:   "foo",
+						RolloutStatus: api.RolloutStatus_RolloutStatusError,
 					},
 				},
 			},
@@ -654,12 +741,19 @@ func TestGetStatus(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
 			bc := New()
 			for _, s := range tc.ArgoEvents {
 				bc.ProcessArgoEvent(context.Background(), s)
 			}
 			for _, s := range tc.KuberpultEvents {
 				bc.ProcessKuberpultEvent(context.Background(), s)
+			}
+
+			bc.waiting = func() {
+				for _, s := range tc.DelayedArgoEvents {
+					bc.ProcessArgoEvent(context.Background(), s)
+				}
 			}
 
 			resp, err := bc.GetStatus(context.Background(), tc.Request)
@@ -671,5 +765,33 @@ func TestGetStatus(t *testing.T) {
 			}
 		})
 
+		// This runs all test-cases again but delays all argoevents.
+		// The effect is that all apps will start as "unknown" and then will eventually converge.
+		t.Run(tc.Name+" (delay all argo events)", func(t *testing.T) {
+			bc := New()
+			for _, s := range tc.KuberpultEvents {
+				bc.ProcessKuberpultEvent(context.Background(), s)
+			}
+			bc.waiting = func() {
+				for _, s := range tc.ArgoEvents {
+					bc.ProcessArgoEvent(context.Background(), s)
+				}
+				for _, s := range tc.DelayedArgoEvents {
+					bc.ProcessArgoEvent(context.Background(), s)
+				}
+				bc.DisconnectAll()
+			}
+			var req api.GetStatusRequest
+			proto.Merge(&req, tc.Request)
+			req.WaitSeconds = 1
+
+			resp, err := bc.GetStatus(context.Background(), &req)
+			if err != nil {
+				t.Errorf("didn't expect an error but got %q", err)
+			}
+			if d := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); d != "" {
+				t.Errorf("response mismatch:\ndiff:%s", d)
+			}
+		})
 	}
 }

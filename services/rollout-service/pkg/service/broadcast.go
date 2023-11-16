@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
@@ -88,6 +89,9 @@ type Broadcast struct {
 	state    map[Key]*appState
 	mx       sync.Mutex
 	listener map[chan *BroadcastEvent]struct{}
+
+	// The waiting function is used in tests to trigger events after the subscription is set up.
+	waiting func()
 }
 
 func New() *Broadcast {
@@ -192,27 +196,86 @@ func (b *Broadcast) StreamStatus(req *api.StreamStatusRequest, svc api.RolloutSe
 }
 
 func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*api.GetStatusResponse, error) {
-	resp, _, unsubscribe := b.Start()
+	var wait <-chan time.Time
+	if req.WaitSeconds > 0 {
+		wait = time.After(time.Duration(req.WaitSeconds) * time.Second)
+	}
+	resp, ch, unsubscribe := b.Start()
 	defer unsubscribe()
-	apps := []*api.GetStatusResponse_ApplicationStatus{}
-	status := api.RolloutStatus_RolloutStatusSuccesful
+	apps := map[Key]*api.GetStatusResponse_ApplicationStatus{}
 	for _, r := range resp {
-		if r.EnvironmentGroup == req.EnvironmentGroup {
-			s := getStatus(r)
-			if s.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful {
-				continue
-			}
-			if req.Team != "" && req.Team != r.Team {
-				continue
-			}
-			apps = append(apps, s)
-			status = mostRelevantStatus(status, s.RolloutStatus)
+		s := filterApplication(req, r)
+		if s != nil {
+			apps[r.Key] = s
 		}
 	}
+	status := aggregateStatus(apps)
+	if wait != nil {
+		// The waiting function is used in testing to make sure, we are really processing delayed events.
+		if b.waiting != nil {
+			b.waiting()
+		}
+	waiting:
+		for {
+			status = aggregateStatus(apps)
+			if status == api.RolloutStatus_RolloutStatusSuccesful || status == api.RolloutStatus_RolloutStatusError {
+				break
+			}
+			select {
+			case r, ok := <-ch:
+				if !ok {
+					break waiting
+				}
+				s := filterApplication(req, r)
+				if s != nil {
+					apps[r.Key] = s
+				} else {
+					delete(apps, r.Key)
+				}
+			case <-ctx.Done():
+				break waiting
+			case <-wait:
+				break waiting
+			}
+		}
+	}
+
+	appList := make([]*api.GetStatusResponse_ApplicationStatus, 0, len(apps))
+	for _, app := range apps {
+		appList = append(appList, app)
+	}
+
 	return &api.GetStatusResponse{
 		Status:       status,
-		Applications: apps,
+		Applications: appList,
 	}, nil
+}
+
+// Removes irrelevant app states from the list.
+func filterApplication(req *api.GetStatusRequest, ev *BroadcastEvent) *api.GetStatusResponse_ApplicationStatus {
+        // Only apps that have the correct envgroup are considered
+	if ev.EnvironmentGroup != req.EnvironmentGroup {
+		return nil
+	}
+        // If it's filtered by team, then only apps with the correct team are considered.
+	if req.Team != "" && req.Team != ev.Team {
+		return nil
+	}
+	s := getStatus(ev)
+        // Successful apps are also irrelevant.
+	if s.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful {
+		return nil
+	}
+	return s
+}
+
+// Calculates an aggregatted rollout status
+func aggregateStatus(apps map[Key]*api.GetStatusResponse_ApplicationStatus) api.RolloutStatus {
+	status := api.RolloutStatus_RolloutStatusSuccesful
+	for _, app := range apps {
+		status = mostRelevantStatus(app.RolloutStatus, status)
+	}
+	return status
 }
 
 type unsubscribe func()
