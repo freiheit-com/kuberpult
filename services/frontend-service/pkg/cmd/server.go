@@ -206,7 +206,7 @@ func runServer(ctx context.Context) error {
 		OverviewClient:       api.NewOverviewServiceClient(cdCon),
 		BatchClient:          batchClient,
 		RolloutServiceClient: rolloutClient,
-		GitTagsCLient:        api.NewGitTagsServiceClient(cdCon),
+		GitTagsClient:        api.NewGitTagsServiceClient(cdCon),
 	}
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
@@ -432,7 +432,7 @@ type GrpcProxy struct {
 	OverviewClient       api.OverviewServiceClient
 	BatchClient          api.BatchServiceClient
 	RolloutServiceClient api.RolloutServiceClient
-	GitTagsCLient        api.GitTagsServiceClient
+	GitTagsClient        api.GitTagsServiceClient
 }
 
 func (p *GrpcProxy) ProcessBatch(
@@ -458,7 +458,13 @@ func (p *GrpcProxy) GetOverview(
 func (p *GrpcProxy) GetGitTags(
 	ctx context.Context,
 	in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
-	return p.GitTagsCLient.GetGitTags(ctx, in)
+	return p.GitTagsClient.GetGitTags(ctx, in)
+}
+
+func (p *GrpcProxy) GetProductSummary(
+	ctx context.Context,
+	in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
+	return p.GitTagsClient.GetProductSummary(ctx, in)
 }
 
 func (p *GrpcProxy) StreamOverview(
