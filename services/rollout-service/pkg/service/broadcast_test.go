@@ -29,6 +29,7 @@ import (
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -618,7 +619,7 @@ func TestGetStatus(t *testing.T) {
 				WaitSeconds:      1,
 			},
 			ExpectedResponse: &api.GetStatusResponse{
-				Status:       api.RolloutStatus_RolloutStatusError,
+				Status: api.RolloutStatus_RolloutStatusError,
 				Applications: []*api.GetStatusResponse_ApplicationStatus{
 					{
 						Environment:   "dev",
@@ -734,6 +735,7 @@ func TestGetStatus(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
 			bc := New()
 			for _, s := range tc.ArgoEvents {
 				bc.ProcessArgoEvent(context.Background(), s)
@@ -760,5 +762,36 @@ func TestGetStatus(t *testing.T) {
 			}
 		})
 
+		// This runs all test-cases again but delays all argoevents.
+		// The efect is that all apps will start as "unknown" and the will eventually converge.
+		t.Run(tc.Name+" (delay all argo events)", func(t *testing.T) {
+			bc := New()
+			for _, s := range tc.KuberpultEvents {
+				bc.ProcessKuberpultEvent(context.Background(), s)
+			}
+			bc.waiting = func() {
+				for _, s := range tc.ArgoEvents {
+					bc.ProcessArgoEvent(context.Background(), s)
+				}
+				for _, s := range tc.DelayedArgoEvents {
+					bc.ProcessArgoEvent(context.Background(), s)
+				}
+				for _, s := range tc.DelayedKuberpultEvents {
+					bc.ProcessKuberpultEvent(context.Background(), s)
+				}
+				bc.DisconnectAll()
+			}
+			var req api.GetStatusRequest
+			proto.Merge(&req, tc.Request)
+			req.WaitSeconds = 1
+
+			resp, err := bc.GetStatus(context.Background(), &req)
+			if err != nil {
+				t.Errorf("didn't expect an error but got %q", err)
+			}
+			if d := cmp.Diff(tc.ExpectedResponse, resp, protocmp.Transform()); d != "" {
+				t.Errorf("response mismatch:\ndiff:%s", d)
+			}
+		})
 	}
 }
