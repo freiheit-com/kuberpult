@@ -90,7 +90,7 @@ type Broadcast struct {
 	mx       sync.Mutex
 	listener map[chan *BroadcastEvent]struct{}
 
-	// used for testing
+	// The waiting function is used in tests to trigger events after the subscription is set up.
 	waiting func()
 }
 
@@ -251,15 +251,18 @@ func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*
 	}, nil
 }
 
-// Removes irrelevant apps from
+// Removes irrelevant app states from the list.
 func filterApplication(req *api.GetStatusRequest, ev *BroadcastEvent) *api.GetStatusResponse_ApplicationStatus {
+        // Only apps that have the correct envgroup are considered
 	if ev.EnvironmentGroup != req.EnvironmentGroup {
 		return nil
 	}
+        // If it's filtered by team, then only apps with the correct team are considered.
 	if req.Team != "" && req.Team != ev.Team {
 		return nil
 	}
 	s := getStatus(ev)
+        // Successful apps are also irrelevant.
 	if s.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful {
 		return nil
 	}
