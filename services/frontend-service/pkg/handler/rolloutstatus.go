@@ -41,9 +41,9 @@ func (s *Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req 
 	}
 
 	var reqBody struct {
-		Signature string `json:"signature"`
-		Team      string `json:"team"`
-		Wait      string `json:"wait"`
+		Signature    string `json:"signature"`
+		Team         string `json:"team"`
+		WaitDuration string `json:"waitDuration"`
 	}
 	err := json.NewDecoder(req.Body).Decode(&reqBody)
 	if err != nil {
@@ -73,22 +73,21 @@ func (s *Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req 
 		}
 	}
 	var waitSeconds uint64
-	if reqBody.Wait != "" {
-		duration, err := time.ParseDuration(reqBody.Wait)
+	if reqBody.WaitDuration != "" {
+		duration, err := time.ParseDuration(reqBody.WaitDuration)
 		if err != nil {
 
-			http.Error(w, fmt.Sprintf("Invalid wait duration: %s", reqBody.Wait), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("Invalid waitDuration: %s", reqBody.WaitDuration), http.StatusBadRequest)
 			return
 		}
 		if duration > s.Config.WaitTimeLimit {
-
-			http.Error(w, fmt.Sprintf("Wait duration is too high: %s", reqBody.Wait), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("waitDuration is too high: %s - maximum is %s", reqBody.WaitDuration, s.Config.WaitTimeLimit), http.StatusBadRequest)
 			return
 		}
 		waitSeconds = uint64(duration.Seconds())
 		if waitSeconds == 0 {
 
-			http.Error(w, fmt.Sprintf("Wait duration is shorter than one second: %s", reqBody.Wait), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("waitDuration is shorter than one second: %s", reqBody.WaitDuration), http.StatusBadRequest)
 			return
 		}
 	}

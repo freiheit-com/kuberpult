@@ -1033,7 +1033,7 @@ func TestServer_Rollout(t *testing.T) {
 				Header: http.Header{
 					"Content-Type": []string{"application/json"},
 				},
-				Body: io.NopCloser(strings.NewReader(`{"wait":"1m"}`)),
+				Body: io.NopCloser(strings.NewReader(`{"waitDuration":"1m"}`)),
 			},
 			statusResponse: &api.GetStatusResponse{},
 			Config: config.ServerConfig{
@@ -1059,7 +1059,7 @@ func TestServer_Rollout(t *testing.T) {
 				Header: http.Header{
 					"Content-Type": []string{"application/json"},
 				},
-				Body: io.NopCloser(strings.NewReader(`{"wait":"10m"}`)),
+				Body: io.NopCloser(strings.NewReader(`{"waitDuration":"10m"}`)),
 			},
 			statusResponse: &api.GetStatusResponse{},
 			Config: config.ServerConfig{
@@ -1069,7 +1069,7 @@ func TestServer_Rollout(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusBadRequest,
 			},
-			expectedBody: "Wait duration is too high: 10m\n",
+			expectedBody: "waitDuration is too high: 10m - maximum is 2m0s\n",
 		},
 		{
 			name: "rejects low wait time",
@@ -1081,7 +1081,7 @@ func TestServer_Rollout(t *testing.T) {
 				Header: http.Header{
 					"Content-Type": []string{"application/json"},
 				},
-				Body: io.NopCloser(strings.NewReader(`{"wait":"1ns"}`)),
+				Body: io.NopCloser(strings.NewReader(`{"waitDuration":"1ns"}`)),
 			},
 			statusResponse: &api.GetStatusResponse{},
 			Config: config.ServerConfig{
@@ -1091,7 +1091,7 @@ func TestServer_Rollout(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusBadRequest,
 			},
-			expectedBody: "Wait duration is shorter than one second: 1ns\n",
+			expectedBody: "waitDuration is shorter than one second: 1ns\n",
 		},
 	}
 	for _, tt := range tests {
