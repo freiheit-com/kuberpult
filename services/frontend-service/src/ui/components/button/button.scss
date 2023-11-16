@@ -18,3 +18,25 @@ Copyright 2023 freiheit.com*/
 .mdc-button {
     @extend .font;
 }
+
+.expand-button {
+    border-width: thin;
+    border-radius: 14px;
+    border-color: blue;
+    border-style: groove;
+
+    .first-two {
+        height: 36px;
+        .button-main {
+            border-radius: 12px 0 0 12px;
+        }
+        .button-expand {
+            padding: 0;
+            min-width: 36px;
+            .dropdown-arrow {
+                margin-bottom: 40%; // to center the arrow
+                font-size: xx-large;
+            }
+        }
+    }
+}

@@ -78,7 +78,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
                     data-testid="teams-dropdown-input"
                 />
             </div>
-            <PlainDialog open={open} onClose={onCancel} classNames={'dropdown'}>
+            <PlainDialog open={open} onClose={onCancel} classNames={'dropdown'} disableBackground={true} center={false}>
                 <div>
                     {allTeams.map((team: string) => (
                         <div key={team}>

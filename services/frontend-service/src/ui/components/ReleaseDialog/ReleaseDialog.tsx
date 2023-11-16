@@ -31,6 +31,7 @@ import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { ArgoAppLink, ArgoTeamLink, DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
+import { ExpandButton } from '../button/ExpandButton';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -112,23 +113,28 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
             },
         });
     }, [app, env.name]);
-    const deployAndLockClick = useCallback(() => {
-        if (release.version) {
-            addAction({
-                action: {
-                    $case: 'deploy',
-                    deploy: {
-                        environment: env.name,
-                        application: app,
-                        version: release.version,
-                        ignoreAllLocks: false,
-                        lockBehavior: LockBehavior.Ignore,
+    const deployAndLockClick = useCallback(
+        (shouldLockToo: boolean) => {
+            if (release.version) {
+                addAction({
+                    action: {
+                        $case: 'deploy',
+                        deploy: {
+                            environment: env.name,
+                            application: app,
+                            version: release.version,
+                            ignoreAllLocks: false,
+                            lockBehavior: LockBehavior.Ignore,
+                        },
                     },
-                },
-            });
-            createAppLock();
-        }
-    }, [release.version, app, env.name, createAppLock]);
+                });
+                if (shouldLockToo) {
+                    createAppLock();
+                }
+            }
+        },
+        [release.version, app, env.name, createAppLock]
+    );
 
     const queueInfo =
         queuedVersion === 0 ? null : (
@@ -216,14 +222,9 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                         />
                         <div
                             title={
-                                'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, you can remove it from the "planned actions".'
+                                'When doing manual deployments, it is usually best to also lock the app. If you omit the lock, an automatic release train or another person may deploy an unintended version. If you do not want a lock, click the arrow.'
                             }>
-                            <Button
-                                disabled={application && application.version === release.version}
-                                className={classNames('env-card-deploy-btn', 'mdc-button--unelevated')}
-                                onClick={deployAndLockClick}
-                                label="Deploy & Lock"
-                            />
+                            <ExpandButton onClickSubmit={deployAndLockClick} defaultButtonLabel={'Deploy & Lock'} />
                         </div>
                     </div>
                 </div>
@@ -270,7 +271,12 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const closeReleaseDialog = useCloseReleaseDialog();
 
     const dialog: JSX.Element | '' = (
-        <PlainDialog open={app !== ''} onClose={closeReleaseDialog} classNames={'release-dialog'}>
+        <PlainDialog
+            open={app !== ''}
+            onClose={closeReleaseDialog}
+            classNames={'release-dialog'}
+            disableBackground={true}
+            center={true}>
             <>
                 <div className={classNames('release-dialog-app-bar', className)}>
                     <div className={classNames('release-dialog-app-bar-data')}>

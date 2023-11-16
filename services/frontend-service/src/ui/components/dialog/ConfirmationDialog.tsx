@@ -31,7 +31,12 @@ export type ConfirmationDialogProps = {
  * A dialog that is used to confirm a question with either yes or no.
  */
 export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => (
-    <PlainDialog open={props.open} onClose={props.onCancel} classNames={props.classNames}>
+    <PlainDialog
+        open={props.open}
+        onClose={props.onCancel}
+        classNames={props.classNames}
+        disableBackground={true}
+        center={true}>
         <>
             <div className={'confirmation-dialog-header'}>{props.headerLabel}</div>
             <hr />
@@ -62,6 +67,8 @@ export type PlainDialogProps = {
     onClose: () => void;
     children: JSX.Element;
     classNames: string;
+    disableBackground: boolean;
+    center: boolean;
 };
 
 /**
@@ -69,6 +76,7 @@ export type PlainDialogProps = {
  */
 export const PlainDialog: React.FC<PlainDialogProps> = (props) => {
     const { onClose, open, children } = props;
+    const classPrefix = props.center ? 'confirmation' : 'plain';
     React.useEffect(() => {
         window.addEventListener('keyup', (event) => {
             if (event.key === 'Escape') {
@@ -78,21 +86,22 @@ export const PlainDialog: React.FC<PlainDialogProps> = (props) => {
         document.addEventListener('click', (event) => {
             if (open) {
                 if (event.target instanceof HTMLElement) {
-                    const isOutside = event.target.className.indexOf('confirmation-dialog-container') >= 0;
+                    const isOutside = event.target.className.indexOf(classPrefix + '-dialog-container') >= 0;
                     if (isOutside) {
                         onClose();
                     }
                 }
             }
         });
-    }, [onClose, open]);
+    }, [onClose, open, classPrefix]);
 
     if (!open) {
-        return <div className={'confirmation-dialog-hidden'}></div>;
+        return <div className={''}></div>;
     }
+    const clas = props.disableBackground ? classPrefix + '-dialog-container-open' : '';
     return (
-        <div className={'confirmation-dialog-container ' + (props.open ? 'confirmation-dialog-container-open' : '')}>
-            <div className={'confirmation-dialog-open ' + props.classNames}>{children}</div>
+        <div className={classPrefix + '-dialog-container ' + (props.open ? clas : '')}>
+            <div className={classPrefix + '-dialog-open ' + props.classNames}>{children}</div>
         </div>
     );
 };
