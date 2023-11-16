@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
@@ -42,6 +43,7 @@ func (s *Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req 
 	var reqBody struct {
 		Signature string `json:"signature"`
 		Team      string `json:"team"`
+		Wait      string `json:"wait"`
 	}
 	err := json.NewDecoder(req.Body).Decode(&reqBody)
 	if err != nil {
@@ -70,9 +72,30 @@ func (s *Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req 
 			return
 		}
 	}
+	var waitSeconds uint64
+	if reqBody.Wait != "" {
+		duration, err := time.ParseDuration(reqBody.Wait)
+		if err != nil {
+
+			http.Error(w, fmt.Sprintf("Invalid wait duration: %s", reqBody.Wait), http.StatusBadRequest)
+			return
+		}
+		if duration > s.Config.WaitTimeLimit {
+
+			http.Error(w, fmt.Sprintf("Wait duration is too high: %s", reqBody.Wait), http.StatusBadRequest)
+			return
+		}
+		waitSeconds = uint64(duration.Seconds())
+		if waitSeconds == 0 {
+
+			http.Error(w, fmt.Sprintf("Wait duration is shorter than one second: %s", reqBody.Wait), http.StatusBadRequest)
+			return
+		}
+	}
 	res, err := s.RolloutClient.GetStatus(ctx, &api.GetStatusRequest{
 		EnvironmentGroup: environmentGroup,
 		Team:             reqBody.Team,
+		WaitSeconds:      waitSeconds,
 	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Internal error: %s", err), http.StatusInternalServerError)
