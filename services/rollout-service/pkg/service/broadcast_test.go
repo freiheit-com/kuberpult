@@ -494,7 +494,6 @@ func TestGetStatus(t *testing.T) {
 		KuberpultEvents        []versions.KuberpultEvent
 		Request                *api.GetStatusRequest
 		DelayedArgoEvents      []ArgoEvent
-		DelayedKuberpultEvents []versions.KuberpultEvent
 
 		ExpectedResponse *api.GetStatusResponse
 	}{
@@ -748,9 +747,6 @@ func TestGetStatus(t *testing.T) {
 				for _, s := range tc.DelayedArgoEvents {
 					bc.ProcessArgoEvent(context.Background(), s)
 				}
-				for _, s := range tc.DelayedKuberpultEvents {
-					bc.ProcessKuberpultEvent(context.Background(), s)
-				}
 			}
 
 			resp, err := bc.GetStatus(context.Background(), tc.Request)
@@ -775,9 +771,6 @@ func TestGetStatus(t *testing.T) {
 				}
 				for _, s := range tc.DelayedArgoEvents {
 					bc.ProcessArgoEvent(context.Background(), s)
-				}
-				for _, s := range tc.DelayedKuberpultEvents {
-					bc.ProcessKuberpultEvent(context.Background(), s)
 				}
 				bc.DisconnectAll()
 			}
