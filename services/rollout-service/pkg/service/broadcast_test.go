@@ -766,7 +766,7 @@ func TestGetStatus(t *testing.T) {
 		})
 
 		// This runs all test-cases again but delays all argoevents.
-		// The efect is that all apps will start as "unknown" and the will eventually converge.
+		// The effect is that all apps will start as "unknown" and then will eventually converge.
 		t.Run(tc.Name+" (delay all argo events)", func(t *testing.T) {
 			bc := New()
 			for _, s := range tc.KuberpultEvents {
