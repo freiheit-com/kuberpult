@@ -19,10 +19,7 @@ jobs:
         fetch-depth: 0
     - name: Setup environment
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
-      # If the image with PR branch's version as tag doesn't exist, use the one in main that should already exist.
-      # If main's doesn't exist, that means there was an official release, so the short version is chosen
       run: |
-        git fetch -q origin main:main
 
         if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-cd-service:$(make version) > /dev/null; then
           echo "No valid images found in the registry for the backend service"
