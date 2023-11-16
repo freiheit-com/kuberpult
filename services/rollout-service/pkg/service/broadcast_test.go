@@ -489,11 +489,11 @@ func TestGetStatus(t *testing.T) {
 	t.Parallel()
 
 	tcs := []struct {
-		Name                   string
-		ArgoEvents             []ArgoEvent
-		KuberpultEvents        []versions.KuberpultEvent
-		Request                *api.GetStatusRequest
-		DelayedArgoEvents      []ArgoEvent
+		Name              string
+		ArgoEvents        []ArgoEvent
+		KuberpultEvents   []versions.KuberpultEvent
+		Request           *api.GetStatusRequest
+		DelayedArgoEvents []ArgoEvent
 
 		ExpectedResponse *api.GetStatusResponse
 	}{
@@ -513,6 +513,11 @@ func TestGetStatus(t *testing.T) {
 					Version:          &versions.VersionInfo{Version: 2},
 					SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 					HealthStatusCode: health.HealthStatusHealthy,
+				},
+				{
+					Application: "foo",
+					Environment: "prd",
+					Version: &versions.VersionInfo{Version: 1},
 				},
 			},
 			KuberpultEvents: []versions.KuberpultEvent{
