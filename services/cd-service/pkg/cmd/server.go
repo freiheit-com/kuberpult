@@ -80,7 +80,6 @@ func RunServer() {
 
 		var c Config
 
-
 		err := envconfig.Process("kuberpult", &c)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
@@ -212,7 +211,7 @@ func RunServer() {
 						Shutdown:   shutdownCh,
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
-					api.RegisterGitTagsServiceServer(srv, &service.TagsServer{Cfg: cfg, OverviewSrv: overviewSrv})
+					api.RegisterGitTagsServiceServer(srv, &service.TagsServer{Config: cfg, OverviewService: overviewSrv})
 					reflection.Register(srv)
 					reposerver.Register(srv, repo, cfg)
 

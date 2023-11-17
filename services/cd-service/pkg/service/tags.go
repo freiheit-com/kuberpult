@@ -26,12 +26,12 @@ import (
 )
 
 type TagsServer struct {
-	Cfg         repository.RepositoryConfig
-	OverviewSrv *OverviewServiceServer
+	Config          repository.RepositoryConfig
+	OverviewService *OverviewServiceServer
 }
 
 func (s *TagsServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
-	tags, err := repository.GetTags(s.Cfg, "./repository_tags", ctx)
+	tags, err := repository.GetTags(s.Config, "./repository_tags", ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get tags from repository: %v", err)
 	}
@@ -44,9 +44,9 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 		return nil, fmt.Errorf("Must have an environment to get the product summary for")
 	}
 	if in.CommitHash == "" {
-		return nil, fmt.Errorf("Must have an a commit to get the product summary for")
+		return nil, fmt.Errorf("Must have a commit to get the product summary for")
 	}
-	response, err := s.OverviewSrv.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: in.CommitHash})
+	response, err := s.OverviewService.GetOverview(ctx, &api.GetOverviewRequest{GitRevision: in.CommitHash})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get overview for %s: %v", in.CommitHash, err)
 	}
@@ -61,7 +61,7 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 		}
 	}
 	if len(summaryFromEnv) == 0 {
-		return nil, fmt.Errorf("environment %s did not match the existing environments", in.Environment)
+		return nil, fmt.Errorf("environment %s not found", in.Environment)
 	}
 
 	var productVersion []*api.ProductSummary

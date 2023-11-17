@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,7 +13,8 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright 2023 freiheit.com
+*/
 package service
 
 import (
@@ -107,7 +109,7 @@ func TestGetProductOverview(t *testing.T) {
 					Version:     1,
 				},
 			},
-			expectedErr: fmt.Errorf("environment staging did not match the existing environments"),
+			expectedErr: fmt.Errorf("environment development not found"),
 		},
 	}
 	for _, tc := range tcs {
@@ -118,12 +120,12 @@ func TestGetProductOverview(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			sv := &TagsServer{OverviewSrv: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}}
+			sv := &TagsServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}}
 
 			for _, transformer := range tc.Setup {
 				repo.Apply(testutil.MakeTestContext(), transformer)
 			}
-			ov, err := sv.OverviewSrv.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
+			ov, err := sv.OverviewService.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})
 			if err != nil {
 				t.Errorf("expected no error, got %s", err)
 			}
