@@ -44,7 +44,7 @@ type ServerConfig struct {
 	AllowedOrigins      string        `default:"" split_words:"true"`
 	GitAuthorName       string        `default:"" split_words:"true"`
 	GitAuthorEmail      string        `default:"" split_words:"true"`
-	WaitTimeLimit       time.Duration `default:"10m" split_words:"true"`
+	MaxWaitDuration     time.Duration `default:"10m" split_words:"true"`
 }
 
 type FrontendConfig struct {

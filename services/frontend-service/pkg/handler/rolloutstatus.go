@@ -80,8 +80,8 @@ func (s *Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req 
 			http.Error(w, fmt.Sprintf("Invalid waitDuration: %s", reqBody.WaitDuration), http.StatusBadRequest)
 			return
 		}
-		if duration > s.Config.WaitTimeLimit {
-			http.Error(w, fmt.Sprintf("waitDuration is too high: %s - maximum is %s", reqBody.WaitDuration, s.Config.WaitTimeLimit), http.StatusBadRequest)
+		if duration > s.Config.MaxWaitDuration {
+			http.Error(w, fmt.Sprintf("waitDuration is too high: %s - maximum is %s", reqBody.WaitDuration, s.Config.MaxWaitDuration), http.StatusBadRequest)
 			return
 		}
 		waitSeconds = uint64(duration.Seconds())

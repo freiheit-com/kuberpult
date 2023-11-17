@@ -1037,7 +1037,7 @@ func TestServer_Rollout(t *testing.T) {
 			},
 			statusResponse: &api.GetStatusResponse{},
 			Config: config.ServerConfig{
-				WaitTimeLimit: 2 * time.Minute,
+				MaxWaitDuration: 2 * time.Minute,
 			},
 
 			expectedResp: &http.Response{
@@ -1063,7 +1063,7 @@ func TestServer_Rollout(t *testing.T) {
 			},
 			statusResponse: &api.GetStatusResponse{},
 			Config: config.ServerConfig{
-				WaitTimeLimit: 2 * time.Minute,
+				MaxWaitDuration: 2 * time.Minute,
 			},
 
 			expectedResp: &http.Response{
@@ -1085,7 +1085,7 @@ func TestServer_Rollout(t *testing.T) {
 			},
 			statusResponse: &api.GetStatusResponse{},
 			Config: config.ServerConfig{
-				WaitTimeLimit: 2 * time.Minute,
+				MaxWaitDuration: 2 * time.Minute,
 			},
 
 			expectedResp: &http.Response{

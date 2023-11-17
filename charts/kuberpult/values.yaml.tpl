@@ -77,7 +77,7 @@ frontend:
       memory: 250Mi
 # Limit for the wait time for resources that support waiting on conditions ( e.g. rollout-status ).
 # This MUST be lower than the combined timeouts of ALL http proxies in use.
-  waitTimeLimit: 10m
+  maxWaitDuration: 10m
 rollout:
   enabled: false
   image: kuberpult-rollout-service
