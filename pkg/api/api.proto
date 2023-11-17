@@ -10,6 +10,7 @@ package api.v1;
 
 service GitTagsService {
   rpc GetGitTags (GetGitTagsRequest) returns (GetGitTagsResponse) {}
+  // By "Product" we mean the entire collection of apps 
   rpc GetProductSummary(GetProductSummaryRequest) returns(GetProductSummaryResponse) {}
 }
 
