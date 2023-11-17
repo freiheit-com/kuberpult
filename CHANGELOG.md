@@ -18,6 +18,32 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.14.0](https://github.com/freiheit-com/kuberpult/tree/1.14.0) (2023-11-17)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.13.0...1.14.0)
+
+### Minor Changes (New Features)
+
+- Add waiting to frontend [\#1145](https://github.com/freiheit-com/kuberpult/pull/1145) ([hannesg](https://github.com/hannesg))
+- Add endpoint that returns the version of all services in an environment at a given commit [\#1146](https://github.com/freiheit-com/kuberpult/pull/1146) ([gsandok](https://github.com/gsandok))
+- Implement waiting in the rollout service [\#1143](https://github.com/freiheit-com/kuberpult/pull/1143) ([hannesg](https://github.com/hannesg))
+- Display tags in dropdown [\#1107](https://github.com/freiheit-com/kuberpult/pull/1107) ([gsandok](https://github.com/gsandok))
+- SRC-K0RM01: improve UX for app and team filters \(\#1033, \#1034\) [\#1133](https://github.com/freiheit-com/kuberpult/pull/1133) ([bjoern-michaelsen-freiheit](https://github.com/bjoern-michaelsen-freiheit))
+
+### Patch Changes (Bugfixes)
+
+- fix\(deps\): update opentelemetry-go monorepo [\#1148](https://github.com/freiheit-com/kuberpult/pull/1148) ([renovate[bot]](https://github.com/apps/renovate))
+- fix\(deps\): update module google.golang.org/api to v0.151.0 [\#1147](https://github.com/freiheit-com/kuberpult/pull/1147) ([renovate[bot]](https://github.com/apps/renovate))
+- UI: Lock without deploying [\#1131](https://github.com/freiheit-com/kuberpult/pull/1131) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- SRX-K0RM01: remove app/teams filter on releases and environments page too [\#1144](https://github.com/freiheit-com/kuberpult/pull/1144) ([bjoern-michaelsen-freiheit](https://github.com/bjoern-michaelsen-freiheit))
+- fix\(i-test\): remove fetching main [\#1142](https://github.com/freiheit-com/kuberpult/pull/1142) ([bjoern-michaelsen-freiheit](https://github.com/bjoern-michaelsen-freiheit))
+- fix\(ci\): build all services \(SRX-8HW1TP\) [\#1136](https://github.com/freiheit-com/kuberpult/pull/1136) ([bjoern-michaelsen-freiheit](https://github.com/bjoern-michaelsen-freiheit))
+- Add missing health tests [\#1132](https://github.com/freiheit-com/kuberpult/pull/1132) ([hannesg](https://github.com/hannesg))
+- Update module github.com/argoproj/argo-cd/v2 to v2.9.1 [\#1134](https://github.com/freiheit-com/kuberpult/pull/1134) ([renovate[bot]](https://github.com/apps/renovate))
+
+---
+
+
 ## [1.13.0](https://github.com/freiheit-com/kuberpult/tree/1.13.0) (2023-11-13)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.12.0...1.13.0)
