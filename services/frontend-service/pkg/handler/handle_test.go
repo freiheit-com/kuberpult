@@ -27,10 +27,12 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
@@ -970,6 +972,7 @@ func TestServer_Rollout(t *testing.T) {
 		KeyRing               openpgp.KeyRing
 		signature             string
 		AzureAuthEnabled      bool
+		Config                config.ServerConfig
 		statusResponse        *api.GetStatusResponse
 		expectedResp          *http.Response
 		expectedBody          string
@@ -1020,14 +1023,86 @@ func TestServer_Rollout(t *testing.T) {
 				Team:             "foo",
 			},
 		},
+		{
+			name: "propagates the wait time",
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/environment-groups/development/rollout-status",
+				},
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{"waitDuration":"1m"}`)),
+			},
+			statusResponse: &api.GetStatusResponse{},
+			Config: config.ServerConfig{
+				MaxWaitDuration: 2 * time.Minute,
+			},
+
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: `{"status":"unknown","applications":[]}`,
+			expectedStatusRequest: &api.GetStatusRequest{
+				EnvironmentGroup: "development",
+				WaitSeconds:      60,
+			},
+		},
+		{
+			name: "rejects high wait time",
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/environment-groups/development/rollout-status",
+				},
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{"waitDuration":"10m"}`)),
+			},
+			statusResponse: &api.GetStatusResponse{},
+			Config: config.ServerConfig{
+				MaxWaitDuration: 2 * time.Minute,
+			},
+
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "waitDuration is too high: 10m - maximum is 2m0s\n",
+		},
+		{
+			name: "rejects low wait time",
+			req: &http.Request{
+				Method: http.MethodPost,
+				URL: &url.URL{
+					Path: "/environment-groups/development/rollout-status",
+				},
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{"waitDuration":"1ns"}`)),
+			},
+			statusResponse: &api.GetStatusResponse{},
+			Config: config.ServerConfig{
+				MaxWaitDuration: 2 * time.Minute,
+			},
+
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "waitDuration is shorter than one second: 1ns\n",
+		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			rolloutClient := &mockRolloutClient{response: tt.statusResponse}
 			s := Server{
 				RolloutClient: rolloutClient,
 				KeyRing:       tt.KeyRing,
 				AzureAuth:     tt.AzureAuthEnabled,
+				Config:        tt.Config,
 			}
 
 			w := httptest.NewRecorder()

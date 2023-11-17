@@ -165,6 +165,8 @@ spec:
 {{- else }}
           value: ""
 {{- end }}
+        - name: KUBERPULT_MAX_WAIT_DURATION
+          value: {{ .Values.frontend.maxWaitDuration | quote }}
         volumeMounts:
 {{- if .Values.pgp.keyRing }}
         - name: keyring
