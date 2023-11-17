@@ -108,7 +108,7 @@ func TestGetProductOverview(t *testing.T) {
 					Version:     1,
 				},
 			},
-			expectedErr: fmt.Errorf("environment development not found"),
+			expectedErr: fmt.Errorf("environment staging not found"),
 		},
 	}
 	for _, tc := range tcs {
