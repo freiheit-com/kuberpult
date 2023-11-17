@@ -10,6 +10,8 @@ package api.v1;
 
 service GitTagsService {
   rpc GetGitTags (GetGitTagsRequest) returns (GetGitTagsResponse) {}
+  // By "Product" we mean the entire collection of apps 
+  rpc GetProductSummary(GetProductSummaryRequest) returns(GetProductSummaryResponse) {}
 }
 
 message GetGitTagsRequest {
@@ -17,6 +19,20 @@ message GetGitTagsRequest {
 
 message GetGitTagsResponse {
   repeated TagData tag_data = 1;
+}
+
+message GetProductSummaryRequest {
+  string commit_hash = 1;
+  string environment = 2;
+}
+
+message GetProductSummaryResponse {
+  repeated ProductSummary product_summary = 1;
+}
+
+message ProductSummary {
+  string app = 1;
+  string version = 2;
 }
 
 message TagData {
