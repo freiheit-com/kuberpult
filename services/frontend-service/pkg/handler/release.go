@@ -223,7 +223,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 			return
 		}
 		if ok && s.Code() == codes.AlreadyExists {
-			http.Error(w, err.Error(), http.StatusConflict)
+			w.WriteHeader(http.StatusOK)
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
