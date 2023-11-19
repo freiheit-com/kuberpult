@@ -438,13 +438,81 @@ func TestServeHttpInvalidInput(t *testing.T) {
 }
 
 func TestServeHttpBasics(t *testing.T) {
+	noCachingHeader := "no-cache,no-store,must-revalidate,max-age=0"
+	yesCachingHeader := "max-age=604800"
+	headerMapWithoutCaching := map[string]string{
+		"Cache-Control": noCachingHeader,
+	}
+	headerMapWithCaching := map[string]string{
+		"Cache-Control": yesCachingHeader,
+	}
+
+	var jsPath = ""
+	var cssPath = ""
+	{
+		// find index.html to figure out what the name of the css and js files are:
+		resp, err := http.Get("http://localhost:" + frontendPort + "/")
+		if err != nil {
+			t.Logf("response failure %s", err.Error())
+			t.Fatal(err)
+		}
+		if resp.StatusCode != 200 {
+			t.Fatalf("expected http status %d, received %d", 200, resp.StatusCode)
+		}
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodyString := string(bodyBytes)
+
+		prefixJs := "/static/js/main."
+		afterJs1 := strings.SplitAfter(bodyString, prefixJs)
+		afterJs2 := strings.SplitAfter(afterJs1[1], ".js")
+		jsPath = prefixJs + afterJs2[0]
+
+		prefixCss := "/static/css/main."
+		afterCss1 := strings.SplitAfter(bodyString, prefixCss)
+		afterCss2 := strings.SplitAfter(afterCss1[1], ".css")
+		cssPath = prefixCss + afterCss2[0]
+	}
+
 	tcs := []struct {
-		Name           string
-		ExpectedStatus int
-	}{{
-		Name:           "Main page returns 200",
-		ExpectedStatus: 200,
-	}}
+		Name            string
+		Endpoint        string
+		ExpectedStatus  int
+		ExpectedHeaders map[string]string
+	}{
+		{
+			Name:            "Http works and returns caching headers for root",
+			Endpoint:        "/",
+			ExpectedStatus:  200,
+			ExpectedHeaders: headerMapWithoutCaching,
+		},
+		{
+			Name:            "Http works and returns caching headers for /index.html",
+			Endpoint:        "/index.html",
+			ExpectedStatus:  200,
+			ExpectedHeaders: headerMapWithoutCaching,
+		},
+		{
+			Name:            "Http works and returns caching headers for /ui",
+			Endpoint:        "/ui",
+			ExpectedStatus:  200,
+			ExpectedHeaders: headerMapWithoutCaching,
+		},
+		{
+			Name:            "Http works and returns correct headers for js",
+			Endpoint:        jsPath,
+			ExpectedStatus:  200,
+			ExpectedHeaders: headerMapWithCaching,
+		},
+		{
+			Name:            "Http works and returns correct headers for css",
+			Endpoint:        cssPath,
+			ExpectedStatus:  200,
+			ExpectedHeaders: headerMapWithCaching,
+		},
+	}
 
 	for _, tc := range tcs {
 		tc := tc
@@ -454,7 +522,7 @@ func TestServeHttpBasics(t *testing.T) {
 			body := multipart.NewWriter(&buf)
 			body.Close()
 
-			if resp, err := http.Get("http://localhost:" + frontendPort + "/"); err != nil {
+			if resp, err := http.Get("http://localhost:" + frontendPort + tc.Endpoint); err != nil {
 				t.Logf("response failure %s", err.Error())
 				t.Fatal(err)
 			} else {
@@ -462,12 +530,19 @@ func TestServeHttpBasics(t *testing.T) {
 				if resp.StatusCode != tc.ExpectedStatus {
 					t.Fatalf("expected http status %d, received %d", tc.ExpectedStatus, resp.StatusCode)
 				}
-				bodyBytes, err := io.ReadAll(resp.Body)
+
+				for key := range tc.ExpectedHeaders {
+					expectedValue, _ := tc.ExpectedHeaders[key]
+					actualValue := resp.Header.Get(key)
+					if expectedValue != actualValue {
+						t.Fatalf("Http header with key %v: Expected %v but got %v", key, expectedValue, actualValue)
+					}
+				}
+
+				_, err := io.ReadAll(resp.Body)
 				if err != nil {
 					t.Fatal(err)
 				}
-				bodyString := string(bodyBytes)
-				t.Logf("Body:\n%s\n", bodyString)
 			}
 		})
 	}
