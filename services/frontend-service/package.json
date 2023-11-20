@@ -59,7 +59,7 @@
     "sass": "^1.32.5",
     "spy4js": "^3.1.0",
     "ts-proto": "^1.76",
-    "typescript": "5.2.2"
+    "typescript": "5.3.2"
   },
   "jest": {
     "collectCoverageFrom": [
