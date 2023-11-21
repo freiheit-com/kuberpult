@@ -1,0 +1,198 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Product Version Data Displays Product Version Page No tags to Display 1`] = `
+<body>
+  <div>
+    <div
+      class="product_version"
+    >
+      <h1
+        class="environment_name"
+      >
+        Product Version for tester
+      </h1>
+      <div>
+        <select
+          class="drop_down"
+          data-testid="drop_down"
+        >
+          <option
+            disabled=""
+            value="default"
+          >
+            Select a Tag
+          </option>
+        </select>
+      </div>
+      <div>
+        <div
+          class="page_description"
+        >
+          This page shows the version of the product for the selected environment based on tags to the repository. If there are no tags, then no data can be shown.
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+`;
+
+exports[`Product Version Data Displays Product Version Page table to be displayed with multiple rows of data 1`] = `
+<body>
+  <div>
+    <div
+      class="product_version"
+    >
+      <h1
+        class="environment_name"
+      >
+        Product Version for tester2
+      </h1>
+      <div>
+        <select
+          class="drop_down"
+          data-testid="drop_down"
+        >
+          <option
+            disabled=""
+            value="default"
+          >
+            Select a Tag
+          </option>
+          <option
+            value="123"
+          >
+            dummyTag
+          </option>
+          <option
+            value="859"
+          >
+            dummyTag2
+          </option>
+        </select>
+      </div>
+      <div>
+        <div
+          class="table_padding"
+        >
+          <table
+            class="table"
+          >
+            <tr
+              class="table_title"
+            >
+              <th>
+                App/Service Name
+              </th>
+              <th>
+                Version
+              </th>
+              <th>
+                ManifestRepoLink
+              </th>
+              <th>
+                SourceRepoLink
+              </th>
+            </tr>
+            <tr
+              class="table_data"
+            >
+              <td>
+                testing-app
+              </td>
+              <td>
+                v1.2.3
+              </td>
+              <td />
+              <td />
+            </tr>
+            <tr
+              class="table_data"
+            >
+              <td>
+                tester
+              </td>
+              <td>
+                v7.2.3
+              </td>
+              <td />
+              <td />
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+`;
+
+exports[`Product Version Data Displays Product Version Page tags to Display with summary 1`] = `
+<body>
+  <div>
+    <div
+      class="product_version"
+    >
+      <h1
+        class="environment_name"
+      >
+        Product Version for tester2
+      </h1>
+      <div>
+        <select
+          class="drop_down"
+          data-testid="drop_down"
+        >
+          <option
+            disabled=""
+            value="default"
+          >
+            Select a Tag
+          </option>
+          <option
+            value="123"
+          >
+            dummyTag
+          </option>
+        </select>
+      </div>
+      <div>
+        <div
+          class="table_padding"
+        >
+          <table
+            class="table"
+          >
+            <tr
+              class="table_title"
+            >
+              <th>
+                App/Service Name
+              </th>
+              <th>
+                Version
+              </th>
+              <th>
+                ManifestRepoLink
+              </th>
+              <th>
+                SourceRepoLink
+              </th>
+            </tr>
+            <tr
+              class="table_data"
+            >
+              <td>
+                testing-app
+              </td>
+              <td>
+                v1.2.3
+              </td>
+              <td />
+              <td />
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+`;

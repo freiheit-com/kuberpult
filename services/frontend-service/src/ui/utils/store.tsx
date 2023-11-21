@@ -28,6 +28,8 @@ import {
     StreamStatusResponse,
     Warning,
     GetGitTagsResponse,
+    GetProductSummaryResponse,
+    ProductSummary,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -79,6 +81,21 @@ export const refreshTags = (): void => {
         });
 };
 export const [useTag, updateTag] = createStore(tagsResponse);
+
+const summaryResponse: GetProductSummaryResponse = { productSummary: [] };
+export const getSummary = (commitHash: string, environment: string): void => {
+    const api = useApi;
+    api.tagsService()
+        .GetProductSummary({ commitHash: commitHash, environment: environment })
+        .then((result: GetProductSummaryResponse) => {
+            updateSummary.set(result);
+        })
+        .catch((e) => {
+            showSnackbarError(e.message);
+        });
+};
+export const [useSummary, updateSummary] = createStore(summaryResponse);
+
 export const [_, PanicOverview] = createStore({ error: '' });
 
 const randBase36 = (): string => Math.random().toString(36).substring(7);
@@ -86,6 +103,7 @@ export const randomLockId = (): string => 'ui-v2-' + randBase36();
 
 export const useActions = (): BatchAction[] => useAction(({ actions }) => actions);
 export const useTags = (): TagData[] => useTag(({ tagData }) => tagData);
+export const useSummaryDisplay = (): ProductSummary[] => useSummary(({ productSummary }) => productSummary);
 
 export const [useSidebar, UpdateSidebar] = createStore({ shown: false });
 

@@ -48,3 +48,19 @@ Copyright 2023 freiheit.com*/
     border: 1px solid blue;
     padding-left: 1em;
 }
+
+.table_padding {
+    padding: 20px;
+}
+
+.table {
+    padding: 10px;
+    border-spacing: 0;
+    border: 2px solid var(--mdc-theme-primary);
+    width: 100%;
+}
+
+.table_title {
+    background-color: var(--mdc-theme-primary);
+    color: white;
+}

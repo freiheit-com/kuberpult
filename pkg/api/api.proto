@@ -33,6 +33,7 @@ message GetProductSummaryResponse {
 message ProductSummary {
   string app = 1;
   string version = 2;
+  string link_version = 3;
 }
 
 message TagData {

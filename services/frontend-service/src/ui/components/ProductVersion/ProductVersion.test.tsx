@@ -15,8 +15,8 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { GetGitTagsResponse, TagData } from '../../../api/api';
-import { updateTag } from '../../utils/store';
+import { GetGitTagsResponse, GetProductSummaryResponse, ProductSummary, TagData } from '../../../api/api';
+import { updateSummary, updateTag } from '../../utils/store';
 import { ProductVersion } from './ProductVersion';
 
 describe('Product Version Data', () => {
@@ -25,6 +25,7 @@ describe('Product Version Data', () => {
         environmentName: string;
         expectedDropDown: string;
         tags: TagData[];
+        productSummary: ProductSummary[];
     };
     const data: TestData[] = [
         {
@@ -32,27 +33,55 @@ describe('Product Version Data', () => {
             environmentName: 'tester',
             tags: [],
             expectedDropDown: 'Select a Tag',
+            productSummary: [],
         },
         {
-            name: 'tags to Display',
+            name: 'tags to Display with summary',
             environmentName: 'tester2',
             tags: [{ commitId: '123', tag: 'refs/tags/dummyTag' }],
             expectedDropDown: 'dummyTag',
+            productSummary: [{ linkVersion: 'dummy', app: 'testing-app', version: 'v1.2.3' }],
+        },
+        {
+            name: 'table to be displayed with multiple rows of data',
+            environmentName: 'tester2',
+            tags: [
+                { commitId: '123', tag: 'refs/tags/dummyTag' },
+                { commitId: '859', tag: 'refs/tags/dummyTag2' },
+            ],
+            expectedDropDown: 'dummyTag',
+            productSummary: [
+                { linkVersion: 'dummy', app: 'testing-app', version: 'v1.2.3' },
+                { linkVersion: 'dummy1', app: 'tester', version: 'v7.2.3' },
+            ],
         },
     ];
 
     describe.each(data)(`Displays Product Version Page`, (testCase) => {
         // given
         it(testCase.name, () => {
+            // replicate api calls
             const tagsResponse: GetGitTagsResponse = { tagData: testCase.tags };
             updateTag.set(tagsResponse);
+            const summaryResponse: GetProductSummaryResponse = { productSummary: testCase.productSummary };
+            updateSummary.set(summaryResponse);
+
             render(
                 <MemoryRouter>
                     <ProductVersion environment={testCase.environmentName} />
                 </MemoryRouter>
             );
+            expect(document.body).toMatchSnapshot();
             expect(document.querySelector('.environment_name')?.textContent).toContain(testCase.environmentName);
             expect(document.querySelector('.drop_down')?.textContent).toContain(testCase.expectedDropDown);
+
+            if (testCase.productSummary.length > 0) {
+                expect(document.querySelector('.table')?.textContent).toContain('App/Service Name');
+            } else {
+                expect(document.querySelector('.page_description')?.textContent).toContain(
+                    'This page shows the version'
+                );
+            }
         });
     });
 });

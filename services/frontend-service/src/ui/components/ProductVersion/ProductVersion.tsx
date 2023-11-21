@@ -15,40 +15,99 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import './ProductVersion.scss';
 import * as React from 'react';
-import { refreshTags, useTags } from '../../utils/store';
+import { refreshTags, useTags, getSummary, useSummaryDisplay } from '../../utils/store';
+import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
+import { Spinner } from '../Spinner/Spinner';
 
 export type ProductVersionProps = {
     environment: string;
 };
+
 export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
     React.useEffect(() => {
+        setShowSpinner(true);
         refreshTags();
+        setShowSpinner(false);
     }, []);
     const { environment } = props;
+    const [currentCommit, setCommit] = React.useState('');
     const [open, setOpen] = React.useState(false);
-    const openClose = React.useCallback(() => {
-        setOpen(!open);
-    }, [open, setOpen]);
+    const openClose = React.useCallback(
+        (e: React.ChangeEvent<HTMLSelectElement>) => {
+            setShowSpinner(true);
+            getSummary(e.target.value, environment);
+            setDisplayVersion(true);
+            setOpen(!open);
+            setCommit(e.target.value);
+            setShowSpinner(false);
+        },
+        [open, setOpen, environment, setCommit]
+    );
+    const [showSpinner, setShowSpinner] = React.useState(false);
     const tags = useTags();
+    const [displaySummary, setDisplayVersion] = React.useState(false);
+    const summary = useSummaryDisplay();
+
+    React.useEffect(() => {
+        if (tags.length > 0) {
+            setShowSpinner(true);
+            getSummary(tags[0].commitId, environment);
+            setDisplayVersion(true);
+            setCommit(tags[0].commitId);
+            setShowSpinner(false);
+        }
+    }, [tags, environment]);
     return (
         <div className="product_version">
             <h1 className="environment_name">{'Product Version for ' + environment}</h1>
             <div>
                 <select onChange={openClose} onSelect={openClose} className="drop_down" data-testid="drop_down">
-                    <option value="default" disabled selected>
+                    <option value="default" disabled>
                         Select a Tag
                     </option>
                     {tags.map((tag) => (
-                        <option value={tag.tag} key={tag.tag}>
+                        <option value={tag.commitId} key={tag.tag}>
                             {tag.tag.slice(10)}
                         </option>
                     ))}
                 </select>
             </div>
-            <div className="page_description">
-                {
-                    'This page shows the version of the product for the selected environment based on tags to the repository. If there are no tags, then no data can be shown.'
-                }
+            {showSpinner && <Spinner message="Loading Tag Data" />}
+            <div>
+                {displaySummary ? (
+                    <div className="table_padding">
+                        <table className="table">
+                            <tr className="table_title">
+                                <th>App/Service Name</th>
+                                <th>Version</th>
+                                <th>ManifestRepoLink</th>
+                                <th>SourceRepoLink</th>
+                            </tr>
+                            {summary.map((sum) => (
+                                <tr key={sum.app} className="table_data">
+                                    <td>{sum.app}</td>
+                                    <td>{sum.version}</td>
+                                    <td>
+                                        <DisplayManifestLink
+                                            app={sum.app}
+                                            version={Number(sum.linkVersion)}
+                                            displayString="Manifest Link"
+                                        />
+                                    </td>
+                                    <td>
+                                        <DisplaySourceLink commitId={currentCommit} displayString={'Source Link'} />
+                                    </td>
+                                </tr>
+                            ))}
+                        </table>
+                    </div>
+                ) : (
+                    <div className="page_description">
+                        {
+                            'This page shows the version of the product for the selected environment based on tags to the repository. If there are no tags, then no data can be shown.'
+                        }
+                    </div>
+                )}
             </div>
         </div>
     );
