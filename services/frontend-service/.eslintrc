@@ -3,7 +3,7 @@
     "react-app",
     "prettier"
   ],
-  "plugins": ["prettier", "no-type-assertion"],
+  "plugins": ["prettier", "no-type-assertion", "no-only-tests"],
   "rules": {
     "prettier/prettier": "error",
     "react/sort-comp": 2,
@@ -16,14 +16,21 @@
     "no-type-assertion/no-type-assertion": "error",
     "no-duplicate-imports": 0,
     "import/no-duplicates": 2,
-    "prefer-const": ["error"]
+    "prefer-const": ["error"],
+    "no-only-tests/no-only-tests": "error",
   },
   "overrides": [
     {
       "files": ["**/*.test.tsx"],
       "rules": {
-        "@typescript-eslint/explicit-function-return-type": ["off"]
-      }
+        "@typescript-eslint/explicit-function-return-type": ["off"],
+        "no-only-tests/no-only-tests": [
+          "error", {
+            "block": ["describe", "it"],
+            "focus": ["only", "skip"]
+          }
+        ],
+      },
     }
   ]
 }
