@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/DataDog/datadog-go/v5 v5.3.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
-	github.com/argoproj/argo-cd/v2 v2.9.1
+	github.com/argoproj/argo-cd/v2 v2.9.2
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/coreos/go-oidc/v3 v3.7.0
@@ -17,7 +17,7 @@ require (
 	github.com/improbable-eng/grpc-web v0.15.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/lestrrat-go/jwx/v2 v2.0.16
+	github.com/lestrrat-go/jwx/v2 v2.0.17
 	github.com/libgit2/git2go/v34 v34.0.0
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/mikesmitty/edkey v0.0.0-20170222072505-3356ea4e686a
@@ -31,7 +31,7 @@ require (
 	google.golang.org/api v0.151.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
-	gopkg.in/DataDog/dd-trace-go.v1 v1.57.0
+	gopkg.in/DataDog/dd-trace-go.v1 v1.58.0
 	k8s.io/apimachinery v0.27.3
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/yaml v1.4.0
@@ -129,10 +129,10 @@ require (
 require (
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	dario.cat/mergo v1.0.0 // indirect
-	github.com/DataDog/appsec-internal-go v1.0.0 // indirect
+	github.com/DataDog/appsec-internal-go v1.0.2 // indirect
 	github.com/DataDog/datadog-agent/pkg/obfuscate v0.48.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/remoteconfig/state v0.48.1 // indirect
-	github.com/DataDog/go-libddwaf v1.5.0 // indirect
+	github.com/DataDog/go-libddwaf/v2 v2.1.0 // indirect
 	github.com/DataDog/go-tuf v1.0.2-0.5.2 // indirect
 	github.com/DataDog/sketches-go v1.4.2 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
@@ -145,7 +145,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/ebitengine/purego v0.5.0-alpha.1 // indirect
+	github.com/ebitengine/purego v0.5.0 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-redis/cache/v9 v9.0.0 // indirect
