@@ -75,7 +75,7 @@ func TestGetProductOverview(t *testing.T) {
 					Version:     1,
 				},
 			},
-			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "v1.0.2"}},
+			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25"}},
 		},
 		{
 			Name:     "invalid environment used",

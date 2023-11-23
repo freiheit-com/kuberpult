@@ -55,7 +55,7 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 		for _, env := range group.Environments {
 			if env.Name == in.Environment {
 				for _, app := range env.Applications {
-					summaryFromEnv = append(summaryFromEnv, api.ProductSummary{App: app.Name, Version: strconv.Itoa(int(app.Version)), LinkVersion: strconv.Itoa(int(app.Version))})
+					summaryFromEnv = append(summaryFromEnv, api.ProductSummary{App: app.Name, Version: strconv.Itoa(int(app.Version))})
 				}
 			}
 		}
@@ -70,13 +70,7 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 			if row.App == app.Name {
 				for _, release := range app.Releases {
 					if strconv.Itoa(int(release.Version)) == row.Version {
-						if release.DisplayVersion != "" {
-							productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: release.DisplayVersion, LinkVersion: row.LinkVersion})
-						} else if release.SourceCommitId != "" {
-							productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: release.SourceCommitId, LinkVersion: row.LinkVersion})
-						} else {
-							productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, LinkVersion: row.LinkVersion})
-						}
+						productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.SourceCommitId, DisplayVersion: release.DisplayVersion})
 						break
 					}
 				}

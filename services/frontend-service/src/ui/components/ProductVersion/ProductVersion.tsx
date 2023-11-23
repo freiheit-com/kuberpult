@@ -18,6 +18,7 @@ import * as React from 'react';
 import { refreshTags, useTags, getSummary, useSummaryDisplay } from '../../utils/store';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
+import { ProductSummary } from '../../../api/api';
 
 export type ProductVersionProps = {
     environment: string;
@@ -30,7 +31,6 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
         setShowSpinner(false);
     }, []);
     const { environment } = props;
-    const [currentCommit, setCommit] = React.useState('');
     const [open, setOpen] = React.useState(false);
     const openClose = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -38,11 +38,21 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
             getSummary(e.target.value, environment);
             setDisplayVersion(true);
             setOpen(!open);
-            setCommit(e.target.value);
             setShowSpinner(false);
         },
-        [open, setOpen, environment, setCommit]
+        [open, setOpen, environment]
     );
+
+    var versionToDisplay = (app: ProductSummary): string => {
+        if (app.displayVersion !== '') {
+            return app.displayVersion;
+        }
+        if (app.commitId !== '') {
+            return app.commitId;
+        }
+        return app.version;
+    };
+
     const [showSpinner, setShowSpinner] = React.useState(false);
     const tags = useTags();
     const [displaySummary, setDisplayVersion] = React.useState(false);
@@ -53,7 +63,6 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
             setShowSpinner(true);
             getSummary(tags[0].commitId, environment);
             setDisplayVersion(true);
-            setCommit(tags[0].commitId);
             setShowSpinner(false);
         }
     }, [tags, environment]);
@@ -86,16 +95,16 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
                             {summary.map((sum) => (
                                 <tr key={sum.app} className="table_data">
                                     <td>{sum.app}</td>
-                                    <td>{sum.version}</td>
+                                    <td>{versionToDisplay(sum)}</td>
                                     <td>
                                         <DisplayManifestLink
                                             app={sum.app}
-                                            version={Number(sum.linkVersion)}
+                                            version={Number(sum.version)}
                                             displayString="Manifest Link"
                                         />
                                     </td>
                                     <td>
-                                        <DisplaySourceLink commitId={currentCommit} displayString={'Source Link'} />
+                                        <DisplaySourceLink commitId={sum.commitId} displayString={'Source Link'} />
                                     </td>
                                 </tr>
                             ))}
