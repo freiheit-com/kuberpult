@@ -66,44 +66,60 @@ test-all:
 
 integration-test-deps:
     FROM alpine/k8s:1.25.15
+    RUN wget -O "/usr/bin/argocd" https://github.com/argoproj/argo-cd/releases/download/v2.7.5/argocd-linux-amd64 && \
+        echo "a7680140ddb9011c3d282eaff5f5a856be18e8653ff9f0c7047a318f640753be /usr/bin/argocd" | sha256sum -c - && \
+        chmod +x "/usr/bin/argocd"
     SAVE ARTIFACT /usr/bin/kubectl
     SAVE ARTIFACT /usr/bin/helm
+    SAVE ARTIFACT /usr/bin/argocd
 
 integration-test:
     FROM docker:24.0.7-dind-alpine3.18
 
-    ARG --required version
-    ENV KUBECONFIG=kubeconfig.yaml
+    ARG --required kuberpult_version
+
+    # K3S environment variables
+    ENV KUBECONFIG=/kp/kubeconfig.yaml
     ENV K3S_TOKEN="Random"
-    ENV VERSION=$version
-    ENV GIT_NAMESPACE=git
+
+    # Kuberpult/ArgoCd environment variables
+    ENV VERSION=$kuberpult_version
     ENV ARGO_NAMESPACE=default
-    ENV GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ./client'
+
+    # Git environment variables
+    ENV GIT_NAMESPACE=git
     ENV SSH_HOST_PORT=2222
+    ENV GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i /kp/client'
+    ENV GIT_AUTHOR_NAME='Initial Kuberpult Commiter'
+    ENV GIT_COMMITTER_NAME='Initial Kuberpult Commiter'
+    ENV GIT_AUTHOR_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com'
+    ENV GIT_COMMITTER_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com'
     WORKDIR /kp
 
-    RUN apk add --no-cache curl gpg gpg-agent gettext bash git
+    RUN apk add --no-cache curl gpg gpg-agent gettext bash git go
 
     COPY +integration-test-deps/* /usr/bin/
-    COPY docker-compose-earthly.yml ./
-    COPY docker-compose-k3s.yml ./
+    COPY tests/integration-tests/cluster-setup/docker-compose-k3s.yml .
     COPY charts/kuberpult .
-    
+    COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
+    COPY infrastructure/scripts/create-testdata/create-release.sh .
+    COPY tests/integration-tests integration-tests
+    COPY go.mod go.sum .
+    COPY ./pkg+artifacts/pkg/ptr pkg/ptr
     RUN envsubst < Chart.yaml.tpl > Chart.yaml
     RUN envsubst < values.yaml.tpl > values.yaml
 
-    ARG KEYRING_NAME=trustedkeys-kuberpult.gpg
-    RUN gpg --keyring $KEYRING_NAME --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
-    RUN gpg --keyring $KEYRING_NAME --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
+    RUN gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
+    RUN gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
     
     WITH DOCKER --compose docker-compose-k3s.yml
         RUN --no-cache \
             echo Waiting for K3s cluster to be ready; \
             sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 3; \
-            ./setup-cluster-ssh.sh; sleep 3; \
+            ./integration-tests/cluster-setup/setup-cluster-ssh.sh; sleep 3; \
             echo Waiting for git server to be ready; \
             kubectl wait --for=condition=Ready pods -l app=git-server -n $GIT_NAMESPACE --timeout=60s || exit 1; \
-            kubectl port-forward -n $GIT_NAMESPACE deployment/server $SSH_HOST_PORT:22 & sleep 3; \
-            git clone ssh://git@localhost:$SSH_HOST_PORT/git/repos/manifests && \
+            ./integration-tests/cluster-setup/setup-cluster.sh && \
+            cd integration-tests && go test ./... && \
             echo ============ SUCCESS ============
     END

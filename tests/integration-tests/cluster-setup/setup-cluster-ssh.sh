@@ -4,38 +4,21 @@ set -eu
 set -o pipefail
 
 
-cd "$(dirname "$0")"
-
-ARGO_NAMESPACE=default
-#GIT_NAMESPACE=git # required to be set outside
-
 scratch=$(mktemp -d)
-function finish {
-  rm -rf "$scratch"
-}
-trap finish EXIT
 
-ssh-keygen -t ed25519 -N "" -C host -f "${scratch}/host" 1>&2
-ssh-keygen -t ed25519 -N "" -C client -f "${scratch}/client" 1>&2
+ssh-keygen -t ed25519 -N "" -C host -f "${scratch}/host" &>/dev/null
+ssh-keygen -t ed25519 -N "" -C client -f "${scratch}/client" &>/dev/null
 
 host_pub="$(cat "${scratch}/host.pub")"
 
-cp "${scratch}/client" ../../services/cd-service/client
-cat <<EOF > ../../services/cd-service/known_hosts
+cp "${scratch}/client" ./client
+cat <<EOF > known_hosts
 server.${GIT_NAMESPACE}.svc.cluster.local ${host_pub}
 localhost ${host_pub}
 EOF
 
-echo printing known_hosts
-cat ../../services/cd-service/known_hosts
-
 kubectl create namespace "git" || echo "already exists"
 kubectl create namespace "argocd" || echo "already exists"
-
-
-docker pull europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/git-ssh:1.1.1
-
-kind load docker-image europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/git-ssh:1.1.1
 
 kubectl apply -f - <<EOF
 ---
@@ -102,10 +85,11 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: server
+        app: git-server
     spec:
       initContainers:
       - image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/git-ssh:1.1.1"
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
         name: "git-init"
         command: ["/bin/sh","-c"]
         args: ["ls -l /template/; git init --bare /git/repos/manifests"]
@@ -116,7 +100,7 @@ spec:
           mountPath: /template
       containers:
       - image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/git-ssh:1.1.1"
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
         name: git
         ports:
         - containerPort: 22
