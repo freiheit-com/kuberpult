@@ -105,7 +105,8 @@ integration-test:
     COPY infrastructure/scripts/create-testdata/create-release.sh .
     COPY tests/integration-tests integration-tests
     COPY go.mod go.sum .
-    COPY ./pkg+artifacts/pkg/ptr pkg/ptr
+    COPY pkg/ptr pkg/ptr
+    
     RUN envsubst < Chart.yaml.tpl > Chart.yaml
     RUN envsubst < values.yaml.tpl > values.yaml
 
@@ -119,7 +120,7 @@ integration-test:
             ./integration-tests/cluster-setup/setup-cluster-ssh.sh; sleep 3; \
             echo Waiting for git server to be ready; \
             kubectl wait --for=condition=Ready pods -l app=git-server -n $GIT_NAMESPACE --timeout=60s || exit 1; \
-            ./integration-tests/cluster-setup/setup-cluster.sh && \
+            ./integration-tests/cluster-setup/argocd-kuberpult.sh && \
             cd integration-tests && go test ./... && \
             echo ============ SUCCESS ============
     END
