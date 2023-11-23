@@ -314,9 +314,19 @@ func runServer(ctx context.Context) error {
 			When the user requests any path under "/ui", we always return the same index.html (because it's a single page application).
 			Anything else may be another valid rest request, like /health or /release.
 			*/
-			if strings.HasPrefix(req.URL.Path, "/ui") {
+			isUi := strings.HasPrefix(req.URL.Path, "/ui")
+			isHtml := req.URL.Path == "/" || req.URL.Path == "/index.html"
+			doNotCache := isUi || isHtml
+			if doNotCache {
+				resp.Header().Set("Cache-Control", "no-cache,no-store,must-revalidate,max-age=0")
+			} else {
+				resp.Header().Set("Cache-Control", "max-age=604800") // 7 days
+			}
+			if isUi {
+				// this is called for example for requests to /ui, /ui/home
 				http.ServeFile(resp, req, "build/index.html")
 			} else {
+				// this is called for example for requests to /, /index.html,css and js
 				mux.ServeHTTP(resp, req)
 			}
 		}

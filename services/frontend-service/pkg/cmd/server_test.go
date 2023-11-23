@@ -153,6 +153,7 @@ func TestServerHeader(t *testing.T) {
 				hdrs.Del("Content-Length")
 				hdrs.Del("Date")
 				hdrs.Del("Last-Modified")
+				hdrs.Del("Cache-Control") // for caching tests see TestServeHttpBasics
 				body, _ := io.ReadAll(res.Body)
 				t.Logf("body: %q", body)
 				if !cmp.Equal(tc.ExpectedHeaders, hdrs) {
