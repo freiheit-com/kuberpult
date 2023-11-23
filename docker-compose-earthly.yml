@@ -42,4 +42,7 @@ services:
       - "3000:3000"
     depends_on:
       - frontend-service
+    volumes:
+      - ./services/frontend-service/src:/kp/src
+      - ./services/frontend-service/public:/kp/public
     stop_grace_period: 0.5s
