@@ -316,8 +316,8 @@ func runServer(ctx context.Context) error {
 			*/
 			isUi := strings.HasPrefix(req.URL.Path, "/ui")
 			isHtml := req.URL.Path == "/" || req.URL.Path == "/index.html"
-			shouldCache := isUi || isHtml
-			if shouldCache {
+			doNotCache := isUi || isHtml
+			if doNotCache {
 				resp.Header().Set("Cache-Control", "no-cache,no-store,must-revalidate,max-age=0")
 			} else {
 				resp.Header().Set("Cache-Control", "max-age=604800") // 7 days
