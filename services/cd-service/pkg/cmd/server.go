@@ -230,6 +230,13 @@ func RunServer() {
 					Name: "push queue",
 					Run:  repoQueue,
 				},
+				{
+					Name: "failed git pushes",
+					Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
+						repo.HealthCheckBackgroundJob(ctx, reporter)
+						return nil
+					},
+				},
 			},
 			Shutdown: func(ctx context.Context) error {
 				close(shutdownCh)

@@ -67,6 +67,7 @@ type Repository interface {
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	Notify() *notify.Notify
+	HealthCheckBackgroundJob(ctx context.Context, reporter *setup.HealthReporter)
 }
 
 func defaultBackOffProvider() backoff.BackOff {
@@ -108,6 +109,9 @@ type repository struct {
 	notify notify.Notify
 
 	backOffProvider func() backoff.BackOff
+
+	pushFailures        uint
+	pushFailuresChannel chan uint
 }
 
 type RepositoryConfig struct {
@@ -277,6 +281,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	}
 	if cfg.NetworkTimeout == 0 {
 		cfg.NetworkTimeout = time.Minute
+		logger.Warn(fmt.Sprintf("network timeout not configured, setting to %s", cfg.NetworkTimeout))
 	}
 	var credentials *credentialsStore
 	var certificates *certificateStore
@@ -302,12 +307,14 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			return nil, nil, err
 		} else {
 			result := &repository{
-				config:          &cfg,
-				credentials:     credentials,
-				certificates:    certificates,
-				repository:      repo2,
-				queue:           makeQueue(),
-				backOffProvider: defaultBackOffProvider,
+				config:              &cfg,
+				credentials:         credentials,
+				certificates:        certificates,
+				repository:          repo2,
+				queue:               makeQueue(),
+				backOffProvider:     defaultBackOffProvider,
+				pushFailuresChannel: make(chan uint),
+				pushFailures:        0,
 			}
 			result.headLock.Lock()
 
@@ -519,6 +526,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	// Try pushing once
 	err = r.Push(e.ctx, pushAction(pushOptions, r))
 	if err != nil {
+		logger.Warn(fmt.Sprintf("first push failed, trying again: %v", err))
 		gerr, ok := err.(*git.GitError)
 		// If it doesn't work because the branch diverged, try reset and apply again.
 		if ok && gerr.Code == git.ErrorCodeNonFastForward {
@@ -535,13 +543,17 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 				err = &InternalError{inner: pushErr}
 			}
 		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			r.OnPushFailure()
 			err = grpc.CanceledError(ctx, err)
+			logger.Error(fmt.Sprintf("error while pushing - cancelled: %s", err))
 		} else {
+			r.OnPushFailure()
 			logger.Error(fmt.Sprintf("error while pushing: %s", err))
 			err = grpc.PublicError(ctx, errors.New(fmt.Sprintf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch)))
 		}
 	} else {
 		if !pushSuccess {
+			r.OnPushFailure()
 			err = fmt.Errorf("failed to push - this indicates that branch protection is enabled in '%s' on branch '%s'", r.config.URL, r.config.Branch)
 		}
 	}
@@ -553,6 +565,11 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	}
 
 	r.notify.Notify()
+}
+
+func (r *repository) OnPushFailure() {
+	r.pushFailures++
+	r.pushFailuresChannel <- r.pushFailures
 }
 
 func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger, changes *TransformerResult) {
@@ -959,7 +976,6 @@ func (r *repository) applyDeferred(ctx context.Context, transformers ...Transfor
 
 // Push returns an 'error' for typing reasons, really it is always a git.GitError
 func (r *repository) Push(ctx context.Context, pushAction func() error) error {
-
 	span, ctx := tracer.StartSpanFromContext(ctx, "Apply")
 	defer span.Finish()
 
@@ -1096,6 +1112,21 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 
 func (r *repository) Notify() *notify.Notify {
 	return &r.notify
+}
+
+func (r *repository) HealthCheckBackgroundJob(ctx context.Context, reporter *setup.HealthReporter) {
+	const maxAllowedFailures uint = 3
+	reporter.ReportReady("ready to measure failures")
+
+	for {
+		numFailures := <-r.pushFailuresChannel
+		msg := fmt.Sprintf("num failures: %d", numFailures)
+		if numFailures <= maxAllowedFailures {
+			reporter.ReportHealth(setup.HealthReady, msg)
+		} else {
+			reporter.ReportHealth(setup.HealthFailed, msg+" - too many failures")
+		}
+	}
 }
 
 type ObjectCount struct {

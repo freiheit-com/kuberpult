@@ -294,6 +294,7 @@ func runBackgroundTask(ctx context.Context, config BackgroundTaskConfig, cancel 
 	if err := config.Run(ctx, reporter); err != nil {
 		logger.FromContext(ctx).Error("background.error", zap.Error(err), zap.String("job", config.Name))
 	}
+	logger.FromContext(ctx).Warn(fmt.Sprintf("background task %s finished - exiting", config.Name))
 }
 
 func NewBasicAuthHandler(basicAuth *BasicAuth, chainedHandler http.Handler) http.Handler {

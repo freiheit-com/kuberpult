@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"io"
 	"io/fs"
 	"k8s.io/utils/strings/slices"
@@ -1108,7 +1107,6 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		return "", nil, err
 	}
 	changes.AddAppEnv(c.Application, c.Environment)
-	logger.FromContext(ctx).Info(fmt.Sprintf("DeployApp: changes added: %v+", changes))
 
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
@@ -1137,13 +1135,11 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		Application: c.Application,
 	}
 	transform, subChanges, err := d.Transform(ctx, state)
-	logger.FromContext(ctx).Info(fmt.Sprintf("DeployApp: sub changes: %v+", subChanges))
 	changes.Combine(subChanges)
 	if err != nil {
 		return "", nil, err
 	}
 
-	logger.FromContext(ctx).Info(fmt.Sprintf("DeployApp: combined changes: %v+", changes))
 	return fmt.Sprintf("deployed version %d of %q to %q\n%s", c.Version, c.Application, c.Environment, transform), changes, nil
 }
 
