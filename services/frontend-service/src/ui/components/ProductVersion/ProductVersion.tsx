@@ -26,23 +26,22 @@ export type ProductVersionProps = {
 
 export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
     React.useEffect(() => {
-        setShowSpinner(true);
+        setShowTagsSpinner(true);
         refreshTags();
-        setShowSpinner(false);
     }, []);
     const { environment } = props;
+    const summaryResponse = useSummaryDisplay();
     const [open, setOpen] = React.useState(false);
     const openClose = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
-            setShowSpinner(true);
+            setShowSummarySpinner(true);
             getSummary(e.target.value, environment);
-            setDisplayVersion(true);
             setOpen(!open);
-            setShowSpinner(false);
         },
         [open, setOpen, environment]
     );
-
+    const [showTagsSpinner, setShowTagsSpinner] = React.useState(false);
+    const [showSummarySpinner, setShowSummarySpinner] = React.useState(false);
     var versionToDisplay = (app: ProductSummary): string => {
         if (app.displayVersion !== '') {
             return app.displayVersion;
@@ -53,46 +52,59 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
         return app.version;
     };
 
-    const [showSpinner, setShowSpinner] = React.useState(false);
-    const tags = useTags();
+    const tagsResponse = useTags();
     const [displaySummary, setDisplayVersion] = React.useState(false);
-    const summary = useSummaryDisplay();
 
     React.useEffect(() => {
-        if (tags.length > 0) {
-            setShowSpinner(true);
-            getSummary(tags[0].commitId, environment);
+        if (tagsResponse.response.tagData.length > 0) {
+            setShowSummarySpinner(true);
+            getSummary(tagsResponse.response.tagData[0].commitId, environment);
             setDisplayVersion(true);
-            setShowSpinner(false);
         }
-    }, [tags, environment]);
+    }, [tagsResponse, environment]);
+    React.useEffect(() => {
+        if (tagsResponse.tagsReady) {
+            setShowTagsSpinner(false);
+        }
+    }, [tagsResponse]);
+    React.useEffect(() => {
+        if (summaryResponse.summaryReady) {
+            setShowSummarySpinner(false);
+        }
+    }, [summaryResponse]);
+    if (showTagsSpinner) {
+        return <Spinner message="Loading Tag Data" />;
+    }
+    if (showSummarySpinner) {
+        return <Spinner message="Loading Summary Data" />;
+    }
+
     return (
         <div className="product_version">
             <h1 className="environment_name">{'Product Version for ' + environment}</h1>
-            <div>
+            <div className="dropdown_div">
                 <select onChange={openClose} onSelect={openClose} className="drop_down" data-testid="drop_down">
                     <option value="default" disabled>
                         Select a Tag
                     </option>
-                    {tags.map((tag) => (
+                    {tagsResponse.response.tagData.map((tag) => (
                         <option value={tag.commitId} key={tag.tag}>
                             {tag.tag.slice(10)}
                         </option>
                     ))}
                 </select>
             </div>
-            {showSpinner && <Spinner message="Loading Tag Data" />}
             <div>
                 {displaySummary ? (
                     <div className="table_padding">
                         <table className="table">
                             <tr className="table_title">
-                                <th>App/Service Name</th>
+                                <th>App Name</th>
                                 <th>Version</th>
                                 <th>ManifestRepoLink</th>
                                 <th>SourceRepoLink</th>
                             </tr>
-                            {summary.map((sum) => (
+                            {summaryResponse.response.productSummary.map((sum) => (
                                 <tr key={sum.app} className="table_data">
                                     <td>{sum.app}</td>
                                     <td>{versionToDisplay(sum)}</td>

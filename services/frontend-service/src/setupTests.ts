@@ -16,7 +16,7 @@ Copyright 2023 freiheit.com*/
 import '@testing-library/jest-dom';
 import 'react-use-sub/test-util';
 import { Lock, Release } from './api/api';
-import { DisplayLock, UpdateFrontendConfig, UpdateOverview } from './ui/utils/store';
+import { DisplayLock, UpdateFrontendConfig, UpdateOverview, updateSummary, updateTag } from './ui/utils/store';
 
 // test utility to await all running promises
 global.nextTick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -105,5 +105,11 @@ export const fakeLoadEverything = (load: boolean): void => {
     });
     UpdateFrontendConfig.set({
         configReady: load,
+    });
+    updateTag.set({
+        tagsReady: load,
+    });
+    updateSummary.set({
+        summaryReady: load,
     });
 };

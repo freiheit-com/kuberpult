@@ -62,9 +62,9 @@ describe('Product Version Data', () => {
         it(testCase.name, () => {
             // replicate api calls
             const tagsResponse: GetGitTagsResponse = { tagData: testCase.tags };
-            updateTag.set(tagsResponse);
+            updateTag.set({ response: tagsResponse, tagsReady: true });
             const summaryResponse: GetProductSummaryResponse = { productSummary: testCase.productSummary };
-            updateSummary.set(summaryResponse);
+            updateSummary.set({ response: summaryResponse, summaryReady: true });
 
             render(
                 <MemoryRouter>
@@ -76,7 +76,7 @@ describe('Product Version Data', () => {
             expect(document.querySelector('.drop_down')?.textContent).toContain(testCase.expectedDropDown);
 
             if (testCase.productSummary.length > 0) {
-                expect(document.querySelector('.table')?.textContent).toContain('App/Service Name');
+                expect(document.querySelector('.table')?.textContent).toContain('App Name');
             } else {
                 expect(document.querySelector('.page_description')?.textContent).toContain(
                     'This page shows the version'

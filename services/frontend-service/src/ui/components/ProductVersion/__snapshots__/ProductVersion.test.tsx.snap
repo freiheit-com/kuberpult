@@ -11,7 +11,9 @@ exports[`Product Version Data Displays Product Version Page No tags to Display 1
       >
         Product Version for tester
       </h1>
-      <div>
+      <div
+        class="dropdown_div"
+      >
         <select
           class="drop_down"
           data-testid="drop_down"
@@ -47,7 +49,9 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
       >
         Product Version for tester2
       </h1>
-      <div>
+      <div
+        class="dropdown_div"
+      >
         <select
           class="drop_down"
           data-testid="drop_down"
@@ -81,7 +85,7 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
               class="table_title"
             >
               <th>
-                App/Service Name
+                App Name
               </th>
               <th>
                 Version
@@ -136,7 +140,9 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
       >
         Product Version for tester2
       </h1>
-      <div>
+      <div
+        class="dropdown_div"
+      >
         <select
           class="drop_down"
           data-testid="drop_down"
@@ -165,7 +171,7 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
               class="table_title"
             >
               <th>
-                App/Service Name
+                App Name
               </th>
               <th>
                 Version

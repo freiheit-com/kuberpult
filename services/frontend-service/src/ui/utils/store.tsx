@@ -17,7 +17,6 @@ import { createStore } from 'react-use-sub';
 import {
     Application,
     BatchAction,
-    TagData,
     BatchRequest,
     Environment,
     EnvironmentGroup,
@@ -29,7 +28,6 @@ import {
     Warning,
     GetGitTagsResponse,
     GetProductSummaryResponse,
-    ProductSummary,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -65,7 +63,14 @@ const [useOverview, UpdateOverview_] = createStore(emptyOverview);
 export const UpdateOverview = UpdateOverview_; // we do not want to export "useOverview". The store.tsx should act like a facade to the data.
 
 export const useOverviewLoaded = (): boolean => useOverview(({ loaded }) => loaded);
-
+type TagsResponse = {
+    response: GetGitTagsResponse;
+    tagsReady: boolean;
+};
+type ProductSummaryResponse = {
+    response: GetProductSummaryResponse;
+    summaryReady: boolean;
+};
 const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
@@ -74,13 +79,13 @@ export const refreshTags = (): void => {
     api.tagsService()
         .GetGitTags({})
         .then((result: GetGitTagsResponse) => {
-            updateTag.set(result);
+            updateTag.set({ response: result, tagsReady: true });
         })
         .catch((e) => {
             showSnackbarError(e.message);
         });
 };
-export const [useTag, updateTag] = createStore(tagsResponse);
+export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
 
 const summaryResponse: GetProductSummaryResponse = { productSummary: [] };
 export const getSummary = (commitHash: string, environment: string): void => {
@@ -88,13 +93,16 @@ export const getSummary = (commitHash: string, environment: string): void => {
     api.tagsService()
         .GetProductSummary({ commitHash: commitHash, environment: environment })
         .then((result: GetProductSummaryResponse) => {
-            updateSummary.set(result);
+            updateSummary.set({ response: result, summaryReady: true });
         })
         .catch((e) => {
             showSnackbarError(e.message);
         });
 };
-export const [useSummary, updateSummary] = createStore(summaryResponse);
+export const [useSummary, updateSummary] = createStore<ProductSummaryResponse>({
+    response: summaryResponse,
+    summaryReady: false,
+});
 
 export const [_, PanicOverview] = createStore({ error: '' });
 
@@ -102,8 +110,8 @@ const randBase36 = (): string => Math.random().toString(36).substring(7);
 export const randomLockId = (): string => 'ui-v2-' + randBase36();
 
 export const useActions = (): BatchAction[] => useAction(({ actions }) => actions);
-export const useTags = (): TagData[] => useTag(({ tagData }) => tagData);
-export const useSummaryDisplay = (): ProductSummary[] => useSummary(({ productSummary }) => productSummary);
+export const useTags = (): TagsResponse => useTag((res) => res);
+export const useSummaryDisplay = (): ProductSummaryResponse => useSummary((res) => res);
 
 export const [useSidebar, UpdateSidebar] = createStore({ shown: false });
 
