@@ -5,6 +5,7 @@ services:
       - LOG_LEVEL=INFO
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
       - KUBERPULT_GIT_BRANCH=master
+      - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
       - KUBERPULT_DEX_MOCK=false
       - KUBERPULT_DEX_ENABLED=false
     ports:

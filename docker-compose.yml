@@ -13,6 +13,7 @@ services:
       - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_DEX_MOCK=false
       - KUBERPULT_DEX_ENABLED=false
+      - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
     ports:
       - "8080:8080"
       - "8443:8443"
