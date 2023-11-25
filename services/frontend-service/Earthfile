@@ -3,13 +3,9 @@ ARG --global service=frontend-service
 
 deps:
     FROM ../../+deps
-    ARG tag="deps"
     COPY ../../pkg+artifacts/* pkg/
-    BUILD ../cd-service/+artifacts --service=cd-service
     COPY (../cd-service/+artifacts/pkg --service=cd-service) services/cd-service/pkg/
     COPY pkg services/$service/pkg
-    COPY public services/$service/public
-    COPY src services/$service/src
     COPY cmd/server/* services/$service/cmd/server/
     RUN ln -s pkg/api services/$service/api
     SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
@@ -55,28 +51,19 @@ docker:
 
 deps-ui:
     FROM node:20.9.0-alpine3.18
-    ARG BUF_VERSION=v1.26.1
-    ARG BUF_BIN_PATH=/usr/local/bin
-
     WORKDIR /kp
-    COPY ../../+deps/buf_sha256.txt .
-    RUN OS=Linux ARCH=$(uname -m) && \
-        wget "https://github.com/bufbuild/buf/releases/download/${BUF_VERSION}/buf-${OS}-${ARCH}" \
-        -O "${BUF_BIN_PATH}/buf" && \
-        chmod +x "${BUF_BIN_PATH}/buf"
-    RUN OS=Linux ARCH=$(uname -m) && \
-        SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
-        echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
     RUN npm install -g pnpm@8.9.2
     COPY package.json pnpm-lock.yaml pnpm-workspace.yaml buf.yaml buf.gen.yaml buf.lock tsconfig.json .eslintrc .prettierrc .npmrc .nvmrc .
     RUN pnpm i
+
+    COPY ../../+deps/buf /usr/bin/buf
     COPY ../../pkg+artifacts/pkg/api api
     COPY src src
     COPY public public
-    RUN rm -rf src/api && buf generate --path api --timeout 5m
+    RUN buf generate --path api --timeout 5m
     RUN pnpm build
+    
     SAVE ARTIFACT build
-    SAVE IMAGE --cache-hint
 
 unit-test-ui:
     FROM +deps-ui
@@ -86,8 +73,7 @@ unit-test-ui:
 
 docker-ui:
     FROM +deps-ui
-    ARG registry="eu.gcr.io/fdc-standard-setup-dev-env"
-    CMD "pnpm start" 
+    CMD "rm -rf src/api && buf generate --path api --timeout 5m && pnpm start" 
     SAVE IMAGE ui:local
 
 release:

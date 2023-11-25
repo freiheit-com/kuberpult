@@ -33,6 +33,7 @@ deps:
     SAVE ARTIFACT go.mod
     SAVE ARTIFACT go.sum
     SAVE ARTIFACT buf_sha256.txt
+    SAVE ARTIFACT $BUF_BIN_PATH/buf
 
 cd-service:
     BUILD ./services/cd-service+$target --UID=$UID --service=cd-service
