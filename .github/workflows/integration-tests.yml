@@ -43,7 +43,7 @@ jobs:
     - name: Print environment
       run: |
         echo Using registry: $IMAGE_REGISTRY
-        echo using tag: $IMAGE_TAG_KUBERPULT
+        echo Using tag: $IMAGE_TAG_KUBERPULT
         echo PR tag: $(make version)
     - name: Run integration tests
       run: |
