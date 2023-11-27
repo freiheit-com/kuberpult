@@ -41,10 +41,32 @@ Copyright 2023 freiheit.com*/
     background: linear-gradient(var(--mdc-theme-primary), var(--mdc-theme-primary)) left 9px top 14px/2px 100% no-repeat;
 }
 
+.dropdown_div {
+    padding-left: 35px;
+}
+
 .drop_down {
     border-radius: 3px;
     min-width: 220px;
     height: 50px;
-    border: 1px solid blue;
+    border: 1px solid var(--mdc-theme-primary);
     padding-left: 1em;
+}
+
+.table_padding {
+    padding: 20px;
+    padding-left: 35px;
+}
+
+.table {
+    padding: 10px;
+    border-spacing: 0;
+    border: 2px solid var(--mdc-theme-primary);
+    width: 100%;
+    border-radius: 4px;
+}
+
+.table_title {
+    background-color: var(--mdc-theme-primary);
+    color: white;
 }

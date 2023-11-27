@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
@@ -55,7 +56,7 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 		for _, env := range group.Environments {
 			if env.Name == in.Environment {
 				for _, app := range env.Applications {
-					summaryFromEnv = append(summaryFromEnv, api.ProductSummary{App: app.Name, Version: strconv.Itoa(int(app.Version))})
+					summaryFromEnv = append(summaryFromEnv, api.ProductSummary{App: app.Name, Version: strconv.FormatUint(app.Version, 10)})
 				}
 			}
 		}
@@ -63,20 +64,22 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 	if len(summaryFromEnv) == 0 {
 		return nil, fmt.Errorf("environment %s not found", in.Environment)
 	}
+	sort.Slice(summaryFromEnv, func(i, j int) bool {
+		a := summaryFromEnv[i].App
+		b := summaryFromEnv[j].App
+		return a < b
+	})
 
 	var productVersion []*api.ProductSummary
 	for _, row := range summaryFromEnv {
 		for _, app := range response.Applications {
 			if row.App == app.Name {
-				length := len(app.Releases) - 1
-				if app.Releases[length].DisplayVersion != "" {
-					productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: app.Releases[length].DisplayVersion})
-				} else if app.Releases[length].SourceCommitId != "" {
-					productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: app.Releases[length].SourceCommitId})
-				} else {
-					productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version})
+				for _, release := range app.Releases {
+					if strconv.FormatUint(release.Version, 10) == row.Version {
+						productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.SourceCommitId, DisplayVersion: release.DisplayVersion})
+						break
+					}
 				}
-				break
 			}
 		}
 	}
