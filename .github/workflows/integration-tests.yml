@@ -17,6 +17,10 @@ jobs:
       uses: actions/checkout@v3.1.0
       with:
         fetch-depth: 0
+    - name: Install earthly
+      uses: earthly/actions-setup@v1
+      with:
+          version: v0.7.21
     - name: Setup environment
       if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
       run: |
@@ -39,41 +43,8 @@ jobs:
     - name: Print environment
       run: |
         echo Using registry: $IMAGE_REGISTRY
+        echo Using tag: $IMAGE_TAG_KUBERPULT
         echo PR tag: $(make version)
-    - name: Create bare repository # Needed for cd-service to start
+    - name: Run integration tests
       run: |
-        mkdir -p ./services/cd-service/repository_remote
-        git -C ./services/cd-service/repository_remote init --bare
-        git clone ./services/cd-service/repository_remote ./services/cd-service/repository_checkedout
-    - name: Setup argocd cli
-      run: |
-        mkdir -p "$HOME/.local/bin"
-        curl -sSL -o "$HOME/.local/bin/argocd" https://github.com/argoproj/argo-cd/releases/download/v2.7.5/argocd-linux-amd64
-        echo "a7680140ddb9011c3d282eaff5f5a856be18e8653ff9f0c7047a318f640753be $HOME/.local/bin/argocd" | sha256sum -c -
-        chmod +x "$HOME/.local/bin/argocd"
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
-    - name: Run kind
-      run: |
-        echo running kind
-        ./charts/kuberpult/run-kind.sh
-    - name: Integration test kind
-      id: kindIntegrationTests
-      continue-on-error: true
-      run: |
-        echo "testing in next step (kind)"
-        curl localhost:8081 -v # should return html
-        make -C tests/integration-tests test
-    - name: Stop kind
-      run: |
-        echo stopping kind ...
-        killall kubectl
-        echo kind stopped
-    - name: Print Kind logs
-      if: steps.kindIntegrationTests.outcome == 'failure'
-      run: |
-        echo "CD logs"
-        kubectl logs deployment/kuberpult-cd-service
-        echo "Frontend logs"
-        kubectl logs deployment/kuberpult-frontend-service
-        # We need to exit with error code because "continue-on-errors" bypasses the error and the build is considered successful
-        exit 1   
+        make integration-test   
