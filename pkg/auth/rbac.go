@@ -173,6 +173,10 @@ func ValidateRbacPermission(line string) (p *Permission, err error) {
 	}, nil
 }
 
+func wrapFileError(e error, filename string, message string) error {
+	return fmt.Errorf("%s '%s': %w", message, filename, e)
+}
+
 func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy map[string]*Permission, err error) {
 	if !dexEnabled {
 		return nil, nil
@@ -180,7 +184,7 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy map[strin
 
 	file, err := os.Open(DexRbacPolicyPath)
 	if err != nil {
-		return nil, err
+		return nil, wrapFileError(err, DexRbacPolicyPath, "error opening policy")
 	}
 	defer file.Close()
 

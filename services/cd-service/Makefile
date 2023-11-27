@@ -25,9 +25,6 @@ export CGO_ENABLED=1
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:$(VERSION)
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:${VERSION}
 
-export KUBERPULT_DEX_MOCK=false
-export KUBERPULT_DEX_ENABLED=false
-
 ifeq ($(WITH_DOCKER),)
 COMPILE_WITH_DOCKER := false
 else
