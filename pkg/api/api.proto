@@ -23,7 +23,8 @@ message GetGitTagsResponse {
 
 message GetProductSummaryRequest {
   string commit_hash = 1;
-  string environment = 2;
+  optional string environment = 2; 
+  optional string environmentGroup = 3;
 }
 
 message GetProductSummaryResponse {
@@ -35,6 +36,7 @@ message ProductSummary {
   string version = 2;
   string commit_id = 3;
   string displayVersion = 4;
+  string environment = 5;
 }
 
 message TagData {

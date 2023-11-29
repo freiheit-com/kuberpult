@@ -41,8 +41,13 @@ func (s *TagsServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) 
 }
 
 func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
-	if in.Environment == "" {
-		return nil, fmt.Errorf("Must have an environment to get the product summary for")
+	if in.Environment == nil && in.EnvironmentGroup == nil {
+		return nil, fmt.Errorf("Must have an environment or enviorenmentGroup to get the product summary for")
+	}
+	if in.Environment != nil && in.EnvironmentGroup != nil {
+		if *in.Environment != "" && *in.EnvironmentGroup != "" {
+			return nil, fmt.Errorf("Can not have both an environment and enviorenmentGroup to get the product summary for")
+		}
 	}
 	if in.CommitHash == "" {
 		return nil, fmt.Errorf("Must have a commit to get the product summary for")
@@ -51,24 +56,47 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 	if err != nil {
 		return nil, fmt.Errorf("unable to get overview for %s: %v", in.CommitHash, err)
 	}
+
 	var summaryFromEnv []api.ProductSummary
-	for _, group := range response.EnvironmentGroups {
-		for _, env := range group.Environments {
-			if env.Name == in.Environment {
-				for _, app := range env.Applications {
-					summaryFromEnv = append(summaryFromEnv, api.ProductSummary{App: app.Name, Version: strconv.FormatUint(app.Version, 10)})
+	if in.Environment != nil && *in.Environment != "" {
+		for _, group := range response.EnvironmentGroups {
+			for _, env := range group.Environments {
+				if env.Name == *in.Environment {
+					for _, app := range env.Applications {
+						summaryFromEnv = append(summaryFromEnv, api.ProductSummary{App: app.Name, Version: strconv.FormatUint(app.Version, 10), Environment: *in.Environment})
+					}
 				}
 			}
 		}
+		if len(summaryFromEnv) == 0 {
+			return nil, nil
+		}
+		sort.Slice(summaryFromEnv, func(i, j int) bool {
+			a := summaryFromEnv[i].App
+			b := summaryFromEnv[j].App
+			return a < b
+		})
+	} else {
+		for _, group := range response.EnvironmentGroups {
+			if *in.EnvironmentGroup == group.EnvironmentGroupName {
+				for _, env := range group.Environments {
+					var singleEnvSummary []api.ProductSummary
+					for _, app := range env.Applications {
+						singleEnvSummary = append(singleEnvSummary, api.ProductSummary{App: app.Name, Version: strconv.FormatUint(app.Version, 10), Environment: env.Name})
+					}
+					sort.Slice(singleEnvSummary, func(i, j int) bool {
+						a := singleEnvSummary[i].App
+						b := singleEnvSummary[j].App
+						return a < b
+					})
+					summaryFromEnv = append(summaryFromEnv, singleEnvSummary...)
+				}
+			}
+		}
+		if len(summaryFromEnv) == 0 {
+			return nil, nil
+		}
 	}
-	if len(summaryFromEnv) == 0 {
-		return nil, fmt.Errorf("environment %s not found", in.Environment)
-	}
-	sort.Slice(summaryFromEnv, func(i, j int) bool {
-		a := summaryFromEnv[i].App
-		b := summaryFromEnv[j].App
-		return a < b
-	})
 
 	var productVersion []*api.ProductSummary
 	for _, row := range summaryFromEnv {
@@ -76,7 +104,7 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 			if row.App == app.Name {
 				for _, release := range app.Releases {
 					if strconv.FormatUint(release.Version, 10) == row.Version {
-						productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.SourceCommitId, DisplayVersion: release.DisplayVersion})
+						productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.SourceCommitId, DisplayVersion: release.DisplayVersion, Environment: row.Environment})
 						break
 					}
 				}
