@@ -11,21 +11,7 @@ exports[`Product Version Data Displays Product Version Page No tags to Display 1
       >
         Product Version for tester
       </h1>
-      <div
-        class="dropdown_div"
-      >
-        <select
-          class="drop_down"
-          data-testid="drop_down"
-        >
-          <option
-            disabled=""
-            value="default"
-          >
-            Select a Tag
-          </option>
-        </select>
-      </div>
+      <div />
       <div>
         <div
           class="page_description"

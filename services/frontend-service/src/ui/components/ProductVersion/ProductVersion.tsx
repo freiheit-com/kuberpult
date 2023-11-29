@@ -104,7 +104,7 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
                     </select>
                 </div>
             ) : (
-                <div></div>
+                <div />
             )}
             <div>
                 {displaySummary ? (
