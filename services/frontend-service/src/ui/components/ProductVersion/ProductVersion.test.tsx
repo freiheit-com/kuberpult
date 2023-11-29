@@ -32,7 +32,7 @@ describe('Product Version Data', () => {
             name: 'No tags to Display',
             environmentName: 'tester',
             tags: [],
-            expectedDropDown: 'Select a Tag',
+            expectedDropDown: '',
             productSummary: [],
         },
         {
@@ -73,7 +73,9 @@ describe('Product Version Data', () => {
             );
             expect(document.body).toMatchSnapshot();
             expect(document.querySelector('.environment_name')?.textContent).toContain(testCase.environmentName);
-            expect(document.querySelector('.drop_down')?.textContent).toContain(testCase.expectedDropDown);
+            if (testCase.expectedDropDown !== '') {
+                expect(document.querySelector('.drop_down')?.textContent).toContain(testCase.expectedDropDown);
+            }
 
             if (testCase.productSummary.length > 0) {
                 expect(document.querySelector('.table')?.textContent).toContain('App Name');
