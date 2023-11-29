@@ -37,11 +37,13 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
             setShowSummarySpinner(true);
             getSummary(e.target.value, environment);
             setOpen(!open);
+            setSelectedTag(e.target.value);
         },
         [open, setOpen, environment]
     );
     const [showTagsSpinner, setShowTagsSpinner] = React.useState(false);
     const [showSummarySpinner, setShowSummarySpinner] = React.useState(false);
+    const [selectedTag, setSelectedTag] = React.useState('');
     var versionToDisplay = (app: ProductSummary): string => {
         if (app.displayVersion !== '') {
             return app.displayVersion;
@@ -82,18 +84,28 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
     return (
         <div className="product_version">
             <h1 className="environment_name">{'Product Version for ' + environment}</h1>
-            <div className="dropdown_div">
-                <select onChange={openClose} onSelect={openClose} className="drop_down" data-testid="drop_down">
-                    <option value="default" disabled>
-                        Select a Tag
-                    </option>
-                    {tagsResponse.response.tagData.map((tag) => (
-                        <option value={tag.commitId} key={tag.tag}>
-                            {tag.tag.slice(10)}
+
+            {tagsResponse.response.tagData.length > 0 ? (
+                <div className="dropdown_div">
+                    <select
+                        onChange={openClose}
+                        onSelect={openClose}
+                        className="drop_down"
+                        data-testid="drop_down"
+                        value={selectedTag}>
+                        <option value="default" disabled>
+                            Select a Tag
                         </option>
-                    ))}
-                </select>
-            </div>
+                        {tagsResponse.response.tagData.map((tag) => (
+                            <option value={tag.commitId} key={tag.tag}>
+                                {tag.tag.slice(10)}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            ) : (
+                <div></div>
+            )}
             <div>
                 {displaySummary ? (
                     <div className="table_padding">
