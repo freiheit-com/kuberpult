@@ -18,7 +18,7 @@ import React from 'react';
 import { LockDisplay } from '../LockDisplay/LockDisplay';
 import { DisplayLock } from '../../utils/store';
 
-describe('Run Locks Table', () => {
+describe.only('Run Locks Table', () => {
     interface dataT {
         name: string;
         lock: DisplayLock;
