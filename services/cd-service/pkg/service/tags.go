@@ -42,11 +42,11 @@ func (s *TagsServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) 
 
 func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
 	if in.Environment == nil && in.EnvironmentGroup == nil {
-		return nil, fmt.Errorf("Must have an environment or enviorenmentGroup to get the product summary for")
+		return nil, fmt.Errorf("Must have an environment or environmentGroup to get the product summary for")
 	}
 	if in.Environment != nil && in.EnvironmentGroup != nil {
 		if *in.Environment != "" && *in.EnvironmentGroup != "" {
-			return nil, fmt.Errorf("Can not have both an environment and enviorenmentGroup to get the product summary for")
+			return nil, fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for")
 		}
 	}
 	if in.CommitHash == "" {

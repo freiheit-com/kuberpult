@@ -38,7 +38,7 @@ func TestGetProductOverview(t *testing.T) {
 	}{
 		{
 			Name:        "get Product Overview with no env or envGroup",
-			expectedErr: fmt.Errorf("Must have an environment or enviorenmentGroup to get the product summary for"),
+			expectedErr: fmt.Errorf("Must have an environment or environmentGroup to get the product summary for"),
 		},
 		{
 			Name:        "get Product Overview with no commitHash",
@@ -49,7 +49,7 @@ func TestGetProductOverview(t *testing.T) {
 			Name:          "get Product Overview with both env and envGroup",
 			givenEnv:      ptr.FromString("testing"),
 			givenEnvGroup: ptr.FromString("testingGroup"),
-			expectedErr:   fmt.Errorf("Can not have both an environment and enviorenmentGroup to get the product summary for"),
+			expectedErr:   fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for"),
 		},
 		{
 			Name:     "get Product Overview as expected with env",
