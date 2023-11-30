@@ -21,32 +21,39 @@ import (
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
 func TestGetProductOverview(t *testing.T) {
-	var dev = "dev"
 	tcs := []struct {
 		Name                   string
-		givenEnv               string
+		givenEnv               *string
+		givenEnvGroup          *string
 		expectedProductSummary []api.ProductSummary
 		expectedErr            error
 		Setup                  []repository.Transformer
 	}{
 		{
-			Name:        "get Product Overview with no env",
-			expectedErr: fmt.Errorf("Must have an environment to get the product summary for"),
+			Name:        "get Product Overview with no env or envGroup",
+			expectedErr: fmt.Errorf("Must have an environment or environmentGroup to get the product summary for"),
 		},
 		{
 			Name:        "get Product Overview with no commitHash",
-			givenEnv:    "testing",
+			givenEnv:    ptr.FromString("testing"),
 			expectedErr: fmt.Errorf("Must have a commit to get the product summary for"),
 		},
 		{
-			Name:     "get Product Overview as expected",
-			givenEnv: "development",
+			Name:          "get Product Overview with both env and envGroup",
+			givenEnv:      ptr.FromString("testing"),
+			givenEnvGroup: ptr.FromString("testingGroup"),
+			expectedErr:   fmt.Errorf("Can not have both an environment and environmentGroup to get the product summary for"),
+		},
+		{
+			Name:     "get Product Overview as expected with env",
+			givenEnv: ptr.FromString("development"),
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "development",
@@ -55,7 +62,7 @@ func TestGetProductOverview(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: ptr.FromString("dev"),
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -79,7 +86,7 @@ func TestGetProductOverview(t *testing.T) {
 		},
 		{
 			Name:     "invalid environment used",
-			givenEnv: "staging",
+			givenEnv: ptr.FromString("staging"),
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
 					Environment: "development",
@@ -88,7 +95,7 @@ func TestGetProductOverview(t *testing.T) {
 							Latest: true,
 						},
 						ArgoCd:           nil,
-						EnvironmentGroup: &dev,
+						EnvironmentGroup: ptr.FromString("dev"),
 					},
 				},
 				&repository.CreateApplicationVersion{
@@ -108,7 +115,73 @@ func TestGetProductOverview(t *testing.T) {
 					Version:     1,
 				},
 			},
-			expectedErr: fmt.Errorf("environment staging not found"),
+			expectedProductSummary: []api.ProductSummary{},
+		},
+		{
+			Name:          "get Product Overview as expected with envGroup",
+			givenEnvGroup: ptr.FromString("dev"),
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: ptr.FromString("dev"),
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "testing25",
+					SourceMessage:  "changed something (#678)",
+					SourceRepoUrl:  "testing@testing.com/abc",
+					DisplayVersion: "v1.0.2",
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "development",
+					Version:     1,
+				},
+			},
+			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25"}},
+		},
+		{
+			Name:          "invalid envGroup used",
+			givenEnvGroup: ptr.FromString("notDev"),
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: ptr.FromString("dev"),
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "testing25",
+					SourceMessage:  "changed something (#678)",
+					SourceRepoUrl:  "testing@testing.com/abc",
+					DisplayVersion: "v1.0.2",
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "development",
+					Version:     1,
+				},
+			},
+			expectedProductSummary: []api.ProductSummary{},
 		},
 	}
 	for _, tc := range tcs {
@@ -128,7 +201,7 @@ func TestGetProductOverview(t *testing.T) {
 			if err != nil {
 				t.Errorf("expected no error, got %s", err)
 			}
-			productSummary, err := sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{CommitHash: ov.GitRevision, Environment: tc.givenEnv})
+			productSummary, err := sv.GetProductSummary(testutil.MakeTestContext(), &api.GetProductSummaryRequest{CommitHash: ov.GitRevision, Environment: tc.givenEnv, EnvironmentGroup: tc.givenEnvGroup})
 			if err != nil && tc.expectedErr == nil {
 				t.Fatalf("expected no error, but got [%s]: %v", ov.GitRevision, err)
 			}

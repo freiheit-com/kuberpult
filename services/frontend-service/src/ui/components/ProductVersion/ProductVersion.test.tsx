@@ -40,7 +40,9 @@ describe('Product Version Data', () => {
             environmentName: 'tester2',
             tags: [{ commitId: '123', tag: 'refs/tags/dummyTag' }],
             expectedDropDown: 'dummyTag',
-            productSummary: [{ app: 'testing-app', version: '4', commitId: '123', displayVersion: 'v1.2.3' }],
+            productSummary: [
+                { app: 'testing-app', version: '4', commitId: '123', displayVersion: 'v1.2.3', environment: 'dev' },
+            ],
         },
         {
             name: 'table to be displayed with multiple rows of data',
@@ -51,8 +53,8 @@ describe('Product Version Data', () => {
             ],
             expectedDropDown: 'dummyTag',
             productSummary: [
-                { app: 'testing-app', version: '4', commitId: '123', displayVersion: 'v1.2.3' },
-                { app: 'tester', version: '10', commitId: '4565', displayVersion: '' },
+                { app: 'testing-app', version: '4', commitId: '123', displayVersion: 'v1.2.3', environment: 'dev' },
+                { app: 'tester', version: '10', commitId: '4565', displayVersion: '', environment: 'dev' },
             ],
         },
     ];
