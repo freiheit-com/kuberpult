@@ -28,18 +28,31 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+type mockClock struct {
+	value time.Time
+}
+
+func (m *mockClock) now() time.Time {
+	return m.value
+}
+
+func (m *mockClock) add(d time.Duration) {
+	m.value = m.value.Add(d)
+}
+
 func TestHealthReporter(t *testing.T) {
 	tcs := []struct {
 		Name               string
 		ReportHealth       Health
 		ReportMessage      string
+		ReportTtl          *time.Duration
 		ExpectedHealthBody string
 		ExpectedStatus     int
 		ExpectedMetricBody string
 	}{
 		{
-			Name: "reports starting",
-
+			Name:               "reports starting",
+			ReportTtl:          nil,
 			ExpectedStatus:     500,
 			ExpectedHealthBody: `{"a":{"health":"starting"}}`,
 			ExpectedMetricBody: `# HELP background_job_ready 
@@ -48,10 +61,10 @@ background_job_ready{name="a"} 0
 `,
 		},
 		{
-			Name:          "reports ready",
-			ReportHealth:  HealthReady,
-			ReportMessage: "running",
-
+			Name:               "reports ready",
+			ReportHealth:       HealthReady,
+			ReportMessage:      "running",
+			ReportTtl:          nil,
 			ExpectedStatus:     200,
 			ExpectedHealthBody: `{"a":{"health":"ready","message":"running"}}`,
 			ExpectedMetricBody: `# HELP background_job_ready 
@@ -60,10 +73,10 @@ background_job_ready{name="a"} 1
 `,
 		},
 		{
-			Name:          "reports failed",
-			ReportHealth:  HealthFailed,
-			ReportMessage: "didnt work",
-
+			Name:               "reports failed",
+			ReportHealth:       HealthFailed,
+			ReportMessage:      "didnt work",
+			ReportTtl:          nil,
 			ExpectedStatus:     500,
 			ExpectedHealthBody: `{"a":{"health":"failed","message":"didnt work"}}`,
 			ExpectedMetricBody: `# HELP background_job_ready 
@@ -86,7 +99,7 @@ background_job_ready{name="a"} 0
 					{
 						Name: "a",
 						Run: func(ctx context.Context, hr *HealthReporter) error {
-							hr.ReportHealth(tc.ReportHealth, tc.ReportMessage)
+							hr.ReportHealthTtl(tc.ReportHealth, tc.ReportMessage, tc.ReportTtl)
 							stateChange <- struct{}{}
 							<-ctx.Done()
 							return nil

@@ -67,6 +67,9 @@ type HealthReporter struct {
 type report struct {
 	Health  Health `json:"health"`
 	Message string `json:"message,omitempty"`
+
+	// a nil Deadline is interpreted as "valid forever"
+	Deadline *time.Time `json:"deadline,omitempty"`
 }
 
 func (r *report) isReady() bool {
@@ -78,6 +81,10 @@ func (r *HealthReporter) ReportReady(message string) {
 }
 
 func (r *HealthReporter) ReportHealth(health Health, message string) {
+	r.ReportHealthTtl(health, message, nil)
+}
+
+func (r *HealthReporter) ReportHealthTtl(health Health, message string, ttl *time.Duration) {
 	if r == nil {
 		return
 	}
@@ -89,35 +96,43 @@ func (r *HealthReporter) ReportHealth(health Health, message string) {
 	if r.server.parts == nil {
 		r.server.parts = map[string]report{}
 	}
+	var deadline *time.Time
+	if ttl != nil {
+		dl := r.server.now().Add(*ttl)
+		deadline = &dl
+	}
 	r.server.parts[r.name] = report{
-		Health:  health,
-		Message: message,
+		Health:   health,
+		Message:  message,
+		Deadline: deadline,
 	}
 }
 
-// Retry allows background services to setup reliable streaming with backoff.
-//
-// This can be used to create background tasks that look like this:
-//
-//	func Consume(ctx context.Context, hr *setup.HealthReporter) error {
-//		state := initState()
-//		return hr.Retry(ctx, func() error {
-//	        	stream, err := startConsumer()
-//	        	if err != nil {
-// 				return err
-// 			}
-//			hr.ReportReady("receiving")
-//			for {
-//				select {
-//				case <-ctx.Done(): return nil
-//				case ev := <-stream: handleEvent(state, event)
-//				}
-//              	}
-//	      })
-//	}
-//
-// In the example above, connecting to  the consumer will be retried a few times with backoff.
-// The number of retries is reset whenever ReportReady is called so that successful connection heal the service.
+/*
+Retry allows background services to set up reliable streaming with backoff.
+
+This can be used to create background tasks that look like this:
+
+	func Consume(ctx context.Context, hr *setup.HealthReporter) error {
+		state := initState()
+		return hr.Retry(ctx, func() error {
+			stream, err := startConsumer()
+			if err != nil {
+				return err
+			}
+			hr.ReportReady("receiving")
+			for {
+				select {
+				case <-ctx.Done(): return nil
+				case ev := <-stream: handleEvent(state, event)
+				}
+			}
+	  })
+	}
+
+In the example above, connecting to  the consumer will be retried a few times with backoff.
+The number of retries is reset whenever ReportReady is called so that successful connection heal the service.
+*/
 func (r *HealthReporter) Retry(ctx context.Context, fn func() error) error {
 	bo := r.backoff
 	for {
@@ -153,6 +168,7 @@ type HealthServer struct {
 	parts          map[string]report
 	mx             sync.Mutex
 	BackOffFactory func() backoff.BackOff
+	Clock          func() time.Time
 }
 
 func (h *HealthServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -183,7 +199,13 @@ func (h *HealthServer) IsReady(name string) bool {
 		return false
 	}
 	report := h.parts[name]
-	return report.Health == HealthReady
+	if report.Health != HealthReady {
+		return false
+	}
+	if report.Deadline == nil {
+		return true
+	}
+	return h.now().Before(*report.Deadline)
 }
 
 func (h *HealthServer) reports() map[string]report {
@@ -194,6 +216,13 @@ func (h *HealthServer) reports() map[string]report {
 		result[k] = v
 	}
 	return result
+}
+
+func (h *HealthServer) now() time.Time {
+	if h.Clock != nil {
+		return h.Clock()
+	}
+	return time.Now()
 }
 
 func (h *HealthServer) Reporter(name string) *HealthReporter {
