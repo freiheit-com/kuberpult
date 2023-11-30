@@ -47,7 +47,7 @@ type appState struct {
 
 func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
 	status := rolloutStatus(ev)
-	if a.rolloutStatus != status || a.argocdVersion == nil || a.argocdVersion.Version != ev.Version.Version {
+	if a.rolloutStatus != status || a.argocdVersion == nil || (ev.Version != nil && a.argocdVersion.Version != ev.Version.Version) {
 		a.rolloutStatus = status
 		a.argocdVersion = ev.Version
 		return a.getEvent(ev.Application, ev.Environment)
@@ -253,16 +253,16 @@ func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*
 
 // Removes irrelevant app states from the list.
 func filterApplication(req *api.GetStatusRequest, ev *BroadcastEvent) *api.GetStatusResponse_ApplicationStatus {
-        // Only apps that have the correct envgroup are considered
+	// Only apps that have the correct envgroup are considered
 	if ev.EnvironmentGroup != req.EnvironmentGroup {
 		return nil
 	}
-        // If it's filtered by team, then only apps with the correct team are considered.
+	// If it's filtered by team, then only apps with the correct team are considered.
 	if req.Team != "" && req.Team != ev.Team {
 		return nil
 	}
 	s := getStatus(ev)
-        // Successful apps are also irrelevant.
+	// Successful apps are also irrelevant.
 	if s.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful {
 		return nil
 	}
@@ -345,6 +345,9 @@ func rolloutStatus(ev *ArgoEvent) api.RolloutStatus {
 	case health.HealthStatusProgressing, health.HealthStatusSuspended:
 		return api.RolloutStatus_RolloutStatusProgressing
 	case health.HealthStatusHealthy:
+		if ev.Version == nil {
+			return api.RolloutStatus_RolloutStatusUnknown
+		}
 		return api.RolloutStatus_RolloutStatusSuccesful
 	}
 	return api.RolloutStatus_RolloutStatusUnknown

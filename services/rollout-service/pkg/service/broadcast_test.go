@@ -127,6 +127,33 @@ func TestBroadcast(t *testing.T) {
 			},
 		},
 		{
+			Name: "missing version in argo event",
+			Steps: []step{
+				{
+					ArgoEvent: &ArgoEvent{
+						Application:      "foo",
+						Environment:      "bar",
+						Version:          &versions.VersionInfo{Version: 1},
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusHealthy,
+					},
+
+					ExpectStatus: &RolloutStatusSuccesful,
+				},
+				{
+					ArgoEvent: &ArgoEvent{
+						Application:      "foo",
+						Environment:      "bar",
+						Version:          nil,
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusHealthy,
+					},
+
+					ExpectStatus: &RolloutStatusUnknown,
+				},
+			},
+		},
+		{
 			Name: "app syncing and becomming healthy",
 			Steps: []step{
 				{
