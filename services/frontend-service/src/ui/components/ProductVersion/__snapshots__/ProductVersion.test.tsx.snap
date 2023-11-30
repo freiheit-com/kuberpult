@@ -9,7 +9,7 @@ exports[`Product Version Data Displays Product Version Page No tags to Display 1
       <h1
         class="environment_name"
       >
-        Product Version for tester
+        Product Version Page
       </h1>
       <div />
       <div>
@@ -33,7 +33,7 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
       <h1
         class="environment_name"
       >
-        Product Version for tester2
+        Product Version Page
       </h1>
       <div
         class="dropdown_div"
@@ -57,6 +57,26 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
             value="859"
           >
             dummyTag2
+          </option>
+        </select>
+        <select
+          class="env_drop_down"
+        >
+          <option
+            disabled=""
+            value="default"
+          >
+            Select an Environment or environmentGroup
+          </option>
+          <option
+            value="g1"
+          >
+            g1
+          </option>
+          <option
+            value="g1/tester"
+          >
+            g1/tester
           </option>
         </select>
       </div>
@@ -124,7 +144,7 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
       <h1
         class="environment_name"
       >
-        Product Version for tester2
+        Product Version Page
       </h1>
       <div
         class="dropdown_div"
@@ -143,6 +163,26 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
             value="123"
           >
             dummyTag
+          </option>
+        </select>
+        <select
+          class="env_drop_down"
+        >
+          <option
+            disabled=""
+            value="default"
+          >
+            Select an Environment or environmentGroup
+          </option>
+          <option
+            value="g1"
+          >
+            g1
+          </option>
+          <option
+            value="g1/tester"
+          >
+            g1/tester
           </option>
         </select>
       </div>

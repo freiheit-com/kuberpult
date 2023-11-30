@@ -17,7 +17,7 @@ import {
     addAction,
     getPriorityClassName,
     useFilteredEnvironmentLockIDs,
-    useNavigateWithSearchParams,
+    useNavigateWithSearchParamsWithEnv,
 } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
@@ -30,8 +30,7 @@ export const EnvironmentCard: React.FC<{ environment: Environment }> = (props) =
     const { environment } = props;
     const locks = useFilteredEnvironmentLockIDs(environment.name);
     const priorityClassName = getPriorityClassName(environment);
-    const { navCallback } = useNavigateWithSearchParams('productVersion/' + environment.name);
-
+    const { navCallback } = useNavigateWithSearchParamsWithEnv('productVersion/', environment.name);
     const addLock = React.useCallback(() => {
         addAction({
             action: {

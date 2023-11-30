@@ -15,13 +15,32 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import './ProductVersion.scss';
 import * as React from 'react';
-import { refreshTags, useTags, getSummary, useSummaryDisplay } from '../../utils/store';
+import { refreshTags, useTags, getSummary, useSummaryDisplay, useEnvironmentGroups } from '../../utils/store';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
-import { ProductSummary } from '../../../api/api';
+import { EnvironmentGroup, ProductSummary } from '../../../api/api';
 
 export type ProductVersionProps = {
     environment: string;
+};
+
+const handleEnvironmentName = (envName: string): string[] => {
+    const splitter = envName.split('/');
+    if (splitter.length === 1) {
+        return ['', splitter[0]];
+    }
+    return [splitter[1], ''];
+};
+
+const findFirstEnvGroup = (envName: string, envList: EnvironmentGroup[]): string => {
+    for (let i = 0; i < envList.length; i++) {
+        for (let j = 0; j < envList[i].environments.length; j++) {
+            if (envList[i].environments[j].name === envName) {
+                return envList[i].environmentGroupName + '/' + envName;
+            }
+        }
+    }
+    return envName;
 };
 
 export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
@@ -29,13 +48,14 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
         setShowTagsSpinner(true);
         refreshTags();
     }, []);
-    const { environment } = props;
+    const environment = React.useRef(props.environment);
     const summaryResponse = useSummaryDisplay();
     const [open, setOpen] = React.useState(false);
     const openClose = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
             setShowSummarySpinner(true);
-            getSummary(e.target.value, environment);
+            const env = handleEnvironmentName(environment.current);
+            getSummary(e.target.value, env[0], env[1]);
             setOpen(!open);
             setSelectedTag(e.target.value);
         },
@@ -54,16 +74,35 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
         return app.version;
     };
 
+    const envList: string[] = [];
     const tagsResponse = useTags();
+    const envGroupResponse = useEnvironmentGroups();
+    for (let i = 0; i < envGroupResponse.length; i++) {
+        envList.push(envGroupResponse[i].environmentGroupName);
+        for (let j = 0; j < envGroupResponse[i].environments.length; j++) {
+            envList.push(envGroupResponse[i].environmentGroupName + '/' + envGroupResponse[i].environments[j].name);
+        }
+    }
+    const changeEnv = React.useCallback(
+        (e: React.ChangeEvent<HTMLSelectElement>) => {
+            environment.current = e.target.value;
+            setShowSummarySpinner(true);
+            const env = handleEnvironmentName(environment.current);
+            getSummary(selectedTag, env[0], env[1]);
+        },
+        [selectedTag, environment]
+    );
     const [displaySummary, setDisplayVersion] = React.useState(false);
 
     React.useEffect(() => {
         if (tagsResponse.response.tagData.length > 0) {
             setShowSummarySpinner(true);
-            getSummary(tagsResponse.response.tagData[0].commitId, environment);
+            getSummary(tagsResponse.response.tagData[0].commitId, environment.current, '');
+            environment.current = findFirstEnvGroup(environment.current, envGroupResponse);
             setDisplayVersion(true);
+            setSelectedTag(tagsResponse.response.tagData[0].commitId);
         }
-    }, [tagsResponse, environment]);
+    }, [tagsResponse, environment, envGroupResponse]);
     React.useEffect(() => {
         if (tagsResponse.tagsReady) {
             setShowTagsSpinner(false);
@@ -83,7 +122,7 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
 
     return (
         <div className="product_version">
-            <h1 className="environment_name">{'Product Version for ' + environment}</h1>
+            <h1 className="environment_name">{'Product Version Page'}</h1>
 
             {tagsResponse.response.tagData.length > 0 ? (
                 <div className="dropdown_div">
@@ -100,6 +139,14 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
                             <option value={tag.commitId} key={tag.tag}>
                                 {tag.tag.slice(10)}
                             </option>
+                        ))}
+                    </select>
+                    <select className="env_drop_down" onChange={changeEnv} value={environment.current}>
+                        <option value="default" disabled>
+                            Select an Environment or environmentGroup
+                        </option>
+                        {envList.map((env) => (
+                            <option value={env}>{env}</option>
                         ))}
                     </select>
                 </div>

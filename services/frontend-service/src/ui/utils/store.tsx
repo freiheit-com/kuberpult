@@ -88,10 +88,10 @@ export const refreshTags = (): void => {
 export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
 
 const summaryResponse: GetProductSummaryResponse = { productSummary: [] };
-export const getSummary = (commitHash: string, environment: string): void => {
+export const getSummary = (commitHash: string, environment: string, environmentGroup: string): void => {
     const api = useApi;
     api.tagsService()
-        .GetProductSummary({ commitHash: commitHash, environment: environment })
+        .GetProductSummary({ commitHash: commitHash, environment: environment, environmentGroup: environmentGroup })
         .then((result: GetProductSummaryResponse) => {
             updateSummary.set({ response: result, summaryReady: true });
         })
@@ -682,6 +682,26 @@ export const useNavigateWithSearchParams = (to: string): { navURL: string; navCa
         navCallback: React.useCallback(() => {
             navigate(navURL);
         }, [navURL, navigate]),
+    };
+};
+// Navigate while keeping search params, returns new navigation url, and allows an env to be passed to the next page and a callback function to navigate
+export const useNavigateWithSearchParamsWithEnv = (
+    to: string,
+    env: string
+): { navURL: string; navCallback: () => void } => {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const queryParams = location?.search ?? '';
+    const navURL = `${to}${queryParams}`;
+    return {
+        navURL: navURL,
+        navCallback: React.useCallback(() => {
+            navigate(navURL, {
+                state: {
+                    env: env,
+                },
+            });
+        }, [navURL, navigate, env]),
     };
 };
 

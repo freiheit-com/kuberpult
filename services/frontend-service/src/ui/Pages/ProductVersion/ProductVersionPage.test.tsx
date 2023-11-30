@@ -20,7 +20,7 @@ import { fakeLoadEverything } from '../../../setupTests';
 
 describe('ProductVersionPage', () => {
     const getNode = (): JSX.Element | any => (
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[{ state: { env: 'test' } }]}>
             <ProductVersionPage />
         </MemoryRouter>
     );

@@ -18,10 +18,10 @@ import { useGlobalLoadingState } from '../../utils/store';
 import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import { ProductVersion } from '../../components/ProductVersion/ProductVersion';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
+import { useLocation } from 'react-router-dom';
 
 export const ProductVersionPage: React.FC = () => {
-    const url = window.location.pathname.split('/');
-    const environmentName = url[url.length - 1];
+    const location = useLocation();
     const [everythingLoaded, loadingState] = useGlobalLoadingState();
     if (!everythingLoaded) {
         return <LoadingStateSpinner loadingState={loadingState} />;
@@ -30,7 +30,7 @@ export const ProductVersionPage: React.FC = () => {
         <div>
             <TopAppBar showAppFilter={true} showTeamFilter={true} />
             <main className="main-content">
-                <ProductVersion environment={environmentName} />
+                <ProductVersion environment={location.state.env} />
             </main>
         </div>
     );
