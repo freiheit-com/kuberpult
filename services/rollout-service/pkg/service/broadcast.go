@@ -47,7 +47,7 @@ type appState struct {
 
 func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
 	status := rolloutStatus(ev)
-	if a.rolloutStatus != status || a.argocdVersion == nil || (ev.Version != nil && a.argocdVersion.Version != ev.Version.Version) {
+	if a.rolloutStatus != status || !a.argocdVersion.Equal(ev.Version) {
 		a.rolloutStatus = status
 		a.argocdVersion = ev.Version
 		return a.getEvent(ev.Application, ev.Environment)
@@ -56,7 +56,7 @@ func (a *appState) applyArgoEvent(ev *ArgoEvent) *BroadcastEvent {
 }
 
 func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEvent {
-	if a.kuberpultVersion == nil || a.kuberpultVersion.Version != ev.Version.Version || a.isProduction == nil || *a.isProduction != ev.IsProduction {
+	if !a.argocdVersion.Equal(ev.Version) || a.isProduction == nil || *a.isProduction != ev.IsProduction {
 		a.kuberpultVersion = ev.Version
 		a.environmentGroup = ev.EnvironmentGroup
 		a.team = ev.Team
@@ -68,7 +68,11 @@ func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEv
 
 func (a *appState) getEvent(application, environment string) *BroadcastEvent {
 	rs := a.rolloutStatus
-	if a.kuberpultVersion != nil && a.argocdVersion != nil && a.kuberpultVersion.Version != a.argocdVersion.Version {
+	if a.kuberpultVersion == nil || a.argocdVersion == nil {
+		if rs == api.RolloutStatus_RolloutStatusSuccesful {
+			rs = api.RolloutStatus_RolloutStatusUnknown
+		}
+	} else if a.kuberpultVersion.Version != a.argocdVersion.Version {
 		rs = api.RolloutStatus_RolloutStatusPending
 	}
 	return &BroadcastEvent{

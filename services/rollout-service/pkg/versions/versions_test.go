@@ -448,7 +448,7 @@ func TestVersionClientStream(t *testing.T) {
 				{
 					Overview: testOverview,
 
-					ExpectReady:    true,
+					ExpectReady: true,
 				},
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
@@ -521,7 +521,7 @@ func TestVersionClientStream(t *testing.T) {
 				{
 					RecvErr: fmt.Errorf("no"),
 
-					ExpectReady:    false,
+					ExpectReady: false,
 				},
 				{
 					Overview: emptyTestOverview,

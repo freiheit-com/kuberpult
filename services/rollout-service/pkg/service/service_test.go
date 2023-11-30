@@ -162,7 +162,7 @@ func TestArgoConection(t *testing.T) {
 			Name: "stops when ctx closes in the watch call",
 			Steps: []step{
 				{
-					RecvErr: status.Error(codes.Canceled, "context cancelled"),
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
 					CancelContext: true,
 				},
 			},
