@@ -372,11 +372,22 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 		}
 	}()
 	tick := time.Tick(r.config.NetworkTimeout)
+	ttl := r.config.NetworkTimeout * 3
 	for {
-		health.ReportReady("processing queue")
+		/*
+			One tricky issue is that `git push` can take a while depending on the git hoster and the connection
+			(plus we do have relatively big and many commits).
+			This can lead to the situation that "everything hangs", because there is one push running already -
+			but only one push is possible at a time.
+			There is also no good way to cancel a `git push`.
+
+			To circumvent this, we report health with a "time to live" - meaning if we don't report anything within the time frame,
+			the health will turn to "failed" and then the pod will automatically restart (in kubernetes).
+		*/
+		health.ReportHealthTtl(setup.HealthReady, "processing queue", &ttl)
 		select {
 		case <-tick:
-			// this triggers a for loop every `NetworkTimeout` to refresh the readyness
+			// this triggers a for loop every `NetworkTimeout` to refresh the readiness
 		case <-ctx.Done():
 			return nil
 		case e := <-r.queue.elements:
