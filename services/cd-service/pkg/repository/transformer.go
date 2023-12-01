@@ -198,11 +198,11 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 }
 
 func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	fs := state.Filesystem
-	version, err := c.calculateVersion(fs)
+	version, err := c.calculateVersion(state)
 	if err != nil {
 		return "", nil, err
 	}
+	fs := state.Filesystem
 	if !valid.ApplicationName(c.Application) {
 		return "", nil, grpc.PublicError(ctx, fmt.Errorf("invalid application name: '%s' - must match regexp '%s' and <= %d characters", c.Application, valid.AppNameRegExp, valid.MaxAppNameLen))
 	}
@@ -313,7 +313,8 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), changes, nil
 }
 
-func (c *CreateApplicationVersion) calculateVersion(bfs billy.Filesystem) (uint64, error) {
+func (c *CreateApplicationVersion) calculateVersion(state *State) (uint64, error) {
+	bfs := state.Filesystem
 	if c.Version == 0 {
 		lastRelease, err := GetLastRelease(bfs, c.Application)
 		if err != nil {
@@ -329,11 +330,64 @@ func (c *CreateApplicationVersion) calculateVersion(bfs billy.Filesystem) (uint6
 				return 0, err
 			}
 		} else {
-			return 0, grpc.AlreadyExistsError(ErrReleaseAlreadyExist)
+			// check if version differs
+			if c.sameAsExisting(state, c.Version) {
+				return 0, grpc.AlreadyExistsSameError(ErrReleaseAlreadyExist)
+			}
+			return 0, grpc.AlreadyExistsDifferentError(ErrReleaseAlreadyExist)
 		}
 		// TODO: check GC here
 		return c.Version, nil
 	}
+}
+
+func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) bool {
+	fs := state.Filesystem
+	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
+	if c.SourceCommitId != "" {
+		existingSourceCommitId, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		if err != nil || string(existingSourceCommitId) != c.SourceCommitId {
+			return false
+		}
+	}
+	if c.SourceAuthor != "" {
+		existingSourceAuthor, err := util.ReadFile(fs, fs.Join(releaseDir, "source_author"))
+		if err != nil || string(existingSourceAuthor) != c.SourceAuthor {
+			return false
+		}
+	}
+	if c.SourceMessage != "" {
+		existingSourceMessage, err := util.ReadFile(fs, fs.Join(releaseDir, "source_message"))
+		if err != nil || string(existingSourceMessage) != c.SourceMessage {
+			return false
+		}
+	}
+	if c.DisplayVersion != "" {
+		existingDisplayVersion, err := util.ReadFile(fs, fs.Join(releaseDir, "display_version"))
+		if err != nil || string(existingDisplayVersion) != c.DisplayVersion {
+			return false
+		}
+	}
+	if c.Team != "" {
+		existingTeam, err := util.ReadFile(fs, fs.Join(releaseDir, "team"))
+		if err != nil || string(existingTeam) != c.Team {
+			return false
+		}
+	}
+	if c.SourceRepoUrl != "" {
+		existingSourceRepoUrl, err := util.ReadFile(fs, fs.Join(releaseDir, "source_repo_url"))
+		if err != nil || string(existingSourceRepoUrl) != c.SourceRepoUrl {
+			return false
+		}
+	}
+	for env, man := range c.Manifests {
+		envDir := fs.Join(releaseDir, "environments", env)
+		existingMan, err := util.ReadFile(fs, fs.Join(envDir, "manifests.yaml"))
+		if err != nil || string(existingMan) != man {
+			return false
+		}
+	}
+	return true
 }
 
 func isLatestsVersion(state *State, application string, version uint64) (bool, error) {

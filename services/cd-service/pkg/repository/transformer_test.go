@@ -36,8 +36,13 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	godebug "github.com/kylelemons/godebug/diff"
 )
 
@@ -612,6 +617,82 @@ spec:
 						t.Fatalf("Expected [%d] file data '%s' but got error: %v", i, ptr.ToString(expected.fileData), err)
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestCreateApplicationVersion(t *testing.T) {
+	tcs := []struct {
+		Name                        string
+		Transformers                []Transformer
+		expectedErrorCode			codes.Code
+		expectedErrorMsg            string
+	}{
+		{
+			Name: "recreate same version with idempotence",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version: 10000,
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version: 10000,
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+				},
+			},
+			expectedErrorCode: codes.AlreadyExists,
+			expectedErrorMsg: grpc.AlreadyExistsSame + ": release already exists",
+		},
+		{
+			Name: "recreate same version without idempotence",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version: 10000,
+					Manifests: map[string]string{
+						envAcceptance: "acceptance", // not empty
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version: 10000,
+					Manifests: map[string]string{
+						envAcceptance: "different", // not empty
+					},
+				},
+			},
+			expectedErrorCode: codes.AlreadyExists,
+			expectedErrorMsg: grpc.AlreadyExistsDifferent + ": release already exists",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			ctxWithTime := withTimeNow(testutil.MakeTestContext(), timeNowOld)
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
+			st := status.Convert(err)
+			if st.Code() != tc.expectedErrorCode {
+				t.Fatalf("Expected different error code when applying, got: '%s', expected: '%s'", st.Code(), tc.expectedErrorCode)
+			}
+			if st.Message() != tc.expectedErrorMsg {
+				t.Fatalf("Expected different error message when applying, got: '%s', expected: '%s'", st.Message(), tc.expectedErrorMsg)
 			}
 		})
 	}

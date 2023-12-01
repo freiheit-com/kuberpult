@@ -25,6 +25,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	AlreadyExistsSame      string = "SAME CONTENT"
+	AlreadyExistsDifferent        = "DIFFERENT CONTENT"
+)
+
 func InternalError(ctx context.Context, err error) error {
 	logger := logger.FromContext(ctx)
 	logger.Error("grpc.internal", zap.Error(err))
@@ -45,7 +50,12 @@ func AuthError(ctx context.Context, err error) error {
 	return status.Error(codes.Unauthenticated, "error: "+err.Error())
 }
 
-// AlreadyExistsError in http this is actually not an error, but a 200 (as opposed to a 201)
-func AlreadyExistsError(err error) error {
-	return status.Error(codes.AlreadyExists, "error: "+err.Error())
+// AlreadyExistsError from the cd service may or may not be an error in http/REST.
+// If the uploaded manifest is the same as the existing manifest, this will a 200 (as opposed to a 201) -- but not an error.
+func AlreadyExistsSameError(err error) error {
+	return status.Error(codes.AlreadyExists, AlreadyExistsSame + ": " + err.Error())
+}
+// If the uploaded manifest is not the same as the existing manifest, this will be a 409 in http/REST.
+func AlreadyExistsDifferentError(err error) error {
+	return status.Error(codes.AlreadyExists, AlreadyExistsDifferent + ": " + err.Error())
 }

@@ -33,6 +33,8 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	
+	grpcerrors "github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 )
 
 var (
@@ -223,7 +225,11 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 			return
 		}
 		if ok && s.Code() == codes.AlreadyExists {
-			w.WriteHeader(http.StatusOK)
+			if strings.HasPrefix(s.Message(), grpcerrors.AlreadyExistsDifferent) {
+				w.WriteHeader(http.StatusConflict)	
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
