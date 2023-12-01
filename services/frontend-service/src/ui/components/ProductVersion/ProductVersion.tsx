@@ -18,11 +18,10 @@ import * as React from 'react';
 import { refreshTags, useTags, getSummary, useSummaryDisplay, useEnvironmentGroups } from '../../utils/store';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
-import { EnvironmentGroup, ProductSummary } from '../../../api/api';
+import { ProductSummary } from '../../../api/api';
+import { useSearchParams } from 'react-router-dom';
 
-export type ProductVersionProps = {
-    environment: string;
-};
+export type ProductVersionProps = {};
 
 const handleEnvironmentName = (envName: string): string[] => {
     const splitter = envName.split('/');
@@ -32,29 +31,27 @@ const handleEnvironmentName = (envName: string): string[] => {
     return [splitter[1], ''];
 };
 
-const findFirstEnvGroup = (envName: string, envList: EnvironmentGroup[]): string => {
-    for (let i = 0; i < envList.length; i++) {
-        for (let j = 0; j < envList[i].environments.length; j++) {
-            if (envList[i].environments[j].name === envName) {
-                return envList[i].environmentGroupName + '/' + envName;
-            }
-        }
-    }
-    return envName;
-};
-
 export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
     React.useEffect(() => {
         setShowTagsSpinner(true);
         refreshTags();
     }, []);
-    const environment = React.useRef(props.environment);
+    const envGroupResponse = useEnvironmentGroups();
+    const envList: string[] = [];
+    for (let i = 0; i < envGroupResponse.length; i++) {
+        envList.push(envGroupResponse[i].environmentGroupName);
+        for (let j = 0; j < envGroupResponse[i].environments.length; j++) {
+            envList.push(envGroupResponse[i].environmentGroupName + '/' + envGroupResponse[i].environments[j].name);
+        }
+    }
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [environment, setEnvironment] = React.useState(searchParams.get('env') || envList[0]);
     const summaryResponse = useSummaryDisplay();
     const [open, setOpen] = React.useState(false);
     const openClose = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
             setShowSummarySpinner(true);
-            const env = handleEnvironmentName(environment.current);
+            const env = handleEnvironmentName(environment);
             getSummary(e.target.value, env[0], env[1]);
             setOpen(!open);
             setSelectedTag(e.target.value);
@@ -74,35 +71,29 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
         return app.version;
     };
 
-    const envList: string[] = [];
     const tagsResponse = useTags();
-    const envGroupResponse = useEnvironmentGroups();
-    for (let i = 0; i < envGroupResponse.length; i++) {
-        envList.push(envGroupResponse[i].environmentGroupName);
-        for (let j = 0; j < envGroupResponse[i].environments.length; j++) {
-            envList.push(envGroupResponse[i].environmentGroupName + '/' + envGroupResponse[i].environments[j].name);
-        }
-    }
     const changeEnv = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
-            environment.current = e.target.value;
             setShowSummarySpinner(true);
-            const env = handleEnvironmentName(environment.current);
+            const env = handleEnvironmentName(e.target.value);
+            searchParams.set('env', e.target.value);
+            setEnvironment(e.target.value);
+            setSearchParams(searchParams);
             getSummary(selectedTag, env[0], env[1]);
         },
-        [selectedTag, environment]
+        [setSearchParams, searchParams, selectedTag]
     );
     const [displaySummary, setDisplayVersion] = React.useState(false);
 
     React.useEffect(() => {
         if (tagsResponse.response.tagData.length > 0) {
             setShowSummarySpinner(true);
-            getSummary(tagsResponse.response.tagData[0].commitId, environment.current, '');
-            environment.current = findFirstEnvGroup(environment.current, envGroupResponse);
+            const env = handleEnvironmentName(environment);
+            getSummary(tagsResponse.response.tagData[0].commitId, env[0], env[1]);
             setDisplayVersion(true);
             setSelectedTag(tagsResponse.response.tagData[0].commitId);
         }
-    }, [tagsResponse, environment, envGroupResponse]);
+    }, [tagsResponse, envGroupResponse, searchParams, environment]);
     React.useEffect(() => {
         if (tagsResponse.tagsReady) {
             setShowTagsSpinner(false);
@@ -141,12 +132,14 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
                             </option>
                         ))}
                     </select>
-                    <select className="env_drop_down" onChange={changeEnv} value={environment.current}>
+                    <select className="env_drop_down" onChange={changeEnv} value={environment}>
                         <option value="default" disabled>
                             Select an Environment or environmentGroup
                         </option>
                         {envList.map((env) => (
-                            <option value={env}>{env}</option>
+                            <option value={env} key={env}>
+                                {env}
+                            </option>
                         ))}
                     </select>
                 </div>
@@ -157,28 +150,32 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
                 {displaySummary ? (
                     <div className="table_padding">
                         <table className="table">
-                            <tr className="table_title">
-                                <th>App Name</th>
-                                <th>Version</th>
-                                <th>ManifestRepoLink</th>
-                                <th>SourceRepoLink</th>
-                            </tr>
-                            {summaryResponse.response.productSummary.map((sum) => (
-                                <tr key={sum.app} className="table_data">
-                                    <td>{sum.app}</td>
-                                    <td>{versionToDisplay(sum)}</td>
-                                    <td>
-                                        <DisplayManifestLink
-                                            app={sum.app}
-                                            version={Number(sum.version)}
-                                            displayString="Manifest Link"
-                                        />
-                                    </td>
-                                    <td>
-                                        <DisplaySourceLink commitId={sum.commitId} displayString={'Source Link'} />
-                                    </td>
+                            <tbody>
+                                <tr className="table_title">
+                                    <th>App Name</th>
+                                    <th>Version</th>
+                                    <th>Environment</th>
+                                    <th>ManifestRepoLink</th>
+                                    <th>SourceRepoLink</th>
                                 </tr>
-                            ))}
+                                {summaryResponse.response.productSummary.map((sum) => (
+                                    <tr key={sum.app + sum.environment} className="table_data">
+                                        <td>{sum.app}</td>
+                                        <td>{versionToDisplay(sum)}</td>
+                                        <td>{sum.environment}</td>
+                                        <td>
+                                            <DisplayManifestLink
+                                                app={sum.app}
+                                                version={Number(sum.version)}
+                                                displayString="Manifest Link"
+                                            />
+                                        </td>
+                                        <td>
+                                            <DisplaySourceLink commitId={sum.commitId} displayString={'Source Link'} />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
                         </table>
                     </div>
                 ) : (

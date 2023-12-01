@@ -684,26 +684,6 @@ export const useNavigateWithSearchParams = (to: string): { navURL: string; navCa
         }, [navURL, navigate]),
     };
 };
-// Navigate while keeping search params, returns new navigation url, and allows an env to be passed to the next page and a callback function to navigate
-export const useNavigateWithSearchParamsWithEnv = (
-    to: string,
-    env: string
-): { navURL: string; navCallback: () => void } => {
-    const location = useLocation();
-    const navigate = useNavigate();
-    const queryParams = location?.search ?? '';
-    const navURL = `${to}${queryParams}`;
-    return {
-        navURL: navURL,
-        navCallback: React.useCallback(() => {
-            navigate(navURL, {
-                state: {
-                    env: env,
-                },
-            });
-        }, [navURL, navigate, env]),
-    };
-};
 
 type FrontendConfig = {
     configs: GetFrontendConfigResponse;

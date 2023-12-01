@@ -17,7 +17,7 @@ import {
     addAction,
     getPriorityClassName,
     useFilteredEnvironmentLockIDs,
-    useNavigateWithSearchParamsWithEnv,
+    useNavigateWithSearchParams,
 } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
@@ -25,12 +25,29 @@ import * as React from 'react';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 import { Environment, EnvironmentGroup } from '../../../api/api';
 import classNames from 'classnames';
+import { useSearchParams } from 'react-router-dom';
 
-export const EnvironmentCard: React.FC<{ environment: Environment }> = (props) => {
-    const { environment } = props;
+const useHelperEnvFunction = (
+    to: string,
+    env: string,
+    groupName: string
+): { navURL: string; navCallback: () => void } => {
+    const [searchParams, setSearchParams] = useSearchParams();
+    let seperator = '/';
+    if (groupName === '') {
+        seperator = '';
+    }
+    searchParams.set('env', groupName + seperator + env);
+    setSearchParams(searchParams);
+    return useNavigateWithSearchParams('productVersion');
+};
+
+export const EnvironmentCard: React.FC<{ environment: Environment; groupName: string }> = (props) => {
+    const { environment, groupName } = props;
     const locks = useFilteredEnvironmentLockIDs(environment.name);
     const priorityClassName = getPriorityClassName(environment);
-    const { navCallback } = useNavigateWithSearchParamsWithEnv('productVersion/', environment.name);
+
+    const { navCallback } = useHelperEnvFunction('productVersion', environment.name, groupName);
     const addLock = React.useCallback(() => {
         addAction({
             action: {
@@ -112,7 +129,11 @@ export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup
             </div>
             <div className="environment-group-lane__body">
                 {environmentGroup.environments.map((env) => (
-                    <EnvironmentCard environment={env} key={env.name} />
+                    <EnvironmentCard
+                        environment={env}
+                        key={env.name}
+                        groupName={environmentGroup.environmentGroupName}
+                    />
                 ))}
             </div>
             {/*I am just here so that we can avoid margin collapsing */}

@@ -120,7 +120,7 @@ describe('Product Version Data', () => {
 
             render(
                 <MemoryRouter>
-                    <ProductVersion environment={testCase.environmentName} />
+                    <ProductVersion />
                 </MemoryRouter>
             );
             expect(document.body).toMatchSnapshot();
