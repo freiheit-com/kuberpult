@@ -685,6 +685,28 @@ export const useNavigateWithSearchParams = (to: string): { navURL: string; navCa
     };
 };
 
+// Navigate while keeping search params, but set env parameter, returns new navigation url, and a callback function to navigate
+export const useNavigateAndSetEnv = (
+    to: string,
+    env: string,
+    groupName: string
+): { navURL: string; navCallback: () => void } => {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const separator = groupName === '' ? '' : '/';
+    searchParams.set('env', groupName + separator + env);
+    setSearchParams(searchParams);
+    const location = useLocation();
+    const navigate = useNavigate();
+    const queryParams = location?.search ?? '';
+    const navURL = `${to}${queryParams}`;
+    return {
+        navURL: navURL,
+        navCallback: React.useCallback(() => {
+            navigate(navURL);
+        }, [navURL, navigate]),
+    };
+};
+
 type FrontendConfig = {
     configs: GetFrontendConfigResponse;
     configReady: boolean;

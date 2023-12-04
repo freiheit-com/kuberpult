@@ -21,9 +21,8 @@ import { Spinner } from '../Spinner/Spinner';
 import { ProductSummary } from '../../../api/api';
 import { useSearchParams } from 'react-router-dom';
 
-export type ProductVersionProps = {};
-
-const handleEnvironmentName = (envName: string): string[] => {
+// splits up a string like "dev:dev-de" into ["dev", "dev-de"]
+const splitCombinedGroupName = (envName: string): string[] => {
     const splitter = envName.split('/');
     if (splitter.length === 1) {
         return ['', splitter[0]];
@@ -31,7 +30,7 @@ const handleEnvironmentName = (envName: string): string[] => {
     return [splitter[1], ''];
 };
 
-export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
+export const ProductVersion: React.FC = () => {
     React.useEffect(() => {
         setShowTagsSpinner(true);
         refreshTags();
@@ -51,7 +50,7 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
     const openClose = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
             setShowSummarySpinner(true);
-            const env = handleEnvironmentName(environment);
+            const env = splitCombinedGroupName(environment);
             getSummary(e.target.value, env[0], env[1]);
             setOpen(!open);
             setSelectedTag(e.target.value);
@@ -75,7 +74,7 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
     const changeEnv = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
             setShowSummarySpinner(true);
-            const env = handleEnvironmentName(e.target.value);
+            const env = splitCombinedGroupName(e.target.value);
             searchParams.set('env', e.target.value);
             setEnvironment(e.target.value);
             setSearchParams(searchParams);
@@ -88,7 +87,7 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
     React.useEffect(() => {
         if (tagsResponse.response.tagData.length > 0) {
             setShowSummarySpinner(true);
-            const env = handleEnvironmentName(environment);
+            const env = splitCombinedGroupName(environment);
             getSummary(tagsResponse.response.tagData[0].commitId, env[0], env[1]);
             setDisplayVersion(true);
             setSelectedTag(tagsResponse.response.tagData[0].commitId);
@@ -134,7 +133,7 @@ export const ProductVersion: React.FC<ProductVersionProps> = (props) => {
                     </select>
                     <select className="env_drop_down" onChange={changeEnv} value={environment}>
                         <option value="default" disabled>
-                            Select an Environment or environmentGroup
+                            Select an Environment or Environment Group
                         </option>
                         {envList.map((env) => (
                             <option value={env} key={env}>
