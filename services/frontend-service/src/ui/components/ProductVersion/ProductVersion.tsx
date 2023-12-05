@@ -18,7 +18,7 @@ import * as React from 'react';
 import { refreshTags, useTags, getSummary, useSummaryDisplay, useEnvironmentGroups } from '../../utils/store';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
-import { ProductSummary } from '../../../api/api';
+import { EnvironmentGroup, ProductSummary } from '../../../api/api';
 import { useSearchParams } from 'react-router-dom';
 
 // splits up a string like "dev:dev-de" into ["dev", "dev-de"]
@@ -30,12 +30,7 @@ const splitCombinedGroupName = (envName: string): string[] => {
     return [splitter[1], ''];
 };
 
-export const ProductVersion: React.FC = () => {
-    React.useEffect(() => {
-        setShowTagsSpinner(true);
-        refreshTags();
-    }, []);
-    const envGroupResponse = useEnvironmentGroups();
+const useEnvironmentGroupCombinations = (envGroupResponse: EnvironmentGroup[]): string[] => {
     const envList: string[] = [];
     for (let i = 0; i < envGroupResponse.length; i++) {
         envList.push(envGroupResponse[i].environmentGroupName);
@@ -43,6 +38,16 @@ export const ProductVersion: React.FC = () => {
             envList.push(envGroupResponse[i].environmentGroupName + '/' + envGroupResponse[i].environments[j].name);
         }
     }
+    return envList;
+};
+
+export const ProductVersion: React.FC = () => {
+    React.useEffect(() => {
+        setShowTagsSpinner(true);
+        refreshTags();
+    }, []);
+    const envGroupResponse = useEnvironmentGroups();
+    const envList = useEnvironmentGroupCombinations(envGroupResponse);
     const [searchParams, setSearchParams] = useSearchParams();
     const [environment, setEnvironment] = React.useState(searchParams.get('env') || envList[0]);
     const summaryResponse = useSummaryDisplay();

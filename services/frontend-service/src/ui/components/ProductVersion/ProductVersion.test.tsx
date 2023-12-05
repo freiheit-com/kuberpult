@@ -35,13 +35,6 @@ const sampleEnvsA: Environment[] = [
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,
     },
-    {
-        name: 'tester2',
-        locks: {},
-        applications: {},
-        distanceToUpstream: 0,
-        priority: Priority.UPSTREAM,
-    },
 ];
 
 describe('Product Version Data', () => {
