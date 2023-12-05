@@ -16,8 +16,6 @@ Copyright 2023 freiheit.com*/
 
 import React from 'react';
 import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useManifestRepoUrl } from './store';
-// import { useLocation } from 'react-router-dom';
-// import { useLocation } from 'react-router-dom';
 
 export const deriveArgoAppLink = (baseUrl: string | undefined, app: string): string | undefined => {
     if (baseUrl) {
