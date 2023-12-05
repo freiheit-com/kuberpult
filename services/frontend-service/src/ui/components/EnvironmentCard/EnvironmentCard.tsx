@@ -13,46 +13,20 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import {
-    addAction,
-    getPriorityClassName,
-    useFilteredEnvironmentLockIDs,
-    useNavigateAndSetEnv,
-} from '../../utils/store';
+import { addAction, getPriorityClassName, useFilteredEnvironmentLockIDs } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import * as React from 'react';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 import { Environment, EnvironmentGroup } from '../../../api/api';
 import classNames from 'classnames';
-
-const useEnvironmentGroupQuery = (
-    to: string,
-    env: string,
-    groupName: string
-): { navURL: string; navCallback: () => void } => {
-    // const [searchParams, setSearchParams] = useSearchParams();
-    // let seperator = '/';
-    // if (groupName === '') {
-    //     seperator = '';
-    // }
-    // React.useCallback(() => {
-    //     searchParams.set('env', groupName + seperator + env);
-    //     setSearchParams(searchParams);
-    //     // eslint-disable-next-line no-console
-    //     console.log('within callback' + searchParams);
-    // }, [env, groupName, searchParams, seperator, setSearchParams]);
-    // eslint-disable-next-line no-console
-    console.log(env);
-    return useNavigateAndSetEnv('productVersion', env, groupName);
-};
+import { ProductVersionLink } from '../../utils/Links';
 
 export const EnvironmentCard: React.FC<{ environment: Environment; groupName: string }> = (props) => {
     const { environment, groupName } = props;
     const locks = useFilteredEnvironmentLockIDs(environment.name);
     const priorityClassName = getPriorityClassName(environment);
 
-    const { navCallback } = useEnvironmentGroupQuery('productVersion', environment.name, groupName);
     const addLock = React.useCallback(() => {
         addAction({
             action: {
@@ -89,11 +63,7 @@ export const EnvironmentCard: React.FC<{ environment: Environment; groupName: st
                         onClick={addLock}
                     />
                     <div>
-                        <Button
-                            className="environment-action"
-                            label={'Display versions for ' + environment.name}
-                            onClick={navCallback}
-                        />
+                        <ProductVersionLink env={environment.name} groupName={groupName}></ProductVersionLink>
                     </div>
                 </div>
             </div>

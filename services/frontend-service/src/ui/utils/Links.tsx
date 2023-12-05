@@ -16,6 +16,7 @@ Copyright 2023 freiheit.com*/
 
 import React from 'react';
 import { useArgoCdBaseUrl, useSourceRepoUrl, useBranch, useManifestRepoUrl } from './store';
+import { useLocation } from 'react-router-dom';
 
 export const deriveArgoAppLink = (baseUrl: string | undefined, app: string): string | undefined => {
     if (baseUrl) {
@@ -145,4 +146,29 @@ export const DisplayManifestLink: React.FC<{ displayString: string; app: string;
         );
     }
     return null;
+};
+
+export const ProductVersionLink: React.FC<{ env: string; groupName: string }> = (props): JSX.Element | null => {
+    const { env, groupName } = props;
+    const location = useLocation();
+    const separator = groupName === '' ? '' : '%2F';
+    var queryParams = location?.search ?? '';
+    const currentLink = window.location.href;
+    if (queryParams === '') {
+        queryParams = '?env=' + groupName + separator + env;
+    } else if (queryParams.includes('env=')) {
+        const start = queryParams.indexOf('env=');
+        const end = queryParams.indexOf('&', start) === -1 ? queryParams.length : queryParams.indexOf('&', start);
+        queryParams = queryParams.replace(queryParams.substring(start, end), 'env=' + groupName + separator + env);
+    } else {
+        queryParams += '&env=' + groupName + separator + env;
+    }
+    const addParam = currentLink.split('?');
+    return (
+        <a
+            title={'Opens the release directory in the manifest repository for this release'}
+            href={addParam[0] + '/productVersion' + queryParams}>
+            Display Version for {env}
+        </a>
+    );
 };
