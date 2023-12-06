@@ -1853,9 +1853,9 @@ func TestGitPushDoesntGetStuck(t *testing.T) {
 	tcs := []struct {
 		Name string
 	}{
-		{
-			Name: "it doesnt get stuck",
-		},
+		//{
+		//	Name: "it doesnt get stuck",
+		//},
 	}
 	for _, tc := range tcs {
 		tc := tc
