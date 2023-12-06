@@ -385,6 +385,7 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 			the health will turn to "failed" and then the pod will automatically restart (in kubernetes).
 		*/
 		health.ReportHealthTtl(setup.HealthReady, "processing queue", &ttl)
+		logger.FromContext(ctx).Warn("hello tick")
 		select {
 		case <-tick:
 			// this triggers a for loop every `NetworkTimeout` to refresh the readiness
