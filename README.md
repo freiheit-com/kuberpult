@@ -26,14 +26,19 @@ We use it for requirements like this:
 
 
 ## Kuberpult Design Principles
+
+We use these principles to decide what features to focus on. We may deviate a little, but in general
+we don't want features in kuberpult that violate these points:
+
+* **Automatic and regular deployments**: Kuberpult is built for teams who want to deploy often (e.g. daily) and setup automated processes for the deployments.
 * **All power to the engineers**: Kuberpult never stops an engineer from deploying manually. The engineers know their services best, so they can decide which version to deploy.
 * **Microservices**: Kuberpult is built on the assumption that our teams work with kubernetes microservices.
 * **Monorepo**: Kuberpult is built for a monorepo setup. One product should be one monorepo. If you have multiple products, consider giving each one a kuberpult instance.
 
 
 ## API
-Kuberpult has an API that is intended to be used in CI/CD (GitHub Actions, Azure Pipelines, etc) to release new versions of one (or more) microservices.
-The API can also rollout many services at the same time via "release trains". It also supports rolling out some groups of services.
+Kuberpult has an API that is intended to be used in CI/CD (GitHub Actions, Azure Pipelines, etc.) to release new versions of one (or more) microservices.
+The API can also roll out many services at the same time via "release trains". It also supports rolling out some groups of services.
 
 # Argo CD
 Kuberpult works best with [Argo CD](https://argo-cd.readthedocs.io/en/stable/) which applies the
