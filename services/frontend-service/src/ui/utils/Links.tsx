@@ -179,7 +179,7 @@ export const ProductVersionLink: React.FC<{ env: string; groupName: string }> = 
     return (
         <a
             title={'Opens the release directory in the manifest repository for this release'}
-            href={addParam[0] + '/productVersion' + '?' + queryString}>
+            href={addParam[0] + '/productVersion?' + queryString}>
             Display Version for {env}
         </a>
     );
