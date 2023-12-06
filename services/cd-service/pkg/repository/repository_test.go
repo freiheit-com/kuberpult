@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"io/fs"
 	"os"
@@ -1161,14 +1160,7 @@ func TestApplyQueuePanic(t *testing.T) {
 	}
 }
 
-func WrapPlain(ctx context.Context, inner func(ctx context.Context)) {
-	_ = logger.Wrap(ctx, func(ctx context.Context) error {
-		inner(ctx)
-		return nil
-	})
-}
-
-func TestApplyQueueTtlForHealthNew(t *testing.T) {
+func TestApplyQueueTtlForHealth(t *testing.T) {
 	// we set the networkTimeout to something extremely low, so that it doesn't interfere with other processes e.g like once per second:
 	networkTimeout := 1 * time.Millisecond
 
@@ -1209,12 +1201,12 @@ func TestApplyQueueTtlForHealthNew(t *testing.T) {
 			}
 			waitUntilReady := func() {
 				for !isReady() {
-					time.Sleep(time.Nanosecond)
+					time.Sleep(time.Millisecond)
 				}
 			}
 			waitUntilNotReady := func() {
 				for isReady() {
-					time.Sleep(time.Nanosecond)
+					time.Sleep(time.Millisecond)
 				}
 			}
 
