@@ -118,8 +118,6 @@ integration-test:
             echo Waiting for K3s cluster to be ready; \
             sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 3; \
             ./integration-tests/cluster-setup/setup-cluster-ssh.sh; sleep 3; \
-            echo Waiting for git server to be ready; \
-            kubectl wait --for=condition=Ready pods -l app=git-server -n $GIT_NAMESPACE --timeout=60s || exit 1; \
             ./integration-tests/cluster-setup/argocd-kuberpult.sh && \
             cd integration-tests && go test ./... && \
             echo ============ SUCCESS ============
