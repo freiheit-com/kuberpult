@@ -1024,15 +1024,6 @@ func (s *SlowTransformer) Transform(ctx context.Context, state *State) (string, 
 	return "ok", &TransformerResult{}, nil
 }
 
-type SleepTransformer struct {
-	duration time.Duration
-}
-
-func (s *SleepTransformer) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	time.Sleep(s.duration)
-	return "ok", &TransformerResult{}, nil
-}
-
 type EmptyTransformer struct{}
 
 func (p *EmptyTransformer) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
@@ -1288,7 +1279,6 @@ func TestApplyQueueTtlForHealthNew(t *testing.T) {
 
 			// now that the transformer is started, we should get a failed health check immediately, because the networkTimeout is tiny:
 			waitUntilNotReady()
-			waitUntilReady()
 			if isReady() {
 				t.Error("t3: Expected health to be not ready after transformer was started")
 			}
