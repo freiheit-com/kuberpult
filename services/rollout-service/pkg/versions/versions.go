@@ -55,6 +55,16 @@ type VersionInfo struct {
 	DeployedAt     time.Time
 }
 
+func (v *VersionInfo) Equal(w *VersionInfo) bool {
+	if v == nil {
+		return w == nil
+	}
+	if w == nil {
+		return false
+	}
+	return v.Version == w.Version
+}
+
 // GetVersion implements VersionClient
 func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
 	var overview *api.GetOverviewResponse

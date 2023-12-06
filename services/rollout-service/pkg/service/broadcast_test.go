@@ -107,6 +107,13 @@ func TestBroadcast(t *testing.T) {
 						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
+				},
+				{
+					VersionEvent: &versions.KuberpultEvent{
+						Application: "foo",
+						Environment: "bar",
+						Version:     &versions.VersionInfo{Version: 1},
+					},
 
 					ExpectStatus: &RolloutStatusSuccesful,
 				},
@@ -138,7 +145,7 @@ func TestBroadcast(t *testing.T) {
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
 
-					ExpectStatus: &RolloutStatusSuccesful,
+					ExpectStatus: &RolloutStatusUnknown,
 				},
 				{
 					ArgoEvent: &ArgoEvent{
@@ -157,6 +164,15 @@ func TestBroadcast(t *testing.T) {
 			Name: "app syncing and becomming healthy",
 			Steps: []step{
 				{
+					VersionEvent: &versions.KuberpultEvent{
+						Application: "foo",
+						Environment: "bar",
+						Version:     &versions.VersionInfo{Version: 1},
+					},
+
+					ExpectStatus: &RolloutStatusUnknown,
+				},
+				{
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
@@ -168,10 +184,19 @@ func TestBroadcast(t *testing.T) {
 					ExpectStatus: &RolloutStatusSuccesful,
 				},
 				{
+					VersionEvent: &versions.KuberpultEvent{
+						Application: "foo",
+						Environment: "bar",
+						Version:     &versions.VersionInfo{Version: 2},
+					},
+
+					ExpectStatus: &RolloutStatusPending,
+				},
+				{
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 1},
+						Version:          &versions.VersionInfo{Version: 2},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeOutOfSync,
 						HealthStatusCode: health.HealthStatusHealthy,
 					},
@@ -182,7 +207,7 @@ func TestBroadcast(t *testing.T) {
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
 						Environment:      "bar",
-						Version:          &versions.VersionInfo{Version: 1},
+						Version:          &versions.VersionInfo{Version: 2},
 						SyncStatusCode:   v1alpha1.SyncStatusCodeOutOfSync,
 						HealthStatusCode: health.HealthStatusProgressing,
 					},
@@ -205,6 +230,15 @@ func TestBroadcast(t *testing.T) {
 		{
 			Name: "app becomming unhealthy and recovers",
 			Steps: []step{
+				{
+					VersionEvent: &versions.KuberpultEvent{
+						Application: "foo",
+						Environment: "bar",
+						Version:     &versions.VersionInfo{Version: 1},
+					},
+
+					ExpectStatus: &RolloutStatusUnknown,
+				},
 				{
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
@@ -281,6 +315,15 @@ func TestBroadcast(t *testing.T) {
 		{
 			Name: "healthy app switches to pending when a new version in kuberpult is deployed",
 			Steps: []step{
+				{
+					VersionEvent: &versions.KuberpultEvent{
+						Application: "foo",
+						Environment: "bar",
+						Version:     &versions.VersionInfo{Version: 1},
+					},
+
+					ExpectStatus: &RolloutStatusUnknown,
+				},
 				{
 					ArgoEvent: &ArgoEvent{
 						Application:      "foo",
