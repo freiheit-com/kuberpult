@@ -9,7 +9,7 @@ exports[`Product Version Data Displays Product Version Page No tags to Display 1
       <h1
         class="environment_name"
       >
-        Product Version for tester
+        Product Version Page
       </h1>
       <div />
       <div>
@@ -33,7 +33,7 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
       <h1
         class="environment_name"
       >
-        Product Version for tester2
+        Product Version Page
       </h1>
       <div
         class="dropdown_div"
@@ -59,6 +59,26 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
             dummyTag2
           </option>
         </select>
+        <select
+          class="env_drop_down"
+        >
+          <option
+            disabled=""
+            value="default"
+          >
+            Select an Environment or Environment Group
+          </option>
+          <option
+            value="g1"
+          >
+            g1
+          </option>
+          <option
+            value="g1/tester"
+          >
+            g1/tester
+          </option>
+        </select>
       </div>
       <div>
         <div
@@ -67,46 +87,57 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
           <table
             class="table"
           >
-            <tr
-              class="table_title"
-            >
-              <th>
-                App Name
-              </th>
-              <th>
-                Version
-              </th>
-              <th>
-                ManifestRepoLink
-              </th>
-              <th>
-                SourceRepoLink
-              </th>
-            </tr>
-            <tr
-              class="table_data"
-            >
-              <td>
-                testing-app
-              </td>
-              <td>
-                v1.2.3
-              </td>
-              <td />
-              <td />
-            </tr>
-            <tr
-              class="table_data"
-            >
-              <td>
-                tester
-              </td>
-              <td>
-                4565
-              </td>
-              <td />
-              <td />
-            </tr>
+            <tbody>
+              <tr
+                class="table_title"
+              >
+                <th>
+                  App Name
+                </th>
+                <th>
+                  Version
+                </th>
+                <th>
+                  Environment
+                </th>
+                <th>
+                  ManifestRepoLink
+                </th>
+                <th>
+                  SourceRepoLink
+                </th>
+              </tr>
+              <tr
+                class="table_data"
+              >
+                <td>
+                  testing-app
+                </td>
+                <td>
+                  v1.2.3
+                </td>
+                <td>
+                  dev
+                </td>
+                <td />
+                <td />
+              </tr>
+              <tr
+                class="table_data"
+              >
+                <td>
+                  tester
+                </td>
+                <td>
+                  4565
+                </td>
+                <td>
+                  dev
+                </td>
+                <td />
+                <td />
+              </tr>
+            </tbody>
           </table>
         </div>
       </div>
@@ -124,7 +155,7 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
       <h1
         class="environment_name"
       >
-        Product Version for tester2
+        Product Version Page
       </h1>
       <div
         class="dropdown_div"
@@ -145,6 +176,26 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
             dummyTag
           </option>
         </select>
+        <select
+          class="env_drop_down"
+        >
+          <option
+            disabled=""
+            value="default"
+          >
+            Select an Environment or Environment Group
+          </option>
+          <option
+            value="g1"
+          >
+            g1
+          </option>
+          <option
+            value="g1/tester"
+          >
+            g1/tester
+          </option>
+        </select>
       </div>
       <div>
         <div
@@ -153,34 +204,42 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
           <table
             class="table"
           >
-            <tr
-              class="table_title"
-            >
-              <th>
-                App Name
-              </th>
-              <th>
-                Version
-              </th>
-              <th>
-                ManifestRepoLink
-              </th>
-              <th>
-                SourceRepoLink
-              </th>
-            </tr>
-            <tr
-              class="table_data"
-            >
-              <td>
-                testing-app
-              </td>
-              <td>
-                v1.2.3
-              </td>
-              <td />
-              <td />
-            </tr>
+            <tbody>
+              <tr
+                class="table_title"
+              >
+                <th>
+                  App Name
+                </th>
+                <th>
+                  Version
+                </th>
+                <th>
+                  Environment
+                </th>
+                <th>
+                  ManifestRepoLink
+                </th>
+                <th>
+                  SourceRepoLink
+                </th>
+              </tr>
+              <tr
+                class="table_data"
+              >
+                <td>
+                  testing-app
+                </td>
+                <td>
+                  v1.2.3
+                </td>
+                <td>
+                  dev
+                </td>
+                <td />
+                <td />
+              </tr>
+            </tbody>
           </table>
         </div>
       </div>

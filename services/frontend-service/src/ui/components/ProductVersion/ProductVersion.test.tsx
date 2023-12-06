@@ -15,14 +15,33 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { GetGitTagsResponse, GetProductSummaryResponse, ProductSummary, TagData } from '../../../api/api';
-import { updateSummary, updateTag } from '../../utils/store';
+import {
+    Environment,
+    EnvironmentGroup,
+    GetGitTagsResponse,
+    GetProductSummaryResponse,
+    Priority,
+    ProductSummary,
+    TagData,
+} from '../../../api/api';
+import { UpdateOverview, updateSummary, updateTag } from '../../utils/store';
 import { ProductVersion } from './ProductVersion';
+
+const sampleEnvsA: Environment[] = [
+    {
+        name: 'tester',
+        locks: {},
+        applications: {},
+        distanceToUpstream: 0,
+        priority: Priority.UPSTREAM,
+    },
+];
 
 describe('Product Version Data', () => {
     type TestData = {
         name: string;
         environmentName: string;
+        environmentGroups: EnvironmentGroup[];
         expectedDropDown: string;
         tags: TagData[];
         productSummary: ProductSummary[];
@@ -34,19 +53,33 @@ describe('Product Version Data', () => {
             tags: [],
             expectedDropDown: '',
             productSummary: [],
+            environmentGroups: [
+                {
+                    environments: [sampleEnvsA[0]],
+                    distanceToUpstream: 1,
+                    environmentGroupName: 'g1',
+                },
+            ],
         },
         {
             name: 'tags to Display with summary',
-            environmentName: 'tester2',
+            environmentName: 'tester',
             tags: [{ commitId: '123', tag: 'refs/tags/dummyTag' }],
             expectedDropDown: 'dummyTag',
             productSummary: [
                 { app: 'testing-app', version: '4', commitId: '123', displayVersion: 'v1.2.3', environment: 'dev' },
             ],
+            environmentGroups: [
+                {
+                    environments: [sampleEnvsA[0]],
+                    distanceToUpstream: 1,
+                    environmentGroupName: 'g1',
+                },
+            ],
         },
         {
             name: 'table to be displayed with multiple rows of data',
-            environmentName: 'tester2',
+            environmentName: 'tester',
             tags: [
                 { commitId: '123', tag: 'refs/tags/dummyTag' },
                 { commitId: '859', tag: 'refs/tags/dummyTag2' },
@@ -56,6 +89,13 @@ describe('Product Version Data', () => {
                 { app: 'testing-app', version: '4', commitId: '123', displayVersion: 'v1.2.3', environment: 'dev' },
                 { app: 'tester', version: '10', commitId: '4565', displayVersion: '', environment: 'dev' },
             ],
+            environmentGroups: [
+                {
+                    environments: [sampleEnvsA[0]],
+                    distanceToUpstream: 1,
+                    environmentGroupName: 'g1',
+                },
+            ],
         },
     ];
 
@@ -63,6 +103,9 @@ describe('Product Version Data', () => {
         // given
         it(testCase.name, () => {
             // replicate api calls
+            UpdateOverview.set({
+                environmentGroups: testCase.environmentGroups,
+            });
             const tagsResponse: GetGitTagsResponse = { tagData: testCase.tags };
             updateTag.set({ response: tagsResponse, tagsReady: true });
             const summaryResponse: GetProductSummaryResponse = { productSummary: testCase.productSummary };
@@ -70,13 +113,13 @@ describe('Product Version Data', () => {
 
             render(
                 <MemoryRouter>
-                    <ProductVersion environment={testCase.environmentName} />
+                    <ProductVersion />
                 </MemoryRouter>
             );
             expect(document.body).toMatchSnapshot();
-            expect(document.querySelector('.environment_name')?.textContent).toContain(testCase.environmentName);
             if (testCase.expectedDropDown !== '') {
                 expect(document.querySelector('.drop_down')?.textContent).toContain(testCase.expectedDropDown);
+                expect(document.querySelector('.env_drop_down')?.textContent).toContain(testCase.environmentName);
             }
 
             if (testCase.productSummary.length > 0) {

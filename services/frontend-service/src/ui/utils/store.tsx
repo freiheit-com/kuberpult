@@ -88,10 +88,10 @@ export const refreshTags = (): void => {
 export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
 
 const summaryResponse: GetProductSummaryResponse = { productSummary: [] };
-export const getSummary = (commitHash: string, environment: string): void => {
+export const getSummary = (commitHash: string, environment: string, environmentGroup: string): void => {
     const api = useApi;
     api.tagsService()
-        .GetProductSummary({ commitHash: commitHash, environment: environment })
+        .GetProductSummary({ commitHash: commitHash, environment: environment, environmentGroup: environmentGroup })
         .then((result: GetProductSummaryResponse) => {
             updateSummary.set({ response: result, summaryReady: true });
         })

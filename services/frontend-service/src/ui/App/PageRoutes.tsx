@@ -38,7 +38,7 @@ const routes = [
         element: <ReleasesPage />,
     },
     {
-        path: `/ui/environments/productVersion/:environmentName`,
+        path: `/ui/environments/productVersion/*`,
         element: <ProductVersionPage />,
     },
     {

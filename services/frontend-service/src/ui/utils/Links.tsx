@@ -146,3 +146,41 @@ export const DisplayManifestLink: React.FC<{ displayString: string; app: string;
     }
     return null;
 };
+
+type Query = {
+    key: string;
+    value: string | null;
+};
+
+const toQueryString = (queries: Query[]): string => {
+    const str: string[] = [];
+    queries.forEach((q: Query) => {
+        if (q.value) {
+            str.push(encodeURIComponent(q.key) + '=' + encodeURIComponent(q.value));
+        }
+    });
+    return str.join('&');
+};
+
+export const ProductVersionLink: React.FC<{ env: string; groupName: string }> = (props): JSX.Element | null => {
+    const { env, groupName } = props;
+
+    const separator = groupName === '' ? '' : '/';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const teams = urlParams.get('teams');
+    const queryString = toQueryString([
+        { key: 'env', value: groupName + separator + env },
+        { key: 'teams', value: teams },
+    ]);
+
+    const currentLink = window.location.href;
+    const addParam = currentLink.split('?');
+    return (
+        <a
+            title={'Opens the release directory in the manifest repository for this release'}
+            href={addParam[0] + '/productVersion' + '?' + queryString}>
+            Display Version for {env}
+        </a>
+    );
+};

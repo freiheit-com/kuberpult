@@ -42,7 +42,7 @@ export const EnvironmentsPage: React.FC = () => {
             {/*if there are no groups, wrap everything in one group: */}
             <div className="environment-group-lane">
                 {envs.map((env) => (
-                    <EnvironmentCard environment={env} key={env.name} />
+                    <EnvironmentCard environment={env} key={env.name} groupName="" />
                 ))}
             </div>
         </main>

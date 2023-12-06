@@ -13,24 +13,19 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import {
-    addAction,
-    getPriorityClassName,
-    useFilteredEnvironmentLockIDs,
-    useNavigateWithSearchParams,
-} from '../../utils/store';
+import { addAction, getPriorityClassName, useFilteredEnvironmentLockIDs } from '../../utils/store';
 import { Button } from '../button';
 import { Locks } from '../../../images';
 import * as React from 'react';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 import { Environment, EnvironmentGroup } from '../../../api/api';
 import classNames from 'classnames';
+import { ProductVersionLink } from '../../utils/Links';
 
-export const EnvironmentCard: React.FC<{ environment: Environment }> = (props) => {
-    const { environment } = props;
+export const EnvironmentCard: React.FC<{ environment: Environment; groupName: string }> = (props) => {
+    const { environment, groupName } = props;
     const locks = useFilteredEnvironmentLockIDs(environment.name);
     const priorityClassName = getPriorityClassName(environment);
-    const { navCallback } = useNavigateWithSearchParams('productVersion/' + environment.name);
 
     const addLock = React.useCallback(() => {
         addAction({
@@ -68,11 +63,7 @@ export const EnvironmentCard: React.FC<{ environment: Environment }> = (props) =
                         onClick={addLock}
                     />
                     <div>
-                        <Button
-                            className="environment-action"
-                            label={'Display versions for ' + environment.name}
-                            onClick={navCallback}
-                        />
+                        <ProductVersionLink env={environment.name} groupName={groupName}></ProductVersionLink>
                     </div>
                 </div>
             </div>
@@ -113,7 +104,11 @@ export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup
             </div>
             <div className="environment-group-lane__body">
                 {environmentGroup.environments.map((env) => (
-                    <EnvironmentCard environment={env} key={env.name} />
+                    <EnvironmentCard
+                        environment={env}
+                        key={env.name}
+                        groupName={environmentGroup.environmentGroupName}
+                    />
                 ))}
             </div>
             {/*I am just here so that we can avoid margin collapsing */}
