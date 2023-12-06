@@ -28,18 +28,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-type mockClock struct {
-	value time.Time
-}
-
-func (m *mockClock) now() time.Time {
-	return m.value
-}
-
-func (m *mockClock) add(d time.Duration) {
-	m.value = m.value.Add(d)
-}
-
 func TestHealthReporter(t *testing.T) {
 	tcs := []struct {
 		Name               string
