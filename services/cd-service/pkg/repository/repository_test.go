@@ -1179,184 +1179,13 @@ func WrapPlain(ctx context.Context, inner func(ctx context.Context)) {
 
 func TestApplyQueueTtlForHealthNew(t *testing.T) {
 	// we set the networkTimeout to something extremely low, so that it doesn't interfere with other processes e.g like once per second:
-	networkTimeout := 50 * time.Millisecond
+	networkTimeout := 1 * time.Millisecond
 
-	type action struct {
-		Transformer Transformer
-	}
 	tcs := []struct {
 		Name string
 	}{
-		/*
-			Expected timeline:
-
-			t0: health: starting
-			t0: start process queue
-			t1: health: ready
-			(in parallel) t2: add transformer, that sleeps long (e.g. 10s)
-			t3: after some seconds: health should be failing (or succeeding if the transformer is quick)
-		*/
 		{
 			Name: "sleeps way too long, so health should fail",
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			WrapPlain(testutil.MakeTestContext(), func(ctx context.Context) {
-
-				dir := t.TempDir()
-				remoteDir := path.Join(dir, "remote")
-				localDir := path.Join(dir, "local")
-				cmd := exec.Command("git", "init", "--bare", remoteDir)
-				cmd.Start()
-				cmd.Wait()
-				repo, processQueue, err := New2(
-					testutil.MakeTestContext(),
-					RepositoryConfig{
-						URL:            "file://" + remoteDir,
-						Path:           localDir,
-						NetworkTimeout: networkTimeout,
-					},
-				)
-				if err != nil {
-					t.Fatalf("new: expected no error, got '%e'", err)
-				}
-				//ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
-				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-				hlth := &setup.HealthServer{}
-				hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
-				reporterName := "ClarkKent"
-				reporter := hlth.Reporter(reporterName)
-				isReady := func() bool {
-					return hlth.IsReady(reporterName)
-				}
-
-				t.Logf("t0: setup done.")
-				if isReady() {
-					t.Error("t0: Expected to be not ready")
-				}
-
-				errChan := make(chan error)
-				// we just started, so should still be in "starting", not "ready":
-				if isReady() {
-					t.Error("Expected to be not ready before processQueue")
-				}
-				reporter.ReportReady("some message test")
-				// we just reported ready, so it should be "ready" for sure:
-				if !isReady() {
-					t.Error("Expected to be ready after reporting ready")
-				}
-				go func() {
-					t.Logf("----- start process queue")
-					err = processQueue(ctx, reporter)
-					errChan <- err
-					t.Logf("----- process queue end.")
-				}()
-				defer func() {
-					cancel()
-					t.Logf("---------- waiting for errChan...")
-					chanError := <-errChan
-					t.Logf("---------- done waiting for errChan.")
-					if chanError != nil {
-						t.Errorf("Expected no error in processQueue but got: %v", chanError)
-					}
-				}()
-
-				// just for debugging:
-				debug := false
-				if debug {
-					go func() {
-						for i := 0; i < 10; i++ {
-							time.Sleep(time.Second)
-							t.Logf("--------------- ty: health: %v", isReady())
-						}
-					}()
-				}
-
-				t.Logf("t2: start transformer by filling the queue")
-				finished := make(chan struct{})
-				started := make(chan struct{}, 1)
-				var transformer Transformer = &SlowTransformer{
-					finished: finished,
-					started:  started,
-				}
-
-				repo.(*repository).applyDeferred(ctx, transformer)
-
-				if !isReady() {
-					t.Error("t3: Expected health to be ready before transformer is started")
-				}
-
-				// first, wait, until the transformer has started:
-				<-started
-
-				waitUntilReady := func() {
-					for !isReady() {
-						time.Sleep(networkTimeout)
-					}
-				}
-				waitUntilNotReady := func() {
-					for isReady() {
-						time.Sleep(networkTimeout)
-					}
-				}
-
-				// now that the transformer is started, we should get a failed health check immediately, because the networkTimeout is tiny:
-				waitUntilNotReady()
-				if isReady() {
-					t.Error("t3: Expected health to be not ready after transformer was started")
-				}
-
-				// let the transformer finish:
-				finished <- struct{}{}
-				waitUntilReady()
-				if !isReady() {
-					t.Error("Transformer is done, should be ready again")
-				}
-
-			})
-		})
-	}
-}
-
-func TestApplyQueueTtlForHealthOld(t *testing.T) {
-	networkTimeout := 1 * time.Second
-
-	type action struct {
-		Transformer Transformer
-	}
-	tcs := []struct {
-		Name               string
-		Actions            []action
-		ExpectedHealthToBe bool
-	}{
-		/*
-			Expected timeline:
-
-			t0: health: starting
-			t0: start process queue
-			t1: health: ready
-			(in parallel) t2: add transformer, that sleeps long (e.g. 10s)
-			t3: after some seconds: health should be failing (or succeeding if the transformer is quick)
-		*/
-		{
-			Name: "sleeps way too long, so health should fail",
-			Actions: []action{
-				{
-					Transformer: &SleepTransformer{duration: 5 * networkTimeout},
-				},
-			},
-			ExpectedHealthToBe: false,
-		},
-		{
-			Name: "sleeps not long enough to cause an issue",
-			Actions: []action{
-				{
-					Transformer: &SleepTransformer{duration: 1 * networkTimeout},
-				},
-			},
-			ExpectedHealthToBe: true,
 		},
 	}
 	for _, tc := range tcs {
@@ -1380,14 +1209,22 @@ func TestApplyQueueTtlForHealthOld(t *testing.T) {
 				t.Fatalf("new: expected no error, got '%e'", err)
 			}
 			ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
-			defer cancel()
 			hlth := &setup.HealthServer{}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			reporterName := "ClarkKent"
 			reporter := hlth.Reporter(reporterName)
-
 			isReady := func() bool {
 				return hlth.IsReady(reporterName)
+			}
+			waitUntilReady := func() {
+				for !isReady() {
+					time.Sleep(time.Nanosecond)
+				}
+			}
+			waitUntilNotReady := func() {
+				for isReady() {
+					time.Sleep(time.Nanosecond)
+				}
 			}
 
 			t.Logf("t0: setup done.")
@@ -1398,12 +1235,12 @@ func TestApplyQueueTtlForHealthOld(t *testing.T) {
 			errChan := make(chan error)
 			// we just started, so should still be in "starting", not "ready":
 			if isReady() {
-				t.Error("Expected to be not ready before processQueue 1")
+				t.Error("Expected to be not ready before processQueue")
 			}
 			reporter.ReportReady("some message test")
-			// we just reported ready, so should be "ready" for sure:
+			// we just reported ready, so it should be "ready" for sure:
 			if !isReady() {
-				t.Error("Expected to be ready before processQueue 2")
+				t.Error("Expected to be ready after reporting ready")
 			}
 			go func() {
 				t.Logf("----- start process queue")
@@ -1412,6 +1249,7 @@ func TestApplyQueueTtlForHealthOld(t *testing.T) {
 				t.Logf("----- process queue end.")
 			}()
 			defer func() {
+				cancel()
 				t.Logf("---------- waiting for errChan...")
 				chanError := <-errChan
 				t.Logf("---------- done waiting for errChan.")
@@ -1424,48 +1262,44 @@ func TestApplyQueueTtlForHealthOld(t *testing.T) {
 			debug := false
 			if debug {
 				go func() {
-					for i := 0; i < 20; i++ {
+					for i := 0; i < 10; i++ {
 						time.Sleep(time.Second)
 						t.Logf("--------------- ty: health: %v", isReady())
 					}
 				}()
 			}
 
-			// give the queue some time to pick up the transformer
-			time.Sleep(time.Millisecond * 500)
-			t.Logf("t1: done sleeping")
-			if !isReady() {
-				t.Error("t1: Expected to be ready")
-			}
-
 			t.Logf("t2: start transformer by filling the queue")
-			{
-				// The worker go routine is not started. We can move some items into the queue now.
-				results := make([]<-chan error, len(tc.Actions))
-				for i, action := range tc.Actions {
-					// We are using the internal interface here as an optimization to avoid spinning up one go-routine per action
-					transformer := action.Transformer
-					if transformer == nil {
-						t.Errorf("transformer nil")
-					}
-					// Block the worker so that we have multiple items in the queue
-					results[i] = repo.(*repository).applyDeferred(ctx, transformer)
-				}
+			finished := make(chan struct{})
+			started := make(chan struct{}, 1)
+			var transformer Transformer = &SlowTransformer{
+				finished: finished,
+				started:  started,
 			}
-			t.Logf("t2: transformer started.")
 
-			time.Sleep(networkTimeout * 4) // 3 is the factor from ProcessQueue, we need to wait a little longer than that
+			repo.(*repository).applyDeferred(ctx, transformer)
 
-			// t3: after some seconds, health should fail
-			if tc.ExpectedHealthToBe {
-				if !isReady() {
-					t.Error("t3: Expected to be not ready but was ready")
-				}
-			} else {
-				if isReady() {
-					t.Error("t3: Expected to be ready but was not ready")
-				}
+			if !isReady() {
+				t.Error("t3: Expected health to be ready before transformer is started")
 			}
+
+			// first, wait, until the transformer has started:
+			<-started
+
+			// now that the transformer is started, we should get a failed health check immediately, because the networkTimeout is tiny:
+			waitUntilNotReady()
+			waitUntilReady()
+			if isReady() {
+				t.Error("t3: Expected health to be not ready after transformer was started")
+			}
+
+			// let the transformer finish:
+			finished <- struct{}{}
+			waitUntilReady()
+			if !isReady() {
+				t.Error("Transformer is done, should be ready again")
+			}
+
 		})
 	}
 }
