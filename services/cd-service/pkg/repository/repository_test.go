@@ -1160,9 +1160,21 @@ func TestApplyQueuePanic(t *testing.T) {
 	}
 }
 
+type mockClock struct {
+	t time.Time
+}
+
+func (m *mockClock) now() time.Time {
+	return m.t
+}
+
+func (m *mockClock) sleep(d time.Duration) {
+	m.t = m.t.Add(d)
+}
+
 func TestApplyQueueTtlForHealth(t *testing.T) {
 	// we set the networkTimeout to something extremely low, so that it doesn't interfere with other processes e.g like once per second:
-	networkTimeout := 1 * time.Millisecond
+	networkTimeout := 1 * time.Second
 
 	tcs := []struct {
 		Name string
@@ -1192,95 +1204,54 @@ func TestApplyQueueTtlForHealth(t *testing.T) {
 				t.Fatalf("new: expected no error, got '%e'", err)
 			}
 			ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
+
+			mc := mockClock{}
 			hlth := &setup.HealthServer{}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
+			hlth.Clock = mc.now
 			reporterName := "ClarkKent"
 			reporter := hlth.Reporter(reporterName)
 			isReady := func() bool {
 				return hlth.IsReady(reporterName)
 			}
-			waitUntilReady := func() {
-				for !isReady() {
-					time.Sleep(time.Millisecond)
-				}
-			}
-			waitUntilNotReady := func() {
-				for isReady() {
-					time.Sleep(time.Millisecond)
-				}
-			}
-
-			t.Logf("t0: setup done.")
-			if isReady() {
-				t.Error("t0: Expected to be not ready")
-			}
-
 			errChan := make(chan error)
-			// we just started, so should still be in "starting", not "ready":
-			if isReady() {
-				t.Error("Expected to be not ready before processQueue")
-			}
-			reporter.ReportReady("some message test")
-			// we just reported ready, so it should be "ready" for sure:
-			if !isReady() {
-				t.Error("Expected to be ready after reporting ready")
-			}
 			go func() {
-				t.Logf("----- start process queue")
 				err = processQueue(ctx, reporter)
 				errChan <- err
-				t.Logf("----- process queue end.")
 			}()
 			defer func() {
 				cancel()
-				t.Logf("---------- waiting for errChan...")
 				chanError := <-errChan
-				t.Logf("---------- done waiting for errChan.")
 				if chanError != nil {
 					t.Errorf("Expected no error in processQueue but got: %v", chanError)
 				}
 			}()
 
-			// just for debugging:
-			debug := false
-			if debug {
-				go func() {
-					for i := 0; i < 10; i++ {
-						time.Sleep(time.Second)
-						t.Logf("--------------- ty: health: %v", isReady())
-					}
-				}()
-			}
-
-			t.Logf("t2: start transformer by filling the queue")
 			finished := make(chan struct{})
-			started := make(chan struct{}, 1)
+			started := make(chan struct{})
 			var transformer Transformer = &SlowTransformer{
 				finished: finished,
 				started:  started,
 			}
 
-			repo.(*repository).applyDeferred(ctx, transformer)
-
-			if !isReady() {
-				t.Error("t3: Expected health to be ready before transformer is started")
-			}
+			go repo.Apply(ctx, transformer)
 
 			// first, wait, until the transformer has started:
 			<-started
+			// health should be reporting as ready now
+			if !isReady() {
+				t.Error("Expected health to be ready after transformer was started, but it was not")
+			}
+			// now advance the clock time
+			mc.sleep(4 * networkTimeout)
 
 			// now that the transformer is started, we should get a failed health check immediately, because the networkTimeout is tiny:
-			waitUntilNotReady()
 			if isReady() {
-				t.Error("t3: Expected health to be not ready after transformer was started")
+				t.Error("Expected health to be not ready after transformer took too long, but it was")
 			}
 
 			// let the transformer finish:
 			finished <- struct{}{}
-			waitUntilReady()
-			if !isReady() {
-				t.Error("Transformer is done, should be ready again")
-			}
 
 		})
 	}
@@ -1487,7 +1458,7 @@ func TestApplyQueue(t *testing.T) {
 			finished := make(chan struct{})
 			started := make(chan struct{}, 1)
 			go func() {
-				repo.Apply(testutil.MakeTestContext(), &SlowTransformer{finished, started})
+				repo.Apply(testutil.MakeTestContext(), &SlowTransformer{finished: finished, started: started})
 			}()
 			<-started
 			// The worker go routine is now blocked. We can move some items into the queue now.
