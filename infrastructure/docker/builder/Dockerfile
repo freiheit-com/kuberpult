@@ -8,5 +8,5 @@ RUN npm install -g pnpm@8.5.1
 RUN wget https://github.com/bufbuild/buf/releases/download/v1.23.1/buf-Linux-x86_64 -O /usr/local/bin/buf && chmod +x /usr/local/bin/buf
 RUN echo 'b1f3484cfc092bc14e1f886ff2116a98562bf29df0be2130bbaac128eca0b628  /usr/local/bin/buf' | sha256sum -c
 
-RUN wget https://github.com/earthly/earthly/releases/download/v0.7.21/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly
-RUN echo '9f87af7cf2c9caf8cb60647d229234cbc29a5eced4635b241678116e6a8bc3a8  /usr/local/bin/earthly' | sha256sum -c
+RUN wget https://github.com/earthly/earthly/releases/download/v0.7.22/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly
+RUN echo 'c2ca56b49378ae270fba7f57088025e1d0d76f628e556b79e19b94b51fc3943b  /usr/local/bin/earthly' | sha256sum -c

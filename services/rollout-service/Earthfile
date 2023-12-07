@@ -1,52 +1,46 @@
 VERSION 0.7
-ARG --global service=rollout-service
+IMPORT ../../infrastructure/earthly/go AS go-build
+
+LOCALLY
+ARG --global service=$(basename $PWD)
+ARG --global UID=1000
+ARG --global cgo_enabled=0
+ARG --global registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+ARG --global tag="local"
 
 deps:
     FROM ../../+deps
-    COPY ../../pkg+artifacts/* pkg/
-    COPY pkg services/$service/pkg
-    COPY cmd/server/* services/$service/cmd/server/
-    COPY (../cd-service/+artifacts/pkg --service=cd-service) services/cd-service/pkg/
-    SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
-    SAVE ARTIFACT /usr/share/zoneinfo
-    SAVE IMAGE --cache-hint
+    DO go-build+DEPS --service=$service
+    COPY (../cd-service/+artifacts/pkg --service=cd-service) /kp/services/cd-service/pkg/
+    WORKDIR services/$service
+
 artifacts:
     FROM +deps
-    SAVE ARTIFACT services/$service/pkg
+    SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
+    SAVE ARTIFACT /usr/share/zoneinfo
+
 compile:
     FROM +deps
-    ARG USERARCH
-    WORKDIR services/$service/cmd/server
-    RUN CGO_ENABLED=0 \
-        GOARCH=$USERARCH \
-	    GOOS=linux \
-        go build -o bin/main main.go
-    SAVE ARTIFACT bin/main
-    SAVE IMAGE --cache-hint
+    DO go-build+COMPILE --cgo_enabled=$cgo_enabled
 
 unit-test:
     FROM +compile
-    WORKDIR /kp/services/$service
-    RUN CGO_ENABLED=0 go test ./...
-
+    DO go-build+UNIT_TEST
+    
 docker:
-    FROM alpine:3.18
-    ARG UID=1000
-    ARG tag="local"
-    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
-    ENV TZ=Europe/Berlin
-    RUN adduser --disabled-password --home "/kp" --uid ${UID} kp
-    RUN chown -R kp:kp /kp
+    LOCALLY
+    IF [ "$cgo_enabled" = "1" ]
+        FROM debian:bookworm
+    ELSE
+        FROM alpine:3.18
+    END
+
+    COPY +artifacts/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+    COPY +artifacts/zoneinfo /usr/share/zoneinfo
     COPY +compile/main /main
-    COPY +deps/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-    COPY +deps/zoneinfo /usr/share/zoneinfo
-    USER kp
-    WORKDIR /kp
-    ENTRYPOINT ["/main"] 
-    SAVE IMAGE $registry/kuberpult-$service:$tag
+
+    DO go-build+DOCKER --UID=$UID --image_tag=$registry/kuberpult-$service:$tag --entry_point=/main
 
 release:
     FROM +docker
-    ARG tag="local"
-    ARG registry="ghcr.io/freiheit-com/kuberpult"
-    SAVE IMAGE --push $registry/kuberpult-$service:$tag
+    DO go-build+RELEASE --image_tag=$registry/kuberpult-$service:$tag

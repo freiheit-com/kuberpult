@@ -1,0 +1,48 @@
+VERSION --use-function-keyword 0.7
+
+DEPS:
+    FUNCTION
+    ARG --required service
+    COPY ../../../pkg+artifacts/pkg pkg
+    COPY cmd services/$service/cmd
+    COPY pkg services/$service/pkg
+
+COMPILE:
+    FUNCTION
+    ARG USERARCH
+    ARG main_path="cmd/server"
+    ARG cgo_enabled=0
+    
+    RUN cd $main_path && \
+        CGO_ENABLED=$cgo_enabled \
+        GOARCH=$USERARCH \
+	    GOOS=linux \
+        go build -o bin/main .
+    
+    SAVE ARTIFACT $main_path/bin/main
+
+UNIT_TEST:
+    FUNCTION
+    RUN go test ./...
+
+DOCKER:
+    FUNCTION
+    ARG UID=1000
+    ARG entry_point="/main"
+    ARG workdir=/kp
+    ARG --required image_tag
+
+    ENV TZ=Europe/Berlin
+    
+    RUN adduser --disabled-password --home "/kp" --uid $UID kp
+    RUN chown -R kp:kp /kp
+
+    USER kp
+    WORKDIR $workdir
+    ENTRYPOINT "$entry_point"
+    SAVE IMAGE $image_tag
+
+RELEASE:
+    FUNCTION
+    ARG --required image_tag
+    SAVE IMAGE --push $image_tag
