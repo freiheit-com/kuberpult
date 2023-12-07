@@ -69,7 +69,7 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 			}
 		}
 		if len(summaryFromEnv) == 0 {
-			return nil, nil
+			return &api.GetProductSummaryResponse{}, nil
 		}
 		sort.Slice(summaryFromEnv, func(i, j int) bool {
 			a := summaryFromEnv[i].App
