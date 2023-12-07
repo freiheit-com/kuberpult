@@ -18,6 +18,51 @@ Given a version number MAJOR.MINOR.PATCH:
 
 ---
 
+## [1.15.0](https://github.com/freiheit-com/kuberpult/tree/1.15.0) (2023-12-07)
+
+[Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.14.0...1.15.0)
+
+**Fixed bugs:**
+
+- Fix dropdown to display the selectedTag [\#1180](https://github.com/freiheit-com/kuberpult/pull/1180) ([gsandok](https://github.com/gsandok))
+
+### Minor Changes (New Features)
+
+- Fix return from endpoint GetProductSummary\(\) for empty Summary [\#1199](https://github.com/freiheit-com/kuberpult/pull/1199) ([gsandok](https://github.com/gsandok))
+- Require kuberpult AND argocd version to mark app as deployed [\#1197](https://github.com/freiheit-com/kuberpult/pull/1197) ([hannesg](https://github.com/hannesg))
+- FIxed issue with the example URL for Bitbucket's manifestRepoUrl [\#1186](https://github.com/freiheit-com/kuberpult/pull/1186) ([gsandok](https://github.com/gsandok))
+- Add env Dropdown to Product Version Page [\#1185](https://github.com/freiheit-com/kuberpult/pull/1185) ([gsandok](https://github.com/gsandok))
+- Update GetProductSummary endpoint to allow envGroups as well as environments [\#1181](https://github.com/freiheit-com/kuberpult/pull/1181) ([gsandok](https://github.com/gsandok))
+- Kuberpult Page to Display the version of each service for a git tag [\#1159](https://github.com/freiheit-com/kuberpult/pull/1159) ([gsandok](https://github.com/gsandok))
+
+### Patch Changes (Bugfixes)
+
+- Remove redundant wait condition in integration tests [\#1194](https://github.com/freiheit-com/kuberpult/pull/1194) ([ahmed-nour-fdc](https://github.com/ahmed-nour-fdc))
+- fix\(deps\): update module github.com/lestrrat-go/jwx/v2 to v2.0.18 [\#1190](https://github.com/freiheit-com/kuberpult/pull/1190) ([renovate[bot]](https://github.com/apps/renovate))
+- fix\(deps\): update module github.com/argoproj/argo-cd/v2 to v2.9.3 [\#1189](https://github.com/freiheit-com/kuberpult/pull/1189) ([renovate[bot]](https://github.com/apps/renovate))
+- fix\(deps\): update module github.com/coreos/go-oidc/v3 to v3.8.0 [\#1177](https://github.com/freiheit-com/kuberpult/pull/1177) ([renovate[bot]](https://github.com/apps/renovate))
+- fix\(deps\): update module google.golang.org/api to v0.152.0 [\#1176](https://github.com/freiheit-com/kuberpult/pull/1176) ([renovate[bot]](https://github.com/apps/renovate))
+- fix\(deps\): update module golang.org/x/oauth2 to v0.15.0 [\#1175](https://github.com/freiheit-com/kuberpult/pull/1175) ([renovate[bot]](https://github.com/apps/renovate))
+- fix\(deps\): update module golang.org/x/crypto to v0.16.0 [\#1174](https://github.com/freiheit-com/kuberpult/pull/1174) ([renovate[bot]](https://github.com/apps/renovate))
+- Fixed an NPE in applyArgoEvents [\#1171](https://github.com/freiheit-com/kuberpult/pull/1171) ([hannesg](https://github.com/hannesg))
+- Improve local kuberpult run with earthly [\#1170](https://github.com/freiheit-com/kuberpult/pull/1170) ([ahmed-nour-fdc](https://github.com/ahmed-nour-fdc))
+- Reduce network timeout for local setup [\#1169](https://github.com/freiheit-com/kuberpult/pull/1169) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Run integration tests with Earthly [\#1167](https://github.com/freiheit-com/kuberpult/pull/1167) ([ahmed-nour-fdc](https://github.com/ahmed-nour-fdc))
+- Update README.md Design Principle Deploy often [\#1165](https://github.com/freiheit-com/kuberpult/pull/1165) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+- Enable hot reloading for the UI when starting with earthly [\#1164](https://github.com/freiheit-com/kuberpult/pull/1164) ([ahmed-nour-fdc](https://github.com/ahmed-nour-fdc))
+- chore\(deps\): update dependency node to v20.10.0 [\#1161](https://github.com/freiheit-com/kuberpult/pull/1161) ([renovate[bot]](https://github.com/apps/renovate))
+- fix\(deps\): update k8s.io/utils digest to cf03d44 [\#1160](https://github.com/freiheit-com/kuberpult/pull/1160) ([renovate[bot]](https://github.com/apps/renovate))
+- fix\(deps\): update module gopkg.in/datadog/dd-trace-go.v1 to v1.58.0 [\#1158](https://github.com/freiheit-com/kuberpult/pull/1158) ([renovate[bot]](https://github.com/apps/renovate))
+- chore\(deps\): update dependency typescript to v5.3.2 [\#1157](https://github.com/freiheit-com/kuberpult/pull/1157) ([renovate[bot]](https://github.com/apps/renovate))
+- fix\(deps\): update module github.com/argoproj/argo-cd/v2 to v2.9.2 [\#1156](https://github.com/freiheit-com/kuberpult/pull/1156) ([renovate[bot]](https://github.com/apps/renovate))
+- fix\(deps\): update module github.com/lestrrat-go/jwx/v2 to v2.0.17 [\#1154](https://github.com/freiheit-com/kuberpult/pull/1154) ([renovate[bot]](https://github.com/apps/renovate))
+- Revert "fix\(release\): if a release already exists, return http/409 Conflict \(SRX-627DCD\)" [\#1152](https://github.com/freiheit-com/kuberpult/pull/1152) ([bjoern-michaelsen-freiheit](https://github.com/bjoern-michaelsen-freiheit))
+- ci\(linting\): prevent it.only or describe.only usages from being merged \(SRX-4Z36FR\) [\#1151](https://github.com/freiheit-com/kuberpult/pull/1151) ([bjoern-michaelsen-freiheit](https://github.com/bjoern-michaelsen-freiheit))
+- fix\(release\): if a release already exists, return http/409 Conflict \(SRX-627DCD\) [\#1150](https://github.com/freiheit-com/kuberpult/pull/1150) ([bjoern-michaelsen-freiheit](https://github.com/bjoern-michaelsen-freiheit))
+- Force browsers to stop caching index.html [\#1135](https://github.com/freiheit-com/kuberpult/pull/1135) ([sven-urbanski-freiheit-com](https://github.com/sven-urbanski-freiheit-com))
+
+---
+
 ## [1.14.0](https://github.com/freiheit-com/kuberpult/tree/1.14.0) (2023-11-17)
 
 [Full Changelog](https://github.com/freiheit-com/kuberpult/compare/1.13.0...1.14.0)
