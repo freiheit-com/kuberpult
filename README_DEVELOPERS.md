@@ -208,53 +208,30 @@ To run the services: `make kuberpult`
 
 Releases are half-automated via GitHub actions.
 
-### Changelog file
-To create a release, ensure that the release version and accompanying changes are added to the `CHANGELOG.md` file.
-To help with that, we use a changelog generator.
-You need a GitHub personal token to run this script and set the environment variable `TOKEN`.
-* Go to [GitHub settings](https://github.com/settings/tokens?type=beta)
-* Create a fine-grained access token
-* Limit the lifetime to <= 7 days. You can easily regerate the token next time.
-* Resource Owner: <Your own account> (not an org)
-* Repository access: `Public Repositories (read-only)`
-* `Generate Token`
+Go to the [release workflow pipeline](https://github.com/freiheit-com/kuberpult/actions/workflows/release.yml) and trigger "run pipeline" on the main branch.
 
-You now need to create a remote git tag, so that the generator knows what the release is called:
-```shell
-VERSION=.... # 0.1.2
-git tag --sign --edit "$VERSION"
-git push origin "$VERSION"
-```
-Cancel the triggered pipeline in GitHub, so that it doesn't create a draft release - or delete the draft release.
+## Changelog generation and semantic versioning
+Use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) to
+make your changes show up in the changelog. In short:
+* `fix` will create a `PATCH` level semantic version
+* `feat` will create `MINOR` level semantic version
+* adding a `!` will mark a breaking change and create a `MAJOR` level semantic version
 
-Now run the changelog generator:
-```bash
-export TOKEN="INSERT_YOUR_TOKEN_HERE"
-./infrastructure/scripts/generate-changelog.sh
-```
-This will generate a file `CHANGELOG.tmp.md`.
+In addition to `fix`, `feat` and breaking changes, the following [types](https://github.com/go-semantic-release/changelog-generator-default/blob/master/pkg/generator/changelog_types.go#L32) can be considered:
+* revert
+* perf
+* docs
+* test
+* refactor
+* style
+* chore
+* build
+* ci
 
-Ensure that:
-* ...every change is sorted into the sections "major", "minor" or "patch".
-* ...there are no PRs mentioned multiple times (this can happen if the git tag does not exist).
-* ...PRs are labeled correctly.
-
-You can change the labels, and run the generator again if necessary.
-
-* Copy the `CHANGELOG.tmp.md` into a new section in `CHANGELOG.md`.
-* Create a release commit with the changelog and set the label to `exclude`.
-* Merge the release commit.
-* Delete the remote tag created earlier:
-`git push --delete origin "$VERSION" && git tag -d "$VERSION"`.
-* Create the git tag (same as before) and push again. This will trigger the
-[release workflow pipeline](https://github.com/freiheit-com/kuberpult/actions/workflows/execution-plan-tag.yml) and create a draft release.
-  Verify that the release draft is correct in the GitHub UI and publish it for release.
-
-## Changelog Labels
-To exclude PRs, label them as `exclude`.
-To set PRs to `major`, label them as `major`.
-To set PRs to `patch`, label them as `patch`. The `renovate` label is also considered as `patch`.
-
+The changelog and the version is generated with
+[go-semantic-release](https://go-semantic-release.xyz/) via its
+[github action](https://github.com/go-semantic-release/action) and it generates the changelogs with the
+[default generator](https://github.com/go-semantic-release/changelog-generator-default).
 
 ## Notes
 
