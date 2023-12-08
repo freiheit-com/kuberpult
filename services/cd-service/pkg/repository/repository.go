@@ -419,11 +419,11 @@ func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) e
 	if err != nil {
 		return fmt.Errorf("opening remote %q: %w", r.config.URL, err)
 	}
-	defer remote.Disconnect()
 	ctx, cancel := context.WithTimeout(context.Background(), r.config.NetworkTimeout)
 	defer cancel()
 	errCh := make(chan error, 1)
 	go func() {
+		defer remote.Disconnect()
 		errCh <- callback(remote)
 	}()
 	select {
