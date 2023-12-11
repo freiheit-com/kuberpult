@@ -217,7 +217,7 @@ make your changes show up in the changelog. In short:
 * `feat` will create `MINOR` level semantic version
 * adding a `!` will mark a breaking change and create a `MAJOR` level semantic version
 
-In addition to `fix`, `feat` and breaking changes, the following [types](https://github.com/go-semantic-release/changelog-generator-default/blob/master/pkg/generator/changelog_types.go#L32) can be considered:
+In addition to `fix`, `feat` and breaking changes, the following [types](https://github.com/go-semantic-release/changelog-generator-default/blob/master/pkg/generator/changelog_types.go#L32) can be considered, but are currently **not** allowed in kuberpult:
 * revert
 * perf
 * docs
