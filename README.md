@@ -1,5 +1,5 @@
 ![Main Pipeline](https://github.com/freiheit-com/kuberpult/actions/workflows/execution-plan-main.yml/badge.svg)
-![Release Pipeline](https://github.com/freiheit-com/kuberpult/actions/workflows/execution-plan-tag.yml/badge.svg)
+![Release Pipeline](https://github.com/freiheit-com/kuberpult/actions/workflows/release.yml/badge.svg)
 
 
 # Kuberpult Readme for users
