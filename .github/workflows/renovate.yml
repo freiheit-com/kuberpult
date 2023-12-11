@@ -1,0 +1,14 @@
+name: Renovate
+
+on:
+  schedule:
+    - cron: '42 0,12 * * *' # twice a day at 00:42 and 12:42
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    container:
+      image: renovate/renovate:35.77
+    steps:
+      - name: Run Renovate
+        run: GOPROXY="https://proxy.golang.org,direct" LOG_LEVEL=debug renovate --token "${{ secrets.RENOVATE_GITHUB_TOKEN }}" freiheit-com/kuberpult
