@@ -1173,7 +1173,7 @@ func (m *mockClock) sleep(d time.Duration) {
 }
 
 func TestApplyQueueTtlForHealth(t *testing.T) {
-	// we set the networkTimeout to something extremely low, so that it doesn't interfere with other processes e.g like once per second:
+	// we set the networkTimeout to something low, so that it doesn't interfere with other processes e.g like once per second:
 	networkTimeout := 1 * time.Second
 
 	tcs := []struct {
@@ -1824,9 +1824,9 @@ func TestGitPushDoesntGetStuck(t *testing.T) {
 	tcs := []struct {
 		Name string
 	}{
-		//{
-		//	Name: "it doesnt get stuck",
-		//},
+		{
+			Name: "it doesnt get stuck",
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
