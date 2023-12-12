@@ -5,11 +5,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "enabledManagers": [
     "gomod",
-    "npm",
-    "terraform",
-    "helmv3",
-    "helm-values",
-    "regex"
+    "npm"
   ],
   "baseBranches": [
     "main"
@@ -17,45 +13,13 @@
   "npm": {
     groupName: "npm",
     "extends": [
-      "helpers:disableTypesNodeMajor",
       "config:js-app"
     ],
     "postUpdateOptions": ["npmDedupe"],
-    "packageRules": [
-      {
-        "matchPackageNames": [
-          "history",
-          "sass",
-          "jest",
-          "babel-jest",
-          "@types/jest",
-          "sass-loader",
-          "css-loader",
-          "style-loader"
-        ],
-        "enabled": false
-      },
-      {
-        // disabling all material deps
-        "matchPackagePatterns": [
-          "^@material/"
-        ],
-        "enabled": false
-      }
-    ]
   },
   "gomod": {
     groupName: "go",
-    "packageRules": [
-      {
-        "matchPackagePrefixes": [
-          "cloud.google.com/go/"
-        ],
-        "groupName": "google cloud go"
-      }
-    ]
   },
-  "npmrc": "",
   "dependencyDashboardLabels": ["renovate"],
   "labels": ["renovate"],
   "branchConcurrentLimit": 20,
