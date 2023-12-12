@@ -34,7 +34,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	
-	grpcerrors "github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
+	//grpcerrors "github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 )
 
 var (
@@ -64,6 +64,17 @@ func isCommitId(value string) bool {
 
 func isAuthor(value string) bool {
 	return authorRx.MatchString(value)
+}
+
+func writeReleaseResponse(w http.ResponseWriter, r *http.Request, jsonBlob []byte, err error, status int) {
+	ctx := r.Context()
+	if err != nil {
+		logger.FromContext(ctx).Error(fmt.Sprintf("error in json.Marshal of /release: %s", err.Error()))
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(status)
+	w.Write(jsonBlob)
 }
 
 func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail string) {
@@ -224,25 +235,54 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if ok && s.Code() == codes.AlreadyExists {
-			if strings.HasPrefix(s.Message(), grpcerrors.AlreadyExistsDifferent) {
-				w.WriteHeader(http.StatusConflict)	
-			} else {
-				w.WriteHeader(http.StatusOK)
-			}
-			return
-		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	jsonBlob, err := json.Marshal(response.Results[0].GetCreateReleaseResponse())
-	if err != nil {
-		logger.FromContext(ctx).Error(fmt.Sprintf("error in json.Marshal of /release: %s", err.Error()))
-		http.Error(w, "", http.StatusInternalServerError)
+	if len(response.Results) != 1 {
+		msg := "mismatching response length"
+		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
+		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
-	// Note that in the past we differentiated between 200 and 201.
-	// Now we always
-	w.WriteHeader(http.StatusCreated)
-	w.Write(jsonBlob)
+	releaseResponse := response.Results[0].GetCreateReleaseResponse()
+	if releaseResponse == nil {
+		msg := "mismatching response length"
+		logger.FromContext(ctx).Error(fmt.Sprintf("error in parsing response of /release: %s", msg))
+		http.Error(w, msg, http.StatusInternalServerError)
+		return
+	}
+
+	switch firstResponse := releaseResponse.Response.(type) {
+		case *api.CreateReleaseResponse_Success:
+		{
+			jsonBlob, err := json.Marshal(firstResponse)
+			writeReleaseResponse(w, r, jsonBlob, err, http.StatusCreated)
+		}
+		case *api.CreateReleaseResponse_AlreadyExistsSame:
+		{
+			jsonBlob, err := json.Marshal(firstResponse)
+			writeReleaseResponse(w, r, jsonBlob, err, http.StatusCreated) // Shouldnt this be StatusOk?
+		}
+		case *api.CreateReleaseResponse_AlreadyExistsDifferent:
+		{
+			jsonBlob, err := json.Marshal(firstResponse)
+			writeReleaseResponse(w, r, jsonBlob, err, http.StatusConflict)
+		}
+		case *api.CreateReleaseResponse_GeneralFailure:
+		{
+			jsonBlob, err := json.Marshal(firstResponse)
+			writeReleaseResponse(w, r, jsonBlob, err, http.StatusInternalServerError)
+		}
+		case *api.CreateReleaseResponse_TooOld:
+		{
+			jsonBlob, err := json.Marshal(firstResponse)
+			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
+		}
+		default:
+		{
+			msg := "unknown response type in /release"
+			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s", msg, releaseResponse.String()))
+			http.Error(w, msg, http.StatusInternalServerError)
+		}
+	}
 }

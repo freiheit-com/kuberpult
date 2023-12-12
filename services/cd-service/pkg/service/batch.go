@@ -296,7 +296,24 @@ func (d *BatchServer) ProcessBatch(
 
 	err = d.Repository.Apply(ctx, transformers...)
 	if err != nil {
-		return nil, err
+		switch createReleaseError := err.(type) {
+		case *repository.CreateReleaseError:
+		{
+			// very hackerish way to handle create release errors for now
+			// if you really e.g. batch three release creations you wont know
+			// which failed and which succeeded.
+			// see SRX-OS3BVE to resolve this
+			errorResults := make([]*api.BatchResult, 1)
+			errorResults[0] = &api.BatchResult{
+				Result: &api.BatchResult_CreateReleaseResponse{
+					CreateReleaseResponse: createReleaseError.Response(),
+				},
+			} 
+			return &api.BatchResponse{Results: errorResults}, nil
+		}
+		default:
+			return nil, err
+		}
 	}
 	return &api.BatchResponse{Results: results}, nil
 }
