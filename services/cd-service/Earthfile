@@ -31,15 +31,9 @@ unit-test:
     DO go-build+UNIT_TEST
     
 docker:
-    FROM ../../+base-image
-
-    COPY +artifacts/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-    COPY +artifacts/zoneinfo /usr/share/zoneinfo
-    COPY +compile/main /main
+    FROM alpine:3.18
     COPY gitconfig /etc/gitconfig
-
-    DO +CGO_LIBS --cgo_enabled=$cgo_enabled
-    DO go-build+DOCKER --UID=$UID --image_tag=$registry/kuberpult-$service:$tag --entry_point=/main
+    DO go-build+DOCKER --UID=$UID --image_tag=$registry/kuberpult-$service:$tag --cgo_enabled=$cgo_enabled --entry_point=/main --service=$service
 
 release:
     FROM +docker

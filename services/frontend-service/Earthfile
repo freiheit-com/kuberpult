@@ -28,13 +28,9 @@ unit-test:
     DO go-build+UNIT_TEST
     
 docker:
-    FROM ../../+base-image
-    COPY +artifacts/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-    COPY +artifacts/zoneinfo /usr/share/zoneinfo
-    COPY +compile/main /main
+    FROM alpine:3.18
     COPY +deps-ui/build /build
-
-    DO go-build+DOCKER --workdir=/ --UID=$UID --image_tag=$registry/kuberpult-$service:$tag --entry_point=/main
+    DO go-build+DOCKER --workdir=/ --UID=$UID --image_tag=$registry/kuberpult-$service:$tag --cgo_enabled=$cgo_enabled --service=$service
 
 release:
     FROM +docker
@@ -43,7 +39,6 @@ release:
 deps-ui:
     FROM node:20.9.0-alpine3.18
     WORKDIR /kp
-    CACHE node_modules
     RUN npm install -g pnpm@8.9.2
     COPY package.json pnpm-lock.yaml pnpm-workspace.yaml buf.yaml buf.gen.yaml buf.lock tsconfig.json .eslintrc .prettierrc .npmrc .nvmrc .
     RUN pnpm i

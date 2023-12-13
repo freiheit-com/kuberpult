@@ -19,6 +19,14 @@ COMPILE:
 	    GOOS=linux \
         go build -o bin/main .
     
+    IF [ "$cgo_enabled" = "1" ]
+        RUN bash -c "ldd $main_path/bin/main | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % $main_path/%"
+        SAVE ARTIFACT $main_path/lib/
+        IF [ "$USERARCH" != "arm64" ]
+            SAVE ARTIFACT $main_path/usr/
+        END
+    END
+
     SAVE ARTIFACT $main_path/bin/main
 
 UNIT_TEST:
@@ -28,14 +36,26 @@ UNIT_TEST:
 DOCKER:
     FUNCTION
     ARG UID=1000
+    ARG USERARCH
     ARG entry_point="/main"
     ARG workdir=/kp
+    ARG cgo_enabled=0
     ARG --required image_tag
-
+    ARG --required service
     ENV TZ=Europe/Berlin
     
     RUN adduser --disabled-password --home "/kp" --uid $UID kp
     RUN chown -R kp:kp /kp
+
+    COPY ../../../services/$service+artifacts/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+    COPY ../../../services/$service+artifacts/zoneinfo /usr/share/zoneinfo
+    COPY ../../../services/$service+compile/main /main
+    IF [  "$cgo_enabled" = "1" ]
+        COPY ../../../services/$service+compile/lib/* /lib
+        IF [ "$USERARCH" != "arm64" ]
+            COPY ../../../services/$service+compile/usr/* /lib
+        END
+    END
 
     USER kp
     WORKDIR $workdir
