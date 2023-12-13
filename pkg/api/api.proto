@@ -213,6 +213,20 @@ message GetFrontendConfigResponse {
   string manifestRepoUrl = 6;
 }
 
+message GetVersionRequest {
+  string git_revision = 1;
+  string application = 2;
+  string environment = 3;
+}
+
+message GetVersionResponse {
+  uint64 version = 1;
+  google.protobuf.Timestamp deployed_at = 2;
+}
+
+service VersionService {
+  rpc GetVersion (GetVersionRequest) returns (GetVersionResponse) {}
+}
 
 service OverviewService {
   rpc GetOverview (GetOverviewRequest) returns (GetOverviewResponse) {}

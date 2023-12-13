@@ -423,9 +423,9 @@ func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) e
 	defer cancel()
 	errCh := make(chan error, 1)
 	go func() {
-                // Usually we call `defer` right after resource allocation (`CreateAnonymous`).
-                // The issue with that is that the `callback` requires the remote, and cannot be cancelled properly.
-                // So `callback` may run longer than `useRemote`, and if at that point `Disconnect` was already called, we get a `panic`.
+		// Usually we call `defer` right after resource allocation (`CreateAnonymous`).
+		// The issue with that is that the `callback` requires the remote, and cannot be cancelled properly.
+		// So `callback` may run longer than `useRemote`, and if at that point `Disconnect` was already called, we get a `panic`.
 		defer remote.Disconnect()
 		errCh <- callback(remote)
 	}()
@@ -753,7 +753,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 	} else {
 		var changes []*TransformerResult = nil
 		commitMsg := []string{}
-		ctxWithTime := withTimeNow(ctx, time.Now())
+		ctxWithTime := WithTimeNow(ctx, time.Now())
 		for _, t := range transformers {
 			if msg, subChanges, err := t.Transform(ctxWithTime, state); err != nil {
 				return nil, nil, nil, err
