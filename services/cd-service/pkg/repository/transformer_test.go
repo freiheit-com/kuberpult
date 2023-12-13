@@ -36,12 +36,8 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
-
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	godebug "github.com/kylelemons/godebug/diff"
 )
@@ -626,7 +622,6 @@ func TestCreateApplicationVersion(t *testing.T) {
 	tcs := []struct {
 		Name                        string
 		Transformers                []Transformer
-		expectedErrorCode			codes.Code
 		expectedErrorMsg            string
 	}{
 		{
@@ -640,19 +635,18 @@ func TestCreateApplicationVersion(t *testing.T) {
 					Application: "app1",
 					Version: 10000,
 					Manifests: map[string]string{
-						envAcceptance: "acceptance", // not empty
+						envAcceptance: "acceptance",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Version: 10000,
 					Manifests: map[string]string{
-						envAcceptance: "acceptance", // not empty
+						envAcceptance: "acceptance",
 					},
 				},
 			},
-			expectedErrorCode: codes.AlreadyExists,
-			expectedErrorMsg: grpc.AlreadyExistsSame + ": release already exists",
+			expectedErrorMsg: "already_exists_same:{}",
 		},
 		{
 			Name: "recreate same version without idempotence",
@@ -665,19 +659,18 @@ func TestCreateApplicationVersion(t *testing.T) {
 					Application: "app1",
 					Version: 10000,
 					Manifests: map[string]string{
-						envAcceptance: "acceptance", // not empty
+						envAcceptance: "acceptance",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Version: 10000,
 					Manifests: map[string]string{
-						envAcceptance: "different", // not empty
+						envAcceptance: "different",
 					},
 				},
 			},
-			expectedErrorCode: codes.AlreadyExists,
-			expectedErrorMsg: grpc.AlreadyExistsDifferent + ": release already exists",
+			expectedErrorMsg: "already_exists_different:{firstDifferingField:Manifests}",
 		},
 	}
 	for _, tc := range tcs {
@@ -687,12 +680,11 @@ func TestCreateApplicationVersion(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
 			_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
-			st := status.Convert(err)
-			if st.Code() != tc.expectedErrorCode {
-				t.Fatalf("Expected different error code when applying, got: '%s', expected: '%s'", st.Code(), tc.expectedErrorCode)
+			if err == nil {
+				t.Fatalf("expected error, got none.")
 			}
-			if st.Message() != tc.expectedErrorMsg {
-				t.Fatalf("Expected different error message when applying, got: '%s', expected: '%s'", st.Message(), tc.expectedErrorMsg)
+			if err.Error() != tc.expectedErrorMsg {
+				t.Fatalf("Expected different error (expected: %s, got: %s)", tc.expectedErrorMsg, err.Error())
 			}
 		})
 	}
@@ -2770,8 +2762,9 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			ErrorTest: func(t *testing.T, err error) {
-				if err == nil || (!strings.Contains(err.Error(), ErrReleaseAlreadyExist.Error())) {
-					t.Errorf("expected %q, got %q", ErrReleaseAlreadyExist, err)
+				expected := "already_exists_same:{}"
+				if err.Error() != expected {
+					t.Fatalf("expected: %s, got: %s", expected, err.Error())
 				}
 			},
 		}, {
@@ -2819,8 +2812,9 @@ func TestTransformer(t *testing.T) {
 				return t
 			}(),
 			ErrorTest: func(t *testing.T, err error) {
-				if err != ErrReleaseTooOld {
-					t.Errorf("expected %q, got %q", ErrReleaseTooOld, err)
+				expected := "too_old:{}"
+				if err.Error() != expected {
+					t.Fatalf("expected: %s, got: %s", expected, err.Error())
 				}
 			},
 		}, {

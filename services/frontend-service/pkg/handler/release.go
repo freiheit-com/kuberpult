@@ -33,8 +33,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	
-	//grpcerrors "github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 )
 
 var (

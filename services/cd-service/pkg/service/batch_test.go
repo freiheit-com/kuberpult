@@ -23,7 +23,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -293,10 +292,11 @@ func (p *ErrorTransformer) Transform(ctx context.Context, state *repository.Stat
 
 func TestBatchServiceErrors(t *testing.T) {
 	tcs := []struct {
-		Name          string
-		Batch         []*api.BatchAction
-		Setup         []repository.Transformer
-		ExpectedError string
+		Name             string
+		Batch            []*api.BatchAction
+		Setup            []repository.Transformer
+		ExpectedResponse string
+		ExpectedError    string
 	}{
 		{
 			// tests that in ProcessBatch, transformer errors are returned without wrapping them in a
@@ -314,7 +314,8 @@ func TestBatchServiceErrors(t *testing.T) {
 						},
 					},
 				}},
-			ExpectedError: "could not open manifest 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist",
+			ExpectedResponse: "",
+			ExpectedError:    "could not open manifest 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist",
 		},
 		{
 			Name:  "create release endpoint fails app validity check",
@@ -335,7 +336,7 @@ func TestBatchServiceErrors(t *testing.T) {
 						},
 					},
 				}},
-			ExpectedError: "invalid application name: 'myappIsWayTooLongDontYouThink' - must match regexp '\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z' and <= 39 characters",
+			ExpectedResponse: `results:{create_release_response:{general_failure:{message:"invalid application name: 'myappIsWayTooLongDontYouThink' - must match regexp '\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z' and <= 39 characters"}}}`,
 		},
 	}
 	for _, tc := range tcs {
@@ -353,17 +354,17 @@ func TestBatchServiceErrors(t *testing.T) {
 			svc := &BatchServer{
 				Repository: repo,
 			}
-			_, err = svc.ProcessBatch(
+			response, processErr := svc.ProcessBatch(
 				testutil.MakeTestContext(),
 				&api.BatchRequest{
 					Actions: tc.Batch,
 				},
 			)
-			if err == nil {
-				t.Fatal("Expected an error but got nil")
+			if tc.ExpectedResponse != "" && response.String() != tc.ExpectedResponse {
+				t.Fatalf("expected: %s, got: %s, %s", tc.ExpectedResponse, response.String(), processErr)
 			}
-			if !strings.Contains(err.Error(), tc.ExpectedError) {
-				t.Errorf("want (as substring):\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, err.Error())
+			if tc.ExpectedResponse == "" && tc.ExpectedError != processErr.Error() {
+				t.Fatalf("expected error: %s, got: %s, %s", tc.ExpectedError, response.String(), processErr)
 			}
 		})
 	}
