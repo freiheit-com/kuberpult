@@ -259,7 +259,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		case *api.CreateReleaseResponse_AlreadyExistsSame:
 		{
 			jsonBlob, err := json.Marshal(firstResponse)
-			writeReleaseResponse(w, r, jsonBlob, err, http.StatusCreated) // Shouldnt this be StatusOk?
+			writeReleaseResponse(w, r, jsonBlob, err, http.StatusOk)
 		}
 		case *api.CreateReleaseResponse_AlreadyExistsDifferent:
 		{
