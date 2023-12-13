@@ -29,7 +29,6 @@ unit-test:
     
 docker:
     LOCALLY
-    ARG USERARCH
     IF [ "$cgo_enabled" = "1" ]
         FROM debian:bookworm
     ELSE
