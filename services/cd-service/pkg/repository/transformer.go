@@ -210,7 +210,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
-		return "", nil, GetCreateReleaseGeneralFailure(err)
+		return "", nil, err
 
 	}
 

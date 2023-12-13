@@ -721,12 +721,11 @@ func TestConfigReload(t *testing.T) {
 			})
 			if configFile.ErrorExpected {
 				if err == nil {
-					t.Errorf("Apply gave error even though config.json was incorrect")
+					t.Errorf("Apply gave no error even though config.json was incorrect")
 				}
 			} else {
 				if err != nil {
-					fmt.Println(err)
-					t.Errorf("Initialization failed with valid config.json")
+					t.Errorf("Initialization failed with valid config.json: %s", err.Error())
 				}
 				cmd = exec.Command("git", "pull") // Add a new file to git
 				cmd.Dir = workdir
