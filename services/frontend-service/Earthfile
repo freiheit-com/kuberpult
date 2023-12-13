@@ -50,6 +50,7 @@ release:
 deps-ui:
     FROM node:20.9.0-alpine3.18
     WORKDIR /kp
+    CACHE node_modules
     RUN npm install -g pnpm@8.9.2
     COPY package.json pnpm-lock.yaml pnpm-workspace.yaml buf.yaml buf.gen.yaml buf.lock tsconfig.json .eslintrc .prettierrc .npmrc .nvmrc .
     RUN pnpm i

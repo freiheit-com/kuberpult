@@ -46,7 +46,7 @@ $(error "$(IMAGENAME) doesn't end with $(VERSION). Please set the correct versio
 endif
 
 SERVICE_NAME := $(shell basename $$PWD)
-EARTHLY := earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-$(SERVICE_NAME):cache
+EARTHLY := earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-$(SERVICE_NAME):cache --max-remote-cache
 
 image-name:
 	@echo "$(IMAGENAME)"
