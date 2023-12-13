@@ -84,9 +84,10 @@ func (r *HealthReporter) ReportHealth(health Health, message string) {
 	r.ReportHealthTtl(health, message, nil)
 }
 
-func (r *HealthReporter) ReportHealthTtl(health Health, message string, ttl *time.Duration) {
+// ReportHealthTtl returns the deadline (for testing)
+func (r *HealthReporter) ReportHealthTtl(health Health, message string, ttl *time.Duration) *time.Time {
 	if r == nil {
-		return
+		return nil
 	}
 	if health == HealthReady {
 		r.backoff.Reset()
@@ -106,6 +107,7 @@ func (r *HealthReporter) ReportHealthTtl(health Health, message string, ttl *tim
 		Message:  message,
 		Deadline: deadline,
 	}
+	return deadline
 }
 
 /*
@@ -175,7 +177,10 @@ func (h *HealthServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reports := h.reports()
 	success := true
 	for _, r := range reports {
+		r.isReady()
 		if r.Health != HealthReady {
+			//TODO here check IsReady!?
+			and basically never just check ".Health"
 			success = false
 		}
 	}

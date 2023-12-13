@@ -21,12 +21,93 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-cmp/cmp"
 )
+
+type mockClock struct {
+	t time.Time
+}
+
+func (m *mockClock) now() time.Time {
+	return m.t
+}
+
+func (m *mockClock) sleep(d time.Duration) {
+	m.t = m.t.Add(d)
+}
+
+func TestHealthReporterBasics(t *testing.T) {
+	var veryQuick = time.Nanosecond * 1
+	tcs := []struct {
+		Name               string
+		ReportHealth       Health
+		ReportMessage      string
+		ReportTtl          *time.Duration
+		ExpectedHttpStatus int
+	}{
+
+		{
+			Name:               "reports error with TTL",
+			ReportHealth:       HealthReady,
+			ReportMessage:      "should work",
+			ReportTtl:          &veryQuick,
+			ExpectedHttpStatus: 500,
+		},
+		{
+			Name:               "works without ttl",
+			ReportHealth:       HealthReady,
+			ReportMessage:      "should work",
+			ReportTtl:          nil,
+			ExpectedHttpStatus: 200,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			bo := &mockBackoff{}
+			fakeClock := &mockClock{}
+			hs := HealthServer{
+				parts:          nil,
+				mx:             sync.Mutex{},
+				BackOffFactory: nil,
+				Clock: func() time.Time {
+					return fakeClock.now()
+				},
+			}
+			hs.BackOffFactory = func() backoff.BackOff { return bo }
+			reporter := hs.Reporter("Clark")
+			reporter.ReportHealthTtl(tc.ReportHealth, tc.ReportMessage, tc.ReportTtl)
+			//reporter.ReportHealth(HealthFailed, "testing")
+			fakeClock.sleep(time.Millisecond * 1)
+
+			testRequest := httptest.NewRequest("GET", "http://localhost/healthz", nil)
+			testResponse := httptest.NewRecorder()
+			hs.ServeHTTP(testResponse, testRequest)
+			t.Logf("test response1 %d", testResponse.Code)
+			t.Logf("test response2 %s", testResponse.Body)
+			//t.Logf("test response3 %v", testResponse.Flushed)
+			//t.Logf("test response %s", testResponse.Code)
+
+			//actualDeadline := <-stateChange
+			//time.Sleep(1 * time.Nanosecond)
+			//actualIsReady := actualDeadline.hr.server.IsReady(actualDeadline.hr.name)
+			//if actualIsReady != tc.ExpectedHealthy {
+			//	//t.Errorf("readyness[%s]: %v", actualDeadline.hr.name, actualIsReady)
+			//	t.Errorf("wrong http status, expected %v, got %v", tc.ExpectedHealthy, actualIsReady)
+			//}
+			//status, body := getHttp(t, "http://localhost:18883/healthz")
+			if testResponse.Code != tc.ExpectedHttpStatus {
+				t.Errorf("wrong http status, expected %d, got %d", tc.ExpectedHttpStatus, testResponse.Code)
+			}
+		})
+	}
+}
 
 func TestHealthReporter(t *testing.T) {
 	tcs := []struct {
@@ -43,10 +124,10 @@ func TestHealthReporter(t *testing.T) {
 			ReportTtl:          nil,
 			ExpectedStatus:     500,
 			ExpectedHealthBody: `{"a":{"health":"starting"}}`,
-			ExpectedMetricBody: `# HELP background_job_ready 
-# TYPE background_job_ready gauge
-background_job_ready{name="a"} 0
-`,
+			ExpectedMetricBody: `# HELP background_job_ready
+		# TYPE background_job_ready gauge
+		background_job_ready{name="a"} 0
+		`,
 		},
 		{
 			Name:               "reports ready",
@@ -55,10 +136,10 @@ background_job_ready{name="a"} 0
 			ReportTtl:          nil,
 			ExpectedStatus:     200,
 			ExpectedHealthBody: `{"a":{"health":"ready","message":"running"}}`,
-			ExpectedMetricBody: `# HELP background_job_ready 
-# TYPE background_job_ready gauge
-background_job_ready{name="a"} 1
-`,
+			ExpectedMetricBody: `# HELP background_job_ready
+		# TYPE background_job_ready gauge
+		background_job_ready{name="a"} 1
+		`,
 		},
 		{
 			Name:               "reports failed",
@@ -67,16 +148,20 @@ background_job_ready{name="a"} 1
 			ReportTtl:          nil,
 			ExpectedStatus:     500,
 			ExpectedHealthBody: `{"a":{"health":"failed","message":"didnt work"}}`,
-			ExpectedMetricBody: `# HELP background_job_ready 
-# TYPE background_job_ready gauge
-background_job_ready{name="a"} 0
-`,
+			ExpectedMetricBody: `# HELP background_job_ready
+		# TYPE background_job_ready gauge
+		background_job_ready{name="a"} 0
+		`,
 		},
+	}
+	type Deadline struct {
+		deadline *time.Time
+		hr       *HealthReporter
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			stateChange := make(chan struct{})
+			stateChange := make(chan Deadline)
 			cfg := ServerConfig{
 				HTTP: []HTTPConfig{
 					{
@@ -87,8 +172,8 @@ background_job_ready{name="a"} 0
 					{
 						Name: "a",
 						Run: func(ctx context.Context, hr *HealthReporter) error {
-							hr.ReportHealthTtl(tc.ReportHealth, tc.ReportMessage, tc.ReportTtl)
-							stateChange <- struct{}{}
+							actualDeadline := hr.ReportHealthTtl(tc.ReportHealth, tc.ReportMessage, tc.ReportTtl)
+							stateChange <- Deadline{deadline: actualDeadline, hr: hr}
 							<-ctx.Done()
 							return nil
 						},
@@ -101,11 +186,34 @@ background_job_ready{name="a"} 0
 				Run(ctx, cfg)
 				doneCh <- struct{}{}
 			}()
-			<-stateChange
+			actualDeadline := <-stateChange
+			actualDeadline.hr.server.IsReady(actualDeadline.hr.name)
 			status, body := getHttp(t, "http://localhost:18883/healthz")
 			if status != tc.ExpectedStatus {
 				t.Errorf("wrong http status, expected %d, got %d", tc.ExpectedStatus, status)
 			}
+			t.Logf("actual body: '%s'", body)
+			//var body2 []byte
+			//{
+			//	// update one field
+			//	bodyTyped := map[string]report{}
+			//	bodyTyped["a"] = report{
+			//		Health:   0,
+			//		Message:  "",
+			//		Deadline: nil,
+			//	}
+			//	err := json.Unmarshal([]byte("{\"a\":{\"health\":\"starting\"}}"), &bodyTyped)
+			//	if err != nil {
+			//		t.Errorf("Unmarshal: wrong body %v", err)
+			//	}
+			//	reportA := bodyTyped["a"]
+			//	reportA.Deadline = actualDeadline.deadline
+			//	body2, err = json.Marshal(bodyTyped)
+			//	if err != nil {
+			//		t.Errorf("Marshal: wrong body %v", body2)
+			//	}
+			//}
+			//body = string(body2)
 			d := cmp.Diff(body, tc.ExpectedHealthBody)
 			if d != "" {
 				t.Errorf("wrong body, diff: %s", d)
