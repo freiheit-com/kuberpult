@@ -28,13 +28,7 @@ unit-test:
     DO go-build+UNIT_TEST
     
 docker:
-    LOCALLY
-    IF [ "$cgo_enabled" = "1" ]
-        FROM debian:bookworm
-    ELSE
-        FROM alpine:3.18
-    END
-
+    FROM ../../+base-image
     COPY +artifacts/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
     COPY +artifacts/zoneinfo /usr/share/zoneinfo
     COPY +compile/main /main

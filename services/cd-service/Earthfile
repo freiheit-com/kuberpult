@@ -1,4 +1,4 @@
-VERSION 0.7
+VERSION --use-function-keyword 0.7
 IMPORT ../../infrastructure/earthly/go AS go-build
 
 LOCALLY
@@ -23,11 +23,7 @@ compile:
     FROM +deps
     ARG USERARCH
     
-    IF [ "$USERARCH" = "arm64" ]
-        RUN apt update && apt install --auto-remove libgit2-dev libsqlite3-dev -y
-    ELSE
-        RUN apk add --no-cache libgit2-dev sqlite-dev alpine-sdk
-    END
+    DO +CGO_LIBS --cgo_enabled=$cgo_enabled
     DO go-build+COMPILE --cgo_enabled=$cgo_enabled
 
 unit-test:
@@ -35,23 +31,28 @@ unit-test:
     DO go-build+UNIT_TEST
     
 docker:
-    LOCALLY
-    ARG USERARCH
-    IF [ "$USERARCH" = "arm64" ]
-        FROM debian:bookworm
-        RUN apt update && apt install --auto-remove libgit2-dev libsqlite3-dev -y
-    ELSE
-        FROM alpine:3.18
-        RUN apk add --no-cache libgit2-dev sqlite-dev
-    END
+    FROM ../../+base-image
 
     COPY +artifacts/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
     COPY +artifacts/zoneinfo /usr/share/zoneinfo
     COPY +compile/main /main
     COPY gitconfig /etc/gitconfig
 
+    DO +CGO_LIBS --cgo_enabled=$cgo_enabled
     DO go-build+DOCKER --UID=$UID --image_tag=$registry/kuberpult-$service:$tag --entry_point=/main
 
 release:
     FROM +docker
     DO go-build+RELEASE --image_tag=$registry/kuberpult-$service:$tag
+
+CGO_LIBS:
+    FUNCTION
+    ARG USERARCH
+    ARG cgo_enabled
+    IF [ "$cgo_enabled" = "1" ]
+        IF [ "$USERARCH" = "arm64" ]
+            RUN apt update && apt install --auto-remove libgit2-dev libsqlite3-dev -y
+        ELSE
+            RUN apk add --no-cache libgit2-dev sqlite-dev alpine-sdk
+        END
+    END

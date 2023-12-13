@@ -3,7 +3,7 @@ FROM busybox
 ARG --global UID=1000
 ARG --global target=docker
 
-deps:
+base-image:
     ARG USERARCH
     IF [ "$USERARCH" = "arm64" ]
         FROM golang:1.21-bookworm
@@ -12,6 +12,9 @@ deps:
         FROM golang:1.21-alpine3.18
         RUN apk add --no-cache ca-certificates tzdata
     END
+
+deps:
+    FROM +base-image
     
     COPY buf_sha256.txt .
     ARG BUF_VERSION=v1.26.1
