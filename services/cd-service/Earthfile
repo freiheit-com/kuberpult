@@ -5,8 +5,6 @@ LOCALLY
 ARG --global service=$(basename $PWD)
 ARG --global UID=1000
 ARG --global cgo_enabled=1
-ARG --global registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
-ARG --global tag="local"
 
 deps:
     FROM ../../+deps
@@ -32,11 +30,15 @@ unit-test:
     
 docker:
     FROM alpine:3.18
+    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+    ARG tag="local"
     COPY gitconfig /etc/gitconfig
     DO go-build+DOCKER --UID=$UID --image_tag=$registry/kuberpult-$service:$tag --cgo_enabled=$cgo_enabled --entry_point=/main --service=$service
 
 release:
     FROM +docker
+    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+    ARG --required tag
     DO go-build+RELEASE --image_tag=$registry/kuberpult-$service:$tag
 
 CGO_LIBS:
