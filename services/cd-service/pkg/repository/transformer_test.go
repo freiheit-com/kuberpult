@@ -695,7 +695,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			ctxWithTime := withTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
 			repo := setupRepositoryTest(t)
 			_, updatedState, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
@@ -3605,7 +3605,7 @@ spec:
 			}
 
 			for i, tf := range tc.Transformers {
-				ctxWithTime := withTimeNow(testutil.MakeTestContext(), timeNowOld)
+				ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 				err = repo.Apply(ctxWithTime, tf)
 				if err != nil {
 					if tc.ErrorTest != nil && i == len(tc.Transformers)-1 {
