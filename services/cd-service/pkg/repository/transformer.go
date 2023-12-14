@@ -200,7 +200,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 	fs := state.Filesystem
 	if !valid.ApplicationName(c.Application) {
-		return "", nil, GetCreateReleaseGeneralFailure(fmt.Errorf("invalid application name: '%s' - must match regexp '%s' and <= %d characters", c.Application, valid.AppNameRegExp, valid.MaxAppNameLen))
+		return "", nil, GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, valid.MaxAppNameLen)
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)

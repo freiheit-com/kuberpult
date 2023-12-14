@@ -142,6 +142,12 @@ message CreateReleaseResponseGeneralFailure {
 message CreateReleaseResponseTooOld {
 }
 
+message CreateReleaseResponseAppNameTooLong {
+  string appName = 1;
+  string regExp = 2;
+  uint32 maxLen = 3;
+}
+
 message CreateReleaseResponseAlreadyExistsSame {
 }
 
@@ -164,9 +170,10 @@ message CreateReleaseResponse {
   oneof response {
     CreateReleaseResponseSuccess success = 1;
     CreateReleaseResponseTooOld too_old = 2;
-    CreateReleaseResponseGeneralFailure general_failure = 3;
-    CreateReleaseResponseAlreadyExistsSame already_exists_same = 4;
-    CreateReleaseResponseAlreadyExistsDifferent already_exists_different = 5;
+    CreateReleaseResponseAppNameTooLong too_long = 3;
+    CreateReleaseResponseGeneralFailure general_failure = 4;
+    CreateReleaseResponseAlreadyExistsSame already_exists_same = 5;
+    CreateReleaseResponseAlreadyExistsDifferent already_exists_different = 6;
   }
 }
 

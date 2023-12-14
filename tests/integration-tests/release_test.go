@@ -188,7 +188,7 @@ func TestReleaseCalls(t *testing.T) {
 			expectedStatusCode: 201,
 		},
 		{
-			// this is the same test, but this time we expect 201, because the release already exists:
+			// this is the same test, but this time we expect 200, because the release already exists:
 			name:               "Simple invocation of /release endpoint with valid version",
 			inputApp:           "my-app-" + appSuffix,
 			inputManifest:      theManifest,

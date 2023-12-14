@@ -83,6 +83,20 @@ func GetCreateReleaseTooOld() *CreateReleaseError {
 	}
 }
 
+func GetCreateReleaseAppNameTooLong(appName string, regExp string, maxLen uint32) *CreateReleaseError {
+	response := api.CreateReleaseResponseAppNameTooLong{
+		AppName: appName,
+		RegExp: regExp,
+		MaxLen: maxLen,
+	}
+	return &CreateReleaseError {
+		response: api.CreateReleaseResponse {
+			Response: &api.CreateReleaseResponse_AppNameTooLong {
+				AppNameTooLong: &response,
+			},
+		},
+	}
+}
 type InternalError struct {
 	inner error
 }
