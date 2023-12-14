@@ -778,8 +778,9 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 }
 
 type AppEnv struct {
-	App string
-	Env string
+	App  string
+	Env  string
+	Team string
 }
 
 type RootApp struct {
@@ -798,10 +799,11 @@ type CommitIds struct {
 	Current  *git.Oid
 }
 
-func (r *TransformerResult) AddAppEnv(app string, env string) {
+func (r *TransformerResult) AddAppEnv(app string, env string, team string) {
 	r.ChangedApps = append(r.ChangedApps, AppEnv{
-		App: app,
-		Env: env,
+		App:  app,
+		Env:  env,
+		Team: team,
 	})
 }
 
@@ -817,7 +819,7 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 	}
 	for i := range other.ChangedApps {
 		a := other.ChangedApps[i]
-		r.AddAppEnv(a.App, a.Env)
+		r.AddAppEnv(a.App, a.Env, a.Team)
 	}
 	for i := range other.DeletedRootApps {
 		a := other.DeletedRootApps[i]
@@ -838,10 +840,6 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 
 func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (*TransformerResult, error) {
 	commitMsg, state, changes, err := r.ApplyTransformersInternal(ctx, transformers...)
-	if err != nil {
-		return nil, err
-	}
-	err = UpdateDatadogMetrics(state)
 	if err != nil {
 		return nil, err
 	}
@@ -896,6 +894,10 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	}
 	if oldCommitId != nil {
 		result.Commits.Previous = oldCommitId
+	}
+	err = UpdateDatadogMetrics(state, result)
+	if err != nil {
+		return nil, err
 	}
 	return result, nil
 }

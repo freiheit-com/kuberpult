@@ -4129,7 +4129,7 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 				t.Fatalf("Got an unexpected error: %v", err)
 			}
 
-			err = UpdateDatadogMetrics(repo.State())
+			err = UpdateDatadogMetrics(repo.State(), nil)
 
 			if tc.shouldSucceed {
 				if err != nil {

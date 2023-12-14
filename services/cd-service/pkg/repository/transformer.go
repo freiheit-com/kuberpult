@@ -111,7 +111,7 @@ func GaugeEnvAppLockMetric(fs billy.Filesystem, env, app string) {
 	}
 }
 
-func UpdateDatadogMetrics(state *State) error {
+func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
 	fs := state.Filesystem
 	if ddMetrics == nil {
 		return nil
@@ -126,6 +126,19 @@ func UpdateDatadogMetrics(state *State) error {
 		if entries, _ := fs.ReadDir(appsDir); entries != nil {
 			for _, app := range entries {
 				GaugeEnvAppLockMetric(fs, env, app.Name())
+			}
+		}
+	}
+	if changes != nil && ddMetrics != nil {
+		for i := range changes.ChangedApps {
+			oneChange := changes.ChangedApps[i]
+			// Note that "deployment" can mean:
+			// 1) created a new release
+			// 2) deployed a release manually
+			// 3) deployed a release via release train
+			err := ddMetrics.Gauge("deployment", 1, []string{"app:" + oneChange.App, "env:" + oneChange.Env, "team:" + oneChange.Team}, 1)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -144,7 +157,7 @@ func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBa
 
 func GetRepositoryStateAndUpdateMetrics(repo Repository) {
 	repoState := repo.State()
-	if err := UpdateDatadogMetrics(repoState); err != nil {
+	if err := UpdateDatadogMetrics(repoState, nil); err != nil {
 		panic(err.Error())
 	}
 }
@@ -288,7 +301,11 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
 			return "", nil, err
 		}
-		changes.AddAppEnv(c.Application, env)
+		teamOwner, err := state.GetApplicationTeamOwner(c.Application)
+		if err != nil {
+			return "", nil, err
+		}
+		changes.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
 				Environment:    env,
@@ -405,7 +422,11 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
 			return "", nil, err
 		}
-		changes.AddAppEnv(c.Application, env)
+		teamOwner, err := state.GetApplicationTeamOwner(c.Application)
+		if err != nil {
+			return "", nil, err
+		}
+		changes.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest {
 			d := &DeployApplicationVersion{
 				Environment: env,
@@ -497,7 +518,11 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 	changes := &TransformerResult{}
 	for env := range configs {
 		appDir := environmentApplicationDirectory(fs, env, u.Application)
-		changes.AddAppEnv(u.Application, env)
+		teamOwner, err := state.GetApplicationTeamOwner(u.Application)
+		if err != nil {
+			return "", nil, err
+		}
+		changes.AddAppEnv(u.Application, env, teamOwner)
 		// remove environment application
 		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return "", nil, fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
@@ -1121,8 +1146,11 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
 		return "", nil, err
 	}
-	changes.AddAppEnv(c.Application, c.Environment)
-	logger.FromContext(ctx).Info(fmt.Sprintf("DeployApp: changes added: %v+", changes))
+	teamOwner, err := state.GetApplicationTeamOwner(c.Application)
+	if err != nil {
+		return "", nil, err
+	}
+	changes.AddAppEnv(c.Application, c.Environment, teamOwner)
 
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
