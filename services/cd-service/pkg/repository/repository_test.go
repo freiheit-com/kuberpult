@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -1159,6 +1160,103 @@ func TestApplyQueuePanic(t *testing.T) {
 	}
 }
 
+type mockClock struct {
+	t time.Time
+}
+
+func (m *mockClock) now() time.Time {
+	return m.t
+}
+
+func (m *mockClock) sleep(d time.Duration) {
+	m.t = m.t.Add(d)
+}
+
+func TestApplyQueueTtlForHealth(t *testing.T) {
+	// we set the networkTimeout to something low, so that it doesn't interfere with other processes e.g like once per second:
+	networkTimeout := 1 * time.Second
+
+	tcs := []struct {
+		Name string
+	}{
+		{
+			Name: "sleeps way too long, so health should fail",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Start()
+			cmd.Wait()
+			repo, processQueue, err := New2(
+				testutil.MakeTestContext(),
+				RepositoryConfig{
+					URL:            "file://" + remoteDir,
+					Path:           localDir,
+					NetworkTimeout: networkTimeout,
+				},
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%e'", err)
+			}
+			ctx, cancel := context.WithTimeout(testutil.MakeTestContext(), 10*time.Second)
+
+			mc := mockClock{}
+			hlth := &setup.HealthServer{}
+			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
+			hlth.Clock = mc.now
+			reporterName := "ClarkKent"
+			reporter := hlth.Reporter(reporterName)
+			isReady := func() bool {
+				return hlth.IsReady(reporterName)
+			}
+			errChan := make(chan error)
+			go func() {
+				err = processQueue(ctx, reporter)
+				errChan <- err
+			}()
+			defer func() {
+				cancel()
+				chanError := <-errChan
+				if chanError != nil {
+					t.Errorf("Expected no error in processQueue but got: %v", chanError)
+				}
+			}()
+
+			finished := make(chan struct{})
+			started := make(chan struct{})
+			var transformer Transformer = &SlowTransformer{
+				finished: finished,
+				started:  started,
+			}
+
+			go repo.Apply(ctx, transformer)
+
+			// first, wait, until the transformer has started:
+			<-started
+			// health should be reporting as ready now
+			if !isReady() {
+				t.Error("Expected health to be ready after transformer was started, but it was not")
+			}
+			// now advance the clock time
+			mc.sleep(4 * networkTimeout)
+
+			// now that the transformer is started, we should get a failed health check immediately, because the networkTimeout is tiny:
+			if isReady() {
+				t.Error("Expected health to be not ready after transformer took too long, but it was")
+			}
+
+			// let the transformer finish:
+			finished <- struct{}{}
+
+		})
+	}
+}
+
 func TestApplyQueue(t *testing.T) {
 	type action struct {
 		CancelBeforeAdd bool
@@ -1360,7 +1458,7 @@ func TestApplyQueue(t *testing.T) {
 			finished := make(chan struct{})
 			started := make(chan struct{}, 1)
 			go func() {
-				repo.Apply(testutil.MakeTestContext(), &SlowTransformer{finished, started})
+				repo.Apply(testutil.MakeTestContext(), &SlowTransformer{finished: finished, started: started})
 			}()
 			<-started
 			// The worker go routine is now blocked. We can move some items into the queue now.

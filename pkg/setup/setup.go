@@ -117,7 +117,7 @@ func Run(ctx context.Context, config ServerConfig) {
 		reports := s.health.reports()
 		for name, report := range reports {
 			var value int64
-			if report.isReady() {
+			if report.isReady(s.health.now()) {
 				value = 1
 			}
 			o.Observe(value, metric.WithAttributes(attribute.String("name", name)))
