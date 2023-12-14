@@ -1,62 +1,54 @@
-VERSION 0.7
-ARG --global service=cd-service
+VERSION --use-function-keyword 0.7
+IMPORT ../../infrastructure/earthly/go AS go-build
+
+LOCALLY
+ARG --global service=$(basename $PWD)
+ARG --global UID=1000
+ARG --global cgo_enabled=1
 
 deps:
     FROM ../../+deps
-    COPY ../../pkg+artifacts/* pkg/
-    COPY pkg services/$service/pkg
-    COPY cmd/server/* services/$service/cmd/server/
-    SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
-    SAVE ARTIFACT /usr/share/zoneinfo
-    SAVE IMAGE --cache-hint
+    DO go-build+DEPS --service=$service
+    WORKDIR services/$service
+
 artifacts:
     FROM +deps
-    SAVE ARTIFACT services/$service/pkg
+    SAVE ARTIFACT /etc/ssl/certs/ca-certificates.crt
+    SAVE ARTIFACT /usr/share/zoneinfo
+    SAVE ARTIFACT pkg
+
 compile:
     FROM +deps
     ARG USERARCH
-    WORKDIR services/$service/cmd/server
-    RUN CGO_ENABLED=1 \
-        GOARCH=$USERARCH \
-	    GOOS=linux \
-        go build -o bin/main main.go
-    SAVE ARTIFACT bin/main
-    SAVE IMAGE --cache-hint
+    
+    DO +CGO_LIBS --cgo_enabled=$cgo_enabled
+    DO go-build+COMPILE --cgo_enabled=$cgo_enabled
 
 unit-test:
     FROM +compile
-    WORKDIR /kp/services/$service
-    RUN CGO_ENABLED=1 go test ./...
-
-docker:
-    FROM +deps
-    ARG UID=1000
-    ARG USERARCH
-    ARG tag="local"
-    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
-
-    IF [ "$USERARCH" = "arm64" ]
-        FROM golang:1.21-bookworm
-        RUN apt update && apt install --auto-remove libgit2-dev libsqlite3-dev -y
-    ELSE
-        FROM golang:1.21-alpine3.18
-        RUN apk add --no-cache libgit2-dev sqlite-dev
-    END
+    DO go-build+UNIT_TEST
     
-    ENV TZ=Europe/Berlin
-    RUN adduser --disabled-password --home "/kp" --uid ${UID} kp
-    COPY +compile/main /main
+docker:
+    FROM alpine:3.18
+    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+    ARG tag="local"
     COPY gitconfig /etc/gitconfig
-    RUN chown -R kp:kp /kp
-    COPY +deps/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-    COPY +deps/zoneinfo /usr/share/zoneinfo
-    USER kp
-    WORKDIR /kp
-    ENTRYPOINT ["/main"] 
-    SAVE IMAGE $registry/kuberpult-$service:$tag
+    DO go-build+DOCKER --UID=$UID --image_tag=$registry/kuberpult-$service:$tag --cgo_enabled=$cgo_enabled --entry_point=/main --service=$service
 
 release:
     FROM +docker
-    ARG tag="local"
-    ARG registry="ghcr.io/freiheit-com/kuberpult"
-    SAVE IMAGE --push $registry/kuberpult-$service:$tag
+    ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+    ARG --required tag
+    DO go-build+RELEASE --image_tag=$registry/kuberpult-$service:$tag
+
+CGO_LIBS:
+    FUNCTION
+    ARG USERARCH
+    ARG cgo_enabled
+    IF [ "$cgo_enabled" = "1" ]
+        IF [ "$USERARCH" = "arm64" ]
+            RUN apt update && apt install --auto-remove libgit2-dev libsqlite3-dev -y
+        ELSE
+            RUN apk add --no-cache libgit2-dev sqlite-dev alpine-sdk
+        END
+    END
