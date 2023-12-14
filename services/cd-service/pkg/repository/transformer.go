@@ -129,16 +129,42 @@ func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
 			}
 		}
 	}
+	// TODO SU: we also need to know what was NOT deployed!
 	if changes != nil && ddMetrics != nil {
+		thisGauge := func(change AppEnv, deployed bool) error {
+			return ddMetrics.Gauge("deployment", 1, []string{"app:" + change.App, "env:" + change.Env, "team:" + change.Team, "deployment:" + "deployed"}, 1)
+		}
+		allApps, err := state.GetApplications()
+		if err != nil {
+			return err
+		}
+		allAppsMap := map[string]bool{}
+		for i := range allApps {
+			appName := allApps[i]
+			allAppsMap[appName] = false
+		}
 		for i := range changes.ChangedApps {
 			oneChange := changes.ChangedApps[i]
 			// Note that "deployment" can mean:
 			// 1) created a new release
 			// 2) deployed a release manually
 			// 3) deployed a release via release train
-			err := ddMetrics.Gauge("deployment", 1, []string{"app:" + oneChange.App, "env:" + oneChange.Env, "team:" + oneChange.Team}, 1)
+			err := ddMetrics.Gauge("deployment", 1, []string{"app:" + oneChange.App, "env:" + oneChange.Env, "team:" + oneChange.Team, "deployment:" + "deployed"}, 1)
 			if err != nil {
 				return err
+			}
+			allAppsMap[oneChange.App] = true
+		}
+		for appName := range allAppsMap {
+			if !allAppsMap[appName] {
+				err := thisGauge(AppEnv{
+					App:  app,
+					Env:  "",
+					Team: "",
+				})
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
