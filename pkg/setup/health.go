@@ -72,8 +72,14 @@ type report struct {
 	Deadline *time.Time `json:"deadline,omitempty"`
 }
 
-func (r *report) isReady() bool {
-	return r.Health == HealthReady
+func (r *report) isReady(now time.Time) bool {
+	if r.Health != HealthReady {
+		return false
+	}
+	if r.Deadline == nil {
+		return true
+	}
+	return now.Before(*r.Deadline)
 }
 
 func (r *HealthReporter) ReportReady(message string) {
@@ -177,10 +183,7 @@ func (h *HealthServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reports := h.reports()
 	success := true
 	for _, r := range reports {
-		r.isReady()
-		if r.Health != HealthReady {
-			//TODO here check IsReady!?
-			and basically never just check ".Health"
+		if !r.isReady(h.now()) {
 			success = false
 		}
 	}
@@ -204,13 +207,7 @@ func (h *HealthServer) IsReady(name string) bool {
 		return false
 	}
 	report := h.parts[name]
-	if report.Health != HealthReady {
-		return false
-	}
-	if report.Deadline == nil {
-		return true
-	}
-	return h.now().Before(*report.Deadline)
+	return report.isReady(h.now())
 }
 
 func (h *HealthServer) reports() map[string]report {
