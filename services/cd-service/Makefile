@@ -62,7 +62,7 @@ bin/:
 
 build: bin/main
 
-build-pr: test release
+build-pr:
 	echo "build on pull request"
 
 build-main: test release

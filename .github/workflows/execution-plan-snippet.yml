@@ -203,9 +203,10 @@ jobs:
           name: ${{ matrix.data.artifactName }}
           path: ${{ matrix.data.artifacts }}
   cleanup:
-    needs: [stageB_build, execution_plan]
     name: Cleanup
     runs-on: ubuntu-latest
+    if: always()
+    needs: ['stageB_build']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3.1.0
@@ -220,5 +221,5 @@ jobs:
         if: inputs.trigger == 'tag'
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}"  >> $GITHUB_ENV
-      - name: Cleanup
-        run: make cleanup-pr
+      - name: test docker cache
+        run: docker images
