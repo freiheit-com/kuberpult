@@ -336,7 +336,7 @@ func TestBatchServiceErrors(t *testing.T) {
 						},
 					},
 				}},
-			ExpectedResponse: `results:{create_release_response:{general_failure:{message:"invalid application name: 'myappIsWayTooLongDontYouThink' - must match regexp '\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z' and <= 39 characters"}}}`,
+			ExpectedResponse: `results:{create_release_response:{too_long:{appName:"myappIsWayTooLongDontYouThink"  regExp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z"  maxLen:39}}}`,
 		},
 	}
 	for _, tc := range tcs {

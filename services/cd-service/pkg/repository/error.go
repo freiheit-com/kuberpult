@@ -91,8 +91,8 @@ func GetCreateReleaseAppNameTooLong(appName string, regExp string, maxLen uint32
 	}
 	return &CreateReleaseError {
 		response: api.CreateReleaseResponse {
-			Response: &api.CreateReleaseResponse_AppNameTooLong {
-				AppNameTooLong: &response,
+			Response: &api.CreateReleaseResponse_TooLong {
+				TooLong: &response,
 			},
 		},
 	}

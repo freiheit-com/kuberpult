@@ -676,7 +676,7 @@ func TestCreateApplicationVersion(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			ctxWithTime := withTimeNow(testutil.MakeTestContext(), timeNowOld)
+			ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
 			repo := setupRepositoryTest(t)
 			_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)

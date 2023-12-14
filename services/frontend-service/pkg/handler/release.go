@@ -259,7 +259,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		case *api.CreateReleaseResponse_AlreadyExistsSame:
 		{
 			jsonBlob, err := json.Marshal(firstResponse)
-			writeReleaseResponse(w, r, jsonBlob, err, http.StatusOk)
+			writeReleaseResponse(w, r, jsonBlob, err, http.StatusOK)
 		}
 		case *api.CreateReleaseResponse_AlreadyExistsDifferent:
 		{
@@ -276,9 +276,14 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 			jsonBlob, err := json.Marshal(firstResponse)
 			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
 		}
+		case *api.CreateReleaseResponse_TooLong:
+		{
+			jsonBlob, err := json.Marshal(firstResponse)
+			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
+		}
 		default:
 		{
-			msg := "unknown response type in /release"
+			msg := fmt.Sprintf("unknown response type in /release: %s", releaseResponse.String())
 			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s", msg, releaseResponse.String()))
 			http.Error(w, msg, http.StatusInternalServerError)
 		}
