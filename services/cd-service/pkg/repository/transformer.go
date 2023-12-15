@@ -210,8 +210,10 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
-		return "", nil, err
-
+		if errors.Is(err, InvalidJson) {
+			return "", nil, err
+		}
+		return "", nil, GetCreateReleaseGeneralFailure(err)
 	}
 
 	if c.SourceCommitId != "" {

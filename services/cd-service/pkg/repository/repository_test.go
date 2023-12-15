@@ -1045,7 +1045,7 @@ func (p *ErrorTransformer) Transform(ctx context.Context, state *State) (string,
 type InvalidJsonTransformer struct{}
 
 func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	return "error", nil, invalidJson
+	return "error", nil, InvalidJson
 }
 
 func convertToSet(list []uint64) map[int]bool {
@@ -1394,7 +1394,7 @@ func TestApplyQueue(t *testing.T) {
 			Name: "Invalid json error at start",
 			Actions: []action{
 				{
-					ExpectedError: invalidJson,
+					ExpectedError: InvalidJson,
 					Transformer:   &InvalidJsonTransformer{},
 				},
 				{}, {},
@@ -1408,7 +1408,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{},
 				{
-					ExpectedError: invalidJson,
+					ExpectedError: InvalidJson,
 					Transformer:   &InvalidJsonTransformer{},
 				},
 				{},
@@ -1422,7 +1422,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{}, {},
 				{
-					ExpectedError: invalidJson,
+					ExpectedError: InvalidJson,
 					Transformer:   &InvalidJsonTransformer{},
 				},
 			},
@@ -1516,7 +1516,7 @@ func getTransformer(i int) (Transformer, error) {
 	case 3:
 		return &ErrorTransformer{}, TransformerError
 	case 4:
-		return &InvalidJsonTransformer{}, invalidJson
+		return &InvalidJsonTransformer{}, InvalidJson
 	}
 	return &ErrorTransformer{}, TransformerError
 }

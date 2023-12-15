@@ -403,7 +403,7 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 		subChanges, applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
 		changes.Combine(subChanges)
 		if applyErr != nil {
-			if errors.Is(applyErr, invalidJson) && allowFetchAndReset {
+			if errors.Is(applyErr, InvalidJson) && allowFetchAndReset {
 				// Invalid state. fetch and reset and redo
 				err := r.FetchAndReset(e.ctx)
 				if err != nil {
@@ -1451,7 +1451,7 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 	}
 }
 
-var invalidJson = errors.New("JSON file is not valid")
+var InvalidJson = errors.New("JSON file is not valid")
 
 func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFor string) bool {
 	if _, found := envConfigs[envNameToSearchFor]; found {
@@ -1518,7 +1518,7 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 				if errors.Is(err, os.ErrNotExist) {
 					result[env.Name()] = config
 				} else {
-					return nil, fmt.Errorf("%s : %w", fileName, invalidJson)
+					return nil, fmt.Errorf("%s : %w", fileName, InvalidJson)
 				}
 			} else {
 				result[env.Name()] = config
