@@ -72,7 +72,7 @@ func writeReleaseResponse(w http.ResponseWriter, r *http.Request, jsonBlob []byt
 		return
 	}
 	w.WriteHeader(status)
-	w.Write(jsonBlob)
+	w.Write(jsonBlob + "\n")
 }
 
 func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail string) {
