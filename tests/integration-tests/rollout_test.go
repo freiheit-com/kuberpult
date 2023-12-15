@@ -140,11 +140,11 @@ func releaseApp(t *testing.T, application string, manifests map[string]string) {
 		files["manifests["+env+"]"] = strings.NewReader(data)
 		files["signatures["+env+"]"] = strings.NewReader(CalcSignature(t, data))
 	}
-	actualStatusCode, _, err := callRelease(values, files)
+	actualStatusCode, body, err := callRelease(values, files)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if actualStatusCode > 299 {
-		t.Fatalf("bad status code: %d", actualStatusCode)
+		t.Fatalf("bad status code: %d, body: %s", actualStatusCode, body)
 	}
 }

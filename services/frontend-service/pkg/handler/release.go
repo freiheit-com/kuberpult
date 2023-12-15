@@ -72,7 +72,8 @@ func writeReleaseResponse(w http.ResponseWriter, r *http.Request, jsonBlob []byt
 		return
 	}
 	w.WriteHeader(status)
-	w.Write(jsonBlob + "\n")
+	w.Write(jsonBlob)
+	w.Write([]byte("\n"))
 }
 
 func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail string) {
@@ -283,9 +284,10 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		}
 		default:
 		{
-			msg := fmt.Sprintf("unknown response type in /release: %s", releaseResponse.String())
-			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s", msg, releaseResponse.String()))
-			http.Error(w, msg, http.StatusInternalServerError)
+			msg := "unknown response type in /release"
+			jsonBlob, err := json.Marshal(releaseResponse)
+			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s, %s", msg, jsonBlob, err))
+			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: %s", msg, jsonBlob)), err, http.StatusInternalServerError)
 		}
 	}
 }
