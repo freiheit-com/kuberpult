@@ -65,23 +65,16 @@ func (v *VersionInfo) Equal(w *VersionInfo) bool {
 	return v.Version == w.Version
 }
 
+var ErrNotFound error = fmt.Errorf("not found")
+
 // GetVersion implements VersionClient
 func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
 	var overview *api.GetOverviewResponse
 	entry, ok := v.cache.Get(revision)
 	if !ok {
-		var err error
-		ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
-		overview, err = v.client.GetOverview(ctx, &api.GetOverviewRequest{
-			GitRevision: revision,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("requesting overview %q: %w", revision, err)
-		}
-		v.cache.Add(revision, overview)
-	} else {
-		overview = entry.(*api.GetOverviewResponse)
+		return nil, ErrNotFound
 	}
+	overview = entry.(*api.GetOverviewResponse)
 	for _, group := range overview.GetEnvironmentGroups() {
 		for _, env := range group.GetEnvironments() {
 			if env.Name == environment {
