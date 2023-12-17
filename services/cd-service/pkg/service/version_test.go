@@ -30,10 +30,11 @@ import (
 
 func TestVersion(t *testing.T) {
 	type expectedVersion struct {
-		Environment        string
-		Application        string
-		ExpectedVersion    uint64
-		ExpectedDeployedAt time.Time
+		Environment            string
+		Application            string
+		ExpectedVersion        uint64
+		ExpectedDeployedAt     time.Time
+		ExpectedSourceCommitId string
 	}
 	tcs := []struct {
 		Name             string
@@ -81,6 +82,44 @@ func TestVersion(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "with source commits",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&repository.CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceCommitId: "deadbeef",
+				},
+			},
+			ExpectedVersions: []expectedVersion{
+				{
+					Environment:            "development",
+					Application:            "test",
+					ExpectedVersion:        1,
+					ExpectedDeployedAt:     time.Unix(2, 0),
+					ExpectedSourceCommitId: "deadbeef",
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -120,6 +159,9 @@ func TestVersion(t *testing.T) {
 					if !res.DeployedAt.AsTime().Equal(ev.ExpectedDeployedAt) {
 						t.Errorf("got wrong deployed at for %s/%s: expected %q but got %q", ev.Application, ev.Environment, ev.ExpectedDeployedAt, res.DeployedAt.AsTime())
 					}
+				}
+				if ev.ExpectedSourceCommitId != res.SourceCommitId {
+					t.Errorf("go wrong source commit id, expected %q, got %q", ev.ExpectedSourceCommitId, res.SourceCommitId)
 				}
 			}
 		})

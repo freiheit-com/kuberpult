@@ -59,6 +59,11 @@ func (o *VersionServiceServer) GetVersion(
 			return nil, err
 		}
 		res.DeployedAt = timestamppb.New(deployedAt)
+		release, err := state.GetApplicationRelease(in.Application, *version)
+		if err != nil {
+			return nil, err
+		}
+		res.SourceCommitId = release.SourceCommitId
 	}
 	return &res, nil
 }
