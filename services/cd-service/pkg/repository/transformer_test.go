@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"io"
 	"os/exec"
 	"path"
@@ -3776,8 +3778,16 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
+	err := cmd.Start()
+	if err != nil {
+		t.Errorf("could not start git init")
+		return nil, ""
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Errorf("could not wait for git init to finish")
+		return nil, ""
+	}
 	repo, err := New(
 		testutil.MakeTestContext(),
 		RepositoryConfig{
@@ -4067,12 +4077,105 @@ func TestSendRegularlyDatadogMetrics(t *testing.T) {
 	}
 }
 
+type MockClient struct {
+	events []*statsd.Event
+}
+
+//func (c*MockClient) GetEvents() []*statsd.Event {
+//	return c.events
+//}
+
+func (c *MockClient) Event(e *statsd.Event) error {
+	if c == nil {
+		return errors.New("no client provided")
+	}
+	c.events = append(c.events, e)
+	return nil
+}
+
+func (c *MockClient) Gauge(_ string, _ float64, _ []string, _ float64) error {
+	return nil
+}
+
+func (c *MockClient) GaugeWithTimestamp(_ string, _ float64, _ []string, _ float64, _ time.Time) error {
+	return nil
+}
+
+func (c *MockClient) Count(_ string, _ int64, _ []string, _ float64) error {
+	return nil
+}
+
+func (c *MockClient) CountWithTimestamp(_ string, _ int64, _ []string, _ float64, _ time.Time) error {
+	return nil
+}
+
+func (c *MockClient) Histogram(_ string, _ float64, _ []string, _ float64) error {
+	return nil
+}
+
+func (c *MockClient) Distribution(_ string, _ float64, _ []string, _ float64) error {
+	return nil
+}
+
+func (c *MockClient) Decr(_ string, _ []string, _ float64) error {
+	return nil
+}
+
+func (c *MockClient) Incr(_ string, _ []string, _ float64) error {
+	return nil
+}
+
+func (c *MockClient) Set(_ string, _ string, _ []string, _ float64) error {
+	return nil
+}
+
+func (c *MockClient) Timing(_ string, _ time.Duration, _ []string, _ float64) error {
+	return nil
+}
+
+func (c *MockClient) TimeInMilliseconds(_ string, _ float64, _ []string, _ float64) error {
+	return nil
+}
+
+func (c *MockClient) SimpleEvent(_, _ string) error {
+	return nil
+}
+
+func (c *MockClient) ServiceCheck(_ *statsd.ServiceCheck) error {
+	return nil
+}
+
+func (c *MockClient) SimpleServiceCheck(_ string, _ statsd.ServiceCheckStatus) error {
+	return nil
+}
+
+func (c *MockClient) Close() error {
+	return nil
+}
+
+func (c *MockClient) Flush() error {
+	return nil
+}
+
+func (c *MockClient) IsClosed() bool {
+	return false
+}
+
+func (c *MockClient) GetTelemetry() statsd.Telemetry {
+	return statsd.Telemetry{}
+}
+
+// Verify that Client implements the ClientInterface.
+// https://golang.org/doc/faq#guarantee_satisfies_interface
+var _ statsd.ClientInterface = &MockClient{}
+
 func TestUpdateDatadogMetrics(t *testing.T) {
 	tcs := []struct {
-		Name          string
-		Transformers  []Transformer
-		expectedError string
-		shouldSucceed bool
+		Name           string
+		Transformers   []Transformer
+		expectedError  string
+		shouldSucceed  bool
+		expectedEvents []statsd.Event
 	}{
 		{
 			Name: "Application Lock metric is sent",
@@ -4094,7 +4197,8 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 					Message:     "test",
 				},
 			},
-			shouldSucceed: true,
+			shouldSucceed:  true,
+			expectedEvents: nil,
 		},
 		{
 			Name: "Application Lock metric is sent",
@@ -4115,21 +4219,28 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 					Message:     "test",
 				},
 			},
-			shouldSucceed: true,
+			shouldSucceed:  true,
+			expectedEvents: nil,
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
+			//var myClient *statsd.ClientInterface = nil
+			var mockClient = &MockClient{}
+			var client statsd.ClientInterface = mockClient
+			//var y *mock_statsd.MockClientInterface = MockInterface{}
+			//myClient
+			//y.Event(...)
+			ddMetrics = client
+			//myClient = y.(*statsd.ClientInterface)
 			repo := setupRepositoryTest(t)
 			_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 
 			if err != nil {
 				t.Fatalf("Got an unexpected error: %v", err)
 			}
-
-			err = UpdateDatadogMetrics(repo.State(), nil)
 
 			if tc.shouldSucceed {
 				if err != nil {
@@ -4145,6 +4256,126 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 					}
 				}
 			}
+		})
+	}
+}
+
+func TestUpdateDatadogMetricsInternal(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		changes        *TransformerResult
+		expectedError  string
+		expectedEvents []statsd.Event
+	}{
+		{
+			Name: "Changes are sent as events",
+			changes: &TransformerResult{
+				ChangedApps: []AppEnv{
+					{
+						App:  "app1",
+						Env:  "envB",
+						Team: "teamT",
+					},
+				},
+				DeletedRootApps: nil,
+				Commits:         nil,
+			},
+			expectedEvents: []statsd.Event{
+				{
+					Title:          "Kuberpult app deployed",
+					Text:           "Kuberpult has deployed app1 to envB for team teamT",
+					Timestamp:      time.Time{},
+					Hostname:       "",
+					AggregationKey: "",
+					Priority:       "",
+					SourceTypeName: "",
+					AlertType:      "",
+					Tags: []string{
+						"app:app1",
+						"env:envB",
+						"team:teamT",
+					},
+				},
+			},
+		},
+		{
+			Name: "2 Changes are sent as events",
+			changes: &TransformerResult{
+				ChangedApps: []AppEnv{
+					{
+						App:  "app1",
+						Env:  "envB",
+						Team: "teamT",
+					},
+					{
+						App:  "app2",
+						Env:  "envA",
+						Team: "teamX",
+					},
+				},
+				DeletedRootApps: nil,
+				Commits:         nil,
+			},
+			expectedEvents: []statsd.Event{
+				{
+					Title:          "Kuberpult app deployed",
+					Text:           "Kuberpult has deployed app1 to envB for team teamT",
+					Timestamp:      time.Time{},
+					Hostname:       "",
+					AggregationKey: "",
+					Priority:       "",
+					SourceTypeName: "",
+					AlertType:      "",
+					Tags: []string{
+						"app:app1",
+						"env:envB",
+						"team:teamT",
+					},
+				},
+				{
+					Title:          "Kuberpult app deployed",
+					Text:           "Kuberpult has deployed app2 to envA for team teamX",
+					Timestamp:      time.Time{},
+					Hostname:       "",
+					AggregationKey: "",
+					Priority:       "",
+					SourceTypeName: "",
+					AlertType:      "",
+					Tags: []string{
+						"app:app2",
+						"env:envA",
+						"team:teamX",
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
+			var mockClient = &MockClient{}
+			var client statsd.ClientInterface = mockClient
+			ddMetrics = client
+			repo := setupRepositoryTest(t)
+
+			err := UpdateDatadogMetrics(repo.State(), tc.changes)
+
+			if err != nil {
+				t.Fatalf("Expected no error: %v", err)
+			}
+			if len(tc.expectedEvents) != len(mockClient.events) {
+				t.Fatalf("expected %d events, but got %d", len(tc.expectedEvents), len(mockClient.events))
+			}
+			for i := range tc.expectedEvents {
+				var expectedEvent statsd.Event = tc.expectedEvents[i]
+				var actualEvent statsd.Event = *mockClient.events[i]
+
+				if diff := cmp.Diff(actualEvent, expectedEvent, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
+					t.Errorf("got %v, want %v, diff (-want +got) %s", actualEvent, expectedEvent, diff)
+				}
+			}
+
 		})
 	}
 }

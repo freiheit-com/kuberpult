@@ -76,7 +76,7 @@ func defaultBackOffProvider() backoff.BackOff {
 }
 
 var (
-	ddMetrics *statsd.Client
+	ddMetrics statsd.ClientInterface // *statsd.Client
 )
 
 type StorageBackend int
@@ -260,7 +260,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 	ddMetricsFromCtx := ctx.Value("ddMetrics")
 	if ddMetricsFromCtx != nil {
-		ddMetrics = ddMetricsFromCtx.(*statsd.Client)
+		ddMetrics = ddMetricsFromCtx.(statsd.ClientInterface)
 	}
 
 	if cfg.Branch == "" {

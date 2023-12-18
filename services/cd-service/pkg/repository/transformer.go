@@ -113,7 +113,7 @@ func GaugeEnvAppLockMetric(fs billy.Filesystem, env, app string) {
 }
 
 func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
-	fs := state.Filesystem
+	filesystem := state.Filesystem
 	if ddMetrics == nil {
 		return nil
 	}
@@ -122,35 +122,28 @@ func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
 		return err
 	}
 	for env := range configs {
-		GaugeEnvLockMetric(fs, env)
-		appsDir := fs.Join(environmentDirectory(fs, env), "applications")
-		if entries, _ := fs.ReadDir(appsDir); entries != nil {
+		GaugeEnvLockMetric(filesystem, env)
+		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
+		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
 			for _, app := range entries {
-				GaugeEnvAppLockMetric(fs, env, app.Name())
+				GaugeEnvAppLockMetric(filesystem, env, app.Name())
 			}
 		}
 	}
-	// TODO SU: we also need to know what was NOT deployed!
+	now := time.Now() // ensure all events have the same timestamp
 	if changes != nil && ddMetrics != nil {
-		//thisGauge := func(change AppEnv, deployed bool) error {
-		//	return ddMetrics.Gauge("deployment", 1, []string{"app:" + change.App, "env:" + change.Env, "team:" + change.Team, "deployment:" + "deployed"}, 1)
-		//}
-		//allApps, err := state.GetApplications()
-		//if err != nil {
-		//	return err
-		//}
-		//allAppsMap := map[string]bool{}
-		//for i := range allApps {
-		//	appName := allApps[i]
-		//	allAppsMap[appName] = false
-		//}
-
 		for i := range changes.ChangedApps {
 			oneChange := changes.ChangedApps[i]
+			teamMessage := func() string {
+				if oneChange.Team != "" {
+					return fmt.Sprintf(" for team %s", oneChange.Team)
+				}
+				return ""
+			}()
 			event := statsd.Event{
 				Title:     "Kuberpult app deployed",
-				Text:      fmt.Sprintf("Kuberpult has deployed %s to %s", oneChange.App, oneChange.Env),
-				Timestamp: time.Now(),
+				Text:      fmt.Sprintf("Kuberpult has deployed %s to %s%s", oneChange.App, oneChange.Env, teamMessage),
+				Timestamp: now,
 				Tags: []string{
 					"app:" + oneChange.App,
 					"env:" + oneChange.Env,
@@ -161,20 +154,7 @@ func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
 			if err != nil {
 				return err
 			}
-			//allAppsMap[oneChange.App] = true
 		}
-		//for appName := range allAppsMap {
-		//	if !allAppsMap[appName] {
-		//		err := thisGauge(AppEnv{
-		//			App:  appName,
-		//			Env:  "",
-		//			Team: "",
-		//		}, true)
-		//		if err != nil {
-		//			return err
-		//		}
-		//	}
-		//}
 	}
 	return nil
 }
