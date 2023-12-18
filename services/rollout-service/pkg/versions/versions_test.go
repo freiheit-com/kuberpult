@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/google/go-cmp/cmp"
@@ -30,6 +31,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type step struct {
@@ -110,6 +112,23 @@ func (m *mockOverviewClient) Recv() (*api.GetOverviewResponse, error) {
 }
 
 var _ api.OverviewServiceClient = (*mockOverviewClient)(nil)
+
+type mockVersionResponse struct {
+	response *api.GetVersionResponse
+	err      error
+}
+type mockVersionClient struct {
+	responses map[string]mockVersionResponse
+}
+
+func (m *mockVersionClient) GetVersion(ctx context.Context, in *api.GetVersionRequest, opts ...grpc.CallOption) (*api.GetVersionResponse, error) {
+	key := fmt.Sprintf("%s/%s@%s", in.Environment, in.Application, in.GitRevision)
+	res, ok := m.responses[key]
+	if !ok {
+		return nil, status.Error(codes.Unknown, "no")
+	}
+	return res.response, res.err
+}
 
 type mockVersionEventProcessor struct {
 	events []KuberpultEvent
@@ -232,6 +251,7 @@ func TestVersionClientStream(t *testing.T) {
 	tcs := []struct {
 		Name             string
 		Steps            []step
+		VersionResponses map[string]mockVersionResponse
 		ExpectedVersions []expectedVersion
 	}{
 		{
@@ -277,6 +297,34 @@ func TestVersionClientStream(t *testing.T) {
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
 					CancelContext: true,
+				},
+			},
+			ExpectedVersions: []expectedVersion{
+				{
+					Revision:        "1234",
+					Environment:     "staging",
+					Application:     "foo",
+					DeployedVersion: 1,
+					SourceCommitId:  "00001",
+					DeployTime:      time.Unix(123456789, 0).UTC(),
+				},
+			},
+		},
+		{
+			Name: "Can resolve versions from the versions client",
+			Steps: []step{
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			VersionResponses: map[string]mockVersionResponse{
+				"staging/foo@1234": {
+					response: &api.GetVersionResponse{
+						Version:        1,
+						SourceCommitId: "00001",
+						DeployedAt:     timestamppb.New(time.Unix(123456789, 0).UTC()),
+					},
 				},
 			},
 			ExpectedVersions: []expectedVersion{
@@ -489,9 +537,16 @@ func TestVersionClientStream(t *testing.T) {
 			vp := &mockVersionEventProcessor{}
 			startSteps := make(chan struct{})
 			steps := make(chan step)
-			mc := &mockOverviewClient{StartStep: startSteps, Steps: steps}
-			vc := New(mc)
+			moc := &mockOverviewClient{StartStep: startSteps, Steps: steps}
+			if tc.VersionResponses == nil {
+				tc.VersionResponses = map[string]mockVersionResponse{}
+			}
+			mvc := &mockVersionClient{responses: tc.VersionResponses}
+			vc := New(moc, mvc)
 			hs := &setup.HealthServer{}
+			hs.BackOffFactory = func() backoff.BackOff {
+				return backoff.NewConstantBackOff(time.Millisecond)
+			}
 			errCh := make(chan error)
 			go func() {
 				errCh <- vc.ConsumeEvents(ctx, vp, hs.Reporter("versions"))
@@ -520,7 +575,7 @@ func TestVersionClientStream(t *testing.T) {
 			if len(steps) != 0 {
 				t.Errorf("expected all events to be consumed, but got %d left", len(steps))
 			}
-			assertExpectedVersions(t, tc.ExpectedVersions, vc, mc)
+			assertExpectedVersions(t, tc.ExpectedVersions, vc, moc)
 
 		})
 	}

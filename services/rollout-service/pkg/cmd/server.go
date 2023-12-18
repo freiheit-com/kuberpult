@@ -105,7 +105,7 @@ func RunServer() {
 	}
 }
 
-func getGrpcClient(ctx context.Context, config Config) (api.OverviewServiceClient, error) {
+func getGrpcClient(ctx context.Context, config Config) (api.OverviewServiceClient, api.VersionServiceClient, error) {
 	grpcClientOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 	}
@@ -122,10 +122,10 @@ func getGrpcClient(ctx context.Context, config Config) (api.OverviewServiceClien
 
 	con, err := grpc.Dial(config.CdServer, grpcClientOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("error dialing %s: %w", config.CdServer, err)
+		return nil, nil, fmt.Errorf("error dialing %s: %w", config.CdServer, err)
 	}
 
-	return api.NewOverviewServiceClient(con), nil
+	return api.NewOverviewServiceClient(con), api.NewVersionServiceClient(con), nil
 }
 
 func runServer(ctx context.Context, config Config) error {
@@ -174,13 +174,13 @@ func runServer(ctx context.Context, config Config) error {
 	}
 	defer argoio.Close(closer)
 
-	overview, err := getGrpcClient(ctx, config)
+	overviewGrpc, versionGrpc, err := getGrpcClient(ctx, config)
 	if err != nil {
 		return fmt.Errorf("connecting to cd service %q: %w", config.CdServer, err)
 	}
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
-	versionC := versions.New(overview)
+	versionC := versions.New(overviewGrpc, versionGrpc)
 
 	backgroundTasks := []setup.BackgroundTaskConfig{
 		{

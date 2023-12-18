@@ -106,6 +106,7 @@ type version struct {
 }
 
 type mockVersionClient struct {
+	versions.VersionClient
 	versions []version
 }
 
@@ -117,10 +118,6 @@ func (m *mockVersionClient) GetVersion(ctx context.Context, revision string, env
 		}
 	}
 	return nil, nil
-}
-
-func (m *mockVersionClient) ConsumeEvents(ctx context.Context, pc versions.VersionEventProcessor, hr *setup.HealthReporter) error {
-	panic("not implemented")
 }
 
 var _ versions.VersionClient = (*mockVersionClient)(nil)
