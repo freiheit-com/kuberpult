@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@azure/msal-browser": "^2.28.1",
+    "@azure/msal-browser": "^2.28.3",
     "@azure/msal-react": "^1.4.5",
     "@emotion/react": "^11.1.5",
     "@emotion/styled": "^11.1.5",
@@ -41,7 +41,7 @@
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^14.0.0",
     "@types/jest": "^29.0.0",
-    "@types/node": "^20.0.0",
+    "@types/node": "^20.10.5",
     "@types/react": "18.2.45",
     "@types/react-dom": "18.2.18",
     "@typescript-eslint/parser": "^6.0.0",
@@ -54,13 +54,13 @@
     "google-protobuf": "^3.21.0",
     "long": "^5.2.0",
     "madge": "^6.0.0",
-    "prettier": "^3.0.0",
-    "protobufjs": "^7.0.0",
+    "prettier": "^3.1.1",
+    "protobufjs": "^7.2.3",
     "react-refresh": "^0.14.0",
-    "sass": "^1.32.5",
+    "sass": "^1.69.5",
     "spy4js": "^3.1.0",
-    "ts-proto": "^1.76",
-    "typescript": "5.3.2"
+    "ts-proto": "^1.125.0",
+    "typescript": "5.3.3"
   },
   "jest": {
     "collectCoverageFrom": [
