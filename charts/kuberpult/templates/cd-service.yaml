@@ -279,7 +279,7 @@ metadata:
 spec:
   healthCheck:
     type: HTTP
-    requestPath: /health
+    requestPath: /healthz
   timeoutSec: {{ .Values.cd.backendConfig.timeoutSec }}
 {{- end }}
 {{- if .Values.environment_configs.bootstrap_mode }}

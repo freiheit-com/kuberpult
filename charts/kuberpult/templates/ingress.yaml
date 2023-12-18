@@ -85,6 +85,9 @@ kind: BackendConfig
 metadata:
   name: kuberpult
 spec:
+  healthCheck:
+    requestPath: /healthz
+    type: HTTP
   iap:
     enabled: true
     oauthclientCredentials:
