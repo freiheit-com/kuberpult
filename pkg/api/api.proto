@@ -222,6 +222,7 @@ message GetVersionRequest {
 message GetVersionResponse {
   uint64 version = 1;
   google.protobuf.Timestamp deployed_at = 2;
+  string source_commit_id = 3;
 }
 
 service VersionService {
