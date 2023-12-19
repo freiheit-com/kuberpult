@@ -541,7 +541,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 				return
 			}
 			// Apply the items
-			elements, err, _ = r.applyElements(elements, false)
+			elements, err, changes = r.applyElements(elements, false)
 			if err != nil || len(elements) == 0 {
 				return
 			}
@@ -561,6 +561,11 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	}
 	span, ctx := tracer.StartSpanFromContext(e.ctx, "PostPush")
 	defer span.Finish()
+
+	err = UpdateDatadogMetrics(r.State(), changes)
+	if err != nil {
+		logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", err))
+	}
 
 	if r.config.ArgoWebhookUrl != "" {
 		r.sendWebhookToArgoCd(ctx, logger, changes)
@@ -894,10 +899,6 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	}
 	if oldCommitId != nil {
 		result.Commits.Previous = oldCommitId
-	}
-	err = UpdateDatadogMetrics(state, result)
-	if err != nil {
-		return nil, err
 	}
 	return result, nil
 }
