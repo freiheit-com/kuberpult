@@ -784,7 +784,7 @@ func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (st
 	_, err = fs.Stat(lockDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return "", nil, grpc.FailedPrecondition(ctx, err)
+			return "", nil, grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for env lock does not exist", lockDir))
 		}
 		return "", nil, err
 	}
@@ -943,7 +943,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state 
 	_, err = fs.Stat(lockDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return "", nil, grpc.FailedPrecondition(ctx, err)
+			return "", nil, grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
 		}
 		return "", nil, err
 	}

@@ -189,6 +189,12 @@ func TestBatchServiceWorks(t *testing.T) {
 					LockId:      "1234",
 					Message:     "EnvLock",
 				},
+				&repository.CreateEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					LockId:      "5678",
+					Message:     "no message",
+				},
 			},
 			Batch:   getBatchActions(),
 			context: testutil.MakeTestContextDexEnabled(),
