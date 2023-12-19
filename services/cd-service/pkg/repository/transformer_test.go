@@ -4321,6 +4321,10 @@ func TestDeleteLocks(t *testing.T) {
 					Environment: envProduction,
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
+				&CreateEnvironmentLock{
+					Environment: envProduction,
+					LockId:      "l123",
+				},
 				&DeleteEnvironmentLock{
 					Environment: envProduction,
 					LockId:      "l123",
@@ -4336,6 +4340,12 @@ func TestDeleteLocks(t *testing.T) {
 				&CreateEnvironment{
 					Environment: envProduction,
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: envProduction,
+					Application: "app1",
+					LockId:      "l123",
+					Message:     "none",
 				},
 				&DeleteEnvironmentApplicationLock{
 					Environment: envProduction,
