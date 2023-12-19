@@ -620,9 +620,9 @@ spec:
 
 func TestCreateApplicationVersion(t *testing.T) {
 	tcs := []struct {
-		Name                        string
-		Transformers                []Transformer
-		expectedErrorMsg            string
+		Name             string
+		Transformers     []Transformer
+		expectedErrorMsg string
 	}{
 		{
 			Name: "recreate same version with idempotence",
@@ -633,14 +633,14 @@ func TestCreateApplicationVersion(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Version: 10000,
+					Version:     10000,
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Version: 10000,
+					Version:     10000,
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
@@ -657,14 +657,14 @@ func TestCreateApplicationVersion(t *testing.T) {
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Version: 10000,
+					Version:     10000,
 					Manifests: map[string]string{
 						envAcceptance: `{}`,
 					},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
-					Version: 10000,
+					Version:     10000,
 					Manifests: map[string]string{
 						envAcceptance: `{ "different": "yes" }`,
 					},

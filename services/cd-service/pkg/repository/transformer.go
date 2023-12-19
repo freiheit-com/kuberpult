@@ -40,10 +40,9 @@ import (
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/hexops/gotextdiff"
-    "github.com/hexops/gotextdiff/myers"
-    "github.com/hexops/gotextdiff/span"
+	"github.com/hexops/gotextdiff/myers"
+	"github.com/hexops/gotextdiff/span"
 )
-
 
 const (
 	queueFileName = "queued_version"
@@ -330,7 +329,7 @@ func (c *CreateApplicationVersion) calculateVersion(state *State) (uint64, error
 			}
 		} else {
 			// check if version differs
-			return 0, c.sameAsExisting(state, c.Version);
+			return 0, c.sameAsExisting(state, c.Version)
 		}
 		// TODO: check GC here
 		return c.Version, nil

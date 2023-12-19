@@ -38,9 +38,9 @@ func GetCreateReleaseGeneralFailure(err error) *CreateReleaseError {
 	response := api.CreateReleaseResponseGeneralFailure{
 		Message: err.Error(),
 	}
-	return &CreateReleaseError {
-		response: api.CreateReleaseResponse {
-			Response: &api.CreateReleaseResponse_GeneralFailure {
+	return &CreateReleaseError{
+		response: api.CreateReleaseResponse{
+			Response: &api.CreateReleaseResponse_GeneralFailure{
 				GeneralFailure: &response,
 			},
 		},
@@ -49,9 +49,9 @@ func GetCreateReleaseGeneralFailure(err error) *CreateReleaseError {
 
 func GetCreateReleaseAlreadyExistsSame() *CreateReleaseError {
 	response := api.CreateReleaseResponseAlreadyExistsSame{}
-	return &CreateReleaseError {
-		response: api.CreateReleaseResponse {
-			Response: &api.CreateReleaseResponse_AlreadyExistsSame {
+	return &CreateReleaseError{
+		response: api.CreateReleaseResponse{
+			Response: &api.CreateReleaseResponse_AlreadyExistsSame{
 				AlreadyExistsSame: &response,
 			},
 		},
@@ -61,11 +61,11 @@ func GetCreateReleaseAlreadyExistsSame() *CreateReleaseError {
 func GetCreateReleaseAlreadyExistsDifferent(firstDifferingField api.DifferingField, diff string) *CreateReleaseError {
 	response := api.CreateReleaseResponseAlreadyExistsDifferent{
 		FirstDifferingField: firstDifferingField,
-		Diff: diff,
+		Diff:                diff,
 	}
-	return &CreateReleaseError {
-		response: api.CreateReleaseResponse {
-			Response: &api.CreateReleaseResponse_AlreadyExistsDifferent {
+	return &CreateReleaseError{
+		response: api.CreateReleaseResponse{
+			Response: &api.CreateReleaseResponse_AlreadyExistsDifferent{
 				AlreadyExistsDifferent: &response,
 			},
 		},
@@ -74,9 +74,9 @@ func GetCreateReleaseAlreadyExistsDifferent(firstDifferingField api.DifferingFie
 
 func GetCreateReleaseTooOld() *CreateReleaseError {
 	response := api.CreateReleaseResponseTooOld{}
-	return &CreateReleaseError {
-		response: api.CreateReleaseResponse {
-			Response: &api.CreateReleaseResponse_TooOld {
+	return &CreateReleaseError{
+		response: api.CreateReleaseResponse{
+			Response: &api.CreateReleaseResponse_TooOld{
 				TooOld: &response,
 			},
 		},
@@ -86,17 +86,18 @@ func GetCreateReleaseTooOld() *CreateReleaseError {
 func GetCreateReleaseAppNameTooLong(appName string, regExp string, maxLen uint32) *CreateReleaseError {
 	response := api.CreateReleaseResponseAppNameTooLong{
 		AppName: appName,
-		RegExp: regExp,
-		MaxLen: maxLen,
+		RegExp:  regExp,
+		MaxLen:  maxLen,
 	}
-	return &CreateReleaseError {
-		response: api.CreateReleaseResponse {
-			Response: &api.CreateReleaseResponse_TooLong {
+	return &CreateReleaseError{
+		response: api.CreateReleaseResponse{
+			Response: &api.CreateReleaseResponse_TooLong{
 				TooLong: &response,
 			},
 		},
 	}
 }
+
 type InternalError struct {
 	inner error
 }
