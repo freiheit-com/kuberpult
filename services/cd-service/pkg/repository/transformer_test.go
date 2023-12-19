@@ -659,18 +659,18 @@ func TestCreateApplicationVersion(t *testing.T) {
 					Application: "app1",
 					Version: 10000,
 					Manifests: map[string]string{
-						envAcceptance: "acceptance",
+						envAcceptance: `{}`,
 					},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Version: 10000,
 					Manifests: map[string]string{
-						envAcceptance: "different",
+						envAcceptance: `{ "different": "yes" }`,
 					},
 				},
 			},
-			expectedErrorMsg: "already_exists_different:{firstDifferingField:Manifests}",
+			expectedErrorMsg: `already_exists_different:{firstDifferingField:Manifests diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
 		},
 	}
 	for _, tc := range tcs {

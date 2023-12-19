@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"io"
 	"io/fs"
 	"k8s.io/utils/strings/slices"
@@ -30,18 +29,19 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
-
-	"github.com/freiheit-com/kuberpult/pkg/auth"
-
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
+	"github.com/hexops/gotextdiff"
+    "github.com/hexops/gotextdiff/myers"
+    "github.com/hexops/gotextdiff/span"
 )
 
 
@@ -342,48 +342,84 @@ func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	if c.SourceCommitId != "" {
 		existingSourceCommitId, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
-		if err != nil || string(existingSourceCommitId) != c.SourceCommitId {
+		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceCommitId, "")
+		}
+		existingSourceCommitIdStr := string(existingSourceCommitId)
+		if existingSourceCommitIdStr != c.SourceCommitId {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceCommitId, createUnifiedDiff(existingSourceCommitIdStr, c.SourceCommitId, ""))
 		}
 	}
 	if c.SourceAuthor != "" {
-		existingSourceAuthor, err := util.ReadFile(fs, fs.Join(releaseDir, "source_author"))
-		if err != nil || string(existingSourceAuthor) != c.SourceAuthor {
+		existingSourceAuthor, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceAuthor, "")
+		}
+		existingSourceAuthorStr := string(existingSourceAuthor)
+		if existingSourceAuthorStr != c.SourceAuthor {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceAuthor, createUnifiedDiff(existingSourceAuthorStr, c.SourceAuthor, ""))
 		}
 	}
 	if c.SourceMessage != "" {
-		existingSourceMessage, err := util.ReadFile(fs, fs.Join(releaseDir, "source_message"))
-		if err != nil || string(existingSourceMessage) != c.SourceMessage {
+		existingSourceMessage, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceMessage, "")
+		}
+		existingSourceMessageStr := string(existingSourceMessage)
+		if existingSourceMessageStr != c.SourceMessage {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceMessage, createUnifiedDiff(existingSourceMessageStr, c.SourceMessage, ""))
 		}
 	}
 	if c.DisplayVersion != "" {
-		existingDisplayVersion, err := util.ReadFile(fs, fs.Join(releaseDir, "display_version"))
-		if err != nil || string(existingDisplayVersion) != c.DisplayVersion {
+		existingDisplayVersion, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DisplayVersion, "")
+		}
+		existingDisplayVersionStr := string(existingDisplayVersion)
+		if existingDisplayVersionStr != c.DisplayVersion {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DisplayVersion, createUnifiedDiff(existingDisplayVersionStr, c.DisplayVersion, ""))
 		}
 	}
 	if c.Team != "" {
-		existingTeam, err := util.ReadFile(fs, fs.Join(releaseDir, "team"))
-		if err != nil || string(existingTeam) != c.Team {
+		existingTeam, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Team, "")
+		}
+		existingTeamStr := string(existingTeam)
+		if existingTeamStr != c.Team {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Team, createUnifiedDiff(existingTeamStr, c.Team, ""))
 		}
 	}
 	if c.SourceRepoUrl != "" {
-		existingSourceRepoUrl, err := util.ReadFile(fs, fs.Join(releaseDir, "source_repo_url"))
-		if err != nil || string(existingSourceRepoUrl) != c.SourceRepoUrl {
+		existingSourceRepoUrl, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceRepoUrl, "")
+		}
+		existingSourceRepoUrlStr := string(existingSourceRepoUrl)
+		if existingSourceRepoUrlStr != c.SourceRepoUrl {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceRepoUrl, createUnifiedDiff(existingSourceRepoUrlStr, c.SourceRepoUrl, ""))
 		}
 	}
 	for env, man := range c.Manifests {
 		envDir := fs.Join(releaseDir, "environments", env)
 		existingMan, err := util.ReadFile(fs, fs.Join(envDir, "manifests.yaml"))
-		if err != nil || string(existingMan) != man {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Manifests, "")
+		if err != nil {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Manifests, fmt.Sprintf("manifest missing for env %s", env))
+		}
+		existingManStr := string(existingMan)
+		if existingManStr != man {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Manifests, createUnifiedDiff(existingManStr, man, fmt.Sprintf("%s-", env)))
 		}
 	}
 	return GetCreateReleaseAlreadyExistsSame()
+}
+
+func createUnifiedDiff(existingValue string, requestValue string, prefix string) string {
+	existingValueStr := string(existingValue)
+	existingFilename := fmt.Sprintf("%sexisting", prefix)
+	requestFilename := fmt.Sprintf("%srequest", prefix)
+	edits := myers.ComputeEdits(span.URIFromPath(existingFilename), existingValueStr, string(requestValue))
+	return fmt.Sprint(gotextdiff.ToUnified(existingFilename, requestFilename, existingValueStr, edits))
 }
 
 func isLatestsVersion(state *State, application string, version uint64) (bool, error) {
