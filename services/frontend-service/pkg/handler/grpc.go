@@ -30,6 +30,11 @@ func handleGRPCError(ctx context.Context, w http.ResponseWriter, err error) {
 	switch s.Code() {
 	case codes.InvalidArgument:
 		http.Error(w, s.Message(), http.StatusBadRequest)
+	case codes.FailedPrecondition:
+		// This is a bit of a shortcut.
+		// We probably do not want to return NotFound for any failed precondition.
+		// For now, this is only used when deleting locks that are non-existent.
+		http.Error(w, s.Message(), http.StatusNotFound)
 	default:
 		logger.FromContext(ctx).Error(s.Message())
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

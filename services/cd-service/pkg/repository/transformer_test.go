@@ -3777,7 +3777,7 @@ func setupRepositoryTest(t *testing.T) Repository {
 
 func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	dir := t.TempDir()
-	t.Logf("created dir %s", dir)
+	//t.Logf("created dir %s", dir)
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
@@ -3819,53 +3819,93 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 	t.Parallel()
 	collector := &testfs.UsageCollector{}
 	tcs := []struct {
-		name          string
-		operation     testfs.Operation
-		filename      string
-		expectedError string
+		name             string
+		operation        testfs.Operation
+		createLockBefore bool
+		filename         string
+		expectedError    string
 	}{
 		{
-			name: "delete lock succeeds",
+			name:             "delete lock succeeds",
+			createLockBefore: true,
 		},
 		{
-			name:          "delete lock fails",
-			operation:     testfs.REMOVE,
-			filename:      "environments/dev/locks/foo",
-			expectedError: "failed to delete directory \"environments/dev/locks/foo\": obscure error",
+			name:             "delete lock fails",
+			createLockBefore: true,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/locks/foo",
+			expectedError:    "failed to delete directory \"environments/dev/locks/foo\": obscure error",
 		},
 		{
-			name:          "delete lock parent dir fails",
-			operation:     testfs.READDIR,
-			filename:      "environments/dev/locks",
-			expectedError: "DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
+			name:             "delete lock parent dir fails",
+			createLockBefore: true,
+			operation:        testfs.READDIR,
+			filename:         "environments/dev/locks",
+			expectedError:    "DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
 		},
 		{
-			name:          "readdir fails on apps",
-			operation:     testfs.READDIR,
-			filename:      "environments/dev/applications",
-			expectedError: "environment applications for \"dev\" not found: obscure error",
+			name:             "readdir fails on apps",
+			createLockBefore: true,
+			operation:        testfs.READDIR,
+			filename:         "environments/dev/applications",
+			expectedError:    "environment applications for \"dev\" not found: obscure error",
 		},
 		{
-			name:          "readdir fails on locks",
-			operation:     testfs.READDIR,
-			filename:      "environments/dev/locks",
-			expectedError: "DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
+			name:             "readdir fails on locks",
+			createLockBefore: true,
+			operation:        testfs.READDIR,
+			filename:         "environments/dev/locks",
+			expectedError:    "DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
+		},
+		{
+			name:             "stat fails on lock dir",
+			createLockBefore: true,
+			operation:        testfs.STAT,
+			filename:         "environments/dev/locks/foo",
+			expectedError:    "obscure error",
+		},
+		{
+			name:             "remove fails on locks",
+			createLockBefore: true,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/locks",
+			expectedError:    "DeleteDirIfEmpty: failed to delete directory \"environments/dev/locks\": obscure error",
+		},
+		{
+			name:             "remove fails when lock does not exist",
+			createLockBefore: false,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/locks",
+			expectedError:    "rpc error: code = FailedPrecondition desc = file does not exist",
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			repo := setupRepositoryTest(t)
-			err := repo.Apply(testutil.MakeTestContext(), &CreateEnvironment{
-				Environment: "dev",
-			})
+			env := "dev"
+			lockId := "foo"
+			createLock := &CreateEnvironmentLock{
+				Environment: env,
+				LockId:      lockId,
+				Message:     "",
+			}
+			ts := []Transformer{
+				&CreateEnvironment{
+					Environment: env,
+				},
+			}
+			if tc.createLockBefore {
+				ts = append(ts, createLock)
+			}
+			err := repo.Apply(testutil.MakeTestContext(), ts...)
 			if err != nil {
 				t.Fatal(err)
 			}
 			err = repo.Apply(testutil.MakeTestContext(), &injectErr{
 				Transformer: &DeleteEnvironmentLock{
-					Environment:    "dev",
-					LockId:         "foo",
+					Environment:    env,
+					LockId:         lockId,
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				collector: collector,
@@ -3879,7 +3919,7 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 					t.Fatalf("expected error %q, but got nil", tc.expectedError)
 				}
 				actualErr := err.Error()
-				if diff := cmp.Diff(actualErr, tc.expectedError); diff != "" {
+				if diff := cmp.Diff(tc.expectedError, actualErr); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
 			} else {
