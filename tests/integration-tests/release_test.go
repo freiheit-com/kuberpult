@@ -320,7 +320,7 @@ func TestAppParameter(t *testing.T) {
 			name:                "1 app name",
 			inputNumberAppParam: 1,
 			expectedStatusCode:  201,
-			expectedError:       "{}",
+			expectedError:       "{\"Success\":{}}\n",
 		},
 		// having multiple app names would be a bit harder to test
 	}
