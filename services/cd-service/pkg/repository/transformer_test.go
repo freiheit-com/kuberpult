@@ -3940,48 +3940,82 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 	t.Parallel()
 	collector := &testfs.UsageCollector{}
 	tcs := []struct {
-		name          string
-		operation     testfs.Operation
-		filename      string
-		expectedError string
+		name             string
+		createLockBefore bool
+		operation        testfs.Operation
+		filename         string
+		expectedError    string
 	}{
 		{
-			name: "delete lock succeeds",
+			name:             "delete lock succeeds",
+			createLockBefore: true,
 		},
 		{
-			name:          "delete lock fails",
-			operation:     testfs.REMOVE,
-			filename:      "environments/dev/applications/bar/locks/foo",
-			expectedError: "failed to delete directory \"environments/dev/applications/bar/locks/foo\": obscure error",
+			name:             "delete lock fails - remove",
+			createLockBefore: true,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/applications/bar/locks/foo",
+			expectedError:    "failed to delete directory \"environments/dev/applications/bar/locks/foo\": obscure error",
 		},
 		{
-			name:          "delete lock fails",
-			operation:     testfs.READDIR,
-			filename:      "environments/dev/applications/bar/locks",
-			expectedError: "DeleteDirIfEmpty: failed to read directory \"environments/dev/applications/bar/locks\": obscure error",
+			name:             "delete lock fails - readdir",
+			createLockBefore: true,
+			operation:        testfs.READDIR,
+			filename:         "environments/dev/applications/bar/locks",
+			expectedError:    "DeleteDirIfEmpty: failed to read directory \"environments/dev/applications/bar/locks\": obscure error",
 		},
 		{
-			name:          "stat queue failes",
-			operation:     testfs.READLINK,
-			filename:      "environments/dev/applications/bar/queued_version",
-			expectedError: "failed reading symlink \"environments/dev/applications/bar/queued_version\": obscure error",
+			name:             "stat queue fails",
+			createLockBefore: true,
+			operation:        testfs.READLINK,
+			filename:         "environments/dev/applications/bar/queued_version",
+			expectedError:    "failed reading symlink \"environments/dev/applications/bar/queued_version\": obscure error",
+		},
+		{
+			name:             "stat queue fails 2",
+			createLockBefore: true,
+			operation:        testfs.STAT,
+			filename:         "environments/dev/applications/bar/locks/foo",
+			expectedError:    "obscure error",
+		},
+		{
+			name:             "remove fails 2",
+			createLockBefore: true,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/applications/bar/locks",
+			expectedError:    "DeleteDirIfEmpty: failed to delete directory \"environments/dev/applications/bar/locks\": obscure error",
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			repo := setupRepositoryTest(t)
-			err := repo.Apply(testutil.MakeTestContext(), &CreateEnvironment{
-				Environment: "dev",
-			})
+			env := "dev"
+			app := "bar"
+			lockId := "foo"
+			createLock := &CreateEnvironmentApplicationLock{
+				Environment: env,
+				Application: app,
+				LockId:      lockId,
+				Message:     "",
+			}
+			ts := []Transformer{
+				&CreateEnvironment{
+					Environment: env,
+				},
+			}
+			if tc.createLockBefore {
+				ts = append(ts, createLock)
+			}
+			err := repo.Apply(testutil.MakeTestContext(), ts...)
 			if err != nil {
 				t.Fatal(err)
 			}
 			err = repo.Apply(testutil.MakeTestContext(), &injectErr{
 				Transformer: &DeleteEnvironmentApplicationLock{
-					Environment: "dev",
-					Application: "bar",
-					LockId:      "foo",
+					Environment: env,
+					Application: app,
+					LockId:      lockId,
 				},
 				collector: collector,
 				operation: tc.operation,
