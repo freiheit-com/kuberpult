@@ -562,9 +562,9 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	span, ctx := tracer.StartSpanFromContext(e.ctx, "PostPush")
 	defer span.Finish()
 
-	err = UpdateDatadogMetrics(r.State(), changes)
-	if err != nil {
-		logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", err))
+	ddError := UpdateDatadogMetrics(r.State(), changes)
+	if ddError != nil {
+		logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
 	}
 
 	if r.config.ArgoWebhookUrl != "" {
