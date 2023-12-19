@@ -145,9 +145,9 @@ func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
 				Text:      fmt.Sprintf("Kuberpult has deployed %s to %s%s", oneChange.App, oneChange.Env, teamMessage),
 				Timestamp: now,
 				Tags: []string{
-					"app:" + oneChange.App,
-					"env:" + oneChange.Env,
-					"team:" + oneChange.Team,
+					"kuberpult.application:" + oneChange.App,
+					"kuberpult.environment:" + oneChange.Env,
+					"kuberpult.team:" + oneChange.Team,
 				},
 			}
 			err := ddMetrics.Event(&event)

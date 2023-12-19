@@ -4079,6 +4079,7 @@ func TestSendRegularlyDatadogMetrics(t *testing.T) {
 
 type MockClient struct {
 	events []*statsd.Event
+	statsd.ClientInterface
 }
 
 func (c *MockClient) Event(e *statsd.Event) error {
@@ -4087,78 +4088,6 @@ func (c *MockClient) Event(e *statsd.Event) error {
 	}
 	c.events = append(c.events, e)
 	return nil
-}
-
-func (c *MockClient) Gauge(_ string, _ float64, _ []string, _ float64) error {
-	return nil
-}
-
-func (c *MockClient) GaugeWithTimestamp(_ string, _ float64, _ []string, _ float64, _ time.Time) error {
-	return nil
-}
-
-func (c *MockClient) Count(_ string, _ int64, _ []string, _ float64) error {
-	return nil
-}
-
-func (c *MockClient) CountWithTimestamp(_ string, _ int64, _ []string, _ float64, _ time.Time) error {
-	return nil
-}
-
-func (c *MockClient) Histogram(_ string, _ float64, _ []string, _ float64) error {
-	return nil
-}
-
-func (c *MockClient) Distribution(_ string, _ float64, _ []string, _ float64) error {
-	return nil
-}
-
-func (c *MockClient) Decr(_ string, _ []string, _ float64) error {
-	return nil
-}
-
-func (c *MockClient) Incr(_ string, _ []string, _ float64) error {
-	return nil
-}
-
-func (c *MockClient) Set(_ string, _ string, _ []string, _ float64) error {
-	return nil
-}
-
-func (c *MockClient) Timing(_ string, _ time.Duration, _ []string, _ float64) error {
-	return nil
-}
-
-func (c *MockClient) TimeInMilliseconds(_ string, _ float64, _ []string, _ float64) error {
-	return nil
-}
-
-func (c *MockClient) SimpleEvent(_, _ string) error {
-	return nil
-}
-
-func (c *MockClient) ServiceCheck(_ *statsd.ServiceCheck) error {
-	return nil
-}
-
-func (c *MockClient) SimpleServiceCheck(_ string, _ statsd.ServiceCheckStatus) error {
-	return nil
-}
-
-func (c *MockClient) Close() error {
-	return nil
-}
-
-func (c *MockClient) Flush() error {
-	return nil
-}
-
-func (c *MockClient) IsClosed() bool {
-	return false
-}
-
-func (c *MockClient) GetTelemetry() statsd.Telemetry {
-	return statsd.Telemetry{}
 }
 
 // Verify that MockClient implements the ClientInterface.
