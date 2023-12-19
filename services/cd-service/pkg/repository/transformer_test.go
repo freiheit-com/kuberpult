@@ -4081,10 +4081,6 @@ type MockClient struct {
 	events []*statsd.Event
 }
 
-//func (c*MockClient) GetEvents() []*statsd.Event {
-//	return c.events
-//}
-
 func (c *MockClient) Event(e *statsd.Event) error {
 	if c == nil {
 		return errors.New("no client provided")
@@ -4165,17 +4161,16 @@ func (c *MockClient) GetTelemetry() statsd.Telemetry {
 	return statsd.Telemetry{}
 }
 
-// Verify that Client implements the ClientInterface.
+// Verify that MockClient implements the ClientInterface.
 // https://golang.org/doc/faq#guarantee_satisfies_interface
 var _ statsd.ClientInterface = &MockClient{}
 
 func TestUpdateDatadogMetrics(t *testing.T) {
 	tcs := []struct {
-		Name           string
-		Transformers   []Transformer
-		expectedError  string
-		shouldSucceed  bool
-		expectedEvents []statsd.Event
+		Name          string
+		Transformers  []Transformer
+		expectedError string
+		shouldSucceed bool
 	}{
 		{
 			Name: "Application Lock metric is sent",
@@ -4197,8 +4192,7 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 					Message:     "test",
 				},
 			},
-			shouldSucceed:  true,
-			expectedEvents: nil,
+			shouldSucceed: true,
 		},
 		{
 			Name: "Application Lock metric is sent",
@@ -4219,22 +4213,13 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 					Message:     "test",
 				},
 			},
-			shouldSucceed:  true,
-			expectedEvents: nil,
+			shouldSucceed: true,
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			//var myClient *statsd.ClientInterface = nil
-			var mockClient = &MockClient{}
-			var client statsd.ClientInterface = mockClient
-			//var y *mock_statsd.MockClientInterface = MockInterface{}
-			//myClient
-			//y.Event(...)
-			ddMetrics = client
-			//myClient = y.(*statsd.ClientInterface)
 			repo := setupRepositoryTest(t)
 			_, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 

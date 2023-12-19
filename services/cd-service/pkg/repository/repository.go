@@ -76,7 +76,7 @@ func defaultBackOffProvider() backoff.BackOff {
 }
 
 var (
-	ddMetrics statsd.ClientInterface // *statsd.Client
+	ddMetrics statsd.ClientInterface
 )
 
 type StorageBackend int
