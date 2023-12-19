@@ -2510,14 +2510,10 @@ func TestTransformer(t *testing.T) {
 					LockId:      "manual",
 				},
 			},
-			Test: func(t *testing.T, s *State) {
-				locks, err := s.GetEnvironmentLocks("production")
-				if err != nil {
-					t.Fatal(err)
-				}
-				expected := map[string]Lock{}
-				if !reflect.DeepEqual(locks, expected) {
-					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
+			ErrorTest: func(t *testing.T, actualError error) {
+				expectedError := "directory environments/production/locks/manual for env lock does not exist"
+				if !strings.Contains(actualError.Error(), expectedError) {
+					t.Fatalf("mismatched error. expected: %#v, actual: %#v", expectedError, actualError)
 				}
 			},
 		},
