@@ -159,11 +159,17 @@ func TestBatchServiceWorks(t *testing.T) {
 						"production": "manifest",
 					},
 				},
-				&repository.CreateEnvironmentLock{
+				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
 					Environment:    "production",
 					LockId:         "1234",
 					Message:        "EnvLock",
 					Authentication: repository.Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true}},
+				},
+				&repository.CreateEnvironmentApplicationLock{ // will be deleted by the batch actions
+					Environment: "production",
+					Application: "test",
+					LockId:      "5678",
+					Message:     "AppLock",
 				},
 			},
 			Batch:         getBatchActions(),
@@ -216,10 +222,11 @@ func TestBatchServiceWorks(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(tc.context, tr); err != nil && err.Error() != tc.expectedError {
+				if _, _, _, err := repo.ApplyTransformersInternal(tc.context, tr); err != nil && err.Error() != tc.expectedError {
 					t.Fatal(err)
 				}
 			}
+
 			tc.svc.Repository = repo
 			resp, err := tc.svc.ProcessBatch(
 				tc.context,
