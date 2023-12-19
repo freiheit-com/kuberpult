@@ -203,6 +203,7 @@ func (d *BatchServer) processAction(
 			}, nil
 	case *api.BatchAction_CreateRelease:
 		in := action.CreateRelease
+		response := api.CreateReleaseResponseSuccess{}
 		return &repository.CreateApplicationVersion{
 				Version:        in.Version,
 				Application:    in.Application,
@@ -216,7 +217,11 @@ func (d *BatchServer) processAction(
 				Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 			}, &api.BatchResult{
 				Result: &api.BatchResult_CreateReleaseResponse{
-					CreateReleaseResponse: &api.CreateReleaseResponse{},
+					CreateReleaseResponse: &api.CreateReleaseResponse{
+						Response: &api.CreateReleaseResponse_Success{
+							Success: &response,
+						},
+					},
 				},
 			}, nil
 	case *api.BatchAction_CreateEnvironment:
