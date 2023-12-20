@@ -3871,7 +3871,7 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 			createLockBefore: false,
 			operation:        testfs.REMOVE,
 			filename:         "environments/dev/locks",
-			expectedError:    "rpc error: code = FailedPrecondition desc = directory environments/dev/locks/foo for env lock does not exist",
+			expectedError:    "rpc error: code = FailedPrecondition desc = error: directory environments/dev/locks/foo for env lock does not exist",
 		},
 	}
 	for _, tc := range tcs {
