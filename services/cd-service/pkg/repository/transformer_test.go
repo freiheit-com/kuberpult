@@ -2510,14 +2510,10 @@ func TestTransformer(t *testing.T) {
 					LockId:      "manual",
 				},
 			},
-			Test: func(t *testing.T, s *State) {
-				locks, err := s.GetEnvironmentLocks("production")
-				if err != nil {
-					t.Fatal(err)
-				}
-				expected := map[string]Lock{}
-				if !reflect.DeepEqual(locks, expected) {
-					t.Fatalf("mismatched locks. expected: %#v, actual: %#v", expected, locks)
+			ErrorTest: func(t *testing.T, actualError error) {
+				expectedError := "directory environments/production/locks/manual for env lock does not exist"
+				if !strings.Contains(actualError.Error(), expectedError) {
+					t.Fatalf("mismatched error. expected: %#v, actual: %#v", expectedError, actualError)
 				}
 			},
 		},
@@ -3777,7 +3773,6 @@ func setupRepositoryTest(t *testing.T) Repository {
 
 func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	dir := t.TempDir()
-	t.Logf("created dir %s", dir)
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
@@ -3819,53 +3814,93 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 	t.Parallel()
 	collector := &testfs.UsageCollector{}
 	tcs := []struct {
-		name          string
-		operation     testfs.Operation
-		filename      string
-		expectedError string
+		name             string
+		operation        testfs.Operation
+		createLockBefore bool
+		filename         string
+		expectedError    string
 	}{
 		{
-			name: "delete lock succeeds",
+			name:             "delete lock succeeds",
+			createLockBefore: true,
 		},
 		{
-			name:          "delete lock fails",
-			operation:     testfs.REMOVE,
-			filename:      "environments/dev/locks/foo",
-			expectedError: "failed to delete directory \"environments/dev/locks/foo\": obscure error",
+			name:             "delete lock fails",
+			createLockBefore: true,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/locks/foo",
+			expectedError:    "failed to delete directory \"environments/dev/locks/foo\": obscure error",
 		},
 		{
-			name:          "delete lock parent dir fails",
-			operation:     testfs.READDIR,
-			filename:      "environments/dev/locks",
-			expectedError: "DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
+			name:             "delete lock parent dir fails",
+			createLockBefore: true,
+			operation:        testfs.READDIR,
+			filename:         "environments/dev/locks",
+			expectedError:    "DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
 		},
 		{
-			name:          "readdir fails on apps",
-			operation:     testfs.READDIR,
-			filename:      "environments/dev/applications",
-			expectedError: "environment applications for \"dev\" not found: obscure error",
+			name:             "readdir fails on apps",
+			createLockBefore: true,
+			operation:        testfs.READDIR,
+			filename:         "environments/dev/applications",
+			expectedError:    "environment applications for \"dev\" not found: obscure error",
 		},
 		{
-			name:          "readdir fails on locks",
-			operation:     testfs.READDIR,
-			filename:      "environments/dev/locks",
-			expectedError: "DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
+			name:             "readdir fails on locks",
+			createLockBefore: true,
+			operation:        testfs.READDIR,
+			filename:         "environments/dev/locks",
+			expectedError:    "DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
+		},
+		{
+			name:             "stat fails on lock dir",
+			createLockBefore: true,
+			operation:        testfs.STAT,
+			filename:         "environments/dev/locks/foo",
+			expectedError:    "obscure error",
+		},
+		{
+			name:             "remove fails on locks",
+			createLockBefore: true,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/locks",
+			expectedError:    "DeleteDirIfEmpty: failed to delete directory \"environments/dev/locks\": obscure error",
+		},
+		{
+			name:             "remove fails when lock does not exist",
+			createLockBefore: false,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/locks",
+			expectedError:    "rpc error: code = FailedPrecondition desc = error: directory environments/dev/locks/foo for env lock does not exist",
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			repo := setupRepositoryTest(t)
-			err := repo.Apply(testutil.MakeTestContext(), &CreateEnvironment{
-				Environment: "dev",
-			})
+			env := "dev"
+			lockId := "foo"
+			createLock := &CreateEnvironmentLock{
+				Environment: env,
+				LockId:      lockId,
+				Message:     "",
+			}
+			ts := []Transformer{
+				&CreateEnvironment{
+					Environment: env,
+				},
+			}
+			if tc.createLockBefore {
+				ts = append(ts, createLock)
+			}
+			err := repo.Apply(testutil.MakeTestContext(), ts...)
 			if err != nil {
 				t.Fatal(err)
 			}
 			err = repo.Apply(testutil.MakeTestContext(), &injectErr{
 				Transformer: &DeleteEnvironmentLock{
-					Environment:    "dev",
-					LockId:         "foo",
+					Environment:    env,
+					LockId:         lockId,
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				collector: collector,
@@ -3879,7 +3914,7 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 					t.Fatalf("expected error %q, but got nil", tc.expectedError)
 				}
 				actualErr := err.Error()
-				if diff := cmp.Diff(actualErr, tc.expectedError); diff != "" {
+				if diff := cmp.Diff(tc.expectedError, actualErr); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
 			} else {
@@ -3900,48 +3935,82 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 	t.Parallel()
 	collector := &testfs.UsageCollector{}
 	tcs := []struct {
-		name          string
-		operation     testfs.Operation
-		filename      string
-		expectedError string
+		name             string
+		createLockBefore bool
+		operation        testfs.Operation
+		filename         string
+		expectedError    string
 	}{
 		{
-			name: "delete lock succeeds",
+			name:             "delete lock succeeds",
+			createLockBefore: true,
 		},
 		{
-			name:          "delete lock fails",
-			operation:     testfs.REMOVE,
-			filename:      "environments/dev/applications/bar/locks/foo",
-			expectedError: "failed to delete directory \"environments/dev/applications/bar/locks/foo\": obscure error",
+			name:             "delete lock fails - remove",
+			createLockBefore: true,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/applications/bar/locks/foo",
+			expectedError:    "failed to delete directory \"environments/dev/applications/bar/locks/foo\": obscure error",
 		},
 		{
-			name:          "delete lock fails",
-			operation:     testfs.READDIR,
-			filename:      "environments/dev/applications/bar/locks",
-			expectedError: "DeleteDirIfEmpty: failed to read directory \"environments/dev/applications/bar/locks\": obscure error",
+			name:             "delete lock fails - readdir",
+			createLockBefore: true,
+			operation:        testfs.READDIR,
+			filename:         "environments/dev/applications/bar/locks",
+			expectedError:    "DeleteDirIfEmpty: failed to read directory \"environments/dev/applications/bar/locks\": obscure error",
 		},
 		{
-			name:          "stat queue failes",
-			operation:     testfs.READLINK,
-			filename:      "environments/dev/applications/bar/queued_version",
-			expectedError: "failed reading symlink \"environments/dev/applications/bar/queued_version\": obscure error",
+			name:             "stat queue fails",
+			createLockBefore: true,
+			operation:        testfs.READLINK,
+			filename:         "environments/dev/applications/bar/queued_version",
+			expectedError:    "failed reading symlink \"environments/dev/applications/bar/queued_version\": obscure error",
+		},
+		{
+			name:             "stat queue fails 2",
+			createLockBefore: true,
+			operation:        testfs.STAT,
+			filename:         "environments/dev/applications/bar/locks/foo",
+			expectedError:    "obscure error",
+		},
+		{
+			name:             "remove fails 2",
+			createLockBefore: true,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/applications/bar/locks",
+			expectedError:    "DeleteDirIfEmpty: failed to delete directory \"environments/dev/applications/bar/locks\": obscure error",
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			repo := setupRepositoryTest(t)
-			err := repo.Apply(testutil.MakeTestContext(), &CreateEnvironment{
-				Environment: "dev",
-			})
+			env := "dev"
+			app := "bar"
+			lockId := "foo"
+			createLock := &CreateEnvironmentApplicationLock{
+				Environment: env,
+				Application: app,
+				LockId:      lockId,
+				Message:     "",
+			}
+			ts := []Transformer{
+				&CreateEnvironment{
+					Environment: env,
+				},
+			}
+			if tc.createLockBefore {
+				ts = append(ts, createLock)
+			}
+			err := repo.Apply(testutil.MakeTestContext(), ts...)
 			if err != nil {
 				t.Fatal(err)
 			}
 			err = repo.Apply(testutil.MakeTestContext(), &injectErr{
 				Transformer: &DeleteEnvironmentApplicationLock{
-					Environment: "dev",
-					Application: "bar",
-					LockId:      "foo",
+					Environment: env,
+					Application: app,
+					LockId:      lockId,
 				},
 				collector: collector,
 				operation: tc.operation,
@@ -4247,6 +4316,10 @@ func TestDeleteLocks(t *testing.T) {
 					Environment: envProduction,
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
+				&CreateEnvironmentLock{
+					Environment: envProduction,
+					LockId:      "l123",
+				},
 				&DeleteEnvironmentLock{
 					Environment: envProduction,
 					LockId:      "l123",
@@ -4262,6 +4335,12 @@ func TestDeleteLocks(t *testing.T) {
 				&CreateEnvironment{
 					Environment: envProduction,
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: envProduction,
+					Application: "app1",
+					LockId:      "l123",
+					Message:     "none",
 				},
 				&DeleteEnvironmentApplicationLock{
 					Environment: envProduction,
