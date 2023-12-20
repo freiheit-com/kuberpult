@@ -29,6 +29,8 @@ import (
 	"strconv"
 	"time"
 
+	yaml3 "gopkg.in/yaml.v3"
+
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
@@ -45,7 +47,8 @@ import (
 )
 
 const (
-	queueFileName = "queued_version"
+	queueFileName    = "queued_version"
+	yamlParsingError = "# yaml parsing error"
 	// number of old releases that will ALWAYS be kept in addition to the ones that are deployed:
 	keptVersionsOnCleanup = 20
 )
@@ -406,11 +409,30 @@ func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) 
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Manifests, fmt.Sprintf("manifest missing for env %s", env))
 		}
 		existingManStr := string(existingMan)
-		if existingManStr != man {
+		if canonicalizeYaml(existingManStr) != canonicalizeYaml(man) {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Manifests, createUnifiedDiff(existingManStr, man, fmt.Sprintf("%s-", env)))
 		}
 	}
 	return GetCreateReleaseAlreadyExistsSame()
+}
+
+type RawNode struct{ *yaml3.Node }
+
+func (n *RawNode) UnmarshalYAML(node *yaml3.Node) error {
+	n.Node = node
+	return nil
+}
+
+func canonicalizeYaml(unformatted string) string {
+	var target RawNode
+	if errDeserial := yaml3.Unmarshal([]byte(unformatted), &target); errDeserial != nil {
+		return yamlParsingError // we only use this for comparisons
+	}
+	if canonicalData, errSerial := yaml3.Marshal(target.Node); errSerial == nil {
+		return string(canonicalData)
+	} else {
+		return yamlParsingError // only for comparisons
+	}
 }
 
 func createUnifiedDiff(existingValue string, requestValue string, prefix string) string {

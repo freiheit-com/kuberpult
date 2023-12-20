@@ -635,14 +635,14 @@ func TestCreateApplicationVersion(t *testing.T) {
 					Application: "app1",
 					Version:     10000,
 					Manifests: map[string]string{
-						envAcceptance: "acceptance",
+						envAcceptance: "{}",
 					},
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Version:     10000,
 					Manifests: map[string]string{
-						envAcceptance: "acceptance",
+						envAcceptance: "{}",
 					},
 				},
 			},
