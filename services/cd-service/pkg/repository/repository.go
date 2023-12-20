@@ -136,7 +136,8 @@ type RepositoryConfig struct {
 	// if set, kuberpult will generate push events to argoCd whenever it writes to the manifest repo:
 	ArgoWebhookUrl string
 	// the url to the git repo, like the browser requires it (https protocol)
-	WebURL string
+	WebURL          string
+	DogstatsdEvents bool
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -562,10 +563,14 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	span, ctx := tracer.StartSpanFromContext(e.ctx, "PostPush")
 	defer span.Finish()
 
-	ddError := UpdateDatadogMetrics(r.State(), changes)
-	if ddError != nil {
-		logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
+	if r.config.DogstatsdEvents {
+		ddError := UpdateDatadogMetrics(r.State(), changes)
+		if ddError != nil {
+			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
+		}
 	}
+	ddSpan.Finish()
 
 	if r.config.ArgoWebhookUrl != "" {
 		r.sendWebhookToArgoCd(ctx, logger, changes)
