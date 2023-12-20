@@ -3773,7 +3773,6 @@ func setupRepositoryTest(t *testing.T) Repository {
 
 func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	dir := t.TempDir()
-	//t.Logf("created dir %s", dir)
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
 	cmd := exec.Command("git", "init", "--bare", remoteDir)

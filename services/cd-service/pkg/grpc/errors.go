@@ -42,7 +42,7 @@ func CanceledError(_ context.Context, err error) error {
 }
 
 func FailedPrecondition(_ context.Context, err error) error {
-	return status.Error(codes.FailedPrecondition, err.Error())
+	return status.Error(codes.FailedPrecondition, "error: "+err.Error())
 }
 
 func AuthError(_ context.Context, err error) error {
