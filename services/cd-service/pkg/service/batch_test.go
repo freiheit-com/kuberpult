@@ -225,7 +225,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				if _, _, _, err := repo.ApplyTransformersInternal(tc.context, tr); err != nil && err.Error() != tc.expectedError {
+				if err := repo.Apply(tc.context, tr); err != nil && err.Error() != tc.expectedError {
 					t.Fatalf("error during setup: %v", err)
 				}
 			}
