@@ -4090,6 +4090,10 @@ func (c *MockClient) Event(e *statsd.Event) error {
 	return nil
 }
 
+func (c *MockClient) Gauge(_ string, _ float64, _ []string, _ float64) error {
+	return nil
+}
+
 // Verify that MockClient implements the ClientInterface.
 // https://golang.org/doc/faq#guarantee_satisfies_interface
 var _ statsd.ClientInterface = &MockClient{}
