@@ -91,3 +91,10 @@ cache:
 
 integration-test:
 	earthly -P +integration-test --kuberpult_version=$(IMAGE_TAG_KUBERPULT)
+
+.PHONY: tag-release-images
+tag-release-images:
+	$(foreach SERVICE_IMAGE,$(SERVICE_IMAGES),docker pull $(SERVICE_IMAGE):$(VERSION) && ) true
+	$(foreach SERVICE_IMAGE,$(SERVICE_IMAGES),docker tag $(SERVICE_IMAGE):$(VERSION) $(SERVICE_IMAGE):$(RELEASE_IMAGE_TAG) && ) true
+	$(foreach SERVICE_IMAGE,$(SERVICE_IMAGES),docker push $(SERVICE_IMAGE):$(RELEASE_IMAGE_TAG) && ) true
+
