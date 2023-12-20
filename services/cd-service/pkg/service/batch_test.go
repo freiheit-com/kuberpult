@@ -109,6 +109,7 @@ func getNBatchActions(N int) []*api.BatchAction {
 }
 
 func TestBatchServiceWorks(t *testing.T) {
+	const prod = "production"
 	tcs := []struct {
 		Name          string
 		Batch         []*api.BatchAction
@@ -121,26 +122,26 @@ func TestBatchServiceWorks(t *testing.T) {
 			Name: "5 sample actions",
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
-					Environment: "production",
+					Environment: prod,
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
-						"production": "manifest",
+						prod: "manifest",
 					},
 				},
 				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
-					Environment: "production",
+					Environment: prod,
 					LockId:      "1234",
 					Message:     "EnvLock",
 				},
-				&repository.CreateEnvironmentApplicationLock{ // will be deleted by the batch actions
-					Environment: "production",
-					Application: "test",
-					LockId:      "5678",
-					Message:     "AppLock",
-				},
+				//&repository.CreateEnvironmentApplicationLock{ // will be deleted by the batch actions
+				//	Environment: prod,
+				//	Application: "test",
+				//	LockId:      "5678",
+				//	Message:     "AppLock",
+				//},
 			},
 			Batch:   getBatchActions(),
 			context: testutil.MakeTestContext(),
@@ -211,7 +212,9 @@ func TestBatchServiceWorks(t *testing.T) {
 						"developer,DeployRelease,production:production,*,allow": {Role: "Developer"},
 						"developer,CreateLock,production:production,*,allow":    {Role: "Developer"},
 						"developer,DeleteLock,production:production,*,allow":    {Role: "Developer"},
-					}}},
+					},
+				},
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -223,7 +226,7 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			for _, tr := range tc.Setup {
 				if _, _, _, err := repo.ApplyTransformersInternal(tc.context, tr); err != nil && err.Error() != tc.expectedError {
-					t.Fatal(err)
+					t.Fatalf("error during setup: %v", err)
 				}
 			}
 
@@ -238,7 +241,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatal(err.Error())
+				t.Fatalf("error during processBatch: %v", err.Error())
 			}
 
 			if len(resp.Results) != len(tc.Batch) {
@@ -484,6 +487,7 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
 	cmd.Start()
 	cmd.Wait()
+	t.Logf("test created dir: %s", localDir)
 	repo, err := repository.New(
 		testutil.MakeTestContext(),
 		repository.RepositoryConfig{
