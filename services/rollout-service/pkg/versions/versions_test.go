@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/google/go-cmp/cmp"
@@ -30,6 +31,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type step struct {
@@ -111,146 +113,29 @@ func (m *mockOverviewClient) Recv() (*api.GetOverviewResponse, error) {
 
 var _ api.OverviewServiceClient = (*mockOverviewClient)(nil)
 
+type mockVersionResponse struct {
+	response *api.GetVersionResponse
+	err      error
+}
+type mockVersionClient struct {
+	responses map[string]mockVersionResponse
+}
+
+func (m *mockVersionClient) GetVersion(ctx context.Context, in *api.GetVersionRequest, opts ...grpc.CallOption) (*api.GetVersionResponse, error) {
+	key := fmt.Sprintf("%s/%s@%s", in.Environment, in.Application, in.GitRevision)
+	res, ok := m.responses[key]
+	if !ok {
+		return nil, status.Error(codes.Unknown, "no")
+	}
+	return res.response, res.err
+}
+
 type mockVersionEventProcessor struct {
 	events []KuberpultEvent
 }
 
 func (m *mockVersionEventProcessor) ProcessKuberpultEvent(ctx context.Context, ev KuberpultEvent) {
 	m.events = append(m.events, ev)
-}
-
-func TestVersionClient(t *testing.T) {
-	t.Parallel()
-	defaultResponses := map[string]*api.GetOverviewResponse{
-		"1234": {
-			Applications: map[string]*api.Application{
-				"foo": {
-					Releases: []*api.Release{
-						{
-							Version:        1,
-							SourceCommitId: "00001",
-						},
-					},
-				},
-			},
-			EnvironmentGroups: []*api.EnvironmentGroup{
-				{
-					Environments: []*api.Environment{
-						{
-							Name: "staging",
-							Applications: map[string]*api.Environment_Application{
-								"foo": {
-									Name:    "foo",
-									Version: 1,
-								},
-							},
-							Priority: api.Priority_UPSTREAM,
-						},
-					},
-				},
-			},
-			GitRevision: "1234",
-		},
-		"5678": {
-			Applications: map[string]*api.Application{
-				"bar": {
-					Releases: []*api.Release{
-						{
-							Version:        2,
-							SourceCommitId: "00002",
-						},
-					},
-				},
-			},
-			EnvironmentGroups: []*api.EnvironmentGroup{
-				{},
-				{},
-				{
-					Environments: []*api.Environment{
-						{
-							Name: "staging",
-							Applications: map[string]*api.Environment_Application{
-								"bar": {
-									Name:    "bar",
-									Version: 2,
-									DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
-										DeployTime: "123456789",
-									},
-								},
-							},
-							Priority: api.Priority_UPSTREAM,
-						},
-					},
-				},
-			},
-			GitRevision: "5678",
-		},
-	}
-	defaultMetadata := metadata.MD{
-		// Base64 of "kuberpult-rollout-service@local"
-		"author-email": {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZUBsb2NhbA=="},
-		// Base64 of "kuberpult-rollout-service"
-		"author-name": {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZQ=="},
-	}
-
-	tcs := []struct {
-		Name             string
-		Responses        map[string]*api.GetOverviewResponse
-		ExpectedVersions []expectedVersion
-	}{
-		{
-			Name:      "Returns the deployed version",
-			Responses: defaultResponses,
-			ExpectedVersions: []expectedVersion{
-				{
-					Revision:        "1234",
-					Environment:     "staging",
-					Application:     "foo",
-					DeployedVersion: 1,
-					SourceCommitId:  "00001",
-					Metadata:        defaultMetadata,
-				},
-				{
-					Revision:        "5678",
-					Environment:     "staging",
-					Application:     "bar",
-					DeployedVersion: 2,
-					DeployTime:      time.Unix(123456789, 0).UTC(),
-					SourceCommitId:  "00002",
-					Metadata:        defaultMetadata,
-				},
-			},
-		},
-		{
-			Name:      "Returns an empty reply when a service is not deployed",
-			Responses: defaultResponses,
-			ExpectedVersions: []expectedVersion{
-				{
-					Revision:        "1234",
-					Environment:     "staging",
-					Application:     "bar",
-					DeployedVersion: 0, // bar is deployed in rev 5678 but not in 1234
-					Metadata:        defaultMetadata,
-				},
-				{
-					Revision:        "1234",
-					Environment:     "production",
-					Application:     "foo",
-					DeployedVersion: 0, // foo is deployed in rev 1234 but not in env production
-					Metadata:        defaultMetadata,
-				},
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			mc := &mockOverviewClient{Responses: tc.Responses}
-			vc := New(mc)
-			assertExpectedVersions(t, tc.ExpectedVersions, vc, mc)
-		})
-	}
-
 }
 
 func TestVersionClientStream(t *testing.T) {
@@ -366,6 +251,7 @@ func TestVersionClientStream(t *testing.T) {
 	tcs := []struct {
 		Name             string
 		Steps            []step
+		VersionResponses map[string]mockVersionResponse
 		ExpectedVersions []expectedVersion
 	}{
 		{
@@ -411,6 +297,34 @@ func TestVersionClientStream(t *testing.T) {
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
 					CancelContext: true,
+				},
+			},
+			ExpectedVersions: []expectedVersion{
+				{
+					Revision:        "1234",
+					Environment:     "staging",
+					Application:     "foo",
+					DeployedVersion: 1,
+					SourceCommitId:  "00001",
+					DeployTime:      time.Unix(123456789, 0).UTC(),
+				},
+			},
+		},
+		{
+			Name: "Can resolve versions from the versions client",
+			Steps: []step{
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			VersionResponses: map[string]mockVersionResponse{
+				"staging/foo@1234": {
+					response: &api.GetVersionResponse{
+						Version:        1,
+						SourceCommitId: "00001",
+						DeployedAt:     timestamppb.New(time.Unix(123456789, 0).UTC()),
+					},
 				},
 			},
 			ExpectedVersions: []expectedVersion{
@@ -623,9 +537,16 @@ func TestVersionClientStream(t *testing.T) {
 			vp := &mockVersionEventProcessor{}
 			startSteps := make(chan struct{})
 			steps := make(chan step)
-			mc := &mockOverviewClient{StartStep: startSteps, Steps: steps}
-			vc := New(mc)
+			moc := &mockOverviewClient{StartStep: startSteps, Steps: steps}
+			if tc.VersionResponses == nil {
+				tc.VersionResponses = map[string]mockVersionResponse{}
+			}
+			mvc := &mockVersionClient{responses: tc.VersionResponses}
+			vc := New(moc, mvc)
 			hs := &setup.HealthServer{}
+			hs.BackOffFactory = func() backoff.BackOff {
+				return backoff.NewConstantBackOff(time.Millisecond)
+			}
 			errCh := make(chan error)
 			go func() {
 				errCh <- vc.ConsumeEvents(ctx, vp, hs.Reporter("versions"))
@@ -654,7 +575,7 @@ func TestVersionClientStream(t *testing.T) {
 			if len(steps) != 0 {
 				t.Errorf("expected all events to be consumed, but got %d left", len(steps))
 			}
-			assertExpectedVersions(t, tc.ExpectedVersions, vc, mc)
+			assertExpectedVersions(t, tc.ExpectedVersions, vc, moc)
 
 		})
 	}
