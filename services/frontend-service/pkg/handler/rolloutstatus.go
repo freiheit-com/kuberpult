@@ -30,7 +30,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req *http.Request, environmentGroup string) {
+func (s *Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req *http.Request, environmentGroup string) {
 	if s.RolloutClient == nil {
 		http.Error(w, "not implemented", http.StatusNotImplemented)
 		return
