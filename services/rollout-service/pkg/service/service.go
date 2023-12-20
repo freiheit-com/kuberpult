@@ -46,7 +46,7 @@ type ArgoEventProcessor interface {
 	ProcessArgoEvent(ctx context.Context, ev ArgoEvent)
 }
 
-func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, version versions.VersionClient, sink ArgoEventProcessor, hlth *setup.HealthReporter) error {
+func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, dispatcher *Dispatcher, hlth *setup.HealthReporter) error {
 	return hlth.Retry(ctx, func() error {
 		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
@@ -70,30 +70,10 @@ func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceCl
 			if application == "" {
 				continue
 			}
+			k := Key{Application: application, Environment: environment}
 			switch ev.Type {
-			case "ADDED", "MODIFIED":
-				version, err := version.GetVersion(ctx, ev.Application.Status.Sync.Revision, environment, application)
-				if err != nil {
-					logger.FromContext(ctx).Warn("version.getversion", zap.String("revision", ev.Application.Status.Sync.Revision), zap.Error(err))
-				}
-				sink.ProcessArgoEvent(ctx, ArgoEvent{
-					Application:      application,
-					Environment:      environment,
-					SyncStatusCode:   ev.Application.Status.Sync.Status,
-					HealthStatusCode: ev.Application.Status.Health.Status,
-					OperationState:   ev.Application.Status.OperationState,
-					Version:          version,
-				})
-			case "DELETED":
-				sink.ProcessArgoEvent(ctx, ArgoEvent{
-					Application:      application,
-					Environment:      environment,
-					SyncStatusCode:   ev.Application.Status.Sync.Status,
-					HealthStatusCode: ev.Application.Status.Health.Status,
-
-					OperationState: ev.Application.Status.OperationState,
-					Version:        &versions.VersionInfo{Version: 0},
-				})
+			case "ADDED", "MODIFIED", "DELETED":
+				dispatcher.Dispatch(ctx, k, ev)
 			case "BOOKMARK":
 				// ignore this event
 			default:
