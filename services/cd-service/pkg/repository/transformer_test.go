@@ -4536,7 +4536,6 @@ func TestDeleteLocks(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
 			repo := setupRepositoryTest(t)
 			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
