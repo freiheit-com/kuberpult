@@ -7,7 +7,9 @@ jobs:
     name: Release kuberpult with semantic versioning
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # needed for git describe/VERSION in Makefile
       - name: Identify version to create
         uses: go-semantic-release/action@v1
         id: new-semrel-version
