@@ -4205,9 +4205,9 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					SourceTypeName: "",
 					AlertType:      "",
 					Tags: []string{
-						"app:app1",
-						"env:envB",
-						"team:teamT",
+						"kuberpult.application:app1",
+						"kuberpult.environment:envB",
+						"kuberpult.team:teamT",
 					},
 				},
 			},
@@ -4241,9 +4241,9 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					SourceTypeName: "",
 					AlertType:      "",
 					Tags: []string{
-						"app:app1",
-						"env:envB",
-						"team:teamT",
+						"kuberpult.application:app1",
+						"kuberpult.environment:envB",
+						"kuberpult.team:teamT",
 					},
 				},
 				{
@@ -4256,9 +4256,9 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					SourceTypeName: "",
 					AlertType:      "",
 					Tags: []string{
-						"app:app2",
-						"env:envA",
-						"team:teamX",
+						"kuberpult.application:app2",
+						"kuberpult.environment:envA",
+						"kuberpult.team:teamX",
 					},
 				},
 			},
