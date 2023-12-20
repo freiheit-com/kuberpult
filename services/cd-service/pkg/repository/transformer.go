@@ -781,13 +781,13 @@ func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (st
 		Filesystem: fs,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
-	_, err = fs.Stat(lockDir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", nil, grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for env lock does not exist", lockDir))
-		}
-		return "", nil, err
-	}
+	//_, err = fs.Stat(lockDir)
+	//if err != nil {
+	//	if errors.Is(err, os.ErrNotExist) {
+	//		return "", nil, grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for env lock does not exist", lockDir))
+	//	}
+	//	return "", nil, err
+	//}
 
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", nil, fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
@@ -940,13 +940,13 @@ func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state 
 	}
 	fs := state.Filesystem
 	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
-	_, err = fs.Stat(lockDir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", nil, grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
-		}
-		return "", nil, err
-	}
+	//_, err = fs.Stat(lockDir)
+	//if err != nil {
+	//	if errors.Is(err, os.ErrNotExist) {
+	//		return "", nil, grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
+	//	}
+	//	return "", nil, err
+	//}
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", nil, fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
