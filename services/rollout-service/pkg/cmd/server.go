@@ -105,7 +105,7 @@ func RunServer() {
 	}
 }
 
-func getGrpcClient(ctx context.Context, config Config) (api.OverviewServiceClient, api.VersionServiceClient, error) {
+func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClient, api.VersionServiceClient, error) {
 	grpcClientOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 	}
@@ -174,7 +174,7 @@ func runServer(ctx context.Context, config Config) error {
 	}
 	defer argoio.Close(closer)
 
-	overviewGrpc, versionGrpc, err := getGrpcClient(ctx, config)
+	overviewGrpc, versionGrpc, err := getGrpcClients(ctx, config)
 	if err != nil {
 		return fmt.Errorf("connecting to cd service %q: %w", config.CdServer, err)
 	}
