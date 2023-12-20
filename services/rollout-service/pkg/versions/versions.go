@@ -40,7 +40,6 @@ var RolloutServiceUser auth.User = auth.User{
 }
 
 type VersionClient interface {
-	TryGetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error)
 	GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error)
 	ConsumeEvents(ctx context.Context, processor VersionEventProcessor, hr *setup.HealthReporter) error
 }
@@ -72,7 +71,7 @@ var ZeroVersion VersionInfo
 
 // GetVersion implements VersionClient
 func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
-	tr, err := v.TryGetVersion(ctx, revision, environment, application)
+	tr, err := v.tryGetVersion(ctx, revision, environment, application)
 	if err == nil {
 		return tr, nil
 	}
@@ -92,7 +91,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 }
 
 // Tries getting the version from cache
-func (v *versionClient) TryGetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
+func (v *versionClient) tryGetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
 	var overview *api.GetOverviewResponse
 	entry, ok := v.cache.Get(revision)
 	if !ok {
