@@ -114,9 +114,8 @@ func (r *Dispatcher) sendEvent(ctx context.Context, k Key, version *versions.Ver
 		Environment:      k.Environment,
 		SyncStatusCode:   ev.Application.Status.Sync.Status,
 		HealthStatusCode: ev.Application.Status.Health.Status,
-
-		OperationState: ev.Application.Status.OperationState,
-		Version:        version,
+		OperationState:   ev.Application.Status.OperationState,
+		Version:          version,
 	})
 }
 
