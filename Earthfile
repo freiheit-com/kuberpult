@@ -2,6 +2,7 @@ VERSION 0.7
 FROM busybox
 ARG --global UID=1000
 ARG --global target=docker
+ARG --global commitmsg
 
 deps:
     ARG USERARCH
@@ -54,6 +55,15 @@ cache:
     BUILD ./services/rollout-service+release --service=rollout-service --UID=$UID
     BUILD ./services/frontend-service+release --service=frontend-service
     BUILD ./services/frontend-service+release-ui
+
+
+commitlint:
+    FROM node:18-bookworm
+    WORKDIR /commitlint/
+    RUN npm install --save-dev @commitlint/config-conventional
+    RUN npm install --save-dev @commitlint/cli
+    RUN echo "module.exports = {extends: ['@commitlint/config-conventional']}" > commitlint.config.js
+    RUN echo "$commitmsg" | npx commitlint
 
 test-all:
     BUILD ./services/cd-service+unit-test --service=cd-service
