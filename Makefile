@@ -107,7 +107,7 @@ tag-release-images: $(foreach i,$(SERVICE_IMAGES),push-service-image/$i)
 
 .PHONY: commitlint
 commitlint:
-	gh pr view --json title,body --template '{{.title}}{{ "\n\n" }}{{.body}}' > commitlint.msg
+	gh pr view $${GITHUB_HEAD_REF} --json title,body --template '{{.title}}{{ "\n\n" }}{{.body}}' > commitlint.msg
 	@echo "commit message that will be linted:"
 	@cat commitlint.msg
 	@echo
