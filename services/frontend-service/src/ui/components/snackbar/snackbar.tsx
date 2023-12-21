@@ -13,62 +13,61 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { useEffect, useRef } from 'react';
-import { MDCSnackbar } from '@material/snackbar';
-import classNames from 'classnames';
+import React, { useCallback, useEffect } from 'react';
 import { Button } from '../button';
 import { Close } from '../../../images';
 import { SnackbarStatus, UpdateSnackbar, useSnackbar } from '../../utils/store';
+import { PlainDialog } from '../dialog/ConfirmationDialog';
+
+const showSnackbarDurationMillis: number = 15 * 1000;
 
 export const Snackbar = (): JSX.Element => {
-    const MDComponent = useRef<MDCSnackbar>();
-    const control = useRef<HTMLElement>(null);
     const [show, status, content] = useSnackbar(({ show, status, content }) => [show, status, content]);
-
     useEffect(() => {
-        if (control.current) {
-            MDComponent.current = new MDCSnackbar(control.current);
+        if (!show) {
+            return;
         }
-        return (): void => MDComponent.current?.destroy();
+        const timer1 = setTimeout(() => {
+            UpdateSnackbar.set({ show: false });
+        }, showSnackbarDurationMillis);
+
+        return () => {
+            clearTimeout(timer1);
+        };
+    }, [show]);
+
+    const cssColor: string =
+        status === SnackbarStatus.SUCCESS
+            ? 'success'
+            : status === SnackbarStatus.WARN
+              ? 'warn'
+              : status === SnackbarStatus.ERROR
+                ? 'error'
+                : 'invalid-color';
+
+    const onClickClose = useCallback(() => {
+        UpdateSnackbar.set({ show: false });
     }, []);
 
-    useEffect(() => {
-        if (show) {
-            if (!MDComponent.current) {
-                throw new Error('snackbar: mdcomponent.current not set');
-            }
-            // open the snackbar and then set show to false. the snackbar will remain opened 5s
-            if (status === SnackbarStatus.WARN) {
-                // Warn is used for connection errors
-                // when you can't connect, always show a warning
-                MDComponent.current.timeoutMs = -1;
-            } else {
-                // snackbar closes after 5s
-                MDComponent.current.timeoutMs = 5000;
-            }
-            MDComponent.current.open();
-            UpdateSnackbar.set({ show: false });
-        }
-    }, [show, status]);
-
     return (
-        <aside
-            className={classNames(
-                'mdc-snackbar',
-                'mdc-snackbar--leading',
-                status === SnackbarStatus.SUCCESS && 'mdc-snackbar--success',
-                status === SnackbarStatus.WARN && 'mdc-snackbar--warn',
-                status === SnackbarStatus.ERROR && 'mdc-snackbar--error'
-            )}
-            ref={control}>
-            <div className="mdc-snackbar__surface" role="status" aria-relevant="additions">
-                <div className="mdc-snackbar__label" aria-atomic="false">
-                    <b>{content}</b>
-                </div>
-                <div className="mdc-snackbar__actions" aria-atomic="true">
-                    <Button icon={<Close width="18px" height="18px" />} className={'mdc-snackbar__action'} />
+        <PlainDialog
+            open={show}
+            onClose={onClickClose}
+            classNames={`k-snackbar snackbar-color-${cssColor}`}
+            disableBackground={false}
+            center={false}>
+            <div className={''}>
+                <div className={'k-snackbar-content'}>
+                    <div className={'k-snackbar-text'}>
+                        <span>{content}</span>
+                    </div>
+                    <div className={'k-snackbar-button'}>
+                        <span>
+                            <Button onClick={onClickClose} icon={<Close width="18px" height="18px" />} />
+                        </span>
+                    </div>
                 </div>
             </div>
-        </aside>
+        </PlainDialog>
     );
 };
