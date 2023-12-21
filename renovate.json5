@@ -1,6 +1,9 @@
 {
   "extends": [
-    ":dependencyDashboard"
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":semanticCommitTypeAll(chore)",
+    ":semanticCommitScopeDisabled",
   ],
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "enabledManagers": [
