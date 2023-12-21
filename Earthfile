@@ -60,6 +60,7 @@ cache:
 commitlint:
     FROM node:18-bookworm
     WORKDIR /commitlint/
+    COPY .commitlintrc .commitlintrc
     RUN npm install --save-dev @commitlint/config-conventional
     RUN npm install --save-dev @commitlint/cli
     RUN echo "module.exports = {extends: ['@commitlint/config-conventional']}" > commitlint.config.js
