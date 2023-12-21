@@ -181,12 +181,13 @@ func runServer(ctx context.Context, config Config) error {
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
 	versionC := versions.New(overviewGrpc, versionGrpc)
+	dispatcher := service.NewDispatcher(broadcast, versionC)
 
 	backgroundTasks := []setup.BackgroundTaskConfig{
 		{
 			Name: "consume argocd events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				return service.ConsumeEvents(ctx, appClient, versionC, broadcast, health)
+				return service.ConsumeEvents(ctx, appClient, dispatcher, health)
 			},
 		},
 		{
@@ -194,6 +195,10 @@ func runServer(ctx context.Context, config Config) error {
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				return versionC.ConsumeEvents(ctx, broadcast, health)
 			},
+		},
+		{
+			Name: "dispatch argocd events",
+			Run:  dispatcher.Work,
 		},
 	}
 
