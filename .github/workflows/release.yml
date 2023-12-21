@@ -28,6 +28,7 @@ jobs:
             password: ${{ secrets.GCP_ARTIFACT_REGISTRY_PUSH_JSON_KEY }}
       - name: Retag service images with release version
         run: |
+          git fetch --tags # this should have been done by the checkout action before.
           make tag-release-images RELEASE_IMAGE_TAG=v$RELEASE_IMAGE_VERSION
         env:
           RELEASE_IMAGE_VERSION: ${{ steps.new-semrel-version.outputs.version }}
