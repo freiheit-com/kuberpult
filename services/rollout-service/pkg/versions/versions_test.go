@@ -45,14 +45,15 @@ type step struct {
 }
 
 type expectedVersion struct {
-	Revision        string
-	Environment     string
-	Application     string
-	DeployedVersion uint64
-	DeployTime      time.Time
-	SourceCommitId  string
-	Metadata        metadata.MD
-	IsProduction    bool
+	Revision         string
+	Environment      string
+	Application      string
+	DeployedVersion  uint64
+	DeployTime       time.Time
+	SourceCommitId   string
+	OverviewMetadata metadata.MD
+	VersionMetadata  metadata.MD
+	IsProduction     bool
 }
 
 type mockOverviewStreamMessage struct {
@@ -118,10 +119,12 @@ type mockVersionResponse struct {
 	err      error
 }
 type mockVersionClient struct {
-	responses map[string]mockVersionResponse
+	responses    map[string]mockVersionResponse
+	LastMetadata metadata.MD
 }
 
 func (m *mockVersionClient) GetVersion(ctx context.Context, in *api.GetVersionRequest, opts ...grpc.CallOption) (*api.GetVersionResponse, error) {
+	m.LastMetadata, _ = metadata.FromOutgoingContext(ctx)
 	key := fmt.Sprintf("%s/%s@%s", in.Environment, in.Application, in.GitRevision)
 	res, ok := m.responses[key]
 	if !ok {
@@ -335,6 +338,10 @@ func TestVersionClientStream(t *testing.T) {
 					DeployedVersion: 1,
 					SourceCommitId:  "00001",
 					DeployTime:      time.Unix(123456789, 0).UTC(),
+					VersionMetadata: metadata.MD{
+						"author-email": {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZUBsb2NhbA=="},
+						"author-name":  {"a3ViZXJwdWx0LXJvbGxvdXQtc2VydmljZQ=="},
+					},
 				},
 			},
 		},
@@ -575,7 +582,7 @@ func TestVersionClientStream(t *testing.T) {
 			if len(steps) != 0 {
 				t.Errorf("expected all events to be consumed, but got %d left", len(steps))
 			}
-			assertExpectedVersions(t, tc.ExpectedVersions, vc, moc)
+			assertExpectedVersions(t, tc.ExpectedVersions, vc, moc, mvc)
 
 		})
 	}
@@ -591,7 +598,7 @@ func assertStep(t *testing.T, i int, s step, vp *mockVersionEventProcessor, hs *
 	vp.events = nil
 }
 
-func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc VersionClient, mc *mockOverviewClient) {
+func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc VersionClient, mc *mockOverviewClient, mvc *mockVersionClient) {
 	for _, ev := range expectedVersions {
 		version, err := vc.GetVersion(context.Background(), ev.Revision, ev.Environment, ev.Application)
 		if err != nil {
@@ -607,8 +614,12 @@ func assertExpectedVersions(t *testing.T, expectedVersions []expectedVersion, vc
 		if version.SourceCommitId != ev.SourceCommitId {
 			t.Errorf("expected source commit id to be %q for %s/%s@%s but got %q", ev.SourceCommitId, ev.Environment, ev.Application, ev.Revision, version.SourceCommitId)
 		}
-		if !cmp.Equal(mc.LastMetadata, ev.Metadata) {
-			t.Errorf("mismachted metadata %s", cmp.Diff(mc.LastMetadata, ev.Metadata))
+		if !cmp.Equal(mc.LastMetadata, ev.OverviewMetadata) {
+			t.Errorf("mismachted version metadata %s", cmp.Diff(mc.LastMetadata, ev.OverviewMetadata))
 		}
+		if !cmp.Equal(mvc.LastMetadata, ev.VersionMetadata) {
+			t.Errorf("mismachted version metadata %s", cmp.Diff(mvc.LastMetadata, ev.VersionMetadata))
+		}
+
 	}
 }
