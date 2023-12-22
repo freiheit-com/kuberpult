@@ -55,13 +55,13 @@ cache:
     BUILD ./services/frontend-service+release --service=frontend-service
     BUILD ./services/frontend-service+release-ui
 
-
 commitlint:
     FROM node:18-bookworm
     WORKDIR /commitlint/
+    RUN npm install --save-dev @commitlint/cli
+    WORKDIR /commitlint/
     COPY .commitlintrc .commitlintrc
     COPY commitlint.msg commitlint.msg
-    RUN npm install --save-dev @commitlint/cli
     RUN cat ./commitlint.msg | npx commitlint --config .commitlintrc
 
 test-all:
