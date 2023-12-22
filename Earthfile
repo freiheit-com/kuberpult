@@ -58,7 +58,7 @@ cache:
 commitlint:
     FROM node:18-bookworm
     WORKDIR /commitlint/
-    RUN npm install --save-dev @commitlint/cli
+    RUN npm install --save-dev @commitlint/cli@18.4.3
     WORKDIR /commitlint/
     COPY .commitlintrc .commitlintrc
     COPY commitlint.msg commitlint.msg
