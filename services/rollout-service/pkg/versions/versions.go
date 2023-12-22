@@ -71,6 +71,7 @@ var ZeroVersion VersionInfo
 
 // GetVersion implements VersionClient
 func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
+	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
 	tr, err := v.tryGetVersion(ctx, revision, environment, application)
 	if err == nil {
 		return tr, nil
