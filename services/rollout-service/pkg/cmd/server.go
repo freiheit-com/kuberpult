@@ -19,11 +19,8 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net/url"
-
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	argoio "github.com/argoproj/argo-cd/v2/util/io"
-
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	pkgmetrics "github.com/freiheit-com/kuberpult/pkg/metrics"
@@ -34,14 +31,14 @@ import (
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/revolution"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
-
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"net/url"
 
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 )
@@ -60,6 +57,12 @@ type Config struct {
 	RevolutionDoraUrl         string `split_words:"true" default:""`
 	RevolutionDoraToken       string `split_words:"true" default:""`
 	RevolutionDoraConcurrency int    `default:"10" split_words:"true"`
+
+	ManageArgoApplicationEnabled bool   `split_words:"true" default:"false"`
+	ManageArgoApplicationFilter  string `split_words:"true" default:""`
+
+	ManifestRepoUrl string `default:"" split_words:"true"`
+	Branch          string `default:"" split_words:"true"`
 }
 
 func (config *Config) ClientConfig() (apiclient.ClientOptions, error) {
@@ -180,7 +183,7 @@ func runServer(ctx context.Context, config Config) error {
 	}
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
-	versionC := versions.New(overviewGrpc, versionGrpc)
+	versionC := versions.New(overviewGrpc, versionGrpc, config)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
 
 	backgroundTasks := []setup.BackgroundTaskConfig{

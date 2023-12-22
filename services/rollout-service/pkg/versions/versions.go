@@ -19,7 +19,9 @@ package versions
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/cmd"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/argoproj/argo-cd/v2/util/grpc"
@@ -45,9 +47,11 @@ type VersionClient interface {
 }
 
 type versionClient struct {
-	overviewClient api.OverviewServiceClient
-	versionClient  api.VersionServiceClient
-	cache          *lru.Cache
+	overviewClient        api.OverviewServiceClient
+	versionClient         api.VersionServiceClient
+	cache                 *lru.Cache
+	manageArgoAppsEnabled bool
+	manageArgoAppsFilter  string
 }
 
 type VersionInfo struct {
@@ -209,6 +213,13 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 						sc := sourceCommitId(overview, app)
 						tm := team(overview, app.Name)
 
+						if v.manageArgoAppsEnabled {
+							//TODO: We now get the manifestRepoUrl and the branch from the overview response
+							if len(v.manageArgoAppsFilter) > 0 && strings.Contains(v.manageArgoAppsFilter, app.Name) {
+								//TODO: We need to filter the apps that are managed by us
+							}
+						}
+
 						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version), zap.Time("deployedAt", dt))
 						k := key{env.Name, app.Name}
 						seen[k] = app.Version
@@ -251,11 +262,13 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	})
 }
 
-func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient) VersionClient {
+func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, config cmd.Config) VersionClient {
 	result := &versionClient{
-		cache:          lru.New(20),
-		overviewClient: oclient,
-		versionClient:  vclient,
+		cache:                 lru.New(20),
+		overviewClient:        oclient,
+		versionClient:         vclient,
+		manageArgoAppsEnabled: config.ManageArgoApplicationEnabled,
+		manageArgoAppsFilter:  config.ManageArgoApplicationFilter,
 	}
 	return result
 }
