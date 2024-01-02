@@ -85,6 +85,8 @@ func (o *OverviewServiceServer) getOverview(
 		EnvironmentGroups: []*api.EnvironmentGroup{},
 		GitRevision:       rev,
 	}
+	result.ManifestRepoUrl = s.RepoURL
+	result.Branch = s.Branch
 	if envs, err := s.GetEnvironmentConfigs(); err != nil {
 		return nil, grpc.InternalError(ctx, err)
 	} else {

@@ -1113,6 +1113,8 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Commit:                 commit,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+		RepoURL:                r.config.URL,
+		Branch:                 r.config.Branch,
 	}, nil
 }
 
@@ -1202,6 +1204,8 @@ type State struct {
 	Commit                 *git.Commit
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
+	RepoURL                string
+	Branch                 string
 }
 
 func (s *State) Releases(application string) ([]uint64, error) {

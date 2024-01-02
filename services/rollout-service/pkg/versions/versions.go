@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/cmd"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -213,11 +214,10 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 						sc := sourceCommitId(overview, app)
 						tm := team(overview, app.Name)
 
-						if v.manageArgoAppsEnabled {
-							//TODO: We now get the manifestRepoUrl and the branch from the overview response
-							if len(v.manageArgoAppsFilter) > 0 && strings.Contains(v.manageArgoAppsFilter, app.Name) {
-								//TODO: We need to filter the apps that are managed by us
-							}
+						if v.manageArgoAppsEnabled && len(v.manageArgoAppsFilter) > 0 && strings.Contains(v.manageArgoAppsFilter, app.Name) {
+							target := path.Join("environments", env.Name, "applications", app.Name, "manifests", "manifests.yaml")
+							fmt.Println(target)
+							//TODO: We need to apply the apps that respect the filter
 						}
 
 						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version), zap.Time("deployedAt", dt))
