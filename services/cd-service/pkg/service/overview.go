@@ -41,8 +41,9 @@ import (
 )
 
 type OverviewServiceServer struct {
-	Repository repository.Repository
-	Shutdown   <-chan struct{}
+	Repository       repository.Repository
+	RepositoryConfig repository.RepositoryConfig
+	Shutdown         <-chan struct{}
 
 	notify notify.Notify
 
@@ -85,8 +86,8 @@ func (o *OverviewServiceServer) getOverview(
 		EnvironmentGroups: []*api.EnvironmentGroup{},
 		GitRevision:       rev,
 	}
-	result.ManifestRepoUrl = s.RepoURL
-	result.Branch = s.Branch
+	result.ManifestRepoUrl = o.RepositoryConfig.URL
+	result.Branch = o.RepositoryConfig.Branch
 	if envs, err := s.GetEnvironmentConfigs(); err != nil {
 		return nil, grpc.InternalError(ctx, err)
 	} else {

@@ -19,6 +19,7 @@ package versions
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/cmd"
 	"path"
 	"strconv"
@@ -214,12 +215,6 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 						sc := sourceCommitId(overview, app)
 						tm := team(overview, app.Name)
 
-						if v.manageArgoAppsEnabled && len(v.manageArgoAppsFilter) > 0 && strings.Contains(v.manageArgoAppsFilter, app.Name) {
-							target := path.Join("environments", env.Name, "applications", app.Name, "manifests", "manifests.yaml")
-							fmt.Println(target)
-							//TODO: We need to apply the apps that respect the filter
-						}
-
 						l.Info("version.process", zap.String("application", app.Name), zap.String("environment", env.Name), zap.Uint64("version", app.Version), zap.Time("deployedAt", dt))
 						k := key{env.Name, app.Name}
 						seen[k] = app.Version
@@ -229,18 +224,115 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 							continue
 						}
 
-						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-							Application:      app.Name,
-							Environment:      env.Name,
-							EnvironmentGroup: envGroup.EnvironmentGroupName,
-							Team:             tm,
-							IsProduction:     env.Priority == api.Priority_PROD,
-							Version: &VersionInfo{
-								Version:        app.Version,
-								SourceCommitId: sc,
-								DeployedAt:     dt,
-							},
-						})
+						if v.manageArgoAppsEnabled && len(v.manageArgoAppsFilter) > 0 && strings.Contains(v.manageArgoAppsFilter, app.Name) {
+							manifestPath := path.Join("environments", env.Name, "applications", app.Name, "manifests", "manifests.yaml")
+							l.Info(manifestPath)
+
+							var annotations map[string]string
+							var labels map[string]string
+
+							for k, v := range env.Config.Argocd.ApplicationAnnotations {
+								annotations[k] = v
+							}
+							annotations["com.freiheit.kuberpult/team"] = tm
+							annotations["com.freiheit.kuberpult/application"] = app.Name
+							annotations["com.freiheit.kuberpult/environment"] = env.Name
+							annotations["com.freiheit.kuberpult/self-managed"] = "true"
+							annotations["com.freiheit.kuberpult/self-managed-filter"] = v.manageArgoAppsFilter
+							// This annotation is so that argoCd does not invalidate *everything* in the whole repo when receiving a git webhook.
+							// It has to start with a "/" to be absolute to the git repo.
+							// See https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#webhook-and-manifest-paths-annotation
+							annotations["argocd.argoproj.io/manifest-generate-paths"] = "/" + manifestPath
+							labels["com.freiheit.kuberpult/team"] = tm
+
+							applicationNs := ""
+
+							if env.Config.Argocd.Destination.Namespace != nil {
+								applicationNs = *env.Config.Argocd.Destination.Namespace
+							} else if env.Config.Argocd.Destination.ApplicationNamespace != nil {
+								applicationNs = *env.Config.Argocd.Destination.ApplicationNamespace
+							}
+
+							applicationDestination := v1alpha1.ApplicationDestination{
+								Name:      env.Config.Argocd.Destination.Name,
+								Namespace: applicationNs,
+								Server:    env.Config.Argocd.Destination.Server,
+							}
+
+							syncWindows := v1alpha1.SyncWindows{}
+
+							ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(&env.Config.Argocd.IgnoreDifferences))
+							for index, value := range env.Config.Argocd.IgnoreDifferences {
+								difference := v1alpha1.ResourceIgnoreDifferences{
+									Group:                 value.Group,
+									Kind:                  value.Kind,
+									Name:                  value.Name,
+									Namespace:             value.Namespace,
+									JSONPointers:          value.JsonPointers,
+									JqPathExpressions:     value.JqPathExpressions,
+									ManagedFieldsManagers: value.ManagedFieldsManagers,
+								}
+								ignoreDifferences[index] = difference
+							}
+
+							for _, w := range env.Config.Argocd.SyncWindows {
+								apps := []string{"*"}
+								if len(w.Applications) > 0 {
+									apps = w.Applications
+								}
+								syncWindows = append(syncWindows, &v1alpha1.SyncWindow{
+									Applications: apps,
+									Schedule:     w.Schedule,
+									Duration:     w.Duration,
+									Kind:         w.Kind,
+									ManualSync:   true,
+								})
+							}
+
+							deployApp := v1alpha1.Application{
+								ObjectMeta: v1alpha1.ObjectMeta{
+									Name:        app.Name,
+									Annotations: annotations,
+									Labels:      labels,
+									Finalizers:  calculateFinalizers(),
+								},
+								Spec: v1alpha1.ApplicationSpec{
+									Project: env.Name,
+									Source: v1alpha1.ApplicationSource{
+										RepoURL:        overview.ManifestRepoUrl,
+										Path:           manifestPath,
+										TargetRevision: overview.Branch,
+									},
+									Destination: applicationDestination,
+									SyncPolicy: &v1alpha1.SyncPolicy{
+										Automated: &v1alpha1.SyncPolicyAutomated{
+											Prune:    false,
+											SelfHeal: false,
+											// We always allow empty, because it makes it easier to delete apps/environments
+											AllowEmpty: true,
+										},
+										SyncOptions: env.Config.Argocd.SyncOptions,
+									},
+									IgnoreDifferences: ignoreDifferences,
+								},
+							}
+
+							fmt.Println(deployApp)
+
+						} else {
+							processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+								Application:      app.Name,
+								Environment:      env.Name,
+								EnvironmentGroup: envGroup.EnvironmentGroupName,
+								Team:             tm,
+								IsProduction:     env.Priority == api.Priority_PROD,
+								Version: &VersionInfo{
+									Version:        app.Version,
+									SourceCommitId: sc,
+									DeployedAt:     dt,
+								},
+							})
+						}
 					}
 				}
 			}
@@ -271,4 +363,10 @@ func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, co
 		manageArgoAppsFilter:  config.ManageArgoApplicationFilter,
 	}
 	return result
+}
+
+func calculateFinalizers() []string {
+	return []string{
+		"resources-finalizer.argocd.argoproj.io",
+	}
 }

@@ -209,8 +209,9 @@ func RunServer() {
 					})
 
 					overviewSrv := &service.OverviewServiceServer{
-						Repository: repo,
-						Shutdown:   shutdownCh,
+						Repository:       repo,
+						RepositoryConfig: cfg,
+						Shutdown:         shutdownCh,
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
 					api.RegisterGitTagsServiceServer(srv, &service.TagsServer{Config: cfg, OverviewService: overviewSrv})
