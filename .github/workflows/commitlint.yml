@@ -1,0 +1,14 @@
+name: Enforce commit linting
+
+on:
+  pull_request:
+    types: [labeled, unlabeled, opened, edited, synchronize]
+jobs:
+  enforce-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3.1.0
+      - name: Lint commit message
+        run: |
+          make commitlint
