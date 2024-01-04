@@ -15,8 +15,3 @@ jobs:
     uses: ./.github/workflows/integration-tests.yml
     with:
       trigger: pull-request
-
-  lint-commit-message:
-    uses: ./.github/workflows/
-    with:
-      trigger: pull-request
