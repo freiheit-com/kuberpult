@@ -157,6 +157,7 @@ export const addAction = (action: BatchAction): void => {
                         act.action?.$case === 'createEnvironmentLock' &&
                         action.action?.$case === 'createEnvironmentLock' &&
                         act.action.createEnvironmentLock.environment === action.action.createEnvironmentLock.environment
+                    // lockId and message are ignored
                 )
             )
                 return;
@@ -184,6 +185,7 @@ export const addAction = (action: BatchAction): void => {
                             action.action.createEnvironmentApplicationLock.application &&
                         act.action.createEnvironmentApplicationLock.environment ===
                             action.action.createEnvironmentApplicationLock.environment
+                    // lockId and message are ignored
                 )
             )
                 return;
@@ -197,7 +199,9 @@ export const addAction = (action: BatchAction): void => {
                         act.action.deleteEnvironmentApplicationLock.environment ===
                             action.action.deleteEnvironmentApplicationLock.environment &&
                         act.action.deleteEnvironmentApplicationLock.lockId ===
-                            action.action.deleteEnvironmentApplicationLock.lockId
+                            action.action.deleteEnvironmentApplicationLock.lockId &&
+                        act.action.deleteEnvironmentApplicationLock.application ===
+                            action.action.deleteEnvironmentApplicationLock.application
                 )
             )
                 return;
@@ -210,6 +214,7 @@ export const addAction = (action: BatchAction): void => {
                         action.action?.$case === 'deploy' &&
                         act.action.deploy.application === action.action.deploy.application &&
                         act.action.deploy.environment === action.action.deploy.environment
+                    // version, lockBehavior and ignoreAllLocks are ignored
                 )
             )
                 return;
