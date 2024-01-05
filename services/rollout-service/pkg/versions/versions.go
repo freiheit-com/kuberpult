@@ -19,11 +19,14 @@ package versions
 import (
 	"context"
 	"fmt"
+	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/cmd"
+	"gopkg.in/yaml.v3"
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/argoproj/argo-cd/v2/util/grpc"
@@ -51,15 +54,98 @@ type VersionClient interface {
 type versionClient struct {
 	overviewClient        api.OverviewServiceClient
 	versionClient         api.VersionServiceClient
+	applicationClient     application.ApplicationServiceClient
 	cache                 *lru.Cache
 	manageArgoAppsEnabled bool
 	manageArgoAppsFilter  string
+	Queue                 *ApplyQueue
 }
 
 type VersionInfo struct {
 	Version        uint64
 	SourceCommitId string
 	DeployedAt     time.Time
+}
+
+type ApplyQueue struct {
+	name   string
+	jobs   chan *Job
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+type Job struct {
+	Name        string
+	Content     string
+	Application *v1alpha1.Application
+}
+
+func NewQueue(name string, ctx context.Context) *ApplyQueue {
+	ctx, cancel := context.WithCancel(ctx)
+
+	return &ApplyQueue{
+		jobs:   make(chan *Job),
+		name:   name,
+		ctx:    ctx,
+		cancel: cancel,
+	}
+}
+
+func (q *ApplyQueue) AddJob(job *Job) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func(job *Job) {
+		q.jobs <- job
+		fmt.Printf("New job %s added to %s queue\n", job.Name, q.name)
+		wg.Done()
+	}(job)
+
+	go func() {
+		wg.Wait()
+		q.cancel()
+	}()
+}
+
+func (j Job) Deploy(client *versionClient, ctx context.Context) error {
+	//TODO LS: Now need to make the application create request and submit it using the create and update endpoints
+	//appCreateRequest := &application.ApplicationCreateRequest{
+	//	Application: j.Application,
+	//	Upsert:      false,
+	//	Validate:    false,
+	//}
+	//client.applicationClient.Create(ctx, &application.ApplicationCreateRequest{Application: &(j.Application), Upsert: false, Validate: false})
+	return nil
+}
+
+type Worker struct {
+	Queue             *ApplyQueue
+	ApplicationClient application.ApplicationServiceClient
+}
+
+// NewWorker initializes a new Worker.
+func NewWorker(queue *ApplyQueue) *Worker {
+	return &Worker{
+		Queue: queue,
+	}
+}
+
+// DoWork processes jobs from the queue (jobs channel).
+func (w *Worker) DoWork(v *versionClient, ctx context.Context) bool {
+	for {
+		select {
+		case <-w.Queue.ctx.Done():
+			fmt.Printf("Work done in queue %s: %s!", w.Queue.name, w.Queue.ctx.Err())
+			return true
+		// if job received.
+		case job := <-w.Queue.jobs:
+			err := job.Deploy(v, ctx)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+		}
+	}
 }
 
 func (v *VersionInfo) Equal(w *VersionInfo) bool {
@@ -261,7 +347,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 							syncWindows := v1alpha1.SyncWindows{}
 
-							ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(&env.Config.Argocd.IgnoreDifferences))
+							ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(env.Config.Argocd.IgnoreDifferences))
 							for index, value := range env.Config.Argocd.IgnoreDifferences {
 								difference := v1alpha1.ResourceIgnoreDifferences{
 									Group:                 value.Group,
@@ -316,8 +402,17 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 									IgnoreDifferences: ignoreDifferences,
 								},
 							}
-
-							fmt.Println(deployApp)
+							var content []byte
+							if content, err = yaml.Marshal(deployApp); err != nil {
+								return err
+							}
+							job := &Job{
+								Name:    "Deploy " + app.Name,
+								Content: string(content),
+							}
+							v.Queue.AddJob(job)
+							worker := NewWorker(v.Queue)
+							worker.DoWork(v, ctx)
 
 						} else {
 							processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
@@ -354,13 +449,15 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	})
 }
 
-func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, config cmd.Config) VersionClient {
+func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, config cmd.Config, ctx context.Context) VersionClient {
 	result := &versionClient{
 		cache:                 lru.New(20),
 		overviewClient:        oclient,
 		versionClient:         vclient,
+		applicationClient:     appClient,
 		manageArgoAppsEnabled: config.ManageArgoApplicationEnabled,
 		manageArgoAppsFilter:  config.ManageArgoApplicationFilter,
+		Queue:                 NewQueue("selfManagedApps", ctx),
 	}
 	return result
 }
