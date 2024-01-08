@@ -42,6 +42,14 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 
 func (a *ArgoAppProcessor) ConsumeArgo(ctx context.Context, argo service.SimplifiedApplicationServiceClient) error {
 	watch, err := argo.Watch(ctx, &application.ApplicationQuery{})
+	if err != nil {
+		if status.Code(err) == codes.Canceled {
+			// context is cancelled -> we are shutting down
+			return setup.Permanent(nil)
+		}
+		return fmt.Errorf("watching applications: %w", err)
+	}
+	hlth.ReportReady("consuming events")
 	for {
 		ev, err := watch.Recv()
 		if err != nil {
