@@ -183,7 +183,7 @@ func runServer(ctx context.Context, config Config) error {
 	}
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
-	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config, ctx)
+	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
 
 	backgroundTasks := []setup.BackgroundTaskConfig{

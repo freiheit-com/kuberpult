@@ -20,13 +20,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
+	argoApp "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/cmd"
-	"gopkg.in/yaml.v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/argoproj/argo-cd/v2/util/grpc"
@@ -54,11 +55,10 @@ type VersionClient interface {
 type versionClient struct {
 	overviewClient        api.OverviewServiceClient
 	versionClient         api.VersionServiceClient
-	applicationClient     application.ApplicationServiceClient
 	cache                 *lru.Cache
 	manageArgoAppsEnabled bool
 	manageArgoAppsFilter  string
-	Queue                 *ApplyQueue
+	ArgoProcessor         argo.ArgoAppProcessor
 }
 
 type VersionInfo struct {
@@ -67,85 +67,10 @@ type VersionInfo struct {
 	DeployedAt     time.Time
 }
 
-type ApplyQueue struct {
-	name   string
-	jobs   chan *Job
-	ctx    context.Context
-	cancel context.CancelFunc
-}
-
 type Job struct {
 	Name        string
 	Content     string
 	Application *v1alpha1.Application
-}
-
-func NewQueue(name string, ctx context.Context) *ApplyQueue {
-	ctx, cancel := context.WithCancel(ctx)
-
-	return &ApplyQueue{
-		jobs:   make(chan *Job),
-		name:   name,
-		ctx:    ctx,
-		cancel: cancel,
-	}
-}
-
-func (q *ApplyQueue) AddJob(job *Job) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func(job *Job) {
-		q.jobs <- job
-		fmt.Printf("New job %s added to %s queue\n", job.Name, q.name)
-		wg.Done()
-	}(job)
-
-	go func() {
-		wg.Wait()
-		q.cancel()
-	}()
-}
-
-func (j Job) Deploy(client *versionClient, ctx context.Context) error {
-	//TODO LS: Now need to make the application create request and submit it using the create and update endpoints
-	//appCreateRequest := &application.ApplicationCreateRequest{
-	//	Application: j.Application,
-	//	Upsert:      false,
-	//	Validate:    false,
-	//}
-	//client.applicationClient.Create(ctx, &application.ApplicationCreateRequest{Application: &(j.Application), Upsert: false, Validate: false})
-	return nil
-}
-
-type Worker struct {
-	Queue             *ApplyQueue
-	ApplicationClient application.ApplicationServiceClient
-}
-
-// NewWorker initializes a new Worker.
-func NewWorker(queue *ApplyQueue) *Worker {
-	return &Worker{
-		Queue: queue,
-	}
-}
-
-// DoWork processes jobs from the queue (jobs channel).
-func (w *Worker) DoWork(v *versionClient, ctx context.Context) bool {
-	for {
-		select {
-		case <-w.Queue.ctx.Done():
-			fmt.Printf("Work done in queue %s: %s!", w.Queue.name, w.Queue.ctx.Err())
-			return true
-		// if job received.
-		case job := <-w.Queue.jobs:
-			err := job.Deploy(v, ctx)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-		}
-	}
 }
 
 func (v *VersionInfo) Equal(w *VersionInfo) bool {
@@ -375,7 +300,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 								})
 							}
 
-							deployApp := v1alpha1.Application{
+							deployApp := &v1alpha1.Application{
 								ObjectMeta: v1alpha1.ObjectMeta{
 									Name:        app.Name,
 									Annotations: annotations,
@@ -402,17 +327,10 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 									IgnoreDifferences: ignoreDifferences,
 								},
 							}
-							var content []byte
-							if content, err = yaml.Marshal(deployApp); err != nil {
-								return err
-							}
-							job := &Job{
-								Name:    "Deploy " + app.Name,
-								Content: string(content),
-							}
-							v.Queue.AddJob(job)
-							worker := NewWorker(v.Queue)
-							worker.DoWork(v, ctx)
+
+							argoApplication := convertApplication(deployApp)
+
+							v.ArgoProcessor.Push(overview, argoApplication)
 
 						} else {
 							processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
@@ -449,15 +367,17 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	})
 }
 
-func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, config cmd.Config, ctx context.Context) VersionClient {
+func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, config cmd.Config) VersionClient {
 	result := &versionClient{
 		cache:                 lru.New(20),
 		overviewClient:        oclient,
 		versionClient:         vclient,
-		applicationClient:     appClient,
 		manageArgoAppsEnabled: config.ManageArgoApplicationEnabled,
 		manageArgoAppsFilter:  config.ManageArgoApplicationFilter,
-		Queue:                 NewQueue("selfManagedApps", ctx),
+		ArgoProcessor: argo.ArgoAppProcessor{
+			ApplicationClient: appClient,
+			//TODO: [LS] Need to add the health reporter
+		},
 	}
 	return result
 }
@@ -466,4 +386,40 @@ func calculateFinalizers() []string {
 	return []string{
 		"resources-finalizer.argocd.argoproj.io",
 	}
+}
+
+func convertApplication(app *v1alpha1.Application) *argoApp.Application {
+	convertedApp := &argoApp.Application{
+		TypeMeta: app.TypeMeta,
+		Spec: argoApp.ApplicationSpec{
+			Source: &argoApp.ApplicationSource{
+				RepoURL:        app.Spec.Source.RepoURL,
+				Path:           app.Spec.Source.Path,
+				TargetRevision: app.Spec.Source.TargetRevision,
+			},
+			Destination: argoApp.ApplicationDestination{
+				Server:    app.Spec.Destination.Server,
+				Namespace: app.Spec.Destination.Namespace,
+				Name:      app.Spec.Destination.Name,
+			},
+			Project: app.Spec.Project,
+			SyncPolicy: &argoApp.SyncPolicy{
+				Automated: &argoApp.SyncPolicyAutomated{
+					AllowEmpty: app.Spec.SyncPolicy.Automated.AllowEmpty,
+					Prune:      app.Spec.SyncPolicy.Automated.Prune,
+					SelfHeal:   app.Spec.SyncPolicy.Automated.SelfHeal,
+				},
+				SyncOptions: (argoApp.SyncOptions)(app.Spec.SyncPolicy.SyncOptions),
+			},
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        app.ObjectMeta.Name,
+			Annotations: app.ObjectMeta.Annotations,
+			Labels:      app.ObjectMeta.Labels,
+			Finalizers:  app.ObjectMeta.Finalizers,
+		},
+		Operation: &argoApp.Operation{},
+	}
+
+	return convertedApp
 }
