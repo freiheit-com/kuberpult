@@ -86,7 +86,7 @@ export const LocksPage: React.FC = () => {
     }
     return (
         <div>
-            <TopAppBar showAppFilter={false} showTeamFilter={false} />
+            <TopAppBar showAppFilter={true} showTeamFilter={false} />
             <main className="main-content">
                 <LocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} locks={envLocks} />
                 <LocksTable headerTitle="Application Locks" columnHeaders={applicationFieldHeaders} locks={appLocks} />

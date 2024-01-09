@@ -59,7 +59,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
 
     const renderedAppFilter =
         props.showAppFilter === true ? (
-            <div className="mdc-top-app-bar__section">
+            <div className="mdc-top-app-bar__section top-app-bar--wide-filter">
                 <Textfield
                     className={'top-app-bar-search-field'}
                     floatingLabel={'Application Name'}
@@ -68,25 +68,25 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                 />
             </div>
         ) : (
-            ''
+            <div className="mdc-top-app-bar__section top-app-bar--wide-filter"></div>
         );
     const renderedTeamsFilter =
         props.showTeamFilter === true ? (
-            <div className="mdc-top-app-bar__section">
+            <div className="mdc-top-app-bar__section top-app-bar--narrow-filter">
                 <Dropdown className={'top-app-bar-search-field'} floatingLabel={'Teams'} leadingIcon={'search'} />
             </div>
         ) : (
-            ''
+            <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
         );
     return (
         <div className="mdc-top-app-bar" ref={control}>
             <div className="mdc-top-app-bar__row">
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-                    <span className="mdc-top-app-bar__title">Kuberpult v{version}</span>
+                    <span className="mdc-top-app-bar__title">Kuberpult {version}</span>
                 </div>
-                <div className="mdc-top-app-bar__section">{renderedWarnings}</div>
                 {renderedAppFilter}
                 {renderedTeamsFilter}
+                <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">{renderedWarnings}</div>
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong className="sub-headline1">Planned Actions</strong>
                     <Button
