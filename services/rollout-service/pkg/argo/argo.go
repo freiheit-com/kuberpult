@@ -40,39 +40,44 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 				return err
 			}
 		case ev := <-a.argoApps:
+			appName, envName := getEnvironmentAndName(ev.Application.Annotations)
+			key := service.Key{Application: appName, Environment: envName}
 
-			switch ev.Type {
-			case "ADDED":
-				upsert := false
-				validate := false
+			if ok := seen[key]; ok == nil {
 
-				appCreateRequest := &application.ApplicationCreateRequest{
-					Application: &ev.Application,
-					Upsert:      &upsert,
-					Validate:    &validate,
-				}
-				_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
-				if err != nil {
-					return fmt.Errorf(err.Error())
-				}
-			case "MODIFIED":
-				appUpdateRequest := &application.ApplicationUpdateSpecRequest{
-					Name:         &ev.Application.Name,
-					Spec:         &ev.Application.Spec,
-					AppNamespace: &ev.Application.Namespace,
-				}
-				_, err := a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
-				if err != nil {
-					return fmt.Errorf(err.Error())
-				}
-			case "DELETED":
-				appDeleteRequest := &application.ApplicationDeleteRequest{
-					Name:         &ev.Application.Name,
-					AppNamespace: &ev.Application.Namespace,
-				}
-				_, err := a.ApplicationClient.Delete(ctx, appDeleteRequest)
-				if err != nil {
-					return fmt.Errorf(err.Error())
+				switch ev.Type {
+				case "ADDED":
+					upsert := false
+					validate := false
+
+					appCreateRequest := &application.ApplicationCreateRequest{
+						Application: &ev.Application,
+						Upsert:      &upsert,
+						Validate:    &validate,
+					}
+					_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
+					if err != nil {
+						return fmt.Errorf(err.Error())
+					}
+				case "MODIFIED":
+					appUpdateRequest := &application.ApplicationUpdateSpecRequest{
+						Name:         &ev.Application.Name,
+						Spec:         &ev.Application.Spec,
+						AppNamespace: &ev.Application.Namespace,
+					}
+					_, err := a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
+					if err != nil {
+						return fmt.Errorf(err.Error())
+					}
+				case "DELETED":
+					appDeleteRequest := &application.ApplicationDeleteRequest{
+						Name:         &ev.Application.Name,
+						AppNamespace: &ev.Application.Namespace,
+					}
+					_, err := a.ApplicationClient.Delete(ctx, appDeleteRequest)
+					if err != nil {
+						return fmt.Errorf(err.Error())
+					}
 				}
 			}
 
@@ -118,4 +123,8 @@ func (a *ArgoAppProcessor) ConsumeArgo(ctx context.Context, argo service.Simplif
 			a.argoApps <- ev
 		}
 	}
+}
+
+func getEnvironmentAndName(annotations map[string]string) (string, string) {
+	return annotations["com.freiheit.kuberpult/environment"], annotations["com.freiheit.kuberpult/application"]
 }
