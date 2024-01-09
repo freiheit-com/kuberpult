@@ -84,7 +84,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 		for _, envGroup := range overview.EnvironmentGroups {
 			for _, env := range envGroup.Environments {
 				for _, app := range env.Applications {
-					k := service.Key{app.Name, env.Name}
+					k := service.Key{Application: app.Name, Environment: env.Name}
 					if ok := seen[k]; ok != nil {
 						seen[k] = app
 					}

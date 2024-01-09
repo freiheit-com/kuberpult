@@ -190,6 +190,7 @@ type key struct {
 
 func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEventProcessor, hr *setup.HealthReporter) error {
 	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
+	v.ArgoProcessor.HealthReporter = hr
 	versions := map[key]uint64{}
 	environmentGroups := map[key]string{}
 	teams := map[key]string{}
@@ -376,7 +377,6 @@ func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, ap
 		manageArgoAppsFilter:  config.ManageArgoApplicationFilter,
 		ArgoProcessor: argo.ArgoAppProcessor{
 			ApplicationClient: appClient,
-			//TODO: [LS] Need to add the health reporter
 		},
 	}
 	return result
