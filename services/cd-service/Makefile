@@ -99,9 +99,9 @@ docker:
 # set IMAGENAME=... to the image where you want to deploy (registry of the project)
 # e.g IMAGENAME=ghcr.io/replace_me...cd-service:1.2.3 make release
 release:
-	$(EARTHLY) --push +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
+	$(EARTHLY) --push --max-remote-cache +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
 ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
-	$(EARTHLY) --push +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
+	$(EARTHLY) --push --max-remote-cache +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
 endif
 all: test docker
 
