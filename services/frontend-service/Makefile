@@ -57,10 +57,10 @@ run: bin/main
 
 build: bin/main
 
-build-pr: test release
+build-pr: test release-pr
 	echo "build on pull request"
 
-build-main: test release
+build-main: test release-main
 	echo "build on main"
 
 .PHONY: cleanup-pr
@@ -103,11 +103,18 @@ lint-scss: deps
 docker:
 	$(EARTHLY) +docker --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
 
-release:
+release-pr:
+	$(EARTHLY) --push +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
+ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
+	$(EARTHLY) --push +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
+endif
+
+release-main:
 	$(EARTHLY) --push --max-remote-cache +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
 ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
 	$(EARTHLY) --push --max-remote-cache +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
 endif
+
 all: test docker
 
 .PHONY: all release test docker clean
