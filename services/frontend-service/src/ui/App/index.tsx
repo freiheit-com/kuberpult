@@ -59,7 +59,7 @@ export const App: React.FC = () => {
     const kuberpultVersion = useKuberpultVersion();
     React.useEffect(() => {
         if (kuberpultVersion !== '') {
-            document.title = 'Kuberpult v' + kuberpultVersion;
+            document.title = 'Kuberpult ' + kuberpultVersion;
         }
     }, [kuberpultVersion, api]);
 
