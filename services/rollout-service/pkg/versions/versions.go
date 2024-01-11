@@ -259,11 +259,6 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 							v.ArgoProcessor.Push(overview, deployApp)
 
-							err = v.ArgoProcessor.ConsumeArgo(ctx, hr)
-							if err != nil {
-								return fmt.Errorf(err.Error())
-							}
-
 						} else {
 							processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
 								Application:      app.Name,
@@ -281,6 +276,11 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 					}
 				}
 			}
+			err = v.ArgoProcessor.ConsumeArgo(ctx, hr)
+			if err != nil {
+				return fmt.Errorf(err.Error())
+			}
+
 			// Send events with version 0 for deleted applications so that we can react
 			// to apps getting deleted.
 			for k := range versions {
