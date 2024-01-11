@@ -9,13 +9,12 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
-	"time"
 )
 
 type step struct {
@@ -40,15 +39,6 @@ func (m *mockApplicationServiceClient) Recv() (*v1alpha1.ApplicationWatchEvent, 
 		lastReply := m.Steps[m.current-1]
 		if lastReply.ExpectedEvent == nil {
 
-		} else {
-			select {
-			case lastEvent := <-m.lastEvent:
-				if !cmp.Equal(lastReply.ExpectedEvent, lastEvent) {
-					m.t.Errorf("step %d did not generate the expected event, diff: %s", m.current-1, cmp.Diff(lastReply.ExpectedEvent, lastEvent))
-				}
-			case <-time.After(time.Second):
-				m.t.Errorf("step %d timed out waiting for event", m.current-1)
-			}
 		}
 	}
 	reply := m.Steps[m.current]
@@ -76,7 +66,7 @@ type mockArgoProcessor struct {
 	HealthReporter    *setup.HealthReporter
 }
 
-func (a *mockArgoProcessor) Push(last *api.GetOverviewResponse, appToPush *v1alpha1.Application) {
+func (a *mockArgoProcessor) Push(ctx context.Context, last *api.GetOverviewResponse, appToPush *v1alpha1.Application) {
 	a.lastOverview = last
 	select {
 	case a.trigger <- appToPush:
@@ -86,18 +76,12 @@ func (a *mockArgoProcessor) Push(last *api.GetOverviewResponse, appToPush *v1alp
 
 func (a *mockArgoProcessor) Consume(ctx context.Context) error {
 	seen := map[Key]*api.Environment_Application{}
-
 	for {
 		select {
 		case <-a.trigger:
-			err := a.ConsumeArgo(ctx, a.ApplicationClient, a.HealthReporter)
-			if err != nil {
-				return err
-			}
 		case ev := <-a.argoApps:
 			appName, envName := getEnvironmentAndName(ev.Application.Annotations)
 			key := Key{Application: appName, Environment: envName}
-
 			if ok := seen[key]; ok == nil {
 
 				switch ev.Type {
@@ -141,16 +125,15 @@ func (a *mockArgoProcessor) Consume(ctx context.Context) error {
 }
 
 func (a *mockArgoProcessor) ConsumeArgo(ctx context.Context, argo SimplifiedApplicationServiceClient, hlth *setup.HealthReporter) error {
-	watch, err := argo.Watch(ctx, &application.ApplicationQuery{})
-	if err != nil {
-		if status.Code(err) == codes.Canceled {
-			// context is cancelled -> we are shutting down
-			return setup.Permanent(nil)
-		}
-		return fmt.Errorf("watching applications: %w", err)
-	}
-	hlth.ReportReady("consuming events")
 	for {
+		watch, err := argo.Watch(ctx, &application.ApplicationQuery{})
+		if err != nil {
+			if status.Code(err) == codes.Canceled {
+				// context is cancelled -> we are shutting down
+				return setup.Permanent(nil)
+			}
+			return fmt.Errorf("watching applications: %w", err)
+		}
 		ev, err := watch.Recv()
 		if err != nil {
 			if status.Code(err) == codes.Canceled {
@@ -181,8 +164,8 @@ func (m *mockApplicationServiceClient) Watch(ctx context.Context, qry *applicati
 	return m, nil
 }
 
-func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T) {
-	if m.current < len(m.Steps) {
+func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T, expectedConsumed int) {
+	if expectedConsumed != m.current && m.current < len(m.Steps) {
 		t.Errorf("expected to consume all %d replies, only consumed %d", len(m.Steps), m.current)
 	}
 }
@@ -194,14 +177,15 @@ func (m *mockApplicationServiceClient) ProcessArgoEvent(ctx context.Context, ev 
 
 func TestArgoConection(t *testing.T) {
 	tcs := []struct {
-		Name          string
-		Steps         []step
-		Overview      *api.GetOverviewResponse
-		ExpectedError string
-		ExpectedReady bool
+		Name             string
+		Steps            []step
+		Overview         *api.GetOverviewResponse
+		ExpectedError    string
+		ExpectedReady    bool
+		ExpectedConsumed int
 	}{
 		{
-			Name: "when ctx in cancelled, no app is processed",
+			Name: "when ctx in cancelled no app is processed",
 			Steps: []step{
 				{
 					WatchErr:      status.Error(codes.Canceled, "context cancelled"),
@@ -253,11 +237,143 @@ func TestArgoConection(t *testing.T) {
 			},
 			ExpectedReady: false,
 		},
+		{
+			Name: "an error is detected",
+			Steps: []step{
+				{
+					WatchErr: fmt.Errorf("no"),
+				},
+				{
+					WatchErr:      status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			Overview: &api.GetOverviewResponse{
+				Applications: map[string]*api.Application{
+					"foo": {
+						Releases: []*api.Release{
+							{
+								Version:        1,
+								SourceCommitId: "00001",
+							},
+						},
+						Team: "footeam",
+					},
+				},
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+
+						EnvironmentGroupName: "staging-group",
+						Environments: []*api.Environment{
+							{
+								Name: "staging",
+								Applications: map[string]*api.Environment_Application{
+									"foo": {
+										Name:    "foo",
+										Version: 1,
+										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+								Priority: api.Priority_UPSTREAM,
+								Config: &api.EnvironmentConfig{
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+											Name:   "staging",
+											Server: "test-server",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				GitRevision: "1234",
+			},
+			ExpectedReady:    false,
+			ExpectedError:    "watching applications: no",
+			ExpectedConsumed: 1,
+		},
+		{
+			Name: "ignore events for applications that were not generated by kuberpult",
+			Steps: []step{
+				{
+					Event: &v1alpha1.ApplicationWatchEvent{
+						Type: "ADDED",
+						Application: v1alpha1.Application{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "foo",
+								Annotations: map[string]string{},
+							},
+							Spec: v1alpha1.ApplicationSpec{
+								Project: "",
+							},
+							Status: v1alpha1.ApplicationStatus{
+								Sync:   v1alpha1.SyncStatus{Revision: "1234"},
+								Health: v1alpha1.HealthStatus{},
+							},
+						},
+					},
+					// Applications generated by kuberpult have name = "<env>-<name>" and project = "<env>".
+					// This application doesn't follow this scheme and must not create an event.
+					ExpectedEvent: nil,
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			Overview: &api.GetOverviewResponse{
+				Applications: map[string]*api.Application{
+					"foo": {
+						Releases: []*api.Release{
+							{
+								Version:        1,
+								SourceCommitId: "00001",
+							},
+						},
+						Team: "footeam",
+					},
+				},
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+
+						EnvironmentGroupName: "staging-group",
+						Environments: []*api.Environment{
+							{
+								Name: "staging",
+								Applications: map[string]*api.Environment_Application{
+									"foo": {
+										Name:    "foo",
+										Version: 1,
+										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+								Priority: api.Priority_UPSTREAM,
+								Config: &api.EnvironmentConfig{
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+											Name:   "staging",
+											Server: "test-server",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				GitRevision: "1234",
+			},
+			ExpectedReady:    true,
+			ExpectedConsumed: 2,
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
 			ctx, cancel := context.WithCancel(context.Background())
 			as := &mockApplicationServiceClient{
 				Steps:     tc.Steps,
@@ -269,7 +385,9 @@ func TestArgoConection(t *testing.T) {
 			argoProcessor := &mockArgoProcessor{
 				lastOverview:      tc.Overview,
 				ApplicationClient: as,
-				HealthReporter:    hlth.Reporter("argo-testing"),
+				HealthReporter:    hlth.Reporter("consume-argo"),
+				trigger:           make(chan *v1alpha1.Application, 1),
+				argoApps:          make(chan *v1alpha1.ApplicationWatchEvent, 2),
 			}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			go argoProcessor.Consume(ctx)
@@ -291,15 +409,13 @@ func TestArgoConection(t *testing.T) {
 
 						deployApp := CreateDeployApplication(tc.Overview, app, env, annotations, labels, manifestPath)
 
-						argoProcessor.Push(tc.Overview, deployApp)
+						argoProcessor.Push(ctx, tc.Overview, deployApp)
 
 					}
 				}
 			}
-			err := argoProcessor.ConsumeArgo(ctx, as, hlth.Reporter("argo-consume"))
-			if err != nil {
-				t.Fatal()
-			}
+			argoProcessor.ConsumeArgo(ctx, as, argoProcessor.HealthReporter)
+			as.testAllConsumed(t, tc.ExpectedConsumed)
 		})
 	}
 }
