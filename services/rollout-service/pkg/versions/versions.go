@@ -20,11 +20,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
-	argoApp "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/cmd"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path"
 	"strconv"
 	"strings"
@@ -50,6 +48,7 @@ var RolloutServiceUser auth.User = auth.User{
 type VersionClient interface {
 	GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error)
 	ConsumeEvents(ctx context.Context, processor VersionEventProcessor, hr *setup.HealthReporter) error
+	GetArgoProcessor() *argo.ArgoAppProcessor
 }
 
 type versionClient struct {
@@ -190,7 +189,6 @@ type key struct {
 
 func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEventProcessor, hr *setup.HealthReporter) error {
 	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
-	v.ArgoProcessor.HealthReporter = hr
 	versions := map[key]uint64{}
 	environmentGroups := map[key]string{}
 	teams := map[key]string{}
@@ -257,81 +255,14 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 							annotations["argocd.argoproj.io/manifest-generate-paths"] = "/" + manifestPath
 							labels["com.freiheit.kuberpult/team"] = tm
 
-							applicationNs := ""
+							deployApp := argo.CreateDeployApplication(overview, app, env, annotations, labels, manifestPath)
 
-							if env.Config.Argocd.Destination.Namespace != nil {
-								applicationNs = *env.Config.Argocd.Destination.Namespace
-							} else if env.Config.Argocd.Destination.ApplicationNamespace != nil {
-								applicationNs = *env.Config.Argocd.Destination.ApplicationNamespace
+							v.ArgoProcessor.Push(overview, deployApp)
+
+							err = v.ArgoProcessor.ConsumeArgo(ctx, hr)
+							if err != nil {
+								return fmt.Errorf(err.Error())
 							}
-
-							applicationDestination := v1alpha1.ApplicationDestination{
-								Name:      env.Config.Argocd.Destination.Name,
-								Namespace: applicationNs,
-								Server:    env.Config.Argocd.Destination.Server,
-							}
-
-							syncWindows := v1alpha1.SyncWindows{}
-
-							ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(env.Config.Argocd.IgnoreDifferences))
-							for index, value := range env.Config.Argocd.IgnoreDifferences {
-								difference := v1alpha1.ResourceIgnoreDifferences{
-									Group:                 value.Group,
-									Kind:                  value.Kind,
-									Name:                  value.Name,
-									Namespace:             value.Namespace,
-									JSONPointers:          value.JsonPointers,
-									JqPathExpressions:     value.JqPathExpressions,
-									ManagedFieldsManagers: value.ManagedFieldsManagers,
-								}
-								ignoreDifferences[index] = difference
-							}
-
-							for _, w := range env.Config.Argocd.SyncWindows {
-								apps := []string{"*"}
-								if len(w.Applications) > 0 {
-									apps = w.Applications
-								}
-								syncWindows = append(syncWindows, &v1alpha1.SyncWindow{
-									Applications: apps,
-									Schedule:     w.Schedule,
-									Duration:     w.Duration,
-									Kind:         w.Kind,
-									ManualSync:   true,
-								})
-							}
-
-							deployApp := &v1alpha1.Application{
-								ObjectMeta: v1alpha1.ObjectMeta{
-									Name:        app.Name,
-									Annotations: annotations,
-									Labels:      labels,
-									Finalizers:  calculateFinalizers(),
-								},
-								Spec: v1alpha1.ApplicationSpec{
-									Project: env.Name,
-									Source: v1alpha1.ApplicationSource{
-										RepoURL:        overview.ManifestRepoUrl,
-										Path:           manifestPath,
-										TargetRevision: overview.Branch,
-									},
-									Destination: applicationDestination,
-									SyncPolicy: &v1alpha1.SyncPolicy{
-										Automated: &v1alpha1.SyncPolicyAutomated{
-											Prune:    false,
-											SelfHeal: false,
-											// We always allow empty, because it makes it easier to delete apps/environments
-											AllowEmpty: true,
-										},
-										SyncOptions: env.Config.Argocd.SyncOptions,
-									},
-									IgnoreDifferences: ignoreDifferences,
-								},
-							}
-
-							argoApplication := convertApplication(deployApp)
-
-							v.ArgoProcessor.Push(overview, argoApplication)
 
 						} else {
 							processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
@@ -382,44 +313,6 @@ func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, ap
 	return result
 }
 
-func calculateFinalizers() []string {
-	return []string{
-		"resources-finalizer.argocd.argoproj.io",
-	}
-}
-
-func convertApplication(app *v1alpha1.Application) *argoApp.Application {
-	convertedApp := &argoApp.Application{
-		TypeMeta: app.TypeMeta,
-		Spec: argoApp.ApplicationSpec{
-			Source: &argoApp.ApplicationSource{
-				RepoURL:        app.Spec.Source.RepoURL,
-				Path:           app.Spec.Source.Path,
-				TargetRevision: app.Spec.Source.TargetRevision,
-			},
-			Destination: argoApp.ApplicationDestination{
-				Server:    app.Spec.Destination.Server,
-				Namespace: app.Spec.Destination.Namespace,
-				Name:      app.Spec.Destination.Name,
-			},
-			Project: app.Spec.Project,
-			SyncPolicy: &argoApp.SyncPolicy{
-				Automated: &argoApp.SyncPolicyAutomated{
-					AllowEmpty: app.Spec.SyncPolicy.Automated.AllowEmpty,
-					Prune:      app.Spec.SyncPolicy.Automated.Prune,
-					SelfHeal:   app.Spec.SyncPolicy.Automated.SelfHeal,
-				},
-				SyncOptions: (argoApp.SyncOptions)(app.Spec.SyncPolicy.SyncOptions),
-			},
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        app.ObjectMeta.Name,
-			Annotations: app.ObjectMeta.Annotations,
-			Labels:      app.ObjectMeta.Labels,
-			Finalizers:  app.ObjectMeta.Finalizers,
-		},
-		Operation: &argoApp.Operation{},
-	}
-
-	return convertedApp
+func (v *versionClient) GetArgoProcessor() *argo.ArgoAppProcessor {
+	return &v.ArgoProcessor
 }

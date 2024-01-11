@@ -200,6 +200,12 @@ func runServer(ctx context.Context, config Config) error {
 			},
 		},
 		{
+			Name: "consume self-manage events",
+			Run: func(ctx context.Context, health *setup.HealthReporter) error {
+				return versionC.GetArgoProcessor().Consume(ctx)
+			},
+		},
+		{
 			Name: "dispatch argocd events",
 			Run:  dispatcher.Work,
 		},
