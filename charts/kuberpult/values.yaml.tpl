@@ -155,7 +155,13 @@ datadogTracing:
   environment: "shared"
 
 dogstatsdMetrics:
+  # send metrics:
   enabled: false
+
+  # sends additional events for each deployments:
+  # dogstatsdMetrics.enabled must be true for this to have an effect.
+  eventsEnabled: false
+
   #  dogstatsD listens on port udp:8125 by default.
   #  https://docs.datadoghq.com/developers/dogstatsd/?tab=hostagent#agent
   #  datadog.dogstatsd.socketPath -- Path to the DogStatsD socket

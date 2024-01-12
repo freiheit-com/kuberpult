@@ -150,6 +150,8 @@ spec:
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: KUBERPULT_ENABLE_METRICS
           value: "{{ .Values.dogstatsdMetrics.enabled }}"
+        - name: KUBERPULT_ENABLE_EVENTS
+          value: "{{ .Values.dogstatsdMetrics.eventsEnabled }}"
         - name: KUBERPULT_DOGSTATSD_ADDR
           value: "{{ .Values.dogstatsdMetrics.address }}"
 {{- end }}

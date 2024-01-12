@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"io"
 	"os/exec"
 	"path"
@@ -3776,8 +3778,16 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	cmd.Start()
-	cmd.Wait()
+	err := cmd.Start()
+	if err != nil {
+		t.Errorf("could not start git init")
+		return nil, ""
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Errorf("could not wait for git init to finish")
+		return nil, ""
+	}
 	repo, err := New(
 		testutil.MakeTestContext(),
 		RepositoryConfig{
@@ -4067,6 +4077,27 @@ func TestSendRegularlyDatadogMetrics(t *testing.T) {
 	}
 }
 
+type MockClient struct {
+	events []*statsd.Event
+	statsd.ClientInterface
+}
+
+func (c *MockClient) Event(e *statsd.Event) error {
+	if c == nil {
+		return errors.New("no client provided")
+	}
+	c.events = append(c.events, e)
+	return nil
+}
+
+func (c *MockClient) Gauge(_ string, _ float64, _ []string, _ float64) error {
+	return nil
+}
+
+// Verify that MockClient implements the ClientInterface.
+// https://golang.org/doc/faq#guarantee_satisfies_interface
+var _ statsd.ClientInterface = &MockClient{}
+
 func TestUpdateDatadogMetrics(t *testing.T) {
 	tcs := []struct {
 		Name          string
@@ -4129,8 +4160,6 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 				t.Fatalf("Got an unexpected error: %v", err)
 			}
 
-			err = UpdateDatadogMetrics(repo.State())
-
 			if tc.shouldSucceed {
 				if err != nil {
 					t.Fatalf("Expected no error: %v", err)
@@ -4145,6 +4174,126 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 					}
 				}
 			}
+		})
+	}
+}
+
+func TestUpdateDatadogMetricsInternal(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		changes        *TransformerResult
+		expectedError  string
+		expectedEvents []statsd.Event
+	}{
+		{
+			Name: "Changes are sent as events",
+			changes: &TransformerResult{
+				ChangedApps: []AppEnv{
+					{
+						App:  "app1",
+						Env:  "envB",
+						Team: "teamT",
+					},
+				},
+				DeletedRootApps: nil,
+				Commits:         nil,
+			},
+			expectedEvents: []statsd.Event{
+				{
+					Title:          "Kuberpult app deployed",
+					Text:           "Kuberpult has deployed app1 to envB for team teamT",
+					Timestamp:      time.Time{},
+					Hostname:       "",
+					AggregationKey: "",
+					Priority:       "",
+					SourceTypeName: "",
+					AlertType:      "",
+					Tags: []string{
+						"kuberpult.application:app1",
+						"kuberpult.environment:envB",
+						"kuberpult.team:teamT",
+					},
+				},
+			},
+		},
+		{
+			Name: "2 Changes are sent as events",
+			changes: &TransformerResult{
+				ChangedApps: []AppEnv{
+					{
+						App:  "app1",
+						Env:  "envB",
+						Team: "teamT",
+					},
+					{
+						App:  "app2",
+						Env:  "envA",
+						Team: "teamX",
+					},
+				},
+				DeletedRootApps: nil,
+				Commits:         nil,
+			},
+			expectedEvents: []statsd.Event{
+				{
+					Title:          "Kuberpult app deployed",
+					Text:           "Kuberpult has deployed app1 to envB for team teamT",
+					Timestamp:      time.Time{},
+					Hostname:       "",
+					AggregationKey: "",
+					Priority:       "",
+					SourceTypeName: "",
+					AlertType:      "",
+					Tags: []string{
+						"kuberpult.application:app1",
+						"kuberpult.environment:envB",
+						"kuberpult.team:teamT",
+					},
+				},
+				{
+					Title:          "Kuberpult app deployed",
+					Text:           "Kuberpult has deployed app2 to envA for team teamX",
+					Timestamp:      time.Time{},
+					Hostname:       "",
+					AggregationKey: "",
+					Priority:       "",
+					SourceTypeName: "",
+					AlertType:      "",
+					Tags: []string{
+						"kuberpult.application:app2",
+						"kuberpult.environment:envA",
+						"kuberpult.team:teamX",
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
+			var mockClient = &MockClient{}
+			var client statsd.ClientInterface = mockClient
+			ddMetrics = client
+			repo := setupRepositoryTest(t)
+
+			err := UpdateDatadogMetrics(repo.State(), tc.changes)
+
+			if err != nil {
+				t.Fatalf("Expected no error: %v", err)
+			}
+			if len(tc.expectedEvents) != len(mockClient.events) {
+				t.Fatalf("expected %d events, but got %d", len(tc.expectedEvents), len(mockClient.events))
+			}
+			for i := range tc.expectedEvents {
+				var expectedEvent statsd.Event = tc.expectedEvents[i]
+				var actualEvent statsd.Event = *mockClient.events[i]
+
+				if diff := cmp.Diff(actualEvent, expectedEvent, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
+					t.Errorf("got %v, want %v, diff (-want +got) %s", actualEvent, expectedEvent, diff)
+				}
+			}
+
 		})
 	}
 }
@@ -4391,7 +4540,6 @@ func TestDeleteLocks(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
 			repo := setupRepositoryTest(t)
 			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:

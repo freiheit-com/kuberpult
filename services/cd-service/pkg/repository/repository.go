@@ -76,7 +76,7 @@ func defaultBackOffProvider() backoff.BackOff {
 }
 
 var (
-	ddMetrics *statsd.Client
+	ddMetrics statsd.ClientInterface
 )
 
 type StorageBackend int
@@ -136,7 +136,8 @@ type RepositoryConfig struct {
 	// if set, kuberpult will generate push events to argoCd whenever it writes to the manifest repo:
 	ArgoWebhookUrl string
 	// the url to the git repo, like the browser requires it (https protocol)
-	WebURL string
+	WebURL          string
+	DogstatsdEvents bool
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -260,7 +261,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 	ddMetricsFromCtx := ctx.Value("ddMetrics")
 	if ddMetricsFromCtx != nil {
-		ddMetrics = ddMetricsFromCtx.(*statsd.Client)
+		ddMetrics = ddMetricsFromCtx.(statsd.ClientInterface)
 	}
 
 	if cfg.Branch == "" {
@@ -541,7 +542,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 				return
 			}
 			// Apply the items
-			elements, err, _ = r.applyElements(elements, false)
+			elements, err, changes = r.applyElements(elements, false)
 			if err != nil || len(elements) == 0 {
 				return
 			}
@@ -561,6 +562,15 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	}
 	span, ctx := tracer.StartSpanFromContext(e.ctx, "PostPush")
 	defer span.Finish()
+
+	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
+	if r.config.DogstatsdEvents {
+		ddError := UpdateDatadogMetrics(r.State(), changes)
+		if ddError != nil {
+			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
+		}
+	}
+	ddSpan.Finish()
 
 	if r.config.ArgoWebhookUrl != "" {
 		r.sendWebhookToArgoCd(ctx, logger, changes)
@@ -778,8 +788,9 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 }
 
 type AppEnv struct {
-	App string
-	Env string
+	App  string
+	Env  string
+	Team string
 }
 
 type RootApp struct {
@@ -798,10 +809,11 @@ type CommitIds struct {
 	Current  *git.Oid
 }
 
-func (r *TransformerResult) AddAppEnv(app string, env string) {
+func (r *TransformerResult) AddAppEnv(app string, env string, team string) {
 	r.ChangedApps = append(r.ChangedApps, AppEnv{
-		App: app,
-		Env: env,
+		App:  app,
+		Env:  env,
+		Team: team,
 	})
 }
 
@@ -817,7 +829,7 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 	}
 	for i := range other.ChangedApps {
 		a := other.ChangedApps[i]
-		r.AddAppEnv(a.App, a.Env)
+		r.AddAppEnv(a.App, a.Env, a.Team)
 	}
 	for i := range other.DeletedRootApps {
 		a := other.DeletedRootApps[i]
@@ -838,10 +850,6 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 
 func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (*TransformerResult, error) {
 	commitMsg, state, changes, err := r.ApplyTransformersInternal(ctx, transformers...)
-	if err != nil {
-		return nil, err
-	}
-	err = UpdateDatadogMetrics(state)
 	if err != nil {
 		return nil, err
 	}
