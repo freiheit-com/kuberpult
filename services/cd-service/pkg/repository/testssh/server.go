@@ -84,7 +84,7 @@ func New(workdir string) *TestServer {
 	os.WriteFile(ts.ClientKey, key, 0600)
 
 	ts.Url = fmt.Sprintf("ssh://git@127.0.0.1:%d/.", ts.Port)
-	
+
 	go func() {
 		for {
 			con, err := ts.l.Accept()

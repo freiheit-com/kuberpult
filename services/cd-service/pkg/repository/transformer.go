@@ -31,29 +31,27 @@ import (
 	"strconv"
 	"time"
 
+	yaml3 "gopkg.in/yaml.v3"
+
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
-
-	"github.com/freiheit-com/kuberpult/pkg/auth"
-
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
+	"github.com/hexops/gotextdiff"
+	"github.com/hexops/gotextdiff/myers"
+	"github.com/hexops/gotextdiff/span"
 )
 
 const (
-	queueFileName = "queued_version"
+	queueFileName    = "queued_version"
+	yamlParsingError = "# yaml parsing error"
 	// number of old releases that will ALWAYS be kept in addition to the ones that are deployed:
 	keptVersionsOnCleanup = 20
-)
-
-var (
-	ErrReleaseAlreadyExist = fmt.Errorf("release already exists")
-	ErrReleaseTooOld       = fmt.Errorf("release is too old")
 )
 
 func versionToString(Version uint64) string {
@@ -225,72 +223,75 @@ func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 }
 
 func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	fs := state.Filesystem
-	version, err := c.calculateVersion(fs)
+	version, err := c.calculateVersion(state)
 	if err != nil {
 		return "", nil, err
 	}
+	fs := state.Filesystem
 	if !valid.ApplicationName(c.Application) {
-		return "", nil, grpc.PublicError(ctx, fmt.Errorf("invalid application name: '%s' - must match regexp '%s' and <= %d characters", c.Application, valid.AppNameRegExp, valid.MaxAppNameLen))
+		return "", nil, GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, valid.MaxAppNameLen)
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
 	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
-		return "", nil, err
+		return "", nil, GetCreateReleaseGeneralFailure(err)
 	}
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
-		return "", nil, err
+		if errors.Is(err, InvalidJson) {
+			return "", nil, err
+		}
+		return "", nil, GetCreateReleaseGeneralFailure(err)
 	}
 
 	if c.SourceCommitId != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_commit_id"), []byte(c.SourceCommitId), 0666); err != nil {
-			return "", nil, err
+			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	if c.SourceAuthor != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_author"), []byte(c.SourceAuthor), 0666); err != nil {
-			return "", nil, err
+			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	if c.SourceMessage != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_message"), []byte(c.SourceMessage), 0666); err != nil {
-			return "", nil, err
+			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	if c.DisplayVersion != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, "display_version"), []byte(c.DisplayVersion), 0666); err != nil {
-			return "", nil, err
+			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	if err := util.WriteFile(fs, fs.Join(releaseDir, "created_at"), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-		return "", nil, err
+		return "", nil, GetCreateReleaseGeneralFailure(err)
 	}
 	if c.Team != "" {
 		if err := util.WriteFile(fs, fs.Join(appDir, "team"), []byte(c.Team), 0666); err != nil {
-			return "", nil, err
+			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	if c.SourceRepoUrl != "" {
 		if err := util.WriteFile(fs, fs.Join(appDir, "sourceRepoUrl"), []byte(c.SourceRepoUrl), 0666); err != nil {
-			return "", nil, err
+			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	result := ""
 	isLatest, err := isLatestsVersion(state, c.Application, version)
 	if err != nil {
-		return "", nil, err
+		return "", nil, GetCreateReleaseGeneralFailure(err)
 	}
 	if !isLatest {
 		// check that we can actually backfill this version
 		oldVersions, err := findOldApplicationVersions(state, c.Application)
 		if err != nil {
-			return "", nil, err
+			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 		for _, oldVersion := range oldVersions {
 			if version == oldVersion {
-				return "", nil, ErrReleaseTooOld
+				return "", nil, GetCreateReleaseTooOld()
 			}
 		}
 	}
@@ -299,7 +300,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	for env, man := range c.Manifests {
 		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
 		if err != nil {
-			return "", nil, err
+			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 		envDir := fs.Join(releaseDir, "environments", env)
 
@@ -310,10 +311,10 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		}
 
 		if err = fs.MkdirAll(envDir, 0777); err != nil {
-			return "", nil, err
+			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
-			return "", nil, err
+			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 		teamOwner, err := state.GetApplicationTeamOwner(c.Application)
 		if err != nil {
@@ -335,7 +336,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 				if ok {
 					continue // LockedErrors are expected
 				} else {
-					return "", nil, err
+					return "", nil, GetCreateReleaseGeneralFailure(err)
 				}
 			}
 			result = result + deployResult + "\n"
@@ -344,7 +345,8 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), changes, nil
 }
 
-func (c *CreateApplicationVersion) calculateVersion(bfs billy.Filesystem) (uint64, error) {
+func (c *CreateApplicationVersion) calculateVersion(state *State) (uint64, error) {
+	bfs := state.Filesystem
 	if c.Version == 0 {
 		lastRelease, err := GetLastRelease(bfs, c.Application)
 		if err != nil {
@@ -360,11 +362,116 @@ func (c *CreateApplicationVersion) calculateVersion(bfs billy.Filesystem) (uint6
 				return 0, err
 			}
 		} else {
-			return 0, grpc.AlreadyExistsError(ErrReleaseAlreadyExist)
+			// check if version differs
+			return 0, c.sameAsExisting(state, c.Version)
 		}
 		// TODO: check GC here
 		return c.Version, nil
 	}
+}
+
+func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) error {
+	fs := state.Filesystem
+	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
+	if c.SourceCommitId != "" {
+		existingSourceCommitId, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		if err != nil {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceCommitId, "")
+		}
+		existingSourceCommitIdStr := string(existingSourceCommitId)
+		if existingSourceCommitIdStr != c.SourceCommitId {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceCommitId, createUnifiedDiff(existingSourceCommitIdStr, c.SourceCommitId, ""))
+		}
+	}
+	if c.SourceAuthor != "" {
+		existingSourceAuthor, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		if err != nil {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceAuthor, "")
+		}
+		existingSourceAuthorStr := string(existingSourceAuthor)
+		if existingSourceAuthorStr != c.SourceAuthor {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceAuthor, createUnifiedDiff(existingSourceAuthorStr, c.SourceAuthor, ""))
+		}
+	}
+	if c.SourceMessage != "" {
+		existingSourceMessage, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		if err != nil {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceMessage, "")
+		}
+		existingSourceMessageStr := string(existingSourceMessage)
+		if existingSourceMessageStr != c.SourceMessage {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceMessage, createUnifiedDiff(existingSourceMessageStr, c.SourceMessage, ""))
+		}
+	}
+	if c.DisplayVersion != "" {
+		existingDisplayVersion, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		if err != nil {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DisplayVersion, "")
+		}
+		existingDisplayVersionStr := string(existingDisplayVersion)
+		if existingDisplayVersionStr != c.DisplayVersion {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DisplayVersion, createUnifiedDiff(existingDisplayVersionStr, c.DisplayVersion, ""))
+		}
+	}
+	if c.Team != "" {
+		existingTeam, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		if err != nil {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Team, "")
+		}
+		existingTeamStr := string(existingTeam)
+		if existingTeamStr != c.Team {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Team, createUnifiedDiff(existingTeamStr, c.Team, ""))
+		}
+	}
+	if c.SourceRepoUrl != "" {
+		existingSourceRepoUrl, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		if err != nil {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceRepoUrl, "")
+		}
+		existingSourceRepoUrlStr := string(existingSourceRepoUrl)
+		if existingSourceRepoUrlStr != c.SourceRepoUrl {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceRepoUrl, createUnifiedDiff(existingSourceRepoUrlStr, c.SourceRepoUrl, ""))
+		}
+	}
+	for env, man := range c.Manifests {
+		envDir := fs.Join(releaseDir, "environments", env)
+		existingMan, err := util.ReadFile(fs, fs.Join(envDir, "manifests.yaml"))
+		if err != nil {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Manifests, fmt.Sprintf("manifest missing for env %s", env))
+		}
+		existingManStr := string(existingMan)
+		if canonicalizeYaml(existingManStr) != canonicalizeYaml(man) {
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Manifests, createUnifiedDiff(existingManStr, man, fmt.Sprintf("%s-", env)))
+		}
+	}
+	return GetCreateReleaseAlreadyExistsSame()
+}
+
+type RawNode struct{ *yaml3.Node }
+
+func (n *RawNode) UnmarshalYAML(node *yaml3.Node) error {
+	n.Node = node
+	return nil
+}
+
+func canonicalizeYaml(unformatted string) string {
+	var target RawNode
+	if errDeserial := yaml3.Unmarshal([]byte(unformatted), &target); errDeserial != nil {
+		return yamlParsingError // we only use this for comparisons
+	}
+	if canonicalData, errSerial := yaml3.Marshal(target.Node); errSerial == nil {
+		return string(canonicalData)
+	} else {
+		return yamlParsingError // only for comparisons
+	}
+}
+
+func createUnifiedDiff(existingValue string, requestValue string, prefix string) string {
+	existingValueStr := string(existingValue)
+	existingFilename := fmt.Sprintf("%sexisting", prefix)
+	requestFilename := fmt.Sprintf("%srequest", prefix)
+	edits := myers.ComputeEdits(span.URIFromPath(existingFilename), existingValueStr, string(requestValue))
+	return fmt.Sprint(gotextdiff.ToUnified(existingFilename, requestFilename, existingValueStr, edits))
 }
 
 func isLatestsVersion(state *State, application string, version uint64) (bool, error) {

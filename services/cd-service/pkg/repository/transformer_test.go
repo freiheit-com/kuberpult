@@ -40,6 +40,7 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
+
 	godebug "github.com/kylelemons/godebug/diff"
 )
 
@@ -614,6 +615,102 @@ spec:
 						t.Fatalf("Expected [%d] file data '%s' but got error: %v", i, ptr.ToString(expected.fileData), err)
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestCreateApplicationVersion(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		Transformers     []Transformer
+		expectedErrorMsg string
+	}{
+		{
+			Name: "recreate same version with idempotence",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[string]string{
+						envAcceptance: "{}",
+					},
+				},
+			},
+			expectedErrorMsg: "already_exists_same:{}",
+		},
+		{
+			Name: "recreate same version without idempotence",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[string]string{
+						envAcceptance: `{}`,
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[string]string{
+						envAcceptance: `{ "different": "yes" }`,
+					},
+				},
+			},
+			expectedErrorMsg: `already_exists_different:{firstDifferingField:Manifests diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
+		},
+		{
+			Name: "recreate same version with idempotence, but different formatting of yaml",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[string]string{
+						envAcceptance: `{ "different":                  "yes" }`,
+					},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Version:     10000,
+					Manifests: map[string]string{
+						envAcceptance: `{ "different": "yes" }`,
+					},
+				},
+			},
+			expectedErrorMsg: "already_exists_same:{}",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
+			if err == nil {
+				t.Fatalf("expected error, got none.")
+			}
+			if err.Error() != tc.expectedErrorMsg {
+				t.Fatalf("Expected different error (expected: %s, got: %s)", tc.expectedErrorMsg, err.Error())
 			}
 		})
 	}
@@ -2687,8 +2784,9 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			ErrorTest: func(t *testing.T, err error) {
-				if err == nil || (!strings.Contains(err.Error(), ErrReleaseAlreadyExist.Error())) {
-					t.Errorf("expected %q, got %q", ErrReleaseAlreadyExist, err)
+				expected := "already_exists_same:{}"
+				if err.Error() != expected {
+					t.Fatalf("expected: %s, got: %s", expected, err.Error())
 				}
 			},
 		}, {
@@ -2736,8 +2834,9 @@ func TestTransformer(t *testing.T) {
 				return t
 			}(),
 			ErrorTest: func(t *testing.T, err error) {
-				if err != ErrReleaseTooOld {
-					t.Errorf("expected %q, got %q", ErrReleaseTooOld, err)
+				expected := "too_old:{}"
+				if err.Error() != expected {
+					t.Fatalf("expected: %s, got: %s", expected, err.Error())
 				}
 			},
 		}, {

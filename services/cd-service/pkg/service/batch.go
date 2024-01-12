@@ -203,6 +203,7 @@ func (d *BatchServer) processAction(
 			}, nil
 	case *api.BatchAction_CreateRelease:
 		in := action.CreateRelease
+		response := api.CreateReleaseResponseSuccess{}
 		return &repository.CreateApplicationVersion{
 				Version:        in.Version,
 				Application:    in.Application,
@@ -216,7 +217,11 @@ func (d *BatchServer) processAction(
 				Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 			}, &api.BatchResult{
 				Result: &api.BatchResult_CreateReleaseResponse{
-					CreateReleaseResponse: &api.CreateReleaseResponse{},
+					CreateReleaseResponse: &api.CreateReleaseResponse{
+						Response: &api.CreateReleaseResponse_Success{
+							Success: &response,
+						},
+					},
 				},
 			}, nil
 	case *api.BatchAction_CreateEnvironment:
@@ -296,7 +301,24 @@ func (d *BatchServer) ProcessBatch(
 
 	err = d.Repository.Apply(ctx, transformers...)
 	if err != nil {
-		return nil, err
+		switch createReleaseError := err.(type) {
+		case *repository.CreateReleaseError:
+			{
+				// very hackerish way to handle create release errors for now
+				// if you really e.g. batch three release creations you wont know
+				// which failed and which succeeded.
+				// see SRX-OS3BVE to resolve this
+				errorResults := make([]*api.BatchResult, 1)
+				errorResults[0] = &api.BatchResult{
+					Result: &api.BatchResult_CreateReleaseResponse{
+						CreateReleaseResponse: createReleaseError.Response(),
+					},
+				}
+				return &api.BatchResponse{Results: errorResults}, nil
+			}
+		default:
+			return nil, err
+		}
 	}
 	return &api.BatchResponse{Results: results}, nil
 }

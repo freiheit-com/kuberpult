@@ -721,12 +721,11 @@ func TestConfigReload(t *testing.T) {
 			})
 			if configFile.ErrorExpected {
 				if err == nil {
-					t.Errorf("Apply gave error even though config.json was incorrect")
+					t.Errorf("Apply gave no error even though config.json was incorrect")
 				}
 			} else {
 				if err != nil {
-					fmt.Println(err)
-					t.Errorf("Initialization failed with valid config.json")
+					t.Errorf("Initialization failed with valid config.json: %s", err.Error())
 				}
 				cmd = exec.Command("git", "pull") // Add a new file to git
 				cmd.Dir = workdir
@@ -1046,7 +1045,7 @@ func (p *ErrorTransformer) Transform(ctx context.Context, state *State) (string,
 type InvalidJsonTransformer struct{}
 
 func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
-	return "error", nil, invalidJson
+	return "error", nil, InvalidJson
 }
 
 func convertToSet(list []uint64) map[int]bool {
@@ -1395,7 +1394,7 @@ func TestApplyQueue(t *testing.T) {
 			Name: "Invalid json error at start",
 			Actions: []action{
 				{
-					ExpectedError: invalidJson,
+					ExpectedError: InvalidJson,
 					Transformer:   &InvalidJsonTransformer{},
 				},
 				{}, {},
@@ -1409,7 +1408,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{},
 				{
-					ExpectedError: invalidJson,
+					ExpectedError: InvalidJson,
 					Transformer:   &InvalidJsonTransformer{},
 				},
 				{},
@@ -1423,7 +1422,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{}, {},
 				{
-					ExpectedError: invalidJson,
+					ExpectedError: InvalidJson,
 					Transformer:   &InvalidJsonTransformer{},
 				},
 			},
@@ -1517,7 +1516,7 @@ func getTransformer(i int) (Transformer, error) {
 	case 3:
 		return &ErrorTransformer{}, TransformerError
 	case 4:
-		return &InvalidJsonTransformer{}, invalidJson
+		return &InvalidJsonTransformer{}, InvalidJson
 	}
 	return &ErrorTransformer{}, TransformerError
 }

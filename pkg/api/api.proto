@@ -132,7 +132,49 @@ message CreateReleaseRequest {
   string displayVersion = 10;
 }
 
+message CreateReleaseResponseSuccess {
+}
+
+message CreateReleaseResponseGeneralFailure {
+  string message = 1;
+}
+
+message CreateReleaseResponseTooOld {
+}
+
+message CreateReleaseResponseAppNameTooLong {
+  string appName = 1;
+  string regExp = 2;
+  uint32 maxLen = 3;
+}
+
+message CreateReleaseResponseAlreadyExistsSame {
+}
+
+enum DifferingField {
+  SourceCommitId = 0;
+  SourceAuthor = 1;
+  SourceMessage = 2;
+  SourceRepoUrl = 3;
+  DisplayVersion = 4;
+  Team = 5;
+  Manifests = 6;
+}
+
+message CreateReleaseResponseAlreadyExistsDifferent {
+  DifferingField firstDifferingField = 1; // there might be more differences, but we only report the first one
+  string diff = 2;
+}
+
 message CreateReleaseResponse {
+  oneof response {
+    CreateReleaseResponseSuccess success = 1;
+    CreateReleaseResponseTooOld too_old = 2;
+    CreateReleaseResponseAppNameTooLong too_long = 3;
+    CreateReleaseResponseGeneralFailure general_failure = 4;
+    CreateReleaseResponseAlreadyExistsSame already_exists_same = 5;
+    CreateReleaseResponseAlreadyExistsDifferent already_exists_different = 6;
+  }
 }
 
 enum LockBehavior {
