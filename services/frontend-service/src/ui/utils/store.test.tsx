@@ -15,6 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { act, renderHook } from '@testing-library/react';
 import {
+    addAction,
     AllLocks,
     appendAction,
     DisplayLock,
@@ -452,6 +453,201 @@ describe('Rollout Status', () => {
                 }
                 expect(enabled).toEqual(testcase.expectedEnabled);
             });
+        });
+    });
+});
+
+describe('Test addAction duplicate detection', () => {
+    type TestDataStore = {
+        name: string;
+        firstAction: BatchAction;
+        differentAction: BatchAction;
+    };
+
+    const testdata: TestDataStore[] = [
+        {
+            name: 'create environment lock',
+            firstAction: {
+                action: {
+                    $case: 'createEnvironmentLock',
+                    createEnvironmentLock: {
+                        environment: 'dev',
+                        lockId: 'foo',
+                        message: 'do it',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'createEnvironmentLock',
+                    createEnvironmentLock: {
+                        environment: 'staging',
+                        lockId: 'foo',
+                        message: 'do it',
+                    },
+                },
+            },
+        },
+        {
+            name: 'delete environment lock',
+            firstAction: {
+                action: {
+                    $case: 'deleteEnvironmentLock',
+                    deleteEnvironmentLock: {
+                        environment: 'dev',
+                        lockId: 'foo',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'deleteEnvironmentLock',
+                    deleteEnvironmentLock: {
+                        environment: 'staging',
+                        lockId: 'foo',
+                    },
+                },
+            },
+        },
+        {
+            name: 'create app lock',
+            firstAction: {
+                action: {
+                    $case: 'createEnvironmentApplicationLock',
+                    createEnvironmentApplicationLock: {
+                        environment: 'dev',
+                        application: 'app1',
+                        lockId: 'foo',
+                        message: 'do it',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'createEnvironmentApplicationLock',
+                    createEnvironmentApplicationLock: {
+                        environment: 'dev',
+                        application: 'app2',
+                        lockId: 'foo',
+                        message: 'do it',
+                    },
+                },
+            },
+        },
+        {
+            name: 'delete app lock',
+            firstAction: {
+                action: {
+                    $case: 'deleteEnvironmentApplicationLock',
+                    deleteEnvironmentApplicationLock: {
+                        environment: 'dev',
+                        application: 'app1',
+                        lockId: 'foo',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'deleteEnvironmentApplicationLock',
+                    deleteEnvironmentApplicationLock: {
+                        environment: 'dev',
+                        application: 'app2',
+                        lockId: 'foo',
+                    },
+                },
+            },
+        },
+        {
+            name: 'deploy',
+            firstAction: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'dev',
+                        application: 'app1',
+                        version: 1,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.Ignore,
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'dev',
+                        application: 'app2',
+                        version: 1,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.Ignore,
+                    },
+                },
+            },
+        },
+        {
+            name: 'undeploy',
+            firstAction: {
+                action: {
+                    $case: 'undeploy',
+                    undeploy: {
+                        application: 'app1',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'undeploy',
+                    undeploy: {
+                        application: 'app2',
+                    },
+                },
+            },
+        },
+        {
+            name: 'prepare undeploy',
+            firstAction: {
+                action: {
+                    $case: 'prepareUndeploy',
+                    prepareUndeploy: {
+                        application: 'app1',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'prepareUndeploy',
+                    prepareUndeploy: {
+                        application: 'app2',
+                    },
+                },
+            },
+        },
+    ];
+
+    describe.each(testdata)('with', (testcase) => {
+        it(testcase.name, () => {
+            // given
+            updateActions([]);
+
+            // when
+            addAction(testcase.firstAction);
+            // then
+            expect(UpdateAction.get().actions.length).toStrictEqual(1);
+
+            // when
+            addAction(testcase.firstAction);
+            // then
+            expect(UpdateAction.get().actions.length).toStrictEqual(1);
+
+            // when
+            addAction(testcase.differentAction);
+            // then
+            expect(UpdateAction.get().actions.length).toStrictEqual(2);
+
+            // when
+            addAction(testcase.differentAction);
+            // then
+            expect(UpdateAction.get().actions.length).toStrictEqual(2);
         });
     });
 });

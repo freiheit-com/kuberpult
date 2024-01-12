@@ -82,7 +82,7 @@ kuberpult:
 
 kuberpult-earthly:
 	earthly +all-services --UID=$(USER_UID) --target docker
-	docker-compose -f docker-compose-earthly.yml up 
+	docker compose -f docker-compose-earthly.yml up 
 
 cache:
 	earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-frontend-service:cache --push +frontend-service --target release --UID=$(USER_UID)
@@ -91,3 +91,25 @@ cache:
 
 integration-test:
 	earthly -P +integration-test --kuberpult_version=$(IMAGE_TAG_KUBERPULT)
+
+pull-service-image/%:
+	docker pull $(DOCKER_REGISTRY_URI)/$*:$(VERSION)
+
+tag-service-image/%: pull-service-image/%
+	docker tag $(DOCKER_REGISTRY_URI)/$*:$(VERSION) $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)
+
+push-service-image/%: tag-service-image/%
+	docker push $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)
+
+.PHONY: tag-release-images
+tag-release-images: $(foreach i,$(SERVICE_IMAGES),push-service-image/$i)
+	true
+
+.PHONY: commitlint
+commitlint:
+	gh pr view $${GITHUB_HEAD_REF} --json title,body --template '{{.title}}{{ "\n\n" }}{{.body}}' > commitlint.msg
+	@echo "commit message that will be linted:"
+	@cat commitlint.msg
+	@echo
+	earthly +commitlint
+	rm commitlint.msg

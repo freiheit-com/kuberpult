@@ -45,8 +45,9 @@ type VersionClient interface {
 }
 
 type versionClient struct {
-	client api.OverviewServiceClient
-	cache  *lru.Cache
+	overviewClient api.OverviewServiceClient
+	versionClient  api.VersionServiceClient
+	cache          *lru.Cache
 }
 
 type VersionInfo struct {
@@ -65,29 +66,45 @@ func (v *VersionInfo) Equal(w *VersionInfo) bool {
 	return v.Version == w.Version
 }
 
+var ErrNotFound error = fmt.Errorf("not found")
+var ZeroVersion VersionInfo
+
 // GetVersion implements VersionClient
 func (v *versionClient) GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
+	ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
+	tr, err := v.tryGetVersion(ctx, revision, environment, application)
+	if err == nil {
+		return tr, nil
+	}
+	info, err := v.versionClient.GetVersion(ctx, &api.GetVersionRequest{
+		GitRevision: revision,
+		Environment: environment,
+		Application: application,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &VersionInfo{
+		Version:        info.Version,
+		SourceCommitId: info.SourceCommitId,
+		DeployedAt:     info.DeployedAt.AsTime(),
+	}, nil
+}
+
+// Tries getting the version from cache
+func (v *versionClient) tryGetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error) {
 	var overview *api.GetOverviewResponse
 	entry, ok := v.cache.Get(revision)
 	if !ok {
-		var err error
-		ctx = auth.WriteUserToGrpcContext(ctx, RolloutServiceUser)
-		overview, err = v.client.GetOverview(ctx, &api.GetOverviewRequest{
-			GitRevision: revision,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("requesting overview %q: %w", revision, err)
-		}
-		v.cache.Add(revision, overview)
-	} else {
-		overview = entry.(*api.GetOverviewResponse)
+		return nil, ErrNotFound
 	}
+	overview = entry.(*api.GetOverviewResponse)
 	for _, group := range overview.GetEnvironmentGroups() {
 		for _, env := range group.GetEnvironments() {
 			if env.Name == environment {
 				app := env.Applications[application]
 				if app == nil {
-					return &VersionInfo{}, nil
+					return &ZeroVersion, nil
 				}
 				return &VersionInfo{
 					Version:        app.Version,
@@ -97,7 +114,7 @@ func (v *versionClient) GetVersion(ctx context.Context, revision, environment, a
 			}
 		}
 	}
-	return &VersionInfo{}, nil
+	return &ZeroVersion, nil
 }
 
 func deployedAt(app *api.Environment_Application) time.Time {
@@ -160,7 +177,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	environmentGroups := map[key]string{}
 	teams := map[key]string{}
 	return hr.Retry(ctx, func() error {
-		client, err := v.client.StreamOverview(ctx, &api.GetOverviewRequest{})
+		client, err := v.overviewClient.StreamOverview(ctx, &api.GetOverviewRequest{})
 		if err != nil {
 			return fmt.Errorf("overview.connect: %w", err)
 		}
@@ -234,10 +251,11 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	})
 }
 
-func New(client api.OverviewServiceClient) VersionClient {
+func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient) VersionClient {
 	result := &versionClient{
-		cache:  lru.New(20),
-		client: client,
+		cache:          lru.New(20),
+		overviewClient: oclient,
+		versionClient:  vclient,
 	}
 	return result
 }

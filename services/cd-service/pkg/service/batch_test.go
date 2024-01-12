@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os/exec"
 	"path"
@@ -108,6 +107,7 @@ func getNBatchActions(N int) []*api.BatchAction {
 }
 
 func TestBatchServiceWorks(t *testing.T) {
+	const prod = "production"
 	tcs := []struct {
 		Name          string
 		Batch         []*api.BatchAction
@@ -120,22 +120,22 @@ func TestBatchServiceWorks(t *testing.T) {
 			Name: "5 sample actions",
 			Setup: []repository.Transformer{
 				&repository.CreateEnvironment{
-					Environment: "production",
+					Environment: prod,
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
 				&repository.CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
-						"production": "manifest",
+						prod: "manifest",
 					},
 				},
 				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
-					Environment: "production",
+					Environment: prod,
 					LockId:      "1234",
 					Message:     "EnvLock",
 				},
 				&repository.CreateEnvironmentApplicationLock{ // will be deleted by the batch actions
-					Environment: "production",
+					Environment: prod,
 					Application: "test",
 					LockId:      "5678",
 					Message:     "AppLock",
@@ -144,31 +144,6 @@ func TestBatchServiceWorks(t *testing.T) {
 			Batch:   getBatchActions(),
 			context: testutil.MakeTestContext(),
 			svc:     &BatchServer{},
-		},
-		{
-			Name: "testing Dex setup without permissions",
-			Setup: []repository.Transformer{
-				&repository.CreateEnvironment{
-					Environment: "production",
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				},
-				&repository.CreateApplicationVersion{
-					Application: "test",
-					Manifests: map[string]string{
-						"production": "manifest",
-					},
-				},
-				&repository.CreateEnvironmentLock{
-					Environment:    "production",
-					LockId:         "1234",
-					Message:        "EnvLock",
-					Authentication: repository.Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true}},
-				},
-			},
-			Batch:         getBatchActions(),
-			context:       testutil.MakeTestContextDexEnabled(),
-			svc:           &BatchServer{},
-			expectedError: status.Errorf(codes.PermissionDenied, "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production'").Error(),
 		},
 		{
 			Name: "testing Dex setup with permissions",
@@ -188,6 +163,12 @@ func TestBatchServiceWorks(t *testing.T) {
 					LockId:      "1234",
 					Message:     "EnvLock",
 				},
+				&repository.CreateEnvironmentApplicationLock{
+					Environment: "production",
+					Application: "test",
+					LockId:      "5678",
+					Message:     "no message",
+				},
 			},
 			Batch:   getBatchActions(),
 			context: testutil.MakeTestContextDexEnabled(),
@@ -198,7 +179,9 @@ func TestBatchServiceWorks(t *testing.T) {
 						"developer,DeployRelease,production:production,*,allow": {Role: "Developer"},
 						"developer,CreateLock,production:production,*,allow":    {Role: "Developer"},
 						"developer,DeleteLock,production:production,*,allow":    {Role: "Developer"},
-					}}},
+					},
+				},
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -210,9 +193,10 @@ func TestBatchServiceWorks(t *testing.T) {
 			}
 			for _, tr := range tc.Setup {
 				if err := repo.Apply(tc.context, tr); err != nil && err.Error() != tc.expectedError {
-					t.Fatal(err)
+					t.Fatalf("error during setup: %v", err)
 				}
 			}
+
 			tc.svc.Repository = repo
 			resp, err := tc.svc.ProcessBatch(
 				tc.context,
@@ -224,7 +208,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatal(err.Error())
+				t.Fatalf("error during processBatch: %v", err.Error())
 			}
 
 			if len(resp.Results) != len(tc.Batch) {
@@ -284,10 +268,73 @@ func TestBatchServiceWorks(t *testing.T) {
 	}
 }
 
-type ErrorTransformer struct{}
+func TestBatchServiceFails(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Batch         []*api.BatchAction
+		Setup         []repository.Transformer
+		context       context.Context
+		svc           *BatchServer
+		expectedError string
+	}{
+		{
+			Name: "testing Dex setup without permissions",
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "production",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "manifest",
+					},
+				},
+				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
+					Environment:    "production",
+					LockId:         "1234",
+					Message:        "EnvLock",
+					Authentication: repository.Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true}},
+				},
+			},
+			Batch:         []*api.BatchAction{},
+			context:       testutil.MakeTestContextDexEnabled(),
+			svc:           &BatchServer{},
+			expectedError: status.Errorf(codes.PermissionDenied, "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production'").Error(),
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(tc.context, tr); err != nil && err.Error() != tc.expectedError {
+					t.Fatalf("error during setup: %v", err)
+				}
+			}
 
-func (p *ErrorTransformer) Transform(ctx context.Context, state *repository.State) (string, *repository.TransformerResult, error) {
-	return "error", nil, errors.New("i am the transformer error")
+			tc.svc.Repository = repo
+			resp, err := tc.svc.ProcessBatch(
+				tc.context,
+				&api.BatchRequest{
+					Actions: tc.Batch,
+				},
+			)
+			if err != nil && err.Error() == tc.expectedError {
+				return
+			}
+			if err != nil {
+				t.Fatalf("error during processBatch: %v", err.Error())
+			}
+
+			if len(resp.Results) != len(tc.Batch) {
+				t.Errorf("got wrong number of batch results, expected %d but got %d", len(tc.Batch), len(resp.Results))
+			}
+		})
+	}
 }
 
 func TestBatchServiceErrors(t *testing.T) {
@@ -472,6 +519,7 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
 	cmd.Start()
 	cmd.Wait()
+	t.Logf("test created dir: %s", localDir)
 	repo, err := repository.New(
 		testutil.MakeTestContext(),
 		repository.RepositoryConfig{

@@ -55,6 +55,15 @@ cache:
     BUILD ./services/frontend-service+release --service=frontend-service
     BUILD ./services/frontend-service+release-ui
 
+commitlint:
+    FROM node:18-bookworm
+    WORKDIR /commitlint/
+    RUN npm install --save-dev @commitlint/cli@18.4.3
+    WORKDIR /commitlint/
+    COPY .commitlintrc .commitlintrc
+    COPY commitlint.msg commitlint.msg
+    RUN cat ./commitlint.msg | npx commitlint --config .commitlintrc
+
 test-all:
     BUILD ./services/cd-service+unit-test --service=cd-service
     BUILD ./services/rollout-service+unit-test --service=rollout-service

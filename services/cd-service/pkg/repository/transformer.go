@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"io"
 	"io/fs"
 	"k8s.io/utils/strings/slices"
@@ -109,8 +111,8 @@ func GaugeEnvAppLockMetric(fs billy.Filesystem, env, app string) {
 	}
 }
 
-func UpdateDatadogMetrics(state *State) error {
-	fs := state.Filesystem
+func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
+	filesystem := state.Filesystem
 	if ddMetrics == nil {
 		return nil
 	}
@@ -119,11 +121,37 @@ func UpdateDatadogMetrics(state *State) error {
 		return err
 	}
 	for env := range configs {
-		GaugeEnvLockMetric(fs, env)
-		appsDir := fs.Join(environmentDirectory(fs, env), "applications")
-		if entries, _ := fs.ReadDir(appsDir); entries != nil {
+		GaugeEnvLockMetric(filesystem, env)
+		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
+		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
 			for _, app := range entries {
-				GaugeEnvAppLockMetric(fs, env, app.Name())
+				GaugeEnvAppLockMetric(filesystem, env, app.Name())
+			}
+		}
+	}
+	now := time.Now() // ensure all events have the same timestamp
+	if changes != nil && ddMetrics != nil {
+		for i := range changes.ChangedApps {
+			oneChange := changes.ChangedApps[i]
+			teamMessage := func() string {
+				if oneChange.Team != "" {
+					return fmt.Sprintf(" for team %s", oneChange.Team)
+				}
+				return ""
+			}()
+			event := statsd.Event{
+				Title:     "Kuberpult app deployed",
+				Text:      fmt.Sprintf("Kuberpult has deployed %s to %s%s", oneChange.App, oneChange.Env, teamMessage),
+				Timestamp: now,
+				Tags: []string{
+					"kuberpult.application:" + oneChange.App,
+					"kuberpult.environment:" + oneChange.Env,
+					"kuberpult.team:" + oneChange.Team,
+				},
+			}
+			err := ddMetrics.Event(&event)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -142,7 +170,7 @@ func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBa
 
 func GetRepositoryStateAndUpdateMetrics(repo Repository) {
 	repoState := repo.State()
-	if err := UpdateDatadogMetrics(repoState); err != nil {
+	if err := UpdateDatadogMetrics(repoState, nil); err != nil {
 		panic(err.Error())
 	}
 }
@@ -289,7 +317,11 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(man), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
-		changes.AddAppEnv(c.Application, env)
+		teamOwner, err := state.GetApplicationTeamOwner(c.Application)
+		if err != nil {
+			return "", nil, err
+		}
+		changes.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
 				Environment:    env,
@@ -512,7 +544,11 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 		if err := util.WriteFile(fs, fs.Join(envDir, "manifests.yaml"), []byte(" "), 0666); err != nil {
 			return "", nil, err
 		}
-		changes.AddAppEnv(c.Application, env)
+		teamOwner, err := state.GetApplicationTeamOwner(c.Application)
+		if err != nil {
+			return "", nil, err
+		}
+		changes.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest {
 			d := &DeployApplicationVersion{
 				Environment: env,
@@ -604,7 +640,11 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 	changes := &TransformerResult{}
 	for env := range configs {
 		appDir := environmentApplicationDirectory(fs, env, u.Application)
-		changes.AddAppEnv(u.Application, env)
+		teamOwner, err := state.GetApplicationTeamOwner(u.Application)
+		if err != nil {
+			return "", nil, err
+		}
+		changes.AddAppEnv(u.Application, env, teamOwner)
 		// remove environment application
 		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return "", nil, fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
@@ -887,8 +927,15 @@ func (c *DeleteEnvironmentLock) Transform(ctx context.Context, state *State) (st
 	s := State{
 		Filesystem: fs,
 	}
-	//err = s.DeleteEnvLockIfEmpty(ctx, c.Environment)
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
+	_, err = fs.Stat(lockDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", nil, grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for env lock does not exist", lockDir))
+		}
+		return "", nil, err
+	}
+
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", nil, fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
@@ -1040,6 +1087,13 @@ func (c *DeleteEnvironmentApplicationLock) Transform(ctx context.Context, state 
 	}
 	fs := state.Filesystem
 	lockDir := fs.Join("environments", c.Environment, "applications", c.Application, "locks", c.LockId)
+	_, err = fs.Stat(lockDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", nil, grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
+		}
+		return "", nil, err
+	}
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", nil, fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	} else {
@@ -1214,8 +1268,11 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 	if err := util.WriteFile(fs, manifestFilename, manifestContent, 0666); err != nil {
 		return "", nil, err
 	}
-	changes.AddAppEnv(c.Application, c.Environment)
-	logger.FromContext(ctx).Info(fmt.Sprintf("DeployApp: changes added: %v+", changes))
+	teamOwner, err := state.GetApplicationTeamOwner(c.Application)
+	if err != nil {
+		return "", nil, err
+	}
+	changes.AddAppEnv(c.Application, c.Environment, teamOwner)
 
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {

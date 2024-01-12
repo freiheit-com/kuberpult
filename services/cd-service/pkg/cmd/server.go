@@ -58,6 +58,7 @@ type Config struct {
 	DexRbacPolicyPath string        `split_words:"true"`
 	EnableTracing     bool          `default:"false" split_words:"true"`
 	EnableMetrics     bool          `default:"false" split_words:"true"`
+	EnableEvents      bool          `default:"false" split_words:"true"`
 	DogstatsdAddr     string        `default:"127.0.0.1:8125" split_words:"true"`
 	EnableSqlite      bool          `default:"true" split_words:"true"`
 	DexMock           bool          `default:"false" split_words:"true"`
@@ -164,6 +165,7 @@ func RunServer() {
 			ArgoWebhookUrl:         c.ArgoCdServer,
 			WebURL:                 c.GitWebUrl,
 			NetworkTimeout:         c.GitNetworkTimeout,
+			DogstatsdEvents:        c.EnableMetrics,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {
