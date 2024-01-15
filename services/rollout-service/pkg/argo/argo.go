@@ -23,13 +23,15 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path/filepath"
-	"strings"
+	"slices"
 )
 
 // this is a simpler version of ApplicationServiceClient from the application package
@@ -44,7 +46,7 @@ type ArgoAppProcessor struct {
 	ApplicationClient     application.ApplicationServiceClient
 	HealthReporter        *setup.HealthReporter
 	ManageArgoAppsEnabled bool
-	ManageArgoAppsFilter  string
+	ManageArgoAppsFilter  []string
 }
 
 type Key struct {
@@ -68,19 +70,22 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 	toUpdate := map[Key]*v1alpha1.Application{}
 	toDelete := map[Key]*v1alpha1.Application{}
 
+	l := logger.FromContext(ctx).With(zap.String("argo-consuming", "ready"))
+
 	for {
 		select {
 		case overview := <-a.trigger:
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
 					for _, app := range env.Applications {
-						if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && strings.Contains(a.ManageArgoAppsFilter, app.Name) {
+						if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, *env.Config.Argocd.Destination.Namespace) {
 							k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
 							seen[k] = app
 						}
 					}
 				}
 			}
+			l.Info("argocd.get-app-diffs")
 			appList, err := a.ApplicationClient.List(ctx, &application.ApplicationQuery{})
 			if err != nil {
 				return fmt.Errorf(err.Error())
@@ -101,7 +106,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 				if ok := toCreate[key]; ok == nil {
 					upsert := false
 					validate := false
-
+					l.Info("argocd.create-app")
 					appCreateRequest := &application.ApplicationCreateRequest{
 						Application: &ev.Application,
 						Upsert:      &upsert,
@@ -119,6 +124,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 						Spec:         &ev.Application.Spec,
 						AppNamespace: &ev.Application.Namespace,
 					}
+					l.Info("argocd.update-app")
 					_, err := a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
 					if err != nil {
 						return fmt.Errorf(err.Error())
@@ -130,6 +136,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 						Name:         &ev.Application.Name,
 						AppNamespace: &ev.Application.Namespace,
 					}
+					l.Info("argocd.delete-app")
 					_, err := a.ApplicationClient.Delete(ctx, appDeleteRequest)
 					if err != nil {
 						return fmt.Errorf(err.Error())

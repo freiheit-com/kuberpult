@@ -58,8 +58,8 @@ type Config struct {
 	RevolutionDoraToken       string `split_words:"true" default:""`
 	RevolutionDoraConcurrency int    `default:"10" split_words:"true"`
 
-	ManageArgoApplicationEnabled bool   `split_words:"true" default:"false"`
-	ManageArgoApplicationFilter  string `split_words:"true" default:""`
+	ManageArgoApplicationEnabled bool     `split_words:"true" default:"false"`
+	ManageArgoApplicationFilter  []string `split_words:"true"`
 
 	ManifestRepoUrl string `default:"" split_words:"true"`
 	Branch          string `default:"" split_words:"true"`
