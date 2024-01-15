@@ -22,10 +22,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/cmd"
-	"path"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/argoproj/argo-cd/v2/util/grpc"
@@ -234,53 +231,23 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 							continue
 						}
 
-						if v.manageArgoAppsEnabled && len(v.manageArgoAppsFilter) > 0 && strings.Contains(v.manageArgoAppsFilter, app.Name) {
-							manifestPath := path.Join("environments", env.Name, "applications", app.Name, "manifests", "manifests.yaml")
-							l.Info(manifestPath)
+						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+							Application:      app.Name,
+							Environment:      env.Name,
+							EnvironmentGroup: envGroup.EnvironmentGroupName,
+							Team:             tm,
+							IsProduction:     env.Priority == api.Priority_PROD,
+							Version: &VersionInfo{
+								Version:        app.Version,
+								SourceCommitId: sc,
+								DeployedAt:     dt,
+							},
+						})
 
-							var annotations map[string]string
-							var labels map[string]string
-
-							for k, v := range env.Config.Argocd.ApplicationAnnotations {
-								annotations[k] = v
-							}
-							annotations["com.freiheit.kuberpult/team"] = tm
-							annotations["com.freiheit.kuberpult/application"] = app.Name
-							annotations["com.freiheit.kuberpult/environment"] = env.Name
-							annotations["com.freiheit.kuberpult/self-managed"] = "true"
-							annotations["com.freiheit.kuberpult/self-managed-filter"] = v.manageArgoAppsFilter
-							// This annotation is so that argoCd does not invalidate *everything* in the whole repo when receiving a git webhook.
-							// It has to start with a "/" to be absolute to the git repo.
-							// See https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#webhook-and-manifest-paths-annotation
-							annotations["argocd.argoproj.io/manifest-generate-paths"] = "/" + manifestPath
-							labels["com.freiheit.kuberpult/team"] = tm
-
-							deployApp := argo.CreateDeployApplication(overview, app, env, annotations, labels, manifestPath)
-
-							v.ArgoProcessor.Push(overview, deployApp)
-
-						} else {
-							processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-								Application:      app.Name,
-								Environment:      env.Name,
-								EnvironmentGroup: envGroup.EnvironmentGroupName,
-								Team:             tm,
-								IsProduction:     env.Priority == api.Priority_PROD,
-								Version: &VersionInfo{
-									Version:        app.Version,
-									SourceCommitId: sc,
-									DeployedAt:     dt,
-								},
-							})
-						}
 					}
 				}
 			}
-			err = v.ArgoProcessor.ConsumeArgo(ctx, hr)
-			if err != nil {
-				return fmt.Errorf(err.Error())
-			}
-
+			v.ArgoProcessor.Push(overview)
 			// Send events with version 0 for deleted applications so that we can react
 			// to apps getting deleted.
 			for k := range versions {
@@ -299,15 +266,15 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	})
 }
 
-func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, config cmd.Config) VersionClient {
+func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled bool, manageArgoApplicationFilter string) VersionClient {
 	result := &versionClient{
-		cache:                 lru.New(20),
-		overviewClient:        oclient,
-		versionClient:         vclient,
-		manageArgoAppsEnabled: config.ManageArgoApplicationEnabled,
-		manageArgoAppsFilter:  config.ManageArgoApplicationFilter,
+		cache:          lru.New(20),
+		overviewClient: oclient,
+		versionClient:  vclient,
 		ArgoProcessor: argo.ArgoAppProcessor{
-			ApplicationClient: appClient,
+			ApplicationClient:     appClient,
+			ManageArgoAppsEnabled: manageArgoApplicationEnabled,
+			ManageArgoAppsFilter:  manageArgoApplicationFilter,
 		},
 	}
 	return result

@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,7 +13,8 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright 2023 freiheit.com
+*/
 package argo
 
 import (
@@ -26,6 +28,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"path/filepath"
+	"strings"
 )
 
 // this is a simpler version of ApplicationServiceClient from the application package
@@ -34,44 +38,67 @@ type SimplifiedApplicationServiceClient interface {
 }
 
 type ArgoAppProcessor struct {
-	trigger           chan *v1alpha1.Application
-	lastOverview      *api.GetOverviewResponse
-	argoApps          chan *v1alpha1.ApplicationWatchEvent
-	ApplicationClient application.ApplicationServiceClient
-	HealthReporter    *setup.HealthReporter
+	trigger               chan *api.GetOverviewResponse
+	lastOverview          *api.GetOverviewResponse
+	argoApps              chan *v1alpha1.ApplicationWatchEvent
+	ApplicationClient     application.ApplicationServiceClient
+	HealthReporter        *setup.HealthReporter
+	ManageArgoAppsEnabled bool
+	ManageArgoAppsFilter  string
 }
 
 type Key struct {
-	Application string
-	Environment string
+	AppName     string
+	EnvName     string
+	Application *api.Environment_Application
+	Environment *api.Environment
 }
 
-func (a *ArgoAppProcessor) Push(last *api.GetOverviewResponse, appToPush *v1alpha1.Application) {
+func (a *ArgoAppProcessor) Push(last *api.GetOverviewResponse) {
 	a.lastOverview = last
 	select {
-	case a.trigger <- appToPush:
+	case a.trigger <- a.lastOverview:
 	default:
 	}
 }
 
 func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 	seen := map[Key]*api.Environment_Application{}
+	toCreate := map[Key]*v1alpha1.Application{}
+	toUpdate := map[Key]*v1alpha1.Application{}
+	toDelete := map[Key]*v1alpha1.Application{}
 
 	for {
 		select {
-		case <-a.trigger:
-			err := a.ConsumeArgo(ctx, a.HealthReporter)
-			if err != nil {
-				return err
+		case overview := <-a.trigger:
+			for _, envGroup := range overview.EnvironmentGroups {
+				for _, env := range envGroup.Environments {
+					for _, app := range env.Applications {
+						if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && strings.Contains(a.ManageArgoAppsFilter, app.Name) {
+							k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
+							seen[k] = app
+						}
+					}
+				}
 			}
+			appList, err := a.ApplicationClient.List(ctx, &application.ApplicationQuery{})
+			if err != nil {
+				return fmt.Errorf(err.Error())
+			}
+
+			applications := appList.Items
+
+			toCreate, toUpdate, toDelete = getCreateUpdateAndDeleteApps(overview, seen, applications)
+
+			seen = make(map[Key]*api.Environment_Application)
+
 		case ev := <-a.argoApps:
 			appName, envName := getEnvironmentAndName(ev.Application.Annotations)
-			key := Key{Application: appName, Environment: envName}
+			key := Key{AppName: appName, EnvName: envName}
 
-			if ok := seen[key]; ok == nil {
-
-				switch ev.Type {
-				case "ADDED":
+			switch ev.Type {
+			case "ADDED":
+				if ok := toCreate[key]; ok == nil {
 					upsert := false
 					validate := false
 
@@ -84,7 +111,9 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 					if err != nil {
 						return fmt.Errorf(err.Error())
 					}
-				case "MODIFIED":
+				}
+			case "MODIFIED":
+				if ok := toUpdate[key]; ok == nil {
 					appUpdateRequest := &application.ApplicationUpdateSpecRequest{
 						Name:         &ev.Application.Name,
 						Spec:         &ev.Application.Spec,
@@ -94,7 +123,9 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 					if err != nil {
 						return fmt.Errorf(err.Error())
 					}
-				case "DELETED":
+				}
+			case "DELETED":
+				if ok := toDelete[key]; ok == nil {
 					appDeleteRequest := &application.ApplicationDeleteRequest{
 						Name:         &ev.Application.Name,
 						AppNamespace: &ev.Application.Namespace,
@@ -108,18 +139,6 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 
 		case <-ctx.Done():
 			return nil
-		}
-
-		overview := a.lastOverview
-		for _, envGroup := range overview.EnvironmentGroups {
-			for _, env := range envGroup.Environments {
-				for _, app := range env.Applications {
-					k := Key{Application: app.Name, Environment: env.Name}
-					if ok := seen[k]; ok != nil {
-						seen[k] = app
-					}
-				}
-			}
 		}
 	}
 }
@@ -161,9 +180,55 @@ func calculateFinalizers() []string {
 	}
 }
 
-func CreateDeployApplication(overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment,
-	annotations, labels map[string]string, manifestPath string) *v1alpha1.Application {
+func getCreateUpdateAndDeleteApps(overview *api.GetOverviewResponse, a map[Key]*api.Environment_Application, b []v1alpha1.Application) (map[Key]*v1alpha1.Application,
+	map[Key]*v1alpha1.Application, map[Key]*v1alpha1.Application) {
+	var toCreate map[Key]*v1alpha1.Application
+	var toUpdate map[Key]*v1alpha1.Application
+	var toDelete map[Key]*v1alpha1.Application
+	for i := range a {
+		for j := range b {
+			k := Key{
+				AppName: b[j].Name,
+				EnvName: b[j].Namespace,
+			}
+			if i.Application == k.Application && i.Environment == k.Environment {
+				toUpdate[k] = &b[j]
+				break
+			}
+		}
+		toCreate[i] = CreateDeployApplication(overview, i.Application, i.Environment)
+	}
+	for j := range b {
+		k := Key{
+			AppName: b[j].Name,
+			EnvName: b[j].Namespace,
+		}
+		for i := range a {
+			if k.AppName == i.Application.Name && k.EnvName == i.Environment.Name {
+				break
+			}
+		}
+		toDelete[k] = &b[j]
+	}
+	return toCreate, toUpdate, toDelete
+}
+
+func CreateDeployApplication(overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment) *v1alpha1.Application {
 	applicationNs := ""
+
+	var annotations map[string]string
+	var labels map[string]string
+
+	manifestPath := filepath.Join("environments", env.Name, "applications", app.Name, "manifests")
+
+	annotations["com.freiheit.kuberpult/application"] = app.Name
+	annotations["com.freiheit.kuberpult/environment"] = env.Name
+	annotations["com.freiheit.kuberpult/self-managed"] = "true"
+	// This annotation is so that argoCd does not invalidate *everything* in the whole repo when receiving a git webhook.
+	// It has to start with a "/" to be absolute to the git repo.
+	// See https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#webhook-and-manifest-paths-annotation
+	annotations["argocd.argoproj.io/manifest-generate-paths"] = "/" + manifestPath
+	labels["com.freiheit.kuberpult/team"] = team(overview, app.Name)
 
 	if env.Config.Argocd.Destination.Namespace != nil {
 		applicationNs = *env.Config.Argocd.Destination.Namespace
@@ -236,4 +301,12 @@ func CreateDeployApplication(overview *api.GetOverviewResponse, app *api.Environ
 	}
 
 	return deployApp
+}
+
+func team(overview *api.GetOverviewResponse, app string) string {
+	a := overview.Applications[app]
+	if a == nil {
+		return ""
+	}
+	return a.Team
 }
