@@ -22,23 +22,33 @@ import { Button } from '../button';
 import { ShowBarWhite } from '../../../images';
 import { useSearchParams } from 'react-router-dom';
 import { Dropdown } from '../dropdown/dropdown';
+import { Checkbox } from '../dropdown/checkbox';
 import classNames from 'classnames';
-import { UpdateSidebar, useAllWarnings, useKuberpultVersion, useSidebarShown } from '../../utils/store';
+import {
+    UpdateSidebar,
+    useAllWarnings,
+    useKuberpultVersion,
+    useShownWarnings,
+    useSidebarShown,
+} from '../../utils/store';
 import { Warning } from '../../../api/api';
+import { hideWithoutWarnings, setHideWithoutWarnings } from '../../utils/Links';
 
 export type TopAppBarProps = {
     showAppFilter: boolean;
     showTeamFilter: boolean;
+    showWarningFilter: boolean;
 };
 
 export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const control = useRef<HTMLDivElement>(null);
     const MDComponent = useRef<MDCTopAppBar>();
     const sideBar = useSidebarShown();
-    const [params] = useSearchParams();
+    const [params, setParams] = useSearchParams();
 
     const toggleSideBar = useCallback(() => UpdateSidebar.set({ shown: !sideBar }), [sideBar]);
-    const query = params.get('application') || undefined;
+    const appNameParam = params.get('application') || '';
+    const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
     useEffect(() => {
         if (control.current) {
@@ -49,12 +59,22 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
 
     const version = useKuberpultVersion();
 
+    const hideWithoutWarningsValue = hideWithoutWarnings(params);
     const allWarnings: Warning[] = useAllWarnings();
+    const shownWarnings: Warning[] = useShownWarnings(teamsParam, appNameParam);
+
+    const onWarningsFilterClick = useCallback((): void => {
+        setHideWithoutWarnings(params, !hideWithoutWarningsValue);
+        setParams(params);
+    }, [hideWithoutWarningsValue, params, setParams]);
+
     const renderedWarnings =
         allWarnings.length === 0 ? (
             ''
         ) : (
-            <div className="service-lane__warning">There are {allWarnings.length} warnings total.</div>
+            <div className="service-lane__warning">
+                {allWarnings.length} warnings shown ({shownWarnings.length} total).
+            </div>
         );
 
     const renderedAppFilter =
@@ -63,7 +83,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                 <Textfield
                     className={'top-app-bar-search-field'}
                     floatingLabel={'Application Name'}
-                    value={query}
+                    value={appNameParam}
                     leadingIcon={'search'}
                 />
             </div>
@@ -78,6 +98,20 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
         ) : (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
         );
+    const renderedWarningsFilter =
+        props.showWarningFilter === true ? (
+            <div className="mdc-top-app-bar__section top-app-bar--narrow-filter">
+                <Checkbox
+                    enabled={hideWithoutWarningsValue}
+                    onClick={onWarningsFilterClick}
+                    id="warningFilter"
+                    label="hide apps without warnings"
+                    classes=""
+                />
+            </div>
+        ) : (
+            <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
+        );
     return (
         <div className="mdc-top-app-bar" ref={control}>
             <div className="mdc-top-app-bar__row">
@@ -86,7 +120,8 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                 </div>
                 {renderedAppFilter}
                 {renderedTeamsFilter}
-                <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">{renderedWarnings}</div>
+                {renderedWarningsFilter}
+                {renderedWarnings}
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
                     <strong className="sub-headline1">Planned Actions</strong>
                     <Button

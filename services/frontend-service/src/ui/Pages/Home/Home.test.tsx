@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { render, renderHook } from '@testing-library/react';
 import { Home } from './Home';
-import { searchCustomFilter, UpdateOverview, useFilteredApps, useTeamNames } from '../../utils/store';
+import { searchCustomFilter, UpdateOverview, useApplicationsFilteredAndSorted, useTeamNames } from '../../utils/store';
 import { Spy } from 'spy4js';
 import { MemoryRouter } from 'react-router-dom';
 import { Application, UndeploySummary } from '../../../api/api';
@@ -195,7 +195,7 @@ describe('Get teams from application list (useTeamNames)', () => {
     });
 });
 
-describe('Get applications from selected teams (useFilteredApps)', () => {
+describe('Get applications from selected teams (useApplicationsFilteredAndSorted)', () => {
     interface dataT {
         name: string;
         selectedTeams: string[];
@@ -343,7 +343,8 @@ describe('Get applications from selected teams (useFilteredApps)', () => {
             // given
             UpdateOverview.set({ applications: testcase.applications });
             // when
-            const numOfTeams = renderHook(() => useFilteredApps(testcase.selectedTeams)).result.current.length;
+            const numOfTeams = renderHook(() => useApplicationsFilteredAndSorted(testcase.selectedTeams, false, ''))
+                .result.current.length;
             expect(numOfTeams).toStrictEqual(testcase.expectedNumOfTeams);
         });
     });

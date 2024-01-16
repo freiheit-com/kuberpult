@@ -15,17 +15,18 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { ServiceLane } from '../../components/ServiceLane/ServiceLane';
 import { useSearchParams } from 'react-router-dom';
-import { useFilteredApps, useGlobalLoadingState, useSearchedApplications } from '../../utils/store';
+import { useApplicationsFilteredAndSorted, useGlobalLoadingState } from '../../utils/store';
 import React from 'react';
 import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
+import { hideWithoutWarnings } from '../../utils/Links';
 
 export const Home: React.FC = () => {
     const [params] = useSearchParams();
     const appNameParam = params.get('application') || '';
+    const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
-    const filteredApps = useFilteredApps((params.get('teams') || '').split(',').filter((val) => val !== ''));
-    const searchedApp = useSearchedApplications(filteredApps, appNameParam);
+    const searchedApp = useApplicationsFilteredAndSorted(teamsParam, hideWithoutWarnings(params), appNameParam);
 
     const apps = Object.values(searchedApp);
 
@@ -36,7 +37,7 @@ export const Home: React.FC = () => {
 
     return (
         <div>
-            <TopAppBar showAppFilter={true} showTeamFilter={true} />
+            <TopAppBar showAppFilter={true} showTeamFilter={true} showWarningFilter={true} />
             <main className="main-content">
                 {apps.map((app) => (
                     <ServiceLane application={app} key={app.name} />
