@@ -44,9 +44,18 @@ type ArgoAppProcessor struct {
 	lastOverview          *api.GetOverviewResponse
 	argoApps              chan *v1alpha1.ApplicationWatchEvent
 	ApplicationClient     application.ApplicationServiceClient
-	HealthReporter        *setup.HealthReporter
 	ManageArgoAppsEnabled bool
 	ManageArgoAppsFilter  []string
+}
+
+func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled bool, manageArgoApplicationFilter []string) ArgoAppProcessor {
+	return ArgoAppProcessor{
+		ApplicationClient:     appClient,
+		ManageArgoAppsEnabled: manageArgoApplicationEnabled,
+		ManageArgoAppsFilter:  manageArgoApplicationFilter,
+		trigger:               make(chan *api.GetOverviewResponse),
+		argoApps:              make(chan *v1alpha1.ApplicationWatchEvent),
+	}
 }
 
 type Key struct {
@@ -56,10 +65,12 @@ type Key struct {
 	Environment *api.Environment
 }
 
-func (a *ArgoAppProcessor) Push(last *api.GetOverviewResponse) {
+func (a *ArgoAppProcessor) Push(ctx context.Context, last *api.GetOverviewResponse) {
+	l := logger.FromContext(ctx).With(zap.String("argo-consuming", "ready"))
 	a.lastOverview = last
 	select {
 	case a.trigger <- a.lastOverview:
+		l.Info("argocd.pushing")
 	default:
 	}
 }
@@ -80,12 +91,12 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 					for _, app := range env.Applications {
 						if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, *env.Config.Argocd.Destination.Namespace) {
 							k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
+							l.Info("consumed seen: " + env.Name + "-" + app.Name)
 							seen[k] = app
 						}
 					}
 				}
 			}
-			l.Info("argocd.get-app-diffs")
 			appList, err := a.ApplicationClient.List(ctx, &application.ApplicationQuery{})
 			if err != nil {
 				return fmt.Errorf(err.Error())
@@ -93,7 +104,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 
 			applications := appList.Items
 
-			toCreate, toUpdate, toDelete = getCreateUpdateAndDeleteApps(overview, seen, applications)
+			toCreate, toUpdate, toDelete = getCreateUpdateAndDeleteApps(ctx, overview, seen, applications)
 
 			seen = make(map[Key]*api.Environment_Application)
 
@@ -103,41 +114,43 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 
 			switch ev.Type {
 			case "ADDED":
-				if ok := toCreate[key]; ok == nil {
+				if ok := toCreate[key]; ok != nil {
 					upsert := false
 					validate := false
-					l.Info("argocd.create-app")
+					ev.Application.ResourceVersion = ""
 					appCreateRequest := &application.ApplicationCreateRequest{
 						Application: &ev.Application,
 						Upsert:      &upsert,
 						Validate:    &validate,
 					}
 					_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
+					l.Info("argocd.created-app")
 					if err != nil {
 						return fmt.Errorf(err.Error())
 					}
 				}
 			case "MODIFIED":
-				if ok := toUpdate[key]; ok == nil {
+				if ok := toUpdate[key]; ok != nil {
 					appUpdateRequest := &application.ApplicationUpdateSpecRequest{
 						Name:         &ev.Application.Name,
 						Spec:         &ev.Application.Spec,
 						AppNamespace: &ev.Application.Namespace,
 					}
-					l.Info("argocd.update-app")
+					ev.Application.ResourceVersion = ""
 					_, err := a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
+					l.Info("argocd.updated-app")
 					if err != nil {
 						return fmt.Errorf(err.Error())
 					}
 				}
 			case "DELETED":
-				if ok := toDelete[key]; ok == nil {
+				if ok := toDelete[key]; ok != nil {
 					appDeleteRequest := &application.ApplicationDeleteRequest{
 						Name:         &ev.Application.Name,
 						AppNamespace: &ev.Application.Namespace,
 					}
-					l.Info("argocd.delete-app")
 					_, err := a.ApplicationClient.Delete(ctx, appDeleteRequest)
+					l.Info("argocd.deleted-app")
 					if err != nil {
 						return fmt.Errorf(err.Error())
 					}
@@ -187,12 +200,14 @@ func calculateFinalizers() []string {
 	}
 }
 
-func getCreateUpdateAndDeleteApps(overview *api.GetOverviewResponse, a map[Key]*api.Environment_Application, b []v1alpha1.Application) (map[Key]*v1alpha1.Application,
+func getCreateUpdateAndDeleteApps(ctx context.Context, overview *api.GetOverviewResponse, a map[Key]*api.Environment_Application, b []v1alpha1.Application) (map[Key]*v1alpha1.Application,
 	map[Key]*v1alpha1.Application, map[Key]*v1alpha1.Application) {
-	var toCreate map[Key]*v1alpha1.Application
-	var toUpdate map[Key]*v1alpha1.Application
-	var toDelete map[Key]*v1alpha1.Application
+	toCreate := make(map[Key]*v1alpha1.Application)
+	toUpdate := make(map[Key]*v1alpha1.Application)
+	toDelete := make(map[Key]*v1alpha1.Application)
+	l := logger.FromContext(ctx).With(zap.String("argocd.get-app-diffs", "ready"))
 	for i := range a {
+		appUpdate := false
 		for j := range b {
 			k := Key{
 				AppName: b[j].Name,
@@ -200,22 +215,32 @@ func getCreateUpdateAndDeleteApps(overview *api.GetOverviewResponse, a map[Key]*
 			}
 			if i.Application == k.Application && i.Environment == k.Environment {
 				toUpdate[k] = &b[j]
+				l.Info("app-to-be-updated: " + i.Environment.Name + "-" + i.Application.Name)
+				appUpdate = true
 				break
 			}
 		}
-		toCreate[i] = CreateDeployApplication(overview, i.Application, i.Environment)
+		if !appUpdate {
+			l.Info("app-to-be-created: " + i.Environment.Name + "-" + i.Application.Name)
+			toCreate[i] = CreateDeployApplication(overview, i.Application, i.Environment)
+		}
 	}
 	for j := range b {
+		appDelete := true
 		k := Key{
 			AppName: b[j].Name,
 			EnvName: b[j].Namespace,
 		}
 		for i := range a {
 			if k.AppName == i.Application.Name && k.EnvName == i.Environment.Name {
+				appDelete = false
 				break
 			}
 		}
-		toDelete[k] = &b[j]
+		if appDelete {
+			l.Info("app-to-be-deleted: " + k.EnvName + "-" + k.AppName)
+			toDelete[k] = &b[j]
+		}
 	}
 	return toCreate, toUpdate, toDelete
 }

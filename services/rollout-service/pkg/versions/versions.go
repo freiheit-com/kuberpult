@@ -215,6 +215,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			v.cache.Add(overview.GitRevision, overview)
 			l.Info("overview.get")
 			seen := make(map[key]uint64, len(versions))
+			l.Info(strconv.Itoa(len(overview.EnvironmentGroups)))
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
 					for _, app := range env.Applications {
@@ -247,7 +248,8 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 					}
 				}
 			}
-			v.ArgoProcessor.Push(overview)
+			l.Info("version.push")
+			v.ArgoProcessor.Push(ctx, overview)
 			// Send events with version 0 for deleted applications so that we can react
 			// to apps getting deleted.
 			for k := range versions {
@@ -271,11 +273,7 @@ func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, ap
 		cache:          lru.New(20),
 		overviewClient: oclient,
 		versionClient:  vclient,
-		ArgoProcessor: argo.ArgoAppProcessor{
-			ApplicationClient:     appClient,
-			ManageArgoAppsEnabled: manageArgoApplicationEnabled,
-			ManageArgoAppsFilter:  manageArgoApplicationFilter,
-		},
+		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, manageArgoApplicationFilter),
 	}
 	return result
 }
