@@ -86,6 +86,14 @@ func releasesDirectoryWithVersion(fs billy.Filesystem, application string, versi
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
 }
 
+func commitDirectory(fs billy.Filesystem, commit string) string {
+	return fs.Join("commits", commit[:2], commit[2:])
+}
+
+func commitApplicationDirectory(fs billy.Filesystem, commit, application string) string {
+	return fs.Join(commitDirectory(fs, commit), application)
+}
+
 func GetEnvironmentLocksCount(fs billy.Filesystem, env string) float64 {
 	envLocksCount := 0
 	envDir := environmentDirectory(fs, env)
@@ -255,6 +263,19 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 
 	if c.SourceCommitId != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
+			return "", nil, GetCreateReleaseGeneralFailure(err)
+		}
+		if len(c.SourceCommitId) != 40 {
+			return "", nil, GetCreateReleaseGeneralFailure(fmt.Errorf("source commit ID %s has incorrect length: expected 40, got %d", c.SourceCommitId, len(c.SourceCommitId)))
+		}
+		commitDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
+		if err := fs.MkdirAll(commitDir, 0777); err != nil {
+			return "", nil, GetCreateReleaseGeneralFailure(err)
+		}
+		if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
+			return "", nil, GetCreateReleaseGeneralFailure(err)
+		}
+		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_commit_id"), []byte(c.SourceCommitId), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
