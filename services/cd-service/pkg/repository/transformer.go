@@ -91,7 +91,7 @@ func commitDirectory(fs billy.Filesystem, commit string) string {
 }
 
 func commitApplicationDirectory(fs billy.Filesystem, commit, application string) string {
-	return fs.Join(commitDirectory(fs, commit), application)
+	return fs.Join(commitDirectory(fs, commit), "applications", application)
 }
 
 func GetEnvironmentLocksCount(fs billy.Filesystem, env string) float64 {
@@ -250,6 +250,14 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
 	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
+		return "", nil, GetCreateReleaseGeneralFailure(err)
+	}
+
+	if !valid.CommitID(c.SourceCommitId) {
+		return "", nil, GetCreateReleaseGeneralFailure(fmt.Errorf("the provided commit ID is invalid, given %s, expected a valid SHA1 hash", c.SourceCommitId))
+	}
+	commitDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
+	if err = fs.MkdirAll(commitDir, 0777); err != nil {
 		return "", nil, GetCreateReleaseGeneralFailure(err)
 	}
 
