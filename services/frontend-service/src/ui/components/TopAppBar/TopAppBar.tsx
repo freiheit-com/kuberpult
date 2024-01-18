@@ -73,7 +73,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
             ''
         ) : (
             <div className="service-lane__warning">
-                {allWarnings.length} warnings shown ({shownWarnings.length} total).
+                {shownWarnings.length} warnings shown ({allWarnings.length} total).
             </div>
         );
 
