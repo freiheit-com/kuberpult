@@ -20,8 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"io"
 	"os/exec"
 	"path"
@@ -30,6 +28,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -672,7 +673,7 @@ func TestCreateApplicationVersion(t *testing.T) {
 					},
 				},
 			},
-			expectedErrorMsg: `already_exists_different:{firstDifferingField:Manifests diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
+			expectedErrorMsg: `already_exists_different:{firstDifferingField:Manifests  diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
 		},
 		{
 			Name: "recreate same version with idempotence, but different formatting of yaml",
