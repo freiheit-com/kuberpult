@@ -21,15 +21,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"io"
 	"io/fs"
-	"k8s.io/utils/strings/slices"
 	"os"
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"k8s.io/utils/strings/slices"
 
 	yaml3 "gopkg.in/yaml.v3"
 
@@ -48,8 +49,15 @@ import (
 )
 
 const (
-	queueFileName    = "queued_version"
-	yamlParsingError = "# yaml parsing error"
+	queueFileName       = "queued_version"
+	yamlParsingError    = "# yaml parsing error"
+	fieldSourceAuthor   = "source_author"
+	fieldSourceMessage  = "source_message"
+	fieldSourceCommitId = "source_commit_id"
+	fieldDisplayVersion = "display_version"
+	fieldSourceRepoUrl  = "sourceRepoUrl" // urgh, inconsistent
+	fieldCreatedAt      = "created_at"
+	fieldTeam           = "team"
 	// number of old releases that will ALWAYS be kept in addition to the ones that are deployed:
 	keptVersionsOnCleanup = 20
 )
@@ -246,35 +254,35 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 
 	if c.SourceCommitId != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_commit_id"), []byte(c.SourceCommitId), 0666); err != nil {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	if c.SourceAuthor != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_author"), []byte(c.SourceAuthor), 0666); err != nil {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	if c.SourceMessage != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_message"), []byte(c.SourceMessage), 0666); err != nil {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceMessage), []byte(c.SourceMessage), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	if c.DisplayVersion != "" {
-		if err := util.WriteFile(fs, fs.Join(releaseDir, "display_version"), []byte(c.DisplayVersion), 0666); err != nil {
+		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldDisplayVersion), []byte(c.DisplayVersion), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
-	if err := util.WriteFile(fs, fs.Join(releaseDir, "created_at"), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return "", nil, GetCreateReleaseGeneralFailure(err)
 	}
 	if c.Team != "" {
-		if err := util.WriteFile(fs, fs.Join(appDir, "team"), []byte(c.Team), 0666); err != nil {
+		if err := util.WriteFile(fs, fs.Join(appDir, fieldTeam), []byte(c.Team), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	if c.SourceRepoUrl != "" {
-		if err := util.WriteFile(fs, fs.Join(appDir, "sourceRepoUrl"), []byte(c.SourceRepoUrl), 0666); err != nil {
+		if err := util.WriteFile(fs, fs.Join(appDir, fieldSourceRepoUrl), []byte(c.SourceRepoUrl), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
@@ -373,8 +381,9 @@ func (c *CreateApplicationVersion) calculateVersion(state *State) (uint64, error
 func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) error {
 	fs := state.Filesystem
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
+	appDir := applicationDirectory(fs, c.Application)
 	if c.SourceCommitId != "" {
-		existingSourceCommitId, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		existingSourceCommitId, err := util.ReadFile(fs, fs.Join(releaseDir, fieldSourceCommitId))
 		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceCommitId, "")
 		}
@@ -384,7 +393,7 @@ func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) 
 		}
 	}
 	if c.SourceAuthor != "" {
-		existingSourceAuthor, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		existingSourceAuthor, err := util.ReadFile(fs, fs.Join(releaseDir, fieldSourceAuthor))
 		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceAuthor, "")
 		}
@@ -394,7 +403,7 @@ func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) 
 		}
 	}
 	if c.SourceMessage != "" {
-		existingSourceMessage, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		existingSourceMessage, err := util.ReadFile(fs, fs.Join(releaseDir, fieldSourceMessage))
 		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceMessage, "")
 		}
@@ -404,7 +413,7 @@ func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) 
 		}
 	}
 	if c.DisplayVersion != "" {
-		existingDisplayVersion, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		existingDisplayVersion, err := util.ReadFile(fs, fs.Join(releaseDir, fieldDisplayVersion))
 		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DisplayVersion, "")
 		}
@@ -414,7 +423,7 @@ func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) 
 		}
 	}
 	if c.Team != "" {
-		existingTeam, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		existingTeam, err := util.ReadFile(fs, fs.Join(appDir, fieldTeam))
 		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Team, "")
 		}
@@ -424,7 +433,7 @@ func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) 
 		}
 	}
 	if c.SourceRepoUrl != "" {
-		existingSourceRepoUrl, err := util.ReadFile(fs, fs.Join(releaseDir, "source_commit_id"))
+		existingSourceRepoUrl, err := util.ReadFile(fs, fs.Join(releaseDir, fieldSourceCommitId))
 		if err != nil {
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceRepoUrl, "")
 		}
@@ -516,7 +525,7 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 	if err := util.WriteFile(fs, fs.Join(releaseDir, "undeploy"), []byte(""), 0666); err != nil {
 		return "", nil, err
 	}
-	if err := util.WriteFile(fs, fs.Join(releaseDir, "created_at"), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(releaseDir, fieldCreatedAt), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return "", nil, err
 	}
 	result := ""
@@ -905,7 +914,7 @@ func createLock(ctx context.Context, fs billy.Filesystem, lockId, message string
 	}
 
 	// write date in iso format
-	if err := util.WriteFile(fs, fs.Join(newLockDir, "created_at"), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(newLockDir, fieldCreatedAt), []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
 		return err
 	}
 	return nil
