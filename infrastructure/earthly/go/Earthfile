@@ -3,9 +3,12 @@ VERSION --use-function-keyword 0.7
 DEPS:
     FUNCTION
     ARG --required service
+    ARG --required src_files
     COPY ../../../pkg+artifacts/pkg pkg
     COPY cmd services/$service/cmd
-    COPY pkg services/$service/pkg
+    FOR src IN $src_files
+        COPY $src services/$service/$src
+    END
 
 COMPILE:
     FUNCTION
@@ -31,6 +34,7 @@ COMPILE:
 
 UNIT_TEST:
     FUNCTION
+    COPY pkg pkg
     RUN go test ./...
 
 DOCKER:
