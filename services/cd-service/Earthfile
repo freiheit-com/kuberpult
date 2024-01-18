@@ -3,12 +3,13 @@ IMPORT ../../infrastructure/earthly/go AS go-build
 
 LOCALLY
 ARG --global service=$(basename $PWD)
+ARG --global src_files=$(find pkg -type f ! -name "*_test.go")
 ARG --global UID=1000
 ARG --global cgo_enabled=1
 
 deps:
     FROM ../../+deps
-    DO go-build+DEPS --service=$service
+    DO go-build+DEPS --service=$service --src_files=$src_files
     WORKDIR services/$service
 
 artifacts:
