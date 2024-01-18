@@ -30,7 +30,7 @@ export const ReleasesPage: React.FC = () => {
 
     return (
         <div>
-            <TopAppBar showAppFilter={false} showTeamFilter={false} />
+            <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
             <main className="main-content">
                 <Releases app={app_name} />
             </main>

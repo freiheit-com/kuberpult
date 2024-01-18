@@ -184,3 +184,17 @@ export const ProductVersionLink: React.FC<{ env: string; groupName: string }> = 
         </a>
     );
 };
+
+const hideWithoutWarningsParamName = 'hideWithoutWarnings';
+const hideWithoutWarningsParamEnabledValue = 'Y';
+export const hideWithoutWarnings = (params: URLSearchParams): boolean => {
+    const hideWithoutWarningsParam = params.get(hideWithoutWarningsParamName) || '';
+    return hideWithoutWarningsParam === hideWithoutWarningsParamEnabledValue;
+};
+export const setHideWithoutWarnings = (params: URLSearchParams, newValue: boolean): void => {
+    if (newValue) {
+        params.set(hideWithoutWarningsParamName, hideWithoutWarningsParamEnabledValue);
+    } else {
+        params.delete(hideWithoutWarningsParamName);
+    }
+};

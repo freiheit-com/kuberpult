@@ -1,5 +1,4 @@
 VERSION --use-function-keyword 0.7
-LOCALLY
 
 DEPS:
     FUNCTION

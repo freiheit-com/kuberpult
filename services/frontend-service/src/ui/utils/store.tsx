@@ -303,13 +303,11 @@ export const useTeamFromApplication = (app: string): string | undefined =>
 export const useAllWarnings = (): Warning[] =>
     useOverview(({ applications }) => Object.values(applications).flatMap((app) => app.warnings));
 
-// returns applications filtered by dropdown and sorted by team name and then by app name
-export const useFilteredApps = (teams: string[]): Application[] =>
-    useOverview(({ applications }) =>
-        Object.values(applications).filter(
-            (app) => teams.length === 0 || teams.includes(app.team.trim() || '<No Team>')
-        )
-    );
+// return warnings from all apps matching the given filtering criteria
+export const useShownWarnings = (teams: string[], nameIncludes: string): Warning[] => {
+    const shownApps = useApplicationsFilteredAndSorted(teams, true, nameIncludes);
+    return shownApps.flatMap((app) => app.warnings);
+};
 
 export const useEnvironmentGroups = (): EnvironmentGroup[] => useOverview(({ environmentGroups }) => environmentGroups);
 
@@ -330,11 +328,34 @@ export const useEnvironmentNames = (): string[] => useEnvironments().map((env) =
 export const getPriorityClassName = (environment: Environment): string =>
     'environment-priority-' + String(Priority[environment?.priority ?? Priority.UNRECOGNIZED]).toLowerCase();
 
-// returns all application names
-export const useSearchedApplications = (applications: Application[], appNameParam: string): Application[] =>
-    applications
-        .filter((app) => appNameParam === '' || app.name.includes(appNameParam))
-        .sort((a, b) => (a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)));
+// filter for apps included in the selected teams
+const applicationsMatchingTeam = (applications: Application[], teams: string[]): Application[] =>
+    applications.filter((app) => teams.length === 0 || teams.includes(app.team.trim() || '<No Team>'));
+
+// filter for all application names that have warnings
+const applicationsWithWarnings = (applications: Application[]): Application[] =>
+    applications.filter((app) => app.warnings.length > 0);
+
+// filters given apps with the search terms or all for the empty string
+const applicationsMatchingName = (applications: Application[], appNameParam: string): Application[] =>
+    applications.filter((app) => appNameParam === '' || app.name.includes(appNameParam));
+
+// sorts given apps by team
+const applicationsSortedByTeam = (applications: Application[]): Application[] =>
+    applications.sort((a, b) => (a.team === b.team ? a.name?.localeCompare(b.name) : a.team?.localeCompare(b.team)));
+
+// returns applications to show on the home page
+export const useApplicationsFilteredAndSorted = (
+    teams: string[],
+    withWarningsOnly: boolean,
+    nameIncludes: string
+): Application[] => {
+    const all = useOverview(({ applications }) => Object.values(applications));
+    const allMatchingTeam = applicationsMatchingTeam(all, teams);
+    const allMatchingTeamAndWarnings = withWarningsOnly ? applicationsWithWarnings(allMatchingTeam) : allMatchingTeam;
+    const allMatchingTeamAndWarningsAndName = applicationsMatchingName(allMatchingTeamAndWarnings, nameIncludes);
+    return applicationsSortedByTeam(allMatchingTeamAndWarningsAndName);
+};
 
 // return all applications locks
 export const useFilteredApplicationLocks = (appNameParam: string | null): DisplayLock[] => {
