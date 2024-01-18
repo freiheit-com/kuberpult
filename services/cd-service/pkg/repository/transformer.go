@@ -24,6 +24,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"sort"
 	"strconv"
 	"time"
@@ -804,6 +805,40 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 		_, err := fs.Stat(releasesDir)
 		if err != nil {
 			return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
+		}
+
+		{
+			couldNotRemoteApp := "CleanupOldApplicationVersions: could not remove the application from the commit directory"
+			commitIDFile := fs.Join(releasesDir, "source_commit_id")
+			var commitID string
+			if dat, err := util.ReadFile(fs, commitIDFile); err != nil {
+				return "", nil, wrapFileError(err, commitIDFile, couldNotRemoteApp)
+			} else {
+				commitID = string(dat)
+			}
+
+			dir := commitApplicationDirectory(fs, commitID, c.Application)
+			if err := fs.Remove(dir); err != nil {
+				return "", nil, wrapFileError(err, dir, couldNotRemoteApp)
+			}
+			// check if there are no other services updated by this commit
+			// if there are none, start remove the entire branch of the commit
+			for {
+				dir = path.Dir(dir)
+				fmt.Printf("dir: %s\n", dir)
+				if dir == "commits" {
+					break
+				}
+				files, err := fs.ReadDir(dir)
+				if err != nil {
+					return "", nil, wrapFileError(err, dir, couldNotRemoteApp)
+				}
+				if len(files) == 0 {
+					if err = fs.Remove(dir); err != nil {
+						return "", nil, wrapFileError(err, dir, couldNotRemoteApp)
+					}
+				}
+			}
 		}
 		err = fs.Remove(releasesDir)
 		if err != nil {
