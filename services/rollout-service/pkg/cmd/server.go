@@ -58,8 +58,8 @@ type Config struct {
 	RevolutionDoraToken       string `split_words:"true" default:""`
 	RevolutionDoraConcurrency int    `default:"10" split_words:"true"`
 
-	ManageArgoApplicationEnabled bool     `split_words:"true" default:"false"`
-	ManageArgoApplicationFilter  []string `split_words:"true"`
+	ManageArgoApplicationsEnabled bool     `split_words:"true" default:"true"`
+	ManageArgoApplicationsFilter  []string `split_words:"true" default:"sreteam"`
 
 	ManifestRepoUrl string `default:"" split_words:"true"`
 	Branch          string `default:"" split_words:"true"`
@@ -183,7 +183,7 @@ func runServer(ctx context.Context, config Config) error {
 	}
 	broadcast := service.New()
 	shutdownCh := make(chan struct{})
-	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationEnabled, config.ManageArgoApplicationFilter)
+	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.ManageArgoApplicationsFilter)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
 
 	backgroundTasks := []setup.BackgroundTaskConfig{

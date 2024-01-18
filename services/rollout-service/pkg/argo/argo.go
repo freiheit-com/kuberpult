@@ -24,6 +24,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/freiheit-com/kuberpult/pkg/api"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -76,85 +77,84 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *api.GetOverviewRespon
 }
 
 func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
-	seen := map[Key]*api.Environment_Application{}
-	toCreate := map[Key]*v1alpha1.Application{}
-	toUpdate := map[Key]*v1alpha1.Application{}
-	toDelete := map[Key]*v1alpha1.Application{}
-
-	l := logger.FromContext(ctx).With(zap.String("argo-consuming", "ready"))
+	l := logger.FromContext(ctx).With(zap.String("event-consuming", "ready"))
 
 	for {
 		select {
 		case overview := <-a.trigger:
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
+					appList, err := a.ApplicationClient.List(ctx, &application.ApplicationQuery{
+						Name: ptr.FromString(fmt.Sprintf("%s-", env)),
+					})
+
+					if err != nil {
+						fmt.Errorf("listing applications: %w", err)
+					}
+					err = a.DeleteArgoApps(ctx, appList, env.Applications)
+
+					if err != nil {
+						fmt.Errorf("deleting applications: %w", err)
+					}
+
 					for _, app := range env.Applications {
-						if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, *env.Config.Argocd.Destination.Namespace) {
+						t := team(overview, app.Name)
+						if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, t) {
 							k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
-							l.Info("consumed seen: " + env.Name + "-" + app.Name)
-							seen[k] = app
+
+							argoApp, err := a.ApplicationClient.Get(ctx, &application.ApplicationQuery{
+								Name: ptr.FromString(app.Name),
+							})
+
+							if err != nil {
+								fmt.Errorf("getting application: %w", err)
+							}
+
+							if argoApp == nil {
+								appToCreate := CreateDeployApplication(overview, app, k.Environment)
+								appToCreate.ResourceVersion = ""
+								upsert := false
+								validate := false
+								appCreateRequest := &application.ApplicationCreateRequest{
+									Application: appToCreate,
+									Upsert:      &upsert,
+									Validate:    &validate,
+								}
+								_, err = a.ApplicationClient.Create(ctx, appCreateRequest)
+								if err != nil {
+									fmt.Errorf("creating application: %w", err)
+								}
+							} else {
+								appToUpdate := CreateDeployApplication(overview, app, k.Environment)
+								appUpdateRequest := &application.ApplicationUpdateSpecRequest{
+									Name:         &appToUpdate.Name,
+									Spec:         &appToUpdate.Spec,
+									AppNamespace: &appToUpdate.Namespace,
+								}
+								_, err = a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
+								if err != nil {
+									fmt.Errorf("updating application: %w", err)
+								}
+							}
+
 						}
 					}
 				}
 			}
-			appList, err := a.ApplicationClient.List(ctx, &application.ApplicationQuery{})
-			if err != nil {
-				return fmt.Errorf(err.Error())
-			}
-
-			applications := appList.Items
-
-			toCreate, toUpdate, toDelete = getCreateUpdateAndDeleteApps(ctx, overview, seen, applications)
-
-			seen = make(map[Key]*api.Environment_Application)
 
 		case ev := <-a.argoApps:
 			appName, envName := getEnvironmentAndName(ev.Application.Annotations)
-			key := Key{AppName: appName, EnvName: envName}
-
+			k := Key{AppName: appName, EnvName: envName}
+			if k.AppName == "" {
+				continue
+			}
 			switch ev.Type {
 			case "ADDED":
-				if ok := toCreate[key]; ok != nil {
-					upsert := false
-					validate := false
-					ev.Application.ResourceVersion = ""
-					appCreateRequest := &application.ApplicationCreateRequest{
-						Application: &ev.Application,
-						Upsert:      &upsert,
-						Validate:    &validate,
-					}
-					_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
-					l.Info("argocd.created-app")
-					if err != nil {
-						return fmt.Errorf(err.Error())
-					}
-				}
+				l.Info(fmt.Sprintf("argocd.created-%s", k.AppName))
 			case "MODIFIED":
-				if ok := toUpdate[key]; ok != nil {
-					appUpdateRequest := &application.ApplicationUpdateSpecRequest{
-						Name:         &ev.Application.Name,
-						Spec:         &ev.Application.Spec,
-						AppNamespace: &ev.Application.Namespace,
-					}
-					ev.Application.ResourceVersion = ""
-					_, err := a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
-					l.Info("argocd.updated-app")
-					if err != nil {
-						return fmt.Errorf(err.Error())
-					}
-				}
+				l.Info(fmt.Sprintf("argocd.updated-%s", k.AppName))
 			case "DELETED":
-				if ok := toDelete[key]; ok != nil {
-					appDeleteRequest := &application.ApplicationDeleteRequest{
-						Name:         &ev.Application.Name,
-						AppNamespace: &ev.Application.Namespace,
-					}
-					_, err := a.ApplicationClient.Delete(ctx, appDeleteRequest)
-					l.Info("argocd.deleted-app")
-					if err != nil {
-						return fmt.Errorf(err.Error())
-					}
-				}
+				l.Info(fmt.Sprintf("argocd.deleted-%s", k.AppName))
 			}
 
 		case <-ctx.Done():
@@ -190,66 +190,42 @@ func (a *ArgoAppProcessor) ConsumeArgo(ctx context.Context, hlth *setup.HealthRe
 	}
 }
 
-func getEnvironmentAndName(annotations map[string]string) (string, string) {
-	return annotations["com.freiheit.kuberpult/environment"], annotations["com.freiheit.kuberpult/application"]
-}
-
 func calculateFinalizers() []string {
 	return []string{
 		"resources-finalizer.argocd.argoproj.io",
 	}
 }
 
-func getCreateUpdateAndDeleteApps(ctx context.Context, overview *api.GetOverviewResponse, a map[Key]*api.Environment_Application, b []v1alpha1.Application) (map[Key]*v1alpha1.Application,
-	map[Key]*v1alpha1.Application, map[Key]*v1alpha1.Application) {
-	toCreate := make(map[Key]*v1alpha1.Application)
-	toUpdate := make(map[Key]*v1alpha1.Application)
-	toDelete := make(map[Key]*v1alpha1.Application)
-	l := logger.FromContext(ctx).With(zap.String("argocd.get-app-diffs", "ready"))
-	for i := range a {
-		appUpdate := false
-		for j := range b {
-			k := Key{
-				AppName: b[j].Name,
-				EnvName: b[j].Namespace,
-			}
-			if i.Application == k.Application && i.Environment == k.Environment {
-				toUpdate[k] = &b[j]
-				l.Info("app-to-be-updated: " + i.Environment.Name + "-" + i.Application.Name)
-				appUpdate = true
+func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, appList *v1alpha1.ApplicationList, apps map[string]*api.Environment_Application) error {
+	argoApps := appList.Items
+	toDelete := make([]*v1alpha1.Application, 0)
+	for _, argoApp := range argoApps {
+		for i, app := range apps {
+			if argoApp.Name == fmt.Sprintf("%s-%s", i, app.Name) {
 				break
 			}
 		}
-		if !appUpdate {
-			l.Info("app-to-be-created: " + i.Environment.Name + "-" + i.Application.Name)
-			toCreate[i] = CreateDeployApplication(overview, i.Application, i.Environment)
+		toDelete = append(toDelete, &argoApp)
+	}
+
+	for i := range toDelete {
+		_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
+			Name: ptr.FromString(toDelete[i].Name),
+		})
+
+		if err != nil {
+			return err
 		}
 	}
-	for j := range b {
-		appDelete := true
-		k := Key{
-			AppName: b[j].Name,
-			EnvName: b[j].Namespace,
-		}
-		for i := range a {
-			if k.AppName == i.Application.Name && k.EnvName == i.Environment.Name {
-				appDelete = false
-				break
-			}
-		}
-		if appDelete {
-			l.Info("app-to-be-deleted: " + k.EnvName + "-" + k.AppName)
-			toDelete[k] = &b[j]
-		}
-	}
-	return toCreate, toUpdate, toDelete
+
+	return nil
 }
 
 func CreateDeployApplication(overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment) *v1alpha1.Application {
 	applicationNs := ""
 
-	var annotations map[string]string
-	var labels map[string]string
+	annotations := make(map[string]string)
+	labels := make(map[string]string)
 
 	manifestPath := filepath.Join("environments", env.Name, "applications", app.Name, "manifests")
 
@@ -341,4 +317,8 @@ func team(overview *api.GetOverviewResponse, app string) string {
 		return ""
 	}
 	return a.Team
+}
+
+func getEnvironmentAndName(annotations map[string]string) (string, string) {
+	return annotations["com.freiheit.kuberpult/environment"], annotations["com.freiheit.kuberpult/application"]
 }
