@@ -870,7 +870,6 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 				}
 			}
 		}
-
 		err = fs.Remove(releasesDir)
 		if err != nil {
 			return "", nil, fmt.Errorf("CleanupOldApplicationVersions: Unexpected error app %s: %w",
