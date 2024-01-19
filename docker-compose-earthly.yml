@@ -20,7 +20,6 @@ services:
     container_name: kuberpult-frontend-service
     environment:
       - KUBERPULT_CDSERVER=cd-service:8443
-      - KUBERPULT_HTTP_CD_SERVER=http://cd-service:8080
       - LOG_LEVEL=INFO
       - KUBERPULT_ALLOWED_ORIGINS=localhost:*
       - KUBERPULT_GIT_AUTHOR_NAME=user-local-dev-docker-compose
