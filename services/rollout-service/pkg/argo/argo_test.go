@@ -121,11 +121,11 @@ func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context) error {
 		case overview := <-a.trigger:
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
-					appList := a.ApplicationClient.List(&application.ApplicationQuery{
+					appsKnownToArgo := a.ApplicationClient.List(&application.ApplicationQuery{
 						Name: ptr.FromString(fmt.Sprintf("%s-", env)),
 					})
 
-					err := a.DeleteArgoApps(ctx, appList, env.Applications)
+					err := a.DeleteArgoApps(ctx, appsKnownToArgo, env.Applications)
 
 					if err != nil {
 						fmt.Errorf("deleting applications: %w", err)
@@ -229,14 +229,14 @@ func (m *mockApplicationServiceClient) Create(ctx context.Context, req *applicat
 }
 
 func (m *mockApplicationServiceClient) List(qry *application.ApplicationQuery) []*v1alpha1.Application {
-	appList := make([]*v1alpha1.Application, 0)
+	appsKnownToArgo := make([]*v1alpha1.Application, 0)
 	for _, app := range m.Apps {
 		if app.App.Name == *qry.Name {
-			appList = append(appList, app.App)
+			appsKnownToArgo = append(appsKnownToArgo, app.App)
 		}
 	}
 
-	return appList
+	return appsKnownToArgo
 }
 
 func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T, expectedConsumed int) {
@@ -489,9 +489,9 @@ func TestArgoConsume(t *testing.T) {
 	}
 }
 
-func (a mockArgoProcessor) DeleteArgoApps(ctx context.Context, appList []*v1alpha1.Application, apps map[string]*api.Environment_Application) error {
+func (a mockArgoProcessor) DeleteArgoApps(ctx context.Context, appsKnownToArgo []*v1alpha1.Application, apps map[string]*api.Environment_Application) error {
 	toDelete := make([]*v1alpha1.Application, 0)
-	for _, argoApp := range appList {
+	for _, argoApp := range appsKnownToArgo {
 		for i, app := range apps {
 			if argoApp.Name == fmt.Sprintf("%s-%s", i, app.Name) {
 				break
@@ -518,7 +518,7 @@ func (a mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 	})
 
 	if argoApp == nil {
-		appToCreate := CreateDeployApplication(overview, app, k.Environment)
+		appToCreate := CreateArgoApplication(overview, app, k.Environment)
 		appToCreate.ResourceVersion = ""
 		upsert := false
 		validate := false
@@ -530,7 +530,7 @@ func (a mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 		a.ApplicationClient.Create(ctx, appCreateRequest)
 
 	} else {
-		appToUpdate := CreateDeployApplication(overview, app, k.Environment)
+		appToUpdate := CreateArgoApplication(overview, app, k.Environment)
 		appUpdateRequest := &application.ApplicationUpdateSpecRequest{
 			Name:         &appToUpdate.Name,
 			Spec:         &appToUpdate.Spec,

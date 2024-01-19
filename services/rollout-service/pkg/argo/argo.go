@@ -99,17 +99,19 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 		case overview := <-a.trigger:
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
-					appList, err := a.ApplicationClient.List(ctx, &application.ApplicationQuery{
+					appsKnownToArgo, err := a.ApplicationClient.List(ctx, &application.ApplicationQuery{
 						Name: ptr.FromString(fmt.Sprintf("%s-", env)),
 					})
 
 					if err != nil {
 						fmt.Errorf("listing applications: %w", err)
+						continue
 					}
-					err = a.DeleteArgoApps(ctx, appList, env.Applications)
+					err = a.DeleteArgoApps(ctx, appsKnownToArgo, env.Applications)
 
 					if err != nil {
 						fmt.Errorf("deleting applications: %w", err)
+						continue
 					}
 
 					for _, app := range env.Applications {
@@ -152,7 +154,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 		}
 
 		if argoApp == nil {
-			appToCreate := CreateDeployApplication(overview, app, k.Environment)
+			appToCreate := CreateArgoApplication(overview, app, k.Environment)
 			appToCreate.ResourceVersion = ""
 			upsert := false
 			validate := false
@@ -166,7 +168,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				fmt.Errorf("creating application: %w", err)
 			}
 		} else {
-			appToUpdate := CreateDeployApplication(overview, app, k.Environment)
+			appToUpdate := CreateArgoApplication(overview, app, k.Environment)
 			appUpdateRequest := &application.ApplicationUpdateSpecRequest{
 				Name:         &appToUpdate.Name,
 				Spec:         &appToUpdate.Spec,
@@ -213,8 +215,8 @@ func calculateFinalizers() []string {
 	}
 }
 
-func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, appList *v1alpha1.ApplicationList, apps map[string]*api.Environment_Application) error {
-	argoApps := appList.Items
+func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, appsKnownToArgo *v1alpha1.ApplicationList, apps map[string]*api.Environment_Application) error {
+	argoApps := appsKnownToArgo.Items
 	toDelete := make([]*v1alpha1.Application, 0)
 	for _, argoApp := range argoApps {
 		for i, app := range apps {
@@ -238,7 +240,7 @@ func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, appList *v1alpha1.
 	return nil
 }
 
-func CreateDeployApplication(overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment) *v1alpha1.Application {
+func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment) *v1alpha1.Application {
 	applicationNs := ""
 
 	annotations := make(map[string]string)
