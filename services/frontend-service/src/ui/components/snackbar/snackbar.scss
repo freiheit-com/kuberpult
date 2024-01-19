@@ -13,29 +13,50 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-@use '@material/snackbar/mdc-snackbar';
+@import '../../../assets/variables';
 
-.mdc-snackbar {
+.k-snackbar {
+    // align to the bottom of the viewport:
+    position: fixed;
+    bottom: 8px;
+    // do not overlap with the nav bar on the left:
     margin-left: ($nav-bar-width + 0.5em);
+    padding: 1em 0 1em 20px;
+
+    color: white;
+
     .mdc-snackbar__surface {
         border-radius: 6px;
     }
-}
-
-.mdc-snackbar--success {
-    .mdc-snackbar__surface {
-        background: var(--mdc-theme-success);
+    &.snackbar-color-error {
+        background-color: var(--mdc-theme-error);
     }
-}
-
-.mdc-snackbar--warn {
-    .mdc-snackbar__surface {
-        background: var(--mdc-theme-warn);
+    &.snackbar-color-warn {
+        background-color: var(--mdc-theme-warn);
     }
-}
+    &.snackbar-color-success {
+        background-color: var(--mdc-theme-success);
+    }
 
-.mdc-snackbar--error {
-    .mdc-snackbar__surface {
-        background: var(--mdc-theme-error);
+    .mdc-button.mdc-ripple-upgraded {
+        color: white;
+    }
+
+    .k-snackbar-content {
+        display: flex;
+
+        .k-snackbar-text {
+            flex: 1;
+            text-align: center;
+        }
+
+        .k-snackbar-button {
+            margin-left: 20px;
+            button {
+                // the button is naturally bigger than the span (k-snackbar-text)
+                // thus we reduce it, so they are aligned:
+                max-height: 14px;
+            }
+        }
     }
 }

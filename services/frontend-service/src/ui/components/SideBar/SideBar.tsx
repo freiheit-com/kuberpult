@@ -391,7 +391,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 <h4>Conflicting App Locks:</h4>
                 <ul>
                     {conflictingLocks.appLocks.map((appLock: DisplayLock) => (
-                        <li>
+                        <li key={appLock.lockId + '-' + appLock.application + '-' + appLock.environment}>
                             <DisplayLockInlineRenderer
                                 lock={appLock}
                                 key={appLock.lockId + '-' + appLock.application + '-' + appLock.environment}

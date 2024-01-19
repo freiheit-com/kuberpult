@@ -128,7 +128,6 @@ export const showSnackbarError = (content: string): void =>
     UpdateSnackbar.set({ show: true, status: SnackbarStatus.ERROR, content: content });
 export const showSnackbarWarn = (content: string): void =>
     UpdateSnackbar.set({ show: true, status: SnackbarStatus.WARN, content: content });
-
 export const useSidebarShown = (): boolean => useSidebar(({ shown }) => shown);
 
 export const useNumberOfActions = (): number => useAction(({ actions }) => actions.length);
