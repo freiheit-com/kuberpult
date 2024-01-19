@@ -462,11 +462,23 @@ func TestArgoConsume(t *testing.T) {
 				argoApps:          make(chan *v1alpha1.ApplicationWatchEvent, 10),
 			}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
-			go argoProcessor.Consume(t, ctx)
-			go argoProcessor.ConsumeArgo(ctx, hlth.Reporter("consume-argo"))
+			errCh := make(chan error)
+			go func() {
+				errCh <- argoProcessor.Consume(t, ctx)
+			}()
+
+			go func() {
+				errCh <- argoProcessor.ConsumeArgo(ctx, hlth.Reporter("consume-argo"))
+			}()
+
 			argoProcessor.Push(ctx, tc.Overview)
 			//We add a delay so that all the events are reported by the application client
 			time.Sleep(10 * time.Second)
+			err := <-errCh
+
+			if err != nil {
+				t.Errorf("expected no error, but got %q", err)
+			}
 			as.testAllConsumed(t, tc.ExpectedConsumed)
 		})
 	}
