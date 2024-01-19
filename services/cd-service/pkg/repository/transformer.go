@@ -627,7 +627,6 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 		}
 		files, err := fs.ReadDir(dir)
 		if err != nil {
-
 			return fmt.Errorf(couldNotRemoveAppFormat, err)
 		}
 		if len(files) == 0 {
@@ -702,22 +701,21 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 	releasesDir := fs.Join(appDir, "releases")
 	files, err := fs.ReadDir(releasesDir)
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("could not read the releases directory: %w", err)
 	}
 	for _, file := range files {
 		if file.IsDir() {
 			releaseDir := fs.Join(releasesDir, file.Name())
 			commitIDFile := fs.Join(releaseDir, "source_commit_id")
-
+			fmt.Println(commitIDFile)
 			var commitID string
 			if dat, err := util.ReadFile(fs, commitIDFile); err != nil {
-				return "", nil, err
+				// release does not have a corresponding commit, which might be the case if it's an undeploy release, no prob
 			} else {
 				commitID = string(dat)
-			}
-
-			if err := removeCommit(fs, commitID, u.Application); err != nil {
-				return "", nil, err
+				if err := removeCommit(fs, commitID, u.Application); err != nil {
+					return "", nil, fmt.Errorf("could not remove the commit: %w", err)
+				}
 			}
 		}
 	}
