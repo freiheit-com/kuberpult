@@ -612,6 +612,33 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 	return fmt.Sprintf("created undeploy-version %d of '%v'\n%s", lastRelease+1, c.Application, result), changes, nil
 }
 
+func removeCommit(fs billy.Filesystem, commitID, application string) error {
+	couldNotRemoveAppFormat := "could not remove the application from the commit directory %w"
+	dir := commitApplicationDirectory(fs, commitID, application)
+	if err := fs.Remove(dir); err != nil {
+		return fmt.Errorf(couldNotRemoveAppFormat, err)
+	}
+	// check if there are no other services updated by this commit
+	// if there are none, start remove the entire branch of the commit
+	for {
+		dir = path.Dir(dir)
+		if dir == "commits" {
+			break
+		}
+		files, err := fs.ReadDir(dir)
+		if err != nil {
+
+			return fmt.Errorf(couldNotRemoveAppFormat, err)
+		}
+		if len(files) == 0 {
+			if err = fs.Remove(dir); err != nil {
+				return fmt.Errorf(couldNotRemoveAppFormat, err)
+			}
+		}
+	}
+	return nil
+}
+
 type UndeployApplication struct {
 	Authentication
 	Application string
@@ -672,6 +699,28 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 
 	}
 	// remove application
+	releasesDir := fs.Join(appDir, "releases")
+	files, err := fs.ReadDir(releasesDir)
+	if err != nil {
+		return "", nil, err
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			releaseDir := fs.Join(releasesDir, file.Name())
+			commitIDFile := fs.Join(releaseDir, "source_commit_id")
+
+			var commitID string
+			if dat, err := util.ReadFile(fs, commitIDFile); err != nil {
+				return "", nil, err
+			} else {
+				commitID = string(dat)
+			}
+
+			if err := removeCommit(fs, commitID, u.Application); err != nil {
+				return "", nil, err
+			}
+		}
+	}
 	if err = fs.Remove(appDir); err != nil {
 		return "", nil, err
 	}
@@ -806,40 +855,17 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 		if err != nil {
 			return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
-
+		
 		{
-			couldNotRemoteApp := "CleanupOldApplicationVersions: could not remove the application from the commit directory"
 			commitIDFile := fs.Join(releasesDir, "source_commit_id")
-			var commitID string
-			if dat, err := util.ReadFile(fs, commitIDFile); err != nil {
-				return "", nil, wrapFileError(err, commitIDFile, couldNotRemoteApp)
-			} else {
-				commitID = string(dat)
+			dat, err := util.ReadFile(fs, commitIDFile)
+			if err != nil {
+				return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not read commit ID")
 			}
-
-			dir := commitApplicationDirectory(fs, commitID, c.Application)
-			if err := fs.Remove(dir); err != nil {
-				return "", nil, wrapFileError(err, dir, couldNotRemoteApp)
-			}
-			// check if there are no other services updated by this commit
-			// if there are none, start remove the entire branch of the commit
-			for {
-				dir = path.Dir(dir)
-				fmt.Printf("dir: %s\n", dir)
-				if dir == "commits" {
-					break
-				}
-				files, err := fs.ReadDir(dir)
-				if err != nil {
-					return "", nil, wrapFileError(err, dir, couldNotRemoteApp)
-				}
-				if len(files) == 0 {
-					if err = fs.Remove(dir); err != nil {
-						return "", nil, wrapFileError(err, dir, couldNotRemoteApp)
-					}
-				}
-			}
+			commitID := string(dat)
+			removeCommit(fs, commitID, c.Application)
 		}
+
 		err = fs.Remove(releasesDir)
 		if err != nil {
 			return "", nil, fmt.Errorf("CleanupOldApplicationVersions: Unexpected error app %s: %w",
