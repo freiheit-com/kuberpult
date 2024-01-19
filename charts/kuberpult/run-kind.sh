@@ -48,6 +48,7 @@ function waitForDeployment() {
   ns="$1"
   label="$2"
   print "waitForDeployment: $ns/$label"
+  sleep 10
   until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
   do
     sleep 4s
@@ -69,7 +70,8 @@ function portForwardAndWait() {
   ports="$portHere:$portThere"
   print "portForwardAndWait for $ns/$deployment $ports"
   kubectl -n "$ns" port-forward "$deployment" "$ports" &
-  print "portForwardAndWait: waiting until the port forward works..."2
+  print "portForwardAndWait: waiting until the port forward works..."
+  sleep 10
   until nc -vz localhost "$portHere"
   do
     sleep 3s
@@ -108,17 +110,17 @@ print "setting up manifest repo"
 waitForDeployment "git" "app.kubernetes.io/name=server"
 portForwardAndWait "git" "deployment/server" "2222" "22"
 
-rm emptyfile -f
+rm -f emptyfile
 print "cloning..."
 GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../services/cd-service/client' git clone ssh://git@localhost:2222/git/repos/manifests
 
 cd manifests
 pwd
-cp ../../../infrastructure/scripts/create-testdata/testdata_template/environments -r .
+cp -r ../../../infrastructure/scripts/create-testdata/testdata_template/environments .
 git add environments
 GIT_AUTHOR_NAME='Initial Kuberpult Commiter' GIT_COMMITTER_NAME='Initial Kuberpult Commiter' GIT_AUTHOR_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com'  GIT_COMMITTER_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com' git commit -m "add initial environments from template"
 print "pushing environments to manifest repo..."
-GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../../services/cd-service/client' git push origin master
+GIT_SSH_COMMAND='ssh -o UserKnownHostsFile=emptyfile -o StrictHostKeyChecking=no -i ../../../services/cd-service/client' git push origin main
 cd -
 
 
@@ -239,6 +241,7 @@ portForwardAndWait "default" service/argocd-server 8080 443
 print "admin password:"
 argocd_adminpw=$(kubectl -n default get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
 echo "$argocd_adminpw"
+echo "$argocd_adminpw" > argocd_adminpw.txt
 
 argocd login --port-forward --username admin --password "$argocd_adminpw"
 
