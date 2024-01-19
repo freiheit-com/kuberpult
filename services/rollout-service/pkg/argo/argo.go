@@ -13,23 +13,6 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-/*
-This file is part of kuberpult.
-
-Kuberpult is free software: you can redistribute it and/or modify
-it under the terms of the Expat(MIT) License as published by
-the Free Software Foundation.
-
-Kuberpult is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-MIT License for more details.
-
-You should have received a copy of the MIT License
-along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
-
-Copyright 2023 freiheit.com
-*/
 package argo
 
 import (
@@ -104,18 +87,18 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 					})
 
 					if err != nil {
-						fmt.Errorf("listing applications: %w", err)
+						logger.FromContext(ctx).Error("listing applications")
 						continue
 					}
 					err = a.DeleteArgoApps(ctx, appsKnownToArgo, env.Applications)
 
 					if err != nil {
-						fmt.Errorf("deleting applications: %w", err)
+						logger.FromContext(ctx).Error("deleting applications")
 						continue
 					}
 
 					for _, app := range env.Applications {
-						a.CreateOrUpdateApp(ctx, overview, app, env)
+						a.CreateOrUpdateApp(ctx, overview, app, env, appsKnownToArgo)
 					}
 				}
 			}
@@ -140,20 +123,21 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 	}
 }
 
-func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment) {
+func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo *v1alpha1.ApplicationList) {
 	t := team(overview, app.Name)
 	if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, t) {
 		k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
 
-		argoApp, err := a.ApplicationClient.Get(ctx, &application.ApplicationQuery{
-			Name: ptr.FromString(app.Name),
-		})
+		appExists := false
 
-		if err != nil {
-			fmt.Errorf("getting application: %w", err)
+		for _, app := range appsKnownToArgo.Items {
+			if app.Annotations["com.freiheit.kuberpult/application"] != "" {
+				appExists = true
+				break
+			}
 		}
 
-		if argoApp == nil {
+		if !appExists {
 			appToCreate := CreateArgoApplication(overview, app, k.Environment)
 			appToCreate.ResourceVersion = ""
 			upsert := false
@@ -163,9 +147,9 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				Upsert:      &upsert,
 				Validate:    &validate,
 			}
-			_, err = a.ApplicationClient.Create(ctx, appCreateRequest)
+			_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
 			if err != nil {
-				fmt.Errorf("creating application: %w", err)
+				logger.FromContext(ctx).Error("creating application: %w")
 			}
 		} else {
 			appToUpdate := CreateArgoApplication(overview, app, k.Environment)
@@ -174,9 +158,9 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				Spec:         &appToUpdate.Spec,
 				AppNamespace: &appToUpdate.Namespace,
 			}
-			_, err = a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
+			_, err := a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
 			if err != nil {
-				fmt.Errorf("updating application: %w", err)
+				logger.FromContext(ctx).Error("updating application")
 			}
 		}
 	}
@@ -219,10 +203,8 @@ func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, appsKnownToArgo *v
 	argoApps := appsKnownToArgo.Items
 	toDelete := make([]*v1alpha1.Application, 0)
 	for _, argoApp := range argoApps {
-		for i, app := range apps {
-			if argoApp.Name == fmt.Sprintf("%s-%s", i, app.Name) {
-				break
-			}
+		if apps[argoApp.Annotations["com.freiheit.kuberpult/application"]] == nil {
+			break
 		}
 		toDelete = append(toDelete, &argoApp)
 	}

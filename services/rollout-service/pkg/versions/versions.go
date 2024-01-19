@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argocd/v1alpha1"
 	"strconv"
 	"time"
 
@@ -61,12 +60,6 @@ type VersionInfo struct {
 	Version        uint64
 	SourceCommitId string
 	DeployedAt     time.Time
-}
-
-type Job struct {
-	Name        string
-	Content     string
-	Application *v1alpha1.Application
 }
 
 func (v *VersionInfo) Equal(w *VersionInfo) bool {
