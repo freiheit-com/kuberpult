@@ -8,7 +8,7 @@ git:
   webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
 
   # The branch to be use in the manifest repository
-  branch: "main"
+  branch: "master"
 
   # If this is set, kuberpult will render a link to apps in the manifest repository (not the source repo).
   # Use `{dir}` and `{branch}` to automatically replace with proper values
