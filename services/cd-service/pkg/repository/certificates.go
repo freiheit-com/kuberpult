@@ -71,7 +71,7 @@ type certificateStore struct {
 func (store *certificateStore) CertificateCheckCallback(ctx context.Context) func(cert *git.Certificate, valid bool, hostname string) error {
 	if store == nil {
 		return func(cert *git.Certificate, valid bool, hostname string) error {
-			return fmt.Errorf("certificates error") // should never be called
+			return fmt.Errorf("Certificate error; Store is nil: %d %t %s", cert.Kind, valid, hostname) // should never be called
 		}
 	}
 	logger := logger.FromContext(ctx)
@@ -93,6 +93,6 @@ func (store *certificateStore) CertificateCheckCallback(ctx context.Context) fun
 				)
 			}
 		}
-		return fmt.Errorf("certificates error")
+		return fmt.Errorf("certificates error: %d %t %s", cert.Kind, valid, hostname)
 	}
 }
