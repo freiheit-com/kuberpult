@@ -8,7 +8,7 @@ git:
   webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
 
   # The branch to be use in the manifest repository
-  branch: "master"
+  branch: "main"
 
   # If this is set, kuberpult will render a link to apps in the manifest repository (not the source repo).
   # Use `{dir}` and `{branch}` to automatically replace with proper values
@@ -265,7 +265,7 @@ revolution:
     # Maximum number of requests send in parallel.
     concurrency: 20
 
-# Whether the rollout service should self manage applications
+# Whether the rollout service should self-manage applications
 manageArgoApplications:
-  enabled: true
-  filter: ""
+  enabled: false
+  filter: []

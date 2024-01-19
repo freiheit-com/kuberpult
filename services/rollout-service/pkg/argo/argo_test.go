@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,7 +13,8 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright 2023 freiheit.com
+*/
 package argo
 
 import (
@@ -23,6 +25,7 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -30,6 +33,7 @@ import (
 	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
+	"time"
 )
 
 type step struct {
@@ -37,8 +41,6 @@ type step struct {
 	WatchErr      error
 	RecvErr       error
 	CancelContext bool
-
-	ExpectedEvent *ArgoEvent
 }
 
 type mockApplicationRequest struct {
@@ -50,12 +52,6 @@ func (m *mockApplicationServiceClient) Recv() (*v1alpha1.ApplicationWatchEvent, 
 	if m.current >= len(m.Steps) {
 		return nil, fmt.Errorf("exhausted: %w", io.EOF)
 	}
-	if m.current != 0 {
-		lastReply := m.Steps[m.current-1]
-		if lastReply.ExpectedEvent == nil {
-
-		}
-	}
 	reply := m.Steps[m.current]
 	if reply.CancelContext {
 		m.cancel()
@@ -66,6 +62,7 @@ func (m *mockApplicationServiceClient) Recv() (*v1alpha1.ApplicationWatchEvent, 
 
 type mockApplicationServiceClient struct {
 	Steps     []step
+	Apps      []*ArgoApp
 	current   int
 	t         *testing.T
 	lastEvent chan *ArgoEvent
@@ -73,75 +70,74 @@ type mockApplicationServiceClient struct {
 	grpc.ClientStream
 }
 
+type ArgoApp struct {
+	App       *v1alpha1.Application
+	LastEvent string
+}
+
 type mockArgoProcessor struct {
-	trigger           chan *v1alpha1.Application
+	trigger           chan *api.GetOverviewResponse
 	lastOverview      *api.GetOverviewResponse
 	argoApps          chan *v1alpha1.ApplicationWatchEvent
 	ApplicationClient *mockApplicationServiceClient
 	HealthReporter    *setup.HealthReporter
 }
 
-func (a *mockArgoProcessor) Push(ctx context.Context, last *api.GetOverviewResponse, appToPush *v1alpha1.Application) {
+func (a *mockArgoProcessor) Push(ctx context.Context, last *api.GetOverviewResponse) {
 	a.lastOverview = last
 	select {
-	case a.trigger <- appToPush:
+	case a.trigger <- a.lastOverview:
 	default:
 	}
 }
 
-func (a *mockArgoProcessor) Consume(ctx context.Context) error {
-	seen := map[Key]*api.Environment_Application{}
+func (a *mockArgoProcessor) checkEvent(ev *v1alpha1.ApplicationWatchEvent) bool {
+	for _, argoApp := range a.ApplicationClient.Apps {
+		if argoApp.App.Name == ev.Application.Name && string(ev.Type) == argoApp.LastEvent {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context) error {
 	for {
 		select {
-		case <-a.trigger:
-		case ev := <-a.argoApps:
-			appName, envName := getEnvironmentAndName(ev.Application.Annotations)
-			key := Key{Application: appName, Environment: envName}
-			if ok := seen[key]; ok == nil {
+		case overview := <-a.trigger:
+			for _, envGroup := range overview.EnvironmentGroups {
+				for _, env := range envGroup.Environments {
+					appList := a.ApplicationClient.List(&application.ApplicationQuery{
+						Name: ptr.FromString(fmt.Sprintf("%s-", env)),
+					})
 
-				switch ev.Type {
-				case "ADDED":
-					appCreateRequest := &mockApplicationRequest{
-						Type: "Create",
-						Name: ev.Application.Name,
+					err := a.DeleteArgoApps(ctx, appList, env.Applications)
+
+					if err != nil {
+						fmt.Errorf("deleting applications: %w", err)
 					}
-					fmt.Println(appCreateRequest.Name)
-				case "MODIFIED":
-					appUpdateRequest := &mockApplicationRequest{
-						Type: "Update",
-						Name: ev.Application.Name,
+
+					for _, app := range env.Applications {
+						a.CreateOrUpdateApp(ctx, overview, app, env)
 					}
-					fmt.Println(appUpdateRequest.Name)
-				case "DELETED":
-					appDeleteRequest := &mockApplicationRequest{
-						Type: "Delete",
-						Name: ev.Application.Name,
-					}
-					fmt.Println(appDeleteRequest.Name)
+				}
+			}
+		case ev := <-a.argoApps:
+			switch ev.Type {
+			case "ADDED", "MODIFIED", "DELETED":
+				if !a.checkEvent(ev) {
+					t.Fatal("expected event was not generated")
 				}
 			}
 
 		case <-ctx.Done():
 			return nil
 		}
-
-		overview := a.lastOverview
-		for _, envGroup := range overview.EnvironmentGroups {
-			for _, env := range envGroup.Environments {
-				for _, app := range env.Applications {
-					k := Key{Application: app.Name, Environment: env.Name}
-					if ok := seen[k]; ok != nil {
-						seen[k] = app
-					}
-				}
-			}
-		}
 	}
 }
 
-func (a *mockArgoProcessor) ConsumeArgo(ctx context.Context, argo SimplifiedApplicationServiceClient, hlth *setup.HealthReporter) error {
+func (a *mockArgoProcessor) ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter) error {
 	for {
-		watch, err := argo.Watch(ctx, &application.ApplicationQuery{})
+		watch, err := a.ApplicationClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
 			if status.Code(err) == codes.Canceled {
 				// context is cancelled -> we are shutting down
@@ -149,6 +145,7 @@ func (a *mockArgoProcessor) ConsumeArgo(ctx context.Context, argo SimplifiedAppl
 			}
 			return fmt.Errorf("watching applications: %w", err)
 		}
+		hlth.ReportReady("consuming events")
 		ev, err := watch.Recv()
 		if err != nil {
 			if status.Code(err) == codes.Canceled {
@@ -179,6 +176,54 @@ func (m *mockApplicationServiceClient) Watch(ctx context.Context, qry *applicati
 	return m, nil
 }
 
+func (m *mockApplicationServiceClient) Get(ctx context.Context, qry *application.ApplicationQuery, opts ...grpc.CallOption) *v1alpha1.Application {
+	for _, app := range m.Apps {
+		if app.App.Name == *qry.Name {
+			return app.App
+		}
+	}
+	return nil
+}
+
+func (m *mockApplicationServiceClient) Delete(ctx context.Context, req *application.ApplicationDeleteRequest) {
+	for _, app := range m.Apps {
+		if app.App.Name == *req.Name {
+			deleteApp := &ArgoApp{App: app.App, LastEvent: "DELETED"}
+			m.Apps = append(m.Apps, deleteApp)
+			return
+		}
+	}
+}
+
+func (m *mockApplicationServiceClient) UpdateSpec(ctx context.Context, req *application.ApplicationUpdateSpecRequest) {
+	for _, a := range m.Apps {
+		if a.App.Name == *req.Name {
+			updateApp := &ArgoApp{App: a.App, LastEvent: "MODIFIED"}
+			m.Apps = append(m.Apps, updateApp)
+			break
+		}
+	}
+}
+
+func (m *mockApplicationServiceClient) Create(ctx context.Context, req *application.ApplicationCreateRequest) {
+	newApp := &ArgoApp{
+		App:       req.Application,
+		LastEvent: "ADDED",
+	}
+	m.Apps = append(m.Apps, newApp)
+}
+
+func (m *mockApplicationServiceClient) List(qry *application.ApplicationQuery) []*v1alpha1.Application {
+	appList := make([]*v1alpha1.Application, 0)
+	for _, app := range m.Apps {
+		if app.App.Name == *qry.Name {
+			appList = append(appList, app.App)
+		}
+	}
+
+	return appList
+}
+
 func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T, expectedConsumed int) {
 	if expectedConsumed != m.current && m.current < len(m.Steps) {
 		t.Errorf("expected to consume all %d replies, only consumed %d", len(m.Steps), m.current)
@@ -190,7 +235,7 @@ func (m *mockApplicationServiceClient) ProcessArgoEvent(ctx context.Context, ev 
 	m.lastEvent <- &ev
 }
 
-func TestArgoConection(t *testing.T) {
+func TestArgoConsume(t *testing.T) {
 	tcs := []struct {
 		Name             string
 		Steps            []step
@@ -330,9 +375,24 @@ func TestArgoConection(t *testing.T) {
 							},
 						},
 					},
-					// Applications generated by kuberpult have name = "<env>-<name>" and project = "<env>".
-					// This application doesn't follow this scheme and must not create an event.
-					ExpectedEvent: nil,
+				},
+				{
+					Event: &v1alpha1.ApplicationWatchEvent{
+						Type: "MODIFIED",
+						Application: v1alpha1.Application{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "foo",
+								Annotations: map[string]string{},
+							},
+							Spec: v1alpha1.ApplicationSpec{
+								Project: "",
+							},
+							Status: v1alpha1.ApplicationStatus{
+								Sync:   v1alpha1.SyncStatus{Revision: "1234"},
+								Health: v1alpha1.HealthStatus{},
+							},
+						},
+					},
 				},
 				{
 					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
@@ -400,38 +460,68 @@ func TestArgoConection(t *testing.T) {
 			argoProcessor := &mockArgoProcessor{
 				lastOverview:      tc.Overview,
 				ApplicationClient: as,
-				HealthReporter:    hlth.Reporter("consume-argo"),
-				trigger:           make(chan *v1alpha1.Application, 1),
-				argoApps:          make(chan *v1alpha1.ApplicationWatchEvent, 2),
+				trigger:           make(chan *api.GetOverviewResponse, 10),
+				argoApps:          make(chan *v1alpha1.ApplicationWatchEvent, 10),
 			}
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
-			go argoProcessor.Consume(ctx)
-			for _, envGroup := range tc.Overview.EnvironmentGroups {
-				for _, env := range envGroup.Environments {
-					for _, app := range env.Applications {
-						annotations := map[string]string{}
-						labels := map[string]string{}
-
-						annotations["com.freiheit.kuberpult/team"] = "testing-team"
-						annotations["com.freiheit.kuberpult/application"] = app.Name
-						annotations["com.freiheit.kuberpult/environment"] = env.Name
-						// This annotation is so that argoCd does not invalidate *everything* in the whole repo when receiving a git webhook.
-						// It has to start with a "/" to be absolute to the git repo.
-						// See https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#webhook-and-manifest-paths-annotation
-						manifestPath := "/test"
-						annotations["argocd.argoproj.io/manifest-generate-paths"] = manifestPath
-						labels["com.freiheit.kuberpult/team"] = "testing-team"
-
-						deployApp := CreateDeployApplication(tc.Overview, app, env, annotations, labels, manifestPath)
-
-						argoProcessor.Push(ctx, tc.Overview, deployApp)
-
-					}
-				}
-			}
-			argoProcessor.ConsumeArgo(ctx, as, argoProcessor.HealthReporter)
+			go argoProcessor.Consume(t, ctx)
+			go argoProcessor.ConsumeArgo(ctx, hlth.Reporter("consume-argo"))
+			argoProcessor.Push(ctx, tc.Overview)
+			//We add a delay so that all the events are reported by the application client
+			time.Sleep(10 * time.Second)
 			as.testAllConsumed(t, tc.ExpectedConsumed)
 		})
+	}
+}
+
+func (a mockArgoProcessor) DeleteArgoApps(ctx context.Context, appList []*v1alpha1.Application, apps map[string]*api.Environment_Application) error {
+	toDelete := make([]*v1alpha1.Application, 0)
+	for _, argoApp := range appList {
+		for i, app := range apps {
+			if argoApp.Name == fmt.Sprintf("%s-%s", i, app.Name) {
+				break
+			}
+		}
+		toDelete = append(toDelete, argoApp)
+	}
+
+	for i := range toDelete {
+		a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
+			Name: ptr.FromString(toDelete[i].Name),
+		})
+
+	}
+
+	return nil
+}
+
+func (a mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment) {
+	k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
+
+	argoApp := a.ApplicationClient.Get(ctx, &application.ApplicationQuery{
+		Name: ptr.FromString(app.Name),
+	})
+
+	if argoApp == nil {
+		appToCreate := CreateDeployApplication(overview, app, k.Environment)
+		appToCreate.ResourceVersion = ""
+		upsert := false
+		validate := false
+		appCreateRequest := &application.ApplicationCreateRequest{
+			Application: appToCreate,
+			Upsert:      &upsert,
+			Validate:    &validate,
+		}
+		a.ApplicationClient.Create(ctx, appCreateRequest)
+
+	} else {
+		appToUpdate := CreateDeployApplication(overview, app, k.Environment)
+		appUpdateRequest := &application.ApplicationUpdateSpecRequest{
+			Name:         &appToUpdate.Name,
+			Spec:         &appToUpdate.Spec,
+			AppNamespace: &appToUpdate.Namespace,
+		}
+		a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
 	}
 }
 

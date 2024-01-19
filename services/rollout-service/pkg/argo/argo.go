@@ -67,11 +67,11 @@ type Key struct {
 }
 
 func (a *ArgoAppProcessor) Push(ctx context.Context, last *api.GetOverviewResponse) {
-	l := logger.FromContext(ctx).With(zap.String("argo-consuming", "ready"))
+	l := logger.FromContext(ctx).With(zap.String("argo-pushing", "ready"))
 	a.lastOverview = last
 	select {
 	case a.trigger <- a.lastOverview:
-		l.Info("argocd.pushing")
+		l.Info("argocd.pushed")
 	default:
 	}
 }
@@ -98,67 +98,69 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 					}
 
 					for _, app := range env.Applications {
-						t := team(overview, app.Name)
-						if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, t) {
-							k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
-
-							argoApp, err := a.ApplicationClient.Get(ctx, &application.ApplicationQuery{
-								Name: ptr.FromString(app.Name),
-							})
-
-							if err != nil {
-								fmt.Errorf("getting application: %w", err)
-							}
-
-							if argoApp == nil {
-								appToCreate := CreateDeployApplication(overview, app, k.Environment)
-								appToCreate.ResourceVersion = ""
-								upsert := false
-								validate := false
-								appCreateRequest := &application.ApplicationCreateRequest{
-									Application: appToCreate,
-									Upsert:      &upsert,
-									Validate:    &validate,
-								}
-								_, err = a.ApplicationClient.Create(ctx, appCreateRequest)
-								if err != nil {
-									fmt.Errorf("creating application: %w", err)
-								}
-							} else {
-								appToUpdate := CreateDeployApplication(overview, app, k.Environment)
-								appUpdateRequest := &application.ApplicationUpdateSpecRequest{
-									Name:         &appToUpdate.Name,
-									Spec:         &appToUpdate.Spec,
-									AppNamespace: &appToUpdate.Namespace,
-								}
-								_, err = a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
-								if err != nil {
-									fmt.Errorf("updating application: %w", err)
-								}
-							}
-
-						}
+						a.CreateOrUpdateApp(ctx, overview, app, env)
 					}
 				}
 			}
 
 		case ev := <-a.argoApps:
-			appName, envName := getEnvironmentAndName(ev.Application.Annotations)
-			k := Key{AppName: appName, EnvName: envName}
-			if k.AppName == "" {
+			appName, _ := getEnvironmentAndName(ev.Application.Annotations)
+			if appName == "" {
 				continue
 			}
 			switch ev.Type {
 			case "ADDED":
-				l.Info(fmt.Sprintf("argocd.created-%s", k.AppName))
+				l.Info(fmt.Sprintf("argocd.created-%s", appName))
 			case "MODIFIED":
-				l.Info(fmt.Sprintf("argocd.updated-%s", k.AppName))
+				l.Info(fmt.Sprintf("argocd.updated-%s", appName))
 			case "DELETED":
-				l.Info(fmt.Sprintf("argocd.deleted-%s", k.AppName))
+				l.Info(fmt.Sprintf("argocd.deleted-%s", appName))
 			}
 
 		case <-ctx.Done():
 			return nil
+		}
+	}
+}
+
+func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment) {
+	t := team(overview, app.Name)
+	if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, t) {
+		k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
+
+		argoApp, err := a.ApplicationClient.Get(ctx, &application.ApplicationQuery{
+			Name: ptr.FromString(app.Name),
+		})
+
+		if err != nil {
+			fmt.Errorf("getting application: %w", err)
+		}
+
+		if argoApp == nil {
+			appToCreate := CreateDeployApplication(overview, app, k.Environment)
+			appToCreate.ResourceVersion = ""
+			upsert := false
+			validate := false
+			appCreateRequest := &application.ApplicationCreateRequest{
+				Application: appToCreate,
+				Upsert:      &upsert,
+				Validate:    &validate,
+			}
+			_, err = a.ApplicationClient.Create(ctx, appCreateRequest)
+			if err != nil {
+				fmt.Errorf("creating application: %w", err)
+			}
+		} else {
+			appToUpdate := CreateDeployApplication(overview, app, k.Environment)
+			appUpdateRequest := &application.ApplicationUpdateSpecRequest{
+				Name:         &appToUpdate.Name,
+				Spec:         &appToUpdate.Spec,
+				AppNamespace: &appToUpdate.Namespace,
+			}
+			_, err = a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
+			if err != nil {
+				fmt.Errorf("updating application: %w", err)
+			}
 		}
 	}
 }
@@ -172,7 +174,7 @@ func (a *ArgoAppProcessor) ConsumeArgo(ctx context.Context, hlth *setup.HealthRe
 		}
 		return fmt.Errorf("watching applications: %w", err)
 	}
-	hlth.ReportReady("consuming events")
+	hlth.ReportReady("consuming argo events")
 	for {
 		ev, err := watch.Recv()
 		if err != nil {
