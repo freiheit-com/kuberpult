@@ -89,8 +89,6 @@ spec:
           value: {{ .Values.git.author.email | quote }}
         - name: KUBERPULT_CDSERVER
           value: kuberpult-cd-service:8443
-        - name: KUBERPULT_HTTP_CD_SERVER
-          value: http://kuberpult-cd-service:80
         - name: KUBERPULT_ARGOCD_BASE_URL
           value: {{ .Values.argocd.baseUrl | quote }}
         - name: KUBERPULT_VERSION

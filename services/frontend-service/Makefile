@@ -46,7 +46,6 @@ bin/main: $(ALL_GO_FILES) | proto
 GARBAGE += bin/main
 
 export KUBERPULT_CDSERVER?=localhost:8443
-export KUBERPULT_HTTP_CD_SERVER?=http://localhost:8080
 export KUBERPULT_ALLOWED_ORIGINS?=localhost:*
 export KUBERPULT_ARGOCD_BASE_URL=https://cd.dev.freiheit.systems/
 export KUBERPULT_SOURCE_REPO_URL=https://github.com/freiheit-com/kuberpult/commit/{commit}
