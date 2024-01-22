@@ -19,6 +19,8 @@ package versions
 import (
 	"context"
 	"fmt"
+	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 	"strconv"
 	"time"
 
@@ -42,12 +44,16 @@ var RolloutServiceUser auth.User = auth.User{
 type VersionClient interface {
 	GetVersion(ctx context.Context, revision, environment, application string) (*VersionInfo, error)
 	ConsumeEvents(ctx context.Context, processor VersionEventProcessor, hr *setup.HealthReporter) error
+	GetArgoProcessor() *argo.ArgoAppProcessor
 }
 
 type versionClient struct {
-	overviewClient api.OverviewServiceClient
-	versionClient  api.VersionServiceClient
-	cache          *lru.Cache
+	overviewClient        api.OverviewServiceClient
+	versionClient         api.VersionServiceClient
+	cache                 *lru.Cache
+	manageArgoAppsEnabled bool
+	manageArgoAppsFilter  string
+	ArgoProcessor         argo.ArgoAppProcessor
 }
 
 type VersionInfo struct {
@@ -202,6 +208,7 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			v.cache.Add(overview.GitRevision, overview)
 			l.Info("overview.get")
 			seen := make(map[key]uint64, len(versions))
+			l.Info(strconv.Itoa(len(overview.EnvironmentGroups)))
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
 					for _, app := range env.Applications {
@@ -230,9 +237,12 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 								DeployedAt:     dt,
 							},
 						})
+
 					}
 				}
 			}
+			l.Info("version.push")
+			v.ArgoProcessor.Push(ctx, overview)
 			// Send events with version 0 for deleted applications so that we can react
 			// to apps getting deleted.
 			for k := range versions {
@@ -251,11 +261,16 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	})
 }
 
-func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient) VersionClient {
+func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled bool, manageArgoApplicationFilter []string) VersionClient {
 	result := &versionClient{
 		cache:          lru.New(20),
 		overviewClient: oclient,
 		versionClient:  vclient,
+		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, manageArgoApplicationFilter),
 	}
 	return result
+}
+
+func (v *versionClient) GetArgoProcessor() *argo.ArgoAppProcessor {
+	return &v.ArgoProcessor
 }

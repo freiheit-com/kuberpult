@@ -58,6 +58,8 @@ const emptyOverview: EnhancedOverview = {
     environmentGroups: [],
     gitRevision: '',
     loaded: false,
+    branch: '',
+    manifestRepoUrl: '',
 };
 const [useOverview, UpdateOverview_] = createStore(emptyOverview);
 export const UpdateOverview = UpdateOverview_; // we do not want to export "useOverview". The store.tsx should act like a facade to the data.

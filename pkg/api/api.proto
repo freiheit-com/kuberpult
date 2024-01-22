@@ -285,6 +285,8 @@ message GetOverviewResponse {
   map<string, Application> applications = 2;
   repeated EnvironmentGroup environmentGroups = 3;
   string git_revision = 4;
+  string branch = 5;
+  string manifestRepoUrl = 6;
 }
 
 message EnvironmentGroup {

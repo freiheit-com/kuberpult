@@ -93,6 +93,10 @@ spec:
           value: {{ .Values.argocd.refresh.enabled | quote }}
         - name: KUBERPULT_ARGOCD_REFRESH_CONCURRENCY
           value: {{ .Values.argocd.refresh.concurrency | quote }}
+        - name: KUBERPULT_MANAGE_ARGO_APPLICATIONS_ENABLED
+          value: {{ .Values.manageArgoApplications.enabled | quote }}
+        - name: KUBERPULT_MANAGE_ARGO_APPLICATIONS_FILTER
+          value: {{ .Values.manageArgoApplications.filter | quote }}
         - name: LOG_FORMAT
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
