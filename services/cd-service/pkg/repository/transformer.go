@@ -254,12 +254,8 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		return "", nil, GetCreateReleaseGeneralFailure(err)
 	}
 
-	if !valid.CommitID(c.SourceCommitId) {
-		return "", nil, GetCreateReleaseGeneralFailure(fmt.Errorf("the provided commit ID is invalid, given %s, expected a valid SHA1 hash", c.SourceCommitId))
-	}
-	commitDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
-	if err = fs.MkdirAll(commitDir, 0777); err != nil {
-		return "", nil, GetCreateReleaseGeneralFailure(err)
+	if !valid.SHA1CommitID(c.SourceCommitId) {
+		logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash: %s\n", c.SourceCommitId)
 	}
 
 	configs, err := state.GetEnvironmentConfigs()
@@ -281,8 +277,14 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		if err := fs.MkdirAll(commitDir, 0777); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
-		if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
-			return "", nil, GetCreateReleaseGeneralFailure(err)
+		if valid.SHA1CommitID(c.SourceCommitId) {
+			commitDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
+			if err := fs.MkdirAll(commitDir, 0777); err != nil {
+				return "", nil, GetCreateReleaseGeneralFailure(err)
+			}
+			if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
+				return "", nil, GetCreateReleaseGeneralFailure(err)
+			}
 		}
 		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_commit_id"), []byte(c.SourceCommitId), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
@@ -713,8 +715,10 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 				// release does not have a corresponding commit, which might be the case if it's an undeploy release, no prob
 			} else {
 				commitID = string(dat)
-				if err := removeCommit(fs, commitID, u.Application); err != nil {
-					return "", nil, fmt.Errorf("could not remove the commit: %w", err)
+				if valid.SHA1CommitID(commitID) {
+					if err := removeCommit(fs, commitID, u.Application); err != nil {
+						return "", nil, fmt.Errorf("could not remove the commit: %w", err)
+					}
 				}
 			}
 		}
@@ -853,7 +857,7 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 		if err != nil {
 			return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
-		
+
 		{
 			commitIDFile := fs.Join(releasesDir, "source_commit_id")
 			dat, err := util.ReadFile(fs, commitIDFile)
@@ -861,7 +865,11 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 				return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not read commit ID")
 			}
 			commitID := string(dat)
-			removeCommit(fs, commitID, c.Application)
+			if valid.SHA1CommitID(commitID) {
+				if err := removeCommit(fs, commitID, c.Application); err != nil {
+					return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not remove commit path")
+				}
+			}
 		}
 
 		err = fs.Remove(releasesDir)

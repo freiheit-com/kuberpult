@@ -53,6 +53,6 @@ func LockId(lockId string) bool {
 	return len(lockId) < 100 && len(lockId) > 1 && lockId != ".." && lockId != "." && !strings.ContainsAny(lockId, "/")
 }
 
-func CommitID(commitID string) bool {
+func SHA1CommitID(commitID string) bool {
 	return commitIDRx.MatchString(commitID)
 }
