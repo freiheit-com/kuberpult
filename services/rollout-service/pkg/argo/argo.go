@@ -85,7 +85,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
 					appsKnownToArgo, err := a.ApplicationClient.List(ctx, &application.ApplicationQuery{
-						Name: ptr.FromString(fmt.Sprintf("%s-", env)),
+						Name: ptr.FromString(env.Name),
 					})
 
 					if err != nil {
