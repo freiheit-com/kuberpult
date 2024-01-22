@@ -3,10 +3,6 @@ FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastruc
 RUN apk --update add --no-cache curl make nodejs npm ca-certificates tzdata
 RUN npm install -g pnpm@8.5.1
 
-# cd-service:
-ADD services/cd-service/cmd/server/ /kp/services/cd-service/cmd/server/
-ADD services/cd-service/pkg /kp/services/cd-service/pkg
-
 # frontend-service:
 ADD services/frontend-service/cmd/server/ /kp/services/frontend-service/cmd/server/
 ADD services/frontend-service/pkg /kp/services/frontend-service/pkg

@@ -5,10 +5,6 @@ WORKDIR /kp/
 
 RUN apk --update add ca-certificates tzdata
 
-# cd-service:
-ADD services/cd-service/cmd/server/ /kp/services/cd-service/cmd/server/
-ADD services/cd-service/pkg /kp/services/cd-service/pkg
-
 # rollout-service:
 ADD services/rollout-service/cmd/server/ /kp/services/rollout-service/cmd/server/
 ADD services/rollout-service/pkg /kp/services/rollout-service/pkg

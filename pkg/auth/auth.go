@@ -21,8 +21,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"google.golang.org/grpc/metadata"
 	"net/http"
 )
