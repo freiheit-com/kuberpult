@@ -84,23 +84,16 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 		case overview := <-a.trigger:
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
-					appsKnownToArgo, err := a.ApplicationClient.List(ctx, &application.ApplicationQuery{
-						Name: ptr.FromString(env.Name),
-					})
+					envAppsKnownToArgo := appsKnownToArgo[env.Name]
+					err := a.DeleteArgoApps(ctx, envAppsKnownToArgo, env.Applications)
 
 					if err != nil {
-						logger.FromContext(ctx).Error("listing applications")
-						continue
-					}
-					err = a.DeleteArgoApps(ctx, appsKnownToArgo, env.Applications)
-
-					if err != nil {
-						logger.FromContext(ctx).Error("deleting applications")
+						l.Error("deleting applications")
 						continue
 					}
 
 					for _, app := range env.Applications {
-						a.CreateOrUpdateApp(ctx, overview, app, env, appsKnownToArgo)
+						a.CreateOrUpdateApp(ctx, overview, app, env, envAppsKnownToArgo)
 					}
 				}
 			}
@@ -116,7 +109,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 			envKnownToArgo := appsKnownToArgo[envName]
 			switch ev.Type {
 			case "ADDED", "MODIFIED":
-				envKnownToArgo[appName] = ev.Application
+				envKnownToArgo[appName] = &ev.Application
 			case "DELETED":
 				delete(envKnownToArgo, appName)
 			}
@@ -127,15 +120,15 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 	}
 }
 
-func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo *v1alpha1.ApplicationList) {
+func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
 	t := team(overview, app.Name)
 	if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, t) {
 		k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
 
 		appExists := false
 
-		for _, app := range appsKnownToArgo.Items {
-			if app.Annotations["com.freiheit.kuberpult/application"] != "" {
+		for _, argoApp := range appsKnownToArgo {
+			if argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
 				appExists = true
 				break
 			}
@@ -206,14 +199,13 @@ func calculateFinalizers() []string {
 	}
 }
 
-func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, appsKnownToArgo *v1alpha1.ApplicationList, apps map[string]*api.Environment_Application) error {
-	argoApps := appsKnownToArgo.Items
+func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, apps map[string]*api.Environment_Application) error {
 	toDelete := make([]*v1alpha1.Application, 0)
 	for _, argoApp := range argoApps {
 		if apps[argoApp.Annotations["com.freiheit.kuberpult/application"]] == nil {
 			break
 		}
-		toDelete = append(toDelete, &argoApp)
+		toDelete = append(toDelete, argoApp)
 	}
 
 	for i := range toDelete {
