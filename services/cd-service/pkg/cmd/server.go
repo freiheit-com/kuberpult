@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
@@ -144,6 +145,12 @@ func RunServer() {
 
 		// If the tracer is not started, calling this function is a no-op.
 		span, ctx := tracer.StartSpanFromContext(ctx, "Start server")
+
+		if strings.HasPrefix(c.GitUrl, "https") {
+			logger.FromContext(ctx).Fatal("git.url.protocol.unsupported",
+				zap.String("url", c.GitUrl),
+				zap.String("details", "https is not supported for git communication, only ssh is supported"))
+		}
 
 		cfg := repository.RepositoryConfig{
 			URL:            c.GitUrl,
