@@ -861,12 +861,12 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 			commitIDFile := fs.Join(releasesDir, "source_commit_id")
 			dat, err := util.ReadFile(fs, commitIDFile)
 			if err != nil {
-				return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not read commit ID")
-			}
-			commitID := string(dat)
-			if valid.SHA1CommitID(commitID) {
-				if err := removeCommit(fs, commitID, c.Application); err != nil {
-					return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not remove commit path")
+				// not a problem, might be the undeploy commit
+			} else {
+				commitID := string(dat)
+				if valid.SHA1CommitID(commitID) {
+					if err := removeCommit(fs, commitID, c.Application); err != nil {
+						return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not remove commit path")
 				}
 			}
 		}
