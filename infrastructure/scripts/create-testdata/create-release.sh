@@ -92,8 +92,8 @@ then
   EMAIL=$(echo -n "script-user@example.com" | base64 -b0)
   AUTHOR=$(echo -n "script-user" | base64 -b0)
 else
-  EMAIL=$(echo -n "script-user@example.com" | base64 -w)
-  AUTHOR=$(echo -n "script-user" | base64 -w)
+  EMAIL=$(echo -n "script-user@example.com" | base64 -w 0)
+  AUTHOR=$(echo -n "script-user" | base64 -w 0)
 fi
 
 curl http://localhost:${FRONTEND_PORT}/release \
