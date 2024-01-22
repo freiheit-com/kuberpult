@@ -31,5 +31,5 @@
   "upstream": {
     "latest": true
   },
-  "group": "devgroup"
+  "environmentGroup": "devgroup"
 }

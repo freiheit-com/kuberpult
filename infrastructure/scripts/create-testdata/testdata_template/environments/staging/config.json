@@ -30,5 +30,6 @@
   },
   "upstream": {
     "environment": "development2"
-  }
+  },
+  "environmentGroup": "staging"
 }

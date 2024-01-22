@@ -44,9 +44,9 @@ msgs[10]="Allow deleting locks on locks page"
 sizeMsgs=${#msgs[@]}
 index=$(($RANDOM % $sizeMsgs))
 echo $index
-echo ${msgs[$index]} > "${commit_message_file}"
+echo "${msgs[$index]}" > "${commit_message_file}"
 
-ls ${commit_message_file}
+ls "${commit_message_file}"
 
 release_version=''
 case "${RELEASE_VERSION:-}" in
@@ -87,8 +87,14 @@ echo commit id: "${commit_id}"
 
 FRONTEND_PORT=8081 # see docker-compose.yml
 
-EMAIL=$(echo -n "script-user@example.com" | base64 -w 0)
-AUTHOR=$(echo -n "script-user" | base64 -w 0)
+if [[ $(uname -o) == Darwin ]];
+then
+  EMAIL=$(echo -n "script-user@example.com" | base64 -b0)
+  AUTHOR=$(echo -n "script-user" | base64 -b0)
+else
+  EMAIL=$(echo -n "script-user@example.com" | base64 -w 0)
+  AUTHOR=$(echo -n "script-user" | base64 -w 0)
+fi
 
 curl http://localhost:${FRONTEND_PORT}/release \
   -H "author-email:${EMAIL}" \
