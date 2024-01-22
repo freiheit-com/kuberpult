@@ -855,7 +855,7 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 		if err != nil {
 			return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
-		
+
 		{
 			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
 			dat, err := util.ReadFile(fs, commitIDFile)
@@ -870,7 +870,11 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 				}
 			}
 			commitID := string(dat)
-			removeCommit(fs, commitID, c.Application)
+			if valid.SHA1CommitID(commitID) {
+				if err := removeCommit(fs, commitID, c.Application); err != nil {
+					return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not remove commit path")
+				}
+			}
 		}
 
 		err = fs.Remove(releasesDir)
