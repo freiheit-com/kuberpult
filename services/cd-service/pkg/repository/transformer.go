@@ -867,6 +867,7 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 				if valid.SHA1CommitID(commitID) {
 					if err := removeCommit(fs, commitID, c.Application); err != nil {
 						return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not remove commit path")
+					}
 				}
 			}
 		}
