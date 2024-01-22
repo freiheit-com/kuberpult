@@ -383,7 +383,7 @@ func TestBatchServiceErrors(t *testing.T) {
 						},
 					},
 				}},
-			ExpectedResponse: `results:{create_release_response:{too_long:{appName:"myappIsWayTooLongDontYouThink"  regExp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z"  maxLen:39}}}`,
+			ExpectedResponse: `results:{create_release_response:{too_long:{appName:"myappIsWayTooLongDontYouThink" regExp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z" maxLen:39}}}`,
 		},
 	}
 	for _, tc := range tcs {
@@ -408,10 +408,10 @@ func TestBatchServiceErrors(t *testing.T) {
 				},
 			)
 			if tc.ExpectedResponse != "" && response.String() != tc.ExpectedResponse {
-				t.Fatalf("expected: %s, got: %s, %s", tc.ExpectedResponse, response.String(), processErr)
+				t.Fatalf("expected:\n%s\ngot:\n%s\n%s", tc.ExpectedResponse, response.String(), processErr)
 			}
 			if tc.ExpectedResponse == "" && tc.ExpectedError != processErr.Error() {
-				t.Fatalf("expected error: %s, got: %s, %s", tc.ExpectedError, response.String(), processErr)
+				t.Fatalf("expected error\n%s\ngot:\n%s\n%s", tc.ExpectedError, response.String(), processErr)
 			}
 		})
 	}
@@ -899,4 +899,3 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 		})
 	}
 }
-
