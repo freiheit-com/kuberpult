@@ -78,7 +78,7 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *api.GetOverviewRespon
 
 func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 	l := logger.FromContext(ctx).With(zap.String("event-consuming", "ready"))
-
+	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{}
 	for {
 		select {
 		case overview := <-a.trigger:
@@ -106,17 +106,19 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 			}
 
 		case ev := <-a.argoApps:
-			appName, _ := getEnvironmentAndName(ev.Application.Annotations)
+			appName, envName := getEnvironmentAndName(ev.Application.Annotations)
 			if appName == "" {
 				continue
 			}
+			if appsKnownToArgo[envName] == nil {
+				appsKnownToArgo[envName] = map[string]*v1alpha1.Application{}
+			}
+			envKnownToArgo := appsKnownToArgo[envName]
 			switch ev.Type {
-			case "ADDED":
-				l.Info(fmt.Sprintf("argocd.created-%s", appName))
-			case "MODIFIED":
-				l.Info(fmt.Sprintf("argocd.updated-%s", appName))
+			case "ADDED", "MODIFIED":
+				envKnownToArgo[appName] = ev.Application
 			case "DELETED":
-				l.Info(fmt.Sprintf("argocd.deleted-%s", appName))
+				delete(envKnownToArgo, appName)
 			}
 
 		case <-ctx.Done():
