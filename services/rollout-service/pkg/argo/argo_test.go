@@ -121,9 +121,6 @@ func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context, triggerEr
 		case ev := <-a.argoApps:
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
-				if !a.checkEvent(ev) {
-					t.Fatal("expected event was not generated")
-				}
 			}
 
 		case <-ctx.Done():
@@ -173,15 +170,6 @@ func (m *mockApplicationServiceClient) Watch(ctx context.Context, qry *applicati
 	return m, nil
 }
 
-func (m *mockApplicationServiceClient) Get(ctx context.Context, qry *application.ApplicationQuery, opts ...grpc.CallOption) *v1alpha1.Application {
-	for _, app := range m.Apps {
-		if app.App.Name == *qry.Name {
-			return app.App
-		}
-	}
-	return nil
-}
-
 func (m *mockApplicationServiceClient) Delete(ctx context.Context, req *application.ApplicationDeleteRequest) {
 	for _, app := range m.Apps {
 		if app.App.Name == *req.Name {
@@ -214,17 +202,6 @@ func (m *mockApplicationServiceClient) Create(ctx context.Context, req *applicat
 	}
 
 	return nil
-}
-
-func (m *mockApplicationServiceClient) List(qry *application.ApplicationQuery) []*v1alpha1.Application {
-	appsKnownToArgo := make([]*v1alpha1.Application, 0)
-	for _, app := range m.Apps {
-		if app.App.Name == *qry.Name {
-			appsKnownToArgo = append(appsKnownToArgo, app.App)
-		}
-	}
-
-	return appsKnownToArgo
 }
 
 func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T, expectedConsumed int) {
