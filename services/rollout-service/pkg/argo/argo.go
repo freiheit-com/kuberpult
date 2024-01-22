@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,7 +13,8 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright 2023 freiheit.com
+*/
 package argo
 
 import (
@@ -149,7 +151,10 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			}
 			_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
 			if err != nil {
-				logger.FromContext(ctx).Error("creating application: %w")
+				// We check if the application was created in the meantime
+				if status.Code(err) != codes.InvalidArgument {
+					logger.FromContext(ctx).Error("creating application: %w")
+				}
 			}
 		} else {
 			appToUpdate := CreateArgoApplication(overview, app, k.Environment)
