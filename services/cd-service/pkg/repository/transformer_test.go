@@ -18,9 +18,11 @@ package repository
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"os/exec"
 	"path"
 	"reflect"
@@ -41,6 +43,8 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
+	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
 
@@ -623,7 +627,7 @@ spec:
 	}
 }
 
-func TestCreateApplicationVersion(t *testing.T) {
+func TestCreateApplicationVersionIdempotency(t *testing.T) {
 	tcs := []struct {
 		Name             string
 		Transformers     []Transformer
@@ -726,6 +730,330 @@ func TestCreateApplicationVersion(t *testing.T) {
 
 			if !proto.Equal(&expectedErr, &actualErr) {
 				t.Fatalf("Expected different error (expected: %v, got: %v)", expectedErr, actualErr)
+			}
+		})
+	}
+}
+
+func verifyConsistency(fs billy.Filesystem) error {
+	type ApplicationDirectoryContent struct {
+		application    string
+		sourceCommitID string
+	}
+	applications := make([]ApplicationDirectoryContent, 0)
+
+	{
+		applicationsDir, err := fs.ReadDir("applications")
+		if err != nil {
+			return fmt.Errorf("could not open the applications directory: %w", err)
+		}
+
+		for _, applicationDir := range applicationsDir {
+			releasesDir, err := fs.ReadDir(fs.Join("applications", applicationDir.Name(), "releases"))
+			if err != nil {
+				return fmt.Errorf("could not open the releases directory: %w", err)
+			}
+			for _, releaseDir := range releasesDir {
+				commitIDFile, err := util.ReadFile(fs, fs.Join("applications", applicationDir.Name(), "releases", releaseDir.Name(), "source_commit_id"))
+
+				if err != nil {
+					return fmt.Errorf("could not read the source commit ID file: %w", err)
+				}
+
+				sourceCommitID := string(commitIDFile)
+				if valid.SHA1CommitID(sourceCommitID) {
+					applications = append(applications, ApplicationDirectoryContent{
+						application:    applicationDir.Name(),
+						sourceCommitID: sourceCommitID,
+					})
+				}
+			}
+		}
+	}
+
+	type CommitDirectoryContent struct {
+		application    string
+		sourceCommitID string
+	}
+	commits := make([]CommitDirectoryContent, 0)
+
+	{
+		commitsDir1, err := fs.ReadDir("commits")
+		if err != nil {
+			return fmt.Errorf("could not open the commits directory: %w", err)
+		}
+
+		for _, commitDir1 := range commitsDir1 {
+			commitsDir2, err := fs.ReadDir(fs.Join("commits", commitDir1.Name()))
+			if err != nil {
+				return fmt.Errorf("could not open the commit directory 1")
+			}
+
+			for _, commitDir2 := range commitsDir2 {
+				applicationsDir, err := fs.ReadDir(fs.Join("commits", commitDir1.Name(), commitDir2.Name(), "applications"))
+				if err != nil {
+					return fmt.Errorf("could not open the applications directory in the commits tree: %w", err)
+				}
+
+				for _, applicationDir := range applicationsDir {
+					commits = append(commits, CommitDirectoryContent{
+						application:    applicationDir.Name(),
+						sourceCommitID: commitDir1.Name() + commitDir2.Name(),
+					})
+				}
+			}
+		}
+	}
+
+	for _, app := range applications {
+		flag := false
+		for _, commit := range commits {
+			if app.application == commit.application && app.sourceCommitID == commit.sourceCommitID {
+				flag = true
+			}
+		}
+		if !flag {
+			return fmt.Errorf(`an (app, commit) combination was found in the application tree but not in the commits tree:
+			application tree: %v
+			commit tree: %v
+			missing: %v`, applications, commits, app)
+		}
+	}
+	for _, commit := range commits {
+		flag := false
+		for _, app := range applications {
+			if app.application == commit.application && app.sourceCommitID == commit.sourceCommitID {
+				flag = true
+			}
+		}
+		if !flag {
+			return fmt.Errorf(`an (app, commit) combination was found in the commits tree but not in the applications tree:
+			application tree: %v
+			commit tree: %v
+			missing: %v`, applications, commits, commit)
+		}
+	}
+	return nil
+}
+
+func randomCommitID() string {
+	commitID := make([]byte, 20)
+	rand.Read(commitID)
+	return hex.EncodeToString(commitID)
+}
+
+func TestCreateApplicationVersionCommitPathConsistency(t *testing.T) {
+	tcs := []struct {
+		Name         string
+		Transformers []Transformer
+	}{
+		{
+			Name: "Create one application with SHA1 commit ID",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+			},
+		},
+		{
+			Name: "Create several applications with different SHA1 commit ID's",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app1",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				&CreateApplicationVersion{
+					Application:    "app2",
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				},
+				&CreateApplicationVersion{
+					Application:    "app3",
+					SourceCommitId: "cccccccccccccccccccccccccccccccccccccccc",
+				},
+			},
+		},
+		{
+			Name: "Create several applications with different SHA1 commit ID's but the first 2 letters of the commitID's are the same",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app1",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				&CreateApplicationVersion{
+					Application:    "app2",
+					SourceCommitId: "aabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				},
+				&CreateApplicationVersion{
+					Application:    "app3",
+					SourceCommitId: "aacccccccccccccccccccccccccccccccccccccc",
+				},
+			},
+		},
+		{
+			Name: "Create several applications from the same SHA1 commit ID",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app1",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				&CreateApplicationVersion{
+					Application:    "app2",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				&CreateApplicationVersion{
+					Application:    "app3",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+			},
+		},
+		{
+			Name: "Create application with non SHA1 commit ID",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "nonsense",
+				},
+			},
+		},
+		{
+			Name: "Create more than 20 releases of the same application",
+			Transformers: func() []Transformer {
+				transformers := make([]Transformer, 30)
+
+				for idx, _ := range transformers {
+					transformers[idx] = &CreateApplicationVersion{
+						Application:    "app",
+						SourceCommitId: randomCommitID(),
+					}
+				}
+
+				return transformers
+			}(),
+		},
+		{
+			Name: "Create more than 20 releases of the same application but with other applications in the same commits",
+			Transformers: func() []Transformer {
+				transformers := make([]Transformer, 30)
+
+				firstCommitID := randomCommitID()
+				transformers[0] = &CreateApplicationVersion{
+					Application:    "app1",
+					SourceCommitId: firstCommitID,
+				}
+				transformers[1] = &CreateApplicationVersion{
+					Application:    "app2",
+					SourceCommitId: firstCommitID,
+				}
+
+				for idx := 2; idx < 30; idx++ {
+					transformers[idx] = &CreateApplicationVersion{
+						Application:    "app1",
+						SourceCommitId: randomCommitID(),
+					}
+				}
+
+				return transformers
+			}(),
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := testutil.MakeTestContext()
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			if err != nil {
+				t.Fatalf("encountered error but no error is expected here: %v", err)
+			}
+			fs := updatedState.Filesystem
+
+			err = verifyConsistency(fs)
+			if err != nil {
+				t.Fatalf("inconsistent manifet repo: %v", err)
+			}
+		})
+	}
+}
+
+func TestUndeployApplicationCommitPathConsistency(t *testing.T) {
+	tcs := []struct {
+		Name         string
+		Transformers []Transformer
+	}{
+		{
+			Name: "Create one application with SHA1 commit ID and then undeploy it",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app",
+				},
+				&UndeployApplication{
+					Application: "app",
+				},
+			},
+		},
+		{
+			Name: "Create two applications and then undeploy one of them",
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app1",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				&CreateApplicationVersion{
+					Application:    "app2",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				&CreateUndeployApplicationVersion{
+					Application: "app1",
+				},
+				&UndeployApplication{
+					Application: "app1",
+				},
+			},
+		},
+		{
+			Name: "Create two applications many times and then undeploy one of them",
+			Transformers: func() []Transformer {
+				transformers := make([]Transformer, 0)
+				for i := 0; i < 30; i++ {
+					commitID := randomCommitID()
+					transformers = append(transformers, &CreateApplicationVersion{
+						Application:    "app1",
+						SourceCommitId: commitID,
+					})
+					transformers = append(transformers, &CreateApplicationVersion{
+						Application:    "app2",
+						SourceCommitId: commitID,
+					})
+				}
+				transformers = append(transformers, &CreateUndeployApplicationVersion{
+					Application: "app1",
+				})
+				transformers = append(transformers, &UndeployApplication{
+					Application: "app1",
+				})
+				return transformers
+			}(),
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := testutil.MakeTestContext()
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			if err != nil {
+				t.Fatalf("encountered error but no error is expected here: %v", err)
+			}
+			fs := updatedState.Filesystem
+
+			err = verifyConsistency(fs)
+			if err != nil {
+				t.Fatalf("inconsistent manifet repo: %v", err)
 			}
 		})
 	}
