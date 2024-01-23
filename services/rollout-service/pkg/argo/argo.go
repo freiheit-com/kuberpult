@@ -165,30 +165,32 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 }
 
 func (a *ArgoAppProcessor) ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter) error {
-	watch, err := a.ApplicationClient.Watch(ctx, &application.ApplicationQuery{})
-	if err != nil {
-		if status.Code(err) == codes.Canceled {
-			// context is cancelled -> we are shutting down
-			return setup.Permanent(nil)
-		}
-		return fmt.Errorf("watching applications: %w", err)
-	}
-	hlth.ReportReady("consuming argo events")
-	for {
-		ev, err := watch.Recv()
+	return hlth.Retry(ctx, func() error {
+		watch, err := a.ApplicationClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
 			if status.Code(err) == codes.Canceled {
 				// context is cancelled -> we are shutting down
 				return setup.Permanent(nil)
 			}
-			return err
+			return fmt.Errorf("watching applications: %w", err)
 		}
+		hlth.ReportReady("consuming argo events")
+		for {
+			ev, err := watch.Recv()
+			if err != nil {
+				if status.Code(err) == codes.Canceled {
+					// context is cancelled -> we are shutting down
+					return setup.Permanent(nil)
+				}
+				return err
+			}
 
-		switch ev.Type {
-		case "ADDED", "MODIFIED", "DELETED":
-			a.argoApps <- ev
+			switch ev.Type {
+			case "ADDED", "MODIFIED", "DELETED":
+				a.argoApps <- ev
+			}
 		}
-	}
+	})
 }
 
 func calculateFinalizers() []string {
