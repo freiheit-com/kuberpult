@@ -305,6 +305,10 @@ service OverviewService {
   rpc StreamOverview (GetOverviewRequest) returns (stream GetOverviewResponse) {}
 }
 
+service EnvironmentService {
+  rpc GetEnvironmentConfig(GetEnvironmentConfigRequest) returns (GetEnvironmentConfigResponse) {}
+}
+
 message GetOverviewRequest {
   // Retrieve the overview at a certain state of the repository. If it's empty, the latest commit will be used.
   string git_revision = 1;
@@ -401,6 +405,14 @@ message EnvironmentConfig {
 message CreateEnvironmentRequest {
   string environment = 1;
   EnvironmentConfig config = 2;
+}
+
+message GetEnvironmentConfigRequest {
+  string environment = 1;
+}
+
+message GetEnvironmentConfigResponse {
+  EnvironmentConfig config = 1;
 }
 
 message Warning {

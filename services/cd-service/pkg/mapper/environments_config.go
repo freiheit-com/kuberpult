@@ -23,6 +23,10 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 )
 
 type EnvSortOrder = map[string]int
@@ -183,11 +187,10 @@ func calculateGroupPriority(distanceToUpstream, downstreamDepth uint32) api.Prio
 
 // either the groupName is set in the config, or we use the envName as a default
 func DeriveGroupName(env config.EnvironmentConfig, envName string) string {
-	var groupName = env.EnvironmentGroup
-	if groupName == nil {
-		groupName = &envName
+	if env.EnvironmentGroup == nil {
+		return strings.Clone(envName)
 	}
-	return *groupName
+	return strings.Clone(*env.EnvironmentGroup)
 }
 
 type EnvsByName map[string]*api.Environment
