@@ -1511,7 +1511,7 @@ func randomCommitID() string {
 	return hex.EncodeToString(commitID)
 }
 
-func TestCreateApplicationVersionCommitPathConsistency(t *testing.T) {
+func TestCreateApplicationVersionCommitPath(t *testing.T) {
 	type TestCase struct {
 		Name                   string
 		Transformers           []Transformer
@@ -1856,7 +1856,7 @@ func TestCreateApplicationVersionCommitPathConsistency(t *testing.T) {
 	}
 }
 
-func TestUndeployApplicationCommitPathConsistency(t *testing.T) {
+func TestUndeployApplicationCommitPath(t *testing.T) {
 	type TestCase struct {
 		Name                   string
 		Transformers           []Transformer
