@@ -735,7 +735,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 	}
 }
 
-func dumpFilesystemHelper(fs billy.Filesystem, path string) []string {
+func listFilesHelper(fs billy.Filesystem, path string) []string {
 	ret := make([]string, 0)
 
 	files, err := fs.ReadDir(path)
@@ -750,7 +750,7 @@ func dumpFilesystemHelper(fs billy.Filesystem, path string) []string {
 	return ret
 }
 
-func dumpFilesystem(fs billy.Filesystem) []string {
+func listFiles(fs billy.Filesystem) []string {
 	paths := dumpFilesystemHelper(fs, ".")
 	sort.Slice(paths, func(i, j int) bool { return paths[i] < paths[j] })
 	return paths
