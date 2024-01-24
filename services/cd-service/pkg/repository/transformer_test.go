@@ -718,7 +718,6 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 			if err := prototext.Unmarshal([]byte(tc.expectedErrorMsg), &expectedErr); err != nil {
 				t.Fatalf("failed to unmarshal the expected error object: %v", err)
 			}
-
 			repo := setupRepositoryTest(t)
 			_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
 			if err == nil {
