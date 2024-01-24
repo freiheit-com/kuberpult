@@ -1209,7 +1209,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := testutil.MakeTestContext()
-			// t.Parallel()
+			t.Parallel()
 			repo := setupRepositoryTest(t)
 			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			if err != nil {
