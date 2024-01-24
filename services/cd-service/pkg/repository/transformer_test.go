@@ -31,6 +31,8 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -52,10 +54,6 @@ const (
 )
 
 var timeNowOld = time.Date(1999, 01, 02, 03, 04, 05, 0, time.UTC)
-
-func trimAllSpace(s string) string {
-	return strings.Join(strings.Fields(s), " ")
-}
 
 func TestUndeployApplicationErrors(t *testing.T) {
 	tcs := []struct {
@@ -714,8 +712,18 @@ func TestCreateApplicationVersion(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error, got none.")
 			}
-			if trimAllSpace(err.Error()) != tc.expectedErrorMsg {
-				t.Fatalf("Expected different error (expected: %s, got: %s)", tc.expectedErrorMsg, err.Error())
+			var expectedErr api.CreateReleaseResponse
+			if err := prototext.Unmarshal([]byte(tc.expectedErrorMsg), &expectedErr); err != nil {
+				t.Fatalf("failed to unmarshal the expected error object: %v", err)
+			}
+
+			var actualErr api.CreateReleaseResponse
+			if err := prototext.Unmarshal([]byte(err.Error()), &actualErr); err != nil {
+				t.Fatalf("failed to unmarshal the actual error object: %v", err)
+			}
+
+			if !proto.Equal(&expectedErr, &actualErr) {
+				t.Fatalf("Expected different error (expected: %v, got: %v)", expectedErr, actualErr)
 			}
 		})
 	}
