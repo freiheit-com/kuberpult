@@ -707,14 +707,17 @@ func TestCreateApplicationVersion(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
+
+			// optimization: no need to set up the repository if this fails
+			var expectedErr api.CreateReleaseResponse
+			if err := prototext.Unmarshal([]byte(tc.expectedErrorMsg), &expectedErr); err != nil {
+				t.Fatalf("failed to unmarshal the expected error object: %v", err)
+			}
+
 			repo := setupRepositoryTest(t)
 			_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
 			if err == nil {
 				t.Fatalf("expected error, got none.")
-			}
-			var expectedErr api.CreateReleaseResponse
-			if err := prototext.Unmarshal([]byte(tc.expectedErrorMsg), &expectedErr); err != nil {
-				t.Fatalf("failed to unmarshal the expected error object: %v", err)
 			}
 
 			var actualErr api.CreateReleaseResponse
