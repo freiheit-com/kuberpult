@@ -27,6 +27,7 @@ import (
 	"path"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -42,8 +43,8 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
@@ -735,6 +736,51 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 	}
 }
 
+func dumpFilesystemHelper(fs billy.Filesystem, path string) []string {
+	ret := make([]string, 0)
+
+	files, err := fs.ReadDir(path)
+	if err == nil {
+		for _, file := range files {
+			ret = append(ret, dumpFilesystemHelper(fs, fs.Join(path, file.Name()))...)
+		}
+	} else {
+		ret = append(ret, path)
+	}
+
+	return ret
+}
+
+func dumpFilesystem(fs billy.Filesystem) []string {
+	paths := dumpFilesystemHelper(fs, ".")
+	sort.Slice(paths, func(i, j int) bool { return paths[i] < paths[j] })
+	return paths
+}
+
+func verifyCommitPathsExist(fs billy.Filesystem, paths []string) error {
+	for _, path := range paths {
+		_, err := fs.Stat(path)
+		if err != nil {
+			return fmt.Errorf(`error verifying commit path exists. path: %s, error: %v
+			
+			directory tree: %s`, path, err, strings.Join(dumpFilesystem(fs), "\n"))
+		}
+	}
+	return nil
+}
+
+func verifyCommitPathsDontExist(fs billy.Filesystem, paths []string) error {
+	for _, path := range paths {
+		_, err := fs.Stat(path)
+		if err == nil {
+			return fmt.Errorf(`error verifying commit path doesn't exist. path: %s, error expected but none was raised
+			
+			directory tree: %s`, path, strings.Join(dumpFilesystem(fs), "\n"))
+		}
+	}
+	return nil
+}
+
 func verifyConsistency(fs billy.Filesystem) error {
 	type ApplicationDirectoryContent struct {
 		application    string
@@ -814,9 +860,10 @@ func verifyConsistency(fs billy.Filesystem) error {
 		}
 		if !flag {
 			return fmt.Errorf(`an (app, commit) combination was found in the application tree but not in the commits tree:
-			application tree: %v
-			commit tree: %v
-			missing: %v`, applications, commits, app)
+			application tree pairs: %v
+			commit tree pairs: %v
+			missing: %v
+			directory tree: %v`, applications, commits, app, strings.Join(dumpFilesystem(fs), "\n"))
 		}
 	}
 	for _, commit := range commits {
@@ -828,9 +875,10 @@ func verifyConsistency(fs billy.Filesystem) error {
 		}
 		if !flag {
 			return fmt.Errorf(`an (app, commit) combination was found in the commits tree but not in the applications tree:
-			application tree: %v
-			commit tree: %v
-			missing: %v`, applications, commits, commit)
+			application tree pairs: %v
+			commit tree pairs: %v
+			missing: %v
+			directory tree: %v`, applications, commits, commit, strings.Join(dumpFilesystem(fs), "\n"))
 		}
 	}
 	return nil
@@ -843,130 +891,341 @@ func randomCommitID() string {
 }
 
 func TestCreateApplicationVersionCommitPathConsistency(t *testing.T) {
-	tcs := []struct {
-		Name         string
-		Transformers []Transformer
-	}{
+	type TestCase struct {
+		Name                   string
+		Transformers           []Transformer
+		ExistentCommitPaths    []string
+		NonExistentCommitPaths []string
+	}
+	tcs := []TestCase{
 		{
 			Name: "Create one application with SHA1 commit ID",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
 				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+			},
+			ExistentCommitPaths: []string{
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.empty",
 			},
 		},
 		{
 			Name: "Create several applications with different SHA1 commit ID's",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
 				&CreateApplicationVersion{
 					Application:    "app1",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
 				},
 				&CreateApplicationVersion{
 					Application:    "app2",
 					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
 				},
 				&CreateApplicationVersion{
 					Application:    "app3",
 					SourceCommitId: "cccccccccccccccccccccccccccccccccccccccc",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
 				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app2",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app3",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+			},
+			ExistentCommitPaths: []string{
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
+				"commits/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/applications/app2/.empty",
+				"commits/cc/cccccccccccccccccccccccccccccccccccccc/applications/app3/.empty",
 			},
 		},
 		{
 			Name: "Create several applications with different SHA1 commit ID's but the first 2 letters of the commitID's are the same",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
 				&CreateApplicationVersion{
 					Application:    "app1",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
 				},
 				&CreateApplicationVersion{
 					Application:    "app2",
 					SourceCommitId: "aabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
 				},
 				&CreateApplicationVersion{
 					Application:    "app3",
 					SourceCommitId: "aacccccccccccccccccccccccccccccccccccccc",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
 				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app2",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app3",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+			},
+			ExistentCommitPaths: []string{
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
+				"commits/aa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/applications/app2/.empty",
+				"commits/aa/cccccccccccccccccccccccccccccccccccccc/applications/app3/.empty",
 			},
 		},
 		{
 			Name: "Create several applications from the same SHA1 commit ID",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
 				&CreateApplicationVersion{
 					Application:    "app1",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
 				},
 				&CreateApplicationVersion{
 					Application:    "app2",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
 				},
 				&CreateApplicationVersion{
 					Application:    "app3",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
 				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app1",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app2",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app3",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+			},
+			ExistentCommitPaths: []string{
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app2/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app3/.empty",
 			},
 		},
 		{
 			Name: "Create application with non SHA1 commit ID",
 			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
 				&CreateApplicationVersion{
 					Application:    "app",
 					SourceCommitId: "nonsense",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
 				},
 			},
 		},
-		{
-			Name: "Create more than 20 releases of the same application",
-			Transformers: func() []Transformer {
-				transformers := make([]Transformer, 30)
-
-				for idx, _ := range transformers {
-					transformers[idx] = &CreateApplicationVersion{
-						Application:    "app",
-						SourceCommitId: randomCommitID(),
-					}
-				}
-
-				return transformers
-			}(),
-		},
-		{
-			Name: "Create more than 20 releases of the same application but with other applications in the same commits",
-			Transformers: func() []Transformer {
-				transformers := make([]Transformer, 30)
-
-				firstCommitID := randomCommitID()
-				transformers[0] = &CreateApplicationVersion{
-					Application:    "app1",
-					SourceCommitId: firstCommitID,
-				}
-				transformers[1] = &CreateApplicationVersion{
-					Application:    "app2",
-					SourceCommitId: firstCommitID,
-				}
-
-				for idx := 2; idx < 30; idx++ {
-					transformers[idx] = &CreateApplicationVersion{
-						Application:    "app1",
-						SourceCommitId: randomCommitID(),
-					}
-				}
-
-				return transformers
-			}(),
-		},
 	}
+
+	{
+		name := "Create more than 20 releases of the same application"
+		transformers := make([]Transformer, 0)
+		commitPaths := make([]string, 0)
+		transformers = append(transformers, &CreateEnvironment{
+			Environment: "acceptance",
+			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+		})
+		
+		for idx := 0; idx < 30; idx++ {
+			commitID := randomCommitID()
+			transformer := &CreateApplicationVersion{
+				Application:    "app",
+				SourceCommitId: commitID,
+				Manifests: map[string]string{
+					envAcceptance: "acceptance",
+				},
+			}
+			commitPath := path.Join("commits", commitID[:2], commitID[2:], "applications", "app", ".empty")
+
+			transformers = append(transformers, transformer)
+			commitPaths = append(commitPaths, commitPath)
+		}
+		
+		transformers = append(transformers, &DeployApplicationVersion{
+			Environment:   envAcceptance,
+			Application:   "app",
+			Version:       30,
+			LockBehaviour: api.LockBehavior_Fail,
+		})
+
+		tcs = append(tcs, TestCase{
+			Name:                   name,
+			Transformers:           transformers,
+			ExistentCommitPaths:    commitPaths[len(commitPaths)-20:],
+			NonExistentCommitPaths: commitPaths[:len(commitPaths)-20],
+		})
+	}
+
+	{
+		name := "Create more than 20 releases of the same application but with other applications in the same commits"
+		transformers := make([]Transformer, 0)
+		commitPaths1 := make([]string, 0)
+		commitPaths2 := make([]string, 0)
+
+		firstCommitID := randomCommitID()
+		transformers = append(transformers, &CreateEnvironment{
+			Environment: "acceptance",
+			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+			
+		})
+		
+		transformers = append(transformers, &CreateApplicationVersion{
+			Application:    "app1",
+			SourceCommitId: firstCommitID,
+			Manifests: map[string]string{
+				envAcceptance: "acceptance",
+			},
+		})
+		commitPaths1 = append(commitPaths1, path.Join("commits", firstCommitID[:2], firstCommitID[2:], "applications", "app1", ".empty"))
+		transformers = append(transformers, &DeployApplicationVersion{
+			Environment:   envAcceptance,
+			Application:   "app1",
+			Version:       1,
+			LockBehaviour: api.LockBehavior_Fail,
+		})
+
+		transformers = append(transformers, &CreateApplicationVersion{
+			Application:    "app2",
+			SourceCommitId: firstCommitID,
+		})
+		commitPaths2 = append(commitPaths2, path.Join("commits", firstCommitID[:2], firstCommitID[2:], "applications", "app2", ".empty"))
+
+		for idx := 0; idx < 30; idx++ {
+			commitID := randomCommitID()
+			transformers = append(transformers, &CreateApplicationVersion{
+				Application:    "app2",
+				SourceCommitId: commitID,
+				Manifests: map[string]string{
+					envAcceptance: "acceptance",
+				},
+			})
+			commitPaths2 = append(commitPaths2, path.Join("commits", commitID[:2], commitID[2:], "applications", "app2", ".empty"))
+		}
+
+		transformers = append(transformers, &DeployApplicationVersion{
+			Environment:   envAcceptance,
+			Application:   "app2",
+			Version:       31,
+			LockBehaviour: api.LockBehavior_Fail,
+		})
+
+		tcs = append(tcs, TestCase{
+			Name:                   name,
+			Transformers:           transformers,
+			ExistentCommitPaths:    append(commitPaths1, commitPaths2[len(commitPaths2)-20:]...),
+			NonExistentCommitPaths: commitPaths2[:len(commitPaths2)-20],
+		})
+	}
+
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := testutil.MakeTestContext()
-			t.Parallel()
+			// t.Parallel()
 			repo := setupRepositoryTest(t)
 			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			if err != nil {
 				t.Fatalf("encountered error but no error is expected here: %v", err)
 			}
 			fs := updatedState.Filesystem
+
+			err = verifyCommitPathsExist(fs, tc.ExistentCommitPaths)
+			if err != nil {
+				t.Fatalf("some paths failed to create: %v", err)
+			}
+
+			err = verifyCommitPathsDontExist(fs, tc.NonExistentCommitPaths)
+			if err != nil {
+				t.Fatalf("some paths failed to delete: %v", err)
+			}
 
 			err = verifyConsistency(fs)
 			if err != nil {
@@ -977,10 +1236,13 @@ func TestCreateApplicationVersionCommitPathConsistency(t *testing.T) {
 }
 
 func TestUndeployApplicationCommitPathConsistency(t *testing.T) {
-	tcs := []struct {
-		Name         string
-		Transformers []Transformer
-	}{
+	type TestCase struct {
+		Name                   string
+		Transformers           []Transformer
+		ExistentCommitPaths    []string
+		NonExistentCommitPaths []string
+	}
+	tcs := []TestCase{
 		{
 			Name: "Create one application with SHA1 commit ID and then undeploy it",
 			Transformers: []Transformer{
@@ -994,6 +1256,9 @@ func TestUndeployApplicationCommitPathConsistency(t *testing.T) {
 				&UndeployApplication{
 					Application: "app",
 				},
+			},
+			NonExistentCommitPaths: []string{
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.empty",
 			},
 		},
 		{
@@ -1014,32 +1279,53 @@ func TestUndeployApplicationCommitPathConsistency(t *testing.T) {
 					Application: "app1",
 				},
 			},
-		},
-		{
-			Name: "Create two applications many times and then undeploy one of them",
-			Transformers: func() []Transformer {
-				transformers := make([]Transformer, 0)
-				for i := 0; i < 30; i++ {
-					commitID := randomCommitID()
-					transformers = append(transformers, &CreateApplicationVersion{
-						Application:    "app1",
-						SourceCommitId: commitID,
-					})
-					transformers = append(transformers, &CreateApplicationVersion{
-						Application:    "app2",
-						SourceCommitId: commitID,
-					})
-				}
-				transformers = append(transformers, &CreateUndeployApplicationVersion{
-					Application: "app1",
-				})
-				transformers = append(transformers, &UndeployApplication{
-					Application: "app1",
-				})
-				return transformers
-			}(),
+			ExistentCommitPaths: []string{
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app2/.empty",
+			},
+			NonExistentCommitPaths: []string{
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
+			},
 		},
 	}
+
+	{
+		name := "Create two applications many times and then undeploy one of them"
+		transformers := make([]Transformer, 0)
+		commitPaths1 := make([]string, 0)
+		commitPaths2 := make([]string, 0)
+
+		for i := 0; i < 30; i++ {
+			commitID := randomCommitID()
+			transformers = append(transformers, &CreateApplicationVersion{
+				Application:    "app1",
+				SourceCommitId: commitID,
+			})
+			transformers = append(transformers, &CreateApplicationVersion{
+				Application:    "app2",
+				SourceCommitId: commitID,
+			})
+
+			commitPaths1 = append(commitPaths1, path.Join("commits", commitID[:2], commitID[2:], "applications", "app1", ".empty"))
+			commitPaths2 = append(commitPaths2, path.Join("commits", commitID[:2], commitID[2:], "applications", "app1", ".empty"))
+		}
+
+		transformers = append(transformers, &CreateUndeployApplicationVersion{
+			Application: "app1",
+		})
+		transformers = append(transformers, &UndeployApplication{
+			Application: "app1",
+		})
+
+		existentCommitPaths := commitPaths2[len(commitPaths2)-20:]
+		NonExistentCommitPaths := append(commitPaths1, commitPaths2[:len(commitPaths2)-20]...)
+		tcs = append(tcs, TestCase{
+			Name:                   name,
+			Transformers:           transformers,
+			ExistentCommitPaths:    existentCommitPaths,
+			NonExistentCommitPaths: NonExistentCommitPaths,
+		})
+	}
+
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := testutil.MakeTestContext()
