@@ -851,7 +851,7 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
 			dat, err := util.ReadFile(fs, commitIDFile)
 			if err != nil {
-				// not a problem, might be the undeploy commit
+				// not a problem, might be the undeploy commit or the commit has was not specified in CreateApplicationVersion
 			} else {
 				commitID := string(dat)
 				if valid.SHA1CommitID(commitID) {
