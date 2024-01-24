@@ -762,8 +762,7 @@ func verifyCommitPathsExist(fs billy.Filesystem, paths []string) error {
 		_, err := fs.Stat(path)
 		if err != nil {
 			return fmt.Errorf(`error verifying commit path exists. path: %s, error: %v
-			
-			directory tree: %s`, path, err, strings.Join(dumpFilesystem(fs), "\n"))
+directory tree: %s`, path, err, strings.Join(dumpFilesystem(fs), "\n"))
 		}
 	}
 	return nil
@@ -774,8 +773,7 @@ func verifyCommitPathsDontExist(fs billy.Filesystem, paths []string) error {
 		_, err := fs.Stat(path)
 		if err == nil {
 			return fmt.Errorf(`error verifying commit path doesn't exist. path: %s, error expected but none was raised
-			
-			directory tree: %s`, path, strings.Join(dumpFilesystem(fs), "\n"))
+directory tree: %s`, path, strings.Join(dumpFilesystem(fs), "\n"))
 		}
 	}
 	return nil
@@ -860,10 +858,10 @@ func verifyConsistency(fs billy.Filesystem) error {
 		}
 		if !flag {
 			return fmt.Errorf(`an (app, commit) combination was found in the application tree but not in the commits tree:
-			application tree pairs: %v
-			commit tree pairs: %v
-			missing: %v
-			directory tree: %v`, applications, commits, app, strings.Join(dumpFilesystem(fs), "\n"))
+application tree pairs: %v
+commit tree pairs: %v
+missing: %v
+directory tree: %v`, applications, commits, app, strings.Join(dumpFilesystem(fs), "\n"))
 		}
 	}
 	for _, commit := range commits {
@@ -875,10 +873,10 @@ func verifyConsistency(fs billy.Filesystem) error {
 		}
 		if !flag {
 			return fmt.Errorf(`an (app, commit) combination was found in the commits tree but not in the applications tree:
-			application tree pairs: %v
-			commit tree pairs: %v
-			missing: %v
-			directory tree: %v`, applications, commits, commit, strings.Join(dumpFilesystem(fs), "\n"))
+application tree pairs: %v
+commit tree pairs: %v
+missing: %v
+directory tree: %v`, applications, commits, commit, strings.Join(dumpFilesystem(fs), "\n"))
 		}
 	}
 	return nil
