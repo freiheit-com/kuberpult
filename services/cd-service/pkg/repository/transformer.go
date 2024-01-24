@@ -270,13 +270,6 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
-		if len(c.SourceCommitId) != 40 {
-			return "", nil, GetCreateReleaseGeneralFailure(fmt.Errorf("source commit ID %s has incorrect length: expected 40, got %d", c.SourceCommitId, len(c.SourceCommitId)))
-		}
-		commitDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
-		if err := fs.MkdirAll(commitDir, 0777); err != nil {
-			return "", nil, GetCreateReleaseGeneralFailure(err)
-		}
 		if valid.SHA1CommitID(c.SourceCommitId) {
 			commitDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
 			if err := fs.MkdirAll(commitDir, 0777); err != nil {
@@ -285,9 +278,6 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 			if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
 				return "", nil, GetCreateReleaseGeneralFailure(err)
 			}
-		}
-		if err := util.WriteFile(fs, fs.Join(releaseDir, "source_commit_id"), []byte(c.SourceCommitId), 0666); err != nil {
-			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	if c.SourceAuthor != "" {
