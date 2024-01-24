@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -37,7 +38,6 @@ import (
 	"time"
 
 	v1alpha1 "github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 
 	"github.com/DataDog/datadog-go/v5/statsd"

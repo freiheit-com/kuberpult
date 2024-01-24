@@ -20,13 +20,12 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"os"
 	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/valid"
 )
 
 const (

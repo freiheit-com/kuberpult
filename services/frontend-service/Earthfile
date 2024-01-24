@@ -10,7 +10,6 @@ ARG --global cgo_enabled=0
 deps:
     FROM ../../+deps
     DO go-build+DEPS --service=$service --src_files=$src_files
-    COPY (../cd-service/+artifacts/pkg --service=cd-service) services/cd-service/pkg/
     WORKDIR services/$service
 
 artifacts:
