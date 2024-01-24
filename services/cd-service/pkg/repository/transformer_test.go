@@ -849,13 +849,13 @@ func verifyConsistency(fs billy.Filesystem) error {
 	}
 
 	for _, app := range applications {
-		flag := false
+		commitFound := false
 		for _, commit := range commits {
 			if app.application == commit.application && app.sourceCommitID == commit.sourceCommitID {
-				flag = true
+				commitFound = true
 			}
 		}
-		if !flag {
+		if !commitFound {
 			return fmt.Errorf(`an (app, commit) combination was found in the application tree but not in the commits tree:
 application tree pairs: %v
 commit tree pairs: %v
@@ -864,13 +864,13 @@ directory tree: %v`, applications, commits, app, strings.Join(dumpFilesystem(fs)
 		}
 	}
 	for _, commit := range commits {
-		flag := false
+		appFound := false
 		for _, app := range applications {
 			if app.application == commit.application && app.sourceCommitID == commit.sourceCommitID {
-				flag = true
+				appFound = true
 			}
 		}
-		if !flag {
+		if !appFound {
 			return fmt.Errorf(`an (app, commit) combination was found in the commits tree but not in the applications tree:
 application tree pairs: %v
 commit tree pairs: %v
