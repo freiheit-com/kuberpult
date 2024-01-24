@@ -693,7 +693,7 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 	releasesDir := fs.Join(appDir, "releases")
 	files, err := fs.ReadDir(releasesDir)
 	if err != nil {
-		return "", nil, fmt.Errorf("could not read the releases directory: %w", err)
+		return "", nil, fmt.Errorf("could not read the releases directory %s %w", releasesDir, err)
 	}
 	for _, file := range files {
 		if file.IsDir() {
