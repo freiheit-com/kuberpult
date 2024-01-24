@@ -255,7 +255,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 
 	if !valid.SHA1CommitID(c.SourceCommitId) {
-		logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash: %s\n", c.SourceCommitId)
+		logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-f] %s\n", c.SourceCommitId)
 	}
 
 	configs, err := state.GetEnvironmentConfigs()
