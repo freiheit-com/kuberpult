@@ -34,7 +34,7 @@ jobs:
           RELEASE_IMAGE_VERSION: ${{ steps.new-semrel-version.outputs.version }}
       - name: Re-tag service images with release version for github docker registry
         run: |
-          DOCKER_REGISTRY_URI=ghcr.io/freiheit-com/kuberpult make tag-release-images RELEASE_IMAGE_TAG=v$RELEASE_IMAGE_VERSION
+          make tag-release-images RELEASE_IMAGE_TAG=v$RELEASE_IMAGE_VERSION DOCKER_REGISTRY_URI=ghcr.io/freiheit-com/kuberpult
         env:
           RELEASE_IMAGE_VERSION: ${{ steps.new-semrel-version.outputs.version }}
       - name: Create release
