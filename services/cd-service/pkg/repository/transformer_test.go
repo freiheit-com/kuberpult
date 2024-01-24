@@ -1481,10 +1481,10 @@ func verifyConsistency(fs billy.Filesystem) error {
 		}
 		if !flag {
 			return fmt.Errorf(`an (app, commit) combination was found in the application tree but not in the commits tree:
-			application tree pairs: %v
-			commit tree pairs: %v
-			missing: %v
-			directory tree: %v`, applications, commits, app, strings.Join(dumpFilesystem(fs), "\n"))
+application tree pairs: %v
+commit tree pairs: %v
+missing: %v
+directory tree: %v`, applications, commits, app, strings.Join(dumpFilesystem(fs), "\n"))
 		}
 	}
 	for _, commit := range commits {
@@ -1496,10 +1496,10 @@ func verifyConsistency(fs billy.Filesystem) error {
 		}
 		if !flag {
 			return fmt.Errorf(`an (app, commit) combination was found in the commits tree but not in the applications tree:
-			application tree pairs: %v
-			commit tree pairs: %v
-			missing: %v
-			directory tree: %v`, applications, commits, commit, strings.Join(dumpFilesystem(fs), "\n"))
+application tree pairs: %v
+commit tree pairs: %v
+missing: %v
+directory tree: %v`, applications, commits, commit, strings.Join(dumpFilesystem(fs), "\n"))
 		}
 	}
 	return nil
