@@ -1101,7 +1101,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				},
 			},
 			NonExistentCommitPaths: []string {
-				"commits/no/nsense/applications/app/.empty"	
+				"commits/no/nsense/applications/app/.empty",	
 			},
 		},
 	}
