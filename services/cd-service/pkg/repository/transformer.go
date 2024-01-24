@@ -848,7 +848,7 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 		}
 
 		{
-			commitIDFile := fs.Join(releasesDir, "source_commit_id")
+			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
 			dat, err := util.ReadFile(fs, commitIDFile)
 			if err != nil {
 				// not a problem, might be the undeploy commit
