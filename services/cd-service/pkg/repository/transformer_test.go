@@ -1927,7 +1927,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 			})
 
 			commitPaths1 = append(commitPaths1, path.Join("commits", commitID[:2], commitID[2:], "applications", "app1", ".empty"))
-			commitPaths2 = append(commitPaths2, path.Join("commits", commitID[:2], commitID[2:], "applications", "app1", ".empty"))
+			commitPaths2 = append(commitPaths2, path.Join("commits", commitID[:2], commitID[2:], "applications", "app2", ".empty"))
 		}
 
 		transformers = append(transformers, &CreateUndeployApplicationVersion{
@@ -1937,8 +1937,8 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 			Application: "app1",
 		})
 
-		existentCommitPaths := commitPaths2[len(commitPaths2)-20:]
-		NonExistentCommitPaths := append(commitPaths1, commitPaths2[:len(commitPaths2)-20]...)
+		existentCommitPaths := commitPaths2
+		NonExistentCommitPaths := commitPaths1
 		tcs = append(tcs, TestCase{
 			Name:                   name,
 			Transformers:           transformers,
@@ -1949,6 +1949,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
 			ctx := testutil.MakeTestContext()
 			t.Parallel()
 			repo := setupRepositoryTest(t)
@@ -1957,6 +1958,16 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 				t.Fatalf("encountered error but no error is expected here: %v", err)
 			}
 			fs := updatedState.Filesystem
+
+			err = verifyCommitPathsExist(fs, tc.ExistentCommitPaths)
+			if err != nil {
+				t.Fatalf("some paths failed to create: %v", err)
+			}
+
+			err = verifyCommitPathsDontExist(fs, tc.NonExistentCommitPaths)
+			if err != nil {
+				t.Fatalf("some paths failed to delete: %v", err)
+			}
 
 			err = verifyConsistency(fs)
 			if err != nil {
