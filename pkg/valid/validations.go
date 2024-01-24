@@ -26,7 +26,7 @@ const (
 	AppNameRegExp  = `\A[a-z0-9]+(?:-[a-z0-9]+)*\z`
 	TeamNameRegExp = AppNameRegExp
 	EnvNameRegExp  = AppNameRegExp
-	CommitIDRegExp = `^[0-9a-f]{40}$`
+	CommitIDRegExp = `^[0-9a-fA-F]{40}$`
 )
 
 var (
