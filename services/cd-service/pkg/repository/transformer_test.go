@@ -1724,6 +1724,9 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					LockBehaviour: api.LockBehavior_Fail,
 				},
 			},
+			NonExistentCommitPaths: []string {
+				"commits/no/nsense/applications/app/.empty"	
+			},
 		},
 	}
 
