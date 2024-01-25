@@ -1217,6 +1217,34 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				"commits/no/nsense/applications/app/.empty",
 			},
 		},
+		{
+			Name: "Create application with SHA1 commit ID with uppercase letters",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaAAaaaaaaaaaaaaaaaaaaaaaaaaaaAaaaaa",
+					Manifests: map[string]string{
+						envAcceptance: "acceptance",
+					},
+				},
+				&DeployApplicationVersion{
+					Environment:   envAcceptance,
+					Application:   "app",
+					Version:       1,
+					LockBehaviour: api.LockBehavior_Fail,
+				},
+			},
+			ExistentCommitPaths: []string {
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.empty",
+			},
+			NonExistentCommitPaths: []string{
+				"commits/aa/aaaaAAaaaaaaaaaaaaaaaaaaaaaaaaaaAaaaaa/applications/app/.empty",
+			},
+		},
 		generateLargeTest1(30),
 		generateLargeTest2(30),
 	}

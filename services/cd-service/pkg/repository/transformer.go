@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strconv"
 	"time"
+	"strings"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -255,7 +256,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 
 	if !valid.SHA1CommitID(c.SourceCommitId) {
-		logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-f] %s\n", c.SourceCommitId)
+		logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", c.SourceCommitId)
 	}
 
 	configs, err := state.GetEnvironmentConfigs()
@@ -267,6 +268,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 
 	if c.SourceCommitId != "" {
+		c.SourceCommitId = strings.ToLower(c.SourceCommitId)
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
