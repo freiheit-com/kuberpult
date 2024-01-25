@@ -143,10 +143,6 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				Upsert:      &upsert,
 				Validate:    &validate,
 			}
-			//TODO (LS): We need to allow for an app to be created in any project
-			if appToCreate.Spec.Project != env.Name {
-				return
-			}
 			_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
 			if err != nil {
 				// We check if the application was created in the meantime
