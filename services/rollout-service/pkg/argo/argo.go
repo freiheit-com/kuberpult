@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,7 +13,8 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright 2023 freiheit.com
+*/
 package argo
 
 import (
@@ -74,8 +76,9 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *api.GetOverviewRespon
 	}
 }
 
-func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
-	l := logger.FromContext(ctx).With(zap.String("event-consuming", "ready"))
+func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReporter) error {
+	hlth.ReportReady("event-consuming ready")
+	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
 	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{}
 	for {
 		select {
@@ -84,7 +87,6 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 				for _, env := range envGroup.Environments {
 					envAppsKnownToArgo := appsKnownToArgo[env.Name]
 					err := a.DeleteArgoApps(ctx, envAppsKnownToArgo, env.Applications)
-
 					if err != nil {
 						l.Error("deleting applications")
 						continue
@@ -107,8 +109,10 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 			envKnownToArgo := appsKnownToArgo[envName]
 			switch ev.Type {
 			case "ADDED", "MODIFIED":
+				fmt.Println("creating/updating the app " + ev.Application.Name)
 				envKnownToArgo[appName] = &ev.Application
 			case "DELETED":
+				fmt.Println("deleting the app " + appName)
 				delete(envKnownToArgo, appName)
 			}
 
@@ -124,7 +128,6 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 		k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
 
 		appExists := false
-
 		for _, argoApp := range appsKnownToArgo {
 			if argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
 				appExists = true
@@ -146,7 +149,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			if err != nil {
 				// We check if the application was created in the meantime
 				if status.Code(err) != codes.InvalidArgument {
-					logger.FromContext(ctx).Error("creating application: %w")
+					logger.FromContext(ctx).Error("creating application: " + appToCreate.Name)
 				}
 			}
 		} else {
@@ -158,7 +161,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			}
 			_, err := a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
 			if err != nil {
-				logger.FromContext(ctx).Error("updating application")
+				logger.FromContext(ctx).Error("updating application: " + appToUpdate.Name)
 			}
 		}
 	}
@@ -203,9 +206,8 @@ func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[strin
 	toDelete := make([]*v1alpha1.Application, 0)
 	for _, argoApp := range argoApps {
 		if apps[argoApp.Annotations["com.freiheit.kuberpult/application"]] == nil {
-			break
+			toDelete = append(toDelete, argoApp)
 		}
-		toDelete = append(toDelete, argoApp)
 	}
 
 	for i := range toDelete {
@@ -238,46 +240,64 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 	annotations["argocd.argoproj.io/manifest-generate-paths"] = "/" + manifestPath
 	labels["com.freiheit.kuberpult/team"] = team(overview, app.Name)
 
-	if env.Config.Argocd.Destination.Namespace != nil {
-		applicationNs = *env.Config.Argocd.Destination.Namespace
-	} else if env.Config.Argocd.Destination.ApplicationNamespace != nil {
-		applicationNs = *env.Config.Argocd.Destination.ApplicationNamespace
-	}
+	var applicationDestination v1alpha1.ApplicationDestination
+	var syncWindows v1alpha1.SyncWindows
+	var ignoreDifferences []v1alpha1.ResourceIgnoreDifferences
+	var syncOptions []string
 
-	applicationDestination := v1alpha1.ApplicationDestination{
-		Name:      env.Config.Argocd.Destination.Name,
-		Namespace: applicationNs,
-		Server:    env.Config.Argocd.Destination.Server,
-	}
-
-	syncWindows := v1alpha1.SyncWindows{}
-
-	ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(env.Config.Argocd.IgnoreDifferences))
-	for index, value := range env.Config.Argocd.IgnoreDifferences {
-		difference := v1alpha1.ResourceIgnoreDifferences{
-			Group:                 value.Group,
-			Kind:                  value.Kind,
-			Name:                  value.Name,
-			Namespace:             value.Namespace,
-			JSONPointers:          value.JsonPointers,
-			JQPathExpressions:     value.JqPathExpressions,
-			ManagedFieldsManagers: value.ManagedFieldsManagers,
+	if env.Config.Argocd == nil {
+		applicationDestination = v1alpha1.ApplicationDestination{
+			Name:      fmt.Sprintf("%s-%s", env.Name, app.Name),
+			Namespace: "default",
+			Server:    "https://kubernetes.default.svc",
 		}
-		ignoreDifferences[index] = difference
-	}
 
-	for _, w := range env.Config.Argocd.SyncWindows {
-		apps := []string{"*"}
-		if len(w.Applications) > 0 {
-			apps = w.Applications
+		syncWindows = v1alpha1.SyncWindows{}
+		ignoreDifferences = make([]v1alpha1.ResourceIgnoreDifferences, 0)
+		syncOptions = []string{}
+
+	} else {
+		if env.Config.Argocd.Destination.Namespace != nil {
+			applicationNs = *env.Config.Argocd.Destination.Namespace
+		} else if env.Config.Argocd.Destination.ApplicationNamespace != nil {
+			applicationNs = *env.Config.Argocd.Destination.ApplicationNamespace
 		}
-		syncWindows = append(syncWindows, &v1alpha1.SyncWindow{
-			Applications: apps,
-			Schedule:     w.Schedule,
-			Duration:     w.Duration,
-			Kind:         w.Kind,
-			ManualSync:   true,
-		})
+
+		applicationDestination = v1alpha1.ApplicationDestination{
+			Name:      env.Config.Argocd.Destination.Name,
+			Namespace: applicationNs,
+			Server:    env.Config.Argocd.Destination.Server,
+		}
+
+		ignoreDifferences = make([]v1alpha1.ResourceIgnoreDifferences, len(env.Config.Argocd.IgnoreDifferences))
+		for index, value := range env.Config.Argocd.IgnoreDifferences {
+			difference := v1alpha1.ResourceIgnoreDifferences{
+				Group:                 value.Group,
+				Kind:                  value.Kind,
+				Name:                  value.Name,
+				Namespace:             value.Namespace,
+				JSONPointers:          value.JsonPointers,
+				JQPathExpressions:     value.JqPathExpressions,
+				ManagedFieldsManagers: value.ManagedFieldsManagers,
+			}
+			ignoreDifferences[index] = difference
+		}
+
+		for _, w := range env.Config.Argocd.SyncWindows {
+			apps := []string{"*"}
+			if len(w.Applications) > 0 {
+				apps = w.Applications
+			}
+			syncWindows = append(syncWindows, &v1alpha1.SyncWindow{
+				Applications: apps,
+				Schedule:     w.Schedule,
+				Duration:     w.Duration,
+				Kind:         w.Kind,
+				ManualSync:   true,
+			})
+		}
+
+		syncOptions = env.Config.Argocd.SyncOptions
 	}
 
 	deployApp := &v1alpha1.Application{
@@ -302,7 +322,7 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 					// We always allow empty, because it makes it easier to delete apps/environments
 					AllowEmpty: true,
 				},
-				SyncOptions: env.Config.Argocd.SyncOptions,
+				SyncOptions: syncOptions,
 			},
 			IgnoreDifferences: ignoreDifferences,
 		},
