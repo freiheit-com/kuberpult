@@ -1412,19 +1412,19 @@ func verifyConsistency(fs billy.Filesystem) error {
 	{
 		applicationsDir, err := fs.ReadDir("applications")
 		if err != nil {
-			return fmt.Errorf("could not open the applications directory: %w", err)
+			return nil, fmt.Errorf("could not open the applications directory: %w", err)
 		}
 
 		for _, applicationDir := range applicationsDir {
 			releasesDir, err := fs.ReadDir(fs.Join("applications", applicationDir.Name(), "releases"))
 			if err != nil {
-				return fmt.Errorf("could not open the releases directory: %w", err)
+				return nil, fmt.Errorf("could not open the releases directory: %w", err)
 			}
 			for _, releaseDir := range releasesDir {
 				commitIDFile, err := util.ReadFile(fs, fs.Join("applications", applicationDir.Name(), "releases", releaseDir.Name(), "source_commit_id"))
 
 				if err != nil {
-					return fmt.Errorf("could not read the source commit ID file: %w", err)
+					return nil, fmt.Errorf("could not read the source commit ID file: %w", err)
 				}
 
 				sourceCommitID := string(commitIDFile)
@@ -1436,30 +1436,37 @@ func verifyConsistency(fs billy.Filesystem) error {
 				}
 			}
 		}
+		return applications, nil
+	}
+
+	applications, err := extractAppCommitPairsFromApplications(fs)
+	if err != nil {
+		return fmt.Errorf("unable to extract (application, commit) pairs from applications directory, error: %w", err)
 	}
 
 	type CommitDirectoryContent struct {
 		application    string
 		sourceCommitID string
 	}
-	commits := make([]CommitDirectoryContent, 0)
 
-	{
+	extractAppCommitPairsFromCommits := func(fs billy.Filesystem) ([]CommitDirectoryContent, error) {
+		commits := make([]CommitDirectoryContent, 0)
+
 		commitsDir1, err := fs.ReadDir("commits")
 		if err != nil {
-			return fmt.Errorf("could not open the commits directory: %w", err)
+			return nil, fmt.Errorf("could not open the commits directory: %w", err)
 		}
 
 		for _, commitDir1 := range commitsDir1 {
 			commitsDir2, err := fs.ReadDir(fs.Join("commits", commitDir1.Name()))
 			if err != nil {
-				return fmt.Errorf("could not open the commit directory 1")
+				return nil, fmt.Errorf("could not open the commit directory 1")
 			}
 
 			for _, commitDir2 := range commitsDir2 {
 				applicationsDir, err := fs.ReadDir(fs.Join("commits", commitDir1.Name(), commitDir2.Name(), "applications"))
 				if err != nil {
-					return fmt.Errorf("could not open the applications directory in the commits tree: %w", err)
+					return nil, fmt.Errorf("could not open the applications directory in the commits tree: %w", err)
 				}
 
 				for _, applicationDir := range applicationsDir {
@@ -1470,6 +1477,13 @@ func verifyConsistency(fs billy.Filesystem) error {
 				}
 			}
 		}
+
+		return commits, nil
+	}
+
+	commits, err := extractAppCommitPairsFromCommits(fs)
+	if err != nil {
+		return fmt.Errorf("unable to extract (application, commit) pairs from commits directory, error: %w", err)
 	}
 
 	for _, app := range applications {
@@ -1519,7 +1533,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 		NonExistentCommitPaths []string
 	}
 
-	generateLargeTest1 := func (versionsCount uint64) TestCase {
+	generateLargeTest1 := func(versionsCount uint64) TestCase {
 		name := fmt.Sprintf("Create %d releases of the same application", versionsCount)
 		transformers := make([]Transformer, 0)
 		commitPaths := make([]string, 0)
@@ -1527,7 +1541,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 			Environment: "acceptance",
 			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 		})
-		
+
 		for idx := uint64(0); idx < versionsCount; idx++ {
 			commitID := randomCommitID()
 			transformer := &CreateApplicationVersion{
@@ -1542,7 +1556,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 			transformers = append(transformers, transformer)
 			commitPaths = append(commitPaths, commitPath)
 		}
-		
+
 		transformers = append(transformers, &DeployApplicationVersion{
 			Environment:   envAcceptance,
 			Application:   "app",
@@ -1568,9 +1582,8 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 		transformers = append(transformers, &CreateEnvironment{
 			Environment: "acceptance",
 			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
-			
 		})
-		
+
 		transformers = append(transformers, &CreateApplicationVersion{
 			Application:    "app1",
 			SourceCommitId: firstCommitID,
@@ -1825,8 +1838,8 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					LockBehaviour: api.LockBehavior_Fail,
 				},
 			},
-			NonExistentCommitPaths: []string {
-				"commits/no/nsense/applications/app/.empty",	
+			NonExistentCommitPaths: []string{
+				"commits/no/nsense/applications/app/.empty",
 			},
 		},
 		generateLargeTest1(30),
