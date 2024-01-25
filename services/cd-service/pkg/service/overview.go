@@ -99,11 +99,13 @@ func (o *OverviewServiceServer) getOverview(
 				Name: envName,
 				Config: &api.EnvironmentConfig{
 					Upstream:         mapper.TransformUpstream(config.Upstream),
+					Argocd:           mapper.TransformArgocd(*config.ArgoCd),
 					EnvironmentGroup: &groupName,
 				},
 				Locks:        map[string]*api.Lock{},
 				Applications: map[string]*api.Environment_Application{},
 			}
+			envInGroup.Config = env.Config
 			if locks, err := s.GetEnvironmentLocks(envName); err != nil {
 				return nil, err
 			} else {

@@ -273,6 +273,5 @@ func runServer(ctx context.Context, config Config) error {
 			return nil
 		},
 	})
-	fmt.Println("closing parent service")
 	return nil
 }

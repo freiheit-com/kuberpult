@@ -290,3 +290,58 @@ func TransformSyncWindows(syncWindows []config.ArgoCdSyncWindow, appName string)
 	}
 	return envAppSyncWindows, nil
 }
+
+func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConfig_ArgoCD {
+	if &config == nil {
+		return nil
+	}
+	var syncWindows []*api.EnvironmentConfig_ArgoCD_SyncWindows
+	var accessList []*api.EnvironmentConfig_ArgoCD_AccessEntry
+	var ignoreDifferences []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences
+
+	for _, i := range config.SyncWindows {
+		syncWindow := &api.EnvironmentConfig_ArgoCD_SyncWindows{
+			Kind:         i.Kind,
+			Duration:     i.Duration,
+			Schedule:     i.Schedule,
+			Applications: i.Apps,
+		}
+		syncWindows = append(syncWindows, syncWindow)
+	}
+
+	for _, i := range config.ClusterResourceWhitelist {
+		access := &api.EnvironmentConfig_ArgoCD_AccessEntry{
+			Group: i.Group,
+			Kind:  i.Kind,
+		}
+		accessList = append(accessList, access)
+	}
+
+	for _, i := range config.IgnoreDifferences {
+		ignoreDiff := &api.EnvironmentConfig_ArgoCD_IgnoreDifferences{
+			Group:                 i.Group,
+			Kind:                  i.Kind,
+			Name:                  i.Name,
+			Namespace:             i.Namespace,
+			JsonPointers:          i.JSONPointers,
+			JqPathExpressions:     i.JqPathExpressions,
+			ManagedFieldsManagers: i.ManagedFieldsManagers,
+		}
+		ignoreDifferences = append(ignoreDifferences, ignoreDiff)
+	}
+
+	return &api.EnvironmentConfig_ArgoCD{
+		Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+			Name:                 config.Destination.Name,
+			Server:               config.Destination.Server,
+			Namespace:            config.Destination.Namespace,
+			AppProjectNamespace:  config.Destination.AppProjectNamespace,
+			ApplicationNamespace: config.Destination.ApplicationNamespace,
+		},
+		SyncWindows:            syncWindows,
+		AccessList:             accessList,
+		IgnoreDifferences:      ignoreDifferences,
+		ApplicationAnnotations: config.ApplicationAnnotations,
+		SyncOptions:            config.SyncOptions,
+	}
+}
