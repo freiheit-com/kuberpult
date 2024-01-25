@@ -1484,7 +1484,7 @@ func verifyConsistency(fs billy.Filesystem) error {
 application tree pairs: %v
 commit tree pairs: %v
 missing: %v
-directory tree: %v`, applications, commits, app, strings.Join(dumpFilesystem(fs), "\n"))
+directory tree: %v`, applications, commits, app, strings.Join(listFiles(fs), "\n"))
 		}
 	}
 	for _, commit := range commits {
@@ -1499,7 +1499,7 @@ directory tree: %v`, applications, commits, app, strings.Join(dumpFilesystem(fs)
 application tree pairs: %v
 commit tree pairs: %v
 missing: %v
-directory tree: %v`, applications, commits, commit, strings.Join(dumpFilesystem(fs), "\n"))
+directory tree: %v`, applications, commits, commit, strings.Join(listFiles(fs), "\n"))
 		}
 	}
 	return nil
