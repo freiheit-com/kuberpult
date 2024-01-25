@@ -22,7 +22,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -30,6 +29,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -38,10 +39,6 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
-
-func trimAllSpace(s string) string {
-	return strings.Join(strings.Fields(s), " ")
-}
 
 func getBatchActions() []*api.BatchAction {
 	opDeploy := &api.BatchAction_Deploy{
@@ -394,6 +391,11 @@ func TestBatchServiceErrors(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			var expectedResponseObject api.BatchResponse
+			if err := prototext.Unmarshal([]byte(tc.ExpectedResponse), &expectedResponseObject); err != nil {
+				t.Fatalf("failed to unmarshal the expected response object: %v", err)
+			}
+
 			repo, err := setupRepositoryTest(t)
 			if err != nil {
 				t.Fatal(err)
@@ -412,7 +414,8 @@ func TestBatchServiceErrors(t *testing.T) {
 					Actions: tc.Batch,
 				},
 			)
-			if tc.ExpectedResponse != "" && trimAllSpace(response.String()) != tc.ExpectedResponse {
+
+			if tc.ExpectedResponse != "" && !proto.Equal(response, &expectedResponseObject) {
 				t.Fatalf("expected:\n%s\ngot:\n%s\n%s", tc.ExpectedResponse, response.String(), processErr)
 			}
 			if tc.ExpectedResponse == "" && tc.ExpectedError != processErr.Error() {
