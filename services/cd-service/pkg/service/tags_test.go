@@ -227,7 +227,7 @@ func TestGetProductOverview(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			sv := &TagsServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}}
+			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}}
 
 			for _, transformer := range tc.Setup {
 				repo.Apply(testutil.MakeTestContext(), transformer)

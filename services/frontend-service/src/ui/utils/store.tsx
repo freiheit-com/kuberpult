@@ -78,7 +78,7 @@ export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
 export const refreshTags = (): void => {
     const api = useApi;
-    api.tagsService()
+    api.gitService()
         .GetGitTags({})
         .then((result: GetGitTagsResponse) => {
             updateTag.set({ response: result, tagsReady: true });
@@ -92,7 +92,7 @@ export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsRes
 const summaryResponse: GetProductSummaryResponse = { productSummary: [] };
 export const getSummary = (commitHash: string, environment: string, environmentGroup: string): void => {
     const api = useApi;
-    api.tagsService()
+    api.gitService()
         .GetProductSummary({ commitHash: commitHash, environment: environment, environmentGroup: environmentGroup })
         .then((result: GetProductSummaryResponse) => {
             updateSummary.set({ response: result, summaryReady: true });

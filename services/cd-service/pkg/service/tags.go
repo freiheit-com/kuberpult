@@ -26,12 +26,12 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
-type TagsServer struct {
+type GitServer struct {
 	Config          repository.RepositoryConfig
 	OverviewService *OverviewServiceServer
 }
 
-func (s *TagsServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
+func (s *GitServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
 	tags, err := repository.GetTags(s.Config, "./repository_tags", ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get tags from repository: %v", err)
@@ -40,7 +40,7 @@ func (s *TagsServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) 
 	return &api.GetGitTagsResponse{TagData: tags}, nil
 }
 
-func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
+func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
 	if in.Environment == nil && in.EnvironmentGroup == nil {
 		return nil, fmt.Errorf("Must have an environment or environmentGroup to get the product summary for")
 	}
@@ -112,4 +112,15 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 		}
 	}
 	return &api.GetProductSummaryResponse{ProductSummary: productVersion}, nil
+}
+
+func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
+	return &api.GetCommitInfoResponse{
+		CommitMessage: "hello, you reached cd service",
+		TouchedApps: []string {
+			"Google",
+			"Libre Office",
+			"Freiheit",
+		},
+	}, nil
 }
