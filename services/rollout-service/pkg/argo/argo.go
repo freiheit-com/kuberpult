@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,7 +13,8 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright 2023 freiheit.com
+*/
 package argo
 
 import (
@@ -284,8 +286,6 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 		})
 	}
 
-	syncOptions := env.Config.Argocd.SyncOptions
-
 	deployApp := &v1alpha1.Application{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        app.Name,
@@ -308,7 +308,7 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 					// We always allow empty, because it makes it easier to delete apps/environments
 					AllowEmpty: true,
 				},
-				SyncOptions: syncOptions,
+				SyncOptions: env.Config.Argocd.SyncOptions,
 			},
 			IgnoreDifferences: ignoreDifferences,
 		},
