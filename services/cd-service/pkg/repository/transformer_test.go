@@ -741,7 +741,7 @@ func listFilesHelper(fs billy.Filesystem, path string) []string {
 	files, err := fs.ReadDir(path)
 	if err == nil {
 		for _, file := range files {
-			ret = append(ret, dumpFilesystemHelper(fs, fs.Join(path, file.Name()))...)
+			ret = append(ret, listFilesHelper(fs, fs.Join(path, file.Name()))...)
 		}
 	} else {
 		ret = append(ret, path)
@@ -751,7 +751,7 @@ func listFilesHelper(fs billy.Filesystem, path string) []string {
 }
 
 func listFiles(fs billy.Filesystem) []string {
-	paths := dumpFilesystemHelper(fs, ".")
+	paths := listFilesHelper(fs, ".")
 	sort.Slice(paths, func(i, j int) bool { return paths[i] < paths[j] })
 	return paths
 }
@@ -761,7 +761,7 @@ func verifyCommitPathsExist(fs billy.Filesystem, paths []string) error {
 		_, err := fs.Stat(path)
 		if err != nil {
 			return fmt.Errorf(`error verifying commit path exists. path: %s, error: %v
-directory tree: %s`, path, err, strings.Join(dumpFilesystem(fs), "\n"))
+directory tree: %s`, path, err, strings.Join(listFiles(fs), "\n"))
 		}
 	}
 	return nil
@@ -772,7 +772,7 @@ func verifyCommitPathsDontExist(fs billy.Filesystem, paths []string) error {
 		_, err := fs.Stat(path)
 		if err == nil {
 			return fmt.Errorf(`error verifying commit path doesn't exist. path: %s, error expected but none was raised
-directory tree: %s`, path, strings.Join(dumpFilesystem(fs), "\n"))
+directory tree: %s`, path, strings.Join(listFiles(fs), "\n"))
 		}
 	}
 	return nil
@@ -860,7 +860,7 @@ func verifyConsistency(fs billy.Filesystem) error {
 application tree pairs: %v
 commit tree pairs: %v
 missing: %v
-directory tree: %v`, applications, commits, app, strings.Join(dumpFilesystem(fs), "\n"))
+directory tree: %v`, applications, commits, app, strings.Join(listFiles(fs), "\n"))
 		}
 	}
 	for _, commit := range commits {
@@ -875,7 +875,7 @@ directory tree: %v`, applications, commits, app, strings.Join(dumpFilesystem(fs)
 application tree pairs: %v
 commit tree pairs: %v
 missing: %v
-directory tree: %v`, applications, commits, commit, strings.Join(dumpFilesystem(fs), "\n"))
+directory tree: %v`, applications, commits, commit, strings.Join(listFiles(fs), "\n"))
 		}
 	}
 	return nil
