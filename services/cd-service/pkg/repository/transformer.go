@@ -606,17 +606,14 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 
 func removeCommit(fs billy.Filesystem, commitID, application string) error {
 	couldNotRemoveAppFormat := "could not remove the application from the commit directory %w"
-	dir := commitApplicationDirectory(fs, commitID, application)
-	if err := fs.Remove(dir); err != nil {
+	commitApplicationDir := commitApplicationDirectory(fs, commitID, application)
+	if err := fs.Remove(commitApplicationDir); err != nil {
 		return fmt.Errorf(couldNotRemoveAppFormat, err)
 	}
 	// check if there are no other services updated by this commit
 	// if there are none, start remove the entire branch of the commit
-	for {
-		dir = path.Dir(dir)
-		if dir == "commits" {
-			break
-		}
+	
+	deleteDirIfEmpty := func(dir string) error {
 		files, err := fs.ReadDir(dir)
 		if err != nil {
 			return fmt.Errorf(couldNotRemoveAppFormat, err)
@@ -626,7 +623,16 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 				return fmt.Errorf(couldNotRemoveAppFormat, err)
 			}
 		}
+		return nil
 	}
+
+	applicationsDir := path.Dir(commitApplicationDir)
+	deleteDirIfEmpty(applicationsDir)
+	commitDir2 := path.Dir(applicationsDir)
+	deleteDirIfEmpty(commitDir2)
+	commitDir1 := path.Dir(commitDir2)
+	deleteDirIfEmpty(commitDir1)
+	
 	return nil
 }
 
