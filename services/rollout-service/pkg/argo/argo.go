@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,7 +13,8 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright 2023 freiheit.com
+*/
 package argo
 
 import (
@@ -107,10 +109,10 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 			envKnownToArgo := appsKnownToArgo[envName]
 			switch ev.Type {
 			case "ADDED", "MODIFIED":
-				l.Info("created/updated app:" + ev.Application.Name + ",env:" + envName)
+				l.Info("created/updated:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
 				envKnownToArgo[appName] = &ev.Application
 			case "DELETED":
-				l.Info("deleted app:" + ev.Application.Name + ",env:" + envName)
+				l.Info("deleted:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
 				delete(envKnownToArgo, appName)
 			}
 			appsKnownToArgo[envName] = envKnownToArgo

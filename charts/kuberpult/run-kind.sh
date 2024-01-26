@@ -310,8 +310,8 @@ argocd:
   refresh:
     enabled: true
 manageArgoApplications:
-  enabled: true
-  filter: "sreteam"
+  enabled: false
+  filter: ""
 pgp:
   keyRing: |
 $(sed -e "s/^/    /" <./kuberpult-keyring.gpg)
