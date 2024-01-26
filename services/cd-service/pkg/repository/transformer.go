@@ -1299,7 +1299,7 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
 	manifestContent := []byte{}
 	if file, err := fs.Open(manifest); err != nil {
-		return "", nil, wrapFileError(err, manifest, "could not open manifest")
+		return "", nil, wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
 	} else {
 		if content, err := io.ReadAll(file); err != nil {
 			return "", nil, err
