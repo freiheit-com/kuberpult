@@ -710,12 +710,12 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 			var commitID string
 			if dat, err := util.ReadFile(fs, commitIDFile); err != nil {
 				// release does not have a corresponding commit, which might be the case if it's an undeploy release, no prob
-			} else {
-				commitID = string(dat)
-				if valid.SHA1CommitID(commitID) {
-					if err := removeCommit(fs, commitID, u.Application); err != nil {
-						return "", nil, fmt.Errorf("could not remove the commit: %w", err)
-					}
+				continue
+			}
+			commitID = string(dat)
+			if valid.SHA1CommitID(commitID) {
+				if err := removeCommit(fs, commitID, u.Application); err != nil {
+					return "", nil, fmt.Errorf("could not remove the commit: %w", err)
 				}
 			}
 		}
