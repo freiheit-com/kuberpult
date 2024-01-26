@@ -708,7 +708,8 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 			releaseDir := fs.Join(releasesDir, file.Name())
 			commitIDFile := fs.Join(releaseDir, "source_commit_id")
 			var commitID string
-			if dat, err := util.ReadFile(fs, commitIDFile); err != nil {
+			dat, err := util.ReadFile(fs, commitIDFile)
+			if err != nil {
 				// release does not have a corresponding commit, which might be the case if it's an undeploy release, no prob
 				continue
 			}
