@@ -95,15 +95,21 @@ func (o *OverviewServiceServer) getOverview(
 		for envName, config := range envs {
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
+			argocd := &api.EnvironmentConfig_ArgoCD{}
+			if config.ArgoCd != nil {
+				argocd = mapper.TransformArgocd(*config.ArgoCd)
+			}
 			env := api.Environment{
 				Name: envName,
 				Config: &api.EnvironmentConfig{
 					Upstream:         mapper.TransformUpstream(config.Upstream),
+					Argocd:           argocd,
 					EnvironmentGroup: &groupName,
 				},
 				Locks:        map[string]*api.Lock{},
 				Applications: map[string]*api.Environment_Application{},
 			}
+			envInGroup.Config = env.Config
 			if locks, err := s.GetEnvironmentLocks(envName); err != nil {
 				return nil, err
 			} else {

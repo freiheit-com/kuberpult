@@ -196,6 +196,9 @@ $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
   rbac:
     policy.csv: |
       p, role:kuberpult, applications, get, */*, allow
+      p, role:kuberpult, applications, create, */*, allow
+      p, role:kuberpult, applications, sync, */*, allow
+      p, role:kuberpult, applications, delete, */*, allow
       g, kuberpult, role:kuberpult
 
 YAML
@@ -293,6 +296,7 @@ log:
 git:
   url: "ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests"
   sourceRepoUrl: "https://github.com/freiheit-com/kuberpult/tree/{branch}/{dir}"
+  branch: "main"
   networkTimeout: 1s
 ssh:
   identity: |
@@ -305,6 +309,9 @@ argocd:
   insecure: true
   refresh:
     enabled: true
+manageArgoApplications:
+  enabled: false
+  filter: ""
 pgp:
   keyRing: |
 $(sed -e "s/^/    /" <./kuberpult-keyring.gpg)

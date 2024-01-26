@@ -74,8 +74,9 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *api.GetOverviewRespon
 	}
 }
 
-func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
-	l := logger.FromContext(ctx).With(zap.String("event-consuming", "ready"))
+func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReporter) error {
+	hlth.ReportReady("event-consuming")
+	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
 	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{}
 	for {
 		select {
@@ -84,7 +85,6 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 				for _, env := range envGroup.Environments {
 					envAppsKnownToArgo := appsKnownToArgo[env.Name]
 					err := a.DeleteArgoApps(ctx, envAppsKnownToArgo, env.Applications)
-
 					if err != nil {
 						l.Error("deleting applications")
 						continue
@@ -97,7 +97,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 			}
 
 		case ev := <-a.argoApps:
-			appName, envName := getEnvironmentAndName(ev.Application.Annotations)
+			envName, appName := getEnvironmentAndName(ev.Application.Annotations)
 			if appName == "" {
 				continue
 			}
@@ -107,11 +107,13 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context) error {
 			envKnownToArgo := appsKnownToArgo[envName]
 			switch ev.Type {
 			case "ADDED", "MODIFIED":
+				l.Info("created/updated:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
 				envKnownToArgo[appName] = &ev.Application
 			case "DELETED":
+				l.Info("deleted:kuberpult.application:" + ev.Application.Name + ",kuberpult.environment:" + envName)
 				delete(envKnownToArgo, appName)
 			}
-
+			appsKnownToArgo[envName] = envKnownToArgo
 		case <-ctx.Done():
 			return nil
 		}
@@ -124,7 +126,6 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 		k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
 
 		appExists := false
-
 		for _, argoApp := range appsKnownToArgo {
 			if argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
 				appExists = true
@@ -146,7 +147,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			if err != nil {
 				// We check if the application was created in the meantime
 				if status.Code(err) != codes.InvalidArgument {
-					logger.FromContext(ctx).Error("creating application: %w")
+					logger.FromContext(ctx).Error("creating " + appToCreate.Name + ",env " + env.Name)
 				}
 			}
 		} else {
@@ -158,7 +159,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			}
 			_, err := a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
 			if err != nil {
-				logger.FromContext(ctx).Error("updating application")
+				logger.FromContext(ctx).Error("updating application: " + appToUpdate.Name + ",env " + env.Name)
 			}
 		}
 	}
@@ -203,9 +204,8 @@ func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[strin
 	toDelete := make([]*v1alpha1.Application, 0)
 	for _, argoApp := range argoApps {
 		if apps[argoApp.Annotations["com.freiheit.kuberpult/application"]] == nil {
-			break
+			toDelete = append(toDelete, argoApp)
 		}
-		toDelete = append(toDelete, argoApp)
 	}
 
 	for i := range toDelete {

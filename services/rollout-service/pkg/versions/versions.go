@@ -208,7 +208,6 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			v.cache.Add(overview.GitRevision, overview)
 			l.Info("overview.get")
 			seen := make(map[key]uint64, len(versions))
-			l.Info(strconv.Itoa(len(overview.EnvironmentGroups)))
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
 					for _, app := range env.Applications {

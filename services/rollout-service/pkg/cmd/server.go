@@ -185,7 +185,6 @@ func runServer(ctx context.Context, config Config) error {
 	shutdownCh := make(chan struct{})
 	versionC := versions.New(overviewGrpc, versionGrpc, appClient, config.ManageArgoApplicationsEnabled, config.ManageArgoApplicationsFilter)
 	dispatcher := service.NewDispatcher(broadcast, versionC)
-
 	backgroundTasks := []setup.BackgroundTaskConfig{
 		{
 			Name: "consume argocd events",
@@ -202,7 +201,7 @@ func runServer(ctx context.Context, config Config) error {
 		{
 			Name: "consume self-manage events",
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
-				return versionC.GetArgoProcessor().Consume(ctx)
+				return versionC.GetArgoProcessor().Consume(ctx, health)
 			},
 		},
 		{
