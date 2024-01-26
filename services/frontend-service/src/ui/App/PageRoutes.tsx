@@ -47,6 +47,10 @@ const routes = [
         element: <CommitPage />,
     },
     {
+        path: `/ui/commits/`,
+        element: <CommitPage />,
+    },
+    {
         path: `/*`,
         element: <Navigate replace to="/ui/home" />,
     },

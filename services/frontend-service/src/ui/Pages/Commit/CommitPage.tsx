@@ -14,33 +14,37 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-import { getCommitInfo, useCommitInfo, useGlobalLoadingState } from '../../utils/store';
+import { getCommitInfo, showSnackbarError, useCommitInfo, useGlobalLoadingState } from '../../utils/store';
 import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 import { useParams } from 'react-router-dom';
-// import { GetCommitInfoResponse } from '../../../api/api';
-
-// type Commit = {
-//     hash: string;
-//     message: string;
-//     apps: string[];
-// };
+import React from 'react';
 
 export const CommitPage: React.FC = () => {
     const [everythingLoaded, loadingState] = useGlobalLoadingState();
     const { commit } = useParams();
+
+    React.useEffect(() => {
+        if (commit === undefined) {
+            showSnackbarError('commit ID not found');
+        } else {
+            getCommitInfo(commit);
+        }
+    }, [commit]);
+
     const commitInfo = useCommitInfo((res) => res);
     if (!everythingLoaded) {
         return <LoadingStateSpinner loadingState={loadingState} />;
     }
-    // this dummy data will be replaced in SRX-2ZMPC4
-    // const commitData: Commit = {
-    //     hash: commit || 'unknown',
-    //     message: 'UX: make submit button bigger\n\nanother message\nMore text',
-    //     apps: ['echo', 'customer-data', 'ui', 'bff'],
-    // };
 
-    if (commit !== undefined) getCommitInfo(commit);
+    if (commit === undefined) {
+        return (
+            <div>
+                <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                <main className="main-content commit-page">commit ID not found</main>
+            </div>
+        );
+    }
     return (
         <div>
             <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
