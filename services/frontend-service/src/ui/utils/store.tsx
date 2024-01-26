@@ -28,6 +28,7 @@ import {
     Warning,
     GetGitTagsResponse,
     GetProductSummaryResponse,
+    GetCommitInfoResponse,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -73,6 +74,10 @@ type ProductSummaryResponse = {
     response: GetProductSummaryResponse;
     summaryReady: boolean;
 };
+type CommitInfoResponse = {
+    response: GetCommitInfoResponse;
+    commitInfoReady: boolean;
+};
 const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
@@ -104,6 +109,26 @@ export const getSummary = (commitHash: string, environment: string, environmentG
 export const [useSummary, updateSummary] = createStore<ProductSummaryResponse>({
     response: summaryResponse,
     summaryReady: false,
+});
+
+const commitInfoResponse: GetCommitInfoResponse = {
+    commitMessage: 'default commit message',
+    touchedApps: ['default touched app 1', 'default touched app 2'],
+};
+export const getCommitInfo = (commitHash: string): void => {
+    const api = useApi;
+    api.gitService()
+        .GetCommitInfo({ commitHash: commitHash })
+        .then((result: GetCommitInfoResponse) => {
+            updateCommitInfo.set({ response: result, commitInfoReady: true });
+        })
+        .catch((e) => {
+            showSnackbarError(e.message);
+        });
+};
+export const [useCommitInfo, updateCommitInfo] = createStore<CommitInfoResponse>({
+    response: commitInfoResponse,
+    commitInfoReady: false,
 });
 
 export const [_, PanicOverview] = createStore({ error: '' });
