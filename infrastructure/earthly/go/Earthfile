@@ -10,6 +10,8 @@ DEPS:
         COPY $src services/$service/$src
     END
 
+    SAVE IMAGE --cache-hint
+
 COMPILE:
     FUNCTION
     ARG USERARCH
@@ -31,11 +33,13 @@ COMPILE:
     END
 
     SAVE ARTIFACT $main_path/bin/main
+    SAVE IMAGE --cache-hint
 
 UNIT_TEST:
     FUNCTION
     COPY pkg pkg
     RUN go test ./...
+    SAVE IMAGE --cache-hint
 
 DOCKER:
     FUNCTION
