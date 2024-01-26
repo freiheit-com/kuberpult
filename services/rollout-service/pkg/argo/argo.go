@@ -75,7 +75,7 @@ func (a *ArgoAppProcessor) Push(ctx context.Context, last *api.GetOverviewRespon
 }
 
 func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReporter) error {
-	hlth.ReportReady("event-consuming ready")
+	hlth.ReportReady("event-consuming")
 	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
 	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{}
 	for {
@@ -238,8 +238,6 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 	annotations["argocd.argoproj.io/manifest-generate-paths"] = "/" + manifestPath
 	labels["com.freiheit.kuberpult/team"] = team(overview, app.Name)
 
-	var syncWindows v1alpha1.SyncWindows
-
 	if env.Config.Argocd.Destination.Namespace != nil {
 		applicationNs = *env.Config.Argocd.Destination.Namespace
 	} else if env.Config.Argocd.Destination.ApplicationNamespace != nil {
@@ -251,6 +249,8 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 		Namespace: applicationNs,
 		Server:    env.Config.Argocd.Destination.Server,
 	}
+
+	syncWindows := v1alpha1.SyncWindows{}
 
 	ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(env.Config.Argocd.IgnoreDifferences))
 	for index, value := range env.Config.Argocd.IgnoreDifferences {
