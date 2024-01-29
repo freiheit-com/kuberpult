@@ -19,7 +19,7 @@ import { ReleasesPage } from '../Pages/Releases/ReleasesPage';
 import { LocksPage } from '../Pages/Locks/LocksPage';
 import { Routes as ReactRoutes, Route, Navigate } from 'react-router-dom';
 import { ProductVersionPage } from '../Pages/ProductVersion/ProductVersionPage';
-import { CommitPage } from '../Pages/Commit/CommitPage';
+import { CommitInfoPage } from '../Pages/CommitInfo/CommitInfoPage';
 
 const routes = [
     {
@@ -44,11 +44,11 @@ const routes = [
     },
     {
         path: `/ui/commits/:commit`,
-        element: <CommitPage />,
+        element: <CommitInfoPage />,
     },
     {
         path: `/ui/commits/`,
-        element: <CommitPage />,
+        element: <CommitInfoPage />,
     },
     {
         path: `/*`,

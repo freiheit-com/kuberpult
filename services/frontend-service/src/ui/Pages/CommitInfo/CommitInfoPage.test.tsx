@@ -15,13 +15,14 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { CommitPage } from './CommitPage';
+import { CommitInfoPage } from './CommitInfoPage';
 import { fakeLoadEverything } from '../../../setupTests';
+// import { updateCommitInfo, useCommitInfo } from '../../utils/store';
 
 describe('CommitPage', () => {
     const getNode = (): JSX.Element | any => (
         <MemoryRouter>
-            <CommitPage />
+            <CommitInfoPage />
         </MemoryRouter>
     );
     const getWrapper = () => render(getNode());
