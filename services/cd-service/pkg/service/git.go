@@ -125,6 +125,8 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		return nil, fmt.Errorf("the provided commit ID %s is not a valid SHA1 hash", commitID)
 	}
 
+	commitID = strings.ToLower(commitID)
+
 	var commitMessage string
 	if dat, err := util.ReadFile(fs, fs.Join("commits", commitID[:2], commitID[2:], "source_message")); err != nil {
 		return nil, fmt.Errorf("could not open the source message file, err: %w", err)
