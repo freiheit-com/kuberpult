@@ -1578,6 +1578,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 			},
 			ExistentCommitPaths: []string{
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/source_message",
 			},
 		},
 		{
@@ -1631,6 +1632,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
 				"commits/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/applications/app2/.empty",
 				"commits/cc/cccccccccccccccccccccccccccccccccccccc/applications/app3/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/source_message",
 			},
 		},
 		{
@@ -1684,6 +1686,9 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
 				"commits/aa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/applications/app2/.empty",
 				"commits/aa/cccccccccccccccccccccccccccccccccccccc/applications/app3/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/source_message",
+				"commits/aa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/source_message",
+				"commits/aa/cccccccccccccccccccccccccccccccccccccc/source_message",
 			},
 		},
 		{
@@ -1737,6 +1742,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app2/.empty",
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app3/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/source_message",
 			},
 		},
 		{
@@ -1762,6 +1768,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 			},
 			NonExistentCommitPaths: []string{
 				"commits/no/nsense/applications/app/.empty",
+				"commits/no/nsense/source_message",
 			},
 		},
 		{
@@ -1787,9 +1794,10 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 			},
 			ExistentCommitPaths: []string{
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/source_message",
 			},
 			NonExistentCommitPaths: []string{
-				"commits/aa/aaaaAAaaaaaaaaaaaaaaaaaaaaaaaaaaAaaaaa/applications/app/.empty",
+				"commits/aa/aaaaAAaaaaaaaaaaaaaaaaaaaaaaaaaaAaaaaa/applications/foo/.empty",
 			},
 		},
 		{
@@ -1856,6 +1864,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
 			ctx := testutil.MakeTestContext()
 			t.Parallel()
 			repo := setupRepositoryTest(t)
@@ -1896,7 +1905,9 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 
 		transformers := make([]Transformer, 0)
 		commitPaths1 := make([]string, 0)
+		commitMessagePaths1 := make([]string, 0)
 		commitPaths2 := make([]string, 0)
+		commitMessagePaths2 := make([]string, 0)
 
 		for i := uint64(0); i < versionCount; i++ {
 			commitID := randomCommitID()
@@ -1910,7 +1921,9 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 			})
 
 			commitPaths1 = append(commitPaths1, path.Join("commits", commitID[:2], commitID[2:], "applications", "app1", ".empty"))
+			commitMessagePaths1 = append(commitMessagePaths1, path.Join("commits", commitID[:2], commitID[2:], "source_message"))
 			commitPaths2 = append(commitPaths2, path.Join("commits", commitID[:2], commitID[2:], "applications", "app2", ".empty"))
+			commitMessagePaths2 = append(commitMessagePaths2, path.Join("commits", commitID[:2], commitID[2:], "source_message"))
 		}
 
 		transformers = append(transformers, &CreateUndeployApplicationVersion{
@@ -1920,13 +1933,18 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 			Application: "app1",
 		})
 
-		existentCommitPaths := commitPaths2
-		NonExistentCommitPaths := commitPaths1
+		existentCommitPaths := make([]string, 0)
+		existentCommitPaths = append(existentCommitPaths, commitPaths2...)
+		existentCommitPaths = append(existentCommitPaths, commitMessagePaths2...)
+		
+		nonExistentCommitPaths := make([]string, 0)
+		nonExistentCommitPaths = append(nonExistentCommitPaths, commitPaths1...)
+		
 		return TestCase{
 			Name:                   name,
 			Transformers:           transformers,
 			ExistentCommitPaths:    existentCommitPaths,
-			NonExistentCommitPaths: NonExistentCommitPaths,
+			NonExistentCommitPaths: nonExistentCommitPaths,
 		}
 
 	}
@@ -1948,6 +1966,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 			},
 			NonExistentCommitPaths: []string{
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/source_message",
 			},
 		},
 		{
@@ -1970,6 +1989,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 			},
 			ExistentCommitPaths: []string{
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app2/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/source_message",
 			},
 			NonExistentCommitPaths: []string{
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",

@@ -27,8 +27,8 @@ import (
 	"path"
 	"sort"
 	"strconv"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -273,11 +273,15 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 		if valid.SHA1CommitID(c.SourceCommitId) {
-			commitDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
-			if err := fs.MkdirAll(commitDir, 0777); err != nil {
+			commitDir := commitDirectory(fs, c.SourceCommitId)
+			commitAppDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
+			if err := fs.MkdirAll(commitAppDir, 0777); err != nil {
 				return "", nil, GetCreateReleaseGeneralFailure(err)
 			}
-			if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
+			if err := util.WriteFile(fs, fs.Join(commitAppDir, ".empty"), make([]byte, 0), 0666); err != nil {
+				return "", nil, GetCreateReleaseGeneralFailure(err)
+			}
+			if err := util.WriteFile(fs, fs.Join(commitDir, "source_message"), []byte(c.SourceMessage), 0666); err != nil {
 				return "", nil, GetCreateReleaseGeneralFailure(err)
 			}
 		}
@@ -607,10 +611,13 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 }
 
 func removeCommit(fs billy.Filesystem, commitID, application string) error {
-	couldNotRemoveAppFormat := "could not remove the application %s from the directory of commit %s, error: %w"
+	errorTemplate := func(message string, err error) error {
+		return fmt.Errorf("while removing applicaton %s from commit %s and error was encountered, message: %s, error %w", application, commitID, message, err)
+	}
+
 	commitApplicationDir := commitApplicationDirectory(fs, commitID, application)
 	if err := fs.Remove(commitApplicationDir); err != nil {
-		return fmt.Errorf(couldNotRemoveAppFormat, application, commitID, err)
+		return errorTemplate(fmt.Sprintf("could not remove the application directory %s", commitApplicationDir), err)
 	}
 	// check if there are no other services updated by this commit
 	// if there are none, start removing the entire branch of the commit
@@ -618,23 +625,41 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 	deleteDirIfEmpty := func(dir string) error {
 		files, err := fs.ReadDir(dir)
 		if err != nil {
-			return fmt.Errorf(couldNotRemoveAppFormat, application, commitID, err)
+			return errorTemplate(fmt.Sprintf("could not read the directory %s", dir), err)
 		}
 		if len(files) == 0 {
 			if err = fs.Remove(dir); err != nil {
-				return fmt.Errorf(couldNotRemoveAppFormat, application, commitID, err)
+				return errorTemplate(fmt.Sprintf("could not remove remove the directory %s", dir), err)
 			}
 		}
 		return nil
 	}
 
 	applicationsDir := path.Dir(commitApplicationDir)
-	deleteDirIfEmpty(applicationsDir)
+	if err := deleteDirIfEmpty(applicationsDir); err != nil {
+		return errorTemplate(fmt.Sprintf("could not remove directory %s", applicationsDir), err)
+	}
 	commitDir2 := path.Dir(applicationsDir)
-	deleteDirIfEmpty(commitDir2)
+
+	// special case for processing the existence of the commit_message file
+	if _, err := fs.Stat(applicationsDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := fs.Remove(fs.Join(commitDir2, "source_message")); err != nil {
+				return errorTemplate("could not remove source_message file", err)
+			}
+		} else {
+			return errorTemplate(fmt.Sprintf("could not stat directory %s with an unexpected error", applicationsDir), err)
+		}
+	}
+
+	if err := deleteDirIfEmpty(commitDir2); err != nil {
+		return errorTemplate(fmt.Sprintf("could not remove directory %s", commitDir2), err)
+	}
 	commitDir1 := path.Dir(commitDir2)
-	deleteDirIfEmpty(commitDir1)
-	
+	if err := deleteDirIfEmpty(commitDir1); err != nil {
+		return errorTemplate(fmt.Sprintf("could not remove directory %s", commitDir2), err)
+	}
+
 	return nil
 }
 
