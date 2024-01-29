@@ -253,7 +253,6 @@ func TestGetProductOverview(t *testing.T) {
 					}
 				}
 			}
-
 		})
 	}
 }

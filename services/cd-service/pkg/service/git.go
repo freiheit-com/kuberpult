@@ -23,7 +23,9 @@ import (
 	"strconv"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/go-git/go-billy/v5/util"
 )
 
 type GitServer struct {
@@ -115,12 +117,34 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
+	fs := s.OverviewService.Repository.State().Filesystem
+	
+	commitID := in.CommitHash
+
+	if !valid.SHA1CommitID(commitID) {
+		return nil, fmt.Errorf("the provided commit ID %s is not a valid SHA1 hash", commitID)
+	}
+
+	var commitMessage string
+	if dat, err := util.ReadFile(fs, fs.Join("commits", commitID[:2], commitID[2:], "source_message")); err != nil {
+		return nil, fmt.Errorf("could not open the source message file, err: %w", err)
+	} else {
+		commitMessage = string(dat)
+	}
+
+	var touchedApps []string
+	
+	dirs, err := fs.ReadDir(fs.Join("commits", commitID[:2], commitID[2:], "applications"))
+	
+	if err != nil {
+		return nil, fmt.Errorf("could not read the applications directory under commit %s, error: %w", commitID, err)
+	}
+	for _, dir := range dirs {
+		touchedApps = append(touchedApps, dir.Name())
+	}
+
 	return &api.GetCommitInfoResponse{
-		CommitMessage: "hello, you reached cd service",
-		TouchedApps: []string {
-			"Google",
-			"Libre Office",
-			"Freiheit",
-		},
+		CommitMessage: commitMessage,
+		TouchedApps: touchedApps,
 	}, nil
 }

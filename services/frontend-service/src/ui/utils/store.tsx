@@ -111,10 +111,10 @@ export const [useSummary, updateSummary] = createStore<ProductSummaryResponse>({
     summaryReady: false,
 });
 
-const commitInfoResponse: GetCommitInfoResponse = {
-    commitMessage: 'default commit message',
-    touchedApps: ['default touched app 1', 'default touched app 2'],
-};
+// const commitInfoResponse: GetCommitInfoResponse = {
+//     commitMessage: 'default commit message',
+//     touchedApps: ['default touched app 1', 'default touched app 2'],
+// };
 export const getCommitInfo = (commitHash: string): void => {
     const api = useApi;
     api.gitService()
@@ -127,7 +127,10 @@ export const getCommitInfo = (commitHash: string): void => {
         });
 };
 export const [useCommitInfo, updateCommitInfo] = createStore<CommitInfoResponse>({
-    response: commitInfoResponse,
+    response: {
+        commitMessage: 'EMPTY',
+        touchedApps: ['NONE'],
+    },
     commitInfoReady: false,
 });
 
