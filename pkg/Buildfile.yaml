@@ -1,0 +1,8 @@
+---
+apiVersion: v1beta1
+kind: Service
+metadata:
+  name: pkg
+  version: v1
+spec:
+  buildWith: infrastructure/docker/builder

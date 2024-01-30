@@ -24,8 +24,10 @@ GO := go
 
 GO_FILES := $(shell find . -type f -name '*.go')
 
-all: proto test
+all: proto lint test
 
+lint:
+	earthly +lint
 test: $(GO_FILES)
 	$(GO) test  ./...
 
@@ -37,5 +39,8 @@ release: #no-op
 clean:
 	rm -f api/v1/*.go
 proto: api/v1/api_grpc.pb.go
+
+build-pr: all
+build-main: all
 
 .PHONY: all clean release test
