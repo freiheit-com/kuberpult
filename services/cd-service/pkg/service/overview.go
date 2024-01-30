@@ -182,7 +182,7 @@ func (o *OverviewServiceServer) getOverview(
 						if syncWindows, err := mapper.TransformSyncWindows(config.ArgoCd.SyncWindows, appName); err != nil {
 							return nil, err
 						} else {
-							app.ArgoCD = &api.Environment_Application_ArgoCD{
+							app.ArgoCd = &api.Environment_Application_ArgoCD{
 								SyncWindows: syncWindows,
 							}
 						}

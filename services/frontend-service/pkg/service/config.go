@@ -38,7 +38,7 @@ func (c *FrontendConfigServiceServer) GetConfig(
 				ClientId:      c.Config.Auth.AzureAuth.ClientId,
 				TenantId:      c.Config.Auth.AzureAuth.TenantId,
 				CloudInstance: c.Config.Auth.AzureAuth.CloudInstance,
-				RedirectURL:   c.Config.Auth.AzureAuth.RedirectURL,
+				RedirectUrl:   c.Config.Auth.AzureAuth.RedirectURL,
 			},
 		},
 		SourceRepoUrl:    c.Config.SourceRepoUrl,

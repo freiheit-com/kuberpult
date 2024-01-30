@@ -48,7 +48,7 @@ const getMsalConfig = (configs: GetFrontendConfigResponse): Configuration => ({
         authority: `${configs.authConfig?.azureAuth?.cloudInstance || ''}${
             configs.authConfig?.azureAuth?.tenantId || ''
         }`,
-        redirectUri: configs.authConfig?.azureAuth?.redirectURL || '',
+        redirectUri: configs.authConfig?.azureAuth?.redirectUrl || '',
     },
     cache: {
         cacheLocation: 'sessionStorage',

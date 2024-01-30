@@ -76,7 +76,7 @@ func makeApp(appName string, version uint64) *api.Environment_Application {
 		Locks:           nil,
 		QueuedVersion:   0,
 		UndeployVersion: false,
-		ArgoCD:          nil,
+		ArgoCd:          nil,
 	}
 }
 func makeEnvGroup(envGroupName string, environments []*api.Environment) *api.EnvironmentGroup {

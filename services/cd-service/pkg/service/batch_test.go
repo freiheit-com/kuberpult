@@ -383,7 +383,7 @@ func TestBatchServiceErrors(t *testing.T) {
 						},
 					},
 				}},
-			ExpectedResponse: `results:{create_release_response:{too_long:{appName:"myappIsWayTooLongDontYouThink" regExp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z" maxLen:39}}}`,
+			ExpectedResponse: `results:{create_release_response:{too_long:{app_name:"myappIsWayTooLongDontYouThink"  reg_exp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z"  max_len:39}}}`,
 		},
 	}
 	for _, tc := range tcs {

@@ -235,7 +235,7 @@ describe('AuthProvider', () => {
                             clientId: 'none',
                             tenantId: 'no-tenant',
                             cloudInstance: 'myinstance',
-                            redirectURL: 'example.com',
+                            redirectUrl: 'example.com',
                         },
                     },
                 },
