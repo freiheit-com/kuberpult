@@ -53,6 +53,10 @@ const (
 
 var timeNowOld = time.Date(1999, 01, 02, 03, 04, 05, 0, time.UTC)
 
+func trimAllSpace(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
+
 func TestUndeployApplicationErrors(t *testing.T) {
 	tcs := []struct {
 		Name              string
@@ -710,7 +714,7 @@ func TestCreateApplicationVersion(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error, got none.")
 			}
-			if err.Error() != tc.expectedErrorMsg {
+			if trimAllSpace(err.Error()) != tc.expectedErrorMsg {
 				t.Fatalf("Expected different error (expected: %s, got: %s)", tc.expectedErrorMsg, err.Error())
 			}
 		})
