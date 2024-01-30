@@ -784,7 +784,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 			Name:           "No Environments",
 			AppName:        "foo",
 			groups:         []*api.EnvironmentGroup{},
-			ExpectedResult: api.UndeploySummary_Undeploy,
+			ExpectedResult: api.UndeploySummary_UNDEPLOY,
 		},
 		{
 			Name:    "one Environment but no Application",
@@ -799,7 +799,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					},
 				},
 			}),
-			ExpectedResult: api.UndeploySummary_Undeploy,
+			ExpectedResult: api.UndeploySummary_UNDEPLOY,
 		},
 		{
 			Name:    "One Env with undeploy",
@@ -814,7 +814,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					},
 				},
 			}),
-			ExpectedResult: api.UndeploySummary_Undeploy,
+			ExpectedResult: api.UndeploySummary_UNDEPLOY,
 		},
 		{
 			Name:    "One Env with normal version",
@@ -829,7 +829,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					},
 				},
 			}),
-			ExpectedResult: api.UndeploySummary_Normal,
+			ExpectedResult: api.UndeploySummary_NORMAL,
 		},
 		{
 			Name:    "Two Envs all undeploy",
@@ -852,7 +852,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					},
 				},
 			}),
-			ExpectedResult: api.UndeploySummary_Undeploy,
+			ExpectedResult: api.UndeploySummary_UNDEPLOY,
 		},
 		{
 			Name:    "Two Envs all normal",
@@ -875,7 +875,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					},
 				},
 			}),
-			ExpectedResult: api.UndeploySummary_Normal,
+			ExpectedResult: api.UndeploySummary_NORMAL,
 		},
 		{
 			Name:    "Two Envs all different",
@@ -898,7 +898,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					},
 				},
 			}),
-			ExpectedResult: api.UndeploySummary_Mixed,
+			ExpectedResult: api.UndeploySummary_MIXED,
 		},
 	}
 	for _, tc := range tcs {

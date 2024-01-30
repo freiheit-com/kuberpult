@@ -151,13 +151,13 @@ message CreateReleaseResponseAlreadyExistsSame {
 }
 
 enum DifferingField {
-  SourceCommitId = 0;
-  SourceAuthor = 1;
-  SourceMessage = 2;
-  SourceRepoUrl = 3;
-  DisplayVersion = 4;
-  Team = 5;
-  Manifests = 6;
+  SOURCE_COMMIT_ID = 0;
+  SOURCE_AUTHOR = 1;
+  SOURCE_MESSAGE = 2;
+  SOURCE_REPO_URL = 3;
+  DISPLAY_VERSION = 4;
+  TEAM = 5;
+  MANIFESTS = 6;
 }
 
 message CreateReleaseResponseAlreadyExistsDifferent {
@@ -177,9 +177,9 @@ message CreateReleaseResponse {
 }
 
 enum LockBehavior {
-  Record = 0;
-  Fail = 1;
-  Ignore = 2;
+  RECORD = 0;
+  FAIL = 1;
+  IGNORE = 2;
 }
 
 message DeployRequest {
@@ -437,11 +437,11 @@ message Release {
 
 enum UndeploySummary {
   // "normal": usual case for an active app, there is no undeploy version deployed in any environment
-  Normal = 0;
+  NORMAL = 0;
   // "undeploy": all versions are in "undeploy" or don't exist on an environment
-  Undeploy = 1;
+  UNDEPLOY = 1;
   // "mixed": undeploy is deployed in one or more, but not all environments
-  Mixed = 2;
+  MIXED = 2;
 }
 
 message Application {
@@ -478,12 +478,12 @@ Progressing = waiting for something
 Error = error
 */
 enum RolloutStatus {
-  RolloutStatusUnknown = 0; // argocd didn't report anything for this app
-  RolloutStatusSuccesful = 1; // sync succesful
-  RolloutStatusProgressing = 2; // argocd picked up the change but didn't apply it yet
-  RolloutStatusError = 3; // argocd applied the change but failed
-  RolloutStatusPending = 4; // argocd hasn't yet picked up the change
-  RolloutStatusUnhealthy = 5; // argocd applied the change succesfully, but the app is unhealthy
+  ROLLOUT_STATUS_UNKNOWN = 0; // argocd didn't report anything for this app
+  ROLLOUT_STATUS_SUCCESFUL = 1; // sync succesful
+  ROLLOUT_STATUS_PROGRESSING = 2; // argocd picked up the change but didn't apply it yet
+  ROLLOUT_STATUS_ERROR = 3; // argocd applied the change but failed
+  ROLLOUT_STATUS_PENDING = 4; // argocd hasn't yet picked up the change
+  ROLLOUT_STATUS_UNHEALTHY = 5; // argocd applied the change succesfully, but the app is unhealthy
 }
 
 message StreamStatusResponse {

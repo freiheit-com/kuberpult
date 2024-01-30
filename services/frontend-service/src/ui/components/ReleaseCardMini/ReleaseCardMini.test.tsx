@@ -128,7 +128,7 @@ describe('Release Card Mini', () => {
                         name: testcase.props.app,
                         releases: testcase.rels,
                         sourceRepoUrl: 'url',
-                        undeploySummary: UndeploySummary.Normal,
+                        undeploySummary: UndeploySummary.NORMAL,
                         team: 'no-team',
                         warnings: [],
                     },

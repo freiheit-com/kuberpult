@@ -337,12 +337,12 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 		}
 	}
 	if allUndeploy {
-		return api.UndeploySummary_Undeploy
+		return api.UndeploySummary_UNDEPLOY
 	}
 	if allNormal {
-		return api.UndeploySummary_Normal
+		return api.UndeploySummary_NORMAL
 	}
-	return api.UndeploySummary_Mixed
+	return api.UndeploySummary_MIXED
 
 }
 

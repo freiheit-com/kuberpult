@@ -673,7 +673,7 @@ func TestCreateApplicationVersion(t *testing.T) {
 					},
 				},
 			},
-			expectedErrorMsg: `already_exists_different:{first_differing_field:Manifests diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
+			expectedErrorMsg: `already_exists_different:{first_differing_field:MANIFESTS diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
 		},
 		{
 			Name: "recreate same version with idempotence, but different formatting of yaml",
@@ -748,7 +748,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 					Environment:   envAcceptance,
 					Application:   "app1",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 			},
 			expectedError:               "",
@@ -778,7 +778,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 					Environment:   envAcceptance,
 					Application:   "app1",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 			},
 			expectedError:               "",
@@ -1793,7 +1793,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment:   envAcceptance,
 					Application:   "app1",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
 						"developer,DeployRelease,acceptance:acceptance,*,allow": {Role: "developer"}}}},
 				},
@@ -1818,7 +1818,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment:    envAcceptance,
 					Application:    "app1",
 					Version:        1,
-					LockBehaviour:  api.LockBehavior_Fail,
+					LockBehaviour:  api.LockBehavior_FAIL,
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
 				},
 			},
@@ -2050,7 +2050,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment:    envProduction,
 					Application:    "app1",
 					Version:        1,
-					LockBehaviour:  api.LockBehavior_Fail,
+					LockBehaviour:  api.LockBehavior_FAIL,
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				&DeleteEnvFromApp{
@@ -2080,7 +2080,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment:    envProduction,
 					Application:    "app1",
 					Version:        1,
-					LockBehaviour:  api.LockBehavior_Fail,
+					LockBehaviour:  api.LockBehavior_FAIL,
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				&DeleteEnvFromApp{
@@ -2974,7 +2974,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy version when environment is locked fails LockBehavior=Fail",
-			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_Fail),
+			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_FAIL),
 			ErrorTest: func(t *testing.T, err error) {
 				var lockErr *LockedError
 				if !errors.As(err, &lockErr) {
@@ -2993,7 +2993,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy version ignoring locks when environment is locked LockBehavior=Ignore",
-			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_Ignore),
+			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_IGNORE),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -3007,7 +3007,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy version ignoring locks when environment is locked LockBehavior=Queue",
-			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_Record),
+			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_RECORD),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -3021,7 +3021,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy version when application in environment is locked and config=LockBehaviourIgnoreAllLocks",
-			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_Ignore),
+			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_IGNORE),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -3035,7 +3035,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy version when application in environment is locked and config=LockBehaviourQueue",
-			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_Record),
+			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_RECORD),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -3057,7 +3057,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy version ignoring locks when application in environment is locked and LockBehaviourFail",
-			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_Fail),
+			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_FAIL),
 			ErrorTest: func(t *testing.T, err error) {
 				var lockErr *LockedError
 				if !errors.As(err, &lockErr) {
@@ -3076,7 +3076,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy twice LockBehavior=Queue and LockBehavior=Queue",
-			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_Record, api.LockBehavior_Record),
+			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_RECORD, api.LockBehavior_RECORD),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -3101,7 +3101,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy twice LockBehavior=Queue and LockBehavior=Ignore",
-			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_Record, api.LockBehavior_Ignore),
+			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_RECORD, api.LockBehavior_IGNORE),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -3126,7 +3126,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Deploy twice LockBehavior=Ignore and LockBehavior=Queue",
-			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_Ignore, api.LockBehavior_Record),
+			Transformers: makeTransformersTwoDeploymentsWriteToQueue(api.LockBehavior_IGNORE, api.LockBehavior_RECORD),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -3155,7 +3155,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Lock env AND app and then Deploy and unlock one lock ",
-			Transformers: makeTransformersDoubleLock(api.LockBehavior_Record, false),
+			Transformers: makeTransformersDoubleLock(api.LockBehavior_RECORD, false),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -3180,7 +3180,7 @@ func TestTransformer(t *testing.T) {
 		},
 		{
 			Name:         "Lock env AND app and then Deploy and unlock both locks",
-			Transformers: makeTransformersDoubleLock(api.LockBehavior_Record, true),
+			Transformers: makeTransformersDoubleLock(api.LockBehavior_RECORD, true),
 			Test: func(t *testing.T, s *State) {
 				// check that the state reads the correct versions
 				i, err := s.GetEnvironmentApplicationVersion("production", "test")
@@ -3862,7 +3862,7 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 			Environment:   envProduction,
 			Application:   "test",
 			Version:       v,
-			LockBehaviour: api.LockBehavior_Fail,
+			LockBehaviour: api.LockBehavior_FAIL,
 		})
 	}
 	return res
@@ -4423,7 +4423,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Environment:   envProduction,
 					Application:   "app1",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 				&DeleteEnvFromApp{
 					Application: "app1",
@@ -4451,7 +4451,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Environment:   envProduction,
 					Application:   "app1",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 				&DeleteEnvFromApp{
 					Application: "app1",
@@ -4483,7 +4483,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Environment:   envProduction,
 					Application:   "app1",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 				&DeleteEnvFromApp{
 					Environment: envProduction,
@@ -4510,7 +4510,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Environment:   envProduction,
 					Application:   "app1",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 				&DeleteEnvFromApp{
 					Application: "app1",

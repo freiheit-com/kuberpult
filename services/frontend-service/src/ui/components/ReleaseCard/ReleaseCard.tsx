@@ -38,15 +38,15 @@ export type ReleaseCardProps = {
 const RolloutStatusIcon: React.FC<{ status: RolloutStatus }> = (props) => {
     const { status } = props;
     switch (status) {
-        case RolloutStatus.RolloutStatusSuccesful:
+        case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
             return <span className="rollout__icon_successful">✓</span>;
-        case RolloutStatus.RolloutStatusProgressing:
+        case RolloutStatus.ROLLOUT_STATUS_PROGRESSING:
             return <span className="rollout__icon_progressing">↻</span>;
-        case RolloutStatus.RolloutStatusPending:
+        case RolloutStatus.ROLLOUT_STATUS_PENDING:
             return <span className="rollout__icon_pending">⧖</span>;
-        case RolloutStatus.RolloutStatusError:
+        case RolloutStatus.ROLLOUT_STATUS_ERROR:
             return <span className="rollout__icon_error">!</span>;
-        case RolloutStatus.RolloutStatusUnhealthy:
+        case RolloutStatus.ROLLOUT_STATUS_UNHEALTHY:
             return <span className="rollout__icon_unhealthy">⚠</span>;
     }
     return <span className="rollout__icon_unknown">?</span>;
@@ -55,15 +55,15 @@ const RolloutStatusIcon: React.FC<{ status: RolloutStatus }> = (props) => {
 const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (props) => {
     const { status } = props;
     switch (status) {
-        case RolloutStatus.RolloutStatusSuccesful:
+        case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
             return <span className="rollout__description_successful">✓ Done</span>;
-        case RolloutStatus.RolloutStatusProgressing:
+        case RolloutStatus.ROLLOUT_STATUS_PROGRESSING:
             return <span className="rollout__description_progressing">↻ In progress</span>;
-        case RolloutStatus.RolloutStatusPending:
+        case RolloutStatus.ROLLOUT_STATUS_PENDING:
             return <span className="rollout__description_pending">⧖ Pending</span>;
-        case RolloutStatus.RolloutStatusError:
+        case RolloutStatus.ROLLOUT_STATUS_ERROR:
             return <span className="rollout__description_error">! Failed</span>;
-        case RolloutStatus.RolloutStatusUnhealthy:
+        case RolloutStatus.ROLLOUT_STATUS_UNHEALTHY:
             return <span className="rollout__description_unhealthy">⚠ Unhealthy</span>;
     }
     return <span className="rollout__description_unknown">? Unknown</span>;
@@ -75,16 +75,16 @@ const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (props) =>
 // The same priority list is also implemented in pkg/service/broadcast.go.
 const rolloutStatusPriority = [
     // Error is not recoverable by waiting and requires manual intervention
-    RolloutStatus.RolloutStatusError,
+    RolloutStatus.ROLLOUT_STATUS_ERROR,
 
     // These states may resolve by waiting longer
-    RolloutStatus.RolloutStatusProgressing,
-    RolloutStatus.RolloutStatusUnhealthy,
-    RolloutStatus.RolloutStatusPending,
-    RolloutStatus.RolloutStatusUnknown,
+    RolloutStatus.ROLLOUT_STATUS_PROGRESSING,
+    RolloutStatus.ROLLOUT_STATUS_UNHEALTHY,
+    RolloutStatus.ROLLOUT_STATUS_PENDING,
+    RolloutStatus.ROLLOUT_STATUS_UNKNOWN,
 
     // This is the only successful state
-    RolloutStatus.RolloutStatusSuccesful,
+    RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
 ];
 
 const calculateDeploymentStatus = (
@@ -103,18 +103,18 @@ const calculateDeploymentStatus = (
                 // The status is completly unknown. Either the app is just new or rollout service is not responding.
                 return {
                     environment: env.name,
-                    rolloutStatus: RolloutStatus.RolloutStatusUnknown,
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_UNKNOWN,
                     version: 0,
                     application: app,
                 };
             }
             if (
-                status.rolloutStatus === RolloutStatus.RolloutStatusSuccesful &&
+                status.rolloutStatus === RolloutStatus.ROLLOUT_STATUS_SUCCESFUL &&
                 status.version !== env.applications[app]?.version
             ) {
                 // The rollout service might be sligthly behind the UI.
                 // In that case the
-                return { ...status, rolloutStatus: RolloutStatus.RolloutStatusPending };
+                return { ...status, rolloutStatus: RolloutStatus.ROLLOUT_STATUS_PENDING };
             }
             return status;
         })

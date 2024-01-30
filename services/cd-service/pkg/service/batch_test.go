@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
@@ -38,13 +39,17 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
+func trimAllSpace(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
+
 func getBatchActions() []*api.BatchAction {
 	opDeploy := &api.BatchAction_Deploy{
 		Deploy: &api.DeployRequest{
 			Environment:  "production",
 			Application:  "test",
 			Version:      1,
-			LockBehavior: api.LockBehavior_Fail,
+			LockBehavior: api.LockBehavior_FAIL,
 		},
 	}
 	opCreateEnvLock := &api.BatchAction_CreateEnvironmentLock{
@@ -92,7 +97,7 @@ func getNBatchActions(N int) []*api.BatchAction {
 			Environment:  "production",
 			Application:  "test",
 			Version:      1,
-			LockBehavior: api.LockBehavior_Fail,
+			LockBehavior: api.LockBehavior_FAIL,
 		}
 		if i%2 == 0 {
 			deploy.Version = 2
@@ -383,7 +388,7 @@ func TestBatchServiceErrors(t *testing.T) {
 						},
 					},
 				}},
-			ExpectedResponse: `results:{create_release_response:{too_long:{app_name:"myappIsWayTooLongDontYouThink"  reg_exp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z"  max_len:39}}}`,
+			ExpectedResponse: `results:{create_release_response:{too_long:{app_name:"myappIsWayTooLongDontYouThink" reg_exp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z" max_len:39}}}`,
 		},
 	}
 	for _, tc := range tcs {
@@ -407,7 +412,7 @@ func TestBatchServiceErrors(t *testing.T) {
 					Actions: tc.Batch,
 				},
 			)
-			if tc.ExpectedResponse != "" && response.String() != tc.ExpectedResponse {
+			if tc.ExpectedResponse != "" && trimAllSpace(response.String()) != tc.ExpectedResponse {
 				t.Fatalf("expected:\n%s\ngot:\n%s\n%s", tc.ExpectedResponse, response.String(), processErr)
 			}
 			if tc.ExpectedResponse == "" && tc.ExpectedError != processErr.Error() {

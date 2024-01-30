@@ -169,7 +169,7 @@ func (d *BatchServer) processAction(
 		if act.IgnoreAllLocks {
 			// the UI currently sets this to true,
 			// in that case, we still want to ignore locks (for emergency deployments)
-			b = api.LockBehavior_Ignore
+			b = api.LockBehavior_IGNORE
 		}
 		return &repository.DeployApplicationVersion{
 			Environment:    act.Environment,
