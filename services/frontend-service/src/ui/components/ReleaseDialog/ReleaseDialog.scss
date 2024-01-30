@@ -138,7 +138,11 @@ Copyright 2023 freiheit.com*/
                     top: 10px;
                     right: 36px;
                     flex-direction: row;
-                    gap: 13px;
+                    gap: 0;
+
+                    svg {
+                        min-width: 16px;
+                    }
                 }
             }
 
