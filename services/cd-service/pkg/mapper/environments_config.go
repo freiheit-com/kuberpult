@@ -18,10 +18,11 @@ package mapper
 
 import (
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"path/filepath"
 	"sort"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 )
 
 type EnvSortOrder = map[string]int

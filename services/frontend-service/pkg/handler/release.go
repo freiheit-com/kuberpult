@@ -29,7 +29,7 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -252,37 +252,37 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	switch firstResponse := releaseResponse.Response.(type) {
-		case *api.CreateReleaseResponse_Success:
+	case *api.CreateReleaseResponse_Success:
 		{
 			jsonBlob, err := json.Marshal(firstResponse)
 			writeReleaseResponse(w, r, jsonBlob, err, http.StatusCreated)
 		}
-		case *api.CreateReleaseResponse_AlreadyExistsSame:
+	case *api.CreateReleaseResponse_AlreadyExistsSame:
 		{
 			jsonBlob, err := json.Marshal(firstResponse)
 			writeReleaseResponse(w, r, jsonBlob, err, http.StatusOK)
 		}
-		case *api.CreateReleaseResponse_AlreadyExistsDifferent:
+	case *api.CreateReleaseResponse_AlreadyExistsDifferent:
 		{
 			jsonBlob, err := json.Marshal(firstResponse)
 			writeReleaseResponse(w, r, jsonBlob, err, http.StatusConflict)
 		}
-		case *api.CreateReleaseResponse_GeneralFailure:
+	case *api.CreateReleaseResponse_GeneralFailure:
 		{
 			jsonBlob, err := json.Marshal(firstResponse)
 			writeReleaseResponse(w, r, jsonBlob, err, http.StatusInternalServerError)
 		}
-		case *api.CreateReleaseResponse_TooOld:
+	case *api.CreateReleaseResponse_TooOld:
 		{
 			jsonBlob, err := json.Marshal(firstResponse)
 			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
 		}
-		case *api.CreateReleaseResponse_TooLong:
+	case *api.CreateReleaseResponse_TooLong:
 		{
 			jsonBlob, err := json.Marshal(firstResponse)
 			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
 		}
-		default:
+	default:
 		{
 			msg := "unknown response type in /release"
 			jsonBlob, err := json.Marshal(releaseResponse)

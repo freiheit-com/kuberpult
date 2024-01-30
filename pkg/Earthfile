@@ -3,7 +3,11 @@ VERSION 0.7
 deps:
     FROM ../+deps
     COPY . pkg/
-    RUN cd pkg/api && buf generate
+    RUN cd pkg && buf generate
 artifacts:
     FROM +deps
     SAVE ARTIFACT pkg
+lint:
+    FROM +deps
+    WORKDIR pkg
+    RUN buf lint

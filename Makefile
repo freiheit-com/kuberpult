@@ -21,7 +21,7 @@ MAKEFLAGS += --no-builtin-rules
 SCRIPTS_BASE:=infrastructure/scripts/make
 
 
-MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg/api pkg
+MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg
 
 export USER_UID := $(shell id -u)
 .install:
@@ -77,7 +77,7 @@ builder:
 
 kuberpult: builder
 	make -C services/frontend-service src/api/api.ts
-	make -C pkg/api all
+	make -C pkg/ all
 	docker compose up --build
 
 kuberpult-earthly:

@@ -19,12 +19,13 @@ package cmd
 import (
 	"context"
 	"fmt"
-	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
@@ -33,7 +34,7 @@ import (
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"

@@ -21,14 +21,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ProtonMail/go-crypto/openpgp"
-	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/ProtonMail/go-crypto/openpgp"
+	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 )
 
 func (s Server) handleEnvironmentGroupLocks(w http.ResponseWriter, req *http.Request, environmentGroup, tail string) {

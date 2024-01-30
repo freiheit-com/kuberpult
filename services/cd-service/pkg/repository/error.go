@@ -19,7 +19,7 @@ package repository
 import (
 	"fmt"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 )
 
 type CreateReleaseError struct {

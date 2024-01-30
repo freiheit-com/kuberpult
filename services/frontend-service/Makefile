@@ -126,7 +126,7 @@ deps: .deps.sentinel
 .deps.sentinel: package.json
 	pnpm i && touch .deps.sentinel
 
-src/api/api.ts: ../../pkg/api/api.proto | deps
+src/api/api.ts: ../../pkg/api/v1/api.proto | deps
 buf-generate: src/api/api.ts
 	mkdir -p src/api
 	buf generate --path api --timeout 5m

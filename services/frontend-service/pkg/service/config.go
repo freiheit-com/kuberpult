@@ -19,7 +19,7 @@ package service
 import (
 	"context"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 )
 
