@@ -28,6 +28,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -900,6 +901,22 @@ func randomCommitID() string {
 	return hex.EncodeToString(commitID)
 }
 
+func concatenate[T any](slices ...[]T) []T {
+	var totalLen int
+	for _, s := range slices {
+		totalLen += len(s)
+	}
+
+	result := make([]T, totalLen)
+
+	var i int
+	for _, s := range slices {
+		i += copy(result[i:], s)
+	}
+
+	return result
+}
+
 func TestCreateApplicationVersionCommitPath(t *testing.T) {
 	type TestCase struct {
 		Name                   string
@@ -908,103 +925,25 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 		NonExistentCommitPaths []string
 	}
 
-	generateLargeTest1 := func(versionsCount uint64) TestCase {
-		name := fmt.Sprintf("Create %d releases of the same application", versionsCount)
-		transformers := make([]Transformer, 0)
-		commitPaths := make([]string, 0)
-		transformers = append(transformers, &CreateEnvironment{
-			Environment: "acceptance",
-			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
-		})
-
-		for idx := uint64(0); idx < versionsCount; idx++ {
-			commitID := randomCommitID()
-			transformer := &CreateApplicationVersion{
-				Application:    "app",
-				SourceCommitId: commitID,
-				Manifests: map[string]string{
-					envAcceptance: "acceptance",
-				},
-			}
-			commitPath := path.Join("commits", commitID[:2], commitID[2:], "applications", "app", ".empty")
-
-			transformers = append(transformers, transformer)
-			commitPaths = append(commitPaths, commitPath)
-		}
-
-		transformers = append(transformers, &DeployApplicationVersion{
-			Environment:   envAcceptance,
-			Application:   "app",
-			Version:       versionsCount,
-			LockBehaviour: api.LockBehavior_Fail,
-		})
-
-		return TestCase{
-			Name:                   name,
-			Transformers:           transformers,
-			ExistentCommitPaths:    commitPaths[len(commitPaths)-20:],
-			NonExistentCommitPaths: commitPaths[:len(commitPaths)-20],
-		}
+	intToSHA1 := func(n int) string {
+		ret := strconv.Itoa(n)
+		ret = strings.Repeat("0", 40-len(ret)) + ret
+		return ret
 	}
 
-	generateLargeTest2 := func(versionsCount uint64) TestCase {
-		name := fmt.Sprintf("Create %d releases of the same application but with other applications in the same commits", versionsCount)
-		transformers := make([]Transformer, 0)
-		commitPaths1 := make([]string, 0)
-		commitPaths2 := make([]string, 0)
+	manyCreateApplication := func(app string, n int) []Transformer {
+		ret := make([]Transformer, 0)
 
-		firstCommitID := randomCommitID()
-		transformers = append(transformers, &CreateEnvironment{
-			Environment: "acceptance",
-			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
-		})
-
-		transformers = append(transformers, &CreateApplicationVersion{
-			Application:    "app1",
-			SourceCommitId: firstCommitID,
-			Manifests: map[string]string{
-				envAcceptance: "acceptance",
-			},
-		})
-		commitPaths1 = append(commitPaths1, path.Join("commits", firstCommitID[:2], firstCommitID[2:], "applications", "app1", ".empty"))
-		transformers = append(transformers, &DeployApplicationVersion{
-			Environment:   envAcceptance,
-			Application:   "app1",
-			Version:       1,
-			LockBehaviour: api.LockBehavior_Fail,
-		})
-
-		transformers = append(transformers, &CreateApplicationVersion{
-			Application:    "app2",
-			SourceCommitId: firstCommitID,
-		})
-		commitPaths2 = append(commitPaths2, path.Join("commits", firstCommitID[:2], firstCommitID[2:], "applications", "app2", ".empty"))
-
-		for idx := uint64(0); idx < versionsCount; idx++ {
-			commitID := randomCommitID()
-			transformers = append(transformers, &CreateApplicationVersion{
-				Application:    "app2",
-				SourceCommitId: commitID,
+		for i := 1; i <= n; i++ {
+			ret = append(ret, &CreateApplicationVersion{
+				Application:    app,
+				SourceCommitId: intToSHA1(i),
 				Manifests: map[string]string{
 					envAcceptance: "acceptance",
 				},
 			})
-			commitPaths2 = append(commitPaths2, path.Join("commits", commitID[:2], commitID[2:], "applications", "app2", ".empty"))
 		}
-
-		transformers = append(transformers, &DeployApplicationVersion{
-			Environment:   envAcceptance,
-			Application:   "app2",
-			Version:       versionsCount + 1,
-			LockBehaviour: api.LockBehavior_Fail,
-		})
-
-		return TestCase{
-			Name:                   name,
-			Transformers:           transformers,
-			ExistentCommitPaths:    append(commitPaths1, commitPaths2[len(commitPaths2)-20:]...),
-			NonExistentCommitPaths: commitPaths2[:len(commitPaths2)-20],
-		}
+		return ret
 	}
 
 	tcs := []TestCase{
@@ -1238,18 +1177,76 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					LockBehaviour: api.LockBehavior_Fail,
 				},
 			},
-			ExistentCommitPaths: []string {
+			ExistentCommitPaths: []string{
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.empty",
 			},
 			NonExistentCommitPaths: []string{
 				"commits/aa/aaaaAAaaaaaaaaaaaaaaaaaaaaaaaaaaAaaaaa/applications/app/.empty",
 			},
 		},
-		generateLargeTest1(30),
-		generateLargeTest2(30),
+		{
+			Name: "Create the same application many times and deploy the last one",
+			Transformers: concatenate(
+				[]Transformer{
+					&CreateEnvironment{
+						Environment: "acceptance",
+						Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+					},
+				},
+				manyCreateApplication("app", 21),
+				[]Transformer{
+					&DeployApplicationVersion{
+						Environment:   envAcceptance,
+						Application:   "app",
+						Version:       uint64(21),
+						LockBehaviour: api.LockBehavior_Fail,
+					},
+				},
+			),
+			ExistentCommitPaths: []string{
+				"commits/00/00000000000000000000000000000000000002",
+			},
+			NonExistentCommitPaths: []string{
+				"commits/00/00000000000000000000000000000000000001",
+			},
+		},
+		{
+			Name: "Create the same application many times and deploy the last one but with another application in an old commit",
+			Transformers: concatenate(
+				[]Transformer{
+					&CreateEnvironment{
+						Environment: "acceptance",
+						Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+					},
+					&CreateApplicationVersion{
+						Application:    "app1",
+						SourceCommitId: intToSHA1(1),
+						Manifests: map[string]string{
+							envAcceptance: "acceptance",
+						},
+					},
+				},
+				manyCreateApplication("app2", 21),
+				[]Transformer{
+					&DeployApplicationVersion{
+						Environment:   envAcceptance,
+						Application:   "app2",
+						Version:       uint64(21),
+						LockBehaviour: api.LockBehavior_Fail,
+					},
+				},
+			),
+			ExistentCommitPaths: []string{
+				"commits/00/00000000000000000000000000000000000001/applications/app1/.empty",
+			},
+			NonExistentCommitPaths: []string{
+				"commits/00/00000000000000000000000000000000000001/applications/app2/.empty",
+			},
+		},
 	}
 
 	for _, tc := range tcs {
+		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			t.Parallel()
