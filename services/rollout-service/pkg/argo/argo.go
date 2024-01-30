@@ -282,7 +282,7 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 
 	deployApp := &v1alpha1.Application{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        app.Name,
+			Name:        fmt.Sprintf("%s-%s", env.Name, app.Name),
 			Annotations: annotations,
 			Labels:      labels,
 			Finalizers:  calculateFinalizers(),
