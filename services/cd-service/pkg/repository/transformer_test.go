@@ -965,7 +965,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Environment:   envAcceptance,
 					Application:   "app",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 			},
 			ExistentCommitPaths: []string{
@@ -1004,19 +1004,19 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Environment:   envAcceptance,
 					Application:   "app1",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
 					Application:   "app2",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
 					Application:   "app3",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 			},
 			ExistentCommitPaths: []string{
@@ -1057,19 +1057,19 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Environment:   envAcceptance,
 					Application:   "app1",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
 					Application:   "app2",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
 					Application:   "app3",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 			},
 			ExistentCommitPaths: []string{
@@ -1110,19 +1110,19 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Environment:   envAcceptance,
 					Application:   "app1",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
 					Application:   "app2",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
 					Application:   "app3",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 			},
 			ExistentCommitPaths: []string{
@@ -1149,7 +1149,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Environment:   envAcceptance,
 					Application:   "app",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 			},
 			NonExistentCommitPaths: []string{
@@ -1174,7 +1174,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Environment:   envAcceptance,
 					Application:   "app",
 					Version:       1,
-					LockBehaviour: api.LockBehavior_Fail,
+					LockBehaviour: api.LockBehavior_FAIL,
 				},
 			},
 			ExistentCommitPaths: []string{
@@ -1199,7 +1199,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 						Environment:   envAcceptance,
 						Application:   "app",
 						Version:       uint64(21),
-						LockBehaviour: api.LockBehavior_Fail,
+						LockBehaviour: api.LockBehavior_FAIL,
 					},
 				},
 			),
@@ -1232,7 +1232,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 						Environment:   envAcceptance,
 						Application:   "app2",
 						Version:       uint64(21),
-						LockBehaviour: api.LockBehavior_Fail,
+						LockBehaviour: api.LockBehavior_FAIL,
 					},
 				},
 			),
@@ -1283,44 +1283,25 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 		NonExistentCommitPaths []string
 	}
 
-	generateLargeTest1 := func(versionCount uint64) TestCase {
-		name := fmt.Sprintf("Create two applications %d times and then undeploy one of them", versionCount)
+	intToSHA1 := func(n int) string {
+		ret := strconv.Itoa(n)
+		ret = strings.Repeat("0", 40-len(ret)) + ret
+		return ret
+	}
 
-		transformers := make([]Transformer, 0)
-		commitPaths1 := make([]string, 0)
-		commitPaths2 := make([]string, 0)
+	manyCreateApplication := func(app string, n int) []Transformer {
+		ret := make([]Transformer, 0)
 
-		for i := uint64(0); i < versionCount; i++ {
-			commitID := randomCommitID()
-			transformers = append(transformers, &CreateApplicationVersion{
-				Application:    "app1",
-				SourceCommitId: commitID,
+		for i := 1; i <= n; i++ {
+			ret = append(ret, &CreateApplicationVersion{
+				Application:    app,
+				SourceCommitId: intToSHA1(i),
+				Manifests: map[string]string{
+					envAcceptance: "acceptance",
+				},
 			})
-			transformers = append(transformers, &CreateApplicationVersion{
-				Application:    "app2",
-				SourceCommitId: commitID,
-			})
-
-			commitPaths1 = append(commitPaths1, path.Join("commits", commitID[:2], commitID[2:], "applications", "app1", ".empty"))
-			commitPaths2 = append(commitPaths2, path.Join("commits", commitID[:2], commitID[2:], "applications", "app2", ".empty"))
 		}
-
-		transformers = append(transformers, &CreateUndeployApplicationVersion{
-			Application: "app1",
-		})
-		transformers = append(transformers, &UndeployApplication{
-			Application: "app1",
-		})
-
-		existentCommitPaths := commitPaths2
-		NonExistentCommitPaths := commitPaths1
-		return TestCase{
-			Name:                   name,
-			Transformers:           transformers,
-			ExistentCommitPaths:    existentCommitPaths,
-			NonExistentCommitPaths: NonExistentCommitPaths,
-		}
-
+		return ret
 	}
 
 	tcs := []TestCase{
@@ -1367,7 +1348,29 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
 			},
 		},
-		generateLargeTest1(30),
+		TestCase{
+			Name: "Create two applications many times and then undeploy one of them",
+			Transformers: concatenate(
+				manyCreateApplication("app1", 20),
+				manyCreateApplication("app2", 20),
+				[]Transformer{
+					&CreateUndeployApplicationVersion{
+						Application: "app2",
+					},
+					&UndeployApplication{
+						Application: "app2",
+					},
+				},
+			),
+			ExistentCommitPaths: []string{
+				"commits/00/00000000000000000000000000000000000001/applications/app1/.empty",
+				"commits/00/00000000000000000000000000000000000020/applications/app1/.empty",
+			},
+			NonExistentCommitPaths: []string{
+				"commits/00/00000000000000000000000000000000000001/applications/app2/.empty",
+				"commits/00/00000000000000000000000000000000000020/applications/app2/.empty",
+			},
+		},
 	}
 
 	for _, tc := range tcs {
