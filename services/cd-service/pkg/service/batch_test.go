@@ -19,12 +19,11 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"testing"
-
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc/codes"
