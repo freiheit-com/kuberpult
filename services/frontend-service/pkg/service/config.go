@@ -19,7 +19,7 @@ package service
 import (
 	"context"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 )
 
@@ -38,7 +38,7 @@ func (c *FrontendConfigServiceServer) GetConfig(
 				ClientId:      c.Config.Auth.AzureAuth.ClientId,
 				TenantId:      c.Config.Auth.AzureAuth.TenantId,
 				CloudInstance: c.Config.Auth.AzureAuth.CloudInstance,
-				RedirectURL:   c.Config.Auth.AzureAuth.RedirectURL,
+				RedirectUrl:   c.Config.Auth.AzureAuth.RedirectURL,
 			},
 		},
 		SourceRepoUrl:    c.Config.SourceRepoUrl,

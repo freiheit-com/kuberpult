@@ -29,9 +29,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
@@ -44,7 +46,7 @@ func getBatchActions() []*api.BatchAction {
 			Environment:  "production",
 			Application:  "test",
 			Version:      1,
-			LockBehavior: api.LockBehavior_Fail,
+			LockBehavior: api.LockBehavior_FAIL,
 		},
 	}
 	opCreateEnvLock := &api.BatchAction_CreateEnvironmentLock{
@@ -92,7 +94,7 @@ func getNBatchActions(N int) []*api.BatchAction {
 			Environment:  "production",
 			Application:  "test",
 			Version:      1,
-			LockBehavior: api.LockBehavior_Fail,
+			LockBehavior: api.LockBehavior_FAIL,
 		}
 		if i%2 == 0 {
 			deploy.Version = 2
@@ -383,12 +385,16 @@ func TestBatchServiceErrors(t *testing.T) {
 						},
 					},
 				}},
-			ExpectedResponse: `results:{create_release_response:{too_long:{appName:"myappIsWayTooLongDontYouThink" regExp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z" maxLen:39}}}`,
+			ExpectedResponse: `results:{create_release_response:{too_long:{app_name:"myappIsWayTooLongDontYouThink" reg_exp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z" max_len:39}}}`,
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			var expectedResponseObject api.BatchResponse
+			if err := prototext.Unmarshal([]byte(tc.ExpectedResponse), &expectedResponseObject); err != nil {
+				t.Fatalf("failed to unmarshal the expected response object: %v", err)
+			}
 			repo, err := setupRepositoryTest(t)
 			if err != nil {
 				t.Fatal(err)
@@ -407,7 +413,8 @@ func TestBatchServiceErrors(t *testing.T) {
 					Actions: tc.Batch,
 				},
 			)
-			if tc.ExpectedResponse != "" && response.String() != tc.ExpectedResponse {
+
+			if tc.ExpectedResponse != "" && !proto.Equal(response, &expectedResponseObject) {
 				t.Fatalf("expected:\n%s\ngot:\n%s\n%s", tc.ExpectedResponse, response.String(), processErr)
 			}
 			if tc.ExpectedResponse == "" && tc.ExpectedError != processErr.Error() {

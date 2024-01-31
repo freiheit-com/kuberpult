@@ -25,7 +25,7 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"go.uber.org/zap"
 )
@@ -120,15 +120,15 @@ func (s Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req *
 
 func statusName(a api.RolloutStatus) string {
 	switch a {
-	case api.RolloutStatus_RolloutStatusSuccesful:
+	case api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL:
 		return "succesful"
-	case api.RolloutStatus_RolloutStatusProgressing:
+	case api.RolloutStatus_ROLLOUT_STATUS_PROGRESSING:
 		return "progressing"
-	case api.RolloutStatus_RolloutStatusError:
+	case api.RolloutStatus_ROLLOUT_STATUS_ERROR:
 		return "error"
-	case api.RolloutStatus_RolloutStatusPending:
+	case api.RolloutStatus_ROLLOUT_STATUS_PENDING:
 		return "pending"
-	case api.RolloutStatus_RolloutStatusUnhealthy:
+	case api.RolloutStatus_ROLLOUT_STATUS_UNHEALTHY:
 		return "unhealthy"
 	}
 	return "unknown"

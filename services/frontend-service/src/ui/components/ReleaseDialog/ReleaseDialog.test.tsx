@@ -279,7 +279,7 @@ describe('Release Dialog', () => {
                     releases: testcase.rels,
                     team: testcase.teamName,
                     sourceRepoUrl: 'url',
-                    undeploySummary: UndeploySummary.Normal,
+                    undeploySummary: UndeploySummary.NORMAL,
                     warnings: [],
                 },
             },

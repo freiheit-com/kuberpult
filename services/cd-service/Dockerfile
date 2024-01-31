@@ -9,9 +9,10 @@ ADD services/cd-service/pkg /kp/services/cd-service/pkg
 
 # global:
 ADD pkg /kp/pkg
+ADD Makefile.variables .
 COPY go.sum go.mod /kp/
 
-RUN make -C /kp/pkg/api
+RUN make -C /kp/pkg proto
 RUN go build -o /kp/main /kp/services/cd-service/cmd/server/
 
 FROM alpine:3.18

@@ -18,9 +18,12 @@ package argo
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"slices"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
@@ -29,8 +32,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"path/filepath"
-	"slices"
 )
 
 // this is a simpler version of ApplicationServiceClient from the application package

@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/google/go-cmp/cmp"
 	grpc "google.golang.org/grpc"

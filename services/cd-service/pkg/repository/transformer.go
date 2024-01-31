@@ -21,8 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"io"
 	"io/fs"
 	"os"
@@ -30,13 +28,16 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
+
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"k8s.io/utils/strings/slices"
 
 	yaml3 "gopkg.in/yaml.v3"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
@@ -333,7 +334,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 				Environment:    env,
 				Application:    c.Application,
 				Version:        version, // the train should queue deployments, instead of giving up:
-				LockBehaviour:  api.LockBehavior_Record,
+				LockBehaviour:  api.LockBehavior_RECORD,
 				Authentication: c.Authentication,
 			}
 			deployResult, subChanges, err := d.Transform(ctx, state)
@@ -384,72 +385,72 @@ func (c *CreateApplicationVersion) sameAsExisting(state *State, version uint64) 
 	if c.SourceCommitId != "" {
 		existingSourceCommitId, err := util.ReadFile(fs, fs.Join(releaseDir, fieldSourceCommitId))
 		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceCommitId, "")
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_COMMIT_ID, "")
 		}
 		existingSourceCommitIdStr := string(existingSourceCommitId)
 		if existingSourceCommitIdStr != c.SourceCommitId {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceCommitId, createUnifiedDiff(existingSourceCommitIdStr, c.SourceCommitId, ""))
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_COMMIT_ID, createUnifiedDiff(existingSourceCommitIdStr, c.SourceCommitId, ""))
 		}
 	}
 	if c.SourceAuthor != "" {
 		existingSourceAuthor, err := util.ReadFile(fs, fs.Join(releaseDir, fieldSourceAuthor))
 		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceAuthor, "")
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_AUTHOR, "")
 		}
 		existingSourceAuthorStr := string(existingSourceAuthor)
 		if existingSourceAuthorStr != c.SourceAuthor {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceAuthor, createUnifiedDiff(existingSourceAuthorStr, c.SourceAuthor, ""))
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_AUTHOR, createUnifiedDiff(existingSourceAuthorStr, c.SourceAuthor, ""))
 		}
 	}
 	if c.SourceMessage != "" {
 		existingSourceMessage, err := util.ReadFile(fs, fs.Join(releaseDir, fieldSourceMessage))
 		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceMessage, "")
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_MESSAGE, "")
 		}
 		existingSourceMessageStr := string(existingSourceMessage)
 		if existingSourceMessageStr != c.SourceMessage {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceMessage, createUnifiedDiff(existingSourceMessageStr, c.SourceMessage, ""))
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_MESSAGE, createUnifiedDiff(existingSourceMessageStr, c.SourceMessage, ""))
 		}
 	}
 	if c.DisplayVersion != "" {
 		existingDisplayVersion, err := util.ReadFile(fs, fs.Join(releaseDir, fieldDisplayVersion))
 		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DisplayVersion, "")
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DISPLAY_VERSION, "")
 		}
 		existingDisplayVersionStr := string(existingDisplayVersion)
 		if existingDisplayVersionStr != c.DisplayVersion {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DisplayVersion, createUnifiedDiff(existingDisplayVersionStr, c.DisplayVersion, ""))
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_DISPLAY_VERSION, createUnifiedDiff(existingDisplayVersionStr, c.DisplayVersion, ""))
 		}
 	}
 	if c.Team != "" {
 		existingTeam, err := util.ReadFile(fs, fs.Join(appDir, fieldTeam))
 		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Team, "")
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, "")
 		}
 		existingTeamStr := string(existingTeam)
 		if existingTeamStr != c.Team {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Team, createUnifiedDiff(existingTeamStr, c.Team, ""))
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, createUnifiedDiff(existingTeamStr, c.Team, ""))
 		}
 	}
 	if c.SourceRepoUrl != "" {
 		existingSourceRepoUrl, err := util.ReadFile(fs, fs.Join(releaseDir, fieldSourceCommitId))
 		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceRepoUrl, "")
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_REPO_URL, "")
 		}
 		existingSourceRepoUrlStr := string(existingSourceRepoUrl)
 		if existingSourceRepoUrlStr != c.SourceRepoUrl {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SourceRepoUrl, createUnifiedDiff(existingSourceRepoUrlStr, c.SourceRepoUrl, ""))
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_SOURCE_REPO_URL, createUnifiedDiff(existingSourceRepoUrlStr, c.SourceRepoUrl, ""))
 		}
 	}
 	for env, man := range c.Manifests {
 		envDir := fs.Join(releaseDir, "environments", env)
 		existingMan, err := util.ReadFile(fs, fs.Join(envDir, "manifests.yaml"))
 		if err != nil {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Manifests, fmt.Sprintf("manifest missing for env %s", env))
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, fmt.Sprintf("manifest missing for env %s", env))
 		}
 		existingManStr := string(existingMan)
 		if canonicalizeYaml(existingManStr) != canonicalizeYaml(man) {
-			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_Manifests, createUnifiedDiff(existingManStr, man, fmt.Sprintf("%s-", env)))
+			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, createUnifiedDiff(existingManStr, man, fmt.Sprintf("%s-", env)))
 		}
 	}
 	return GetCreateReleaseAlreadyExistsSame()
@@ -562,7 +563,7 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 				Application: c.Application,
 				Version:     lastRelease + 1,
 				// the train should queue deployments, instead of giving up:
-				LockBehaviour:  api.LockBehavior_Record,
+				LockBehaviour:  api.LockBehavior_RECORD,
 				Authentication: c.Authentication,
 			}
 			deployResult, subChanges, err := d.Transform(ctx, state)
@@ -1213,7 +1214,7 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		file.Close()
 	}
 
-	if c.LockBehaviour != api.LockBehavior_Ignore {
+	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
 			envLocks, appLocks map[string]Lock
@@ -1229,19 +1230,19 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 		}
 		if len(envLocks) > 0 || len(appLocks) > 0 {
 			switch c.LockBehaviour {
-			case api.LockBehavior_Record:
+			case api.LockBehavior_RECORD:
 				q := QueueApplicationVersion{
 					Environment: c.Environment,
 					Application: c.Application,
 					Version:     c.Version,
 				}
 				return q.Transform(ctx, state)
-			case api.LockBehavior_Fail:
+			case api.LockBehavior_FAIL:
 				return "", nil, &LockedError{
 					EnvironmentApplicationLocks: appLocks,
 					EnvironmentLocks:            envLocks,
 				}
-			case api.LockBehavior_Ignore:
+			case api.LockBehavior_IGNORE:
 				// just continue
 			}
 		}
@@ -1491,7 +1492,7 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, *Tr
 				Environment:    envName, // here we deploy to the next env
 				Application:    appName,
 				Version:        versionToDeploy,
-				LockBehaviour:  api.LockBehavior_Record,
+				LockBehaviour:  api.LockBehavior_RECORD,
 				Authentication: c.Authentication,
 			}
 			transform, subChanges, err := d.Transform(ctx, state)

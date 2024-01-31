@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -126,7 +126,7 @@ func (a *appState) update(ev *service.BroadcastEvent) *appState {
 		// We also need to know that something is in argocd
 		return nil
 	}
-	sc := (ev.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful || ev.RolloutStatus == api.RolloutStatus_RolloutStatusUnhealthy)
+	sc := (ev.RolloutStatus == api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL || ev.RolloutStatus == api.RolloutStatus_ROLLOUT_STATUS_UNHEALTHY)
 	// The environment group is the only thing that can change
 	as := a.attributes(ev)
 	return &appState{

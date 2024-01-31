@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 
@@ -69,11 +69,11 @@ func (a *appState) applyKuberpultEvent(ev *versions.KuberpultEvent) *BroadcastEv
 func (a *appState) getEvent(application, environment string) *BroadcastEvent {
 	rs := a.rolloutStatus
 	if a.kuberpultVersion == nil || a.argocdVersion == nil {
-		if rs == api.RolloutStatus_RolloutStatusSuccesful {
-			rs = api.RolloutStatus_RolloutStatusUnknown
+		if rs == api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL {
+			rs = api.RolloutStatus_ROLLOUT_STATUS_UNKNOWN
 		}
 	} else if a.kuberpultVersion.Version != a.argocdVersion.Version {
-		rs = api.RolloutStatus_RolloutStatusPending
+		rs = api.RolloutStatus_ROLLOUT_STATUS_PENDING
 	}
 	return &BroadcastEvent{
 		Key: Key{
@@ -222,7 +222,7 @@ func (b *Broadcast) GetStatus(ctx context.Context, req *api.GetStatusRequest) (*
 	waiting:
 		for {
 			status = aggregateStatus(apps)
-			if status == api.RolloutStatus_RolloutStatusSuccesful || status == api.RolloutStatus_RolloutStatusError {
+			if status == api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL || status == api.RolloutStatus_ROLLOUT_STATUS_ERROR {
 				break
 			}
 			select {
@@ -267,7 +267,7 @@ func filterApplication(req *api.GetStatusRequest, ev *BroadcastEvent) *api.GetSt
 	}
 	s := getStatus(ev)
 	// Successful apps are also irrelevant.
-	if s.RolloutStatus == api.RolloutStatus_RolloutStatusSuccesful {
+	if s.RolloutStatus == api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL {
 		return nil
 	}
 	return s
@@ -275,7 +275,7 @@ func filterApplication(req *api.GetStatusRequest, ev *BroadcastEvent) *api.GetSt
 
 // Calculates an aggregatted rollout status
 func aggregateStatus(apps map[Key]*api.GetStatusResponse_ApplicationStatus) api.RolloutStatus {
-	status := api.RolloutStatus_RolloutStatusSuccesful
+	status := api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL
 	for _, app := range apps {
 		status = mostRelevantStatus(app.RolloutStatus, status)
 	}
@@ -336,25 +336,25 @@ func rolloutStatus(ev *ArgoEvent) api.RolloutStatus {
 		switch ev.OperationState.Phase {
 		case common.OperationError, common.OperationFailed:
 
-			return api.RolloutStatus_RolloutStatusError
+			return api.RolloutStatus_ROLLOUT_STATUS_ERROR
 		}
 	}
 	switch ev.SyncStatusCode {
 	case v1alpha1.SyncStatusCodeOutOfSync:
-		return api.RolloutStatus_RolloutStatusProgressing
+		return api.RolloutStatus_ROLLOUT_STATUS_PROGRESSING
 	}
 	switch ev.HealthStatusCode {
 	case health.HealthStatusDegraded, health.HealthStatusMissing:
-		return api.RolloutStatus_RolloutStatusUnhealthy
+		return api.RolloutStatus_ROLLOUT_STATUS_UNHEALTHY
 	case health.HealthStatusProgressing, health.HealthStatusSuspended:
-		return api.RolloutStatus_RolloutStatusProgressing
+		return api.RolloutStatus_ROLLOUT_STATUS_PROGRESSING
 	case health.HealthStatusHealthy:
 		if ev.Version == nil {
-			return api.RolloutStatus_RolloutStatusUnknown
+			return api.RolloutStatus_ROLLOUT_STATUS_UNKNOWN
 		}
-		return api.RolloutStatus_RolloutStatusSuccesful
+		return api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL
 	}
-	return api.RolloutStatus_RolloutStatusUnknown
+	return api.RolloutStatus_ROLLOUT_STATUS_UNKNOWN
 }
 
 // Depending on the rollout state, there are different things a user should do.
@@ -364,16 +364,16 @@ func rolloutStatus(ev *ArgoEvent) api.RolloutStatus {
 // The sorting is the same as in the UI.
 var statusPriorities []api.RolloutStatus = []api.RolloutStatus{
 	// Error is not recoverable by waiting and requires manual intervention
-	api.RolloutStatus_RolloutStatusError,
+	api.RolloutStatus_ROLLOUT_STATUS_ERROR,
 
 	// These states may resolve by waiting longer
-	api.RolloutStatus_RolloutStatusProgressing,
-	api.RolloutStatus_RolloutStatusUnhealthy,
-	api.RolloutStatus_RolloutStatusPending,
-	api.RolloutStatus_RolloutStatusUnknown,
+	api.RolloutStatus_ROLLOUT_STATUS_PROGRESSING,
+	api.RolloutStatus_ROLLOUT_STATUS_UNHEALTHY,
+	api.RolloutStatus_ROLLOUT_STATUS_PENDING,
+	api.RolloutStatus_ROLLOUT_STATUS_UNKNOWN,
 
 	// This is the only successful state
-	api.RolloutStatus_RolloutStatusSuccesful,
+	api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL,
 }
 
 // 0 is the highest priority - (RolloutStatusSuccesful) is the lowest priority

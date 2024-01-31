@@ -110,7 +110,7 @@ describe('Release Dialog', () => {
                         releases: testcase.releases,
                         name: 'test',
                         sourceRepoUrl: 'url',
-                        undeploySummary: UndeploySummary.Normal,
+                        undeploySummary: UndeploySummary.NORMAL,
                         team: 'no-team',
                         warnings: [],
                     },

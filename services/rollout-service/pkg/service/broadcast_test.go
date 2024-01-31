@@ -25,7 +25,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
@@ -65,12 +65,12 @@ func (t *errSrv) Context() context.Context {
 func TestBroadcast(t *testing.T) {
 	t.Parallel()
 	var (
-		RolloutStatusSuccesful   = api.RolloutStatus_RolloutStatusSuccesful
-		RolloutStatusProgressing = api.RolloutStatus_RolloutStatusProgressing
-		RolloutStatusError       = api.RolloutStatus_RolloutStatusError
-		RolloutStatusUnknown     = api.RolloutStatus_RolloutStatusUnknown
-		RolloutStatusUnhealthy   = api.RolloutStatus_RolloutStatusUnhealthy
-		RolloutStatusPending     = api.RolloutStatus_RolloutStatusPending
+		RolloutStatusSuccesful   = api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL
+		RolloutStatusProgressing = api.RolloutStatus_ROLLOUT_STATUS_PROGRESSING
+		RolloutStatusError       = api.RolloutStatus_ROLLOUT_STATUS_ERROR
+		RolloutStatusUnknown     = api.RolloutStatus_ROLLOUT_STATUS_UNKNOWN
+		RolloutStatusUnhealthy   = api.RolloutStatus_ROLLOUT_STATUS_UNHEALTHY
+		RolloutStatusPending     = api.RolloutStatus_ROLLOUT_STATUS_PENDING
 	)
 	type step struct {
 		ArgoEvent    *ArgoEvent
@@ -571,7 +571,7 @@ func TestGetStatus(t *testing.T) {
 			Name:    "simple case",
 			Request: &api.GetStatusRequest{},
 			ExpectedResponse: &api.GetStatusResponse{
-				Status: api.RolloutStatus_RolloutStatusSuccesful,
+				Status: api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL,
 			},
 		},
 		{
@@ -610,12 +610,12 @@ func TestGetStatus(t *testing.T) {
 				EnvironmentGroup: "dev-group",
 			},
 			ExpectedResponse: &api.GetStatusResponse{
-				Status: api.RolloutStatus_RolloutStatusPending,
+				Status: api.RolloutStatus_ROLLOUT_STATUS_PENDING,
 				Applications: []*api.GetStatusResponse_ApplicationStatus{
 					{
 						Environment:   "dev",
 						Application:   "foo",
-						RolloutStatus: api.RolloutStatus_RolloutStatusPending,
+						RolloutStatus: api.RolloutStatus_ROLLOUT_STATUS_PENDING,
 					},
 				},
 			},
@@ -654,7 +654,7 @@ func TestGetStatus(t *testing.T) {
 				WaitSeconds:      1,
 			},
 			ExpectedResponse: &api.GetStatusResponse{
-				Status:       api.RolloutStatus_RolloutStatusSuccesful,
+				Status:       api.RolloutStatus_ROLLOUT_STATUS_SUCCESFUL,
 				Applications: []*api.GetStatusResponse_ApplicationStatus{},
 			},
 		},
@@ -695,12 +695,12 @@ func TestGetStatus(t *testing.T) {
 				WaitSeconds:      1,
 			},
 			ExpectedResponse: &api.GetStatusResponse{
-				Status: api.RolloutStatus_RolloutStatusError,
+				Status: api.RolloutStatus_ROLLOUT_STATUS_ERROR,
 				Applications: []*api.GetStatusResponse_ApplicationStatus{
 					{
 						Environment:   "dev",
 						Application:   "foo",
-						RolloutStatus: api.RolloutStatus_RolloutStatusError,
+						RolloutStatus: api.RolloutStatus_ROLLOUT_STATUS_ERROR,
 					},
 				},
 			},
@@ -741,12 +741,12 @@ func TestGetStatus(t *testing.T) {
 				EnvironmentGroup: "dev-group",
 			},
 			ExpectedResponse: &api.GetStatusResponse{
-				Status: api.RolloutStatus_RolloutStatusPending,
+				Status: api.RolloutStatus_ROLLOUT_STATUS_PENDING,
 				Applications: []*api.GetStatusResponse_ApplicationStatus{
 					{
 						Environment:   "dev",
 						Application:   "foo",
-						RolloutStatus: api.RolloutStatus_RolloutStatusPending,
+						RolloutStatus: api.RolloutStatus_ROLLOUT_STATUS_PENDING,
 					},
 				},
 			},
@@ -796,12 +796,12 @@ func TestGetStatus(t *testing.T) {
 				Team:             "b",
 			},
 			ExpectedResponse: &api.GetStatusResponse{
-				Status: api.RolloutStatus_RolloutStatusUnknown,
+				Status: api.RolloutStatus_ROLLOUT_STATUS_UNKNOWN,
 				Applications: []*api.GetStatusResponse_ApplicationStatus{
 					{
 						Environment:   "bar",
 						Application:   "foo",
-						RolloutStatus: api.RolloutStatus_RolloutStatusUnknown,
+						RolloutStatus: api.RolloutStatus_ROLLOUT_STATUS_UNKNOWN,
 					},
 				},
 			},

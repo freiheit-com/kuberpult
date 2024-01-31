@@ -31,7 +31,7 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -306,7 +306,7 @@ func TestServer_Handle(t *testing.T) {
   "upstream": {
     "latest": true
   },
-  "EnvironmentGroup": "*"
+  "environment_group": "*"
 }
 `},
 					},

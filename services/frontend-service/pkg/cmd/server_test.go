@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 )

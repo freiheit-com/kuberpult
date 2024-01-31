@@ -18,12 +18,13 @@ package service
 
 import (
 	"context"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"sync"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/google/go-cmp/cmp"
@@ -75,7 +76,7 @@ func makeApp(appName string, version uint64) *api.Environment_Application {
 		Locks:           nil,
 		QueuedVersion:   0,
 		UndeployVersion: false,
-		ArgoCD:          nil,
+		ArgoCd:          nil,
 	}
 }
 func makeEnvGroup(envGroupName string, environments []*api.Environment) *api.EnvironmentGroup {
@@ -783,7 +784,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 			Name:           "No Environments",
 			AppName:        "foo",
 			groups:         []*api.EnvironmentGroup{},
-			ExpectedResult: api.UndeploySummary_Undeploy,
+			ExpectedResult: api.UndeploySummary_UNDEPLOY,
 		},
 		{
 			Name:    "one Environment but no Application",
@@ -798,7 +799,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					},
 				},
 			}),
-			ExpectedResult: api.UndeploySummary_Undeploy,
+			ExpectedResult: api.UndeploySummary_UNDEPLOY,
 		},
 		{
 			Name:    "One Env with undeploy",
@@ -813,7 +814,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					},
 				},
 			}),
-			ExpectedResult: api.UndeploySummary_Undeploy,
+			ExpectedResult: api.UndeploySummary_UNDEPLOY,
 		},
 		{
 			Name:    "One Env with normal version",
@@ -828,7 +829,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					},
 				},
 			}),
-			ExpectedResult: api.UndeploySummary_Normal,
+			ExpectedResult: api.UndeploySummary_NORMAL,
 		},
 		{
 			Name:    "Two Envs all undeploy",
@@ -851,7 +852,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					},
 				},
 			}),
-			ExpectedResult: api.UndeploySummary_Undeploy,
+			ExpectedResult: api.UndeploySummary_UNDEPLOY,
 		},
 		{
 			Name:    "Two Envs all normal",
@@ -874,7 +875,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					},
 				},
 			}),
-			ExpectedResult: api.UndeploySummary_Normal,
+			ExpectedResult: api.UndeploySummary_NORMAL,
 		},
 		{
 			Name:    "Two Envs all different",
@@ -897,7 +898,7 @@ func TestDeriveUndeploySummary(t *testing.T) {
 					},
 				},
 			}),
-			ExpectedResult: api.UndeploySummary_Mixed,
+			ExpectedResult: api.UndeploySummary_MIXED,
 		},
 	}
 	for _, tc := range tcs {

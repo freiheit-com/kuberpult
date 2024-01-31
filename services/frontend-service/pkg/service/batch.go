@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"google.golang.org/grpc"
 )
 

@@ -20,10 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -168,7 +169,7 @@ func (d *BatchServer) processAction(
 		if act.IgnoreAllLocks {
 			// the UI currently sets this to true,
 			// in that case, we still want to ignore locks (for emergency deployments)
-			b = api.LockBehavior_Ignore
+			b = api.LockBehavior_IGNORE
 		}
 		return &repository.DeployApplicationVersion{
 			Environment:    act.Environment,

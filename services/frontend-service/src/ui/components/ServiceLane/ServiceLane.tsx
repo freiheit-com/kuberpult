@@ -73,11 +73,11 @@ const DiffElement: React.FC<{ diff: number; title: string }> = ({ diff, title })
 
 const deriveUndeployMessage = (undeploySummary: UndeploySummary): string | undefined => {
     switch (undeploySummary) {
-        case UndeploySummary.Undeploy:
+        case UndeploySummary.UNDEPLOY:
             return 'Delete Forever';
-        case UndeploySummary.Normal:
+        case UndeploySummary.NORMAL:
             return 'Prepare Undeploy Release';
-        case UndeploySummary.Mixed:
+        case UndeploySummary.MIXED:
             return undefined;
         default:
             return undefined;
@@ -93,7 +93,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
 
     const prepareUndeployOrUndeploy = React.useCallback(() => {
         switch (application.undeploySummary) {
-            case UndeploySummary.Undeploy:
+            case UndeploySummary.UNDEPLOY:
                 addAction({
                     action: {
                         $case: 'undeploy',
@@ -101,7 +101,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                     },
                 });
                 break;
-            case UndeploySummary.Normal:
+            case UndeploySummary.NORMAL:
                 addAction({
                     action: {
                         $case: 'prepareUndeploy',
@@ -109,7 +109,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
                     },
                 });
                 break;
-            case UndeploySummary.Mixed:
+            case UndeploySummary.MIXED:
                 showSnackbarError('Internal Error: Cannot prepare to undeploy or actual undeploy in mixed state.');
                 break;
             default:

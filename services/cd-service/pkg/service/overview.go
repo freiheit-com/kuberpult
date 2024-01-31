@@ -20,13 +20,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"go.uber.org/zap"
 	"os"
 	"regexp"
 	"sync"
 	"sync/atomic"
+
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
 
@@ -35,7 +36,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
@@ -181,7 +182,7 @@ func (o *OverviewServiceServer) getOverview(
 						if syncWindows, err := mapper.TransformSyncWindows(config.ArgoCd.SyncWindows, appName); err != nil {
 							return nil, err
 						} else {
-							app.ArgoCD = &api.Environment_Application_ArgoCD{
+							app.ArgoCd = &api.Environment_Application_ArgoCD{
 								SyncWindows: syncWindows,
 							}
 						}
@@ -336,12 +337,12 @@ func deriveUndeploySummary(appName string, groups []*api.EnvironmentGroup) api.U
 		}
 	}
 	if allUndeploy {
-		return api.UndeploySummary_Undeploy
+		return api.UndeploySummary_UNDEPLOY
 	}
 	if allNormal {
-		return api.UndeploySummary_Normal
+		return api.UndeploySummary_NORMAL
 	}
-	return api.UndeploySummary_Mixed
+	return api.UndeploySummary_MIXED
 
 }
 

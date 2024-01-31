@@ -124,7 +124,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             application: app,
                             version: release.version,
                             ignoreAllLocks: false,
-                            lockBehavior: LockBehavior.Ignore,
+                            lockBehavior: LockBehavior.IGNORE,
                         },
                     },
                 });

@@ -19,13 +19,14 @@ package versions
 import (
 	"context"
 	"fmt"
-	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
-	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
 	"strconv"
 	"time"
 
+	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
+	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/argo"
+
 	"github.com/argoproj/argo-cd/v2/util/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/setup"

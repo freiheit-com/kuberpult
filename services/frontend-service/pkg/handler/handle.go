@@ -18,10 +18,11 @@ package handler
 
 import (
 	"fmt"
-	"github.com/ProtonMail/go-crypto/openpgp"
 	"net/http"
 
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	"github.com/ProtonMail/go-crypto/openpgp"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 )

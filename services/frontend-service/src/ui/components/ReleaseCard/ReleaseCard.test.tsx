@@ -194,7 +194,7 @@ describe('Release Card', () => {
                         name: testcase.props.app,
                         releases: testcase.rels,
                         sourceRepoUrl: 'url',
-                        undeploySummary: UndeploySummary.Normal,
+                        undeploySummary: UndeploySummary.NORMAL,
                         team: 'no-team',
                         warnings: [],
                     },
@@ -291,11 +291,11 @@ describe('Release Card Rollout Status', () => {
                     environment: 'development',
                     application: 'test1',
                     version: 2,
-                    rolloutStatus: RolloutStatus.RolloutStatusSuccesful,
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
                 },
             ],
 
-            expectedStatusIcon: RolloutStatus.RolloutStatusSuccesful,
+            expectedStatusIcon: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
         },
     ];
 
@@ -310,7 +310,7 @@ describe('Release Card Rollout Status', () => {
                         name: testcase.props.app,
                         releases: testcase.rels,
                         sourceRepoUrl: 'url',
-                        undeploySummary: UndeploySummary.Normal,
+                        undeploySummary: UndeploySummary.NORMAL,
                         team: 'no-team',
                         warnings: [],
                     },
@@ -322,7 +322,7 @@ describe('Release Card Rollout Status', () => {
             // then
             expect(container.querySelector('.release__status')).not.toBeNull();
             switch (testcase.expectedStatusIcon) {
-                case RolloutStatus.RolloutStatusSuccesful:
+                case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
                     expect(container.querySelector('.release__status .rollout__icon_successful')).not.toBeNull();
             }
         });

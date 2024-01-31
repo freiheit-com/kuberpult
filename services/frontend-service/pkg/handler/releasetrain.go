@@ -26,7 +26,7 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
-	"github.com/freiheit-com/kuberpult/pkg/api"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 )
 
 func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {

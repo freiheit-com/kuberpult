@@ -17,7 +17,7 @@ ADD services/frontend-service/.nvmrc /kp/services/frontend-service/
 ADD services/frontend-service/.npmrc /kp/services/frontend-service/
 ADD services/frontend-service/.eslintrc /kp/services/frontend-service/
 ADD services/frontend-service/public /kp/services/frontend-service/public
-ADD pkg/api /kp/services/frontend-service/api
+ADD pkg/api/v1 /kp/services/frontend-service/api
 
 # global pkg:
 ADD pkg /kp/pkg
@@ -25,7 +25,8 @@ COPY go.sum go.mod /kp/
 
 # Build go:
 WORKDIR /kp/
-RUN make -C pkg/api
+ADD Makefile.variables .
+RUN make -C pkg proto
 RUN GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -o /kp/main /kp/services/frontend-service/cmd/server/main.go
 
 # Build js:

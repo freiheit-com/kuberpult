@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
+
 	"github.com/ProtonMail/go-crypto/openpgp"
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
-	"github.com/freiheit-com/kuberpult/pkg/api"
-	"net/http"
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 )
 
 const (
