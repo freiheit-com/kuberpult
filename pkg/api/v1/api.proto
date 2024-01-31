@@ -450,7 +450,7 @@ message Application {
   string source_repo_url= 3;
   string team = 4;
   UndeploySummary undeploy_summary = 5;
-  repeated Warning warnings = 8;
+  repeated Warning warningsWithBadShpelling = 8;
 }
 
 message Actor {
