@@ -395,7 +395,6 @@ func TestBatchServiceErrors(t *testing.T) {
 			if err := prototext.Unmarshal([]byte(tc.ExpectedResponse), &expectedResponseObject); err != nil {
 				t.Fatalf("failed to unmarshal the expected response object: %v", err)
 			}
-
 			repo, err := setupRepositoryTest(t)
 			if err != nil {
 				t.Fatal(err)

@@ -719,7 +719,6 @@ func TestCreateApplicationVersion(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error, got none.")
 			}
-
 			var actualErr api.CreateReleaseResponse
 			if err := prototext.Unmarshal([]byte(err.Error()), &actualErr); err != nil {
 				t.Fatalf("failed to unmarshal the actual error object: %v", err)
