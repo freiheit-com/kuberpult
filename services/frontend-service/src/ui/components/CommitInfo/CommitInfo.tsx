@@ -33,7 +33,7 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                 <main className="main-content commit-page">
                     <h1>This page is still in beta</h1>
                     <br />
-                    <h1> Commit {commitInfo.commitMessage} </h1>
+                    <h1> Commit {commitInfo.commitMessage.split('\n')[0]} </h1>
                     <table border={1}>
                         <thead>
                             <tr>
