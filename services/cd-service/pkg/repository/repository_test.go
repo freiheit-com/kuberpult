@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -32,7 +33,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testssh"
 
 	"github.com/cenkalti/backoff/v4"

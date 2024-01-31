@@ -18,11 +18,11 @@ package service
 
 import (
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"testing"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
