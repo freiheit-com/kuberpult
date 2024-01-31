@@ -198,3 +198,15 @@ export const setHideWithoutWarnings = (params: URLSearchParams, newValue: boolea
         params.delete(hideWithoutWarningsParamName);
     }
 };
+
+// functions like these are both store and links, should we be consistent?
+const envConfigDialogParamName = 'dialog-env-config';
+export const getOpenEnvironmentConfigDialog = (params: URLSearchParams): string =>
+    params.get(envConfigDialogParamName) || '';
+export const setOpenEnvironmentConfigDialog = (params: URLSearchParams, envName: string): void => {
+    if (envName.length > 0) {
+        params.set(envConfigDialogParamName, envName);
+    } else {
+        params.delete(envConfigDialogParamName);
+    }
+};

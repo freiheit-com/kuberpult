@@ -1,0 +1,68 @@
+/*This file is part of kuberpult.
+
+Kuberpult is free software: you can redistribute it and/or modify
+it under the terms of the Expat(MIT) License as published by
+the Free Software Foundation.
+
+Kuberpult is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+MIT License for more details.
+
+You should have received a copy of the MIT License
+along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+Copyright 2023 freiheit.com*/
+.environment-config-dialog {
+    min-width: 960px;
+
+    div.MuiPaper-root {
+        background-color: transparent;
+        border-radius: $environment-config-dialog-outer-border-radius;
+        overflow-y: inherit;
+    }
+    .content-area {
+        display: flex;
+    }
+    .content-right {
+        max-width: 40%;
+        margin-left: auto;
+        display: flex;
+    }
+    .content-left {
+        max-width: 60%;
+    }
+    pre {
+        margin: 24px 10px 24px 47px;
+        padding: 0 0 10px;
+        font-family: monospace;
+        overflow-y: scroll;
+    }
+
+    .environment-config-dialog-app-bar {
+        border-radius: $environment-config-dialog-top-border-radius;
+        background: var(--mdc-theme-primary);
+        color: var(--mdc-theme-on-primary);
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+
+        .environment-config-dialog-app-bar-data {
+            margin: 24px 10px 24px 47px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+
+            .environment-config-dialog-name {
+                text-overflow: wrap;
+                @extend .sub-headline1;
+            }
+        }
+
+        button.environment-config-dialog-close {
+            display: flex;
+            margin: 20px 10px auto;
+        }
+    }
+
+}
