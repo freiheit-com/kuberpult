@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,7 +13,8 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright 2023 freiheit.com
+*/
 package argo
 
 import (
@@ -152,13 +154,14 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				}
 			}
 		} else {
+			validate := false
 			appToUpdate := CreateArgoApplication(overview, app, k.Environment)
-			appUpdateRequest := &application.ApplicationUpdateSpecRequest{
-				Name:         &appToUpdate.Name,
-				Spec:         &appToUpdate.Spec,
-				AppNamespace: &appToUpdate.Namespace,
+			appUpdateRequest := &application.ApplicationUpdateRequest{
+				Validate:    ptr.Bool(validate),
+				Application: appToUpdate,
+				Project:     ptr.FromString(appToUpdate.Spec.Project),
 			}
-			_, err := a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
+			_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
 			if err != nil {
 				logger.FromContext(ctx).Error("updating application: " + appToUpdate.Name + ",env " + env.Name)
 			}
