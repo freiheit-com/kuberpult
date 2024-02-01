@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/url"
 
@@ -37,6 +39,8 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -45,8 +49,9 @@ import (
 )
 
 type Config struct {
-	CdServer      string `default:"kuberpult-cd-service:8443"`
-	EnableTracing bool   `default:"false" split_words:"true"`
+	CdServer       string `default:"kuberpult-cd-service:8443"`
+	CdServerSecure bool   `default:"false" split_words:"true"`
+	EnableTracing  bool   `default:"false" split_words:"true"`
 
 	ArgocdServer             string `split_words:"true"`
 	ArgocdInsecure           bool   `default:"false" split_words:"true"`
@@ -110,8 +115,20 @@ func RunServer() {
 }
 
 func getGrpcClients(ctx context.Context, config Config) (api.OverviewServiceClient, api.VersionServiceClient, error) {
+	var cred credentials.TransportCredentials = insecure.NewCredentials()
+	if config.CdServerSecure {
+		systemRoots, err := x509.SystemCertPool()
+		if err != nil {
+			msg := "failed to read CA certificates"
+			return nil, nil, fmt.Errorf(msg)
+		}
+		cred = credentials.NewTLS(&tls.Config{
+			RootCAs: systemRoots,
+		})
+	}
+
 	grpcClientOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(cred),
 	}
 	if config.EnableTracing {
 		grpcClientOpts = append(grpcClientOpts,
