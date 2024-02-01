@@ -104,7 +104,7 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 			if row.App == app.Name {
 				for _, release := range app.Releases {
 					if strconv.FormatUint(release.Version, 10) == row.Version {
-						productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.SourceCommitId, DisplayVersion: release.DisplayVersion, Environment: row.Environment})
+						productVersion = append(productVersion, &api.ProductSummary{App: row.App, Version: row.Version, CommitId: release.SourceCommitId, DisplayVersion: release.DisplayVersion, Environment: row.Environment, Team: app.Team})
 						break
 					}
 				}
