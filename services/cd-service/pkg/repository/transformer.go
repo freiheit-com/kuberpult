@@ -613,7 +613,7 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 		return fmt.Errorf(couldNotRemoveAppFormat, application, commitID, err)
 	}
 	// check if there are no other services updated by this commit
-	// if there are none, start remove the entire branch of the commit
+	// if there are none, start removing the entire branch of the commit
 	
 	deleteDirIfEmpty := func(dir string) error {
 		files, err := fs.ReadDir(dir)
