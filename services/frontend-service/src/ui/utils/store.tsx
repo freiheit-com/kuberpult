@@ -80,7 +80,7 @@ export enum CommitInfoState {
     READY,
     ERROR,
 }
-type CommitInfoResponse = {
+export type CommitInfoResponse = {
     response: GetCommitInfoResponse | undefined;
     commitInfoReady: CommitInfoState;
 };
