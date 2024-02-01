@@ -36,6 +36,7 @@ message ProductSummary {
   string commit_id = 3;
   string display_version = 4;
   string environment = 5;
+  string team = 6;
 }
 
 message TagData {

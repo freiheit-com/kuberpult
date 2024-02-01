@@ -75,6 +75,7 @@ func TestGetProductOverview(t *testing.T) {
 					SourceMessage:  "changed something (#678)",
 					SourceRepoUrl:  "testing@testing.com/abc",
 					DisplayVersion: "v1.0.2",
+					Team:           "sre-team",
 				},
 				&repository.DeployApplicationVersion{
 					Application: "test",
@@ -82,7 +83,40 @@ func TestGetProductOverview(t *testing.T) {
 					Version:     1,
 				},
 			},
-			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25"}},
+			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25", Team: "sre-team"}},
+		},
+		{
+			Name:     "get Product Overview as expected with env but without team",
+			givenEnv: ptr.FromString("development"),
+			Setup: []repository.Transformer{
+				&repository.CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd:           nil,
+						EnvironmentGroup: ptr.FromString("dev"),
+					},
+				},
+				&repository.CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"development": "dev",
+					},
+					SourceAuthor:   "example <example@example.com>",
+					SourceCommitId: "testing25",
+					SourceMessage:  "changed something (#678)",
+					SourceRepoUrl:  "testing@testing.com/abc",
+					DisplayVersion: "v1.0.2",
+				},
+				&repository.DeployApplicationVersion{
+					Application: "test",
+					Environment: "development",
+					Version:     1,
+				},
+			},
+			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25", Team: ""}},
 		},
 		{
 			Name:     "invalid environment used",
@@ -141,6 +175,7 @@ func TestGetProductOverview(t *testing.T) {
 					SourceMessage:  "changed something (#678)",
 					SourceRepoUrl:  "testing@testing.com/abc",
 					DisplayVersion: "v1.0.2",
+					Team:           "sre-team",
 				},
 				&repository.DeployApplicationVersion{
 					Application: "test",
@@ -148,7 +183,7 @@ func TestGetProductOverview(t *testing.T) {
 					Version:     1,
 				},
 			},
-			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25"}},
+			expectedProductSummary: []api.ProductSummary{{App: "test", Version: "1", DisplayVersion: "v1.0.2", CommitId: "testing25", Team: "sre-team"}},
 		},
 		{
 			Name:          "invalid envGroup used",
