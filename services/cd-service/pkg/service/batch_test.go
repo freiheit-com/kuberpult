@@ -412,7 +412,6 @@ func TestBatchServiceErrors(t *testing.T) {
 					Actions: tc.Batch,
 				},
 			)
-
 			if tc.ExpectedResponse != "" && !proto.Equal(response, &expectedResponseObject) {
 				t.Fatalf("expected:\n%s\ngot:\n%s\n%s", tc.ExpectedResponse, response.String(), processErr)
 			}

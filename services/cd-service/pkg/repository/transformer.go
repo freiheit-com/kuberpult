@@ -24,9 +24,11 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"sort"
 	"strconv"
 	"time"
+	"strings"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -84,6 +86,14 @@ func environmentApplicationDirectory(fs billy.Filesystem, environment, applicati
 
 func releasesDirectoryWithVersion(fs billy.Filesystem, application string, version uint64) string {
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
+}
+
+func commitDirectory(fs billy.Filesystem, commit string) string {
+	return fs.Join("commits", commit[:2], commit[2:])
+}
+
+func commitApplicationDirectory(fs billy.Filesystem, commit, application string) string {
+	return fs.Join(commitDirectory(fs, commit), "applications", application)
 }
 
 func GetEnvironmentLocksCount(fs billy.Filesystem, env string) float64 {
@@ -245,6 +255,10 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		return "", nil, GetCreateReleaseGeneralFailure(err)
 	}
 
+	if !valid.SHA1CommitID(c.SourceCommitId) {
+		logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", c.SourceCommitId)
+	}
+
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		if errors.Is(err, InvalidJson) {
@@ -254,8 +268,18 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 
 	if c.SourceCommitId != "" {
+		c.SourceCommitId = strings.ToLower(c.SourceCommitId)
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
+		}
+		if valid.SHA1CommitID(c.SourceCommitId) {
+			commitDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
+			if err := fs.MkdirAll(commitDir, 0777); err != nil {
+				return "", nil, GetCreateReleaseGeneralFailure(err)
+			}
+			if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
+				return "", nil, GetCreateReleaseGeneralFailure(err)
+			}
 		}
 	}
 	if c.SourceAuthor != "" {
@@ -582,6 +606,38 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 	return fmt.Sprintf("created undeploy-version %d of '%v'\n%s", lastRelease+1, c.Application, result), changes, nil
 }
 
+func removeCommit(fs billy.Filesystem, commitID, application string) error {
+	couldNotRemoveAppFormat := "could not remove the application %s from the directory of commit %s, error: %w"
+	commitApplicationDir := commitApplicationDirectory(fs, commitID, application)
+	if err := fs.Remove(commitApplicationDir); err != nil {
+		return fmt.Errorf(couldNotRemoveAppFormat, application, commitID, err)
+	}
+	// check if there are no other services updated by this commit
+	// if there are none, start removing the entire branch of the commit
+	
+	deleteDirIfEmpty := func(dir string) error {
+		files, err := fs.ReadDir(dir)
+		if err != nil {
+			return fmt.Errorf(couldNotRemoveAppFormat, application, commitID, err)
+		}
+		if len(files) == 0 {
+			if err = fs.Remove(dir); err != nil {
+				return fmt.Errorf(couldNotRemoveAppFormat, application, commitID, err)
+			}
+		}
+		return nil
+	}
+
+	applicationsDir := path.Dir(commitApplicationDir)
+	deleteDirIfEmpty(applicationsDir)
+	commitDir2 := path.Dir(applicationsDir)
+	deleteDirIfEmpty(commitDir2)
+	commitDir1 := path.Dir(commitDir2)
+	deleteDirIfEmpty(commitDir1)
+	
+	return nil
+}
+
 type UndeployApplication struct {
 	Authentication
 	Application string
@@ -642,6 +698,29 @@ func (u *UndeployApplication) Transform(ctx context.Context, state *State) (stri
 
 	}
 	// remove application
+	releasesDir := fs.Join(appDir, "releases")
+	files, err := fs.ReadDir(releasesDir)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not read the releases directory %s %w", releasesDir, err)
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			releaseDir := fs.Join(releasesDir, file.Name())
+			commitIDFile := fs.Join(releaseDir, "source_commit_id")
+			var commitID string
+			dat, err := util.ReadFile(fs, commitIDFile)
+			if err != nil {
+				// release does not have a corresponding commit, which might be the case if it's an undeploy release, no prob
+				continue
+			}
+			commitID = string(dat)
+			if valid.SHA1CommitID(commitID) {
+				if err := removeCommit(fs, commitID, u.Application); err != nil {
+					return "", nil, fmt.Errorf("could not remove the commit: %w", err)
+				}
+			}
+		}
+	}
 	if err = fs.Remove(appDir); err != nil {
 		return "", nil, err
 	}
@@ -776,6 +855,22 @@ func (c *CleanupOldApplicationVersions) Transform(ctx context.Context, state *St
 		if err != nil {
 			return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
+
+		{
+			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
+			dat, err := util.ReadFile(fs, commitIDFile)
+			if err != nil {
+				// not a problem, might be the undeploy commit or the commit has was not specified in CreateApplicationVersion
+			} else {
+				commitID := string(dat)
+				if valid.SHA1CommitID(commitID) {
+					if err := removeCommit(fs, commitID, c.Application); err != nil {
+						return "", nil, wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not remove commit path")
+					}
+				}
+			}
+		}
+
 		err = fs.Remove(releasesDir)
 		if err != nil {
 			return "", nil, fmt.Errorf("CleanupOldApplicationVersions: Unexpected error app %s: %w",
