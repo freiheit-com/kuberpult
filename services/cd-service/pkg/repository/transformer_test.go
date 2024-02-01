@@ -1348,7 +1348,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
 			},
 		},
-		TestCase{
+		{
 			Name: "Create two applications many times and then undeploy one of them",
 			Transformers: concatenate(
 				manyCreateApplication("app1", 20),
