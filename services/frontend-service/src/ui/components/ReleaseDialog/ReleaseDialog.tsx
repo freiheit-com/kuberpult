@@ -22,6 +22,7 @@ import {
     useEnvironmentGroups,
     useReleaseOptional,
     useReleaseOrThrow,
+    useRolloutStatus,
     useTeamFromApplication,
 } from '../../utils/store';
 import { Button } from '../button';
@@ -32,6 +33,7 @@ import { ArgoAppLink, ArgoTeamLink, DisplayManifestLink, DisplaySourceLink } fro
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
 import { ExpandButton } from '../button/ExpandButton';
+import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
 
 export type ReleaseDialogProps = {
     className?: string;
@@ -170,6 +172,8 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
 
         return [returnString, time];
     };
+    const [rolloutEnabled, rolloutStatus] = useRolloutStatus(app);
+    const appRolloutStatus = rolloutEnabled ? rolloutStatus[env.name]?.rolloutStatus : null;
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -191,6 +195,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                                 <AppLock key={lock.lockId} env={env} app={app} lock={lock} />
                             ))
                         )}
+                    {appRolloutStatus && <RolloutStatusDescription status={appRolloutStatus} />}
                 </div>
             </div>
             <div className="content-area">

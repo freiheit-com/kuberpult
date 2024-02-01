@@ -28,6 +28,7 @@ import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
 import { RolloutStatus, StreamStatusResponse } from '../../../api/api';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
+import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
 
 export type ReleaseCardProps = {
     className?: string;
@@ -50,23 +51,6 @@ const RolloutStatusIcon: React.FC<{ status: RolloutStatus }> = (props) => {
             return <span className="rollout__icon_unhealthy">⚠</span>;
     }
     return <span className="rollout__icon_unknown">?</span>;
-};
-
-const RolloutStatusDescription: React.FC<{ status: RolloutStatus }> = (props) => {
-    const { status } = props;
-    switch (status) {
-        case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
-            return <span className="rollout__description_successful">✓ Done</span>;
-        case RolloutStatus.ROLLOUT_STATUS_PROGRESSING:
-            return <span className="rollout__description_progressing">↻ In progress</span>;
-        case RolloutStatus.ROLLOUT_STATUS_PENDING:
-            return <span className="rollout__description_pending">⧖ Pending</span>;
-        case RolloutStatus.ROLLOUT_STATUS_ERROR:
-            return <span className="rollout__description_error">! Failed</span>;
-        case RolloutStatus.ROLLOUT_STATUS_UNHEALTHY:
-            return <span className="rollout__description_unhealthy">⚠ Unhealthy</span>;
-    }
-    return <span className="rollout__description_unknown">? Unknown</span>;
 };
 
 // note that the order is important here.

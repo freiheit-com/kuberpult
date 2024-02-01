@@ -15,8 +15,8 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { EnvironmentListItem, ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { fireEvent, render } from '@testing-library/react';
-import { UpdateAction, UpdateOverview, UpdateSidebar } from '../../utils/store';
-import { Environment, Priority, Release, UndeploySummary } from '../../../api/api';
+import { UpdateAction, UpdateOverview, UpdateRolloutStatus, UpdateSidebar } from '../../utils/store';
+import { Environment, Priority, Release, RolloutStatus, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
 import { SideBar } from '../SideBar/SideBar';
 import { MemoryRouter } from 'react-router-dom';
@@ -40,6 +40,7 @@ describe('Release Dialog', () => {
         expect_queues: number;
         data_length: number;
         teamName: string;
+        rolloutStatus?: { [app: string]: { [env: string]: [RolloutStatus, string] } };
     }
     interface dataTLocks {
         name: string;
@@ -235,7 +236,12 @@ describe('Release Dialog', () => {
                     displayVersion: '3',
                 },
             ],
-
+            rolloutStatus: {
+                test1: {
+                    prod: [RolloutStatus.ROLLOUT_STATUS_PENDING, 'pending'],
+                    dev: [RolloutStatus.ROLLOUT_STATUS_PROGRESSING, 'progressing'],
+                },
+            },
             expect_message: true,
             expect_queues: 1,
             data_length: 5,
@@ -291,6 +297,19 @@ describe('Release Dialog', () => {
                 },
             ],
         });
+        const status = testcase.rolloutStatus;
+        if (status !== undefined) {
+            for (const [app, envs] of Object.entries(status)) {
+                for (const [env, [status, _]] of Object.entries(envs)) {
+                    UpdateRolloutStatus({
+                        application: app,
+                        environment: env,
+                        version: 1,
+                        rolloutStatus: status,
+                    });
+                }
+            }
+        }
     };
 
     describe.each(data)(`Renders a Release Dialog`, (testcase) => {
@@ -341,6 +360,27 @@ describe('Release Dialog', () => {
             setTheStore(testcase);
             getWrapper(testcase.props);
             expect(document.querySelectorAll('.env-card-data-queue')).toHaveLength(testcase.expect_queues);
+        });
+    });
+
+    describe.each(data)(`Renders the rollout status`, (testcase) => {
+        const status = testcase.rolloutStatus;
+        if (status === undefined) {
+            return;
+        }
+        it(testcase.name, () => {
+            const statusCount: { [status: string]: number } = {};
+            for (const envs of Object.values(status)) {
+                for (const [_, descr] of Object.values(envs)) {
+                    statusCount[descr] = (statusCount[descr] ?? 0) + 1;
+                }
+            }
+            // when
+            setTheStore(testcase);
+            getWrapper(testcase.props);
+            for (const [descr, count] of Object.entries(statusCount)) {
+                expect(document.querySelectorAll('.rollout__description_' + descr)).toHaveLength(count);
+            }
         });
     });
 
