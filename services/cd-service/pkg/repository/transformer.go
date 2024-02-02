@@ -635,20 +635,20 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 		return nil
 	}
 
-	applicationsDir := path.Dir(commitApplicationDir)
-	if err := deleteDirIfEmpty(applicationsDir); err != nil {
-		return errorTemplate(fmt.Sprintf("could not remove directory %s", applicationsDir), err)
+	commitApplicationsDir := path.Dir(commitApplicationDir)
+	if err := deleteDirIfEmpty(commitApplicationsDir); err != nil {
+		return errorTemplate(fmt.Sprintf("could not remove directory %s", commitApplicationsDir), err)
 	}
-	commitDir2 := path.Dir(applicationsDir)
+	commitDir2 := path.Dir(commitApplicationsDir)
 
 	// special case for processing the existence of the commit_message file
-	if _, err := fs.Stat(applicationsDir); err != nil {
+	if _, err := fs.Stat(commitApplicationsDir); err != nil {
 		if os.IsNotExist(err) {
 			if err := fs.Remove(fs.Join(commitDir2, "source_message")); err != nil {
 				return errorTemplate("could not remove source_message file", err)
 			}
 		} else {
-			return errorTemplate(fmt.Sprintf("could not stat directory %s with an unexpected error", applicationsDir), err)
+			return errorTemplate(fmt.Sprintf("could not stat directory %s with an unexpected error", commitApplicationsDir), err)
 		}
 	}
 
