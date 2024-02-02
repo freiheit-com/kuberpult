@@ -20,6 +20,10 @@ import { CommitInfoPage } from './CommitInfoPage';
 import { fakeLoadEverything } from '../../../setupTests';
 import { updateCommitInfo, CommitInfoState } from '../../utils/store';
 
+/*
+    using this would be the ideal scenarion for testing the CommitInfoPage component
+    but it doesn't work, any help is most appreciated.
+*/
 // const mockCommitInfo = jest.fn();
 // jest.mock('../../components/CommitInfo/CommitInfo', () => (props) => {
 //     mockCommitInfo(props);
