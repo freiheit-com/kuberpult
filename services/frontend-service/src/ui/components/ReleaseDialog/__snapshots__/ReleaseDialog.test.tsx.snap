@@ -147,6 +147,11 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                         </svg>
                       </button>
                     </div>
+                    <span
+                      class="rollout__description_pending"
+                    >
+                      ⧖ Pending
+                    </span>
                   </div>
                 </div>
                 <div
@@ -403,6 +408,11 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                         </svg>
                       </button>
                     </div>
+                    <span
+                      class="rollout__description_pending"
+                    >
+                      ⧖ Pending
+                    </span>
                   </div>
                 </div>
                 <div
@@ -665,6 +675,11 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         </svg>
                       </button>
                     </div>
+                    <span
+                      class="rollout__description_pending"
+                    >
+                      ⧖ Pending
+                    </span>
                   </div>
                 </div>
                 <div
@@ -842,6 +857,11 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                         </svg>
                       </button>
                     </div>
+                    <span
+                      class="rollout__description_progressing"
+                    >
+                      ↻ In progress
+                    </span>
                   </div>
                 </div>
                 <div

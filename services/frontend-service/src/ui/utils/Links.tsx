@@ -28,7 +28,7 @@ export const deriveArgoAppLink = (baseUrl: string | undefined, app: string): str
 export const deriveArgoAppEnvLink = (baseUrl: string | undefined, app: string, env: string): string | undefined => {
     if (baseUrl) {
         const baseUrlSlash = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
-        return baseUrlSlash + 'applications?search=' + env + '-' + app;
+        return baseUrlSlash + 'applications/tools/' + env + '-' + app;
     }
     return '';
 };
