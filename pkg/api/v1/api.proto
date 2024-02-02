@@ -45,8 +45,8 @@ message GetCommitInfoRequest {
 }
 
 message GetCommitInfoResponse {
-  string commitMessage = 1;
-  repeated string touchedApps = 2;
+  string commit_message = 1;
+  repeated string touched_apps = 2;
 }
 
 message TagData {
