@@ -108,7 +108,7 @@ const calculateDeploymentStatus = (
     if (!rolloutEnabled) {
         return [[], undefined];
     }
-    const rolloutEnvs = deployedAt.map((envGroup) => {
+    const rolloutEnvGroups = deployedAt.map((envGroup) => {
         const status = envGroup.environments.reduce((cur: RolloutStatus | undefined, env) => {
             const appVersion: number | undefined = env.applications[app]?.version;
             const status = getAppRolloutStatus(rolloutStatus[env.name], appVersion);
@@ -125,7 +125,7 @@ const calculateDeploymentStatus = (
             rolloutStatus: status ?? RolloutStatus.ROLLOUT_STATUS_UNKNOWN,
         };
     });
-    rolloutEnvs.sort((a, b) => {
+    rolloutEnvGroups.sort((a, b) => {
         if (a.environmentGroup < b.environmentGroup) {
             return -1;
         } else if (a.environmentGroup > b.environmentGroup) {
@@ -134,7 +134,7 @@ const calculateDeploymentStatus = (
         return 0;
     });
     // Calculates the most interesting rollout status according to the `rolloutStatusPriority`.
-    const mostInteresting = rolloutEnvs.reduce(
+    const mostInteresting = rolloutEnvGroups.reduce(
         (cur: RolloutStatus | undefined, item) =>
             cur === undefined
                 ? item.rolloutStatus
@@ -143,7 +143,7 @@ const calculateDeploymentStatus = (
                   : cur,
         undefined
     );
-    return [rolloutEnvs, mostInteresting];
+    return [rolloutEnvGroups, mostInteresting];
 };
 
 export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
