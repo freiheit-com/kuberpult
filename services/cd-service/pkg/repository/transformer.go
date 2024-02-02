@@ -641,7 +641,7 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 	}
 	commitDir2 := path.Dir(commitApplicationsDir)
 
-	// special case for processing the existence of the commit_message file
+	// if there are no more apps in the applications dir, then remove the commit message file and continue cleaning going up
 	if _, err := fs.Stat(commitApplicationsDir); err != nil {
 		if os.IsNotExist(err) {
 			if err := fs.Remove(fs.Join(commitDir2, "source_message")); err != nil {
