@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,6 +49,8 @@ import (
 	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -114,8 +118,20 @@ func runServer(ctx context.Context) error {
 		grpc_zap.UnaryServerInterceptor(grpcServerLogger),
 	}
 
+	var cred credentials.TransportCredentials = insecure.NewCredentials()
+	if c.CdServerSecure {
+		systemRoots, err := x509.SystemCertPool()
+		if err != nil {
+			msg := "failed to read CA certificates"
+			return fmt.Errorf(msg)
+		}
+		cred = credentials.NewTLS(&tls.Config{
+			RootCAs: systemRoots,
+		})
+	}
+
 	grpcClientOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(cred),
 	}
 
 	if c.EnableTracing {
