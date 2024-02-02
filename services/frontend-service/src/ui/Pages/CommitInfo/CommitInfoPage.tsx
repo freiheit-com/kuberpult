@@ -59,7 +59,7 @@ export const CommitInfoPage: React.FC = () => {
             return (
                 <div>
                     <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
-                    <main className="main-content commit-page">commit ID not found</main>
+                    <main className="main-content commit-page">Backend error</main>
                 </div>
             );
         case CommitInfoState.READY:
