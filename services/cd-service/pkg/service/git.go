@@ -128,18 +128,21 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 
 	commitID = strings.ToLower(commitID)
 
+	commitPath := fs.Join("commits", commitID[:2], commitID[2:])
+
+	sourceMessagePath := fs.Join(commitPath, "source_message")
 	var commitMessage string
-	if dat, err := util.ReadFile(fs, fs.Join("commits", commitID[:2], commitID[2:], "source_message")); err != nil {
-		return nil, fmt.Errorf("could not open the source message file, err: %w", err)
+	if dat, err := util.ReadFile(fs, sourceMessagePath); err != nil {
+		return nil, fmt.Errorf("could not open the source message file at %s, err: %w", sourceMessagePath, err)
 	} else {
 		commitMessage = string(dat)
 	}
 
 	
-	dirs, err := fs.ReadDir(fs.Join("commits", commitID[:2], commitID[2:], "applications"))
-	
+	commitApplicationsDirPath := fs.Join(commitPath, "applications")
+	dirs, err := fs.ReadDir(commitApplicationsDirPath)
 	if err != nil {
-		return nil, fmt.Errorf("could not read the applications directory under commit %s, error: %w", commitID, err)
+		return nil, fmt.Errorf("could not read the applications directory at, error: %w", commitApplicationsDirPath, err)
 	}
 	touchedApps := make([]string, 0)
 	for _, dir := range dirs {
