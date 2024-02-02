@@ -82,7 +82,7 @@ describe('Commit info page tests', () => {
             commitInfoStoreData: {
                 commitInfoReady: CommitInfoState.LOADING,
                 response: undefined,
-            }, // the store's initial commitInfoReadt is LOADING
+            },
         },
         {
             name: 'An error message is shown when the backend returns an error',
