@@ -21,14 +21,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"io/fs"
 	"os"
 	"path"
 	"sort"
 	"strconv"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -94,6 +95,10 @@ func commitDirectory(fs billy.Filesystem, commit string) string {
 
 func commitApplicationDirectory(fs billy.Filesystem, commit, application string) string {
 	return fs.Join(commitDirectory(fs, commit), "applications", application)
+}
+
+func commitEventDir(fs billy.Filesystem, commit, eventId string) string {
+	return fs.Join(commitDirectory(fs, commit), "events", eventId)
 }
 
 func GetEnvironmentLocksCount(fs billy.Filesystem, env string) float64 {
@@ -214,6 +219,7 @@ type CreateApplicationVersion struct {
 	SourceRepoUrl  string
 	Team           string
 	DisplayVersion string
+	EventId        string // the eventId is only there to make testing simpler
 }
 
 func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
@@ -272,15 +278,6 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
-		if valid.SHA1CommitID(c.SourceCommitId) {
-			commitDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
-			if err := fs.MkdirAll(commitDir, 0777); err != nil {
-				return "", nil, GetCreateReleaseGeneralFailure(err)
-			}
-			if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
-				return "", nil, GetCreateReleaseGeneralFailure(err)
-			}
-		}
 	}
 	if c.SourceAuthor != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
@@ -329,7 +326,9 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 
 	changes := &TransformerResult{}
+	var allEnvsOfThisApp = []string{}
 	for env, man := range c.Manifests {
+		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
 		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
 		if err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
@@ -374,7 +373,77 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 			result = result + deployResult + "\n"
 		}
 	}
+	err = writeCommitData(ctx, c.SourceCommitId, c.Application, c.EventId, allEnvsOfThisApp, fs)
+	if err != nil {
+		return "", nil, GetCreateReleaseGeneralFailure(err)
+	}
+
 	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), changes, nil
+}
+
+func writeCommitData(ctx context.Context, sourceCommitId string, app string, eventId string, environments []string, fs billy.Filesystem) error {
+	if !valid.SHA1CommitID(sourceCommitId) {
+		return nil
+	}
+	commitDir := commitApplicationDirectory(fs, sourceCommitId, app)
+	if err := fs.MkdirAll(commitDir, 0777); err != nil {
+		return err
+	}
+	if err := util.WriteFile(fs, fs.Join(commitDir, ".dir"), make([]byte, 0), 0666); err != nil {
+		return err
+	}
+	err := writeEvent(ctx, eventId, sourceCommitId, fs, environments)
+	if err != nil {
+		return fmt.Errorf("error while writing event: %v", err)
+	}
+
+	return nil
+}
+
+func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, envs []string) error {
+	if eventId == "" {
+		fullUuid, err := uuid.NewUUID()
+		if err != nil {
+			return fmt.Errorf("could not create uuid: %v", err)
+		}
+		// format of this "uuid" is the same as the lock IDs, see "randomLockId" in store.tsx
+		eventId = "cd-v1-" + string(fullUuid.String()[:7])
+	}
+	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
+	_, err := filesystem.Stat(eventDir)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			// anything except "not exists" is an error:
+			return fmt.Errorf("event directory %s already existed: %v", eventDir, err)
+		}
+	}
+	if err := filesystem.MkdirAll(eventDir, 0777); err != nil {
+		return fmt.Errorf("could not create directory %s: %v", eventDir, err)
+	}
+	for i := range envs {
+		env := envs[i]
+		environmentDir := filesystem.Join(eventDir, "environments", env)
+		if err := filesystem.MkdirAll(environmentDir, 0777); err != nil {
+			return fmt.Errorf("could not create directory %s: %v", environmentDir, err)
+		}
+		environmentNamePath := filesystem.Join(environmentDir, ".dir")
+		if err := util.WriteFile(filesystem, environmentNamePath, []byte(""), 0666); err != nil {
+			return fmt.Errorf("could not write file %s: %v", environmentNamePath, err)
+		}
+	}
+	const (
+		EventTypeNewRelease = "new-release"
+	)
+	eventTypePath := filesystem.Join(eventDir, "eventType")
+	if err := util.WriteFile(filesystem, eventTypePath, []byte(EventTypeNewRelease), 0666); err != nil {
+		return fmt.Errorf("could not write file %s: %v", eventTypePath, err)
+	}
+
+	createdAtPath := filesystem.Join(eventDir, "createdAt")
+	if err := util.WriteFile(filesystem, createdAtPath, []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
+		return fmt.Errorf("could not write file %s: %v", createdAtPath, err)
+	}
+	return nil
 }
 
 func (c *CreateApplicationVersion) calculateVersion(state *State) (uint64, error) {
@@ -614,7 +683,7 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 	}
 	// check if there are no other services updated by this commit
 	// if there are none, start removing the entire branch of the commit
-	
+
 	deleteDirIfEmpty := func(dir string) error {
 		files, err := fs.ReadDir(dir)
 		if err != nil {
@@ -634,7 +703,7 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 	deleteDirIfEmpty(commitDir2)
 	commitDir1 := path.Dir(commitDir2)
 	deleteDirIfEmpty(commitDir1)
-	
+
 	return nil
 }
 
