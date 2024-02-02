@@ -43,11 +43,11 @@ Commit message body line 2`,
         </MemoryRouter>
     );
 
-    expect(screen.getAllByRole('heading', { name: 'Commit tomato' })).not.toHaveLength(0);
+    expect(screen.getAllByRole('heading', { name: 'Commit tomato' })).toHaveLength(1);
 
-    expect(screen.getAllByRole('row', { name: /potato/ })).not.toHaveLength(0);
-    expect(screen.getAllByRole('row', { name: /tomato/ })).not.toHaveLength(0);
-    expect(screen.getAllByRole('row', { name: /Commit message body line 1/ })).not.toHaveLength(0);
-    expect(screen.getAllByRole('row', { name: /Commit message body line 2/ })).not.toHaveLength(0);
-    expect(screen.getAllByRole('row', { name: /google, windows/ })).not.toHaveLength(0);
+    expect(screen.getAllByRole('row', { name: /potato/ })).toHaveLength(1);
+    expect(screen.getAllByRole('row', { name: /tomato/ })).toHaveLength(1);
+    expect(screen.getAllByRole('row', { name: /Commit message body line 1/ })).toHaveLength(1);
+    expect(screen.getAllByRole('row', { name: /Commit message body line 2/ })).toHaveLength(1);
+    expect(screen.getAllByRole('row', { name: /google, windows/ })).toHaveLength(1);
 });
