@@ -135,13 +135,13 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		commitMessage = string(dat)
 	}
 
-	var touchedApps []string
 	
 	dirs, err := fs.ReadDir(fs.Join("commits", commitID[:2], commitID[2:], "applications"))
 	
 	if err != nil {
 		return nil, fmt.Errorf("could not read the applications directory under commit %s, error: %w", commitID, err)
 	}
+	touchedApps := make([]string, 0)
 	for _, dir := range dirs {
 		touchedApps = append(touchedApps, dir.Name())
 	}
