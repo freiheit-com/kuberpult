@@ -6,13 +6,13 @@ import { MemoryRouter } from 'react-router-dom';
 import { GetCommitInfoResponse } from '../../../api/api';
 
 test('CommitInfo component does not render commit info when the response is undefined', () => {
-    render(
+    const { container } = render(
         <MemoryRouter>
             <CommitInfo commitHash={'potato'} commitInfo={undefined} />
         </MemoryRouter>
     );
-    expect(document.body.textContent).toContain('Backend returned empty response');
-    expect(document.body.textContent).not.toContain('potato');
+    expect(container.textContent).toContain('Backend returned empty response');
+    expect(container.textContent).not.toContain('potato');
 });
 
 test('CommitInfo component renders commit info when the response is valid', () => {
