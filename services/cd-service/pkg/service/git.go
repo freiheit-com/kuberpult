@@ -145,6 +145,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	for _, dir := range dirs {
 		touchedApps = append(touchedApps, dir.Name())
 	}
+	sort.Strings(touchedApps);
 
 	return &api.GetCommitInfoResponse{
 		CommitMessage: commitMessage,
