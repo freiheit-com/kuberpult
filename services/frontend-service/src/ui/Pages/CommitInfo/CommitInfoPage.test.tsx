@@ -34,7 +34,7 @@ describe('Commit info page tests', () => {
             | undefined;
         expectedSpinnerCount: number;
         expectedMainContentCount: number;
-        expectedText: string[];
+        expectedText: string;
     };
 
     const testCases: TestCase[] = [
@@ -44,7 +44,7 @@ describe('Commit info page tests', () => {
             commitHash: 'potato',
             expectedSpinnerCount: 1,
             expectedMainContentCount: 0,
-            expectedText: ['Loading Configuration'],
+            expectedText: 'Loading Configuration',
             commitInfoStoreData: {
                 commitInfoReady: CommitInfoState.LOADING,
                 response: undefined,
@@ -56,7 +56,7 @@ describe('Commit info page tests', () => {
             commitHash: '',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
-            expectedText: ['commit ID not provided'],
+            expectedText: 'commit ID not provided',
             commitInfoStoreData: {
                 commitInfoReady: CommitInfoState.LOADING,
                 response: undefined,
@@ -68,7 +68,7 @@ describe('Commit info page tests', () => {
             commitHash: 'potato',
             expectedSpinnerCount: 1,
             expectedMainContentCount: 0,
-            expectedText: ['Loading commit info'],
+            expectedText: 'Loading commit info',
             commitInfoStoreData: {
                 commitInfoReady: CommitInfoState.LOADING,
                 response: undefined,
@@ -80,7 +80,7 @@ describe('Commit info page tests', () => {
             commitHash: 'potato',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
-            expectedText: ['Backend error'],
+            expectedText: 'Backend error',
             commitInfoStoreData: {
                 response: undefined,
                 commitInfoReady: CommitInfoState.ERROR,
@@ -92,7 +92,7 @@ describe('Commit info page tests', () => {
             commitHash: 'potato',
             expectedSpinnerCount: 0,
             expectedMainContentCount: 1,
-            expectedText: ['Commit Add google to windows'], // this "Commit + commit_message_first_line" string comes from the CommitInfo component logic (so we know that it actually rendered without having some mocking magic)
+            expectedText: 'Commit Add google to windows', // this "Commit + commit_message_first_line" string comes from the CommitInfo component logic (so we know that it actually rendered without having some mocking magic)
             commitInfoStoreData: {
                 commitInfoReady: CommitInfoState.READY,
                 response: {
