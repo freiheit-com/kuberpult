@@ -629,7 +629,7 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 		}
 		if len(files) == 0 {
 			if err = fs.Remove(dir); err != nil {
-				return errorTemplate(fmt.Sprintf("could not remove remove the directory %s", dir), err)
+				return errorTemplate(fmt.Sprintf("could not remove the directory %s", dir), err)
 			}
 		}
 		return nil
