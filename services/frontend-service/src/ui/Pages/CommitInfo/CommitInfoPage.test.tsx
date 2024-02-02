@@ -21,16 +21,6 @@ import { fakeLoadEverything } from '../../../setupTests';
 import { updateCommitInfo, CommitInfoState } from '../../utils/store';
 import { GetCommitInfoResponse } from '../../../api/api';
 
-/*
-    using this would be the ideal scenario for testing the CommitInfoPage component
-    but it doesn't work, any help is most appreciated.
-*/
-// const mockCommitInfo = jest.fn();
-// jest.mock('../../components/CommitInfo/CommitInfo', () => (props) => {
-//     mockCommitInfo(props);
-//     return <h1>xyzxyz</h1>;
-// });
-
 describe('Commit info page tests', () => {
     type TestCase = {
         name: string;
