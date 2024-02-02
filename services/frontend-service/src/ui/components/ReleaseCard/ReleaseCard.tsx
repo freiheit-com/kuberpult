@@ -71,51 +71,78 @@ const rolloutStatusPriority = [
     RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
 ];
 
+const getRolloutStatusPriority = (status: RolloutStatus): number => {
+    const idx = rolloutStatusPriority.indexOf(status);
+    if (idx === -1) {
+        return rolloutStatusPriority.length;
+    }
+    return idx;
+};
+
+type DeploymentStatus = {
+    environmentGroup: string;
+    rolloutStatus: RolloutStatus;
+};
+
+const getAppRolloutStatus = (
+    status: StreamStatusResponse | undefined,
+    deployedVersion: number | undefined
+): RolloutStatus => {
+    if (status === undefined) {
+        // The status is completly unknown. Either the app is just new or rollout service is not responding.
+        return RolloutStatus.ROLLOUT_STATUS_UNKNOWN;
+    }
+    if (status.rolloutStatus === RolloutStatus.ROLLOUT_STATUS_SUCCESFUL && status.version !== deployedVersion) {
+        // The rollout service might be sligthly behind the UI.
+        return RolloutStatus.ROLLOUT_STATUS_PENDING;
+    }
+    return status.rolloutStatus;
+};
+
 const calculateDeploymentStatus = (
     app: string,
     deployedAt: EnvironmentGroupExtended[],
     rolloutEnabled: boolean,
     rolloutStatus: RolloutStatusApplication
-): [Array<StreamStatusResponse>, StreamStatusResponse?] => {
+): [Array<DeploymentStatus>, RolloutStatus?] => {
     if (!rolloutEnabled) {
         return [[], undefined];
     }
-    const rolloutEnvs = deployedAt.flatMap((envGroup) =>
-        envGroup.environments.map((env) => {
-            const status = rolloutStatus[env.name];
-            if (!status) {
-                // The status is completly unknown. Either the app is just new or rollout service is not responding.
-                return {
-                    environment: env.name,
-                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_UNKNOWN,
-                    version: 0,
-                    application: app,
-                };
+    const rolloutEnvs = deployedAt.map((envGroup) => {
+        const status = envGroup.environments.reduce((cur: RolloutStatus | undefined, env) => {
+            const appVersion: number | undefined = env.applications[app]?.version;
+            const status = getAppRolloutStatus(rolloutStatus[env.name], appVersion);
+            if (cur === undefined) {
+                return status;
             }
-            if (
-                status.rolloutStatus === RolloutStatus.ROLLOUT_STATUS_SUCCESFUL &&
-                status.version !== env.applications[app]?.version
-            ) {
-                // The rollout service might be sligthly behind the UI.
-                // In that case the
-                return { ...status, rolloutStatus: RolloutStatus.ROLLOUT_STATUS_PENDING };
+            if (getRolloutStatusPriority(status) < getRolloutStatusPriority(cur)) {
+                return status;
             }
-            return status;
-        })
-    );
+            return cur;
+        }, undefined);
+        return {
+            environmentGroup: envGroup.environmentGroupName,
+            rolloutStatus: status ?? RolloutStatus.ROLLOUT_STATUS_UNKNOWN,
+        };
+    });
     rolloutEnvs.sort((a, b) => {
-        if (a.environment < b.environment) {
+        if (a.environmentGroup < b.environmentGroup) {
             return -1;
-        } else if (a.environment > b.environment) {
+        } else if (a.environmentGroup > b.environmentGroup) {
             return 1;
         }
         return 0;
     });
-    const mostInteresting = [...rolloutEnvs].sort((a, b) => {
-        const aPriority = rolloutStatusPriority.indexOf(a.rolloutStatus) ?? rolloutStatusPriority.length;
-        const bPriority = rolloutStatusPriority.indexOf(b.rolloutStatus) ?? rolloutStatusPriority.length;
-        return aPriority - bPriority;
-    })[0];
+    // Calculates the most interesting rollout status according to the `rolloutStatusPriority`.
+    const mostInteresting = rolloutEnvs.reduce(
+        (cur: RolloutStatus | undefined, item) =>
+            cur === undefined
+                ? item.rolloutStatus
+                : getRolloutStatusPriority(item.rolloutStatus) < getRolloutStatusPriority(cur)
+                  ? item.rolloutStatus
+                  : cur,
+        undefined
+    );
     return [rolloutEnvs, mostInteresting];
 };
 
@@ -148,14 +175,14 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                 <table className="release__environment_status">
                     <thead>
                         <tr>
-                            <th>Environment</th>
+                            <th>Environment group</th>
                             <th>Rollout</th>
                         </tr>
                     </thead>
                     <tbody>
                         {rolloutEnvs.map((env) => (
-                            <tr key={env.environment}>
-                                <td>{env.environment}</td>
+                            <tr key={env.environmentGroup}>
+                                <td>{env.environmentGroup}</td>
                                 <td>
                                     <RolloutStatusDescription status={env.rolloutStatus} />
                                 </td>
@@ -184,9 +211,9 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                             <div className="release__title">{undeployVersion ? 'Undeploy Version' : firstLine}</div>
                             <ReleaseVersion release={release} />
                         </div>
-                        {mostInteresting && (
+                        {mostInteresting !== undefined && (
                             <div className="release__status">
-                                <RolloutStatusIcon status={mostInteresting.rolloutStatus} />
+                                <RolloutStatusIcon status={mostInteresting} />
                             </div>
                         )}
                         <div className="mdc-card__ripple" />

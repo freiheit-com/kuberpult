@@ -245,6 +245,7 @@ describe('Release Card Rollout Status', () => {
         environmentGroups: EnvironmentGroup[];
         rolloutStatus: StreamStatusResponse[];
         expectedStatusIcon: RolloutStatus;
+        expectedRolloutDetails: { [name: string]: RolloutStatus };
     };
     const data: TestData[] = [
         {
@@ -281,8 +282,44 @@ describe('Release Card Rollout Status', () => {
                             distanceToUpstream: 0,
                             priority: Priority.OTHER,
                         },
+                        {
+                            name: 'development2',
+                            applications: {
+                                test1: {
+                                    version: 2,
+                                    name: '',
+                                    locks: {},
+                                    queuedVersion: 0,
+                                    undeployVersion: false,
+                                },
+                            },
+                            locks: {},
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
                     ],
 
+                    distanceToUpstream: 0,
+                },
+                {
+                    environmentGroupName: 'staging',
+                    environments: [
+                        {
+                            name: 'staging',
+                            applications: {
+                                test1: {
+                                    version: 2,
+                                    name: '',
+                                    locks: {},
+                                    queuedVersion: 0,
+                                    undeployVersion: false,
+                                },
+                            },
+                            locks: {},
+                            distanceToUpstream: 0,
+                            priority: Priority.OTHER,
+                        },
+                    ],
                     distanceToUpstream: 0,
                 },
             ],
@@ -293,9 +330,25 @@ describe('Release Card Rollout Status', () => {
                     version: 2,
                     rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
                 },
+                {
+                    environment: 'development2',
+                    application: 'test1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                },
+                {
+                    environment: 'staging',
+                    application: 'test1',
+                    version: 2,
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                },
             ],
 
             expectedStatusIcon: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+            expectedRolloutDetails: {
+                dev: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                staging: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+            },
         },
     ];
 
@@ -321,10 +374,32 @@ describe('Release Card Rollout Status', () => {
             const { container } = getWrapper(testcase.props);
             // then
             expect(container.querySelector('.release__status')).not.toBeNull();
-            switch (testcase.expectedStatusIcon) {
-                case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
-                    expect(container.querySelector('.release__status .rollout__icon_successful')).not.toBeNull();
+            expect(
+                container.querySelector(
+                    `.release__status .rollout__icon_${rolloutStatusName(testcase.expectedStatusIcon)}`
+                )
+            ).not.toBeNull();
+            for (const [envGroup, status] of Object.entries(testcase.expectedRolloutDetails)) {
+                const row = container.querySelector(`tr[key="${envGroup}"]`);
+                expect(row?.querySelector(`.rollout__description_${rolloutStatusName(status)}`)).not.toBeNull();
             }
         });
     });
 });
+
+const rolloutStatusName = (status: RolloutStatus): string => {
+    switch (status) {
+        case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
+            return 'successful';
+        case RolloutStatus.ROLLOUT_STATUS_PROGRESSING:
+            return 'progressing';
+        case RolloutStatus.ROLLOUT_STATUS_PENDING:
+            return 'pending';
+        case RolloutStatus.ROLLOUT_STATUS_ERROR:
+            return 'error';
+        case RolloutStatus.ROLLOUT_STATUS_UNHEALTHY:
+            return 'unhealthy';
+        default:
+            return 'unknown';
+    }
+};
