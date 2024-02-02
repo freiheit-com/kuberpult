@@ -26,40 +26,7 @@ type CommitInfoProps = {
 export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
     const commitHash = props.commitHash;
     const commitInfo = props.commitInfo;
-    if (commitInfo !== undefined) {
-        return (
-            <div>
-                <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
-                <main className="main-content commit-page">
-                    <h1>This page is still in beta</h1>
-                    <br />
-                    <h1> Commit {commitInfo.commitMessage.split('\n')[0]} </h1>
-                    <table border={1}>
-                        <thead>
-                            <tr>
-                                <th>Commit Hash:</th>
-                                <th>Commit Message:</th>
-                                <th>Touched apps: </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>{commitHash}</td>
-                                <td>
-                                    <div className={'commit-page-message'}>
-                                        {commitInfo.commitMessage.split('\n').map((msg, index) => (
-                                            <div key={index}>{msg} &nbsp;</div>
-                                        ))}
-                                    </div>
-                                </td>
-                                <td>{commitInfo.touchedApps.join(', ')}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </main>
-            </div>
-        );
-    } else {
+    if (commitInfo === undefined) {
         return (
             <div>
                 <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
@@ -67,4 +34,36 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
             </div>
         );
     }
+    return (
+        <div>
+            <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+            <main className="main-content commit-page">
+                <h1>This page is still in beta</h1>
+                <br />
+                <h1> Commit {commitInfo.commitMessage.split('\n')[0]} </h1>
+                <table border={1}>
+                    <thead>
+                        <tr>
+                            <th>Commit Hash:</th>
+                            <th>Commit Message:</th>
+                            <th>Touched apps: </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{commitHash}</td>
+                            <td>
+                                <div className={'commit-page-message'}>
+                                    {commitInfo.commitMessage.split('\n').map((msg, index) => (
+                                        <div key={index}>{msg} &nbsp;</div>
+                                    ))}
+                                </div>
+                            </td>
+                            <td>{commitInfo.touchedApps.join(', ')}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </main>
+        </div>
+    );
 };
