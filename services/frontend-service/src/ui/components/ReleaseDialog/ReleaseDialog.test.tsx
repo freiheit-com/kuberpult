@@ -40,7 +40,12 @@ describe('Release Dialog', () => {
         expect_queues: number;
         data_length: number;
         teamName: string;
-        rolloutStatus?: { [app: string]: { [env: string]: [RolloutStatus, string] } };
+        rolloutStatus?: {
+            application: string;
+            environment: string;
+            rolloutStatus: RolloutStatus;
+            rolloutStatusName: string;
+        }[];
     }
     interface dataTLocks {
         name: string;
@@ -236,12 +241,20 @@ describe('Release Dialog', () => {
                     displayVersion: '3',
                 },
             ],
-            rolloutStatus: {
-                test1: {
-                    prod: [RolloutStatus.ROLLOUT_STATUS_PENDING, 'pending'],
-                    dev: [RolloutStatus.ROLLOUT_STATUS_PROGRESSING, 'progressing'],
+            rolloutStatus: [
+                {
+                    application: 'test1',
+                    environment: 'prod',
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_PENDING,
+                    rolloutStatusName: 'pending',
                 },
-            },
+                {
+                    application: 'test1',
+                    environment: 'dev',
+                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_PROGRESSING,
+                    rolloutStatusName: 'progressing',
+                },
+            ],
             expect_message: true,
             expect_queues: 1,
             data_length: 5,
@@ -299,15 +312,13 @@ describe('Release Dialog', () => {
         });
         const status = testcase.rolloutStatus;
         if (status !== undefined) {
-            for (const [app, envs] of Object.entries(status)) {
-                for (const [env, [status, _]] of Object.entries(envs)) {
-                    UpdateRolloutStatus({
-                        application: app,
-                        environment: env,
-                        version: 1,
-                        rolloutStatus: status,
-                    });
-                }
+            for (const app of status) {
+                UpdateRolloutStatus({
+                    application: app.application,
+                    environment: app.environment,
+                    version: 1,
+                    rolloutStatus: app.rolloutStatus,
+                });
             }
         }
     };
@@ -370,10 +381,8 @@ describe('Release Dialog', () => {
         }
         it(testcase.name, () => {
             const statusCount: { [status: string]: number } = {};
-            for (const envs of Object.values(status)) {
-                for (const [_, descr] of Object.values(envs)) {
-                    statusCount[descr] = (statusCount[descr] ?? 0) + 1;
-                }
+            for (const app of status) {
+                statusCount[app.rolloutStatusName] = (statusCount[app.rolloutStatusName] ?? 0) + 1;
             }
             // when
             setTheStore(testcase);
