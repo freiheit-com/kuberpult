@@ -363,7 +363,7 @@ func TestBatchServiceErrors(t *testing.T) {
 					},
 				}},
 			ExpectedResponse: "",
-			ExpectedError:    "could not open manifest 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist",
+			ExpectedError:    "deployment failed: could not open manifest for app myapp with release 666 on env dev 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist",
 		},
 		{
 			Name:  "create release endpoint fails app validity check",
