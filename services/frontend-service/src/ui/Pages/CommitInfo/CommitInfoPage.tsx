@@ -14,13 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-import {
-    getCommitInfo,
-    // showSnackbarError,
-    useCommitInfo,
-    useGlobalLoadingState,
-    CommitInfoState,
-} from '../../utils/store';
+import { getCommitInfo, useCommitInfo, useGlobalLoadingState, CommitInfoState } from '../../utils/store';
 import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
 import { Spinner } from '../../components/Spinner/Spinner';
