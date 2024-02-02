@@ -91,8 +91,8 @@ func TestGetProductOverview(t *testing.T) {
 		{
 			Name:     "get Product Overview as expected with env but without team",
 			givenEnv: ptr.FromString("development"),
-			Setup: []repository.Transformer{
-				&repository.CreateEnvironment{
+			Setup: []rp.Transformer{
+				&rp.CreateEnvironment{
 					Environment: "development",
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
@@ -102,7 +102,7 @@ func TestGetProductOverview(t *testing.T) {
 						EnvironmentGroup: ptr.FromString("dev"),
 					},
 				},
-				&repository.CreateApplicationVersion{
+				&rp.CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
 						"development": "dev",
@@ -113,7 +113,7 @@ func TestGetProductOverview(t *testing.T) {
 					SourceRepoUrl:  "testing@testing.com/abc",
 					DisplayVersion: "v1.0.2",
 				},
-				&repository.DeployApplicationVersion{
+				&rp.DeployApplicationVersion{
 					Application: "test",
 					Environment: "development",
 					Version:     1,
