@@ -219,7 +219,6 @@ type CreateApplicationVersion struct {
 	SourceRepoUrl  string
 	Team           string
 	DisplayVersion string
-	//Generator      uuid.GenerateUUIDs
 }
 
 type ctxMarkerGenerateUuid struct{}
@@ -284,6 +283,15 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
+		if valid.SHA1CommitID(c.SourceCommitId) {
+			commitDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
+			if err := fs.MkdirAll(commitDir, 0777); err != nil {
+				return "", nil, GetCreateReleaseGeneralFailure(err)
+			}
+			if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
+				return "", nil, GetCreateReleaseGeneralFailure(err)
+			}
+		}
 	}
 	if c.SourceAuthor != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
@@ -332,7 +340,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	}
 
 	changes := &TransformerResult{}
-	var allEnvsOfThisApp = []string{}
+	var allEnvsOfThisApp []string = nil
 	for env, man := range c.Manifests {
 		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
 		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
@@ -390,7 +398,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	if err != nil {
 		return "", nil, GetCreateReleaseGeneralFailure(err)
 	}
-	err = writeCommitData(ctx, c.SourceCommitId, c.Application, eventUuid, allEnvsOfThisApp, fs)
+	err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, fs)
 	if err != nil {
 		return "", nil, GetCreateReleaseGeneralFailure(err)
 	}
@@ -407,22 +415,28 @@ func addGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, sourceCommitId string, app string, eventId string, environments []string, fs billy.Filesystem) error {
+func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, fs billy.Filesystem) error {
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
 	}
-	commitDir := commitApplicationDirectory(fs, sourceCommitId, app)
-	if err := fs.MkdirAll(commitDir, 0777); err != nil {
-		return err
+	commitDir := commitDirectory(fs, sourceCommitId)
+	commitAppDir := commitApplicationDirectory(fs, sourceCommitId, app)
+	if err := fs.MkdirAll(commitAppDir, 0777); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
 	}
 	if err := util.WriteFile(fs, fs.Join(commitDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
 		return err
+	}
+	if err := util.WriteFile(fs, fs.Join(commitDir, "source_message"), []byte(sourceMessage), 0666); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+	if err := util.WriteFile(fs, fs.Join(commitAppDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
 	}
 	err := writeEvent(ctx, eventId, sourceCommitId, fs, environments)
 	if err != nil {
 		return fmt.Errorf("error while writing event: %v", err)
 	}
-
 	return nil
 }
 
@@ -694,10 +708,13 @@ func (c *CreateUndeployApplicationVersion) Transform(ctx context.Context, state 
 }
 
 func removeCommit(fs billy.Filesystem, commitID, application string) error {
-	couldNotRemoveAppFormat := "could not remove the application %s from the directory of commit %s, error: %w"
+	errorTemplate := func(message string, err error) error {
+		return fmt.Errorf("while removing applicaton %s from commit %s and error was encountered, message: %s, error %w", application, commitID, message, err)
+	}
+
 	commitApplicationDir := commitApplicationDirectory(fs, commitID, application)
 	if err := fs.Remove(commitApplicationDir); err != nil {
-		return fmt.Errorf(couldNotRemoveAppFormat, application, commitID, err)
+		return errorTemplate(fmt.Sprintf("could not remove the application directory %s", commitApplicationDir), err)
 	}
 	// check if there are no other services updated by this commit
 	// if there are none, start removing the entire branch of the commit
@@ -705,22 +722,40 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 	deleteDirIfEmpty := func(dir string) error {
 		files, err := fs.ReadDir(dir)
 		if err != nil {
-			return fmt.Errorf(couldNotRemoveAppFormat, application, commitID, err)
+			return errorTemplate(fmt.Sprintf("could not read the directory %s", dir), err)
 		}
 		if len(files) == 0 {
 			if err = fs.Remove(dir); err != nil {
-				return fmt.Errorf(couldNotRemoveAppFormat, application, commitID, err)
+				return errorTemplate(fmt.Sprintf("could not remove the directory %s", dir), err)
 			}
 		}
 		return nil
 	}
 
-	applicationsDir := path.Dir(commitApplicationDir)
-	deleteDirIfEmpty(applicationsDir)
-	commitDir2 := path.Dir(applicationsDir)
-	deleteDirIfEmpty(commitDir2)
+	commitApplicationsDir := path.Dir(commitApplicationDir)
+	if err := deleteDirIfEmpty(commitApplicationsDir); err != nil {
+		return errorTemplate(fmt.Sprintf("could not remove directory %s", commitApplicationsDir), err)
+	}
+	commitDir2 := path.Dir(commitApplicationsDir)
+
+	// if there are no more apps in the applications dir, then remove the commit message file and continue cleaning going up
+	if _, err := fs.Stat(commitApplicationsDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := fs.Remove(fs.Join(commitDir2, "source_message")); err != nil {
+				return errorTemplate("could not remove source_message file", err)
+			}
+		} else {
+			return errorTemplate(fmt.Sprintf("could not stat directory %s with an unexpected error", commitApplicationsDir), err)
+		}
+	}
+
+	if err := deleteDirIfEmpty(commitDir2); err != nil {
+		return errorTemplate(fmt.Sprintf("could not remove directory %s", commitDir2), err)
+	}
 	commitDir1 := path.Dir(commitDir2)
-	deleteDirIfEmpty(commitDir1)
+	if err := deleteDirIfEmpty(commitDir1); err != nil {
+		return errorTemplate(fmt.Sprintf("could not remove directory %s", commitDir2), err)
+	}
 
 	return nil
 }
