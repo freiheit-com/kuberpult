@@ -29,6 +29,7 @@ import {
     GetGitTagsResponse,
     GetProductSummaryResponse,
     RolloutStatus,
+    GetCommitInfoResponse,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -74,12 +75,24 @@ type ProductSummaryResponse = {
     response: GetProductSummaryResponse;
     summaryReady: boolean;
 };
+
+export enum CommitInfoState {
+    LOADING,
+    READY,
+    ERROR,
+    NOTFOUND,
+}
+export type CommitInfoResponse = {
+    response: GetCommitInfoResponse | undefined;
+    commitInfoReady: CommitInfoState;
+};
+
 const emptyBatch: BatchRequest = { actions: [] };
 export const [useAction, UpdateAction] = createStore(emptyBatch);
 const tagsResponse: GetGitTagsResponse = { tagData: [] };
 export const refreshTags = (): void => {
     const api = useApi;
-    api.tagsService()
+    api.gitService()
         .GetGitTags({})
         .then((result: GetGitTagsResponse) => {
             updateTag.set({ response: result, tagsReady: true });
@@ -93,7 +106,7 @@ export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsRes
 const summaryResponse: GetProductSummaryResponse = { productSummary: [] };
 export const getSummary = (commitHash: string, environment: string, environmentGroup: string): void => {
     const api = useApi;
-    api.tagsService()
+    api.gitService()
         .GetProductSummary({ commitHash: commitHash, environment: environment, environmentGroup: environmentGroup })
         .then((result: GetProductSummaryResponse) => {
             updateSummary.set({ response: result, summaryReady: true });
@@ -105,6 +118,28 @@ export const getSummary = (commitHash: string, environment: string, environmentG
 export const [useSummary, updateSummary] = createStore<ProductSummaryResponse>({
     response: summaryResponse,
     summaryReady: false,
+});
+
+export const getCommitInfo = (commitHash: string): void => {
+    const api = useApi;
+    api.gitService()
+        .GetCommitInfo({ commitHash: commitHash })
+        .then((result: GetCommitInfoResponse) => {
+            updateCommitInfo.set({ response: result, commitInfoReady: CommitInfoState.READY });
+        })
+        .catch((e) => {
+            const GrpcErrorNotFound = 5;
+            if (e.code === GrpcErrorNotFound) {
+                updateCommitInfo.set({ response: undefined, commitInfoReady: CommitInfoState.NOTFOUND });
+            } else {
+                showSnackbarError(e.message);
+                updateCommitInfo.set({ response: undefined, commitInfoReady: CommitInfoState.ERROR });
+            }
+        });
+};
+export const [useCommitInfo, updateCommitInfo] = createStore<CommitInfoResponse>({
+    response: undefined,
+    commitInfoReady: CommitInfoState.LOADING,
 });
 
 export const [_, PanicOverview] = createStore({ error: '' });
