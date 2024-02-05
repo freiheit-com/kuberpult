@@ -172,8 +172,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
 
         return [returnString, time];
     };
-    const [rolloutEnabled, rolloutStatus] = useRolloutStatus(app);
-    const appRolloutStatus = rolloutEnabled ? rolloutStatus[env.name]?.rolloutStatus : null;
+    const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, application?.version, env.name));
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
