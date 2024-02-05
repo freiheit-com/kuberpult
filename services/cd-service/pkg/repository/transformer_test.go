@@ -852,7 +852,9 @@ func verifyCommitPathsDontExist(fs billy.Filesystem, paths []string) error {
 	for _, path := range paths {
 		_, err := fs.Stat(path)
 		if err == nil {
-			return fmt.Errorf(`error verifying commit path doesn't exist. path: %s, error expected but none was raised
+			return fmt.Errorf(`error verifying commit path doesn't exist. path:
+%s
+error expected but none was raised
 directory tree: %s`, path, strings.Join(listFiles(fs), "\n"))
 		}
 	}
