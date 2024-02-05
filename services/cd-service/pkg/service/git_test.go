@@ -20,10 +20,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
-	"os"
 	"testing"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -334,7 +336,7 @@ func TestGetCommitInfo(t *testing.T) {
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 			},
-			expectedError: os.ErrNotExist,
+			expectedError: status.Error(codes.NotFound, "error: commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the manifest repo"),
 			expectedResponse: nil,
 		},
 	}

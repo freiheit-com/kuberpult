@@ -87,6 +87,19 @@ describe('Commit info page tests', () => {
             },
         },
         {
+            name: 'An error message is shown when the backend returns a not found status',
+            fakeLoadEverything: true,
+            commitHash: 'potato',
+            expectedSpinnerCount: 0,
+            expectedMainContentCount: 1,
+            expectedText:
+                'The provided commit ID was not found in the manifest repo. This is because either the commit ID is incorrect, or it refers to an old commit whose relase has been cleaned up by now.',
+            commitInfoStoreData: {
+                response: undefined,
+                commitInfoReady: CommitInfoState.NOTFOUND,
+            },
+        },
+        {
             name: 'Some main content exists when the page is done loading',
             fakeLoadEverything: true,
             commitHash: 'potato',

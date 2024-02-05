@@ -79,6 +79,7 @@ export enum CommitInfoState {
     LOADING,
     READY,
     ERROR,
+    NOTFOUND,
 }
 export type CommitInfoResponse = {
     response: GetCommitInfoResponse | undefined;
@@ -126,8 +127,13 @@ export const getCommitInfo = (commitHash: string): void => {
             updateCommitInfo.set({ response: result, commitInfoReady: CommitInfoState.READY });
         })
         .catch((e) => {
-            showSnackbarError(e.message);
-            updateCommitInfo.set({ response: undefined, commitInfoReady: CommitInfoState.ERROR });
+            const GrpcErrorNotFound = 5;
+            if (e.code === GrpcErrorNotFound) {
+                updateCommitInfo.set({ response: undefined, commitInfoReady: CommitInfoState.NOTFOUND });
+            } else {
+                showSnackbarError(e.message);
+                updateCommitInfo.set({ response: undefined, commitInfoReady: CommitInfoState.ERROR });
+            }
         });
 };
 export const [useCommitInfo, updateCommitInfo] = createStore<CommitInfoResponse>({

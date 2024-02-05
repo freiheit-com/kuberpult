@@ -56,6 +56,16 @@ export const CommitInfoPage: React.FC = () => {
                     <main className="main-content commit-page">Backend error</main>
                 </div>
             );
+        case CommitInfoState.NOTFOUND:
+            return (
+                <div>
+                    <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                    <main className="main-content commit-page">
+                        The provided commit ID was not found in the manifest repo. This is because either the commit ID
+                        is incorrect, or it refers to an old commit whose relase has been cleaned up by now.
+                    </main>
+                </div>
+            );
         case CommitInfoState.READY:
             return <CommitInfo commitHash={commitHash} commitInfo={commitInfo.response} />;
     }
