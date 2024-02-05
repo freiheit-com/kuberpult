@@ -142,7 +142,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	commitApplicationsDirPath := fs.Join(commitPath, "applications")
 	dirs, err := fs.ReadDir(commitApplicationsDirPath)
 	if err != nil {
-		return nil, fmt.Errorf("could not read the applications directory at, error: %w", commitApplicationsDirPath, err)
+		return nil, fmt.Errorf("could not read the applications directory at %s, error: %w", commitApplicationsDirPath, err)
 	}
 	touchedApps := make([]string, 0)
 	for _, dir := range dirs {
