@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
+	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"io"
 	"io/fs"
 	"os"
@@ -219,8 +219,14 @@ type CreateApplicationVersion struct {
 	SourceRepoUrl  string
 	Team           string
 	DisplayVersion string
-	EventId        string // the eventId is only there to make testing simpler
+	//Generator      uuid.GenerateUUIDs
 }
+
+type ctxMarkerGenerateUuid struct{}
+
+var (
+	ctxMarkerGenerateUuidKey = &ctxMarkerGenerateUuid{}
+)
 
 func GetLastRelease(fs billy.Filesystem, application string) (uint64, error) {
 	var err error
@@ -373,12 +379,32 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 			result = result + deployResult + "\n"
 		}
 	}
-	err = writeCommitData(ctx, c.SourceCommitId, c.Application, c.EventId, allEnvsOfThisApp, fs)
+	gen, ok := getGeneratorFromContext(ctx)
+	if !ok || gen == nil {
+		logger.FromContext(ctx).Info("using real UUID generator.")
+		gen = uuid.RealUUIDGenerator{}
+	} else {
+		logger.FromContext(ctx).Info("using  UUID generator from context.")
+	}
+	eventUuid, err := gen.Generate()
+	if err != nil {
+		return "", nil, GetCreateReleaseGeneralFailure(err)
+	}
+	err = writeCommitData(ctx, c.SourceCommitId, c.Application, eventUuid, allEnvsOfThisApp, fs)
 	if err != nil {
 		return "", nil, GetCreateReleaseGeneralFailure(err)
 	}
 
 	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), changes, nil
+}
+
+func getGeneratorFromContext(ctx context.Context) (uuid.GenerateUUIDs, bool) {
+	gen, ok := ctx.Value(ctxMarkerGenerateUuidKey).(uuid.GenerateUUIDs)
+	return gen, ok
+}
+
+func addGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.Context {
+	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
 func writeCommitData(ctx context.Context, sourceCommitId string, app string, eventId string, environments []string, fs billy.Filesystem) error {
@@ -389,7 +415,7 @@ func writeCommitData(ctx context.Context, sourceCommitId string, app string, eve
 	if err := fs.MkdirAll(commitDir, 0777); err != nil {
 		return err
 	}
-	if err := util.WriteFile(fs, fs.Join(commitDir, ".dir"), make([]byte, 0), 0666); err != nil {
+	if err := util.WriteFile(fs, fs.Join(commitDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
 		return err
 	}
 	err := writeEvent(ctx, eventId, sourceCommitId, fs, environments)
@@ -401,14 +427,6 @@ func writeCommitData(ctx context.Context, sourceCommitId string, app string, eve
 }
 
 func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, envs []string) error {
-	if eventId == "" {
-		fullUuid, err := uuid.NewUUID()
-		if err != nil {
-			return fmt.Errorf("could not create uuid: %v", err)
-		}
-		// format of this "uuid" is the same as the lock IDs, see "randomLockId" in store.tsx
-		eventId = "cd-v1-" + string(fullUuid.String()[:7])
-	}
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
 	_, err := filesystem.Stat(eventDir)
 	if err != nil {
@@ -426,7 +444,7 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 		if err := filesystem.MkdirAll(environmentDir, 0777); err != nil {
 			return fmt.Errorf("could not create directory %s: %v", environmentDir, err)
 		}
-		environmentNamePath := filesystem.Join(environmentDir, ".dir")
+		environmentNamePath := filesystem.Join(environmentDir, ".gitkeep")
 		if err := util.WriteFile(filesystem, environmentNamePath, []byte(""), 0666); err != nil {
 			return fmt.Errorf("could not write file %s: %v", environmentNamePath, err)
 		}
