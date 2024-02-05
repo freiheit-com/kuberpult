@@ -60,16 +60,6 @@ const (
 
 var timeNowOld = time.Date(1999, 01, 02, 03, 04, 05, 0, time.UTC)
 
-type TestGenerator struct {
-	Prefix        string
-	currentNumber int
-}
-
-func (t TestGenerator) Generate() string {
-	t.currentNumber++
-	return fmt.Sprintf("%s%d", t.Prefix, t.currentNumber-1)
-}
-
 func TestUndeployApplicationErrors(t *testing.T) {
 	tcs := []struct {
 		Name              string
@@ -466,7 +456,7 @@ func TestCreateApplicationVersionEvents(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
 			ctx := testutil.MakeTestContext()
-			ctx = addGeneratorToContext(ctx, fakeGen)
+			ctx = AddGeneratorToContext(ctx, fakeGen)
 			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			if err != nil {
 				t.Fatalf("expected no error but transformer failed with %v", err)

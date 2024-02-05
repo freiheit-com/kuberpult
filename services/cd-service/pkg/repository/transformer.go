@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"io"
 	"io/fs"
 	"os"
@@ -408,7 +409,7 @@ func getGeneratorFromContext(ctx context.Context) (uuid.GenerateUUIDs, bool) {
 	return gen, ok
 }
 
-func addGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.Context {
+func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.Context {
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
@@ -460,11 +461,8 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 			return fmt.Errorf("could not write file %s: %v", environmentNamePath, err)
 		}
 	}
-	const (
-		EventTypeNewRelease = "new-release"
-	)
 	eventTypePath := filesystem.Join(eventDir, "eventType")
-	if err := util.WriteFile(filesystem, eventTypePath, []byte(EventTypeNewRelease), 0666); err != nil {
+	if err := util.WriteFile(filesystem, eventTypePath, []byte(event.NewReleaseEventName), 0666); err != nil {
 		return fmt.Errorf("could not write file %s: %v", eventTypePath, err)
 	}
 

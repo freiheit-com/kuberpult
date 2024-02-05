@@ -35,6 +35,8 @@ package testutil
 import (
 	"context"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/onokonem/sillyQueueServer/timeuuid"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"google.golang.org/grpc/metadata"
@@ -99,4 +101,12 @@ func MakeEnvConfigUpstream(upstream string, argoCd *config.EnvironmentConfigArgo
 		ArgoCd:           argoCd,
 		EnvironmentGroup: nil,
 	}
+}
+
+type TestGenerator struct {
+	Time time.Time
+}
+
+func (t TestGenerator) Generate() string {
+	return timeuuid.UUIDFromTime(t.Time).String()
 }
