@@ -61,8 +61,9 @@ export const CommitInfoPage: React.FC = () => {
                 <div>
                     <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
                     <main className="main-content commit-page">
-                        The provided commit ID was not found in the manifest repo. This is because either the commit ID
-                        is incorrect, or it refers to an old commit whose relase has been cleaned up by now.
+                        The provided commit ID was not found in the manifest repository. This is because either the
+                        commit "{commitHash}" is incorrect, is not tracked by Kuberpult yet, or it refers to an old
+                        commit whose relase has been cleaned up by now.
                     </main>
                 </div>
             );
