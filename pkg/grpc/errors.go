@@ -48,3 +48,9 @@ func FailedPrecondition(_ context.Context, err error) error {
 func AuthError(_ context.Context, err error) error {
 	return status.Error(codes.Unauthenticated, "error: "+err.Error())
 }
+
+func NotFoundError(ctx context.Context, err error) error {
+	logger := logger.FromContext(ctx)
+	logger.Error("grpc.public", zap.Error(err))
+	return status.Error(codes.NotFound, "error: "+err.Error())
+}

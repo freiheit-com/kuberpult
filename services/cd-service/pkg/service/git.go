@@ -25,6 +25,7 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
+	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/go-git/go-billy/v5/util"
 )
@@ -130,10 +131,14 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 
 	commitPath := fs.Join("commits", commitID[:2], commitID[2:])
 
+	if _, err := fs.Stat(commitPath); err != nil {
+		return nil, grpcErrors.NotFoundError(ctx, fmt.Errorf("commit %s was not found in the manifest repo", commitID));
+	}
+
 	sourceMessagePath := fs.Join(commitPath, "source_message")
 	var commitMessage string
 	if dat, err := util.ReadFile(fs, sourceMessagePath); err != nil {
-		return nil, fmt.Errorf("could not open the source message file at %s, err: %w", sourceMessagePath, err)
+		return nil, fmt.Errorf("could not open the source message file at %s, err: %w", sourceMessagePath, err);
 	} else {
 		commitMessage = string(dat)
 	}
