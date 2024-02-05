@@ -21,6 +21,62 @@ import { Spinner } from '../Spinner/Spinner';
 import { EnvironmentGroup, ProductSummary } from '../../../api/api';
 import { useSearchParams } from 'react-router-dom';
 
+export type TableProps = {
+    productSummary: ProductSummary[];
+    teams: string[];
+};
+
+export const TableFiltered: React.FC<TableProps> = (props) => {
+    var versionToDisplay = (app: ProductSummary): string => {
+        if (app.displayVersion !== '') {
+            return app.displayVersion;
+        }
+        if (app.commitId !== '') {
+            return app.commitId;
+        }
+        return app.version;
+    };
+    var displayTeams = props.teams;
+    if (displayTeams.includes('<No Team>')) {
+        displayTeams.filter((team, index) => team !== '<No Team>');
+        displayTeams.push('');
+    }
+    return (
+        <table className="table">
+            <tbody>
+                <tr className="table_title">
+                    <th>App Name</th>
+                    <th>Version</th>
+                    <th>Environment</th>
+                    <th>Team</th>
+                    <th>ManifestRepoLink</th>
+                    <th>SourceRepoLink</th>
+                </tr>
+                {props.productSummary
+                    .filter((row, index) => props.teams.length <= 0 || displayTeams.includes(row.team))
+                    .map((sum) => (
+                        <tr key={sum.app + sum.environment} className="table_data">
+                            <td>{sum.app}</td>
+                            <td>{versionToDisplay(sum)}</td>
+                            <td>{sum.environment}</td>
+                            <td>{sum.team}</td>
+                            <td>
+                                <DisplayManifestLink
+                                    app={sum.app}
+                                    version={Number(sum.version)}
+                                    displayString="Manifest Link"
+                                />
+                            </td>
+                            <td>
+                                <DisplaySourceLink commitId={sum.commitId} displayString={'Source Link'} />
+                            </td>
+                        </tr>
+                    ))}
+            </tbody>
+        </table>
+    );
+};
+
 // splits up a string like "dev:dev-de" into ["dev", "dev-de"]
 const splitCombinedGroupName = (envName: string): string[] => {
     const splitter = envName.split('/');
@@ -51,6 +107,7 @@ export const ProductVersion: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [environment, setEnvironment] = React.useState(searchParams.get('env') || envList[0]);
     const summaryResponse = useSummaryDisplay();
+    const teams = (searchParams.get('teams') || '').split(',').filter((val) => val !== '');
     const [open, setOpen] = React.useState(false);
     const openClose = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -59,21 +116,14 @@ export const ProductVersion: React.FC = () => {
             getSummary(e.target.value, env[0], env[1]);
             setOpen(!open);
             setSelectedTag(e.target.value);
+            searchParams.set('tag', e.target.value);
+            setSearchParams(searchParams);
         },
-        [open, setOpen, environment]
+        [environment, open, searchParams, setSearchParams]
     );
     const [showTagsSpinner, setShowTagsSpinner] = React.useState(false);
     const [showSummarySpinner, setShowSummarySpinner] = React.useState(false);
     const [selectedTag, setSelectedTag] = React.useState('');
-    var versionToDisplay = (app: ProductSummary): string => {
-        if (app.displayVersion !== '') {
-            return app.displayVersion;
-        }
-        if (app.commitId !== '') {
-            return app.commitId;
-        }
-        return app.version;
-    };
 
     const tagsResponse = useTags();
     const changeEnv = React.useCallback(
@@ -81,6 +131,7 @@ export const ProductVersion: React.FC = () => {
             setShowSummarySpinner(true);
             const env = splitCombinedGroupName(e.target.value);
             searchParams.set('env', e.target.value);
+            searchParams.set('tag', selectedTag);
             setEnvironment(e.target.value);
             setSearchParams(searchParams);
             getSummary(selectedTag, env[0], env[1]);
@@ -93,11 +144,18 @@ export const ProductVersion: React.FC = () => {
         if (tagsResponse.response.tagData.length > 0) {
             setShowSummarySpinner(true);
             const env = splitCombinedGroupName(environment);
-            getSummary(tagsResponse.response.tagData[0].commitId, env[0], env[1]);
+            if (selectedTag === '') {
+                setSelectedTag(tagsResponse.response.tagData[0].commitId);
+                searchParams.set('tag', tagsResponse.response.tagData[0].commitId);
+                setSearchParams(searchParams);
+                getSummary(tagsResponse.response.tagData[0].commitId, env[0], env[1]);
+            } else {
+                getSummary(selectedTag, env[0], env[1]);
+            }
             setDisplayVersion(true);
-            setSelectedTag(tagsResponse.response.tagData[0].commitId);
         }
-    }, [tagsResponse, envGroupResponse, searchParams, environment]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tagsResponse, envGroupResponse, environment]);
     React.useEffect(() => {
         if (tagsResponse.tagsReady) {
             setShowTagsSpinner(false);
@@ -153,34 +211,7 @@ export const ProductVersion: React.FC = () => {
             <div>
                 {displaySummary ? (
                     <div className="table_padding">
-                        <table className="table">
-                            <tbody>
-                                <tr className="table_title">
-                                    <th>App Name</th>
-                                    <th>Version</th>
-                                    <th>Environment</th>
-                                    <th>ManifestRepoLink</th>
-                                    <th>SourceRepoLink</th>
-                                </tr>
-                                {summaryResponse.response.productSummary.map((sum) => (
-                                    <tr key={sum.app + sum.environment} className="table_data">
-                                        <td>{sum.app}</td>
-                                        <td>{versionToDisplay(sum)}</td>
-                                        <td>{sum.environment}</td>
-                                        <td>
-                                            <DisplayManifestLink
-                                                app={sum.app}
-                                                version={Number(sum.version)}
-                                                displayString="Manifest Link"
-                                            />
-                                        </td>
-                                        <td>
-                                            <DisplaySourceLink commitId={sum.commitId} displayString={'Source Link'} />
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <TableFiltered productSummary={summaryResponse.response.productSummary} teams={teams} />
                     </div>
                 ) : (
                     <div className="page_description">

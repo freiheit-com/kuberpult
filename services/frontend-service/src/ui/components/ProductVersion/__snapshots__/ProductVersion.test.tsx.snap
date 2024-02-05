@@ -1,7 +1,681 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[` 1`] = `
+<body>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+`;
+
+exports[` 2`] = `
+<body>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            sre-team
+          </td>
+          <td />
+          <td />
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+`;
+
+exports[` 3`] = `
+<body>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            sre-team
+          </td>
+          <td />
+          <td />
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            sre-team
+          </td>
+          <td />
+          <td />
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+`;
+
+exports[` 4`] = `
+<body>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            sre-team
+          </td>
+          <td />
+          <td />
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            sre-team
+          </td>
+          <td />
+          <td />
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            sre-team
+          </td>
+          <td />
+          <td />
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app 2
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            others
+          </td>
+          <td />
+          <td />
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app 3
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            others
+          </td>
+          <td />
+          <td />
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+`;
+
 exports[`Product Version Data Displays Product Version Page No tags to Display 1`] = `
 <body>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            sre-team
+          </td>
+          <td />
+          <td />
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            sre-team
+          </td>
+          <td />
+          <td />
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <table
+      class="table"
+    >
+      <tbody>
+        <tr
+          class="table_title"
+        >
+          <th>
+            App Name
+          </th>
+          <th>
+            Version
+          </th>
+          <th>
+            Environment
+          </th>
+          <th>
+            Team
+          </th>
+          <th>
+            ManifestRepoLink
+          </th>
+          <th>
+            SourceRepoLink
+          </th>
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            sre-team
+          </td>
+          <td />
+          <td />
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app 2
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            others
+          </td>
+          <td />
+          <td />
+        </tr>
+        <tr
+          class="table_data"
+        >
+          <td>
+            testing-app 3
+          </td>
+          <td>
+            v1.2.3
+          </td>
+          <td>
+            dev
+          </td>
+          <td>
+            others
+          </td>
+          <td />
+          <td />
+        </tr>
+      </tbody>
+    </table>
+  </div>
   <div>
     <div
       class="product_version"
@@ -101,6 +775,9 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
                   Environment
                 </th>
                 <th>
+                  Team
+                </th>
+                <th>
                   ManifestRepoLink
                 </th>
                 <th>
@@ -119,6 +796,9 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
                 <td>
                   dev
                 </td>
+                <td>
+                  sre-team
+                </td>
                 <td />
                 <td />
               </tr>
@@ -134,6 +814,7 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
                 <td>
                   dev
                 </td>
+                <td />
                 <td />
                 <td />
               </tr>
@@ -218,6 +899,9 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
                   Environment
                 </th>
                 <th>
+                  Team
+                </th>
+                <th>
                   ManifestRepoLink
                 </th>
                 <th>
@@ -235,6 +919,9 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
                 </td>
                 <td>
                   dev
+                </td>
+                <td>
+                  sre-team
                 </td>
                 <td />
                 <td />

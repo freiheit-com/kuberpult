@@ -25,7 +25,7 @@ import {
     TagData,
 } from '../../../api/api';
 import { UpdateOverview, updateSummary, updateTag } from '../../utils/store';
-import { ProductVersion } from './ProductVersion';
+import { ProductVersion, TableFiltered } from './ProductVersion';
 
 const sampleEnvsA: Environment[] = [
     {
@@ -73,7 +73,7 @@ describe('Product Version Data', () => {
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
-                    team: '',
+                    team: 'sre-team',
                 },
             ],
             environmentGroups: [
@@ -99,7 +99,7 @@ describe('Product Version Data', () => {
                     commitId: '123',
                     displayVersion: 'v1.2.3',
                     environment: 'dev',
-                    team: '',
+                    team: 'sre-team',
                 },
                 { app: 'tester', version: '10', commitId: '4565', displayVersion: '', environment: 'dev', team: '' },
             ],
@@ -144,5 +144,91 @@ describe('Product Version Data', () => {
                 );
             }
         });
+    });
+});
+
+describe('Test table filtering', () => {
+    type TestData = {
+        name: string;
+        productSummary: ProductSummary[];
+        teams: string[];
+    };
+    const data: TestData[] = [
+        {
+            name: 'no rows to display',
+            productSummary: [],
+            teams: [],
+        },
+        {
+            name: 'no teams to filter out',
+            productSummary: [
+                {
+                    app: 'testing-app',
+                    version: '4',
+                    commitId: '123',
+                    displayVersion: 'v1.2.3',
+                    environment: 'dev',
+                    team: 'sre-team',
+                },
+            ],
+            teams: [],
+        },
+        {
+            name: 'a team to filter out',
+            productSummary: [
+                {
+                    app: 'testing-app',
+                    version: '4',
+                    commitId: '123',
+                    displayVersion: 'v1.2.3',
+                    environment: 'dev',
+                    team: 'sre-team',
+                },
+                {
+                    app: 'testing-app',
+                    version: '4',
+                    commitId: '123',
+                    displayVersion: 'v1.2.3',
+                    environment: 'dev',
+                    team: 'others',
+                },
+            ],
+            teams: ['sre-team'],
+        },
+        {
+            name: 'a team to filter out',
+            productSummary: [
+                {
+                    app: 'testing-app',
+                    version: '4',
+                    commitId: '123',
+                    displayVersion: 'v1.2.3',
+                    environment: 'dev',
+                    team: 'sre-team',
+                },
+                {
+                    app: 'testing-app 2',
+                    version: '4',
+                    commitId: '123',
+                    displayVersion: 'v1.2.3',
+                    environment: 'dev',
+                    team: 'others',
+                },
+                {
+                    app: 'testing-app 3',
+                    version: '4',
+                    commitId: '123',
+                    displayVersion: 'v1.2.3',
+                    environment: 'dev',
+                    team: 'others',
+                },
+            ],
+            teams: ['sre-team', 'others'],
+        },
+    ];
+    describe.each(data)(`Displays Product Version Table`, (testCase) => {
+        render(<TableFiltered productSummary={testCase.productSummary} teams={testCase.teams} />);
+        expect(document.querySelector('.table')?.textContent).toContain('App Name');
+        expect(document.body).toMatchSnapshot();
     });
 });
