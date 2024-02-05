@@ -439,7 +439,9 @@ describe('Rollout Status', () => {
                 }
             });
             testcase.expectedApps.forEach((app) => {
-                const rollout = renderHook(() => useRolloutStatus(app.application, app.version, app.environment));
+                const rollout = renderHook(() =>
+                    useRolloutStatus((getter) => getter.getAppStatus(app.application, app.version, app.environment))
+                );
                 expect(rollout.result.current).toEqual(app.rolloutStatus);
             });
         });

@@ -765,7 +765,7 @@ export type RolloutStatusApplication = {
     [environment: string]: StreamStatusResponse;
 };
 
-export type RolloutStatusStore = {
+type RolloutStatusStore = {
     enabled: boolean;
     applications: {
         [application: string]: RolloutStatusApplication;
@@ -774,16 +774,22 @@ export type RolloutStatusStore = {
 
 const [useEntireRolloutStatus, rolloutStatus] = createStore<RolloutStatusStore>({ enabled: false, applications: {} });
 
-export const useRolloutStatus = (
-    application: string,
-    applicationVersion: number | undefined,
-    environment: string
-): RolloutStatus | undefined =>
-    useEntireRolloutStatus((data) => {
-        if (!data.enabled) {
+class RolloutStatusGetter {
+    private readonly store: RolloutStatusStore;
+
+    constructor(store: RolloutStatusStore) {
+        this.store = store;
+    }
+
+    getAppStatus(
+        application: string,
+        applicationVersion: number | undefined,
+        environment: string
+    ): RolloutStatus | undefined {
+        if (!this.store.enabled) {
             return undefined;
         }
-        const statusPerEnv = data.applications[application];
+        const statusPerEnv = this.store.applications[application];
         if (statusPerEnv === undefined) {
             return undefined;
         }
@@ -796,7 +802,11 @@ export const useRolloutStatus = (
             return RolloutStatus.ROLLOUT_STATUS_PENDING;
         }
         return status.rolloutStatus;
-    });
+    }
+}
+
+export const useRolloutStatus = <T,>(f: (getter: RolloutStatusGetter) => T): T =>
+    useEntireRolloutStatus((data) => f(new RolloutStatusGetter(data)));
 
 export const UpdateRolloutStatus = (ev: StreamStatusResponse): void => {
     rolloutStatus.set((data: RolloutStatusStore) => ({
