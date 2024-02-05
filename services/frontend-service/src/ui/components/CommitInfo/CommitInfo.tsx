@@ -14,38 +14,33 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-import { useGlobalLoadingState } from '../../utils/store';
-import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
-import { useParams } from 'react-router-dom';
+import React from 'react';
+import { GetCommitInfoResponse } from '../../../api/api';
 
-type Commit = {
-    hash: string;
-    message: string;
-    apps: string[];
+type CommitInfoProps = {
+    commitHash: string;
+    commitInfo: GetCommitInfoResponse | undefined;
 };
 
-export const CommitPage: React.FC = () => {
-    const [everythingLoaded, loadingState] = useGlobalLoadingState();
-    const { commit } = useParams();
-
-    if (!everythingLoaded) {
-        return <LoadingStateSpinner loadingState={loadingState} />;
+export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
+    const commitHash = props.commitHash;
+    const commitInfo = props.commitInfo;
+    if (commitInfo === undefined) {
+        return (
+            <div>
+                <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
+                <main className="main-content commit-page">Backend returned empty response</main>
+            </div>
+        );
     }
-
-    // this dummy data will be replaced in SRX-2ZMPC4
-    const commitData: Commit = {
-        hash: commit || 'unknown',
-        message: 'UX: make submit button bigger\n\nanother message\nMore text',
-        apps: ['echo', 'customer-data', 'ui', 'bff'],
-    };
     return (
         <div>
             <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
             <main className="main-content commit-page">
                 <h1>This page is still in beta</h1>
                 <br />
-                <h1> Commit {commitData.message.split('\n')[0]} </h1>
+                <h1> Commit {commitInfo.commitMessage.split('\n')[0]} </h1>
                 <table border={1}>
                     <thead>
                         <tr>
@@ -56,15 +51,15 @@ export const CommitPage: React.FC = () => {
                     </thead>
                     <tbody>
                         <tr>
-                            <td>{commitData.hash}</td>
+                            <td>{commitHash}</td>
                             <td>
                                 <div className={'commit-page-message'}>
-                                    {commitData.message.split('\n').map((msg, index) => (
+                                    {commitInfo.commitMessage.split('\n').map((msg, index) => (
                                         <div key={index}>{msg} &nbsp;</div>
                                     ))}
                                 </div>
                             </td>
-                            <td>{commitData.apps.join(', ')}</td>
+                            <td>{commitInfo.touchedApps.join(', ')}</td>
                         </tr>
                     </tbody>
                 </table>

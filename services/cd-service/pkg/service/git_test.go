@@ -17,14 +17,19 @@ Copyright 2023 freiheit.com*/
 package service
 
 import (
+	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"testing"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestGetProductOverview(t *testing.T) {
@@ -34,7 +39,7 @@ func TestGetProductOverview(t *testing.T) {
 		givenEnvGroup          *string
 		expectedProductSummary []api.ProductSummary
 		expectedErr            error
-		Setup                  []repository.Transformer
+		Setup                  []rp.Transformer
 	}{
 		{
 			Name:        "get Product Overview with no env or envGroup",
@@ -54,8 +59,8 @@ func TestGetProductOverview(t *testing.T) {
 		{
 			Name:     "get Product Overview as expected with env",
 			givenEnv: ptr.FromString("development"),
-			Setup: []repository.Transformer{
-				&repository.CreateEnvironment{
+			Setup: []rp.Transformer{
+				&rp.CreateEnvironment{
 					Environment: "development",
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
@@ -65,7 +70,7 @@ func TestGetProductOverview(t *testing.T) {
 						EnvironmentGroup: ptr.FromString("dev"),
 					},
 				},
-				&repository.CreateApplicationVersion{
+				&rp.CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
 						"development": "dev",
@@ -77,7 +82,7 @@ func TestGetProductOverview(t *testing.T) {
 					DisplayVersion: "v1.0.2",
 					Team:           "sre-team",
 				},
-				&repository.DeployApplicationVersion{
+				&rp.DeployApplicationVersion{
 					Application: "test",
 					Environment: "development",
 					Version:     1,
@@ -88,8 +93,8 @@ func TestGetProductOverview(t *testing.T) {
 		{
 			Name:     "get Product Overview as expected with env but without team",
 			givenEnv: ptr.FromString("development"),
-			Setup: []repository.Transformer{
-				&repository.CreateEnvironment{
+			Setup: []rp.Transformer{
+				&rp.CreateEnvironment{
 					Environment: "development",
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
@@ -99,7 +104,7 @@ func TestGetProductOverview(t *testing.T) {
 						EnvironmentGroup: ptr.FromString("dev"),
 					},
 				},
-				&repository.CreateApplicationVersion{
+				&rp.CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
 						"development": "dev",
@@ -110,7 +115,7 @@ func TestGetProductOverview(t *testing.T) {
 					SourceRepoUrl:  "testing@testing.com/abc",
 					DisplayVersion: "v1.0.2",
 				},
-				&repository.DeployApplicationVersion{
+				&rp.DeployApplicationVersion{
 					Application: "test",
 					Environment: "development",
 					Version:     1,
@@ -121,8 +126,8 @@ func TestGetProductOverview(t *testing.T) {
 		{
 			Name:     "invalid environment used",
 			givenEnv: ptr.FromString("staging"),
-			Setup: []repository.Transformer{
-				&repository.CreateEnvironment{
+			Setup: []rp.Transformer{
+				&rp.CreateEnvironment{
 					Environment: "development",
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
@@ -132,7 +137,7 @@ func TestGetProductOverview(t *testing.T) {
 						EnvironmentGroup: ptr.FromString("dev"),
 					},
 				},
-				&repository.CreateApplicationVersion{
+				&rp.CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
 						"development": "dev",
@@ -143,7 +148,7 @@ func TestGetProductOverview(t *testing.T) {
 					SourceRepoUrl:  "testing@testing.com/abc",
 					DisplayVersion: "v1.0.2",
 				},
-				&repository.DeployApplicationVersion{
+				&rp.DeployApplicationVersion{
 					Application: "test",
 					Environment: "development",
 					Version:     1,
@@ -154,8 +159,8 @@ func TestGetProductOverview(t *testing.T) {
 		{
 			Name:          "get Product Overview as expected with envGroup",
 			givenEnvGroup: ptr.FromString("dev"),
-			Setup: []repository.Transformer{
-				&repository.CreateEnvironment{
+			Setup: []rp.Transformer{
+				&rp.CreateEnvironment{
 					Environment: "development",
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
@@ -165,7 +170,7 @@ func TestGetProductOverview(t *testing.T) {
 						EnvironmentGroup: ptr.FromString("dev"),
 					},
 				},
-				&repository.CreateApplicationVersion{
+				&rp.CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
 						"development": "dev",
@@ -177,7 +182,7 @@ func TestGetProductOverview(t *testing.T) {
 					DisplayVersion: "v1.0.2",
 					Team:           "sre-team",
 				},
-				&repository.DeployApplicationVersion{
+				&rp.DeployApplicationVersion{
 					Application: "test",
 					Environment: "development",
 					Version:     1,
@@ -188,8 +193,8 @@ func TestGetProductOverview(t *testing.T) {
 		{
 			Name:          "invalid envGroup used",
 			givenEnvGroup: ptr.FromString("notDev"),
-			Setup: []repository.Transformer{
-				&repository.CreateEnvironment{
+			Setup: []rp.Transformer{
+				&rp.CreateEnvironment{
 					Environment: "development",
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
@@ -199,7 +204,7 @@ func TestGetProductOverview(t *testing.T) {
 						EnvironmentGroup: ptr.FromString("dev"),
 					},
 				},
-				&repository.CreateApplicationVersion{
+				&rp.CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
 						"development": "dev",
@@ -210,7 +215,7 @@ func TestGetProductOverview(t *testing.T) {
 					SourceRepoUrl:  "testing@testing.com/abc",
 					DisplayVersion: "v1.0.2",
 				},
-				&repository.DeployApplicationVersion{
+				&rp.DeployApplicationVersion{
 					Application: "test",
 					Environment: "development",
 					Version:     1,
@@ -227,7 +232,7 @@ func TestGetProductOverview(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			sv := &TagsServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}}
+			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}}
 
 			for _, transformer := range tc.Setup {
 				repo.Apply(testutil.MakeTestContext(), transformer)
@@ -253,7 +258,110 @@ func TestGetProductOverview(t *testing.T) {
 					}
 				}
 			}
+		})
+	}
+}
 
+func TestGetCommitInfo(t *testing.T) {
+	type TestCase struct {
+		name             string
+		transformers     []rp.Transformer
+		request          *api.GetCommitInfoRequest
+		expectedResponse *api.GetCommitInfoResponse
+		expectedError    error
+	}
+
+	tcs := []TestCase{
+		{
+			name: "create one commit with one app and get its info",
+			transformers: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "some message",
+				},
+			},
+			request: &api.GetCommitInfoRequest{
+				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			},
+			expectedError: nil,
+			expectedResponse: &api.GetCommitInfoResponse{
+				CommitMessage: "some message",
+				TouchedApps: []string{
+					"app",
+				},
+			},
+		},
+		{
+			name: "create one commit with several apps and its info",
+			transformers: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application:    "app1",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "some message",
+				},
+				&rp.CreateApplicationVersion{
+					Application:    "app2",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "some message",
+				},
+				&rp.CreateApplicationVersion{
+					Application:    "app3",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "some message",
+				},
+			},
+			request: &api.GetCommitInfoRequest{
+				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			},
+			expectedError: nil,
+			expectedResponse: &api.GetCommitInfoResponse{
+				CommitMessage: "some message",
+				TouchedApps: []string{
+					"app1",
+					"app2",
+					"app3",
+				},
+			},
+		},
+		{
+			name: "create one commit with one app but get the info of a nonexistent commit",
+			transformers: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "some message",
+				},
+			},
+			request: &api.GetCommitInfoRequest{
+				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			},
+			expectedError: status.Error(codes.NotFound, "error: commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the manifest repo"),
+			expectedResponse: nil,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			shutdown := make(chan struct{}, 1)
+			repo, err := setupRepositoryTest(t)
+			if err != nil {
+				t.Fatalf("error setting up repository test: %v", err)
+			}
+			for _, transformer := range tc.transformers {
+				repo.Apply(testutil.MakeTestContext(), transformer)
+			}
+			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}}
+
+			commitInfo, err := sv.GetCommitInfo(testutil.MakeTestContext(), tc.request)
+
+			if !errors.Is(err, tc.expectedError) {
+				t.Fatalf("expected error %v, received error %v", tc.expectedError, err)
+			}
+			if !proto.Equal(tc.expectedResponse, commitInfo) {
+				t.Fatalf("expected response %v, received response %v", tc.expectedResponse, commitInfo)
+			}
 		})
 	}
 }

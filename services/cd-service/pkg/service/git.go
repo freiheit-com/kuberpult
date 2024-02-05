@@ -21,17 +21,21 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
+	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
+	"github.com/go-git/go-billy/v5/util"
 )
 
-type TagsServer struct {
+type GitServer struct {
 	Config          repository.RepositoryConfig
 	OverviewService *OverviewServiceServer
 }
 
-func (s *TagsServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
+func (s *GitServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) (*api.GetGitTagsResponse, error) {
 	tags, err := repository.GetTags(s.Config, "./repository_tags", ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get tags from repository: %v", err)
@@ -40,7 +44,7 @@ func (s *TagsServer) GetGitTags(ctx context.Context, in *api.GetGitTagsRequest) 
 	return &api.GetGitTagsResponse{TagData: tags}, nil
 }
 
-func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
+func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSummaryRequest) (*api.GetProductSummaryResponse, error) {
 	if in.Environment == nil && in.EnvironmentGroup == nil {
 		return nil, fmt.Errorf("Must have an environment or environmentGroup to get the product summary for")
 	}
@@ -112,4 +116,47 @@ func (s *TagsServer) GetProductSummary(ctx context.Context, in *api.GetProductSu
 		}
 	}
 	return &api.GetProductSummaryResponse{ProductSummary: productVersion}, nil
+}
+
+func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
+	fs := s.OverviewService.Repository.State().Filesystem
+	
+	commitID := in.CommitHash
+
+	if !valid.SHA1CommitID(commitID) {
+		return nil, fmt.Errorf("the provided commit ID %s is not a valid SHA1 hash", commitID)
+	}
+
+	commitID = strings.ToLower(commitID)
+
+	commitPath := fs.Join("commits", commitID[:2], commitID[2:])
+
+	if _, err := fs.Stat(commitPath); err != nil {
+		return nil, grpcErrors.NotFoundError(ctx, fmt.Errorf("commit %s was not found in the manifest repo", commitID));
+	}
+
+	sourceMessagePath := fs.Join(commitPath, "source_message")
+	var commitMessage string
+	if dat, err := util.ReadFile(fs, sourceMessagePath); err != nil {
+		return nil, fmt.Errorf("could not open the source message file at %s, err: %w", sourceMessagePath, err);
+	} else {
+		commitMessage = string(dat)
+	}
+
+	
+	commitApplicationsDirPath := fs.Join(commitPath, "applications")
+	dirs, err := fs.ReadDir(commitApplicationsDirPath)
+	if err != nil {
+		return nil, fmt.Errorf("could not read the applications directory at %s, error: %w", commitApplicationsDirPath, err)
+	}
+	touchedApps := make([]string, 0)
+	for _, dir := range dirs {
+		touchedApps = append(touchedApps, dir.Name())
+	}
+	sort.Strings(touchedApps);
+
+	return &api.GetCommitInfoResponse{
+		CommitMessage: commitMessage,
+		TouchedApps: touchedApps,
+	}, nil
 }
