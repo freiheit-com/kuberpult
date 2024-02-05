@@ -28,6 +28,7 @@ import {
     Warning,
     GetGitTagsResponse,
     GetProductSummaryResponse,
+    RolloutStatus,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -773,13 +774,29 @@ export type RolloutStatusStore = {
 
 const [useEntireRolloutStatus, rolloutStatus] = createStore<RolloutStatusStore>({ enabled: false, applications: {} });
 
-export const useRolloutStatus = (application: string): [boolean, RolloutStatusApplication] => {
-    const enabled = useEntireRolloutStatus((data: RolloutStatusStore): boolean => data.enabled);
-    const status = useEntireRolloutStatus(
-        (data: RolloutStatusStore): RolloutStatusApplication => data.applications[application] ?? {}
-    );
-    return [enabled, status];
-};
+export const useRolloutStatus = (
+    application: string,
+    applicationVersion: number | undefined,
+    environment: string
+): RolloutStatus | undefined =>
+    useEntireRolloutStatus((data) => {
+        if (!data.enabled) {
+            return undefined;
+        }
+        const statusPerEnv = data.applications[application];
+        if (statusPerEnv === undefined) {
+            return undefined;
+        }
+        const status = statusPerEnv[environment];
+        if (status === undefined) {
+            return undefined;
+        }
+        if (status.rolloutStatus === RolloutStatus.ROLLOUT_STATUS_SUCCESFUL && status.version !== applicationVersion) {
+            // The rollout service might be sligthly behind the UI.
+            return RolloutStatus.ROLLOUT_STATUS_PENDING;
+        }
+        return status.rolloutStatus;
+    });
 
 export const UpdateRolloutStatus = (ev: StreamStatusResponse): void => {
     rolloutStatus.set((data: RolloutStatusStore) => ({
