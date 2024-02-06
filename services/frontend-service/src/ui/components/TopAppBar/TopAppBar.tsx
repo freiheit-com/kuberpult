@@ -13,10 +13,8 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { MDCTopAppBar } from '@material/top-app-bar';
-
 import { Textfield } from '../textfield';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback } from 'react';
 import { SideBar } from '../SideBar/SideBar';
 import { Button } from '../button';
 import { ShowBarWhite } from '../../../images';
@@ -41,21 +39,12 @@ export type TopAppBarProps = {
 };
 
 export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
-    const control = useRef<HTMLDivElement>(null);
-    const MDComponent = useRef<MDCTopAppBar>();
     const sideBar = useSidebarShown();
     const [params, setParams] = useSearchParams();
 
     const toggleSideBar = useCallback(() => UpdateSidebar.set({ shown: !sideBar }), [sideBar]);
     const appNameParam = params.get('application') || '';
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
-
-    useEffect(() => {
-        if (control.current) {
-            MDComponent.current = new MDCTopAppBar(control.current);
-        }
-        return (): void => MDComponent.current?.destroy();
-    }, []);
 
     const version = useKuberpultVersion();
 
@@ -113,7 +102,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
         );
     return (
-        <div className="mdc-top-app-bar" ref={control}>
+        <div className="mdc-top-app-bar">
             <div className="mdc-top-app-bar__row">
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
                     <span className="mdc-top-app-bar__title">Kuberpult {version}</span>

@@ -13,21 +13,23 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-@use '@material/top-app-bar/mdc-top-app-bar';
 @use '@material/notched-outline/mdc-notched-outline';
 @use '@material/notched-outline';
 
 .mdc-top-app-bar {
     background: var(--mdc-theme-background);
     color: var(--mdc-theme-primary);
-
     padding: $top-app-bar-padding;
+    position: fixed;
+    width: 100%;
+    z-index: 4;
 
     .mdc-top-app-bar__row {
-        align-content: center;
+        display: flex;
 
         .mdc-top-app-bar__section--align-end {
             padding-right: 0;
+            justify-content: flex-end;
         }
         .top-app-bar-search-field {
             width: 100%;
@@ -43,11 +45,21 @@ Copyright 2023 freiheit.com*/
     }
 
     .mdc-top-app-bar__section {
+        display: inline-flex;
         gap: $top-app-bar-section-gap;
+        flex: 1 1 auto;
+        align-items: center;
+        padding: 8px 12px;
     }
     .mdc-top-app-bar__title {
         @extend .headline1;
         flex-grow: 0;
+        padding-left: 20px;
+        padding-right: 0;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+        letter-spacing: 0.0125em;
     }
 
     .mdc-text-field {
