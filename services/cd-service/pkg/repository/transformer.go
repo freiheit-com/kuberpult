@@ -394,10 +394,7 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 	} else {
 		logger.FromContext(ctx).Info("using  UUID generator from context.")
 	}
-	eventUuid, err := gen.Generate()
-	if err != nil {
-		return "", nil, GetCreateReleaseGeneralFailure(err)
-	}
+	eventUuid := gen.Generate()
 	err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, fs)
 	if err != nil {
 		return "", nil, GetCreateReleaseGeneralFailure(err)
@@ -471,10 +468,7 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 		return fmt.Errorf("could not write file %s: %v", eventTypePath, err)
 	}
 
-	createdAtPath := filesystem.Join(eventDir, "createdAt")
-	if err := util.WriteFile(filesystem, createdAtPath, []byte(getTimeNow(ctx).Format(time.RFC3339)), 0666); err != nil {
-		return fmt.Errorf("could not write file %s: %v", createdAtPath, err)
-	}
+	// Note: we do not store the "createAt" date here, because we use UUIDs with timestamp information
 	return nil
 }
 

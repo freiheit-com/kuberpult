@@ -16,19 +16,16 @@ Copyright 2023 freiheit.com*/
 
 package uuid
 
-import "github.com/google/uuid"
+//import "github.com/google/uuid"
+import "4d63.com/uuid/uuidv1"
 
 type GenerateUUIDs interface {
-	Generate() (string, error)
+	Generate() string
 }
 
 type RealUUIDGenerator struct {
 }
 
-func (t RealUUIDGenerator) Generate() (string, error) {
-	id, err := uuid.NewUUID()
-	if err != nil {
-		return "", err
-	}
-	return id.String(), nil
+func (t RealUUIDGenerator) Generate() string {
+	return uuidv1.Now().String()
 }

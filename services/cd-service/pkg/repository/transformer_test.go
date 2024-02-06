@@ -65,9 +65,9 @@ type TestGenerator struct {
 	currentNumber int
 }
 
-func (t TestGenerator) Generate() (string, error) {
+func (t TestGenerator) Generate() string {
 	t.currentNumber++
-	return fmt.Sprintf("%s%d", t.Prefix, t.currentNumber-1), nil
+	return fmt.Sprintf("%s%d", t.Prefix, t.currentNumber-1)
 }
 
 func TestUndeployApplicationErrors(t *testing.T) {
@@ -310,6 +310,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
+
 			repo := setupRepositoryTest(t)
 			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:

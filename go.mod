@@ -3,6 +3,7 @@ module github.com/freiheit-com/kuberpult
 go 1.19
 
 require (
+	4d63.com/uuid v0.0.0-20171104051829-d0d07a5b6915
 	github.com/DataDog/datadog-go/v5 v5.3.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
 	github.com/argoproj/argo-cd/v2 v2.9.3
@@ -14,7 +15,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.4.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
-	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1
+	github.com/hexops/gotextdiff v1.0.3
 	github.com/improbable-eng/grpc-web v0.15.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kylelemons/godebug v1.1.0
@@ -160,7 +161,6 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
-	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.17.1 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
