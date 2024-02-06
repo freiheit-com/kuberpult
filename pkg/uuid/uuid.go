@@ -16,7 +16,6 @@ Copyright 2023 freiheit.com*/
 
 package uuid
 
-//import "github.com/google/uuid"
 import "4d63.com/uuid/uuidv1"
 
 type GenerateUUIDs interface {

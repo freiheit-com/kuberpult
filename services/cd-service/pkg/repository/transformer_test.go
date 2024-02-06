@@ -454,7 +454,6 @@ func TestCreateApplicationVersionEvents(t *testing.T) {
 			},
 			expectedError: "",
 			expectedPaths: []string{
-				"commits/ca/fe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2/events/myEventIsHere0/createdAt",
 				"commits/ca/fe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2/events/myEventIsHere0/environments/acceptance/.gitkeep",
 				"commits/ca/fe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2/events/myEventIsHere0/environments/production/.gitkeep",
 				"commits/ca/fe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2/events/myEventIsHere0/eventType",
