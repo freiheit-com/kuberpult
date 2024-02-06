@@ -140,6 +140,18 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 		}
 	}
 	calculateEnvironmentPriorities(tmpEnvs) // note that `tmpEnvs` were copied by reference - otherwise this function would have no effect on `result`
+
+	for _, envGroup := range result {
+		envGroup.Priority = new(api.Priority)
+		if len(envGroup.Environments) == 0 {
+			*envGroup.Priority = api.Priority_YOLO
+		} else {
+			*envGroup.Priority = envGroup.Environments[0].Priority
+			for _, env := range envGroup.Environments[1:] {
+				*envGroup.Priority = minimumPriority(*envGroup.Priority, env.Priority)
+			}
+		}
+	}
 	return result
 }
 
@@ -216,6 +228,21 @@ func calculateEnvironmentPriorities(environments []*api.Environment) {
 
 func max(a uint32, b uint32) uint32 {
 	if a > b {
+		return a
+	}
+	return b
+}
+
+func minimumPriority(a, b api.Priority) api.Priority {
+	order := map[api.Priority]uint32{
+		api.Priority_UPSTREAM: 0,
+		api.Priority_PRE_PROD: 1,
+		api.Priority_CANARY:   2,
+		api.Priority_PROD:     3,
+		api.Priority_YOLO:     4,
+		api.Priority_OTHER:    5,
+	}
+	if order[a] < order[b] {
 		return a
 	}
 	return b
