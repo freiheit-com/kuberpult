@@ -43,6 +43,7 @@ describe('Test Environment Cards', () => {
             group: {
                 environmentGroupName: 'group1',
                 distanceToUpstream: 2,
+                priority: Priority.UNRECOGNIZED,
                 environments: [],
             },
             expectedNumGroupsLockButtons: 1,
@@ -55,6 +56,7 @@ describe('Test Environment Cards', () => {
             group: {
                 environmentGroupName: 'group1',
                 distanceToUpstream: 2,
+                priority: Priority.PRE_PROD,
                 environments: [
                     {
                         name: 'env1',
@@ -76,6 +78,7 @@ describe('Test Environment Cards', () => {
             group: {
                 environmentGroupName: 'group1',
                 distanceToUpstream: 2,
+                priority: Priority.UPSTREAM,
                 environments: [
                     {
                         name: 'env1',
