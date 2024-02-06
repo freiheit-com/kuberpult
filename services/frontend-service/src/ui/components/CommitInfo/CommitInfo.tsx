@@ -14,13 +14,58 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
+import { TopAppBar } from '../TopAppBar/TopAppBar';
 import React from 'react';
-import { GetCommitInfoResponse } from '../../../api/api';
+import { GetCommitInfoResponse, Event } from '../../../api/api';
 
 type CommitInfoProps = {
     commitHash: string;
     commitInfo: GetCommitInfoResponse | undefined;
+};
+
+export const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => (
+    <table border={1}>
+        <thead>
+            <tr>
+                <th>Date:</th>
+                <th>Event Description:</th>
+                <th>Environments:</th>
+            </tr>
+        </thead>
+        <tbody>
+            {props.events.map((event) => (
+                <CommitInfoEvent event={event} key={event.createdAt?.toISOString() || ''} />
+            ))}
+        </tbody>
+    </table>
+);
+
+export const CommitInfoEvent: React.FC<{ event: Event }> = (props) => {
+    const { event } = props;
+    const createdAt = event.createdAt;
+    const getDescription = (event: Event): string => {
+        switch (event.eventType?.$case) {
+            case 'createReleaseEvent':
+                return 'Kuberpult received data about this commit for the first time';
+            default:
+                return 'Event of type ' + event.eventType?.$case + ' not found';
+        }
+    };
+    const getEnvironments = (event: Event): string => {
+        switch (event.eventType?.$case) {
+            case 'createReleaseEvent':
+                return event.eventType?.createReleaseEvent.environmentNames.join(', ');
+            default:
+                return 'Event of type ' + event.eventType?.$case + ' not found';
+        }
+    };
+    return (
+        <tr>
+            <td>{createdAt?.toISOString()}</td>
+            <td>{getDescription(event)}</td>
+            <td>{getEnvironments(event)}</td>
+        </tr>
+    );
 };
 
 export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
@@ -63,6 +108,8 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                         </tr>
                     </tbody>
                 </table>
+                <br />
+                <CommitInfoEvents events={commitInfo.events} />
             </main>
         </div>
     );
