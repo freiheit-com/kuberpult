@@ -99,7 +99,6 @@ const useEnvironmentGroupCombinations = (envGroupResponse: EnvironmentGroup[]): 
 
 export const ProductVersion: React.FC = () => {
     React.useEffect(() => {
-        setShowTagsSpinner(true);
         refreshTags();
     }, []);
     const envGroupResponse = useEnvironmentGroups();
@@ -108,27 +107,21 @@ export const ProductVersion: React.FC = () => {
     const [environment, setEnvironment] = React.useState(searchParams.get('env') || envList[0]);
     const summaryResponse = useSummaryDisplay();
     const teams = (searchParams.get('teams') || '').split(',').filter((val) => val !== '');
-    const [open, setOpen] = React.useState(false);
     const openClose = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
-            setShowSummarySpinner(true);
             const env = splitCombinedGroupName(environment);
             getSummary(e.target.value, env[0], env[1]);
-            setOpen(!open);
             setSelectedTag(e.target.value);
             searchParams.set('tag', e.target.value);
             setSearchParams(searchParams);
         },
-        [environment, open, searchParams, setSearchParams]
+        [environment, searchParams, setSearchParams]
     );
-    const [showTagsSpinner, setShowTagsSpinner] = React.useState(false);
-    const [showSummarySpinner, setShowSummarySpinner] = React.useState(false);
     const [selectedTag, setSelectedTag] = React.useState('');
 
     const tagsResponse = useTags();
     const changeEnv = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
-            setShowSummarySpinner(true);
             const env = splitCombinedGroupName(e.target.value);
             searchParams.set('env', e.target.value);
             searchParams.set('tag', selectedTag);
@@ -142,34 +135,22 @@ export const ProductVersion: React.FC = () => {
 
     React.useEffect(() => {
         if (tagsResponse.response.tagData.length > 0) {
-            setShowSummarySpinner(true);
             const env = splitCombinedGroupName(environment);
-            if (selectedTag === '') {
+            if (searchParams.get('tag') === '') {
                 setSelectedTag(tagsResponse.response.tagData[0].commitId);
                 searchParams.set('tag', tagsResponse.response.tagData[0].commitId);
                 setSearchParams(searchParams);
                 getSummary(tagsResponse.response.tagData[0].commitId, env[0], env[1]);
             } else {
-                getSummary(selectedTag, env[0], env[1]);
+                getSummary(searchParams.get('tag') || tagsResponse.response.tagData[0].commitId, env[0], env[1]);
             }
             setDisplayVersion(true);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tagsResponse, envGroupResponse, environment]);
-    React.useEffect(() => {
-        if (tagsResponse.tagsReady) {
-            setShowTagsSpinner(false);
-        }
-    }, [tagsResponse]);
-    React.useEffect(() => {
-        if (summaryResponse.summaryReady) {
-            setShowSummarySpinner(false);
-        }
-    }, [summaryResponse]);
-    if (showTagsSpinner) {
+    }, [tagsResponse, envGroupResponse, environment, searchParams, setSearchParams]);
+    if (!tagsResponse.tagsReady) {
         return <Spinner message="Loading Tag Data" />;
     }
-    if (showSummarySpinner) {
+    if (!summaryResponse.summaryReady) {
         return <Spinner message="Loading Summary Data" />;
     }
 
