@@ -27,7 +27,7 @@ export type TableProps = {
 };
 
 export const TableFiltered: React.FC<TableProps> = (props) => {
-    var versionToDisplay = (app: ProductSummary): string => {
+    const versionToDisplay = (app: ProductSummary): string => {
         if (app.displayVersion !== '') {
             return app.displayVersion;
         }
@@ -36,7 +36,7 @@ export const TableFiltered: React.FC<TableProps> = (props) => {
         }
         return app.version;
     };
-    var displayTeams = props.teams;
+    const displayTeams = props.teams;
     if (displayTeams.includes('<No Team>')) {
         displayTeams.filter((team, index) => team !== '<No Team>');
         displayTeams.push('');
@@ -148,10 +148,10 @@ export const ProductVersion: React.FC = () => {
         }
     }, [tagsResponse, envGroupResponse, environment, searchParams, setSearchParams]);
     if (!tagsResponse.tagsReady) {
-        return <Spinner message="Loading Tag Data" />;
+        return <Spinner message="Loading Git Tags" />;
     }
     if (!summaryResponse.summaryReady) {
-        return <Spinner message="Loading Summary Data" />;
+        return <Spinner message="Loading Production Version" />;
     }
 
     return (
