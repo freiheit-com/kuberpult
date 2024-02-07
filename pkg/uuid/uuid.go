@@ -18,7 +18,6 @@ package uuid
 
 import (
 	"github.com/onokonem/sillyQueueServer/timeuuid"
-
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

@@ -175,7 +175,7 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, hash str
 	errorTemplate := func(message string, err error) error {
 		return fmt.Errorf("could not get events for hash '%s' in path '%s' - error %w", hash, commitPath, err)
 	}
-	var result []*api.Event = nil
+	var result []*api.Event
 	allEventsPath := fs.Join(commitPath, "events")
 	potentialEventDirs, err := fs.ReadDir(allEventsPath)
 	if err != nil {
@@ -190,8 +190,8 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, hash str
 				return nil, errorTemplate(fmt.Sprintf("could not read event, because it is not a UUID '%s'", fileName), err)
 			}
 
-			var event *api.Event = nil
-			event, err = s.ReadEvent(ctx, fs, fs.Join(allEventsPath, oneEventDir.Name()), rawUUID)
+			var event *api.Event
+			event, err = s.ReadEvent(ctx, fs, fs.Join(allEventsPath, fileName), rawUUID)
 			if err != nil {
 				return nil, errorTemplate("could not read event", err)
 			}
@@ -246,6 +246,5 @@ func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPat
 		return result, nil
 	}
 	err = fmt.Errorf("could not read event, did not recognize event type '%s'", eventType)
-	logger.FromContext(ctx).Sugar().Warnf("%v", err)
 	return nil, err
 }

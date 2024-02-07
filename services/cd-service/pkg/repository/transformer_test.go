@@ -408,9 +408,8 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 }
 
 func TestCreateApplicationVersionEvents(t *testing.T) {
-	fakeGen := TestGenerator{
-		Prefix:        "myEventIsHere",
-		currentNumber: 0,
+	fakeGen := testutil.TestGenerator{
+		Time: timeNowOld,
 	}
 
 	tcs := []struct {
