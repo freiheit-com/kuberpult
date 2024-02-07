@@ -60,6 +60,16 @@ const (
 
 var timeNowOld = time.Date(1999, 01, 02, 03, 04, 05, 0, time.UTC)
 
+type TestGenerator struct {
+	Prefix        string
+	currentNumber int
+}
+
+func (t TestGenerator) Generate() string {
+	t.currentNumber++
+	return fmt.Sprintf("%s%d", t.Prefix, t.currentNumber-1)
+}
+
 func TestUndeployApplicationErrors(t *testing.T) {
 	tcs := []struct {
 		Name              string
@@ -300,6 +310,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
+
 			repo := setupRepositoryTest(t)
 			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
@@ -402,6 +413,76 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 					}
 				}
 			}
+		})
+	}
+}
+
+func TestCreateApplicationVersionEvents(t *testing.T) {
+	fakeGen := TestGenerator{
+		Prefix:        "myEventIsHere",
+		currentNumber: 0,
+	}
+
+	tcs := []struct {
+		Name          string
+		Transformers  []Transformer
+		expectedError string
+		expectedPaths []string
+	}{
+		{
+			Name: "createRelease event should write files",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "acceptance",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateApplicationVersion{
+					Authentication: Authentication{},
+					Version:        42,
+					Application:    "app1",
+					Manifests: map[string]string{
+						envAcceptance: envAcceptance,
+						envProduction: envProduction,
+					},
+					SourceCommitId: "cafe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2",
+					SourceAuthor:   "best Author",
+					SourceMessage:  "smart message",
+					SourceRepoUrl:  "",
+					Team:           "",
+					DisplayVersion: "",
+				},
+			},
+			expectedError: "",
+			expectedPaths: []string{
+				"commits/ca/fe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2/events/myEventIsHere0/environments/acceptance/.gitkeep",
+				"commits/ca/fe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2/events/myEventIsHere0/environments/production/.gitkeep",
+				"commits/ca/fe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2/events/myEventIsHere0/eventType",
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			repo := setupRepositoryTest(t)
+			ctx := testutil.MakeTestContext()
+			ctx = addGeneratorToContext(ctx, fakeGen)
+			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			if err != nil {
+				t.Fatalf("expected no error but transformer failed with %v", err)
+			}
+			for i := range tc.expectedPaths {
+				expectedPath := tc.expectedPaths[i]
+				filename := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedPath)
+				_, err := util.ReadFile(updatedState.Filesystem, filename)
+				if err != nil {
+					t.Fatalf("Expected no error: %v - file issue %s", err, filename)
+				}
+				//if !cmp.Equal(fileData, tc.expectedFileData) {
+				//	t.Fatalf("Expected %v, got %v", tc.expectedFileData, fileData)
+				//}
+			}
+
 		})
 	}
 }
@@ -771,7 +852,9 @@ func verifyCommitPathsDontExist(fs billy.Filesystem, paths []string) error {
 	for _, path := range paths {
 		_, err := fs.Stat(path)
 		if err == nil {
-			return fmt.Errorf(`error verifying commit path doesn't exist. path: %s, error expected but none was raised
+			return fmt.Errorf(`error verifying commit path doesn't exist. path:
+%s
+error expected but none was raised
 directory tree: %s`, path, strings.Join(listFiles(fs), "\n"))
 		}
 	}
@@ -968,7 +1051,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				},
 			},
 			ExistentCommitPaths: []string{
-				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.gitkeep",
 			},
 		},
 		{
@@ -1019,9 +1102,9 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				},
 			},
 			ExistentCommitPaths: []string{
-				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
-				"commits/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/applications/app2/.empty",
-				"commits/cc/cccccccccccccccccccccccccccccccccccccc/applications/app3/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.gitkeep",
+				"commits/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/applications/app2/.gitkeep",
+				"commits/cc/cccccccccccccccccccccccccccccccccccccc/applications/app3/.gitkeep",
 			},
 		},
 		{
@@ -1072,9 +1155,9 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				},
 			},
 			ExistentCommitPaths: []string{
-				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
-				"commits/aa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/applications/app2/.empty",
-				"commits/aa/cccccccccccccccccccccccccccccccccccccc/applications/app3/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.gitkeep",
+				"commits/aa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/applications/app2/.gitkeep",
+				"commits/aa/cccccccccccccccccccccccccccccccccccccc/applications/app3/.gitkeep",
 			},
 		},
 		{
@@ -1125,9 +1208,9 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				},
 			},
 			ExistentCommitPaths: []string{
-				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
-				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app2/.empty",
-				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app3/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.gitkeep",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app2/.gitkeep",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app3/.gitkeep",
 			},
 		},
 		{
@@ -1152,7 +1235,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				},
 			},
 			NonExistentCommitPaths: []string{
-				"commits/no/nsense/applications/app/.empty",
+				"commits/no/nsense/applications/app/.gitkeep",
 			},
 		},
 		{
@@ -1177,10 +1260,10 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				},
 			},
 			ExistentCommitPaths: []string{
-				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.gitkeep",
 			},
 			NonExistentCommitPaths: []string{
-				"commits/aa/aaaaAAaaaaaaaaaaaaaaaaaaaaaaaaaaAaaaaa/applications/app/.empty",
+				"commits/aa/aaaaAAaaaaaaaaaaaaaaaaaaaaaaaaaaAaaaaa/applications/app/.gitkeep",
 			},
 		},
 		{
@@ -1236,10 +1319,10 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				},
 			),
 			ExistentCommitPaths: []string{
-				"commits/00/00000000000000000000000000000000000001/applications/app1/.empty",
+				"commits/00/00000000000000000000000000000000000001/applications/app1/.gitkeep",
 			},
 			NonExistentCommitPaths: []string{
-				"commits/00/00000000000000000000000000000000000001/applications/app2/.empty",
+				"commits/00/00000000000000000000000000000000000001/applications/app2/.gitkeep",
 			},
 		},
 	}
@@ -1319,7 +1402,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 				},
 			},
 			NonExistentCommitPaths: []string{
-				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app/.gitkeep",
 			},
 		},
 		{
@@ -1341,10 +1424,10 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 				},
 			},
 			ExistentCommitPaths: []string{
-				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app2/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app2/.gitkeep",
 			},
 			NonExistentCommitPaths: []string{
-				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.empty",
+				"commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/applications/app1/.gitkeep",
 			},
 		},
 		{
@@ -1362,12 +1445,12 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 				},
 			),
 			ExistentCommitPaths: []string{
-				"commits/00/00000000000000000000000000000000000001/applications/app1/.empty",
-				"commits/00/00000000000000000000000000000000000020/applications/app1/.empty",
+				"commits/00/00000000000000000000000000000000000001/applications/app1/.gitkeep",
+				"commits/00/00000000000000000000000000000000000020/applications/app1/.gitkeep",
 			},
 			NonExistentCommitPaths: []string{
-				"commits/00/00000000000000000000000000000000000001/applications/app2/.empty",
-				"commits/00/00000000000000000000000000000000000020/applications/app2/.empty",
+				"commits/00/00000000000000000000000000000000000001/applications/app2/.gitkeep",
+				"commits/00/00000000000000000000000000000000000020/applications/app2/.gitkeep",
 			},
 		},
 	}

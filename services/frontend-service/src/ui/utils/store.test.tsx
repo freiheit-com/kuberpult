@@ -337,12 +337,11 @@ describe('Rollout Status', () => {
     type Testcase = {
         name: string;
         events: Array<StreamStatusResponse | { error: true }>;
-        expectedEnabled: boolean;
         expectedApps: Array<{
             application: string;
             environment: string;
             version: number;
-            rolloutStatus: RolloutStatus;
+            rolloutStatus: RolloutStatus | undefined;
         }>;
     };
 
@@ -351,13 +350,12 @@ describe('Rollout Status', () => {
             name: 'not enabled if empty',
             events: [],
 
-            expectedEnabled: false,
             expectedApps: [
                 {
                     application: 'app1',
                     environment: 'env1',
                     version: 0,
-                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                    rolloutStatus: undefined,
                 },
             ],
         },
@@ -372,7 +370,6 @@ describe('Rollout Status', () => {
                 },
             ],
 
-            expectedEnabled: true,
             expectedApps: [
                 {
                     application: 'app1',
@@ -399,12 +396,11 @@ describe('Rollout Status', () => {
                 },
             ],
 
-            expectedEnabled: true,
             expectedApps: [
                 {
                     application: 'app1',
                     environment: 'env1',
-                    version: 0,
+                    version: 2,
                     rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
                 },
             ],
@@ -421,13 +417,12 @@ describe('Rollout Status', () => {
                 { error: true },
             ],
 
-            expectedEnabled: false,
             expectedApps: [
                 {
                     application: 'app1',
                     environment: 'env1',
                     version: 0,
-                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+                    rolloutStatus: undefined,
                 },
             ],
         },
@@ -444,14 +439,10 @@ describe('Rollout Status', () => {
                 }
             });
             testcase.expectedApps.forEach((app) => {
-                const rollout = renderHook(() => useRolloutStatus(app.application));
-                const [enabled, status] = rollout.result.current;
-                if (app.version === 0) {
-                    expect(status).not.toHaveProperty(app.environment, app);
-                } else {
-                    expect(status).toHaveProperty(app.environment, app);
-                }
-                expect(enabled).toEqual(testcase.expectedEnabled);
+                const rollout = renderHook(() =>
+                    useRolloutStatus((getter) => getter.getAppStatus(app.application, app.version, app.environment))
+                );
+                expect(rollout.result.current).toEqual(app.rolloutStatus);
             });
         });
     });

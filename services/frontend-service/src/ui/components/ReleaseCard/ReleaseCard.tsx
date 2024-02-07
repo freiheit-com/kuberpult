@@ -20,13 +20,12 @@ import {
     useOpenReleaseDialog,
     useReleaseOrThrow,
     useRolloutStatus,
-    RolloutStatusApplication,
     EnvironmentGroupExtended,
 } from '../../utils/store';
 import { Tooltip } from '../tooltip/tooltip';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
-import { RolloutStatus, StreamStatusResponse } from '../../../api/api';
+import { RolloutStatus } from '../../../api/api';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
 
@@ -84,48 +83,36 @@ type DeploymentStatus = {
     rolloutStatus: RolloutStatus;
 };
 
-const getAppRolloutStatus = (
-    status: StreamStatusResponse | undefined,
-    deployedVersion: number | undefined
-): RolloutStatus => {
-    if (status === undefined) {
-        // The status is completly unknown. Either the app is just new or rollout service is not responding.
-        return RolloutStatus.ROLLOUT_STATUS_UNKNOWN;
-    }
-    if (status.rolloutStatus === RolloutStatus.ROLLOUT_STATUS_SUCCESFUL && status.version !== deployedVersion) {
-        // The rollout service might be sligthly behind the UI.
-        return RolloutStatus.ROLLOUT_STATUS_PENDING;
-    }
-    return status.rolloutStatus;
-};
-
-const calculateDeploymentStatus = (
+const useDeploymentStatus = (
     app: string,
-    deployedAt: EnvironmentGroupExtended[],
-    rolloutEnabled: boolean,
-    rolloutStatus: RolloutStatusApplication
+    deployedAt: EnvironmentGroupExtended[]
 ): [Array<DeploymentStatus>, RolloutStatus?] => {
-    if (!rolloutEnabled) {
-        return [[], undefined];
-    }
-    const rolloutEnvGroups = deployedAt.map((envGroup) => {
-        const status = envGroup.environments.reduce((cur: RolloutStatus | undefined, env) => {
-            const appVersion: number | undefined = env.applications[app]?.version;
-            const status = getAppRolloutStatus(rolloutStatus[env.name], appVersion);
-            if (cur === undefined) {
-                return status;
-            }
-            if (getRolloutStatusPriority(status) < getRolloutStatusPriority(cur)) {
-                return status;
-            }
-            return cur;
-        }, undefined);
-        return {
-            environmentGroup: envGroup.environmentGroupName,
-            rolloutStatus: status ?? RolloutStatus.ROLLOUT_STATUS_UNKNOWN,
-        };
+    const rolloutEnvGroups = useRolloutStatus((getter) => {
+        const groups: { [envGroup: string]: RolloutStatus } = {};
+        deployedAt.forEach((envGroup) => {
+            const status = envGroup.environments.reduce((cur: RolloutStatus | undefined, env) => {
+                const appVersion: number | undefined = env.applications[app]?.version;
+                const status = getter.getAppStatus(app, appVersion, env.name);
+                if (cur === undefined) {
+                    return status;
+                }
+                if (status === undefined) {
+                    return cur;
+                }
+                if (getRolloutStatusPriority(status) < getRolloutStatusPriority(cur)) {
+                    return status;
+                }
+                return cur;
+            }, undefined);
+            groups[envGroup.environmentGroupName] = status ?? RolloutStatus.ROLLOUT_STATUS_UNKNOWN;
+        });
+        return groups;
     });
-    rolloutEnvGroups.sort((a, b) => {
+    const rolloutEnvGroupsArray = Object.entries(rolloutEnvGroups).map((e) => ({
+        environmentGroup: e[0],
+        rolloutStatus: e[1],
+    }));
+    rolloutEnvGroupsArray.sort((a, b) => {
         if (a.environmentGroup < b.environmentGroup) {
             return -1;
         } else if (a.environmentGroup > b.environmentGroup) {
@@ -134,7 +121,7 @@ const calculateDeploymentStatus = (
         return 0;
     });
     // Calculates the most interesting rollout status according to the `rolloutStatusPriority`.
-    const mostInteresting = rolloutEnvGroups.reduce(
+    const mostInteresting = rolloutEnvGroupsArray.reduce(
         (cur: RolloutStatus | undefined, item) =>
             cur === undefined
                 ? item.rolloutStatus
@@ -143,7 +130,7 @@ const calculateDeploymentStatus = (
                   : cur,
         undefined
     );
-    return [rolloutEnvGroups, mostInteresting];
+    return [rolloutEnvGroupsArray, mostInteresting];
 };
 
 export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
@@ -152,10 +139,9 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     const release = useReleaseOrThrow(app, version);
     const { createdAt, sourceMessage, sourceAuthor, undeployVersion } = release;
     const openReleaseDialog = useOpenReleaseDialog(app, version);
-    const [rolloutEnabled, rolloutStatus] = useRolloutStatus(app);
     const deployedAt = useCurrentlyDeployedAtGroup(app, version);
 
-    const [rolloutEnvs, mostInteresting] = calculateDeploymentStatus(app, deployedAt, rolloutEnabled, rolloutStatus);
+    const [rolloutEnvs, mostInteresting] = useDeploymentStatus(app, deployedAt);
 
     const tooltipContents = (
         <div className="mdc-tooltip__title_ release__details">
