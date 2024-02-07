@@ -114,6 +114,7 @@ describe('Commit info page tests', () => {
         
 Commit message body line 1
 Commit message body line 2`,
+                    events: [],
                 },
             },
         },
