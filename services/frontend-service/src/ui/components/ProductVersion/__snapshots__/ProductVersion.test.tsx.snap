@@ -101,6 +101,9 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
                   Environment
                 </th>
                 <th>
+                  Team
+                </th>
+                <th>
                   ManifestRepoLink
                 </th>
                 <th>
@@ -119,6 +122,9 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
                 <td>
                   dev
                 </td>
+                <td>
+                  sre-team
+                </td>
                 <td />
                 <td />
               </tr>
@@ -134,6 +140,7 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
                 <td>
                   dev
                 </td>
+                <td />
                 <td />
                 <td />
               </tr>
@@ -218,6 +225,9 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
                   Environment
                 </th>
                 <th>
+                  Team
+                </th>
+                <th>
                   ManifestRepoLink
                 </th>
                 <th>
@@ -235,6 +245,9 @@ exports[`Product Version Data Displays Product Version Page tags to Display with
                 </td>
                 <td>
                   dev
+                </td>
+                <td>
+                  sre-team
                 </td>
                 <td />
                 <td />
