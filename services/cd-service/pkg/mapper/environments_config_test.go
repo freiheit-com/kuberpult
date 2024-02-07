@@ -45,16 +45,25 @@ var nameDevDe = "dev-de"
 var nameCanaryDe = "canary-de"
 var nameProdDe = "prod-de"
 var nameWhoKnowsDe = "whoknows-de"
+var nameTestDe = "test-de"
 
 var nameStagingFr = "staging-fr"
 var nameDevFr = "dev-fr"
 var nameProdFr = "prod-fr"
 var nameWhoKnowsFr = "whoknows-fr"
+var nameTestFr = "test-fr"
+
+var nameStagingUS = "staging-us"
+
+var nameDevGlobal = "dev-global"
+var nameTestGlobal = "test-global"
 
 var nameStaging = "staging"
 var nameDev = "dev"
 var nameProd = "prod"
 var nameWhoKnows = "whoknows"
+var nameTest = "test"
+var nameCanary = "canary"
 
 func makeEnv(envName string, groupName string, upstream *api.EnvironmentConfig_Upstream, distanceToUpstream uint32, priority api.Priority) *api.Environment {
 	return &api.Environment{
@@ -560,6 +569,104 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameProdFr, nameProd, makeUpstreamEnvironment(nameStagingFr), 2, api.Priority_PROD),
 					},
 					DistanceToUpstream: 2,
+					Priority:           allocateAndinitialize(api.Priority_PROD),
+				},
+			},
+		},
+		{
+			Name: "Environments with different environment priorities",
+			InputEnvs: map[string]config.EnvironmentConfig{
+				nameDevGlobal: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Latest: true,
+					},
+					EnvironmentGroup: &nameDev,
+				},
+				nameTestGlobal: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameDevGlobal,
+					},
+					EnvironmentGroup: &nameTest,
+				},
+				nameStagingDe: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameTestGlobal,
+					},
+					EnvironmentGroup: &nameStaging,
+				},
+				nameStagingFr: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameTestGlobal,
+					},
+					EnvironmentGroup: &nameStaging,
+				},
+				nameStagingUS: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameTestGlobal,
+					},
+					EnvironmentGroup: &nameStaging,
+				},
+				nameCanaryDe: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameStagingDe,
+					},
+					EnvironmentGroup: &nameCanary,
+				},
+				nameProdDe: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameCanaryDe,
+					},
+					EnvironmentGroup: &nameProd,
+				},
+				nameProdFr: {
+					Upstream: &config.EnvironmentConfigUpstream{
+						Environment: nameStagingFr,
+					},
+					EnvironmentGroup: &nameCanary,
+				},
+			},
+			ExpectedResult: []*api.EnvironmentGroup{
+				{
+					EnvironmentGroupName: nameDev,
+					Environments: []*api.Environment{
+						makeEnv(nameDevGlobal, nameDev, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
+					},
+					DistanceToUpstream: 0,
+					Priority:           allocateAndinitialize(api.Priority_UPSTREAM),
+				},
+				{
+					EnvironmentGroupName: nameTest,
+					Environments: []*api.Environment{
+						makeEnv(nameTestGlobal, nameTest, makeUpstreamEnvironment(nameDevGlobal), 1, api.Priority_PRE_PROD),
+					},
+					DistanceToUpstream: 1,
+					Priority:           allocateAndinitialize(api.Priority_PRE_PROD),
+				},
+				{
+					EnvironmentGroupName: nameStaging,
+					Environments: []*api.Environment{
+						makeEnv(nameStagingDe, nameStaging, makeUpstreamEnvironment(nameTestGlobal), 2, api.Priority_PRE_PROD),
+						makeEnv(nameStagingFr, nameStaging, makeUpstreamEnvironment(nameTestGlobal), 2, api.Priority_CANARY),
+						makeEnv(nameStagingUS, nameStaging, makeUpstreamEnvironment(nameTestGlobal), 2, api.Priority_PROD),
+					},
+					DistanceToUpstream: 2,
+					Priority:           allocateAndinitialize(api.Priority_PRE_PROD),
+				},
+				{
+					EnvironmentGroupName: nameCanary,
+					Environments: []*api.Environment{
+						makeEnv(nameCanaryDe, nameCanary, makeUpstreamEnvironment(nameStagingDe), 3, api.Priority_CANARY),
+						makeEnv(nameProdFr, nameCanary, makeUpstreamEnvironment(nameStagingFr), 3, api.Priority_PROD),
+					},
+					DistanceToUpstream: 3,
+					Priority:           allocateAndinitialize(api.Priority_CANARY),
+				},
+				{
+					EnvironmentGroupName: nameProd,
+					Environments: []*api.Environment{
+						makeEnv(nameProdDe, nameProd, makeUpstreamEnvironment(nameCanaryDe), 4, api.Priority_PROD),
+					},
+					DistanceToUpstream: 4,
 					Priority:           allocateAndinitialize(api.Priority_PROD),
 				},
 			},
