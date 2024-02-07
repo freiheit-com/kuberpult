@@ -9,6 +9,7 @@ services/cd-service/environment_configs.json
 .*.sentinel
 .pnpm-store
 build/
+.tmp-earthly-out
 
 # used by envrc https://direnv.net/
 .envrc

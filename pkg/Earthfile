@@ -4,6 +4,7 @@ deps:
     FROM ../+deps
     COPY . pkg/
     RUN cd pkg && buf generate
+    SAVE ARTIFACT pkg/api/v1/*.go AS LOCAL api/v1/
 artifacts:
     FROM +deps
     SAVE ARTIFACT pkg

@@ -54,6 +54,10 @@ deps-ui:
     
     SAVE ARTIFACT build
 
+node-modules:
+    FROM +deps-ui
+    SAVE ARTIFACT node_modules AS LOCAL node_modules
+
 unit-test-ui:
     FROM +deps-ui
     RUN pnpm eslint
@@ -64,6 +68,8 @@ docker-ui:
     FROM +deps-ui
     CMD "rm -rf src/api src/google && buf generate --path api --timeout 5m && pnpm start" 
     SAVE IMAGE ui:local
+    SAVE ARTIFACT src/api AS LOCAL src/api
+    SAVE ARTIFACT src/google AS LOCAL src/google
 
 release-ui:
     FROM +docker-ui
