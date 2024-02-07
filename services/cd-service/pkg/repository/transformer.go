@@ -457,7 +457,7 @@ func writeEvent(ctx context.Context, eventId string, sourceCommitId string, file
 			return fmt.Errorf("could not create directory %s: %v", environmentDir, err)
 		}
 		environmentNamePath := filesystem.Join(environmentDir, ".gitkeep")
-		if err := util.WriteFile(filesystem, environmentNamePath, []byte(""), 0666); err != nil {
+		if err := util.WriteFile(filesystem, environmentNamePath, make([]byte, 0), 0666); err != nil {
 			return fmt.Errorf("could not write file %s: %v", environmentNamePath, err)
 		}
 	}

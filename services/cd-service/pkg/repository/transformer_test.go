@@ -443,9 +443,9 @@ func TestCreateApplicationVersionEvents(t *testing.T) {
 			},
 			expectedError: "",
 			expectedPaths: []string{
-				"commits/ca/fe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2/events/myEventIsHere0/environments/acceptance/.gitkeep",
-				"commits/ca/fe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2/events/myEventIsHere0/environments/production/.gitkeep",
-				"commits/ca/fe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2/events/myEventIsHere0/eventType",
+				"environments/acceptance/.gitkeep",
+				"environments/production/.gitkeep",
+				"eventType",
 			},
 		},
 	}
@@ -460,18 +460,25 @@ func TestCreateApplicationVersionEvents(t *testing.T) {
 			if err != nil {
 				t.Fatalf("expected no error but transformer failed with %v", err)
 			}
+			// find out the name of the events directory:
+			baseDir := "commits/ca/fe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2/events/"
+			fs := updatedState.Filesystem
+			files, err := fs.ReadDir(baseDir)
+			if len(files) != 1 {
+				t.Fatalf("Expected one event: %s - bot got %d", baseDir, len(files))
+			}
+			file := files[0]
+			eventId := file.Name()
+
 			for i := range tc.expectedPaths {
 				expectedPath := tc.expectedPaths[i]
-				filename := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedPath)
+				expectedFullPath := fs.Join(baseDir, eventId, expectedPath)
+				filename := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), expectedFullPath)
 				_, err := util.ReadFile(updatedState.Filesystem, filename)
 				if err != nil {
 					t.Fatalf("Expected no error: %v - file issue %s", err, filename)
 				}
-				//if !cmp.Equal(fileData, tc.expectedFileData) {
-				//	t.Fatalf("Expected %v, got %v", tc.expectedFileData, fileData)
-				//}
 			}
-
 		})
 	}
 }
