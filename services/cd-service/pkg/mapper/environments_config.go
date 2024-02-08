@@ -142,10 +142,10 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 	calculateEnvironmentPriorities(tmpEnvs) // note that `tmpEnvs` were copied by reference - otherwise this function would have no effect on `result`
 
 	for _, envGroup := range result {
-		envGroup.Priority = new(api.Priority)
 		if len(envGroup.Environments) == 0 {
-			*envGroup.Priority = api.Priority_YOLO
+			envGroup.Priority = nil
 		} else {
+			envGroup.Priority = new(api.Priority)
 			*envGroup.Priority = envGroup.Environments[0].Priority
 			for _, env := range envGroup.Environments[1:] {
 				*envGroup.Priority = minimumPriority(*envGroup.Priority, env.Priority)
