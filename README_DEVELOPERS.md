@@ -151,7 +151,7 @@ Ideally use the same version as in the [package.json](https://github.com/freihei
   ```
   sudo apt-get install libssl-dev
   mkdir build && cd build
-  cmake ..
+  cmake -DUSE_SSH=ON ..
   sudo cmake --build . --target install
   ```
   Afterwards, set your library path, e.g.: `export LD_LIBRARY_PATH='/usr/local/lib/'`
