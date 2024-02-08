@@ -3,7 +3,6 @@ module github.com/freiheit-com/kuberpult
 go 1.19
 
 require (
-	4d63.com/uuid v0.0.0-20171104051829-d0d07a5b6915
 	github.com/DataDog/datadog-go/v5 v5.3.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
 	github.com/argoproj/argo-cd/v2 v2.9.3
@@ -23,6 +22,7 @@ require (
 	github.com/libgit2/git2go/v34 v34.0.0
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/mikesmitty/edkey v0.0.0-20170222072505-3356ea4e686a
+	github.com/onokonem/sillyQueueServer v0.0.0-20170829113733-84501ce98da1
 	github.com/prometheus/client_golang v1.17.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.44.0
 	go.opentelemetry.io/otel/metric v1.21.0

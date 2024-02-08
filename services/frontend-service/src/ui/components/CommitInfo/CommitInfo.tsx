@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
+import { TopAppBar } from '../TopAppBar/TopAppBar';
 import React from 'react';
 import { GetCommitInfoResponse } from '../../../api/api';
 
