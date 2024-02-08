@@ -142,35 +142,13 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 	calculateEnvironmentPriorities(tmpEnvs) // note that `tmpEnvs` were copied by reference - otherwise this function would have no effect on `result`
 
 	{
-		hasUpstream := func(envName string) bool {
-			return envs[envName].Upstream != nil && !envs[envName].Upstream.Latest
-		}
-
-		findMostUptream := func(envName string) string {
-			visited := make(map[string]bool)
-
-			iterEnvName := envName
-			for hasUpstream(iterEnvName) && !visited[iterEnvName] {
-				visited[iterEnvName] = true
-				iterEnvName = envs[iterEnvName].Upstream.Environment
-			}
-
-			if visited[iterEnvName] {
-				// universe catches fire
-			}
-
-			return iterEnvName
-		}
-
-		downstreamDepth := make(map[string]uint32)
+		var downstreamDepth uint32 = 0
 		for _, group := range result {
-			mostUpstreamName := findMostUptream(group.Environments[0].Name)
-			downstreamDepth[mostUpstreamName] = max(downstreamDepth[mostUpstreamName], group.DistanceToUpstream)
+			downstreamDepth = max(downstreamDepth, group.DistanceToUpstream)
 		}
 
 		for _, group := range result {
-			mostUpstreamName := findMostUptream(group.Environments[0].Name)
-			group.Priority = calculateGroupPriority(group.DistanceToUpstream, downstreamDepth[mostUpstreamName])
+			group.Priority = calculateGroupPriority(group.DistanceToUpstream, downstreamDepth)
 		}
 	}
 
