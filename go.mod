@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/DataDog/datadog-go/v5 v5.3.0
-	github.com/MicahParks/keyfunc/v2 v2.1.0
+	github.com/MicahParks/keyfunc/v3 v3.2.5
 	github.com/argoproj/argo-cd/v2 v2.9.3
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.2.1
@@ -13,7 +13,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.4.0
-	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/improbable-eng/grpc-web v0.15.0
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -44,7 +44,7 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
-	github.com/ProtonMail/go-crypto v0.0.0-20230923063757-afb1ddc0824c
+	github.com/ProtonMail/go-crypto v1.0.0
 	github.com/acomagu/bufpipe v1.0.4 // indirect
 	github.com/argoproj/gitops-engine v0.7.1-0.20230906152414-b0fffe419a0f
 	github.com/argoproj/pkg v0.13.7-0.20230627120311-a4dd357b057e // indirect
@@ -221,7 +221,7 @@ replace (
 	k8s.io/apimachinery => k8s.io/apimachinery v0.24.2
 	k8s.io/apiserver => k8s.io/apiserver v0.24.2
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.24.2
-	k8s.io/client-go => k8s.io/client-go v0.24.2
+	k8s.io/client-go => k8s.io/client-go v11.0.0+incompatible
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.24.2
 	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.24.2
 	k8s.io/code-generator => k8s.io/code-generator v0.24.2
