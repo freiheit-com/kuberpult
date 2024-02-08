@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import { render } from '@testing-library/react';
-import { UpdateOverview, getPriorityClassName } from '../../utils/store';
+import { UpdateOverview } from '../../utils/store';
 import { Environment, EnvironmentGroup, Priority } from '../../../api/api';
 import React from 'react';
 import { EnvironmentsPage } from './EnvironmentsPage';
