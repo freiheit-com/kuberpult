@@ -68,6 +68,6 @@ export const CommitInfoPage: React.FC = () => {
                 </div>
             );
         case CommitInfoState.READY:
-            return <CommitInfo commitHash={commitHash} commitInfo={commitInfo.response} />;
+            return <CommitInfo commitInfo={commitInfo.response} />;
     }
 };
