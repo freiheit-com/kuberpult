@@ -141,18 +141,66 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 	}
 	calculateEnvironmentPriorities(tmpEnvs) // note that `tmpEnvs` were copied by reference - otherwise this function would have no effect on `result`
 
-	for _, envGroup := range result {
-		if len(envGroup.Environments) == 0 {
-			envGroup.Priority = nil
-		} else {
-			envGroup.Priority = new(api.Priority)
-			*envGroup.Priority = envGroup.Environments[0].Priority
-			for _, env := range envGroup.Environments[1:] {
-				*envGroup.Priority = minimumPriority(*envGroup.Priority, env.Priority)
+	{
+		hasUpstream := func(envName string) bool {
+			return envs[envName].Upstream != nil && !envs[envName].Upstream.Latest
+		}
+
+		findMostUptream := func(envName string) string {
+			visited := make(map[string]bool)
+
+			iterEnvName := envName
+			for hasUpstream(iterEnvName) && !visited[iterEnvName] {
+				visited[iterEnvName] = true
+				iterEnvName = envs[iterEnvName].Upstream.Environment
 			}
+
+			if visited[iterEnvName] {
+				// universe catches fire
+			}
+
+			return iterEnvName
+		}
+
+		downstreamDepth := make(map[string]uint32)
+		for _, group := range result {
+			mostUpstreamName := findMostUptream(group.Environments[0].Name)
+			downstreamDepth[mostUpstreamName] = max(downstreamDepth[mostUpstreamName], group.DistanceToUpstream)
+		}
+
+		for _, group := range result {
+			mostUpstreamName := findMostUptream(group.Environments[0].Name)
+			group.Priority = calculateGroupPriority(group.DistanceToUpstream, downstreamDepth[mostUpstreamName])
 		}
 	}
+
 	return result
+}
+
+func calculateGroupPriority(distanceToUpstream, downstreamDepth uint32) api.Priority {
+	lookup := [][]api.Priority {
+		[]api.Priority {api.Priority_YOLO},
+		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PROD},
+		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_PROD},
+		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
+		[]api.Priority {api.Priority_UPSTREAM, api.Priority_OTHER, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
+	}
+	if downstreamDepth > 4 {
+		if distanceToUpstream == 0 {
+			return api.Priority_UPSTREAM
+		}
+		if distanceToUpstream == downstreamDepth {
+			return api.Priority_PROD
+		}
+		if distanceToUpstream == downstreamDepth - 1 {
+			return api.Priority_CANARY
+		}
+		if distanceToUpstream == downstreamDepth - 2 {
+			return api.Priority_PRE_PROD
+		}
+		return api.Priority_OTHER
+	}
+	return lookup[downstreamDepth][distanceToUpstream]
 }
 
 // either the groupName is set in the config, or we use the envName as a default

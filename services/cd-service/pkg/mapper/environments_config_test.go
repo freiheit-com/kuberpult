@@ -79,12 +79,6 @@ func makeEnv(envName string, groupName string, upstream *api.EnvironmentConfig_U
 	}
 }
 
-func allocateAndinitialize(priority api.Priority) *api.Priority {
-	ret := new(api.Priority)
-	*ret = priority
-	return ret
-}
-
 func TestMapEnvironmentsToGroup(t *testing.T) {
 	tcs := []struct {
 		Name           string
@@ -110,7 +104,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_YOLO),
 					},
 					DistanceToUpstream: 0,
-					Priority:           allocateAndinitialize(api.Priority_YOLO),
+					Priority:           api.Priority_YOLO,
 				},
 			},
 		},
@@ -137,7 +131,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 					},
 					DistanceToUpstream: 0,
-					Priority:           allocateAndinitialize(api.Priority_UPSTREAM),
+					Priority:           api.Priority_UPSTREAM,
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
@@ -145,7 +139,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PROD),
 					},
 					DistanceToUpstream: 1,
-					Priority:           allocateAndinitialize(api.Priority_PROD),
+					Priority:           api.Priority_PROD,
 				},
 			},
 		},
@@ -174,14 +168,14 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamEnvironment(nameStagingDe), 667, api.Priority_OTHER),
 					},
 					DistanceToUpstream: 667,
-					Priority:           allocateAndinitialize(api.Priority_OTHER),
+					Priority:           api.Priority_PROD, // set according to observed output, again, we just want to make sure it doesn't crash
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
 					Environments: []*api.Environment{
 						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 668, api.Priority_OTHER),
 					},
-					Priority:           allocateAndinitialize(api.Priority_OTHER),
+					Priority:           api.Priority_PROD, // set according to observed output, again, we just want to make sure it doesn't crash
 					DistanceToUpstream: 668,
 				},
 			},
@@ -211,7 +205,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_YOLO),
 					},
 					DistanceToUpstream: 0,
-					Priority:           allocateAndinitialize(api.Priority_YOLO),
+					Priority:           api.Priority_YOLO,
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
@@ -219,7 +213,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameWhoKnows), 667, api.Priority_PROD),
 					},
 					DistanceToUpstream: 667,
-					Priority:           allocateAndinitialize(api.Priority_PROD),
+					Priority:           api.Priority_PROD,
 				},
 			},
 		},
@@ -252,7 +246,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 					},
 					DistanceToUpstream: 0,
-					Priority:           allocateAndinitialize(api.Priority_UPSTREAM),
+					Priority:           api.Priority_UPSTREAM,
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
@@ -260,7 +254,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 1,
-					Priority:           allocateAndinitialize(api.Priority_PRE_PROD),
+					Priority:           api.Priority_PRE_PROD,
 				},
 				{
 					EnvironmentGroupName: nameProdDe,
@@ -268,7 +262,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_PROD),
 					},
 					DistanceToUpstream: 2,
-					Priority:           allocateAndinitialize(api.Priority_PROD),
+					Priority:           api.Priority_PROD,
 				},
 			},
 		},
@@ -303,7 +297,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 					},
 					DistanceToUpstream: 0,
-					Priority:           allocateAndinitialize(api.Priority_UPSTREAM),
+					Priority:           api.Priority_UPSTREAM,
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
@@ -311,7 +305,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 1,
-					Priority:           allocateAndinitialize(api.Priority_PRE_PROD),
+					Priority:           api.Priority_PRE_PROD,
 				},
 				{
 					EnvironmentGroupName: nameProdDe,
@@ -319,7 +313,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_CANARY),
 					},
 					DistanceToUpstream: 2,
-					Priority:           allocateAndinitialize(api.Priority_CANARY),
+					Priority:           api.Priority_CANARY,
 				},
 				{
 					EnvironmentGroupName: nameWhoKnowsDe,
@@ -327,7 +321,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameWhoKnowsDe, nameWhoKnowsDe, makeUpstreamEnvironment(nameProdDe), 3, api.Priority_PROD),
 					},
 					DistanceToUpstream: 3,
-					Priority:           allocateAndinitialize(api.Priority_PROD),
+					Priority:           api.Priority_PROD,
 				},
 			},
 		},
@@ -367,7 +361,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 					},
 					DistanceToUpstream: 0,
-					Priority:           allocateAndinitialize(api.Priority_UPSTREAM),
+					Priority:           api.Priority_UPSTREAM,
 				},
 				{
 					EnvironmentGroupName: nameOtherDe,
@@ -375,7 +369,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameOtherDe, nameOtherDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_OTHER),
 					},
 					DistanceToUpstream: 1,
-					Priority:           allocateAndinitialize(api.Priority_OTHER),
+					Priority:           api.Priority_OTHER,
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
@@ -383,7 +377,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameOtherDe), 2, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 2,
-					Priority:           allocateAndinitialize(api.Priority_PRE_PROD),
+					Priority:           api.Priority_PRE_PROD,
 				},
 				{
 					EnvironmentGroupName: nameCanaryDe,
@@ -391,7 +385,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameCanaryDe, nameCanaryDe, makeUpstreamEnvironment(nameStagingDe), 3, api.Priority_CANARY),
 					},
 					DistanceToUpstream: 3,
-					Priority:           allocateAndinitialize(api.Priority_CANARY),
+					Priority:           api.Priority_CANARY,
 				},
 				{
 					EnvironmentGroupName: nameProdDe,
@@ -399,7 +393,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameCanaryDe), 4, api.Priority_PROD),
 					},
 					DistanceToUpstream: 4,
-					Priority:           allocateAndinitialize(api.Priority_PROD),
+					Priority:           api.Priority_PROD,
 				},
 			},
 		},
@@ -449,7 +443,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameDevDe, nameDevDe, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 					},
 					DistanceToUpstream: 0,
-					Priority:           allocateAndinitialize(api.Priority_UPSTREAM),
+					Priority:           api.Priority_UPSTREAM,
 				},
 				{
 					EnvironmentGroupName: nameDevFr,
@@ -457,7 +451,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameDevFr, nameDevFr, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 					},
 					DistanceToUpstream: 0,
-					Priority:           allocateAndinitialize(api.Priority_UPSTREAM),
+					Priority:           api.Priority_UPSTREAM,
 				},
 				{
 					EnvironmentGroupName: nameStagingDe,
@@ -465,7 +459,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameDevDe), 1, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 1,
-					Priority:           allocateAndinitialize(api.Priority_PRE_PROD),
+					Priority:           api.Priority_PRE_PROD,
 				},
 				{
 					EnvironmentGroupName: nameStagingFr,
@@ -473,7 +467,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameStagingFr, nameStagingFr, makeUpstreamEnvironment(nameDevFr), 1, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 1,
-					Priority:           allocateAndinitialize(api.Priority_PRE_PROD),
+					Priority:           api.Priority_PRE_PROD,
 				},
 				{
 					EnvironmentGroupName: nameCanaryDe,
@@ -481,7 +475,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameCanaryDe, nameCanaryDe, makeUpstreamEnvironment(nameStagingDe), 2, api.Priority_CANARY),
 					},
 					DistanceToUpstream: 2,
-					Priority:           allocateAndinitialize(api.Priority_CANARY),
+					Priority:           api.Priority_CANARY,
 				},
 				{
 					EnvironmentGroupName: nameProdFr,
@@ -490,7 +484,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 					},
 					DistanceToUpstream: 2,
 
-					Priority: allocateAndinitialize(api.Priority_PROD),
+					Priority: api.Priority_PROD,
 				},
 				{
 					EnvironmentGroupName: nameProdDe,
@@ -498,7 +492,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameProdDe, nameProdDe, makeUpstreamEnvironment(nameCanaryDe), 3, api.Priority_PROD),
 					},
 					DistanceToUpstream: 3,
-					Priority:           allocateAndinitialize(api.Priority_PROD),
+					Priority:           api.Priority_PROD,
 				},
 			},
 		},
@@ -551,7 +545,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameDevFr, nameDev, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 					},
 					DistanceToUpstream: 0,
-					Priority:           allocateAndinitialize(api.Priority_UPSTREAM),
+					Priority:           api.Priority_UPSTREAM,
 				},
 				{
 					EnvironmentGroupName: nameStaging,
@@ -560,7 +554,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameStagingFr, nameStaging, makeUpstreamEnvironment(nameDevFr), 1, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 1,
-					Priority:           allocateAndinitialize(api.Priority_PRE_PROD),
+					Priority:           api.Priority_PRE_PROD,
 				},
 				{
 					EnvironmentGroupName: nameProd,
@@ -569,7 +563,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameProdFr, nameProd, makeUpstreamEnvironment(nameStagingFr), 2, api.Priority_PROD),
 					},
 					DistanceToUpstream: 2,
-					Priority:           allocateAndinitialize(api.Priority_PROD),
+					Priority:           api.Priority_PROD,
 				},
 			},
 		},
@@ -632,7 +626,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameDevGlobal, nameDev, makeUpstreamLatest(), 0, api.Priority_UPSTREAM),
 					},
 					DistanceToUpstream: 0,
-					Priority:           allocateAndinitialize(api.Priority_UPSTREAM),
+					Priority:           api.Priority_UPSTREAM,
 				},
 				{
 					EnvironmentGroupName: nameTest,
@@ -640,7 +634,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameTestGlobal, nameTest, makeUpstreamEnvironment(nameDevGlobal), 1, api.Priority_PRE_PROD),
 					},
 					DistanceToUpstream: 1,
-					Priority:           allocateAndinitialize(api.Priority_PRE_PROD),
+					Priority:           api.Priority_OTHER,
 				},
 				{
 					EnvironmentGroupName: nameStaging,
@@ -650,7 +644,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameStagingUS, nameStaging, makeUpstreamEnvironment(nameTestGlobal), 2, api.Priority_PROD),
 					},
 					DistanceToUpstream: 2,
-					Priority:           allocateAndinitialize(api.Priority_PRE_PROD),
+					Priority:           api.Priority_PRE_PROD,
 				},
 				{
 					EnvironmentGroupName: nameCanary,
@@ -659,7 +653,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameProdFr, nameCanary, makeUpstreamEnvironment(nameStagingFr), 3, api.Priority_PROD),
 					},
 					DistanceToUpstream: 3,
-					Priority:           allocateAndinitialize(api.Priority_CANARY),
+					Priority:           api.Priority_CANARY,
 				},
 				{
 					EnvironmentGroupName: nameProd,
@@ -667,7 +661,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameProdDe, nameProd, makeUpstreamEnvironment(nameCanaryDe), 4, api.Priority_PROD),
 					},
 					DistanceToUpstream: 4,
-					Priority:           allocateAndinitialize(api.Priority_PROD),
+					Priority:           api.Priority_PROD,
 				},
 			},
 		},

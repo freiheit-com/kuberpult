@@ -304,7 +304,7 @@ message EnvironmentGroup {
   repeated Environment environments = 2;
   // note that the distance_to_upstream should usually be configured to be the same for all envs in this group, but this is not enforced.
   uint32 distance_to_upstream = 3;
-  optional Priority priority = 4;
+  Priority priority = 4;
 }
 
 enum Priority {
