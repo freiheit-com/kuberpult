@@ -4,6 +4,7 @@ DEPS:
     FUNCTION
     ARG --required service
     ARG --required src_files
+    BUILD ../../../pkg+deps
     COPY ../../../pkg+artifacts/pkg pkg
     COPY cmd services/$service/cmd
     FOR src IN $src_files

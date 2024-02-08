@@ -45,6 +45,7 @@ ui:
     BUILD ./services/frontend-service+$target-ui
 
 all-services:
+    BUILD ./pkg+deps
     BUILD ./services/cd-service+docker --service=cd-service --UID=$UID
     BUILD ./services/frontend-service+docker --service=frontend-service
     BUILD ./services/frontend-service+docker-ui
