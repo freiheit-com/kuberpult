@@ -126,6 +126,10 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
+	if !s.Config.WriteCommitData {
+		return nil, status.Error(codes.FailedPrecondition, "no written commit info available; set KUBERPULT_GIT_WRITE_COMMIT_DATA=true to enable")
+	}
+
 	fs := s.OverviewService.Repository.State().Filesystem
 
 	commitIDPrefix := in.CommitHash

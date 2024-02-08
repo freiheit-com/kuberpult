@@ -175,6 +175,8 @@ spec:
           value: "{{ .Values.cd.enableSqlite }}"
         - name: KUBERPULT_GIT_NETWORK_TIMEOUT
           value: "{{ .Values.git.networkTimeout }}"
+        - name: KUBERPULT_GIT_WRITE_COMMIT_DATA
+          value: "{{ .Values.git.enableWritingCommitData }}"
         volumeMounts:
         - name: repository
           mountPath: /repository

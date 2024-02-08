@@ -33,6 +33,9 @@ git:
   # Timeout used for network operations
   networkTimeout: 1m
 
+  # If enabled, write data to the `/commit` directory in the manifest repo on every release
+  enableWritingCommitData: false
+
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
 log:
