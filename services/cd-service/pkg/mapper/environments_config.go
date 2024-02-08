@@ -259,21 +259,6 @@ func max(a uint32, b uint32) uint32 {
 	return b
 }
 
-func minimumPriority(a, b api.Priority) api.Priority {
-	order := map[api.Priority]uint32{
-		api.Priority_UPSTREAM: 0,
-		api.Priority_PRE_PROD: 1,
-		api.Priority_CANARY:   2,
-		api.Priority_PROD:     3,
-		api.Priority_YOLO:     4,
-		api.Priority_OTHER:    5,
-	}
-	if order[a] < order[b] {
-		return a
-	}
-	return b
-}
-
 type EnvironmentByDistance []*api.Environment
 
 func (s EnvironmentByDistance) Len() int {
