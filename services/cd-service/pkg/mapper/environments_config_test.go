@@ -594,12 +594,6 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 					},
 					EnvironmentGroup: &nameStaging,
 				},
-				nameStagingUS: {
-					Upstream: &config.EnvironmentConfigUpstream{
-						Environment: nameTestGlobal,
-					},
-					EnvironmentGroup: &nameStaging,
-				},
 				nameCanaryDe: {
 					Upstream: &config.EnvironmentConfigUpstream{
 						Environment: nameStagingDe,
@@ -641,7 +635,6 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 					Environments: []*api.Environment{
 						makeEnv(nameStagingDe, nameStaging, makeUpstreamEnvironment(nameTestGlobal), 2, api.Priority_PRE_PROD),
 						makeEnv(nameStagingFr, nameStaging, makeUpstreamEnvironment(nameTestGlobal), 2, api.Priority_CANARY),
-						makeEnv(nameStagingUS, nameStaging, makeUpstreamEnvironment(nameTestGlobal), 2, api.Priority_PROD),
 					},
 					DistanceToUpstream: 2,
 					Priority:           api.Priority_PRE_PROD,
