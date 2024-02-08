@@ -127,13 +127,11 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	fs := s.OverviewService.Repository.State().Filesystem
 
 	commitID := in.CommitHash
-
 	if !valid.SHA1CommitID(commitID) {
 		return nil, fmt.Errorf("the provided commit ID %s is not a valid SHA1 hash", commitID)
 	}
 
 	commitID = strings.ToLower(commitID)
-
 	commitPath := fs.Join("commits", commitID[:2], commitID[2:])
 
 	if _, err := fs.Stat(commitPath); err != nil {
@@ -159,7 +157,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	}
 	sort.Strings(touchedApps)
 
-	events, err := s.GetEvents(ctx, fs, in.CommitHash, commitPath)
+	events, err := s.GetEvents(ctx, fs, commitPath)
 	if err != nil {
 		return nil, err
 	}
@@ -171,15 +169,12 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	}, nil
 }
 
-func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, hash string, commitPath string) ([]*api.Event, error) {
-	errorTemplate := func(message string, err error) error {
-		return fmt.Errorf("could not get events for hash '%s' in path '%s' - error %w", hash, commitPath, err)
-	}
+func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPath string) ([]*api.Event, error) {
 	var result []*api.Event
 	allEventsPath := fs.Join(commitPath, "events")
 	potentialEventDirs, err := fs.ReadDir(allEventsPath)
 	if err != nil {
-		return nil, errorTemplate("could not read events directory ", err)
+		return nil, fmt.Errorf("could not read events directory '%s': %v", allEventsPath, err)
 	}
 	for i := range potentialEventDirs {
 		oneEventDir := potentialEventDirs[i]
@@ -187,13 +182,13 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, hash str
 			fileName := oneEventDir.Name()
 			rawUUID, err := timeuuid.ParseUUID(fileName)
 			if err != nil {
-				return nil, errorTemplate(fmt.Sprintf("could not read event, because it is not a UUID '%s'", fileName), err)
+				return nil, fmt.Errorf("could not read event directory '%s' not a UUID: %v", fs.Join(allEventsPath, fileName), err)
 			}
 
 			var event *api.Event
 			event, err = s.ReadEvent(ctx, fs, fs.Join(allEventsPath, fileName), rawUUID)
 			if err != nil {
-				return nil, errorTemplate("could not read event", err)
+				return nil, fmt.Errorf("could not read events %v", err)
 			}
 			result = append(result, event)
 		}
@@ -205,13 +200,10 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, hash str
 }
 
 func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPath string, eventId timeuuid.UUID) (*api.Event, error) {
-	errorTemplate := func(message string, err error) error {
-		return fmt.Errorf("could not read events - error %w", err)
-	}
 	eventTypePath := fs.Join(eventPath, "eventType")
 	eventTypeRaw, err := util.ReadFile(fs, eventTypePath) // full path: commits/<commitHash2>/<commitHash38>/events/<eventUUID>/eventType
 	if err != nil {
-		return nil, errorTemplate(fmt.Sprintf("could not read eventType %s", eventTypePath), err)
+		return nil, fmt.Errorf("could not read eventType in path %s - %v", eventTypePath, err)
 	}
 	var eventType = string(eventTypeRaw)
 
@@ -220,7 +212,7 @@ func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPat
 
 		potentialEnvironmentDirs, err := fs.ReadDir(eventEnvsPath)
 		if err != nil {
-			return nil, errorTemplate(fmt.Sprintf("could not read events environments %s", eventEnvsPath), err)
+			return nil, fmt.Errorf("could not read events environments directory '%s' - %v", eventEnvsPath, err)
 		}
 
 		var envs []string = nil
@@ -245,6 +237,5 @@ func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPat
 		}
 		return result, nil
 	}
-	err = fmt.Errorf("could not read event, did not recognize event type '%s'", eventType)
-	return nil, err
+	return nil, fmt.Errorf("could not read event, did not recognize event type '%s'", eventType)
 }
