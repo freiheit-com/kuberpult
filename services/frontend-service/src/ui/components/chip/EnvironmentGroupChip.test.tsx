@@ -41,7 +41,14 @@ describe('EnvironmentChip', () => {
     it('renders a chip', () => {
         // given
         UpdateOverview.set({
-            environmentGroups: [{ environments: [env], environmentGroupName: 'dontcare', distanceToUpstream: 0 }],
+            environmentGroups: [
+                {
+                    environments: [env],
+                    environmentGroupName: 'dontcare',
+                    distanceToUpstream: 0,
+                    priority: Priority.UNRECOGNIZED,
+                },
+            ],
         });
         // then
         const { container } = getWrapper();
@@ -101,6 +108,7 @@ describe('EnvironmentChip', () => {
                             },
                         },
                     ],
+                    priority: Priority.UNRECOGNIZED,
                     environmentGroupName: 'dontcare',
                     distanceToUpstream: 0,
                 },
@@ -168,7 +176,12 @@ describe.each(envChipData)(`EnvironmentChip with envPrio Classname`, (testcase) 
         // given
         UpdateOverview.set({
             environmentGroups: [
-                { environments: [testcase.env], environmentGroupName: 'dontcare', distanceToUpstream: 0 },
+                {
+                    environments: [testcase.env],
+                    environmentGroupName: 'dontcare',
+                    distanceToUpstream: 0,
+                    priority: Priority.UNRECOGNIZED,
+                },
             ],
         });
         // then
@@ -186,6 +199,7 @@ const envGroupFromPrio = (prio: Priority, numEnvsInGroup: number, envs: Environm
     environmentGroupName: 'i am the group',
     environments: envs,
     distanceToUpstream: 0,
+    priority: Priority.UNRECOGNIZED,
 });
 
 type TestDataGroups = {

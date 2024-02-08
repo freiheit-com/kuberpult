@@ -23,7 +23,7 @@ import {
     useFilteredEnvironmentLockIDs,
 } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
-import { Environment } from '../../../api/api';
+import { Environment, Priority } from '../../../api/api';
 import { fakeLoadEverything } from '../../../setupTests';
 
 describe('LocksPage', () => {
@@ -124,7 +124,12 @@ describe('Test env locks', () => {
             // given
             UpdateOverview.set({
                 environmentGroups: [
-                    { environments: testcase.envs, environmentGroupName: 'dontcare', distanceToUpstream: 0 },
+                    {
+                        environments: testcase.envs,
+                        environmentGroupName: 'dontcare',
+                        distanceToUpstream: 0,
+                        priority: Priority.UNRECOGNIZED,
+                    },
                 ],
             });
             // when
@@ -226,6 +231,7 @@ describe('Test env locks', () => {
                         distanceToUpstream: 0,
                         environmentGroupName: 'group1',
                         environments: testcase.envs,
+                        priority: Priority.YOLO,
                     },
                 ],
             });
@@ -284,6 +290,7 @@ describe('Test env locks', () => {
                         environments: testcase.envs,
                         environmentGroupName: 'group1',
                         distanceToUpstream: 0,
+                        priority: Priority.UNRECOGNIZED,
                     },
                 ],
             });
@@ -412,7 +419,12 @@ describe('Test app locks', () => {
             // UpdateOverview.set({ environmentGroups: testcase.envs });
             UpdateOverview.set({
                 environmentGroups: [
-                    { environments: testcase.envs, environmentGroupName: 'dontcare', distanceToUpstream: 0 },
+                    {
+                        environments: testcase.envs,
+                        environmentGroupName: 'dontcare',
+                        distanceToUpstream: 0,
+                        priority: Priority.UNRECOGNIZED,
+                    },
                 ],
             });
 

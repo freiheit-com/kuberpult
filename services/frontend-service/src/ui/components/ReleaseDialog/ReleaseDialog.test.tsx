@@ -307,6 +307,7 @@ describe('Release Dialog', () => {
                     environmentGroupName: 'dev',
                     environments: testcase.envs,
                     distanceToUpstream: 2,
+                    priority: Priority.UNRECOGNIZED,
                 },
             ],
         });

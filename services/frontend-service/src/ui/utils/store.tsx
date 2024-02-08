@@ -694,6 +694,7 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
                     environments: envs,
                     distanceToUpstream: group.distanceToUpstream,
                     numberOfEnvsInGroup: group.environments.length,
+                    priority: group.priority,
                 };
                 envGroups.push(groupCopy);
             }
@@ -719,6 +720,7 @@ export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroup
                     environments: envs,
                     distanceToUpstream: group.distanceToUpstream,
                     numberOfEnvsInGroup: group.environments.length,
+                    priority: group.priority,
                 };
                 envGroups.push(groupCopy);
             }

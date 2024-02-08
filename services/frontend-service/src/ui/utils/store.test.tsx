@@ -94,6 +94,7 @@ describe('Test useLocksSimilarTo', () => {
                     ],
                     environmentGroupName: 'group1',
                     distanceToUpstream: 0,
+                    priority: Priority.UNRECOGNIZED,
                 },
             ],
             expectedLocks: {
@@ -136,6 +137,7 @@ describe('Test useLocksSimilarTo', () => {
                     ],
                     environmentGroupName: 'group1',
                     distanceToUpstream: 0,
+                    priority: Priority.UNRECOGNIZED,
                 },
             ],
             expectedLocks: {
@@ -185,6 +187,7 @@ describe('Test useLocksSimilarTo', () => {
                     ],
                     environmentGroupName: 'group1',
                     distanceToUpstream: 0,
+                    priority: Priority.UNRECOGNIZED,
                 },
             ],
             expectedLocks: {
@@ -246,6 +249,7 @@ describe('Test useLocksSimilarTo', () => {
                     ],
                     environmentGroupName: 'group1',
                     distanceToUpstream: 0,
+                    priority: Priority.UNRECOGNIZED,
                 },
             ],
             expectedLocks: {
@@ -836,6 +840,7 @@ describe('Test useLocksConflictingWithActions', () => {
                         environmentGroupName: 'g1',
                         environments: testcase.environments,
                         distanceToUpstream: 0,
+                        priority: Priority.UNRECOGNIZED,
                     },
                 ],
             });
