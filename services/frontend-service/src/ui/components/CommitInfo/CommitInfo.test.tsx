@@ -62,4 +62,5 @@ Commit message body line 2`,
     expect(screen.getAllByRole('row', { name: /google, windows/ })).toHaveLength(1);
     expect(screen.getAllByRole('row', { name: /2024-02-09T09:46:00/ })).toHaveLength(1);
     expect(screen.getAllByRole('row', { name: /received data about this commit for the first time/ })).toHaveLength(1);
+    expect(screen.getAllByRole('row', { name: /dev, staging/ })).toHaveLength(1);
 });
