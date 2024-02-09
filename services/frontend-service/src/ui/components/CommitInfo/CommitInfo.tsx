@@ -16,7 +16,7 @@ Copyright 2023 freiheit.com*/
 
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import React from 'react';
-import { GetCommitInfoResponse } from '../../../api/api';
+import { GetCommitInfoResponse, Event } from '../../../api/api';
 
 type CommitInfoProps = {
     commitInfo: GetCommitInfoResponse | undefined;
@@ -61,7 +61,48 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                         </tr>
                     </tbody>
                 </table>
+                <h2>Events</h2>
+                <CommitInfoEvents events={commitInfo.events} />
             </main>
         </div>
     );
+};
+
+const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => (
+    <table border={1}>
+        <thead>
+            <tr>
+                <th>Date:</th>
+                <th>Event Description:</th>
+                <th>Environments:</th>
+            </tr>
+        </thead>
+        <tbody>
+            {props.events.map((event) => {
+                const createdAt = event.createdAt?.toISOString() || '';
+                const [description, environments] = eventDescription(event);
+                return (
+                    <tr>
+                        <td>{createdAt}</td>
+                        <td>{description}</td>
+                        <td>{environments.join(', ')}</td>
+                    </tr>
+                );
+            })}
+        </tbody>
+    </table>
+);
+
+const eventDescription = (event: Event): [string, string[]] => {
+    const tp = event.eventType;
+    if (tp === undefined) {
+        return ['Unspecified event type', []];
+    }
+    switch (tp.$case) {
+        case 'createReleaseEvent':
+            return [
+                'Kuberpult received data about this commit for the first time',
+                tp.createReleaseEvent.environmentNames,
+            ];
+    }
 };
