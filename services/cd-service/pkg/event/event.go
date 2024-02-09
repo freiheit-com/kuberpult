@@ -13,29 +13,8 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
+package event
 
-package uuid
-
-import (
-	"github.com/onokonem/sillyQueueServer/timeuuid"
-	"google.golang.org/protobuf/types/known/timestamppb"
+const (
+	NewReleaseEventName = "new-release"
 )
-
-type UUID = timeuuid.UUID // just an alias for convenience
-
-type GenerateUUIDs interface {
-	Generate() string
-}
-
-type RealUUIDGenerator struct {
-}
-
-func (t RealUUIDGenerator) Generate() string {
-	return timeuuid.TimeUUID().String()
-}
-
-func GetTime(id *UUID) *timestamppb.Timestamp {
-	var ts = id.Time()
-	result := timestamppb.New(ts)
-	return result
-}
