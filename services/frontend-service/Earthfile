@@ -42,6 +42,8 @@ deps-ui:
     FROM node:20.9.0-alpine3.18
     WORKDIR /kp
     RUN npm install -g pnpm@8.9.2
+    RUN chown -R node:node /kp
+    USER node
     COPY package.json pnpm-lock.yaml pnpm-workspace.yaml buf.yaml buf.gen.yaml buf.lock tsconfig.json .eslintrc .prettierrc .npmrc .nvmrc .
     RUN pnpm i
 
