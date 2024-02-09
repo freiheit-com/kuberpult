@@ -35,7 +35,17 @@ test('CommitInfo component renders commit info when the response is valid', () =
 Commit message body line 1
 Commit message body line 2`,
         touchedApps: ['google', 'windows'],
-        events: [],
+        events: [
+            {
+                createdAt: new Date('2024-02-09T09:46:00Z'),
+                eventType: {
+                    $case: 'createReleaseEvent',
+                    createReleaseEvent: {
+                        environmentNames: ['dev', 'staging'],
+                    },
+                },
+            },
+        ],
     };
     render(
         <MemoryRouter>
@@ -50,4 +60,6 @@ Commit message body line 2`,
     expect(screen.getAllByRole('row', { name: /Commit message body line 1/ })).toHaveLength(1);
     expect(screen.getAllByRole('row', { name: /Commit message body line 2/ })).toHaveLength(1);
     expect(screen.getAllByRole('row', { name: /google, windows/ })).toHaveLength(1);
+    expect(screen.getAllByRole('row', { name: /2024-02-09T09:46:00/ })).toHaveLength(1);
+    expect(screen.getAllByRole('row', { name: /received data about this commit for the first time/ })).toHaveLength(1);
 });
