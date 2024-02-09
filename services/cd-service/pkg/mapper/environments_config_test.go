@@ -213,7 +213,7 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 						makeEnv(nameStagingDe, nameStagingDe, makeUpstreamEnvironment(nameWhoKnows), 667, api.Priority_PROD),
 					},
 					DistanceToUpstream: 667,
-					Priority:           api.Priority_PROD, 
+					Priority:           api.Priority_PROD,
 				},
 			},
 		},
@@ -569,6 +569,16 @@ func TestMapEnvironmentsToGroup(t *testing.T) {
 		},
 		{
 			Name: "Environments with different environment priorities",
+			/*
+				dev-global <--- test-global <--- staging-de <--- canary-de <--- prod-de
+				                              |
+											  -- staging-fr <--- prod-fr
+
+			    ^^^^^^^^^^      ^^^^^^^^^^^      ^^^^^^^^^^      ^^^^^^^^^      ^^^^^^^
+				dev             test             staging         canary         prod
+				prio: u         prio: o          prio: pp        prio: c        prio: p
+
+			 */
 			InputEnvs: map[string]config.EnvironmentConfig{
 				nameDevGlobal: {
 					Upstream: &config.EnvironmentConfigUpstream{
