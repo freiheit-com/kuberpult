@@ -163,7 +163,7 @@ func calculateGroupPriority(distanceToUpstream, downstreamDepth uint32) api.Prio
 		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
 		[]api.Priority {api.Priority_UPSTREAM, api.Priority_OTHER, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
 	}
-	if downstreamDepth > 4 {
+	if downstreamDepth > len(lookup) - 1 {
 		if distanceToUpstream == 0 {
 			return api.Priority_UPSTREAM
 		}
