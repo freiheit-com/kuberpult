@@ -22,18 +22,19 @@ import (
 )
 
 const (
-	MaxAppNameLen  = 39
-	AppNameRegExp  = `\A[a-z0-9]+(?:-[a-z0-9]+)*\z`
-	TeamNameRegExp = AppNameRegExp
-	EnvNameRegExp  = AppNameRegExp
-	CommitIDRegExp = `^[0-9a-fA-F]{40}$`
+	MaxAppNameLen        = 39
+	AppNameRegExp        = `\A[a-z0-9]+(?:-[a-z0-9]+)*\z`
+	TeamNameRegExp       = AppNameRegExp
+	EnvNameRegExp        = AppNameRegExp
+	SHA1CommitIDLength   = 40
+	commitIDPrefixRegExp = `^[0-9a-fA-F]*$`
 )
 
 var (
 	applicationNameRx = regexp.MustCompile(AppNameRegExp)
 	teamNameRx        = regexp.MustCompile(TeamNameRegExp)
 	envNameRx         = regexp.MustCompile(EnvNameRegExp)
-	commitIDRx        = regexp.MustCompile(CommitIDRegExp)
+	commitIDPrefixRx  = regexp.MustCompile(commitIDPrefixRegExp)
 )
 
 // {application}-{environment} should be a valid dns name
@@ -54,5 +55,12 @@ func LockId(lockId string) bool {
 }
 
 func SHA1CommitID(commitID string) bool {
-	return commitIDRx.MatchString(commitID)
+	if len(commitID) != SHA1CommitIDLength {
+		return false
+	}
+	return commitIDPrefixRx.MatchString(commitID)
+}
+
+func SHA1CommitIDPrefix(prefix string) bool {
+	return commitIDPrefixRx.MatchString(prefix)
 }

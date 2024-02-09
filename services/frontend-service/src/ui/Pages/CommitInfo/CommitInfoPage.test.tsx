@@ -109,6 +109,7 @@ describe('Commit info page tests', () => {
             commitInfoStoreData: {
                 commitInfoReady: CommitInfoState.READY,
                 response: {
+                    commitHash: 'potato',
                     touchedApps: ['google', 'windows'],
                     commitMessage: `Add google to windows
         
