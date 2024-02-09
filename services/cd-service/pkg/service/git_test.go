@@ -295,6 +295,7 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 			expectedError: nil,
 			expectedResponse: &api.GetCommitInfoResponse{
+				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CommitMessage: "some message",
 				TouchedApps: []string{
 					"app",
@@ -344,6 +345,7 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 			expectedError: nil,
 			expectedResponse: &api.GetCommitInfoResponse{
+				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CommitMessage: "some message",
 				TouchedApps: []string{
 					"app1",
@@ -392,6 +394,32 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 			expectedError:    status.Error(codes.NotFound, "error: commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the manifest repo"),
 			expectedResponse: nil,
+		},
+		{
+			name: "find a commit by prefix",
+			transformers: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "32a5b7b27fe0e7c328e8ec4615cb34750bc328bd",
+					SourceMessage:  "some message",
+				},
+			},
+			request: &api.GetCommitInfoRequest{
+				CommitHash: "32a5b7b27",
+			},
+			expectedResponse: &api.GetCommitInfoResponse{
+				CommitHash:    "32a5b7b27fe0e7c328e8ec4615cb34750bc328bd",
+				CommitMessage: "some message",
+				TouchedApps:   []string{"app"},
+				Events: []*api.Event{
+					{
+						CreatedAt: timestamppb.New(fixedTime()),
+						EventType: &api.Event_CreateReleaseEvent{
+							CreateReleaseEvent: &api.CreateReleaseEvent{},
+						},
+					},
+				},
+			},
 		},
 	}
 

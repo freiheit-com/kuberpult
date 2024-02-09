@@ -41,10 +41,14 @@ message ProductSummary {
 }
 
 message GetCommitInfoRequest {
+  // The commit hash requested, can also be a prefix.
   string commit_hash = 1;
 }
 
 message GetCommitInfoResponse {
+  // The full commit hash, so that it can be displayed in case a
+  // prefix was supplied in the request.
+  string commit_hash = 4;
   string commit_message = 1;
   repeated string touched_apps = 2;
   repeated Event events = 3;

@@ -19,12 +19,10 @@ import React from 'react';
 import { GetCommitInfoResponse } from '../../../api/api';
 
 type CommitInfoProps = {
-    commitHash: string;
     commitInfo: GetCommitInfoResponse | undefined;
 };
 
 export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
-    const commitHash = props.commitHash;
     const commitInfo = props.commitInfo;
     if (commitInfo === undefined) {
         return (
@@ -51,7 +49,7 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                     </thead>
                     <tbody>
                         <tr>
-                            <td>{commitHash}</td>
+                            <td>{commitInfo.commitHash}</td>
                             <td>
                                 <div className={'commit-page-message'}>
                                     {commitInfo.commitMessage.split('\n').map((msg, index) => (

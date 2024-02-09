@@ -21,16 +21,15 @@ import { GetCommitInfoResponse } from '../../../api/api';
 test('CommitInfo component does not render commit info when the response is undefined', () => {
     const { container } = render(
         <MemoryRouter>
-            <CommitInfo commitHash={'potato'} commitInfo={undefined} />
+            <CommitInfo commitInfo={undefined} />
         </MemoryRouter>
     );
     expect(container.textContent).toContain('Backend returned empty response');
-    expect(container.textContent).not.toContain('potato');
 });
 
 test('CommitInfo component renders commit info when the response is valid', () => {
-    const commitHash: string = 'potato';
     const commitInfo: GetCommitInfoResponse = {
+        commitHash: 'potato',
         commitMessage: `tomato
         
 Commit message body line 1
@@ -40,7 +39,7 @@ Commit message body line 2`,
     };
     render(
         <MemoryRouter>
-            <CommitInfo commitHash={commitHash} commitInfo={commitInfo} />
+            <CommitInfo commitInfo={commitInfo} />
         </MemoryRouter>
     );
 
