@@ -36,6 +36,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
 Commit message body line 1
 Commit message body line 2`,
         touchedApps: ['google', 'windows'],
+        events: [],
     };
     render(
         <MemoryRouter>

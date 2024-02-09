@@ -27,6 +27,11 @@ If you still need to call a kuberpult grpc endpoint directly, you can use evans:
 
 Then type `service DeployService` and `call Deploy` for example.
 
+### Add tags to the repository
+
+In order to test some of the features for Kuberpult you will need to add tags to the manifest repo. To do this, within the manifest repo run the command: `git tag <name of tag> && git push --tags`
+To see more useful data with the tag, create some dummy deployments prior to creating the tag. Once the dummy deployments are done, pull the latest changes to your local manifest repo then create the tag.
+
 
 ### Why "fakeprod"?
 We want to make it as clear as possible that this is testdata.

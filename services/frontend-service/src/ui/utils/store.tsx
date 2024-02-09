@@ -105,6 +105,7 @@ export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsRes
 
 const summaryResponse: GetProductSummaryResponse = { productSummary: [] };
 export const getSummary = (commitHash: string, environment: string, environmentGroup: string): void => {
+    updateSummary.set({ summaryReady: false });
     const api = useApi;
     api.gitService()
         .GetProductSummary({ commitHash: commitHash, environment: environment, environmentGroup: environmentGroup })
