@@ -13,8 +13,6 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-@use '@material/list/mdc-list';
-
 .mdc-list {
     display: flex;
     flex-direction: column;
@@ -25,8 +23,38 @@ Copyright 2023 freiheit.com*/
     height: 100%;
 
     .mdc-list-item {
+        display: flex;
+        position: relative;
+        overflow: hidden;
         height: 100%;
         padding: $nav-list-item-padding;
         align-items: center;
+    }
+
+    .mdc-list-item:hover .mdc-list-item__ripple::before {
+        opacity: 0.04;
+    }
+
+    .mdc-list-item__ripple {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .mdc-list-item__ripple::before,
+    .mdc-list-item__ripple::after {
+        position: absolute;
+        border-radius: 50%;
+        opacity: 0;
+        pointer-events: none;
+        content: '';
+        background-color: #000;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
     }
 }
