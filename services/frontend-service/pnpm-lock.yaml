@@ -7,8 +7,8 @@ importers:
 
   .:
     specifiers:
-      '@azure/msal-browser': ^2.28.3
-      '@azure/msal-react': ^1.4.5
+      '@azure/msal-browser': ^3.0.0
+      '@azure/msal-react': ^2.0.0
       '@babel/core': ^7.19.1
       '@babel/plugin-syntax-flow': ^7.18.6
       '@babel/plugin-transform-react-jsx': ^7.19.0
@@ -53,8 +53,8 @@ importers:
       ts-proto: ^1.125.0
       typescript: 5.3.3
     dependencies:
-      '@azure/msal-browser': 2.38.3
-      '@azure/msal-react': 1.5.12_7hsqmrey76qwfx33byaohfzyrq
+      '@azure/msal-browser': 3.9.0
+      '@azure/msal-react': 2.0.11_52sitt6k3hpvy5kd4twejxyyhq
       '@emotion/react': 11.11.3_eteh3so6nztr56vqc4nbg6qqla
       '@emotion/styled': 11.11.0_dyeqyavlplouzrsokk7bfa3ywm
       '@improbable-eng/grpc-web': 0.15.0_google-protobuf@3.21.2
@@ -134,28 +134,26 @@ packages:
       leven: 3.1.0
     dev: false
 
-  /@azure/msal-browser/2.38.3:
-    resolution: {integrity: sha512-2WuLFnWWPR1IdvhhysT18cBbkXx1z0YIchVss5AwVA95g7CU5CpT3d+5BcgVGNXDXbUU7/5p0xYHV99V5z8C/A==}
+  /@azure/msal-browser/3.9.0:
+    resolution: {integrity: sha512-Ts+Q3fw9u92koCkk+oZgL6lhwDrwWSyXBcKdsKJko1Ra7ZzDl0z7pod+1g+v4Qbt8l1YqSX4wXbXs5sWUv0VWw==}
     engines: {node: '>=0.8.0'}
-    deprecated: A newer major version of this library is available. Please upgrade to the latest available version.
     dependencies:
-      '@azure/msal-common': 13.3.1
+      '@azure/msal-common': 14.7.0
     dev: false
 
-  /@azure/msal-common/13.3.1:
-    resolution: {integrity: sha512-Lrk1ozoAtaP/cp53May3v6HtcFSVxdFrg2Pa/1xu5oIvsIwhxW6zSPibKefCOVgd5osgykMi5jjcZHv8XkzZEQ==}
+  /@azure/msal-common/14.7.0:
+    resolution: {integrity: sha512-WexujW5jKWib7xtIxR7fEVyd5xcA3FNwenELy2HO4YC/ivTFdsEcDhtpKQuRUHqXRwxoqBblyZzTAhBm4v6fHA==}
     engines: {node: '>=0.8.0'}
     dev: false
 
-  /@azure/msal-react/1.5.12_7hsqmrey76qwfx33byaohfzyrq:
-    resolution: {integrity: sha512-waz8wFWVSLn3g8033uK6byGF29w3Lpg5gzuTKEJyBaAgoed3p09nuMYZRLgqFdXeAazpw/YthLdKRNN9DlMrQA==}
+  /@azure/msal-react/2.0.11_52sitt6k3hpvy5kd4twejxyyhq:
+    resolution: {integrity: sha512-JEOto7iXKqpnsLNUQrynb/IeEDcyrVIgQlMu/swjBtNC8sYHTbdsgwNjU0K25+aDc2Ju3zamGT9ZHM21O7YFUQ==}
     engines: {node: '>=10'}
-    deprecated: A newer major version of this library is available. Please upgrade to the latest available version.
     peerDependencies:
-      '@azure/msal-browser': ^2.38.3
+      '@azure/msal-browser': ^3.9.0
       react: ^16.8.0 || ^17 || ^18 || 18
     dependencies:
-      '@azure/msal-browser': 2.38.3
+      '@azure/msal-browser': 3.9.0
       react: 18.2.0
     dev: false
 
