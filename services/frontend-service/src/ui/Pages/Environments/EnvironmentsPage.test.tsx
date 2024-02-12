@@ -27,14 +27,14 @@ const sampleEnvsA: Environment[] = [
         locks: {},
         applications: {},
         distanceToUpstream: 0,
-        priority: Priority.UPSTREAM,
+        priority: Priority.YOLO,
     },
     {
         name: 'moreTest',
         locks: {},
         applications: {},
         distanceToUpstream: 0,
-        priority: Priority.UPSTREAM,
+        priority: Priority.YOLO,
     },
 ];
 
@@ -44,14 +44,14 @@ const sampleEnvsB: Environment[] = [
         locks: {},
         applications: {},
         distanceToUpstream: 0,
-        priority: Priority.UPSTREAM,
+        priority: Priority.YOLO,
     },
     {
         name: 'moreTestB',
         locks: {},
         applications: {},
         distanceToUpstream: 0,
-        priority: Priority.UPSTREAM,
+        priority: Priority.YOLO,
     },
 ];
 
@@ -71,6 +71,7 @@ describe('Environment Lane', () => {
         expectedEnvHeaderWrapper: number;
         expectedMainContent: number;
         spinnerExpected: number;
+        expectedCardStyles: { className: string; count: number }[];
     }
     const cases: dataT[] = [
         {
@@ -78,8 +79,9 @@ describe('Environment Lane', () => {
             environmentGroups: [
                 {
                     environments: [sampleEnvsA[0]],
-                    distanceToUpstream: 1,
+                    distanceToUpstream: 0,
                     environmentGroupName: 'g1',
+                    priority: Priority.YOLO,
                 },
             ],
             loaded: true,
@@ -87,19 +89,27 @@ describe('Environment Lane', () => {
             expectedEnvHeaderWrapper: 1,
             expectedMainContent: 1,
             spinnerExpected: 0,
+            expectedCardStyles: [
+                {
+                    className: 'environment-priority-yolo',
+                    count: 1,
+                },
+            ],
         },
         {
             name: '2 group 1 env each',
             environmentGroups: [
                 {
                     environments: [sampleEnvsA[0]],
-                    distanceToUpstream: 1,
+                    distanceToUpstream: 0,
                     environmentGroupName: 'g1',
+                    priority: Priority.YOLO,
                 },
                 {
                     environments: [sampleEnvsB[0]],
-                    distanceToUpstream: 1,
+                    distanceToUpstream: 0,
                     environmentGroupName: 'g1',
+                    priority: Priority.YOLO,
                 },
             ],
             loaded: true,
@@ -107,26 +117,60 @@ describe('Environment Lane', () => {
             expectedEnvHeaderWrapper: 2,
             expectedMainContent: 1,
             spinnerExpected: 0,
+            expectedCardStyles: [
+                {
+                    className: 'environment-priority-yolo',
+                    count: 2,
+                },
+            ],
         },
         {
             name: '1 group 2 env',
             environmentGroups: [
                 {
                     environments: sampleEnvsA,
-                    distanceToUpstream: 1,
+                    distanceToUpstream: 0,
                     environmentGroupName: 'g1',
-                },
-                {
-                    environments: sampleEnvsB,
-                    distanceToUpstream: 1,
-                    environmentGroupName: 'g2',
+                    priority: Priority.YOLO,
                 },
             ],
             loaded: true,
-            expected: 2,
-            expectedEnvHeaderWrapper: 4,
+            expected: 1,
+            expectedEnvHeaderWrapper: 2,
             expectedMainContent: 1,
             spinnerExpected: 0,
+            expectedCardStyles: [
+                {
+                    className: 'environment-priority-yolo',
+                    count: 3,
+                },
+            ],
+        },
+        {
+            name: 'card colors are decided by group priority not environment priority',
+            environmentGroups: [
+                {
+                    environments: sampleEnvsA,
+                    distanceToUpstream: 0,
+                    environmentGroupName: 'g1',
+                    priority: Priority.UPSTREAM,
+                },
+            ],
+            loaded: true,
+            expected: 1,
+            expectedEnvHeaderWrapper: 2,
+            expectedMainContent: 1,
+            spinnerExpected: 0,
+            expectedCardStyles: [
+                {
+                    className: 'environment-priority-yolo',
+                    count: 0,
+                },
+                {
+                    className: 'environment-priority-upstream',
+                    count: 3,
+                },
+            ],
         },
         {
             name: 'just the spinner',
@@ -136,6 +180,7 @@ describe('Environment Lane', () => {
             expectedEnvHeaderWrapper: 0,
             expectedMainContent: 0,
             spinnerExpected: 1,
+            expectedCardStyles: [],
         },
     ];
     describe.each(cases)('Renders a row of environments', (testcase) => {
@@ -154,6 +199,11 @@ describe('Environment Lane', () => {
             expect(container.getElementsByClassName('environment-lane__header')).toHaveLength(
                 testcase.expectedEnvHeaderWrapper
             );
+            for (const expectedCardStyle of testcase.expectedCardStyles) {
+                expect(container.getElementsByClassName(expectedCardStyle.className)).toHaveLength(
+                    expectedCardStyle.count
+                );
+            }
         });
     });
 });

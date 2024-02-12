@@ -298,7 +298,7 @@ describe('Release Card Rollout Status', () => {
                             priority: Priority.OTHER,
                         },
                     ],
-
+                    priority: Priority.UNRECOGNIZED,
                     distanceToUpstream: 0,
                 },
                 {
@@ -320,6 +320,7 @@ describe('Release Card Rollout Status', () => {
                             priority: Priority.OTHER,
                         },
                     ],
+                    priority: Priority.UNRECOGNIZED,
                     distanceToUpstream: 0,
                 },
             ],

@@ -258,6 +258,7 @@ describe('Service Lane Diff', () => {
                         environments: testcase.envs,
                         environmentGroupName: 'group1',
                         distanceToUpstream: 0,
+                        priority: Priority.UNRECOGNIZED,
                     },
                 ],
             });
@@ -371,6 +372,7 @@ describe('Service Lane Important Releases', () => {
                         ],
                         environmentGroupName: 'group1',
                         distanceToUpstream: 0,
+                        priority: Priority.UNRECOGNIZED,
                     },
                 ],
             });
@@ -488,6 +490,7 @@ describe('Service Lane ⋮ menu', () => {
                         environments: testcase.envs,
                         environmentGroupName: 'group1',
                         distanceToUpstream: 0,
+                        priority: Priority.UNRECOGNIZED,
                     },
                 ],
             });
@@ -624,6 +627,7 @@ describe('Service Lane AppLockSummary', () => {
                         environments: testcase.envs,
                         environmentGroupName: 'group1',
                         distanceToUpstream: 0,
+                        priority: Priority.UNRECOGNIZED,
                     },
                 ],
             });

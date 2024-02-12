@@ -17,7 +17,7 @@ import { ReleaseCardMini, ReleaseCardMiniProps } from './ReleaseCardMini';
 import { render } from '@testing-library/react';
 import { UpdateOverview } from '../../utils/store';
 import { MemoryRouter } from 'react-router-dom';
-import { Environment, Release, UndeploySummary } from '../../../api/api';
+import { Environment, Priority, Release, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
 import { elementQuerySelectorSafe, makeRelease } from '../../../setupTests';
 
@@ -138,6 +138,7 @@ describe('Release Card Mini', () => {
                         environments: testcase.environments,
                         distanceToUpstream: 2,
                         environmentGroupName: 'test-group',
+                        priority: Priority.UNRECOGNIZED,
                     },
                 ],
             });

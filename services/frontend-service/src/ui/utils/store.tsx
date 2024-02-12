@@ -363,8 +363,8 @@ export const useEnvironmentNames = (): string[] => useEnvironments().map((env) =
 /**
  * returns the classname according to the priority of an environment, used to color environments
  */
-export const getPriorityClassName = (environment: Environment): string =>
-    'environment-priority-' + String(Priority[environment?.priority ?? Priority.UNRECOGNIZED]).toLowerCase();
+export const getPriorityClassName = (envOrGroup: Environment | EnvironmentGroup): string =>
+    'environment-priority-' + String(Priority[envOrGroup?.priority ?? Priority.UNRECOGNIZED]).toLowerCase();
 
 // filter for apps included in the selected teams
 const applicationsMatchingTeam = (applications: Application[], teams: string[]): Application[] =>
@@ -695,6 +695,7 @@ export const useCurrentlyDeployedAtGroup = (application: string, version: number
                     environments: envs,
                     distanceToUpstream: group.distanceToUpstream,
                     numberOfEnvsInGroup: group.environments.length,
+                    priority: group.priority,
                 };
                 envGroups.push(groupCopy);
             }
@@ -720,6 +721,7 @@ export const useCurrentlyExistsAtGroup = (application: string): EnvironmentGroup
                     environments: envs,
                     distanceToUpstream: group.distanceToUpstream,
                     numberOfEnvsInGroup: group.environments.length,
+                    priority: group.priority,
                 };
                 envGroups.push(groupCopy);
             }

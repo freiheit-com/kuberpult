@@ -140,7 +140,45 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 		}
 	}
 	calculateEnvironmentPriorities(tmpEnvs) // note that `tmpEnvs` were copied by reference - otherwise this function would have no effect on `result`
+
+	{
+		var downstreamDepth uint32 = 0
+		for _, group := range result {
+			downstreamDepth = max(downstreamDepth, group.DistanceToUpstream)
+		}
+
+		for _, group := range result {
+			group.Priority = calculateGroupPriority(group.DistanceToUpstream, downstreamDepth)
+		}
+	}
+
 	return result
+}
+
+func calculateGroupPriority(distanceToUpstream, downstreamDepth uint32) api.Priority {
+	lookup := [][]api.Priority {
+		[]api.Priority {api.Priority_YOLO},
+		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PROD},
+		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_PROD},
+		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
+		[]api.Priority {api.Priority_UPSTREAM, api.Priority_OTHER, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
+	}
+	if downstreamDepth > uint32(len(lookup) - 1) {
+		if distanceToUpstream == 0 {
+			return api.Priority_UPSTREAM
+		}
+		if distanceToUpstream == downstreamDepth {
+			return api.Priority_PROD
+		}
+		if distanceToUpstream == downstreamDepth - 1 {
+			return api.Priority_CANARY
+		}
+		if distanceToUpstream == downstreamDepth - 2 {
+			return api.Priority_PRE_PROD
+		}
+		return api.Priority_OTHER
+	}
+	return lookup[downstreamDepth][distanceToUpstream]
 }
 
 // either the groupName is set in the config, or we use the envName as a default

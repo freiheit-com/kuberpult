@@ -22,10 +22,11 @@ import { Environment, EnvironmentGroup } from '../../../api/api';
 import classNames from 'classnames';
 import { ProductVersionLink } from '../../utils/Links';
 
-export const EnvironmentCard: React.FC<{ environment: Environment; groupName: string }> = (props) => {
-    const { environment, groupName } = props;
+export const EnvironmentCard: React.FC<{ environment: Environment; group: EnvironmentGroup | undefined }> = (props) => {
+    const { environment, group } = props;
     const locks = useFilteredEnvironmentLockIDs(environment.name);
-    const priorityClassName = getPriorityClassName(environment);
+
+    const priorityClassName = group !== undefined ? getPriorityClassName(group) : getPriorityClassName(environment);
 
     const addLock = React.useCallback(() => {
         addAction({
@@ -63,7 +64,9 @@ export const EnvironmentCard: React.FC<{ environment: Environment; groupName: st
                         onClick={addLock}
                     />
                     <div>
-                        <ProductVersionLink env={environment.name} groupName={groupName}></ProductVersionLink>
+                        <ProductVersionLink
+                            env={environment.name}
+                            groupName={group?.environmentGroupName ?? ''}></ProductVersionLink>
                     </div>
                 </div>
             </div>
@@ -74,7 +77,7 @@ export const EnvironmentCard: React.FC<{ environment: Environment; groupName: st
 export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup }> = (props) => {
     const { environmentGroup } = props;
     // all envs in the same group have the same priority
-    const priorityClassName = getPriorityClassName(environmentGroup.environments[0]);
+    const priorityClassName = getPriorityClassName(environmentGroup);
     const addLock = React.useCallback(() => {
         environmentGroup.environments.forEach((environment) => {
             addAction({
@@ -104,11 +107,7 @@ export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup
             </div>
             <div className="environment-group-lane__body">
                 {environmentGroup.environments.map((env) => (
-                    <EnvironmentCard
-                        environment={env}
-                        key={env.name}
-                        groupName={environmentGroup.environmentGroupName}
-                    />
+                    <EnvironmentCard environment={env} key={env.name} group={environmentGroup} />
                 ))}
             </div>
             {/*I am just here so that we can avoid margin collapsing */}
