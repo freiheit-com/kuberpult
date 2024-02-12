@@ -291,9 +291,6 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 			if err := fs.MkdirAll(commitDir, 0777); err != nil {
 				return "", nil, GetCreateReleaseGeneralFailure(err)
 			}
-			if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
-				return "", nil, GetCreateReleaseGeneralFailure(err)
-			}
 		}
 	}
 	if c.SourceAuthor != "" {
@@ -421,6 +418,9 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 		return nil
 	}
 	commitDir := commitDirectory(fs, sourceCommitId)
+	if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
 	commitAppDir := commitApplicationDirectory(fs, sourceCommitId, app)
 	if err := fs.MkdirAll(commitAppDir, 0777); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
