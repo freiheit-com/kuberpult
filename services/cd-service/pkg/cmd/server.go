@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"strings"
 	"time"
@@ -124,7 +125,18 @@ func RunServer() {
 		}
 
 		if c.EnableTracing {
-			tracer.Start()
+			customHTTPClient := &http.Client{
+				Timeout: 5 * time.Second, // Example: Setting a custom timeout
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						// You can set custom TLS configurations here
+						InsecureSkipVerify: true, // Set to true if you want to skip certificate verification (not recommended in production)
+						// Add more TLS configurations as needed
+					},
+					// You can configure other aspects of the transport here, such as proxies or custom dialers
+				},
+			}
+			tracer.Start(tracer.WithHTTPClient(customHTTPClient))
 			defer tracer.Stop()
 
 			grpcStreamInterceptors = append(grpcStreamInterceptors,
