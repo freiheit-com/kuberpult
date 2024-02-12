@@ -152,13 +152,14 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				}
 			}
 		} else {
+			validate := false
 			appToUpdate := CreateArgoApplication(overview, app, k.Environment)
-			appUpdateRequest := &application.ApplicationUpdateSpecRequest{
-				Name:         &appToUpdate.Name,
-				Spec:         &appToUpdate.Spec,
-				AppNamespace: &appToUpdate.Namespace,
+			appUpdateRequest := &application.ApplicationUpdateRequest{
+				Validate:    ptr.Bool(validate),
+				Application: appToUpdate,
+				Project:     ptr.FromString(appToUpdate.Spec.Project),
 			}
-			_, err := a.ApplicationClient.UpdateSpec(ctx, appUpdateRequest)
+			_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
 			if err != nil {
 				logger.FromContext(ctx).Error("updating application: " + appToUpdate.Name + ",env " + env.Name)
 			}
