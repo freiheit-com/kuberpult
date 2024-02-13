@@ -32,9 +32,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type BatchServerConfig struct {
+	WriteCommitData bool
+}
+
 type BatchServer struct {
 	Repository repository.Repository
 	RBACConfig auth.RBACConfig
+	Config     BatchServerConfig
 }
 
 // see maxBatchActions in store.tsx
@@ -206,16 +211,17 @@ func (d *BatchServer) processAction(
 		in := action.CreateRelease
 		response := api.CreateReleaseResponseSuccess{}
 		return &repository.CreateApplicationVersion{
-				Version:        in.Version,
-				Application:    in.Application,
-				Manifests:      in.Manifests,
-				SourceCommitId: in.SourceCommitId,
-				SourceAuthor:   in.SourceAuthor,
-				SourceMessage:  in.SourceMessage,
-				SourceRepoUrl:  in.SourceRepoUrl,
-				Team:           in.Team,
-				DisplayVersion: in.DisplayVersion,
-				Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+				Version:         in.Version,
+				Application:     in.Application,
+				Manifests:       in.Manifests,
+				SourceCommitId:  in.SourceCommitId,
+				SourceAuthor:    in.SourceAuthor,
+				SourceMessage:   in.SourceMessage,
+				SourceRepoUrl:   in.SourceRepoUrl,
+				Team:            in.Team,
+				DisplayVersion:  in.DisplayVersion,
+				Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
+				WriteCommitData: d.Config.WriteCommitData,
 			}, &api.BatchResult{
 				Result: &api.BatchResult_CreateReleaseResponse{
 					CreateReleaseResponse: &api.CreateReleaseResponse{

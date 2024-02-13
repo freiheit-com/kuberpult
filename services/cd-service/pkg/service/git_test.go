@@ -19,10 +19,11 @@ package service
 import (
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"google.golang.org/grpc/codes"
@@ -77,12 +78,13 @@ func TestGetProductOverview(t *testing.T) {
 					Manifests: map[string]string{
 						"development": "dev",
 					},
-					SourceAuthor:   "example <example@example.com>",
-					SourceCommitId: "testing25",
-					SourceMessage:  "changed something (#678)",
-					SourceRepoUrl:  "testing@testing.com/abc",
-					DisplayVersion: "v1.0.2",
-					Team:           "sre-team",
+					SourceAuthor:    "example <example@example.com>",
+					SourceCommitId:  "testing25",
+					SourceMessage:   "changed something (#678)",
+					SourceRepoUrl:   "testing@testing.com/abc",
+					DisplayVersion:  "v1.0.2",
+					Team:            "sre-team",
+					WriteCommitData: true,
 				},
 				&rp.DeployApplicationVersion{
 					Application: "test",
@@ -111,11 +113,12 @@ func TestGetProductOverview(t *testing.T) {
 					Manifests: map[string]string{
 						"development": "dev",
 					},
-					SourceAuthor:   "example <example@example.com>",
-					SourceCommitId: "testing25",
-					SourceMessage:  "changed something (#678)",
-					SourceRepoUrl:  "testing@testing.com/abc",
-					DisplayVersion: "v1.0.2",
+					SourceAuthor:    "example <example@example.com>",
+					SourceCommitId:  "testing25",
+					SourceMessage:   "changed something (#678)",
+					SourceRepoUrl:   "testing@testing.com/abc",
+					DisplayVersion:  "v1.0.2",
+					WriteCommitData: true,
 				},
 				&rp.DeployApplicationVersion{
 					Application: "test",
@@ -144,11 +147,12 @@ func TestGetProductOverview(t *testing.T) {
 					Manifests: map[string]string{
 						"development": "dev",
 					},
-					SourceAuthor:   "example <example@example.com>",
-					SourceCommitId: "testing25",
-					SourceMessage:  "changed something (#678)",
-					SourceRepoUrl:  "testing@testing.com/abc",
-					DisplayVersion: "v1.0.2",
+					SourceAuthor:    "example <example@example.com>",
+					SourceCommitId:  "testing25",
+					SourceMessage:   "changed something (#678)",
+					SourceRepoUrl:   "testing@testing.com/abc",
+					DisplayVersion:  "v1.0.2",
+					WriteCommitData: true,
 				},
 				&rp.DeployApplicationVersion{
 					Application: "test",
@@ -177,12 +181,13 @@ func TestGetProductOverview(t *testing.T) {
 					Manifests: map[string]string{
 						"development": "dev",
 					},
-					SourceAuthor:   "example <example@example.com>",
-					SourceCommitId: "testing25",
-					SourceMessage:  "changed something (#678)",
-					SourceRepoUrl:  "testing@testing.com/abc",
-					DisplayVersion: "v1.0.2",
-					Team:           "sre-team",
+					SourceAuthor:    "example <example@example.com>",
+					SourceCommitId:  "testing25",
+					SourceMessage:   "changed something (#678)",
+					SourceRepoUrl:   "testing@testing.com/abc",
+					DisplayVersion:  "v1.0.2",
+					Team:            "sre-team",
+					WriteCommitData: true,
 				},
 				&rp.DeployApplicationVersion{
 					Application: "test",
@@ -211,11 +216,12 @@ func TestGetProductOverview(t *testing.T) {
 					Manifests: map[string]string{
 						"development": "dev",
 					},
-					SourceAuthor:   "example <example@example.com>",
-					SourceCommitId: "testing25",
-					SourceMessage:  "changed something (#678)",
-					SourceRepoUrl:  "testing@testing.com/abc",
-					DisplayVersion: "v1.0.2",
+					SourceAuthor:    "example <example@example.com>",
+					SourceCommitId:  "testing25",
+					SourceMessage:   "changed something (#678)",
+					SourceRepoUrl:   "testing@testing.com/abc",
+					DisplayVersion:  "v1.0.2",
+					WriteCommitData: true,
 				},
 				&rp.DeployApplicationVersion{
 					Application: "test",
@@ -270,11 +276,12 @@ func fixedTime() time.Time {
 func TestGetCommitInfo(t *testing.T) {
 
 	type TestCase struct {
-		name             string
-		transformers     []rp.Transformer
-		request          *api.GetCommitInfoRequest
-		expectedResponse *api.GetCommitInfoResponse
-		expectedError    error
+		name                   string
+		transformers           []rp.Transformer
+		request                *api.GetCommitInfoRequest
+		allowReadingCommitData bool
+		expectedResponse       *api.GetCommitInfoResponse
+		expectedError          error
 	}
 
 	tcs := []TestCase{
@@ -288,12 +295,14 @@ func TestGetCommitInfo(t *testing.T) {
 					Manifests: map[string]string{
 						"dev": "dev-manifest",
 					},
+					WriteCommitData: true,
 				},
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			},
-			expectedError: nil,
+			allowReadingCommitData: true,
+			expectedError:          nil,
 			expectedResponse: &api.GetCommitInfoResponse{
 				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CommitMessage: "some message",
@@ -322,6 +331,7 @@ func TestGetCommitInfo(t *testing.T) {
 					Manifests: map[string]string{
 						"dev": "dev-manifest1",
 					},
+					WriteCommitData: true,
 				},
 				&rp.CreateApplicationVersion{
 					Application:    "app2",
@@ -330,6 +340,7 @@ func TestGetCommitInfo(t *testing.T) {
 					Manifests: map[string]string{
 						"dev2": "dev-manifest2",
 					},
+					WriteCommitData: true,
 				},
 				&rp.CreateApplicationVersion{
 					Application:    "app3",
@@ -338,12 +349,14 @@ func TestGetCommitInfo(t *testing.T) {
 					Manifests: map[string]string{
 						"dev3": "dev-manifest3",
 					},
+					WriteCommitData: true,
 				},
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			},
-			expectedError: nil,
+			allowReadingCommitData: true,
+			expectedError:          nil,
 			expectedResponse: &api.GetCommitInfoResponse{
 				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CommitMessage: "some message",
@@ -384,29 +397,33 @@ func TestGetCommitInfo(t *testing.T) {
 			name: "create one commit with one app but get the info of a nonexistent commit",
 			transformers: []rp.Transformer{
 				&rp.CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					SourceMessage:  "some message",
+					Application:     "app",
+					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:   "some message",
+					WriteCommitData: true,
 				},
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 			},
-			expectedError:    status.Error(codes.NotFound, "error: commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the manifest repo"),
-			expectedResponse: nil,
+			allowReadingCommitData: true,
+			expectedError:          status.Error(codes.NotFound, "error: commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the manifest repo"),
+			expectedResponse:       nil,
 		},
 		{
 			name: "find a commit by prefix",
 			transformers: []rp.Transformer{
 				&rp.CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "32a5b7b27fe0e7c328e8ec4615cb34750bc328bd",
-					SourceMessage:  "some message",
+					Application:     "app",
+					SourceCommitId:  "32a5b7b27fe0e7c328e8ec4615cb34750bc328bd",
+					SourceMessage:   "some message",
+					WriteCommitData: true,
 				},
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "32a5b7b27",
 			},
+			allowReadingCommitData: true,
 			expectedResponse: &api.GetCommitInfoResponse{
 				CommitHash:    "32a5b7b27fe0e7c328e8ec4615cb34750bc328bd",
 				CommitMessage: "some message",
@@ -420,6 +437,46 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name: "no commit info returned if feature toggle not set",
+			transformers: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "some message",
+					Manifests: map[string]string{
+						"dev": "dev-manifest",
+					},
+					WriteCommitData: true, // we still write the info …
+				},
+			},
+			request: &api.GetCommitInfoRequest{
+				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			},
+			allowReadingCommitData: false, // … but do not return it
+			expectedError:          status.Error(codes.FailedPrecondition, "no written commit info available; set KUBERPULT_GIT_WRITE_COMMIT_DATA=true to enable"),
+			expectedResponse:       nil,
+		},
+		{
+			name: "no commit info written if toggle not set",
+			transformers: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "some message",
+					Manifests: map[string]string{
+						"dev": "dev-manifest",
+					},
+					WriteCommitData: false, // do not write commit data …
+				},
+			},
+			request: &api.GetCommitInfoRequest{
+				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			},
+			allowReadingCommitData: true, // … but attempt to read anyway
+			expectedError:          status.Error(codes.NotFound, "commit info does not exist"),
+			expectedResponse:       nil,
 		},
 	}
 
@@ -443,7 +500,14 @@ func TestGetCommitInfo(t *testing.T) {
 				// each consecutive transformer will get 1 second added:
 				variableTime = variableTime.Add(time.Second * time.Duration(1))
 			}
-			sv := &GitServer{OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown}}
+
+			config := rp.RepositoryConfig{
+				WriteCommitData: tc.allowReadingCommitData,
+			}
+			sv := &GitServer{
+				OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown},
+				Config:          config,
+			}
 
 			ctx := testutil.MakeTestContext()
 			commitInfo, err := sv.GetCommitInfo(ctx, tc.request)
