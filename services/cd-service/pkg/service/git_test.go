@@ -502,7 +502,7 @@ func TestGetCommitInfo(t *testing.T) {
 			}
 
 			config := rp.RepositoryConfig{
-				WriteCommitData: tc.configWriteCommitData,
+				WriteCommitData: tc.allowReadingCommitData,
 			}
 			sv := &GitServer{
 				OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown},
