@@ -76,7 +76,7 @@ unit-test-ui:
 
 docker-ui:
     FROM +deps-ui
-    CMD "rm -rf src/api src/google && buf generate --path api --timeout 5m && pnpm start" 
+    CMD "pnpm start" 
     SAVE IMAGE ui:local
     SAVE ARTIFACT src/api AS LOCAL src/api
     SAVE ARTIFACT src/google AS LOCAL src/google
