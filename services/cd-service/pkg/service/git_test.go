@@ -276,12 +276,12 @@ func fixedTime() time.Time {
 func TestGetCommitInfo(t *testing.T) {
 
 	type TestCase struct {
-		name                  string
-		transformers          []rp.Transformer
-		request               *api.GetCommitInfoRequest
+		name                   string
+		transformers           []rp.Transformer
+		request                *api.GetCommitInfoRequest
 		allowReadingCommitData bool
-		expectedResponse      *api.GetCommitInfoResponse
-		expectedError         error
+		expectedResponse       *api.GetCommitInfoResponse
+		expectedError          error
 	}
 
 	tcs := []TestCase{
@@ -301,8 +301,8 @@ func TestGetCommitInfo(t *testing.T) {
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			},
-			configWriteCommitData: true,
-			expectedError:         nil,
+			allowReadingCommitData: true,
+			expectedError:          nil,
 			expectedResponse: &api.GetCommitInfoResponse{
 				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CommitMessage: "some message",
@@ -355,8 +355,8 @@ func TestGetCommitInfo(t *testing.T) {
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			},
-			configWriteCommitData: true,
-			expectedError:         nil,
+			allowReadingCommitData: true,
+			expectedError:          nil,
 			expectedResponse: &api.GetCommitInfoResponse{
 				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CommitMessage: "some message",
@@ -406,9 +406,9 @@ func TestGetCommitInfo(t *testing.T) {
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 			},
-			configWriteCommitData: true,
-			expectedError:         status.Error(codes.NotFound, "error: commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the manifest repo"),
-			expectedResponse:      nil,
+			allowReadingCommitData: true,
+			expectedError:          status.Error(codes.NotFound, "error: commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb was not found in the manifest repo"),
+			expectedResponse:       nil,
 		},
 		{
 			name: "find a commit by prefix",
@@ -423,7 +423,7 @@ func TestGetCommitInfo(t *testing.T) {
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "32a5b7b27",
 			},
-			configWriteCommitData: true,
+			allowReadingCommitData: true,
 			expectedResponse: &api.GetCommitInfoResponse{
 				CommitHash:    "32a5b7b27fe0e7c328e8ec4615cb34750bc328bd",
 				CommitMessage: "some message",
@@ -454,9 +454,9 @@ func TestGetCommitInfo(t *testing.T) {
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			},
-			configWriteCommitData: false, // … but do not return it
-			expectedError:         status.Error(codes.FailedPrecondition, "no written commit info available; set KUBERPULT_GIT_WRITE_COMMIT_DATA=true to enable"),
-			expectedResponse:      nil,
+			allowReadingCommitData: false, // … but do not return it
+			expectedError:          status.Error(codes.FailedPrecondition, "no written commit info available; set KUBERPULT_GIT_WRITE_COMMIT_DATA=true to enable"),
+			expectedResponse:       nil,
 		},
 		{
 			name: "no commit info written if toggle not set",
@@ -474,9 +474,9 @@ func TestGetCommitInfo(t *testing.T) {
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			},
-			configWriteCommitData: true, // … but attempt to read anyway
-			expectedError:         status.Error(codes.NotFound, "commit info does not exist"),
-			expectedResponse:      nil,
+			allowReadingCommitData: true, // … but attempt to read anyway
+			expectedError:          status.Error(codes.NotFound, "commit info does not exist"),
+			expectedResponse:       nil,
 		},
 	}
 
