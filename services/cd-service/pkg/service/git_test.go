@@ -439,6 +439,26 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 		},
 		{
+			name: "no commit info returned if feature toggle not set",
+			transformers: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceMessage:  "some message",
+					Manifests: map[string]string{
+						"dev": "dev-manifest",
+					},
+					WriteCommitData: true, // we still write the info …
+				},
+			},
+			request: &api.GetCommitInfoRequest{
+				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			},
+			configWriteCommitData: false, // … but do not return it
+			expectedError:         status.Error(codes.FailedPrecondition, "no written commit info available; set KUBERPULT_GIT_WRITE_COMMIT_DATA=true to enable"),
+			expectedResponse:      nil,
+		},
+		{
 			name: "no commit info written if toggle not set",
 			transformers: []rp.Transformer{
 				&rp.CreateApplicationVersion{
@@ -448,14 +468,14 @@ func TestGetCommitInfo(t *testing.T) {
 					Manifests: map[string]string{
 						"dev": "dev-manifest",
 					},
-					WriteCommitData: true,
+					WriteCommitData: false, // do not write commit data …
 				},
 			},
 			request: &api.GetCommitInfoRequest{
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			},
-			configWriteCommitData: false,
-			expectedError:         status.Error(codes.FailedPrecondition, "no written commit info available; set KUBERPULT_GIT_WRITE_COMMIT_DATA=true to enable"),
+			configWriteCommitData: true, // … but attempt to read anyway
+			expectedError:         status.Error(codes.NotFound, "commit info does not exist"),
 			expectedResponse:      nil,
 		},
 	}
