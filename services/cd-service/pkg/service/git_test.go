@@ -279,7 +279,7 @@ func TestGetCommitInfo(t *testing.T) {
 		name                  string
 		transformers          []rp.Transformer
 		request               *api.GetCommitInfoRequest
-		configWriteCommitData bool
+		allowReadingCommitData bool
 		expectedResponse      *api.GetCommitInfoResponse
 		expectedError         error
 	}
