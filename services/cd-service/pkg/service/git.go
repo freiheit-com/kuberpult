@@ -18,7 +18,9 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -126,6 +128,10 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 }
 
 func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
+	if !s.Config.WriteCommitData {
+		return nil, status.Error(codes.FailedPrecondition, "no written commit info available; set KUBERPULT_GIT_WRITE_COMMIT_DATA=true to enable")
+	}
+
 	fs := s.OverviewService.Repository.State().Filesystem
 
 	commitIDPrefix := in.CommitHash
@@ -140,6 +146,9 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	sourceMessagePath := fs.Join(commitPath, "source_message")
 	var commitMessage string
 	if dat, err := util.ReadFile(fs, sourceMessagePath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, status.Error(codes.NotFound, "commit info does not exist")
+		}
 		return nil, fmt.Errorf("could not open the source message file at %s, err: %w", sourceMessagePath, err)
 	} else {
 		commitMessage = string(dat)

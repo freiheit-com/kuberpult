@@ -21,8 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/uuid"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"io"
 	"io/fs"
 	"os"
@@ -31,6 +29,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/uuid"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -211,15 +212,16 @@ func (t TransformerFunc) Transform(ctx context.Context, state *State) (string, *
 
 type CreateApplicationVersion struct {
 	Authentication
-	Version        uint64
-	Application    string
-	Manifests      map[string]string
-	SourceCommitId string
-	SourceAuthor   string
-	SourceMessage  string
-	SourceRepoUrl  string
-	Team           string
-	DisplayVersion string
+	Version         uint64
+	Application     string
+	Manifests       map[string]string
+	SourceCommitId  string
+	SourceAuthor    string
+	SourceMessage   string
+	SourceRepoUrl   string
+	Team            string
+	DisplayVersion  string
+	WriteCommitData bool
 }
 
 type ctxMarkerGenerateUuid struct{}
@@ -287,9 +289,6 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		if valid.SHA1CommitID(c.SourceCommitId) {
 			commitDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
 			if err := fs.MkdirAll(commitDir, 0777); err != nil {
-				return "", nil, GetCreateReleaseGeneralFailure(err)
-			}
-			if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
 				return "", nil, GetCreateReleaseGeneralFailure(err)
 			}
 		}
@@ -396,11 +395,12 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		logger.FromContext(ctx).Info("using  UUID generator from context.")
 	}
 	eventUuid := gen.Generate()
-	err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, fs)
-	if err != nil {
-		return "", nil, GetCreateReleaseGeneralFailure(err)
+	if c.WriteCommitData {
+		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, fs)
+		if err != nil {
+			return "", nil, GetCreateReleaseGeneralFailure(err)
+		}
 	}
-
 	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), changes, nil
 }
 
@@ -418,6 +418,9 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 		return nil
 	}
 	commitDir := commitDirectory(fs, sourceCommitId)
+	if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
 	commitAppDir := commitApplicationDirectory(fs, sourceCommitId, app)
 	if err := fs.MkdirAll(commitAppDir, 0777); err != nil {
 		return GetCreateReleaseGeneralFailure(err)

@@ -139,6 +139,7 @@ type RepositoryConfig struct {
 	// the url to the git repo, like the browser requires it (https protocol)
 	WebURL          string
 	DogstatsdEvents bool
+	WriteCommitData bool
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {

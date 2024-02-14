@@ -21,7 +21,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"io"
 	"math/rand"
 	"os/exec"
@@ -33,6 +32,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -87,6 +88,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -107,6 +109,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -134,6 +137,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -164,6 +168,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -194,6 +199,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
@@ -227,6 +233,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -251,6 +258,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -276,16 +284,18 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
 				},
 				&CreateApplicationVersion{
-					Application:    "app1",
-					Manifests:      nil,
-					SourceCommitId: "",
-					SourceAuthor:   "",
-					SourceMessage:  "",
+					Application:     "app1",
+					Manifests:       nil,
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					WriteCommitData: true,
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -347,6 +357,7 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -369,6 +380,7 @@ func TestCreateUndeployApplicationVersionErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 			},
 			expectedError:    "file does not exist",
@@ -433,12 +445,13 @@ func TestCreateApplicationVersionEvents(t *testing.T) {
 						envAcceptance: envAcceptance,
 						envProduction: envProduction,
 					},
-					SourceCommitId: "cafe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2",
-					SourceAuthor:   "best Author",
-					SourceMessage:  "smart message",
-					SourceRepoUrl:  "",
-					Team:           "",
-					DisplayVersion: "",
+					SourceCommitId:  "cafe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2",
+					SourceAuthor:    "best Author",
+					SourceMessage:   "smart message",
+					SourceRepoUrl:   "",
+					Team:            "",
+					DisplayVersion:  "",
+					WriteCommitData: true,
 				},
 			},
 			expectedError: "",
@@ -510,6 +523,7 @@ func TestDeployOnSelectedEnvs(t *testing.T) {
 						envAcceptance: "acc1",
 						envProduction: "prod1",
 					},
+					WriteCommitData: true,
 				},
 			},
 			Expected: []Expected{
@@ -612,6 +626,7 @@ spec:
 						envAcceptance: "acc2",
 						envProduction: "prod2",
 					},
+					WriteCommitData: true,
 				},
 			},
 			Expected: []Expected{
@@ -724,6 +739,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "{}",
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
@@ -731,6 +747,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "{}",
 					},
+					WriteCommitData: true,
 				},
 			},
 			expectedErrorMsg: "already_exists_same:{}",
@@ -748,6 +765,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: `{}`,
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
@@ -755,6 +773,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: `{ "different": "yes" }`,
 					},
+					WriteCommitData: true,
 				},
 			},
 			expectedErrorMsg: `already_exists_different:{first_differing_field:MANIFESTS diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
@@ -772,6 +791,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: `{ "different":                  "yes" }`,
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
@@ -779,6 +799,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: `{ "different": "yes" }`,
 					},
+					WriteCommitData: true,
 				},
 			},
 			expectedErrorMsg: "already_exists_same:{}",
@@ -1019,6 +1040,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 				Manifests: map[string]string{
 					envAcceptance: "acceptance",
 				},
+				WriteCommitData: true,
 			})
 		}
 		return ret
@@ -1038,6 +1060,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -1063,6 +1086,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application:    "app2",
@@ -1070,6 +1094,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application:    "app3",
@@ -1077,6 +1102,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -1116,6 +1142,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application:    "app2",
@@ -1123,6 +1150,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application:    "app3",
@@ -1130,6 +1158,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -1169,6 +1198,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application:    "app2",
@@ -1176,6 +1206,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application:    "app3",
@@ -1183,6 +1214,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -1222,6 +1254,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -1247,6 +1280,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -1302,6 +1336,7 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 						Manifests: map[string]string{
 							envAcceptance: "acceptance",
 						},
+						WriteCommitData: true,
 					},
 				},
 				manyCreateApplication("app2", 21),
@@ -1377,6 +1412,7 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 				Manifests: map[string]string{
 					envAcceptance: "acceptance",
 				},
+				WriteCommitData: true,
 			})
 		}
 		return ret
@@ -1387,8 +1423,9 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 			Name: "Create one application with SHA1 commit ID and then undeploy it",
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
-					Application:    "app",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Application:     "app",
+					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app",
@@ -1405,12 +1442,14 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 			Name: "Create two applications and then undeploy one of them",
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
-					Application:    "app1",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Application:     "app1",
+					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
-					Application:    "app2",
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Application:     "app2",
+					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -1507,6 +1546,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -1537,6 +1577,7 @@ func TestDeployApplicationVersion(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "", // empty!
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -1629,14 +1670,16 @@ func TestCreateApplicationVersionWithVersion(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "first version (100) manifest",
 					},
-					Version: 100,
+					Version:         100,
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
 						envAcceptance: "second version (101) manifest",
 					},
-					Version: 101,
+					Version:         101,
+					WriteCommitData: true,
 				},
 			},
 			expectedPath:     "applications/app1/releases/101/environments/acceptance/manifests.yaml",
@@ -1654,14 +1697,16 @@ func TestCreateApplicationVersionWithVersion(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "first version (100) manifest",
 					},
-					Version: 100,
+					Version:         100,
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
 						envAcceptance: "second version (99) manifest",
 					},
-					Version: 99,
+					Version:         99,
+					WriteCommitData: true,
 				},
 			},
 			expectedPath:     "applications/app1/releases/99/environments/acceptance/manifests.yaml",
@@ -1679,8 +1724,9 @@ func TestCreateApplicationVersionWithVersion(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "manifest",
 					},
-					Version:        100,
-					DisplayVersion: "1.3.1",
+					Version:         100,
+					DisplayVersion:  "1.3.1",
+					WriteCommitData: true,
 				},
 			},
 			expectedPath:     "applications/app1/releases/100/display_version",
@@ -1734,6 +1780,7 @@ func TestUndeployErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -1751,16 +1798,18 @@ func TestUndeployErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
 				},
 				&CreateApplicationVersion{
-					Application:    "app1",
-					Manifests:      nil,
-					SourceCommitId: "",
-					SourceAuthor:   "",
-					SourceMessage:  "",
+					Application:     "app1",
+					Manifests:       nil,
+					SourceCommitId:  "",
+					SourceAuthor:    "",
+					SourceMessage:   "",
+					WriteCommitData: true,
 				},
 			},
 			expectedError:     "",
@@ -1775,6 +1824,7 @@ func TestUndeployErrors(t *testing.T) {
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2073,6 +2123,7 @@ func TestTransformerChanges(t *testing.T) {
 						envProduction: envProduction,
 						envAcceptance: envAcceptance,
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application: "bar",
@@ -2080,6 +2131,7 @@ func TestTransformerChanges(t *testing.T) {
 						envProduction: envProduction,
 						envAcceptance: envAcceptance,
 					},
+					WriteCommitData: true,
 				},
 				&ReleaseTrain{
 					Target: envProduction,
@@ -2117,6 +2169,7 @@ func TestTransformerChanges(t *testing.T) {
 						envProduction: envProduction,
 						envAcceptance: envAcceptance,
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application: "bar",
@@ -2124,6 +2177,7 @@ func TestTransformerChanges(t *testing.T) {
 						envProduction: envProduction,
 						envAcceptance: envAcceptance,
 					},
+					WriteCommitData: true,
 				},
 				&ReleaseTrain{
 					Target: envProduction,
@@ -2179,6 +2233,7 @@ func TestTransformerChanges(t *testing.T) {
 						envProduction: envProduction,
 						envAcceptance: envAcceptance,
 					},
+					WriteCommitData: true,
 				},
 				&DeleteEnvFromApp{
 					Application: "foo",
@@ -2216,6 +2271,7 @@ func TestTransformerChanges(t *testing.T) {
 						envProduction: envProduction,
 						envAcceptance: envAcceptance,
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Authentication: Authentication{},
@@ -2281,7 +2337,8 @@ func TestRbacTransformerTest(t *testing.T) {
 						"production": "production",
 						"staging":    "staging",
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application:    "app1",
@@ -2315,7 +2372,8 @@ func TestRbacTransformerTest(t *testing.T) {
 						"production": "production",
 						"staging":    "staging",
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application:    "app1",
@@ -2379,7 +2437,8 @@ func TestRbacTransformerTest(t *testing.T) {
 						"production": "production",
 						"staging":    "staging",
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2410,7 +2469,8 @@ func TestRbacTransformerTest(t *testing.T) {
 						"production": "production",
 						"staging":    "staging",
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2441,7 +2501,8 @@ func TestRbacTransformerTest(t *testing.T) {
 						"production": "production",
 						"staging":    "staging",
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
@@ -2497,6 +2558,7 @@ func TestRbacTransformerTest(t *testing.T) {
 						"developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
 						"developer,DeployRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
 					}}},
+					WriteCommitData: true,
 				},
 			},
 		},
@@ -2516,6 +2578,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
 						"developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
 					}}},
+					WriteCommitData: true,
 				},
 			},
 			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'DeployRelease' on environment 'acceptance'",
@@ -2533,7 +2596,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					WriteCommitData: true,
 				},
 			},
 			ExpectedError: "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateRelease' on environment '*'",
@@ -2551,7 +2615,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envAcceptance,
@@ -2576,7 +2641,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:    envAcceptance,
@@ -2695,7 +2761,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "productionmanifest",
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment:    "production",
@@ -2719,7 +2786,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "productionmanifest",
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "production",
@@ -2744,7 +2812,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "productionmanifest",
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment:    "production",
@@ -2774,7 +2843,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "productionmanifest",
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "production",
@@ -2808,7 +2878,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:    envProduction,
@@ -2838,7 +2909,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:    envProduction,
@@ -2929,6 +3001,7 @@ func ReleaseTrainTestSetup(releaseTrainTransformer Transformer) []Transformer {
 				envProduction: "productionmanifest",
 				envAcceptance: "acceptancenmanifest",
 			},
+			WriteCommitData: true,
 		},
 		&DeployApplicationVersion{
 			Environment: envProduction,
@@ -2941,6 +3014,7 @@ func ReleaseTrainTestSetup(releaseTrainTransformer Transformer) []Transformer {
 				envProduction: "productionmanifest",
 				envAcceptance: "acceptancenmanifest",
 			},
+			WriteCommitData: true,
 		},
 		&DeployApplicationVersion{
 			Environment: envAcceptance,
@@ -3079,6 +3153,7 @@ func TestTransformer(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment: envProduction,
@@ -3091,6 +3166,7 @@ func TestTransformer(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment: envAcceptance,
@@ -3141,12 +3217,14 @@ func TestTransformer(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptancenmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application: "test",
 					Manifests: map[string]string{
 						envAcceptance: "acceptancenmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&ReleaseTrain{
 					Target: envAcceptance,
@@ -3190,7 +3268,8 @@ func TestTransformer(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
-					Team: "test",
+					Team:            "test",
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment: envProduction,
@@ -3203,6 +3282,7 @@ func TestTransformer(t *testing.T) {
 						envProduction: "productionmanifest",
 						envAcceptance: "acceptancenmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment: envAcceptance,
@@ -3277,6 +3357,7 @@ func TestTransformer(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "production",
@@ -3390,6 +3471,7 @@ func TestTransformer(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment: "production",
@@ -3454,6 +3536,7 @@ func TestTransformer(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 			},
 			Test: func(t *testing.T, s *State) {
@@ -3489,7 +3572,8 @@ func TestTransformer(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "productionmanifest",
 					},
-					Team: "test-team",
+					Team:            "test-team",
+					WriteCommitData: true,
 				},
 			},
 			Test: func(t *testing.T, s *State) {
@@ -3514,6 +3598,7 @@ func TestTransformer(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 			},
 			Test: func(t *testing.T, s *State) {
@@ -3539,6 +3624,7 @@ func TestTransformer(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Version:     42,
@@ -3546,6 +3632,7 @@ func TestTransformer(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 			},
 			ErrorTest: func(t *testing.T, err error) {
@@ -3564,6 +3651,7 @@ func TestTransformer(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "42",
 					},
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Version:     41,
@@ -3571,6 +3659,7 @@ func TestTransformer(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "41",
 					},
+					WriteCommitData: true,
 				},
 			},
 			Test: func(t *testing.T, s *State) {
@@ -3594,6 +3683,7 @@ func TestTransformer(t *testing.T) {
 						Manifests: map[string]string{
 							"production": "42",
 						},
+						WriteCommitData: true,
 					})
 				}
 				return t
@@ -3615,6 +3705,7 @@ func TestTransformer(t *testing.T) {
 						"one": "productionmanifest",
 						"two": "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment: "one",
@@ -3665,6 +3756,7 @@ func TestTransformer(t *testing.T) {
 						"one": "productionmanifest",
 						"two": "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 			},
 			Test: func(t *testing.T, s *State) {
@@ -3712,6 +3804,7 @@ func TestTransformer(t *testing.T) {
 						"one": "productionmanifest",
 						"two": "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment: "one",
@@ -3987,6 +4080,7 @@ func TestTransformer(t *testing.T) {
 						"staging":    "stagingmanifest",
 						"production": "stagingmanifest",
 					},
+					WriteCommitData: true,
 				},
 			},
 			Test: func(t *testing.T, s *State) {
@@ -4154,14 +4248,16 @@ spec:
 					Manifests: map[string]string{
 						"staging": "stagingmanifest",
 					},
-					Team: "team1",
+					Team:            "team1",
+					WriteCommitData: true,
 				},
 				&CreateApplicationVersion{
 					Application: "test2",
 					Manifests: map[string]string{
 						"staging": "stagingmanifest",
 					},
-					Team: "team2",
+					Team:            "team2",
+					WriteCommitData: true,
 				},
 			},
 			Test: func(t *testing.T, s *State) {
@@ -4268,6 +4364,7 @@ spec:
 					Manifests: map[string]string{
 						"staging": "stagingmanifest",
 					},
+					WriteCommitData: true,
 				},
 			},
 			Test: func(t *testing.T, s *State) {
@@ -4356,6 +4453,7 @@ spec:
 					Manifests: map[string]string{
 						"staging": "stagingmanifest",
 					},
+					WriteCommitData: true,
 				},
 			},
 			Test: func(t *testing.T, s *State) {
@@ -4494,6 +4592,7 @@ func makeTransformersDeployTestEnvLock(lock api.LockBehavior) []Transformer {
 			Manifests: map[string]string{
 				"production": "productionmanifest",
 			},
+			WriteCommitData: true,
 		},
 		&CreateEnvironmentLock{
 			Environment: "production",
@@ -4517,6 +4616,7 @@ func makeTransformersDeployTestAppLock(lock api.LockBehavior) []Transformer {
 			Manifests: map[string]string{
 				"production": "productionmanifest",
 			},
+			WriteCommitData: true,
 		},
 		&CreateEnvironmentApplicationLock{
 			Environment: "production",
@@ -4541,12 +4641,14 @@ func makeTransformersTwoDeploymentsWriteToQueue(lockA api.LockBehavior, lockB ap
 			Manifests: map[string]string{
 				"production": "productionmanifest",
 			},
+			WriteCommitData: true,
 		},
 		&CreateApplicationVersion{
 			Application: "test",
 			Manifests: map[string]string{
 				"production": "productionmanifest",
 			},
+			WriteCommitData: true,
 		},
 		&CreateEnvironmentLock{
 			Environment: "production",
@@ -4576,6 +4678,7 @@ func makeTransformersDoubleLock(lock api.LockBehavior, unlockBoth bool) []Transf
 			Manifests: map[string]string{
 				"production": "productionmanifest",
 			},
+			WriteCommitData: true,
 		},
 		&CreateEnvironmentLock{
 			Environment: "production",
@@ -4621,6 +4724,7 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 			Manifests: map[string]string{
 				envProduction: "productionmanifest",
 			},
+			WriteCommitData: true,
 		})
 		res = append(res, &DeployApplicationVersion{
 			Environment:   envProduction,
@@ -4655,10 +4759,11 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	repo, err := New(
 		testutil.MakeTestContext(),
 		RepositoryConfig{
-			URL:            remoteDir,
-			Path:           localDir,
-			CommitterEmail: "kuberpult@freiheit.com",
-			CommitterName:  "kuberpult",
+			URL:             remoteDir,
+			Path:            localDir,
+			CommitterEmail:  "kuberpult@freiheit.com",
+			CommitterName:   "kuberpult",
+			WriteCommitData: true,
 		},
 	)
 	if err != nil {
@@ -4981,6 +5086,7 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "acceptance",
@@ -5003,6 +5109,7 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance",
 					},
+					WriteCommitData: true,
 				},
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
@@ -5182,6 +5289,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envProduction,
@@ -5210,6 +5318,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envProduction,
@@ -5242,6 +5351,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envProduction,
@@ -5269,6 +5379,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Manifests: map[string]string{
 						envProduction: "productionmanifest",
 					},
+					WriteCommitData: true,
 				},
 				&DeployApplicationVersion{
 					Environment:   envProduction,
