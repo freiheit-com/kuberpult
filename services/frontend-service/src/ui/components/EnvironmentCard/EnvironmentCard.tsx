@@ -72,7 +72,7 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                     />
                     <Button
                         className="environment-action service-action--show-config"
-                        label={'Show Config of ' + environment.name}
+                        label={'Show Configuration of environment ' + environment.name}
                         onClick={onShowConfigClick}
                     />
                     <div>
