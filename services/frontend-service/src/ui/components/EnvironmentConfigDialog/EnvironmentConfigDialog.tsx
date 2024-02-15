@@ -47,7 +47,7 @@ export const EnvironmentConfigDialog: React.FC<EnvironmentConfigDialogProps> = (
         });
         result.catch((e) => {
             // eslint-disable-next-line no-console
-            console.log('error while loading environment config: ' + e);
+            console.error('error while loading environment config: ' + e);
         });
     }, [api, environmentName, params]);
 
