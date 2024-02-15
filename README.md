@@ -214,3 +214,4 @@ The `"argocd"` field has a few subfields:
 The `"environmentGroup"` field is a string that defines which environment group the environment belongs to (Example: `Production` can be an environment group to group production environments in different countries).
 EnvironmentGroups are still in development. We'll update this section once they are ready.
 The goal of EnvironmentGroups is to make handling of many similar clusters easier. They will also work with Release Trains.
+
