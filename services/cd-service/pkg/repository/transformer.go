@@ -1552,8 +1552,12 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 	return envGroupConfigs
 }
 
-func generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg map[string]string, targetGroupName string) string {
-	resp := fmt.Sprintf("Release Train to environment/environment group '%s':\n\n", targetGroupName)
+func generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg map[string]string, targetGroupName string, team string) string {
+	var teamDescription = ""
+	if team != "" {
+		teamDescription = fmt.Sprintf(" for team '%s'", team)
+	}
+	resp := fmt.Sprintf("Release Train to environment/environment group '%s'%s:\n\n", targetGroupName, teamDescription)
 
 	// this to sort the env groups, to make sure that for the same input we always got the same output
 	envGroups := make([]string, 0, len(envDeployedMsg))
@@ -1726,5 +1730,5 @@ func (c *ReleaseTrain) Transform(ctx context.Context, state *State) (string, *Tr
 		envDeployedMsg[envName] = fmt.Sprintf("The release train deployed %d services from '%s' to '%s'%s\n%s\n", numServices, source, envName, teamInfo, completeMessage)
 	}
 
-	return generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg, targetGroupName), changes, nil
+	return generateReleaseTrainResponse(envDeployedMsg, envSkippedMsg, targetGroupName, c.Team), changes, nil
 }
