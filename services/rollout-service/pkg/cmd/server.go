@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	argoio "github.com/argoproj/argo-cd/v2/util/io"
@@ -59,10 +60,11 @@ type Config struct {
 	ArgocdRefreshEnabled     bool   `split_words:"true"`
 	ArgocdRefreshConcurrency int    `default:"50" split_words:"true"`
 
-	RevolutionDoraEnabled     bool   `split_words:"true"`
-	RevolutionDoraUrl         string `split_words:"true" default:""`
-	RevolutionDoraToken       string `split_words:"true" default:""`
-	RevolutionDoraConcurrency int    `default:"10" split_words:"true"`
+	RevolutionDoraEnabled     bool          `split_words:"true"`
+	RevolutionDoraUrl         string        `split_words:"true" default:""`
+	RevolutionDoraToken       string        `split_words:"true" default:""`
+	RevolutionDoraConcurrency int           `default:"10" split_words:"true"`
+	RevolutionDoraMaxEventAge time.Duration `default:"0" split_words:"true"`
 
 	ManageArgoApplicationsEnabled bool     `split_words:"true" default:"true"`
 	ManageArgoApplicationsFilter  []string `split_words:"true" default:"sreteam"`
@@ -97,6 +99,7 @@ func (config *Config) RevolutionConfig() (revolution.Config, error) {
 		URL:         config.RevolutionDoraUrl,
 		Token:       []byte(config.RevolutionDoraToken),
 		Concurrency: config.RevolutionDoraConcurrency,
+		MaxEventAge: config.RevolutionDoraMaxEventAge,
 	}, nil
 }
 

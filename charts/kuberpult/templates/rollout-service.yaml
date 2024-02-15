@@ -147,6 +147,8 @@ spec:
             secretKeyRef:
               name: kuberpult-rollout-service
               key: KUBERPULT_REVOLUTION_DORA_TOKEN
+        - name: KUBERPULT_REVOLUTION_DORA_MAX_EVENT_AGE
+          value: "2h"
         volumeMounts:
         # We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115
         - name: tmp
