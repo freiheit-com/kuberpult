@@ -19,9 +19,15 @@ import { Close } from '../../../images';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
 import { useSearchParams } from 'react-router-dom';
 import { getOpenEnvironmentConfigDialog, setOpenEnvironmentConfigDialog } from '../../utils/Links';
-import { useApi } from '../../utils/GrpcApi';
 import { Spinner } from '../Spinner/Spinner';
-import { showSnackbarError } from '../../utils/store';
+import { GetEnvironmentConfigPretty, showSnackbarError } from '../../utils/store';
+
+export const environmentConfigDialogClass = 'environment-config-dialog';
+const environmentConfigDialogAppBarClass = environmentConfigDialogClass + '-app-bar';
+const environmentConfigDialogDataClass = environmentConfigDialogClass + '-app-bar-data';
+const environmentConfigDialogNameClass = environmentConfigDialogClass + '-name';
+const environmentConfigDialogCloseClass = environmentConfigDialogClass + '-close';
+export const environmentConfigDialogConfigClass = environmentConfigDialogClass + '-config';
 
 export type EnvironmentConfigDialogProps = {
     environmentName: string;
@@ -30,49 +36,51 @@ export type EnvironmentConfigDialogProps = {
 export const EnvironmentConfigDialog: React.FC<EnvironmentConfigDialogProps> = (props) => {
     const environmentName = props.environmentName;
     const [params, setParams] = useSearchParams();
-    const api = useApi;
-    const isOpen = useCallback((): boolean => getOpenEnvironmentConfigDialog(params).length > 0, [params]);
+    const isOpen = (): boolean => getOpenEnvironmentConfigDialog(params) === props.environmentName;
     const onClose = useCallback((): void => {
         setOpenEnvironmentConfigDialog(params, '');
         setParams(params);
     }, [params, setParams]);
     const [config, setConfig] = useState('');
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     useEffect(() => {
         if (getOpenEnvironmentConfigDialog(params) !== environmentName) {
-            setLoading(true);
-            setConfig(''); // we are invisible and show a spinner, so empty until that changes.
             return;
         }
-        const result = api.environmentService().GetEnvironmentConfig({ environment: environmentName });
-        result.then((res) => {
-            const pretty = JSON.stringify(res, null, ' ');
-            setConfig(pretty);
+        setLoading(true);
+        const result = GetEnvironmentConfigPretty(environmentName);
+        result.then((pretty) => {
             setLoading(false);
+            setConfig(pretty);
         });
         result.catch((e) => {
+            setLoading(false);
             showSnackbarError('Error loading environment configuration.');
             // eslint-disable-next-line no-console
-            console.error('error while loading environment config: ' + e);
-            setLoading(false);
+            //console.error('error while loading environment config: ' + e);
+            setConfig('');
         });
-    }, [api, environmentName, params]);
+    }, [environmentName, params]);
 
     const dialog: JSX.Element | '' = (
         <PlainDialog
             open={isOpen()}
             onClose={onClose}
-            classNames={'environment-config-dialog'}
+            classNames={environmentConfigDialogClass}
             disableBackground={true}
             center={true}>
             <>
-                <div className={'environment-config-dialog-app-bar'}>
-                    <div className={'environment-config-dialog-app-bar-data'}>
-                        <div className={'environment-config-dialog-name'}>Environment Config for {environmentName}</div>
+                <div className={environmentConfigDialogAppBarClass}>
+                    <div className={environmentConfigDialogDataClass}>
+                        <div className={environmentConfigDialogNameClass}>Environment Config for {environmentName}</div>
                     </div>
-                    <Button onClick={onClose} className={'environment-config-dialog-close'} icon={<Close />} />
+                    <Button onClick={onClose} className={environmentConfigDialogCloseClass} icon={<Close />} />
                 </div>
-                {loading ? <Spinner message="loading" /> : <pre>{config}</pre>}
+                {loading ? (
+                    <Spinner message="loading" />
+                ) : (
+                    <pre className={environmentConfigDialogConfigClass}>{config}</pre>
+                )}
             </>
         </PlainDialog>
     );
