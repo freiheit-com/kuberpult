@@ -20,6 +20,7 @@ import { PlainDialog } from '../dialog/ConfirmationDialog';
 import { useSearchParams } from 'react-router-dom';
 import { getOpenEnvironmentConfigDialog, setOpenEnvironmentConfigDialog } from '../../utils/Links';
 import { useApi } from '../../utils/GrpcApi';
+import { Spinner } from '../Spinner/Spinner';
 
 export type EnvironmentConfigDialogProps = {
     environmentName: string;
@@ -35,15 +36,18 @@ export const EnvironmentConfigDialog: React.FC<EnvironmentConfigDialogProps> = (
         setParams(params);
     }, [params, setParams]);
     const [config, setConfig] = useState('');
+    const [loading, setLoading] = useState(true);
     useEffect(() => {
         if (getOpenEnvironmentConfigDialog(params) !== environmentName) {
-            setConfig('loading ...'); // we invisible, so prefill with "loading ..." until the data is here.
+            setLoading(true);
+            setConfig(''); // we are invisible and show a spinner, so empty until that changes.
             return;
         }
         const result = api.environmentService().GetEnvironmentConfig({ environment: environmentName });
         result.then((res) => {
             const pretty = JSON.stringify(res, null, ' ');
             setConfig(pretty);
+            setLoading(false);
         });
         result.catch((e) => {
             // eslint-disable-next-line no-console
@@ -65,7 +69,7 @@ export const EnvironmentConfigDialog: React.FC<EnvironmentConfigDialogProps> = (
                     </div>
                     <Button onClick={onClose} className={'environment-config-dialog-close'} icon={<Close />} />
                 </div>
-                <pre>{config}</pre>
+                {loading ? <Spinner message="loading ..." /> : <pre>{config}</pre>}
             </>
         </PlainDialog>
     );
