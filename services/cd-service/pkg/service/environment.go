@@ -34,7 +34,7 @@ func (o *EnvironmentServiceServer) GetEnvironmentConfig(
 	in *api.GetEnvironmentConfigRequest) (*api.GetEnvironmentConfigResponse, error) {
 	state := o.Repository.State()
 	config, err := state.GetEnvironmentConfig(in.Environment)
-	if config == nil {
+	if err != nil {
 		return nil, err
 	}
 	var out api.GetEnvironmentConfigResponse

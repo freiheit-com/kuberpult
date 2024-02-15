@@ -21,6 +21,7 @@ import { useSearchParams } from 'react-router-dom';
 import { getOpenEnvironmentConfigDialog, setOpenEnvironmentConfigDialog } from '../../utils/Links';
 import { useApi } from '../../utils/GrpcApi';
 import { Spinner } from '../Spinner/Spinner';
+import { showSnackbarError } from '../../utils/store';
 
 export type EnvironmentConfigDialogProps = {
     environmentName: string;
@@ -50,8 +51,10 @@ export const EnvironmentConfigDialog: React.FC<EnvironmentConfigDialogProps> = (
             setLoading(false);
         });
         result.catch((e) => {
+            showSnackbarError('Error loading environment configuration.');
             // eslint-disable-next-line no-console
             console.error('error while loading environment config: ' + e);
+            setLoading(false);
         });
     }, [api, environmentName, params]);
 
@@ -69,7 +72,7 @@ export const EnvironmentConfigDialog: React.FC<EnvironmentConfigDialogProps> = (
                     </div>
                     <Button onClick={onClose} className={'environment-config-dialog-close'} icon={<Close />} />
                 </div>
-                {loading ? <Spinner message="loading ..." /> : <pre>{config}</pre>}
+                {loading ? <Spinner message="loading" /> : <pre>{config}</pre>}
             </>
         </PlainDialog>
     );

@@ -199,7 +199,6 @@ export const setHideWithoutWarnings = (params: URLSearchParams, newValue: boolea
     }
 };
 
-// functions like these are both store and links, should we be consistent?
 const envConfigDialogParamName = 'dialog-env-config';
 export const getOpenEnvironmentConfigDialog = (params: URLSearchParams): string =>
     params.get(envConfigDialogParamName) || '';
