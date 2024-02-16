@@ -104,7 +104,7 @@ describe('EnvironmentConfigDialog', () => {
     describe.each(data)(`Renders an environment config dialog`, (testcase) => {
         it(testcase.name, async () => {
             // when
-            mockGetEnvironmentConfigPretty.mockReturnValue(testcase.config());
+            mockGetEnvironmentConfigPretty.mockImplementation(testcase.config);
             const element = getNode(testcase.environmentName);
             var container = render(<></>).container;
             await act(async () => {
