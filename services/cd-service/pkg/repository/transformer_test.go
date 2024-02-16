@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"io"
 	"math/rand"
 	"os/exec"
@@ -36,7 +37,6 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 
@@ -5046,8 +5046,16 @@ func TestSendRegularlyDatadogMetrics(t *testing.T) {
 	}
 }
 
+type Gauge struct {
+	Name  string
+	Value float64
+	Tags  []string
+	Rate  float64
+}
+
 type MockClient struct {
 	events []*statsd.Event
+	gauges []*Gauge
 	statsd.ClientInterface
 }
 
@@ -5059,7 +5067,13 @@ func (c *MockClient) Event(e *statsd.Event) error {
 	return nil
 }
 
-func (c *MockClient) Gauge(_ string, _ float64, _ []string, _ float64) error {
+func (c *MockClient) Gauge(name string, value float64, tags []string, rate float64) error {
+	c.gauges = append(c.gauges, &Gauge{
+		Name:  name,
+		Value: value,
+		Tags:  tags,
+		Rate:  rate,
+	})
 	return nil
 }
 
@@ -5155,9 +5169,10 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 		changes        *TransformerResult
 		expectedError  string
 		expectedEvents []statsd.Event
+		expectedGauges []Gauge
 	}{
 		{
-			Name: "Changes are sent as events",
+			Name: "Changes are sent as one event",
 			changes: &TransformerResult{
 				ChangedApps: []AppEnv{
 					{
@@ -5168,6 +5183,17 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				},
 				DeletedRootApps: nil,
 				Commits:         nil,
+			},
+			expectedGauges: []Gauge{
+				{
+					Name:  "deployment",
+					Value: 1,
+					Tags: []string{
+						"app:app1",
+						"env:envB",
+					},
+					Rate: 1,
+				},
 			},
 			expectedEvents: []statsd.Event{
 				{
@@ -5188,7 +5214,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 			},
 		},
 		{
-			Name: "2 Changes are sent as events",
+			Name: "Changes are sent as two events",
 			changes: &TransformerResult{
 				ChangedApps: []AppEnv{
 					{
@@ -5237,6 +5263,26 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					},
 				},
 			},
+			expectedGauges: []Gauge{
+				{
+					Name:  "deployment",
+					Value: 1,
+					Tags: []string{
+						"app:app1",
+						"env:envB",
+					},
+					Rate: 1,
+				},
+				{
+					Name:  "deployment",
+					Value: 1,
+					Tags: []string{
+						"app:app2",
+						"env:envA",
+					},
+					Rate: 1,
+				},
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -5264,7 +5310,14 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					t.Errorf("got %v, want %v, diff (-want +got) %s", actualEvent, expectedEvent, diff)
 				}
 			}
+			for i := range tc.expectedGauges {
+				var expectedGauge Gauge = tc.expectedGauges[i]
+				var actualGauge Gauge = *mockClient.gauges[i]
 
+				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
+					t.Errorf("got %v, want %v, diff (-want +got) %s", actualGauge, expectedGauge, diff)
+				}
+			}
 		})
 	}
 }
