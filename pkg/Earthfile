@@ -12,3 +12,10 @@ lint:
     FROM +deps
     WORKDIR pkg
     RUN buf lint
+test:
+    FROM +deps
+    WORKDIR pkg
+    RUN go test ./...
+build-all:
+    BUILD +lint
+    BUILD +test
