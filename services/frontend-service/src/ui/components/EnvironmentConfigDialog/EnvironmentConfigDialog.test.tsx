@@ -24,7 +24,7 @@ import {
 jest.mock('../../../api/api').mock('../../utils/GrpcApi');
 
 const configContent = 'config content';
-const configLoadError = 'fake loading error'; //new Error('error loading config');
+const configLoadError = new Error('error loading config');
 const mockGetEnvironmentConfigPretty = jest.fn();
 const mockShowSnackbarError = jest.fn();
 jest.mock('../../utils/store', () => ({
@@ -101,28 +101,24 @@ describe('EnvironmentConfigDialog', () => {
         },
     ];
 
-    describe.each(data)(`Renders an environment config dialog`, (testcase) => {
-        it(testcase.name, async () => {
-            // when
-            mockGetEnvironmentConfigPretty.mockImplementation(testcase.config);
-            const element = getNode(testcase.environmentName);
-            var container = render(<></>).container;
-            await act(async () => {
-                container = render(element).container;
-            });
+    it.each(data)(`Renders an environment config dialog`, async (testcase) => {
+        // when
+        mockGetEnvironmentConfigPretty.mockImplementation(testcase.config);
+        const element = getNode(testcase.environmentName);
+        const container = render(element).container;
+        await act(global.nextTick);
 
-            // then
-            expect(container.getElementsByClassName(environmentConfigDialogClass)).toHaveLength(
-                testcase.expectedNumDialogs
-            );
-            const configs = container.getElementsByClassName(environmentConfigDialogConfigClass);
-            expect(configs).toHaveLength(testcase.expectedNumConfigs);
-            for (const config of configs) {
-                expect(config.innerHTML).toContain(testcase.expectedConfig);
-            }
-            const spinners = container.getElementsByClassName('spinner-message');
-            expect(spinners).toHaveLength(testcase.expectedNumSpinners);
-            expect(mockShowSnackbarError.mock.calls.length).toEqual(testcase.expectedSnackbarErrorCalls);
-        });
+        // then
+        expect(container.getElementsByClassName(environmentConfigDialogClass)).toHaveLength(
+            testcase.expectedNumDialogs
+        );
+        const configs = container.getElementsByClassName(environmentConfigDialogConfigClass);
+        expect(configs).toHaveLength(testcase.expectedNumConfigs);
+        for (const config of configs) {
+            expect(config.innerHTML).toContain(testcase.expectedConfig);
+        }
+        const spinners = container.getElementsByClassName('spinner-message');
+        expect(spinners).toHaveLength(testcase.expectedNumSpinners);
+        expect(mockShowSnackbarError.mock.calls.length).toEqual(testcase.expectedSnackbarErrorCalls);
     });
 });
