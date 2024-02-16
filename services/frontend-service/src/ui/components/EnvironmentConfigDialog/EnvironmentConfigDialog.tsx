@@ -49,17 +49,18 @@ export const EnvironmentConfigDialog: React.FC<EnvironmentConfigDialogProps> = (
         }
         setLoading(true);
         const result = GetEnvironmentConfigPretty(environmentName);
-        result.then((pretty) => {
-            setLoading(false);
-            setConfig(pretty);
-        });
-        result.catch((e) => {
-            setLoading(false);
-            showSnackbarError('Error loading environment configuration.');
-            // eslint-disable-next-line no-console
-            //console.error('error while loading environment config: ' + e);
-            setConfig('');
-        });
+        result
+            .then((pretty) => {
+                setLoading(false);
+                setConfig(pretty);
+            })
+            .catch((e) => {
+                setLoading(false);
+                showSnackbarError('Error loading environment configuration.');
+                // eslint-disable-next-line no-console
+                console.error('error while loading environment config: ' + e);
+                setConfig('');
+            });
     }, [environmentName, params]);
 
     const dialog: JSX.Element | '' = (
