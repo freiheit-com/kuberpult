@@ -7,50 +7,50 @@ importers:
 
   .:
     specifiers:
-      '@azure/msal-browser': ^2.28.3
-      '@azure/msal-react': ^1.4.5
-      '@babel/core': ^7.19.1
-      '@babel/plugin-syntax-flow': ^7.18.6
-      '@babel/plugin-transform-react-jsx': ^7.19.0
-      '@emotion/react': ^11.1.5
-      '@emotion/styled': ^11.1.5
-      '@improbable-eng/grpc-web': ^0.15.0
+      '@azure/msal-browser': 2.38.3
+      '@azure/msal-react': 1.5.12
+      '@babel/core': 7.23.9
+      '@babel/plugin-syntax-flow': 7.23.3
+      '@babel/plugin-transform-react-jsx': 7.23.4
+      '@emotion/react': 11.11.3
+      '@emotion/styled': 11.11.0
+      '@improbable-eng/grpc-web': 0.15.0
       '@material-ui/core': 5.0.0-alpha.34
       '@material-ui/icons': 5.0.0-alpha.34
-      '@peculiar/webcrypto': ^1.4.0
-      '@testing-library/jest-dom': ^6.0.0
-      '@testing-library/react': ^14.0.0
-      '@types/jest': ^29.5.11
-      '@types/node': ^20.11.10
+      '@peculiar/webcrypto': 1.4.5
+      '@testing-library/jest-dom': 6.4.2
+      '@testing-library/react': 14.2.1
+      '@types/jest': 29.5.11
+      '@types/node': 20.11.10
       '@types/react': 18.2.55
-      '@types/react-beforeunload': ^2.1.1
+      '@types/react-beforeunload': 2.1.5
       '@types/react-dom': 18.2.19
-      '@typescript-eslint/parser': ^7.0.0
-      browser-headers: ^0.4.1
-      classnames: ^2.5.1
-      eslint: ^8.38.0
-      eslint-config-prettier: ^9.0.0
-      eslint-plugin-no-only-tests: ^3.1.0
-      eslint-plugin-no-type-assertion: ^1.3.0
-      eslint-plugin-prettier: ^5.0.0
-      google-protobuf: ^3.21.0
-      long: ^5.2.0
-      madge: ^6.0.0
-      material-components-web: ^14.0.0
-      prettier: ^3.2.4
-      protobufjs: ^7.2.3
-      react: ^18.2.0
-      react-dom: ^18.2.0
-      react-refresh: ^0.14.0
-      react-router-dom: '6'
-      react-scripts: ^5.0.1
-      react-spinners: ^0.13.8
-      react-tooltip: ^5.18.1
-      react-use-sub: ^3.0.0
-      rxjs: ^7.0.0
-      sass: ^1.70.0
-      spy4js: ^3.1.0
-      ts-proto: ^1.167.2
+      '@typescript-eslint/parser': 7.0.1
+      browser-headers: 0.4.1
+      classnames: 2.5.1
+      eslint: 8.56.0
+      eslint-config-prettier: 9.1.0
+      eslint-plugin-no-only-tests: 3.1.0
+      eslint-plugin-no-type-assertion: 1.3.0
+      eslint-plugin-prettier: 5.1.3
+      google-protobuf: 3.21.2
+      long: 5.2.3
+      madge: 6.1.0
+      material-components-web: 14.0.0
+      prettier: 3.2.4
+      protobufjs: 7.2.6
+      react: 18.2.0
+      react-dom: 18.2.0
+      react-refresh: 0.14.0
+      react-router-dom: 6.22.0
+      react-scripts: 5.0.1
+      react-spinners: 0.13.8
+      react-tooltip: 5.26.2
+      react-use-sub: 3.0.1
+      rxjs: 7.8.1
+      sass: 1.70.0
+      spy4js: 3.4.1
+      ts-proto: 1.167.2
       typescript: 5.3.3
     dependencies:
       '@azure/msal-browser': 2.38.3
@@ -66,18 +66,18 @@ importers:
       material-components-web: 14.0.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
-      react-router-dom: 6.21.3_biqbaboplfbrettd7655fr4n2y
+      react-router-dom: 6.22.0_biqbaboplfbrettd7655fr4n2y
       react-scripts: 5.0.1_zxtx5q5jchckena7iixcnfvv6i
       react-spinners: 0.13.8_biqbaboplfbrettd7655fr4n2y
-      react-tooltip: 5.26.0_biqbaboplfbrettd7655fr4n2y
+      react-tooltip: 5.26.2_biqbaboplfbrettd7655fr4n2y
       react-use-sub: 3.0.1_biqbaboplfbrettd7655fr4n2y
       rxjs: 7.8.1
     devDependencies:
       '@babel/core': 7.23.9
       '@babel/plugin-syntax-flow': 7.23.3_@babel+core@7.23.9
       '@babel/plugin-transform-react-jsx': 7.23.4_@babel+core@7.23.9
-      '@testing-library/jest-dom': 6.4.0_@types+jest@29.5.11
-      '@testing-library/react': 14.1.2_biqbaboplfbrettd7655fr4n2y
+      '@testing-library/jest-dom': 6.4.2_@types+jest@29.5.11
+      '@testing-library/react': 14.2.1_biqbaboplfbrettd7655fr4n2y
       '@types/jest': 29.5.11
       '@types/node': 20.11.10
       '@types/react': 18.2.55
@@ -3245,8 +3245,8 @@ packages:
     resolution: {integrity: sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==}
     dev: true
 
-  /@remix-run/router/1.14.2:
-    resolution: {integrity: sha512-ACXpdMM9hmKZww21yEqWwiLws/UPLhNKvimN8RrYSqPSvB3ov7sLvAcfvaxePeLvccTQKGdkDIhLYApZVDFuKg==}
+  /@remix-run/router/1.15.0:
+    resolution: {integrity: sha512-HOil5aFtme37dVQTB6M34G95kPM3MMuqSmIRVCC52eKV+Y/tGSqw9P3rWhlAx6A+mz+MoX+XxsGsNJbaI5qCgQ==}
     engines: {node: '>=14.0.0'}
     dev: false
 
@@ -3460,8 +3460,8 @@ packages:
       pretty-format: 27.5.1
     dev: true
 
-  /@testing-library/jest-dom/6.4.0_@types+jest@29.5.11:
-    resolution: {integrity: sha512-GgGT3OR8qhIjk2SBMy51AYDWoMnAyR/cwjZO4SttuBmIQ9wWy9QmVOeaSbgT5Bm0J6qLBaf4+dsJWfisvafoaA==}
+  /@testing-library/jest-dom/6.4.2_@types+jest@29.5.11:
+    resolution: {integrity: sha512-CzqH0AFymEMG48CpzXFriYYkOjk6ZGPCLMhW9e9jg3KMCn5OfJecF8GtGW7yGfR/IgCe3SX8BSwjdzI6BBbZLw==}
     engines: {node: '>=14', npm: '>=6', yarn: '>=1'}
     peerDependencies:
       '@jest/globals': '>= 28'
@@ -3492,8 +3492,8 @@ packages:
       redent: 3.0.0
     dev: true
 
-  /@testing-library/react/14.1.2_biqbaboplfbrettd7655fr4n2y:
-    resolution: {integrity: sha512-z4p7DVBTPjKM5qDZ0t5ZjzkpSNb+fZy1u6bzO7kk8oeGagpPCAtgh4cx1syrfp7a+QWkM021jGqjJaxJJnXAZg==}
+  /@testing-library/react/14.2.1_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-sGdjws32ai5TLerhvzThYFbpnF9XtL65Cjf+gB0Dhr29BGqK+mAeN7SURSdu+eqgET4ANcWoC7FQpkaiGvBr+A==}
     engines: {node: '>=14'}
     peerDependencies:
       react: ^18.0.0 || 18
@@ -10640,26 +10640,26 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: true
 
-  /react-router-dom/6.21.3_biqbaboplfbrettd7655fr4n2y:
-    resolution: {integrity: sha512-kNzubk7n4YHSrErzjLK72j0B5i969GsuCGazRl3G6j1zqZBLjuSlYBdVdkDOgzGdPIffUOc9nmgiadTEVoq91g==}
+  /react-router-dom/6.22.0_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-z2w+M4tH5wlcLmH3BMMOMdrtrJ9T3oJJNsAlBJbwk+8Syxd5WFJ7J5dxMEW0/GEXD1BBis4uXRrNIz3mORr0ag==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
       react: '>=16.8 || 18'
       react-dom: '>=16.8 || 18'
     dependencies:
-      '@remix-run/router': 1.14.2
+      '@remix-run/router': 1.15.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
-      react-router: 6.21.3_react@18.2.0
+      react-router: 6.22.0_react@18.2.0
     dev: false
 
-  /react-router/6.21.3_react@18.2.0:
-    resolution: {integrity: sha512-a0H638ZXULv1OdkmiK6s6itNhoy33ywxmUFT/xtSoVyf9VnC7n7+VT4LjVzdIHSaF5TIh9ylUgxMXksHTgGrKg==}
+  /react-router/6.22.0_react@18.2.0:
+    resolution: {integrity: sha512-q2yemJeg6gw/YixRlRnVx6IRJWZD6fonnfZhN1JIOhV2iJCPeRNSH3V1ISwHf+JWcESzLC3BOLD1T07tmO5dmg==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
       react: '>=16.8 || 18'
     dependencies:
-      '@remix-run/router': 1.14.2
+      '@remix-run/router': 1.15.0
       react: 18.2.0
     dev: false
 
@@ -10773,8 +10773,8 @@ packages:
       react-dom: 18.2.0_react@18.2.0
     dev: false
 
-  /react-tooltip/5.26.0_biqbaboplfbrettd7655fr4n2y:
-    resolution: {integrity: sha512-UBbwy3fo1KYDwRCOWwM6AEfQsk9shgVfNkXFqgwS33QHplzg7xao/7mX/6wd+lE6KSZzhUNTkB5TNk9SMaBV/A==}
+  /react-tooltip/5.26.2_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-C1qHiqWYn6l5c98kL/NKFyJSw5G11vUVJkgOPcKgn306c5iL5317LxMNn5Qg1GSSM7Qvtsd6KA5MvwfgxFF7Dg==}
     peerDependencies:
       react: '>=16.14.0 || 18'
       react-dom: '>=16.14.0 || 18'
@@ -12686,6 +12686,7 @@ packages:
 
   /workbox-google-analytics/6.6.0:
     resolution: {integrity: sha512-p4DJa6OldXWd6M9zRl0H6vB9lkrmqYFkRQ2xEiNdBFp9U0LhsGO7hsBscVEyH9H2/3eZZt8c97NB2FD9U2NJ+Q==}
+    deprecated: It is not compatible with newer versions of GA starting with v4, as long as you are using GAv3 it should be ok, but the package is not longer being maintained
     dependencies:
       workbox-background-sync: 6.6.0
       workbox-core: 6.6.0
