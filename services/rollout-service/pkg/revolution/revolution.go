@@ -37,6 +37,7 @@ type Config struct {
 	URL         string
 	Token       []byte
 	Concurrency int
+	MaxEventAge time.Duration
 }
 
 func New(config Config) *Subscriber {
@@ -47,6 +48,8 @@ func New(config Config) *Subscriber {
 	sub.url = config.URL
 	sub.token = config.Token
 	sub.ready = func() {}
+	sub.maxAge = config.MaxEventAge
+	sub.now = time.Now
 	return sub
 }
 
@@ -57,6 +60,11 @@ type Subscriber struct {
 	// The ready function is needed to sync tests
 	ready func()
 	state map[service.Key]*service.BroadcastEvent
+	// The maximum age of events that should be considered. If 0,
+	// all events are considered.
+	maxAge time.Duration
+	// Used to simulate the current time in tests
+	now func() time.Time
 }
 
 func (s *Subscriber) Subscribe(ctx context.Context, b *service.Broadcast) error {
@@ -91,6 +99,11 @@ func (s *Subscriber) subscribeOnce(ctx context.Context, b *service.Broadcast) er
 				return s.group.Wait()
 			}
 			if ev.IsProduction == nil || !*ev.IsProduction {
+				continue
+			}
+			if s.maxAge != 0 &&
+				ev.ArgocdVersion != nil &&
+				ev.ArgocdVersion.DeployedAt.Add(s.maxAge).Before(s.now()) {
 				continue
 			}
 			if shouldNotify(s.state[ev.Key], ev) {
@@ -141,10 +154,13 @@ func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) fun
 		span.SetTag("environment", ev.Environment)
 		span.SetTag("application", ev.Application)
 		body, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("marshal event: %w", err)
+		}
 		h := hmac.New(sha256.New, s.token)
 		h.Write([]byte(body))
 		sha := "sha256=" + hex.EncodeToString(h.Sum(nil))
-		r, err := http.NewRequest("POST", s.url, bytes.NewReader(body))
+		r, err := http.NewRequest(http.MethodPost, s.url, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("creating http request: %w", err)
 		}

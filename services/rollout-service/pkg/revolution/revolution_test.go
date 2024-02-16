@@ -61,9 +61,11 @@ func TestRevolution(t *testing.T) {
 	tcs := []struct {
 		Name  string
 		Steps []step
+		Now   time.Time
 	}{
 		{
 			Name: "send out deployment events with timestamp once",
+			Now:  time.Unix(123456789, 0).UTC(),
 			Steps: []step{
 				{
 					ArgoEvent: &service.ArgoEvent{
@@ -115,6 +117,26 @@ func TestRevolution(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "ignore old events",
+			Now:  time.Date(2024, 2, 15, 12, 15, 0, 0, time.UTC),
+			Steps: []step{
+				{
+					ArgoEvent: &service.ArgoEvent{
+						Environment:      "foo",
+						Application:      "bar",
+						SyncStatusCode:   v1alpha1.SyncStatusCodeSynced,
+						HealthStatusCode: health.HealthStatusDegraded,
+						Version: &versions.VersionInfo{
+							Version:        1,
+							SourceCommitId: "123456",
+							DeployedAt:     time.Date(2024, 2, 14, 12, 15, 0, 0, time.UTC),
+						},
+					},
+					ExpectedRequest: nil,
+				},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -136,11 +158,13 @@ func TestRevolution(t *testing.T) {
 			bc := service.New()
 			errCh := make(chan error, 1)
 			cs := New(Config{
-				URL:                revolution.URL,
-				Token:              []byte("revolution"),
+				URL:         revolution.URL,
+				Token:       []byte("revolution"),
 				Concurrency: 100,
+				MaxEventAge: time.Second,
 			})
 			cs.ready = func() { readyCh <- struct{}{} }
+			cs.now = func() time.Time { return tc.Now }
 			ctx, cancel := context.WithCancel(context.Background())
 			go func() {
 				errCh <- cs.Subscribe(ctx, bc)
