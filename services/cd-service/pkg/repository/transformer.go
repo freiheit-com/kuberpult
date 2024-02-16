@@ -540,14 +540,14 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 	if err := util.WriteFile(fs, fs.Join(commitAppDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
 	}
-	err := writeEvent(ctx, eventId, sourceCommitId, fs, environments)
+	err := writeNewReleaseEvent(ctx, eventId, sourceCommitId, fs, environments)
 	if err != nil {
 		return fmt.Errorf("error while writing event: %v", err)
 	}
 	return nil
 }
 
-func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, envs []string) error {
+func writeNewReleaseEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, envs []string) error {
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
 	_, err := filesystem.Stat(eventDir)
 	if err != nil {
@@ -1516,10 +1516,17 @@ func (c *QueueApplicationVersion) Transform(
 
 type DeployApplicationVersion struct {
 	Authentication
-	Environment   string
-	Application   string
-	Version       uint64
-	LockBehaviour api.LockBehavior
+	Environment     string
+	Application     string
+	Version         uint64
+	LockBehaviour   api.LockBehavior
+	WriteCommitData bool
+	SourceTrain     *DeployApplicationVersionSource
+}
+
+type DeployApplicationVersionSource struct {
+	TargetGroup *string
+	Upstream    string
 }
 
 func (c *DeployApplicationVersion) Transform(
@@ -1647,6 +1654,46 @@ func (c *DeployApplicationVersion) Transform(
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
+func writeDeploymentEvent(fs billy.Filesystem, commitId, eventId, application, environment string, sourceTrain *DeployApplicationVersionSource) error {
+	eventPath := commitEventDir(fs, commitId, eventId)
+
+	if err := fs.MkdirAll(eventPath, 0777); err != nil {
+		return fmt.Errorf("could not create event directory at %s, error: %w", eventPath, err)
+	}
+
+	eventTypePath := fs.Join(eventPath, "eventType")
+	if err := util.WriteFile(fs, eventTypePath, []byte(event.DeploymentEventName), 0666); err != nil {
+		return fmt.Errorf("could not write the event type file at %s, error: %w", eventTypePath, err)
+	}
+
+	eventApplicationPath := fs.Join(eventPath, "application")
+	if err := util.WriteFile(fs, eventApplicationPath, []byte(application), 0666); err != nil {
+		return fmt.Errorf("could not write the application file at %s, error: %w", eventApplicationPath, err)
+	}
+
+	eventEnvironmentPath := fs.Join(eventPath, "environment")
+	if err := util.WriteFile(fs, eventEnvironmentPath, []byte(environment), 0666); err != nil {
+		return fmt.Errorf("could not write the environment file at %s, error: %w", eventEnvironmentPath, err)
+	}
+
+	if sourceTrain != nil {
+		eventTrainPath := fs.Join(eventPath, "source_train")
+
+		if sourceTrain.TargetGroup != nil {
+			eventTrainGroupPath := fs.Join(eventTrainPath, "source_train_group")
+			if err := util.WriteFile(fs, eventTrainGroupPath, []byte(*sourceTrain.TargetGroup), 0666); err != nil {
+				return fmt.Errorf("could not write source train group file at %s, error: %w", eventTrainGroupPath, err)
+			}
+		}
+		eventTrainUpstreamPath := fs.Join(eventTrainPath, "source_train_upstream")
+		if err := util.WriteFile(fs, eventTrainUpstreamPath, []byte(*sourceTrain.TargetGroup), 0666); err != nil {
+			return fmt.Errorf("could not write source train upstream file at %s, error: %w", eventTrainUpstreamPath, err)
+		}
+	}
+
+	return nil
+}
+
 type ReleaseTrain struct {
 	Authentication
 	Target     string
@@ -1754,12 +1801,13 @@ func (c *ReleaseTrain) getUpstreamLatestApp(upstreamLatest bool, state *State, c
 	return apps, nil, nil
 }
 
-func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string) map[string]config.EnvironmentConfig {
-
+func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string) (map[string]config.EnvironmentConfig, bool) {
 	envGroupConfigs := make(map[string]config.EnvironmentConfig)
+	isEnvGroup := false
 
 	for env, config := range configs {
 		if config.EnvironmentGroup != nil && *config.EnvironmentGroup == targetGroupName {
+			isEnvGroup = true
 			envGroupConfigs[env] = config
 		}
 	}
@@ -1769,7 +1817,7 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 			envGroupConfigs[targetGroupName] = envConfig
 		}
 	}
-	return envGroupConfigs
+	return envGroupConfigs, isEnvGroup
 }
 
 func (c *ReleaseTrain) Transform(
@@ -1783,7 +1831,7 @@ func (c *ReleaseTrain) Transform(
 	if err != nil {
 		return "", grpc.InternalError(ctx, err)
 	}
-	var envGroupConfigs = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
+	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
 
 	if len(envGroupConfigs) == 0 {
 		return "", grpc.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName))
