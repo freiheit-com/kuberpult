@@ -26,7 +26,7 @@ export const environmentConfigDialogClass = 'environment-config-dialog';
 const environmentConfigDialogAppBarClass = environmentConfigDialogClass + '-app-bar';
 const environmentConfigDialogDataClass = environmentConfigDialogClass + '-app-bar-data';
 const environmentConfigDialogNameClass = environmentConfigDialogClass + '-name';
-const environmentConfigDialogCloseClass = environmentConfigDialogClass + '-close';
+export const environmentConfigDialogCloseClass = environmentConfigDialogClass + '-close';
 export const environmentConfigDialogConfigClass = environmentConfigDialogClass + '-config';
 
 export type EnvironmentConfigDialogProps = {

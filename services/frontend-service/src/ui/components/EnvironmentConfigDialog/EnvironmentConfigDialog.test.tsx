@@ -13,11 +13,12 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import {
     EnvironmentConfigDialog,
     environmentConfigDialogClass,
+    environmentConfigDialogCloseClass,
     environmentConfigDialogConfigClass,
 } from './EnvironmentConfigDialog';
 
@@ -34,10 +35,11 @@ jest.mock('../../utils/store', () => ({
 
 const openEnvironmentDialog = 'open environment';
 const closedEnvironmentDialog = 'closed environment';
+const mockGetOpenEnvironmentConfigDialog = jest.fn();
+const mockSetOpenEnvironmentConfigDialog = jest.fn();
 jest.mock('../../utils/Links', () => ({
-    getOpenEnvironmentConfigDialog() {
-        return openEnvironmentDialog;
-    },
+    getOpenEnvironmentConfigDialog: () => mockGetOpenEnvironmentConfigDialog(),
+    setOpenEnvironmentConfigDialog: () => mockSetOpenEnvironmentConfigDialog(),
 }));
 
 describe('EnvironmentConfigDialog', () => {
@@ -56,6 +58,7 @@ describe('EnvironmentConfigDialog', () => {
         expectedConfig: string;
         expectedNumSpinners: number;
         expectedSnackbarErrorCalls: number;
+        expectedNumCloseButtons: number;
     };
 
     const data: TestData[] = [
@@ -68,6 +71,7 @@ describe('EnvironmentConfigDialog', () => {
             expectedConfig: configContent,
             expectedNumSpinners: 0,
             expectedSnackbarErrorCalls: 0,
+            expectedNumCloseButtons: 0,
         },
         {
             name: 'open environment config',
@@ -78,6 +82,7 @@ describe('EnvironmentConfigDialog', () => {
             expectedConfig: configContent,
             expectedNumSpinners: 0,
             expectedSnackbarErrorCalls: 0,
+            expectedNumCloseButtons: 1,
         },
         {
             name: 'loading environment config',
@@ -88,6 +93,7 @@ describe('EnvironmentConfigDialog', () => {
             expectedConfig: configContent,
             expectedNumSpinners: 1,
             expectedSnackbarErrorCalls: 0,
+            expectedNumCloseButtons: 1,
         },
         {
             name: 'failed loading environment config',
@@ -98,12 +104,14 @@ describe('EnvironmentConfigDialog', () => {
             expectedConfig: '',
             expectedNumSpinners: 0,
             expectedSnackbarErrorCalls: 1,
+            expectedNumCloseButtons: 1,
         },
     ];
 
-    it.each(data)(`Renders an environment config dialog`, async (testcase) => {
+    it.each(data)(`Renders and tests an environment config dialog: %s`, async (testcase) => {
         // when
         mockGetEnvironmentConfigPretty.mockImplementation(testcase.config);
+        mockGetOpenEnvironmentConfigDialog.mockImplementation(() => openEnvironmentDialog);
         const element = getNode(testcase.environmentName);
         const container = render(element).container;
         await act(global.nextTick);
@@ -112,13 +120,25 @@ describe('EnvironmentConfigDialog', () => {
         expect(container.getElementsByClassName(environmentConfigDialogClass)).toHaveLength(
             testcase.expectedNumDialogs
         );
+
         const configs = container.getElementsByClassName(environmentConfigDialogConfigClass);
         expect(configs).toHaveLength(testcase.expectedNumConfigs);
         for (const config of configs) {
             expect(config.innerHTML).toContain(testcase.expectedConfig);
         }
+
         const spinners = container.getElementsByClassName('spinner-message');
         expect(spinners).toHaveLength(testcase.expectedNumSpinners);
-        expect(mockShowSnackbarError.mock.calls.length).toEqual(testcase.expectedSnackbarErrorCalls);
+        expect(mockShowSnackbarError).toHaveBeenCalledTimes(testcase.expectedSnackbarErrorCalls);
+
+        const closers = container.getElementsByClassName(environmentConfigDialogCloseClass);
+        expect(closers).toHaveLength(testcase.expectedNumCloseButtons);
+        expect(mockSetOpenEnvironmentConfigDialog).toHaveBeenCalledTimes(0);
+        await act(async () => {
+            for (const closer of closers) {
+                fireEvent.click(closer);
+            }
+        });
+        expect(mockSetOpenEnvironmentConfigDialog).toHaveBeenCalledTimes(testcase.expectedNumCloseButtons);
     });
 });
