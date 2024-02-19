@@ -238,7 +238,7 @@ func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPat
 		}
 
 		var result = &api.Event{
-			UUID: eventId.String(),
+			Uuid: eventId.String(),
 			CreatedAt: uuid.GetTime(&eventId),
 			EventType: &api.Event_CreateReleaseEvent{
 				CreateReleaseEvent: &api.CreateReleaseEvent{
@@ -288,7 +288,7 @@ func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPat
 		}
 
 		result := &api.Event{
-			UUID: eventId.String(),
+			Uuid: eventId.String(),
 			CreatedAt: uuid.GetTime(&eventId),
 			EventType: &api.Event_DeploymentEvent{
 				DeploymentEvent: &deploymentEvent,

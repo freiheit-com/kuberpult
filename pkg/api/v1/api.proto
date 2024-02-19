@@ -57,7 +57,7 @@ message GetCommitInfoResponse {
 message Event {
   // data that ALL events have:
   google.protobuf.Timestamp created_at = 1;
-  string UUID = 2;
+  string uuid = 2;
   // data that is different per event type:
   oneof event_type {
     CreateReleaseEvent create_release_event = 3;
