@@ -567,7 +567,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
 	if r.config.DogstatsdEvents {
-		ddError := UpdateDatadogMetrics(r.State(), changes)
+		ddError := UpdateDatadogMetrics(ctx, r.State(), changes)
 		if ddError != nil {
 			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
 		}
@@ -1344,7 +1344,7 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 	}
 }
 
-func (s *State) GetDeploymentMetaData(ctx context.Context, environment, application string) (string, time.Time, error) {
+func (s *State) GetDeploymentMetaData(environment, application string) (string, time.Time, error) {
 	base := s.Filesystem.Join("environments", environment, "applications", application)
 	author, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_by"))
 	if err != nil {

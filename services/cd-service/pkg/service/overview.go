@@ -187,7 +187,7 @@ func (o *OverviewServiceServer) getOverview(
 							}
 						}
 					}
-					deployAuthor, deployTime, err := s.GetDeploymentMetaData(ctx, envName, appName)
+					deployAuthor, deployTime, err := s.GetDeploymentMetaData(envName, appName)
 					if err != nil {
 						return nil, err
 					}

@@ -135,15 +135,16 @@ func GaugeEnvAppLockMetric(fs billy.Filesystem, env, app string) {
 	}
 }
 
-func GaugeDeploymentMetric(env, app string) error {
+func GaugeDeploymentMetric(_ context.Context, env, app string, timeInMinutes float64) error {
 	if ddMetrics != nil {
-		err := ddMetrics.Gauge("deployment", 1, []string{"app:" + app, "env:" + env}, 1)
+		// store the time since the last deployment in minutes:
+		err := ddMetrics.Gauge("lastDeployed", timeInMinutes, []string{"app:" + app, "env:" + env}, 1)
 		return err
 	}
 	return nil
 }
 
-func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
+func UpdateDatadogMetrics(ctx context.Context, state *State, changes *TransformerResult) error {
 	filesystem := state.Filesystem
 	if ddMetrics == nil {
 		return nil
@@ -152,16 +153,30 @@ func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
 	if err != nil {
 		return err
 	}
+
+	now := time.Now()          // ensure all events have the same timestamp
+	nowUtc := time.Now().UTC() // and all metrics too
+
 	for env := range configs {
 		GaugeEnvLockMetric(filesystem, env)
 		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
 		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
 			for _, app := range entries {
 				GaugeEnvAppLockMetric(filesystem, env, app.Name())
+
+				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(env, app.Name())
+				if err != nil {
+					return err
+				}
+				timeDiff := nowUtc.Sub(deployedAtTimeUtc)
+				err = GaugeDeploymentMetric(ctx, env, app.Name(), timeDiff.Minutes())
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
-	now := time.Now() // ensure all events have the same timestamp
+
 	if changes != nil && ddMetrics != nil {
 		for i := range changes.ChangedApps {
 			oneChange := changes.ChangedApps[i]
@@ -185,10 +200,6 @@ func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
 			if err != nil {
 				return err
 			}
-			err = GaugeDeploymentMetric(oneChange.Env, oneChange.App)
-			if err != nil {
-				return err
-			}
 		}
 	}
 	return nil
@@ -204,9 +215,9 @@ func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBa
 	}
 }
 
-func GetRepositoryStateAndUpdateMetrics(repo Repository) {
+func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
 	repoState := repo.State()
-	if err := UpdateDatadogMetrics(repoState, nil); err != nil {
+	if err := UpdateDatadogMetrics(ctx, repoState, nil); err != nil {
 		panic(err.Error())
 	}
 }

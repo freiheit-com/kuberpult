@@ -5289,12 +5289,13 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
+			ctx := testutil.MakeTestContext()
 			var mockClient = &MockClient{}
 			var client statsd.ClientInterface = mockClient
 			ddMetrics = client
 			repo := setupRepositoryTest(t)
 
-			err := UpdateDatadogMetrics(repo.State(), tc.changes)
+			err := UpdateDatadogMetrics(ctx, repo.State(), tc.changes)
 
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
