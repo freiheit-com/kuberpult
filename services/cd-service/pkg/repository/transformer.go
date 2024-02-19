@@ -339,10 +339,27 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 		}
 	}
 
-	changes := &TransformerResult{}
-	var allEnvsOfThisApp []string = nil
-	for env, man := range c.Manifests {
+	allEnvsOfThisApp := make([]string, 0, len(c.Manifests))
+	for env := range c.Manifests {
 		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
+	}
+	gen, ok := getGeneratorFromContext(ctx)
+	if !ok || gen == nil {
+		logger.FromContext(ctx).Info("using real UUID generator.")
+		gen = uuid.RealUUIDGenerator{}
+	} else {
+		logger.FromContext(ctx).Info("using  UUID generator from context.")
+	}
+	eventUuid := gen.Generate()
+	if c.WriteCommitData {
+		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, fs)
+		if err != nil {
+			return "", nil, GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
+	changes := &TransformerResult{}
+	for env, man := range c.Manifests {
 		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
 		if err != nil {
 			return "", nil, GetCreateReleaseGeneralFailure(err)
@@ -386,20 +403,6 @@ func (c *CreateApplicationVersion) Transform(ctx context.Context, state *State) 
 				}
 			}
 			result = result + deployResult + "\n"
-		}
-	}
-	gen, ok := getGeneratorFromContext(ctx)
-	if !ok || gen == nil {
-		logger.FromContext(ctx).Info("using real UUID generator.")
-		gen = uuid.RealUUIDGenerator{}
-	} else {
-		logger.FromContext(ctx).Info("using  UUID generator from context.")
-	}
-	eventUuid := gen.Generate()
-	if c.WriteCommitData {
-		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, fs)
-		if err != nil {
-			return "", nil, GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	return fmt.Sprintf("created version %d of %q\n%s", version, c.Application, result), changes, nil
