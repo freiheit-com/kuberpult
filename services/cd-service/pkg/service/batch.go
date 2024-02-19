@@ -287,7 +287,9 @@ func FromContextWithDD(ctx context.Context) *zap.Logger {
 	res := ctxzap.Extract(ctx)
 	span, ok := tracer.SpanFromContext(ctx)
 	if ok {
-		return res.With(zap.String("dd.span_id", fmt.Sprintf("%v", span)))
+		spanContext := span.Context()
+		return res.With(zap.String("dd.span_id", fmt.Sprintf("%d", spanContext.SpanID())),
+			zap.String("dd.trace_id", fmt.Sprintf("%d", spanContext.TraceID())))
 	}
 	return res
 }

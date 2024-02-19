@@ -313,7 +313,6 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 				backOffProvider: defaultBackOffProvider,
 			}
 			result.headLock.Lock()
-
 			defer result.headLock.Unlock()
 			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
 			fetchOptions := git.FetchOptions{
