@@ -155,6 +155,7 @@ func (d *BatchServer) processAction(
 		return &repository.CreateUndeployApplicationVersion{
 			Application:    act.Application,
 			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			WriteCommitData: d.Config.WriteCommitData,
 		}, nil, nil
 	case *api.BatchAction_Undeploy:
 		act := action.Undeploy
