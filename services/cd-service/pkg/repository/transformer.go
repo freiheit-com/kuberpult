@@ -1539,11 +1539,6 @@ func (c *DeployApplicationVersion) Transform(ctx context.Context, state *State) 
 	if c.WriteCommitData { // write the corresponding event
 		commitIdPath := fs.Join(releaseDir, "source_commit_id")
 
-		files, _ := fs.ReadDir(releaseDir)
-		for _, file := range files {
-			fmt.Println(file.Name())
-		}
-
 		var commitId string
 		if data, err := util.ReadFile(fs, commitIdPath); err != nil {
 			logger.FromContext(ctx).Sugar().Infof("Error while reading source commit ID file at %s, error %w. Deployment event not stored.", commitIdPath, err)
