@@ -28,6 +28,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	eventmod "github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
@@ -244,6 +245,54 @@ func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPat
 				},
 			},
 		}
+		return result, nil
+	}
+	if eventType == eventmod.DeploymentEventName {
+		deploymentEvent := api.DeploymentEvent{}
+
+		applicationNamePath := fs.Join(eventPath, "application")
+		if data, err := util.ReadFile(fs, applicationNamePath); err != nil {
+			return nil, fmt.Errorf("could not read the application name file at %s, error: %w", applicationNamePath, err)
+		} else {
+			deploymentEvent.Application = string(data)
+		}
+
+		environmentNamePath := fs.Join(eventPath, "environment")
+		if data, err := util.ReadFile(fs, environmentNamePath); err != nil {
+			return nil, fmt.Errorf("could not read the environment name file at %s, error: %w", environmentNamePath, err)
+		} else {
+			deploymentEvent.TargetEnvironment = string(data)
+		}
+
+		upstreamNamePath := fs.Join(eventPath, "source_train_upstream")
+		if data, err := util.ReadFile(fs, upstreamNamePath); err != nil {
+			if !errors.Is(err, os.ErrNotExist) { // something is wrong
+				return nil, fmt.Errorf("an unexpected error occured when reading the upstream file at %s, error: %w", upstreamNamePath, err)
+			}
+			// everything okay, deployment not triggered by release train
+		} else { // deployment triggered by release train
+			deploymentEvent.ReleaseTrainSource = &api.DeploymentEvent_ReleaseTrainSource{}
+
+			deploymentEvent.ReleaseTrainSource.UpstreamEnvironment = string(data)
+			
+			targetGroupPath := fs.Join(eventPath, "source_train_group")
+			if data, err := util.ReadFile(fs, targetGroupPath); err != nil {
+				if !errors.Is(err, os.ErrNotExist) { // something is wrong
+					return nil, fmt.Errorf("an unexpected error occured when reading the target group file at %s, error: %w", targetGroupPath, err)
+				}
+				// everything okay, deployment not triggered by release train on an environment group
+			} else { // deployment triggered by release train on an environment group
+				deploymentEvent.ReleaseTrainSource.TargetGroup = ptr.FromString(string(data))
+			}
+		}
+
+		result := &api.Event{
+			CreatedAt: uuid.GetTime(&eventId),
+			EventType: &api.Event_DeploymentEvent{
+				DeploymentEvent: &deploymentEvent,
+			},
+		}
+
 		return result, nil
 	}
 	return nil, fmt.Errorf("could not read event, did not recognize event type '%s'", eventType)

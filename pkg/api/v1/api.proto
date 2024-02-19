@@ -61,7 +61,7 @@ message Event {
   // data that is different per event type:
   oneof event_type {
     CreateReleaseEvent create_release_event = 2;
-    DeploymentEvent deploy_event = 3;
+    DeploymentEvent deployment_event = 3;
   }
 }
 
