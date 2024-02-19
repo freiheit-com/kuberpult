@@ -82,7 +82,7 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => (
                 const createdAt = event.createdAt?.toISOString() || '';
                 const [description, environments] = eventDescription(event);
                 return (
-                    <tr key={event.UUID}>
+                    <tr key={event.uuid}>
                         <td>{createdAt}</td>
                         <td>{description}</td>
                         <td>{environments}</td>
