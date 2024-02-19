@@ -85,7 +85,7 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => (
                     <tr>
                         <td>{createdAt}</td>
                         <td>{description}</td>
-                        <td>{environments.join(', ')}</td>
+                        <td>{environments}</td>
                     </tr>
                 );
             })}
@@ -93,16 +93,16 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => (
     </table>
 );
 
-const eventDescription = (event: Event): [JSX.Element, string[]] => {
+const eventDescription = (event: Event): [JSX.Element, string] => {
     const tp = event.eventType;
     if (tp === undefined) {
-        return [<span>Unspecified event type</span>, []];
+        return [<span>Unspecified event type</span>, ''];
     }
     switch (tp.$case) {
         case 'createReleaseEvent':
             return [
                 <span>Kuberpult received data about this commit for the first time</span>,
-                tp.createReleaseEvent.environmentNames,
+                tp.createReleaseEvent.environmentNames.join(', '),
             ];
         case 'deploymentEvent':
             const de = tp.deploymentEvent;
@@ -118,7 +118,7 @@ const eventDescription = (event: Event): [JSX.Element, string[]] => {
                 if (de.releaseTrainSource?.targetGroup === undefined)
                     description = (
                         <span>
-                            Release train deployment of application <b>{de.application}</b> from environment
+                            Release train deployment of application <b>{de.application}</b> from environment{' '}
                             <b>{de.releaseTrainSource.upstreamEnvironment}</b> to environment{' '}
                             <b>{de.targetEnvironment}</b>
                         </span>
@@ -133,6 +133,6 @@ const eventDescription = (event: Event): [JSX.Element, string[]] => {
                         </span>
                     );
             }
-            return [description, [de.targetEnvironment]];
+            return [description, de.targetEnvironment];
     }
 };
