@@ -1680,7 +1680,7 @@ func writeDeploymentEvent(fs billy.Filesystem, commitId, eventId, application, e
 	}
 
 	if sourceTrain != nil {
-		eventTrainPath := fs.Join(eventPath, "source_train")
+		eventTrainPath := fs.Join(eventPath)
 
 		if sourceTrain.TargetGroup != nil {
 			eventTrainGroupPath := fs.Join(eventTrainPath, "source_train_group")
