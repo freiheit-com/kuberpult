@@ -447,7 +447,6 @@ func (c *CreateApplicationVersion) Transform(
 
 	var allEnvsOfThisApp []string = nil
 	for env, man := range c.Manifests {
-		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
 		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
