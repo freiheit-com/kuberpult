@@ -37,6 +37,7 @@ Commit message body line 2`,
         touchedApps: ['google', 'windows'],
         events: [
             {
+                UUID: '00000000-0000-0000-0000-000000000000',
                 createdAt: new Date('2024-02-09T09:46:00Z'),
                 eventType: {
                     $case: 'createReleaseEvent',
@@ -46,6 +47,7 @@ Commit message body line 2`,
                 },
             },
             {
+                UUID: '00000000-0000-0000-0000-000000000001',
                 createdAt: new Date('2024-02-10T09:46:00Z'),
                 eventType: {
                     $case: 'deploymentEvent',
@@ -56,6 +58,7 @@ Commit message body line 2`,
                 },
             },
             {
+                UUID: '00000000-0000-0000-0000-000000000002',
                 createdAt: new Date('2024-02-11T09:46:00Z'),
                 eventType: {
                     $case: 'deploymentEvent',
@@ -69,6 +72,7 @@ Commit message body line 2`,
                 },
             },
             {
+                UUID: '00000000-0000-0000-0000-000000000003',
                 createdAt: new Date('2024-02-12T09:46:00Z'),
                 eventType: {
                     $case: 'deploymentEvent',
