@@ -39,6 +39,7 @@ func FromContext(ctx context.Context) *zap.Logger {
 }
 
 func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
+
 	return ctxzap.ToContext(ctx, logger)
 }
 

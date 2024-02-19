@@ -20,9 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"go.uber.org/zap"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -281,10 +283,24 @@ func (d *BatchServer) processAction(
 	return nil, nil, status.Error(codes.InvalidArgument, "processAction: cannot process action: invalid action type")
 }
 
+func FromContextWithDD(ctx context.Context) *zap.Logger {
+	res := ctxzap.Extract(ctx)
+	span, ok := tracer.SpanFromContext(ctx)
+	if ok {
+		return res.With(zap.String("dd.span_id", fmt.Sprintf("%v", span)))
+	}
+	return res
+}
+
 func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest,
 ) (*api.BatchResponse, error) {
+	FromContextWithDD(ctx).Error("log test 0: error without span")
+	span, ctx := tracer.StartSpanFromContext(ctx, "ProcessBatch")
+	defer span.Finish()
+	FromContextWithDD(ctx).Error("log test 1: error with span")
+
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
 		return nil, grpc.AuthError(ctx, errors.New(fmt.Sprintf("batch requires user to be provided %v", err)))
