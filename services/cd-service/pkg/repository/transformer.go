@@ -473,11 +473,12 @@ func (c *CreateApplicationVersion) Transform(
 		t.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
-				Environment:    env,
-				Application:    c.Application,
-				Version:        version, // the train should queue deployments, instead of giving up:
-				LockBehaviour:  api.LockBehavior_RECORD,
-				Authentication: c.Authentication,
+				Environment:     env,
+				Application:     c.Application,
+				Version:         version, // the train should queue deployments, instead of giving up:
+				LockBehaviour:   api.LockBehavior_RECORD,
+				Authentication:  c.Authentication,
+				WriteCommitData: c.WriteCommitData,
 			}
 			err := t.Execute(d)
 			if err != nil {
@@ -724,7 +725,8 @@ func isLatestsVersion(state *State, application string, version uint64) (bool, e
 
 type CreateUndeployApplicationVersion struct {
 	Authentication
-	Application string
+	Application     string
+	WriteCommitData bool
 }
 
 func (c *CreateUndeployApplicationVersion) Transform(
@@ -791,8 +793,9 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				Application: c.Application,
 				Version:     lastRelease + 1,
 				// the train should queue deployments, instead of giving up:
-				LockBehaviour:  api.LockBehavior_RECORD,
-				Authentication: c.Authentication,
+				LockBehaviour:   api.LockBehavior_RECORD,
+				Authentication:  c.Authentication,
+				WriteCommitData: c.WriteCommitData,
 			}
 			err := t.Execute(d)
 			if err != nil {
@@ -1686,7 +1689,7 @@ func writeDeploymentEvent(fs billy.Filesystem, commitId, eventId, application, e
 			}
 		}
 		eventTrainUpstreamPath := fs.Join(eventTrainPath, "source_train_upstream")
-		if err := util.WriteFile(fs, eventTrainUpstreamPath, []byte(*sourceTrain.TargetGroup), 0666); err != nil {
+		if err := util.WriteFile(fs, eventTrainUpstreamPath, []byte(sourceTrain.Upstream), 0666); err != nil {
 			return fmt.Errorf("could not write source train upstream file at %s, error: %w", eventTrainUpstreamPath, err)
 		}
 	}
