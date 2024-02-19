@@ -45,6 +45,43 @@ Commit message body line 2`,
                     },
                 },
             },
+            {
+                createdAt: new Date('2024-02-10T09:46:00Z'),
+                eventType: {
+                    $case: 'deploymentEvent',
+                    deploymentEvent: {
+                        application: 'app',
+                        targetEnvironment: 'dev',
+                    },
+                },
+            },
+            {
+                createdAt: new Date('2024-02-11T09:46:00Z'),
+                eventType: {
+                    $case: 'deploymentEvent',
+                    deploymentEvent: {
+                        application: 'app',
+                        targetEnvironment: 'staging',
+                        releaseTrainSource: {
+                            upstreamEnvironment: 'dev',
+                        },
+                    },
+                },
+            },
+            {
+                createdAt: new Date('2024-02-12T09:46:00Z'),
+                eventType: {
+                    $case: 'deploymentEvent',
+                    deploymentEvent: {
+                        application: 'app',
+                        targetEnvironment: 'staging',
+                        releaseTrainSource: {
+                            upstreamEnvironment: 'dev',
+                            targetGroup: 'staging-group',
+                        },
+                    },
+                },
+            },
         ],
     };
     render(
@@ -60,7 +97,32 @@ Commit message body line 2`,
     expect(screen.getAllByRole('row', { name: /Commit message body line 1/ })).toHaveLength(1);
     expect(screen.getAllByRole('row', { name: /Commit message body line 2/ })).toHaveLength(1);
     expect(screen.getAllByRole('row', { name: /google, windows/ })).toHaveLength(1);
+
+    // checks for first event
     expect(screen.getAllByRole('row', { name: /2024-02-09T09:46:00/ })).toHaveLength(1);
     expect(screen.getAllByRole('row', { name: /received data about this commit for the first time/ })).toHaveLength(1);
     expect(screen.getAllByRole('row', { name: /dev, staging/ })).toHaveLength(1);
+
+    // checks for second event
+    expect(screen.getAllByRole('row', { name: /2024-02-10T09:46:00/ })).toHaveLength(1);
+    expect(
+        screen.getAllByRole('row', { name: /Manual deployment of application app to environment dev/ })
+    ).toHaveLength(1);
+    expect(screen.getAllByRole('row', { name: /dev/ })).toHaveLength(4); // there are 3 others
+
+    // checks for third event
+    expect(screen.getAllByRole('row', { name: /2024-02-11T09:46:00/ })).toHaveLength(1);
+    expect(
+        screen.getAllByRole('row', {
+            name: /Release train deployment of application app from environment dev to environment staging/,
+        })
+    ).toHaveLength(1);
+
+    // checks for 4th event
+    expect(screen.getAllByRole('row', { name: /2024-02-12T09:46:00/ })).toHaveLength(1);
+    expect(
+        screen.getAllByRole('row', {
+            name: /Release train deployment of application app on environment group staging-group from environment dev to environment staging/,
+        })
+    ).toHaveLength(1);
 });
