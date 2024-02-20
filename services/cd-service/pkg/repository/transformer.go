@@ -144,7 +144,7 @@ func GaugeDeploymentMetric(_ context.Context, env, app string, timeInMinutes flo
 	return nil
 }
 
-func UpdateDatadogMetrics(ctx context.Context, state *State, changes *TransformerResult) error {
+func UpdateDatadogMetrics(ctx context.Context, state *State, changes *TransformerResult, now time.Time) error {
 	filesystem := state.Filesystem
 	if ddMetrics == nil {
 		return nil
@@ -154,13 +154,11 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, changes *Transforme
 		return err
 	}
 
-	now := time.Now()          // ensure all events have the same timestamp
-	nowUtc := time.Now().UTC() // and all metrics too
-
 	for env := range configs {
 		GaugeEnvLockMetric(filesystem, env)
 		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
 		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
+
 			for _, app := range entries {
 				GaugeEnvAppLockMetric(filesystem, env, app.Name())
 
@@ -168,7 +166,7 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, changes *Transforme
 				if err != nil {
 					return err
 				}
-				timeDiff := nowUtc.Sub(deployedAtTimeUtc)
+				timeDiff := now.Sub(deployedAtTimeUtc)
 				err = GaugeDeploymentMetric(ctx, env, app.Name(), timeDiff.Minutes())
 				if err != nil {
 					return err
@@ -217,7 +215,7 @@ func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBa
 
 func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
 	repoState := repo.State()
-	if err := UpdateDatadogMetrics(ctx, repoState, nil); err != nil {
+	if err := UpdateDatadogMetrics(ctx, repoState, nil, time.Now()); err != nil {
 		panic(err.Error())
 	}
 }

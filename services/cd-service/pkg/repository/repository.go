@@ -567,7 +567,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
 	if r.config.DogstatsdEvents {
-		ddError := UpdateDatadogMetrics(ctx, r.State(), changes)
+		ddError := UpdateDatadogMetrics(ctx, r.State(), changes, time.Now())
 		if ddError != nil {
 			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
 		}
