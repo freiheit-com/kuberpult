@@ -20,8 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"io/fs"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path"
@@ -29,6 +30,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 
@@ -1884,6 +1888,77 @@ func TestGitPushDoesntGetStuck(t *testing.T) {
 			if err != nil {
 				t.Errorf("expected no error, got %q ( %#v )", err, err)
 			}
+		})
+	}
+}
+
+type TestWebhookResolver struct {
+	t   *testing.T
+	rec *httptest.ResponseRecorder
+}
+
+func (resolver TestWebhookResolver) Resolve(insecure bool, req *http.Request) (*http.Response, error) {
+	testhandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resolver.t.Logf("called with request: %v", *r)
+	})
+	testhandler.ServeHTTP(resolver.rec, req)
+	resolver.t.Logf("responded with: %v", resolver.rec.Result())
+	return resolver.rec.Result(), nil
+}
+
+func TestSendWebhookToArgoCd(t *testing.T) {
+	tcs := []struct {
+		Name string
+	}{
+		{
+			Name: "webhook",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			// given
+			dir := t.TempDir()
+			path := path.Join(dir, "repo")
+			repo, _, err := New2(
+				ctx,
+				RepositoryConfig{
+					URL:  fmt.Sprintf("file://%s", path),
+					Path: path,
+				},
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%e'", err)
+			}
+			repoInternal := repo.(*repository)
+			repoInternal.config.ArgoWebhookUrl = "http://example.com"
+			rec := httptest.NewRecorder()
+			repoInternal.config.WebhookResolver = TestWebhookResolver{
+				t:   t,
+				rec: rec,
+			}
+			someOid := &git.Oid{}
+			commits := CommitIds{
+				Current:  someOid,
+				Previous: someOid,
+			}
+			changes := TransformerResult{
+				Commits: &commits,
+			}
+			logger, err := zap.NewDevelopment()
+			if err != nil {
+				t.Fatalf("error creating logger: %e", err)
+			}
+
+			// when
+			repoInternal.sendWebhookToArgoCd(ctx, logger, &changes)
+
+			// then
+			t.Fatalf("found result: %v", rec.Result())
 		})
 	}
 }
