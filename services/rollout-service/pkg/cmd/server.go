@@ -27,6 +27,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	argoio "github.com/argoproj/argo-cd/v2/util/io"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/datadogdora"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	pkgmetrics "github.com/freiheit-com/kuberpult/pkg/metrics"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
@@ -66,6 +67,11 @@ type Config struct {
 	RevolutionDoraConcurrency int           `default:"10" split_words:"true"`
 	RevolutionDoraMaxEventAge time.Duration `default:"0" split_words:"true"`
 
+	DataDogDoraEnabled     bool          `split_words:"true"`
+	DataDogAPIURL          string        `split_words:"true" default:""`
+	DataDogAPIKey          string        `split_words:"true" default:""`
+	DataDogDoraMaxEventAge time.Duration `default:"0" split_words:"true"`
+
 	ManageArgoApplicationsEnabled bool     `split_words:"true" default:"true"`
 	ManageArgoApplicationsFilter  []string `split_words:"true" default:"sreteam"`
 
@@ -99,6 +105,20 @@ func (config *Config) RevolutionConfig() (revolution.Config, error) {
 		URL:         config.RevolutionDoraUrl,
 		Token:       []byte(config.RevolutionDoraToken),
 		Concurrency: config.RevolutionDoraConcurrency,
+		MaxEventAge: config.RevolutionDoraMaxEventAge,
+	}, nil
+}
+
+func (config *Config) DataDogDoraConfig() (datadogdora.Config, error) {
+	if config.DataDogAPIURL == "" {
+		return datadogdora.Config{}, fmt.Errorf("KUBERPULT_DATADOGAPI_URL must be a valid url")
+	}
+	if config.DataDogAPIKey == "" {
+		return datadogdora.Config{}, fmt.Errorf("KUBERPULT_DATADOG_APIKEY  must not be empty")
+	}
+	return datadogdora.Config{
+		URL:         config.DataDogAPIURL,
+		APIKey:      config.DataDogAPIKey,
 		MaxEventAge: config.RevolutionDoraMaxEventAge,
 	}, nil
 }
@@ -259,6 +279,21 @@ func runServer(ctx context.Context, config Config) error {
 			Run: func(ctx context.Context, health *setup.HealthReporter) error {
 				health.ReportReady("pushing")
 				return revolutionDora.Subscribe(ctx, broadcast)
+			},
+		})
+	}
+
+	if config.DataDogDoraEnabled {
+		datadogDoraConfig, err := config.DataDogDoraConfig()
+		if err != nil {
+			return err
+		}
+		datadogDora := datadogdora.New(datadogDoraConfig)
+		backgroundTasks = append(backgroundTasks, setup.BackgroundTaskConfig{
+			Name: "datadog dora",
+			Run: func(ctx context.Context, health *setup.HealthReporter) error {
+				health.ReportReady("pushing")
+				return datadogDora.Subscribe(ctx, broadcast)
 			},
 		})
 	}
