@@ -19,13 +19,17 @@ package service
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/uuid"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -274,6 +278,50 @@ func fixedTime() time.Time {
 	return time.Unix(666, 0)
 }
 func TestGetCommitInfo(t *testing.T) {
+	timeFromUUID := func(uuidStr string) *timestamppb.Timestamp {
+		uuidVar, _ := timeuuid.ParseUUID(uuidStr)
+		return uuid.GetTime(&uuidVar)
+	}
+
+	environmentSetup := []rp.Transformer{
+		&rp.CreateEnvironment{
+			Environment: "development-1",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Latest: true,
+				},
+				EnvironmentGroup: ptr.FromString("development"),
+			},
+		},
+		&rp.CreateEnvironment{
+			Environment: "development-2",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Latest: true,
+				},
+				EnvironmentGroup: ptr.FromString("development"),
+			},
+		},
+		&rp.CreateEnvironment{
+			Environment: "development-3",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Latest: true,
+				},
+				EnvironmentGroup: ptr.FromString("development"),
+			},
+		},
+
+		&rp.CreateEnvironment{
+			Environment: "staging-1",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "development-1",
+				},
+				EnvironmentGroup: ptr.FromString("staging"),
+			},
+		},
+	}
 
 	type TestCase struct {
 		name                   string
@@ -293,7 +341,7 @@ func TestGetCommitInfo(t *testing.T) {
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					SourceMessage:  "some message",
 					Manifests: map[string]string{
-						"dev": "dev-manifest",
+						"development-1": "dev-manifest",
 					},
 					WriteCommitData: true,
 				},
@@ -311,10 +359,22 @@ func TestGetCommitInfo(t *testing.T) {
 				},
 				Events: []*api.Event{
 					{
-						CreatedAt: timestamppb.New(fixedTime()),
+						Uuid:      "00000000-0000-0000-0000-000000000000",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000000"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{"dev"},
+								EnvironmentNames: []string{"development-1"},
+							},
+						},
+					},
+					{
+						Uuid:      "00000000-0000-0000-0000-000000000001",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000001"),
+						EventType: &api.Event_DeploymentEvent{
+							DeploymentEvent: &api.DeploymentEvent{
+								Application:        "app",
+								TargetEnvironment:  "development-1",
+								ReleaseTrainSource: nil,
 							},
 						},
 					},
@@ -322,32 +382,32 @@ func TestGetCommitInfo(t *testing.T) {
 			},
 		},
 		{
-			name: "create one commit with several apps and its info",
+			name: "create one commit with several apps and get its info",
 			transformers: []rp.Transformer{
 				&rp.CreateApplicationVersion{
-					Application:    "app1",
+					Application:    "app-1",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					SourceMessage:  "some message",
 					Manifests: map[string]string{
-						"dev": "dev-manifest1",
+						"development-1": "dev-manifest1",
 					},
 					WriteCommitData: true,
 				},
 				&rp.CreateApplicationVersion{
-					Application:    "app2",
+					Application:    "app-2",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					SourceMessage:  "some message",
 					Manifests: map[string]string{
-						"dev2": "dev-manifest2",
+						"development-2": "dev-manifest2",
 					},
 					WriteCommitData: true,
 				},
 				&rp.CreateApplicationVersion{
-					Application:    "app3",
+					Application:    "app-3",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					SourceMessage:  "some message",
 					Manifests: map[string]string{
-						"dev3": "dev-manifest3",
+						"development-3": "dev-manifest3",
 					},
 					WriteCommitData: true,
 				},
@@ -361,32 +421,68 @@ func TestGetCommitInfo(t *testing.T) {
 				CommitHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CommitMessage: "some message",
 				TouchedApps: []string{
-					"app1",
-					"app2",
-					"app3",
+					"app-1",
+					"app-2",
+					"app-3",
 				},
 				Events: []*api.Event{
 					{
-						CreatedAt: timestamppb.New(fixedTime()),
+						Uuid:      "00000000-0000-0000-0000-000000000000",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000000"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{"dev"},
+								EnvironmentNames: []string{"development-1"},
 							},
 						},
 					},
 					{
-						CreatedAt: timestamppb.New(fixedTime().Add(time.Second * time.Duration(1))),
-						EventType: &api.Event_CreateReleaseEvent{
-							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{"dev2"},
+						Uuid:      "00000000-0000-0000-0000-000000000001",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000001"),
+						EventType: &api.Event_DeploymentEvent{
+							DeploymentEvent: &api.DeploymentEvent{
+								Application:        "app-1",
+								TargetEnvironment:  "development-1",
+								ReleaseTrainSource: nil,
 							},
 						},
 					},
 					{
-						CreatedAt: timestamppb.New(fixedTime().Add(time.Second * time.Duration(2))),
+						Uuid:      "00000000-0000-0000-0000-000000000002",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000002"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{
-								EnvironmentNames: []string{"dev3"},
+								EnvironmentNames: []string{"development-2"},
+							},
+						},
+					},
+					{
+						Uuid:      "00000000-0000-0000-0000-000000000003",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000003"),
+						EventType: &api.Event_DeploymentEvent{
+							DeploymentEvent: &api.DeploymentEvent{
+								Application:        "app-2",
+								TargetEnvironment:  "development-2",
+								ReleaseTrainSource: nil,
+							},
+						},
+					},
+					{
+						Uuid:      "00000000-0000-0000-0000-000000000004",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000004"),
+						EventType: &api.Event_CreateReleaseEvent{
+							CreateReleaseEvent: &api.CreateReleaseEvent{
+								EnvironmentNames: []string{"development-3"},
+							},
+						},
+					},
+					{
+						Uuid:      "00000000-0000-0000-0000-000000000005",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000005"),
+						EventType: &api.Event_DeploymentEvent{
+							DeploymentEvent: &api.DeploymentEvent{
+								Application:        "app-3",
+								TargetEnvironment:  "development-3",
+								ReleaseTrainSource: nil,
 							},
 						},
 					},
@@ -430,7 +526,8 @@ func TestGetCommitInfo(t *testing.T) {
 				TouchedApps:   []string{"app"},
 				Events: []*api.Event{
 					{
-						CreatedAt: timestamppb.New(fixedTime()),
+						Uuid: "00000000-0000-0000-0000-000000000000",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000000"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{},
 						},
@@ -446,7 +543,7 @@ func TestGetCommitInfo(t *testing.T) {
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					SourceMessage:  "some message",
 					Manifests: map[string]string{
-						"dev": "dev-manifest",
+						"development-1": "dev-manifest",
 					},
 					WriteCommitData: true, // we still write the info …
 				},
@@ -466,7 +563,7 @@ func TestGetCommitInfo(t *testing.T) {
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					SourceMessage:  "some message",
 					Manifests: map[string]string{
-						"dev": "dev-manifest",
+						"development-1": "dev-manifest",
 					},
 					WriteCommitData: false, // do not write commit data …
 				},
@@ -478,6 +575,162 @@ func TestGetCommitInfo(t *testing.T) {
 			expectedError:          status.Error(codes.NotFound, "error: commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa was not found in the manifest repo"),
 			expectedResponse:       nil,
 		},
+		{
+			name: "release trains on environments are correctly retrieved by GetCommitInfo",
+			transformers: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application: "app",
+					Manifests: map[string]string{
+						"development-1": "manifest 1",
+						"staging-1": "manifest 2",
+					},
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					WriteCommitData: true,
+				},
+				&rp.CreateApplicationVersion{
+					Application: "app",
+					Manifests: map[string]string{
+						"development-1": "manifest 1",
+						"staging-1": "manifest 2",
+					},
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					WriteCommitData: true,
+				},
+				&rp.ReleaseTrain{
+					Target: "staging-1",
+					WriteCommitData: true,
+				},
+			},
+			allowReadingCommitData: true,
+			request: &api.GetCommitInfoRequest{
+				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			},
+			expectedResponse: &api.GetCommitInfoResponse{
+				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				CommitMessage: "",
+				TouchedApps: []string{
+					"app",
+				},
+				Events: []*api.Event{
+					{
+						Uuid: "00000000-0000-0000-0000-000000000002",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000002"),
+						EventType: &api.Event_CreateReleaseEvent{
+							CreateReleaseEvent: &api.CreateReleaseEvent{
+								EnvironmentNames: []string{
+									"development-1",
+									"staging-1",
+								},
+							},
+						},
+					},
+					{
+						Uuid: "00000000-0000-0000-0000-000000000003",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000003"),
+						EventType: &api.Event_DeploymentEvent{
+							DeploymentEvent: &api.DeploymentEvent{
+								Application: "app",
+								TargetEnvironment: "development-1",
+								ReleaseTrainSource: nil,
+							},
+						},
+					},
+
+					{
+						Uuid: "00000000-0000-0000-0000-000000000004",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000004"),
+						EventType: &api.Event_DeploymentEvent{
+							DeploymentEvent: &api.DeploymentEvent{
+								Application: "app",
+								TargetEnvironment: "staging-1",
+								ReleaseTrainSource: &api.DeploymentEvent_ReleaseTrainSource{
+									UpstreamEnvironment: "development-1",
+									TargetGroup: nil,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "release trains on environment groups are correctly retrieved by GetCommitInfo",
+			transformers: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application: "app",
+					Manifests: map[string]string{
+						"development-1": "manifest 1",
+						"staging-1": "manifest 2",
+					},
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					WriteCommitData: true,
+				},
+				&rp.CreateApplicationVersion{
+					Application: "app",
+					Manifests: map[string]string{
+						"development-1": "manifest 1",
+						"staging-1": "manifest 2",
+					},
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					WriteCommitData: true,
+				},
+				&rp.ReleaseTrain{
+					Target: "staging",
+					WriteCommitData: true,
+				},
+			},
+			allowReadingCommitData: true,
+			request: &api.GetCommitInfoRequest{
+				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			},
+			expectedResponse: &api.GetCommitInfoResponse{
+				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				CommitMessage: "",
+				TouchedApps: []string{
+					"app",
+				},
+				Events: []*api.Event{
+					{
+						Uuid: "00000000-0000-0000-0000-000000000002",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000002"),
+						EventType: &api.Event_CreateReleaseEvent{
+							CreateReleaseEvent: &api.CreateReleaseEvent{
+								EnvironmentNames: []string{
+									"development-1",
+									"staging-1",
+								},
+							},
+						},
+					},
+					{
+						Uuid: "00000000-0000-0000-0000-000000000003",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000003"),
+						EventType: &api.Event_DeploymentEvent{
+							DeploymentEvent: &api.DeploymentEvent{
+								Application: "app",
+								TargetEnvironment: "development-1",
+								ReleaseTrainSource: nil,
+							},
+						},
+					},
+
+					{
+						Uuid: "00000000-0000-0000-0000-000000000004",
+						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000004"),
+						EventType: &api.Event_DeploymentEvent{
+							DeploymentEvent: &api.DeploymentEvent{
+								Application: "app",
+								TargetEnvironment: "staging-1",
+								ReleaseTrainSource: &api.DeploymentEvent_ReleaseTrainSource{
+									UpstreamEnvironment: "development-1",
+									TargetGroup: ptr.FromString("staging"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -488,17 +741,19 @@ func TestGetCommitInfo(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
-			var variableTime time.Time = fixedTime()
-			for _, transformer := range tc.transformers {
-				ctx := rp.AddGeneratorToContext(testutil.MakeTestContext(), testutil.TestGenerator{
-					Time: variableTime,
-				})
+			ctx := rp.AddGeneratorToContext(testutil.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+
+			for _, transformer := range environmentSetup {
 				err := repo.Apply(ctx, transformer)
 				if err != nil {
 					t.Fatalf("expected no error in transformer but got:\n%v\n", err)
 				}
-				// each consecutive transformer will get 1 second added:
-				variableTime = variableTime.Add(time.Second * time.Duration(1))
+			}
+			for _, transformer := range tc.transformers {
+				err := repo.Apply(ctx, transformer)
+				if err != nil {
+					t.Fatalf("expected no error in transformer but got:\n%v\n", err)
+				}
 			}
 
 			config := rp.RepositoryConfig{
@@ -509,12 +764,19 @@ func TestGetCommitInfo(t *testing.T) {
 				Config:          config,
 			}
 
-			ctx := testutil.MakeTestContext()
+			ctx = testutil.MakeTestContext()
 			commitInfo, err := sv.GetCommitInfo(ctx, tc.request)
 
 			if !errors.Is(err, tc.expectedError) {
 				t.Fatalf("expected error %v\nreceived error %v", tc.expectedError, err)
 			}
+
+			if commitInfo != nil {
+				sort.Slice(commitInfo.Events, func(i, j int) bool {
+					return commitInfo.Events[i].Uuid < commitInfo.Events[j].Uuid
+				})
+			}
+
 			if !proto.Equal(tc.expectedResponse, commitInfo) {
 				t.Fatalf("expected response:\n%v\nreceived response:\n%v\n", tc.expectedResponse, commitInfo)
 			}
