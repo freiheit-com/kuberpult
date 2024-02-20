@@ -219,15 +219,17 @@ func runServer(ctx context.Context) error {
 		DefaultTimeout: 2 * time.Minute,
 	}
 	gproxy := &GrpcProxy{
-		OverviewClient:       api.NewOverviewServiceClient(cdCon),
-		BatchClient:          batchClient,
-		RolloutServiceClient: rolloutClient,
-		GitClient:            api.NewGitServiceClient(cdCon),
+		OverviewClient:           api.NewOverviewServiceClient(cdCon),
+		BatchClient:              batchClient,
+		RolloutServiceClient:     rolloutClient,
+		GitClient:                api.NewGitServiceClient(cdCon),
+		EnvironmentServiceClient: api.NewEnvironmentServiceClient(cdCon),
 	}
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
 	api.RegisterRolloutServiceServer(gsrv, gproxy)
 	api.RegisterGitServiceServer(gsrv, gproxy)
+	api.RegisterEnvironmentServiceServer(gsrv, gproxy)
 
 	frontendConfigService := &service.FrontendConfigServiceServer{
 		Config: config.FrontendConfig{
@@ -455,10 +457,11 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // An alternative to the more generic methods proposed in
 // https://github.com/grpc/grpc-go/issues/2297
 type GrpcProxy struct {
-	OverviewClient       api.OverviewServiceClient
-	BatchClient          api.BatchServiceClient
-	RolloutServiceClient api.RolloutServiceClient
-	GitClient            api.GitServiceClient
+	OverviewClient           api.OverviewServiceClient
+	BatchClient              api.BatchServiceClient
+	RolloutServiceClient     api.RolloutServiceClient
+	GitClient                api.GitServiceClient
+	EnvironmentServiceClient api.EnvironmentServiceClient
 }
 
 func (p *GrpcProxy) ProcessBatch(
@@ -497,6 +500,12 @@ func (p *GrpcProxy) GetCommitInfo(
 	ctx context.Context,
 	in *api.GetCommitInfoRequest) (*api.GetCommitInfoResponse, error) {
 	return p.GitClient.GetCommitInfo(ctx, in)
+}
+
+func (p *GrpcProxy) GetEnvironmentConfig(
+	ctx context.Context,
+	in *api.GetEnvironmentConfigRequest) (*api.GetEnvironmentConfigResponse, error) {
+	return p.EnvironmentServiceClient.GetEnvironmentConfig(ctx, in)
 }
 
 func (p *GrpcProxy) StreamOverview(

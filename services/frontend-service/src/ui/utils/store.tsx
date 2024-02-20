@@ -30,6 +30,7 @@ import {
     GetProductSummaryResponse,
     RolloutStatus,
     GetCommitInfoResponse,
+    GetEnvironmentConfigResponse,
 } from '../../api/api';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -866,3 +867,14 @@ export const EnableRolloutStatus = (): void => {
 export const FlushRolloutStatus = (): void => {
     rolloutStatus.set({ enabled: false, applications: {} });
 };
+
+export const GetEnvironmentConfigPretty = (environmentName: string): Promise<string> =>
+    useApi
+        .environmentService()
+        .GetEnvironmentConfig({ environment: environmentName })
+        .then((res: GetEnvironmentConfigResponse) => {
+            if (!res.config) {
+                return Promise.reject(new Error('empty response.'));
+            }
+            return JSON.stringify(res.config, null, ' ');
+        });

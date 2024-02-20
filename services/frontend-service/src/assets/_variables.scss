@@ -91,6 +91,16 @@ $release-dialog-inner-border-radius: 10px;
 $release-dialog-label-displacement: -10px;
 $release-dialog-lock-icon-size: 24px;
 
+// Environment Config Dialog
+$environment-config-dialog-outer-border-radius: 10px;
+$environment-config-dialog-top-border-radius: $release-dialog-outer-border-radius $release-dialog-outer-border-radius
+    0px 0px;
+$environment-config-dialog-bottom-border-radius: 0px 0px $release-dialog-outer-border-radius
+    $release-dialog-outer-border-radius;
+$environment-config-dialog-inner-border-radius: 10px;
+$environment-config-dialog-label-displacement: -10px;
+$environment-config-dialog-lock-icon-size: 24px;
+
 // Environment Chip
 $env-group-chip-margin: 4px;
 $env-chip-height: 20px;

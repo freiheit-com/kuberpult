@@ -20,13 +20,20 @@ import * as React from 'react';
 import { EnvironmentLockDisplay } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 import { Environment, EnvironmentGroup } from '../../../api/api';
 import classNames from 'classnames';
-import { ProductVersionLink } from '../../utils/Links';
+import { ProductVersionLink, setOpenEnvironmentConfigDialog } from '../../utils/Links';
+import { useSearchParams } from 'react-router-dom';
+import { useCallback } from 'react';
 
 export const EnvironmentCard: React.FC<{ environment: Environment; group: EnvironmentGroup | undefined }> = (props) => {
     const { environment, group } = props;
+    const [params, setParams] = useSearchParams();
     const locks = useFilteredEnvironmentLockIDs(environment.name);
 
     const priorityClassName = group !== undefined ? getPriorityClassName(group) : getPriorityClassName(environment);
+    const onShowConfigClick = useCallback((): void => {
+        setOpenEnvironmentConfigDialog(params, environment.name);
+        setParams(params);
+    }, [environment.name, params, setParams]);
 
     const addLock = React.useCallback(() => {
         addAction({
@@ -62,6 +69,11 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                         label={'Add Environment Lock in ' + environment.name}
                         icon={<Locks />}
                         onClick={addLock}
+                    />
+                    <Button
+                        className="environment-action service-action--show-config"
+                        label={'Show Configuration of environment ' + environment.name}
+                        onClick={onShowConfigClick}
                     />
                     <div>
                         <ProductVersionLink

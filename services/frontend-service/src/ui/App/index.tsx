@@ -35,6 +35,9 @@ import { Snackbar } from '../components/snackbar/snackbar';
 import { mergeMap, retryWhen } from 'rxjs/operators';
 import { Observable, throwError, timer } from 'rxjs';
 import { GetFrontendConfigResponse } from '../../api/api';
+import { EnvironmentConfigDialog } from '../components/EnvironmentConfigDialog/EnvironmentConfigDialog';
+import { getOpenEnvironmentConfigDialog } from '../utils/Links';
+import { useSearchParams } from 'react-router-dom';
 
 // retry strategy: retries the observable subscription with randomized exponential backoff
 // source: https://www.learnrxjs.io/learn-rxjs/operators/error_handling/retrywhen#examples
@@ -130,12 +133,15 @@ export const App: React.FC = () => {
         }
     );
 
+    const [params] = useSearchParams();
     const { app, version } = useReleaseDialogParams();
+    const currentOpenConfig = getOpenEnvironmentConfigDialog(params);
 
     return (
         <AzureAuthProvider>
             <div className={'app-container--v2'}>
                 {app && version ? <ReleaseDialog app={app} version={version} /> : null}
+                {currentOpenConfig.length > 0 ? <EnvironmentConfigDialog environmentName={currentOpenConfig} /> : null}
                 <NavigationBar />
                 <div className="mdc-drawer-app-content">
                     <PageRoutes />

@@ -240,10 +240,10 @@ func (d *BatchServer) processAction(
 		var argocd *config.EnvironmentConfigArgoCd
 		if conf.Argocd != nil {
 			syncWindows := transformSyncWindowsToConfig(conf.Argocd.SyncWindows)
-			clusterResourceWhitelist := transformClusterResourceWhitelistToConfig(conf.Argocd.AccessList)
+			clusterResourceWhitelist := transformAccessListToConfig(conf.Argocd.AccessList)
 			ignoreDifferences := transformIgnoreDifferencesToConfig(conf.Argocd.IgnoreDifferences)
 			argocd = &config.EnvironmentConfigArgoCd{
-				Destination:              transformDestination(conf.Argocd.Destination),
+				Destination:              transformDestinationToConfig(conf.Argocd.Destination),
 				SyncWindows:              syncWindows,
 				ClusterResourceWhitelist: clusterResourceWhitelist,
 				ApplicationAnnotations:   conf.Argocd.ApplicationAnnotations,

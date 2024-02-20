@@ -1522,20 +1522,26 @@ func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, er
 		}
 		result := map[string]config.EnvironmentConfig{}
 		for _, env := range envs {
-			fileName := s.Filesystem.Join("environments", env.Name(), "config.json")
-			var config config.EnvironmentConfig
-			if err := decodeJsonFile(s.Filesystem, fileName, &config); err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					result[env.Name()] = config
-				} else {
-					return nil, fmt.Errorf("%s : %w", fileName, InvalidJson)
-				}
-			} else {
-				result[env.Name()] = config
+			c, err := s.GetEnvironmentConfig(env.Name())
+			if err != nil {
+				return nil, err
+
 			}
+			result[env.Name()] = *c
 		}
 		return result, nil
 	}
+}
+
+func (s *State) GetEnvironmentConfig(environmentName string) (*config.EnvironmentConfig, error) {
+	fileName := s.Filesystem.Join("environments", environmentName, "config.json")
+	var config config.EnvironmentConfig
+	if err := decodeJsonFile(s.Filesystem, fileName, &config); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("%s : %w", fileName, InvalidJson)
+		}
+	}
+	return &config, nil
 }
 
 func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error) {
