@@ -1787,7 +1787,7 @@ func TestUndeployErrors(t *testing.T) {
 				},
 			},
 			expectedError:     "",
-			expectedCommitMsg: "created undeploy-version 2 of 'app1'\n",
+			expectedCommitMsg: "created undeploy-version 2 of 'app1'",
 			shouldSucceed:     true,
 		},
 		{
@@ -1813,7 +1813,7 @@ func TestUndeployErrors(t *testing.T) {
 				},
 			},
 			expectedError:     "",
-			expectedCommitMsg: "created version 3 of \"app1\"\n",
+			expectedCommitMsg: "created version 3 of \"app1\"",
 			shouldSucceed:     true,
 		},
 		{
@@ -1835,7 +1835,7 @@ func TestUndeployErrors(t *testing.T) {
 			},
 			shouldSucceed:     true,
 			expectedError:     "",
-			expectedCommitMsg: "created undeploy-version 3 of 'app1'\n",
+			expectedCommitMsg: "created undeploy-version 3 of 'app1'",
 		},
 	}
 	for _, tc := range tcs {
@@ -1926,19 +1926,8 @@ func TestReleaseTrainErrors(t *testing.T) {
 			expectedError: "",
 			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
 
-Release Train to 'acceptance-ca' environment:
-
-Skipped services:
 Target Environment 'acceptance-ca' is locked - skipping.
-
-
-Release Train to 'acceptance-de' environment:
-
-Skipped services:
-Target Environment 'acceptance-de' is locked - skipping.
-
-
-`,
+Target Environment 'acceptance-de' is locked - skipping.`,
 		},
 		{
 			Name: "Environment has no upstream - but train continues in other env",
@@ -1965,17 +1954,8 @@ Target Environment 'acceptance-de' is locked - skipping.
 			expectedError: "",
 			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
 
-Release Train to 'acceptance-ca' environment:
-
-Skipped services:
 Environment '"acceptance-ca"' does not have upstream configured - skipping.
-
-Release Train to 'acceptance-de' environment:
-
-Skipped services:
-Environment '"acceptance-de"' does not have upstream configured - skipping.
-
-`,
+Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 		},
 		{
 			Name: "Environment has no upstream.latest or env - but train continues in other env",
@@ -2008,17 +1988,8 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.
 			expectedError: "",
 			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
 
-Release Train to 'acceptance-ca' environment:
-
-Skipped services:
 Environment "acceptance-ca" does not have upstream.latest or upstream.environment configured - skipping.
-
-Release Train to 'acceptance-de' environment:
-
-Skipped services:
-Environment "acceptance-de" does not have upstream.latest or upstream.environment configured - skipping.
-
-`,
+Environment "acceptance-de" does not have upstream.latest or upstream.environment configured - skipping.`,
 		},
 		{
 			Name: "Environment has both upstream.latest and env - but train continues in other env",
@@ -2051,17 +2022,8 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 			expectedError: "",
 			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
 
-Release Train to 'acceptance-ca' environment:
-
-Skipped services:
 Environment "acceptance-ca" has both upstream.latest and upstream.environment configured - skipping.
-
-Release Train to 'acceptance-de' environment:
-
-Skipped services:
-Environment "acceptance-de" has both upstream.latest and upstream.environment configured - skipping.
-
-`,
+Environment "acceptance-de" has both upstream.latest and upstream.environment configured - skipping.`,
 		},
 	}
 	for _, tc := range tcs {
@@ -2295,7 +2257,7 @@ func TestTransformerChanges(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, _, actualChanges, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			msgs, _, actualChanges, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// we only diff the changes from the last transformer here:
 			lastChanges := actualChanges[len(actualChanges)-1]
 			// note that we only check the LAST error here:
@@ -2304,6 +2266,7 @@ func TestTransformerChanges(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(lastChanges, tc.expectedChanges); diff != "" {
+				t.Log("Commit message:\n", msgs[len(msgs)-1])
 				t.Errorf("got %v, want %v, diff (-want +got) %s", lastChanges, tc.expectedChanges, diff)
 			}
 		})
@@ -4781,12 +4744,12 @@ type injectErr struct {
 	err       error
 }
 
-func (i *injectErr) Transform(ctx context.Context, state *State) (string, *TransformerResult, error) {
+func (i *injectErr) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
 	original := state.Filesystem
 	state.Filesystem = i.collector.WithError(state.Filesystem, i.operation, i.filename, i.err)
-	s, changes, err := i.Transformer.Transform(ctx, state)
+	s, err := i.Transformer.Transform(ctx, state, t)
 	state.Filesystem = original
-	return s, changes, err
+	return s, err
 }
 
 func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
