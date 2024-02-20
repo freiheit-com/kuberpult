@@ -1393,24 +1393,6 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 	}
 }
 
-type IncrementalUUID struct {
-	count uint64
-}
-
-func (gen *IncrementalUUID) Generate() string {
-	ret := "00000000-0000-0000-0000-" + strings.Repeat("0", (12-len(fmt.Sprint(gen.count)))) + fmt.Sprint(gen.count)
-	gen.count++
-	return ret
-}
-
-type IncrementalUUIDCompat struct {
-	gen *IncrementalUUID
-}
-
-func (gen IncrementalUUIDCompat) Generate() string {
-	return gen.gen.Generate()
-}
-
 type ContentRequirement struct {
 	Path    string
 	Content string
@@ -1599,11 +1581,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			fakeGenBase := IncrementalUUID{}
-			fakeGen := IncrementalUUIDCompat{
-				gen: &fakeGenBase,
-			}
-
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
 			tc := tc
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
