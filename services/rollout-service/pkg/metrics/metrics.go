@@ -19,6 +19,7 @@ package metrics
 import (
 	"context"
 	"fmt"
+	metrics2 "github.com/freiheit-com/kuberpult/pkg/metrics"
 	"math"
 	"sync"
 	"time"
@@ -149,8 +150,8 @@ func (a *appState) attributes(ev *service.BroadcastEvent) attribute.Set {
 
 func buildAttributes(ev *service.BroadcastEvent) attribute.Set {
 	return attribute.NewSet(
-		attribute.String("kuberpult_application", ev.Application),
-		attribute.String("kuberpult_environment", ev.Environment),
-		attribute.String("kuberpult_environment_group", ev.EnvironmentGroup),
+		attribute.String(metrics2.EventTagApplication, ev.Application),
+		attribute.String(metrics2.EventTagEnvironment, ev.Environment),
+		attribute.String(metrics2.EventTagEnvironmentGroup, ev.EnvironmentGroup),
 	)
 }

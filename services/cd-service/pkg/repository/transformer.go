@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/metrics"
 	"io"
 	"io/fs"
 	"os"
@@ -138,7 +139,11 @@ func GaugeEnvAppLockMetric(fs billy.Filesystem, env, app string) {
 func GaugeDeploymentMetric(_ context.Context, env, app string, timeInMinutes float64) error {
 	if ddMetrics != nil {
 		// store the time since the last deployment in minutes:
-		err := ddMetrics.Gauge("lastDeployed", timeInMinutes, []string{"app:" + app, "env:" + env}, 1)
+		err := ddMetrics.Gauge(
+			"lastDeployed",
+			timeInMinutes,
+			[]string{metrics.EventTagApplication + ":" + app, metrics.EventTagEnvironment + ":" + env},
+			1)
 		return err
 	}
 	return nil
