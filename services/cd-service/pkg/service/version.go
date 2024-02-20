@@ -54,7 +54,7 @@ func (o *VersionServiceServer) GetVersion(
 	version, err := state.GetEnvironmentApplicationVersion(in.Environment, in.Application)
 	if version != nil {
 		res.Version = *version
-		_, deployedAt, err := state.GetDeploymentMetaData(ctx, in.Environment, in.Application)
+		_, deployedAt, err := state.GetDeploymentMetaData(in.Environment, in.Application)
 		if err != nil {
 			return nil, err
 		}

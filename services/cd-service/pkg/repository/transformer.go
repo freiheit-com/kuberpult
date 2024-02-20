@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/metrics"
 	"io"
 	"io/fs"
 	"os"
@@ -36,7 +38,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 
-	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"k8s.io/utils/strings/slices"
 
@@ -135,7 +136,28 @@ func GaugeEnvAppLockMetric(fs billy.Filesystem, env, app string) {
 	}
 }
 
-func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
+func GaugeDeploymentMetric(_ context.Context, env, app string, timeInMinutes float64) error {
+	if ddMetrics != nil {
+		// store the time since the last deployment in minutes:
+		err := ddMetrics.Gauge(
+			"lastDeployed",
+			timeInMinutes,
+			[]string{metrics.EventTagApplication + ":" + app, metrics.EventTagEnvironment + ":" + env},
+			1)
+		return err
+	}
+	return nil
+}
+
+func sortFiles(gs []os.FileInfo) func(i int, j int) bool {
+	return func(i, j int) bool {
+		iIndex := gs[i].Name()
+		jIndex := gs[j].Name()
+		return iIndex < jIndex
+	}
+}
+
+func UpdateDatadogMetrics(ctx context.Context, state *State, changes *TransformerResult, now time.Time) error {
 	filesystem := state.Filesystem
 	if ddMetrics == nil {
 		return nil
@@ -144,16 +166,34 @@ func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
 	if err != nil {
 		return err
 	}
-	for env := range configs {
+	// sorting the environments to get a deterministic order of events:
+	var configKeys []string = nil
+	for k := range configs {
+		configKeys = append(configKeys, k)
+	}
+	sort.Strings(configKeys)
+	for i := range configKeys {
+		env := configKeys[i]
 		GaugeEnvLockMetric(filesystem, env)
 		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
 		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
+			// according to the docs, entries should already be sorted, but turns out it is not, so we sort it:
+			sort.Slice(entries, sortFiles(entries))
 			for _, app := range entries {
 				GaugeEnvAppLockMetric(filesystem, env, app.Name())
+
+				_, deployedAtTimeUtc, err := state.GetDeploymentMetaData(env, app.Name())
+				if err != nil {
+					return err
+				}
+				timeDiff := now.Sub(deployedAtTimeUtc)
+				err = GaugeDeploymentMetric(ctx, env, app.Name(), timeDiff.Minutes())
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
-	now := time.Now() // ensure all events have the same timestamp
 	if changes != nil && ddMetrics != nil {
 		for i := range changes.ChangedApps {
 			oneChange := changes.ChangedApps[i]
@@ -163,7 +203,7 @@ func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
 				}
 				return ""
 			}()
-			event := statsd.Event{
+			evt := statsd.Event{
 				Title:     "Kuberpult app deployed",
 				Text:      fmt.Sprintf("Kuberpult has deployed %s to %s%s", oneChange.App, oneChange.Env, teamMessage),
 				Timestamp: now,
@@ -173,7 +213,7 @@ func UpdateDatadogMetrics(state *State, changes *TransformerResult) error {
 					"kuberpult.team:" + oneChange.Team,
 				},
 			}
-			err := ddMetrics.Event(&event)
+			err := ddMetrics.Event(&evt)
 			if err != nil {
 				return err
 			}
@@ -192,9 +232,9 @@ func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBa
 	}
 }
 
-func GetRepositoryStateAndUpdateMetrics(repo Repository) {
+func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
 	repoState := repo.State()
-	if err := UpdateDatadogMetrics(repoState, nil); err != nil {
+	if err := UpdateDatadogMetrics(ctx, repoState, nil, time.Now()); err != nil {
 		panic(err.Error())
 	}
 }

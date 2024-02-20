@@ -239,7 +239,9 @@ func RunServer() {
 					Name: "ddmetrics",
 					Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
 						reporter.ReportReady("sending metrics")
-						repository.RegularlySendDatadogMetrics(repo, 300, repository.GetRepositoryStateAndUpdateMetrics)
+						repository.RegularlySendDatadogMetrics(repo, 300, func(repository2 repository.Repository) {
+							repository.GetRepositoryStateAndUpdateMetrics(ctx, repository2)
+						})
 						return nil
 					},
 				},

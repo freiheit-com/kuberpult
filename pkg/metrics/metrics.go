@@ -28,6 +28,12 @@ import (
 	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
 )
 
+const (
+	EventTagApplication      = "kuberpult_application"
+	EventTagEnvironment      = "kuberpult_environment"
+	EventTagEnvironmentGroup = "kuberpult_environment_group"
+)
+
 func Init() (metric.MeterProvider, http.Handler, error) {
 
 	reg := prometheus.NewPedanticRegistry()
