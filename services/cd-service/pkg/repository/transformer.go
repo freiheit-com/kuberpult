@@ -149,6 +149,14 @@ func GaugeDeploymentMetric(_ context.Context, env, app string, timeInMinutes flo
 	return nil
 }
 
+func sortFiles(gs []os.FileInfo) func(i int, j int) bool {
+	return func(i, j int) bool {
+		iIndex := gs[i].Name()
+		jIndex := gs[j].Name()
+		return iIndex < jIndex
+	}
+}
+
 func UpdateDatadogMetrics(ctx context.Context, state *State, changes *TransformerResult, now time.Time) error {
 	filesystem := state.Filesystem
 	if ddMetrics == nil {
@@ -158,12 +166,19 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, changes *Transforme
 	if err != nil {
 		return err
 	}
-
-	for env := range configs {
+	// sorting the environments to get a deterministic order of events:
+	var configKeys []string = nil
+	for k := range configs {
+		configKeys = append(configKeys, k)
+	}
+	sort.Strings(configKeys)
+	for i := range configKeys {
+		env := configKeys[i]
 		GaugeEnvLockMetric(filesystem, env)
 		appsDir := filesystem.Join(environmentDirectory(filesystem, env), "applications")
 		if entries, _ := filesystem.ReadDir(appsDir); entries != nil {
-
+			// according to the docs, entries should already be sorted, but turns out it is not, so we sort it:
+			sort.Slice(entries, sortFiles(entries))
 			for _, app := range entries {
 				GaugeEnvAppLockMetric(filesystem, env, app.Name())
 
@@ -179,7 +194,6 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, changes *Transforme
 			}
 		}
 	}
-
 	if changes != nil && ddMetrics != nil {
 		for i := range changes.ChangedApps {
 			oneChange := changes.ChangedApps[i]

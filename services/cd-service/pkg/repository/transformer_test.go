@@ -5051,7 +5051,6 @@ type Gauge struct {
 	Value float64
 	Tags  []string
 	Rate  float64
-	Index int // for sorting to make the tests stable
 }
 
 type MockClient struct {
@@ -5068,7 +5067,10 @@ func (c *MockClient) Event(e *statsd.Event) error {
 	return nil
 }
 
+var i = 0
+
 func (c *MockClient) Gauge(name string, value float64, tags []string, rate float64) error {
+	i = i + 1
 	c.gauges = append(c.gauges, Gauge{
 		Name:  name,
 		Value: value,
@@ -5165,15 +5167,12 @@ func TestUpdateDatadogMetrics(t *testing.T) {
 }
 
 func TestUpdateDatadogMetricsInternal(t *testing.T) {
-	gaugeIndex := 42
 	makeGauge := func(name string, val float64, tags []string, rate float64) Gauge {
-		gaugeIndex = gaugeIndex + 1
 		return Gauge{
 			Name:  name,
 			Value: val,
 			Tags:  tags,
 			Rate:  rate,
-			Index: gaugeIndex,
 		}
 	}
 	tcs := []struct {
@@ -5181,7 +5180,6 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 		changes        *TransformerResult
 		transformers   []Transformer
 		expectedError  string
-		expectedEvents []statsd.Event
 		expectedGauges []Gauge
 	}{
 		{
@@ -5191,15 +5189,10 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					Environment: "envA",
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
 				},
-				//&CreateEnvironment{
-				//	Environment: "envB",
-				//	Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-				//},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[string]string{
 						"envA": "envA-manifest-1",
-						//"envB": "envB-manifest-1",
 					},
 					WriteCommitData: false,
 				},
@@ -5207,7 +5200,131 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					Application: "app2",
 					Manifests: map[string]string{
 						"envA": "envA-manifest-2",
-						//"envB": "envB-manifest-2",
+					},
+					WriteCommitData: false,
+				},
+			},
+			expectedGauges: []Gauge{
+				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
+				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
+				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
+				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
+				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
+			},
+		},
+		{
+			Name: "Changes are sent as two events",
+			transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "envA",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateEnvironment{
+					Environment: "envB",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						"envA": "envA-manifest-1",
+						"envB": "envB-manifest-1",
+					},
+					WriteCommitData: false,
+				},
+				&CreateApplicationVersion{
+					Application: "app2",
+					Manifests: map[string]string{
+						"envA": "envA-manifest-2",
+						"envB": "envB-manifest-2",
+					},
+					WriteCommitData: false,
+				},
+			},
+			expectedGauges: []Gauge{
+				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
+				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
+				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
+				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
+				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envA"}, 1),
+				makeGauge("env_lock_count", 0, []string{"env:envB"}, 1),
+				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envB"}, 1),
+				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envB"}, 1),
+				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envB"}, 1),
+				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envB"}, 1),
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
+			ctx := WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
+			var mockClient = &MockClient{}
+			var client statsd.ClientInterface = mockClient
+			ddMetrics = client
+			repo := setupRepositoryTest(t)
+
+			_, state, _, err := repo.ApplyTransformersInternal(ctx, tc.transformers...)
+			if err != nil {
+				t.Fatalf("Expected no error: %v", err)
+			}
+
+			err = UpdateDatadogMetrics(ctx, state, nil, time.UnixMilli(0))
+			if err != nil {
+				t.Fatalf("Expected no error: %v", err)
+			}
+
+			if len(tc.expectedGauges) != len(mockClient.gauges) {
+				gaugesString := ""
+				for i := range mockClient.gauges {
+					gauge := mockClient.gauges[i]
+					gaugesString += fmt.Sprintf("%v\n", gauge)
+				}
+				msg := fmt.Sprintf("expected %d gauges but got %d\nActual:\n%v\n",
+					len(tc.expectedGauges), len(mockClient.gauges), gaugesString)
+				t.Fatalf(msg)
+			}
+			for i := range tc.expectedGauges {
+				var expectedGauge Gauge = tc.expectedGauges[i]
+				sort.Strings(expectedGauge.Tags)
+				var actualGauge Gauge = mockClient.gauges[i]
+				sort.Strings(actualGauge.Tags)
+				t.Logf("actualGauges: %v", actualGauge.Tags)
+
+				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
+					t.Errorf("[%d] got %v, want %v, diff (-want +got) %s", i, actualGauge, expectedGauge, diff)
+				}
+			}
+		})
+	}
+}
+
+func TestUpdateDatadogEventsInternal(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		changes        *TransformerResult
+		transformers   []Transformer
+		expectedError  string
+		expectedEvents []statsd.Event
+	}{
+		{
+			Name: "Changes are sent as one event",
+			transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "envA",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						"envA": "envA-manifest-1",
+					},
+					WriteCommitData: false,
+				},
+				&CreateApplicationVersion{
+					Application: "app2",
+					Manifests: map[string]string{
+						"envA": "envA-manifest-2",
 					},
 					WriteCommitData: false,
 				},
@@ -5222,13 +5339,6 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				},
 				DeletedRootApps: nil,
 				Commits:         nil,
-			},
-			expectedGauges: []Gauge{
-				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
-				makeGauge("lastDeployed", 0, []string{"app:app1", "env:envA"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
-				makeGauge("lastDeployed", 0, []string{"app:app2", "env:envA"}, 1),
 			},
 			expectedEvents: []statsd.Event{
 				{
@@ -5324,39 +5434,6 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					},
 				},
 			},
-			expectedGauges: []Gauge{
-				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
-				makeGauge("lastDeployed", 0, []string{"app:app1", "env:envA"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envA"}, 1),
-				makeGauge("lastDeployed", 0, []string{"app:app2", "env:envA"}, 1),
-				makeGauge("env_lock_count", 0, []string{"env:envB"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envB"}, 1),
-				makeGauge("lastDeployed", 0, []string{"app:app1", "env:envB"}, 1),
-				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envB"}, 1),
-				makeGauge("lastDeployed", 0, []string{"app:app2", "env:envB"}, 1),
-			},
-
-			//expectedGauges: []Gauge{
-			//	{
-			//		Name:  "deployment",
-			//		Value: 1,
-			//		Tags: []string{
-			//			"app:app1",
-			//			"env:envB",
-			//		},
-			//		Rate: 1,
-			//	},
-			//	{
-			//		Name:  "deployment",
-			//		Value: 1,
-			//		Tags: []string{
-			//			"app:app2",
-			//			"env:envA",
-			//		},
-			//		Rate: 1,
-			//	},
-			//},
 		},
 	}
 	for _, tc := range tcs {
@@ -5369,32 +5446,6 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 			ddMetrics = client
 			repo := setupRepositoryTest(t)
 
-			//transformers := []Transformer{
-			//	&CreateEnvironment{
-			//		Environment: "envA",
-			//		Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-			//	},
-			//	//&CreateEnvironment{
-			//	//	Environment: "envB",
-			//	//	Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-			//	//},
-			//	&CreateApplicationVersion{
-			//		Application: "app1",
-			//		Manifests: map[string]string{
-			//			"envA": "envA-manifest-1",
-			//			//"envB": "envB-manifest-1",
-			//		},
-			//		WriteCommitData: false,
-			//	},
-			//	&CreateApplicationVersion{
-			//		Application: "app2",
-			//		Manifests: map[string]string{
-			//			"envA": "envA-manifest-2",
-			//			//"envB": "envB-manifest-2",
-			//		},
-			//		WriteCommitData: false,
-			//	},
-			//}
 			_, state, _, err := repo.ApplyTransformersInternal(ctx, tc.transformers...)
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
@@ -5415,36 +5466,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 					t.Errorf("got %v, want %v, diff (-want +got) %s", actualEvent, expectedEvent, diff)
 				}
 			}
-
-			if len(tc.expectedGauges) != len(mockClient.gauges) {
-				gaugesString := ""
-				for i := range mockClient.gauges {
-					gauge := mockClient.gauges[i]
-					gaugesString += fmt.Sprintf("%v\n", gauge)
-				}
-				msg := fmt.Sprintf("expected %d gauges but got %d\nActual:\n%v\n",
-					len(tc.expectedGauges), len(mockClient.gauges), gaugesString)
-				t.Fatalf(msg)
-			}
-			sort.Slice(tc.expectedGauges, sortGauges(tc.expectedGauges))
-			sort.Slice(mockClient.gauges, sortGauges(mockClient.gauges))
-			for i := range tc.expectedGauges {
-				var expectedGauge Gauge = tc.expectedGauges[i]
-				var actualGauge Gauge = mockClient.gauges[i]
-
-				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
-					t.Errorf("[%d] got %v, want %v, diff (-want +got) %s", i, actualGauge, expectedGauge, diff)
-				}
-			}
 		})
-	}
-}
-
-func sortGauges(gs []Gauge) func(i int, j int) bool {
-	return func(i, j int) bool {
-		iIndex := gs[i].Index
-		jIndex := gs[j].Index
-		return iIndex < jIndex
 	}
 }
 
