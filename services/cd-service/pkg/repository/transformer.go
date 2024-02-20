@@ -709,6 +709,12 @@ func removeCommit(fs billy.Filesystem, commitID, application string) error {
 
 	commitApplicationDir := commitApplicationDirectory(fs, commitID, application)
 	if err := fs.Remove(commitApplicationDir); err != nil {
+		if os.IsNotExist(err) {
+			// could not read the directory commitApplicationDir - but that's ok, because we don't know
+			// if the kuberpult version that accepted this commit in the release endpoint, did already have commit writing enabled.
+			// So there's no guarantee that this file ever existed
+			return nil
+		}
 		return errorTemplate(fmt.Sprintf("could not remove the application directory %s", commitApplicationDir), err)
 	}
 	// check if there are no other services updated by this commit
