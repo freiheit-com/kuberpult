@@ -34,11 +34,15 @@ package testutil
 
 import (
 	"context"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/onokonem/sillyQueueServer/timeuuid"
+	"fmt"
+	"strings"
 	"time"
 
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/onokonem/sillyQueueServer/timeuuid"
+
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -109,4 +113,30 @@ type TestGenerator struct {
 
 func (t TestGenerator) Generate() string {
 	return timeuuid.UUIDFromTime(t.Time).String()
+}
+
+type IncrementalUUIDBase struct {
+	count uint64
+}
+
+func (gen *IncrementalUUIDBase) Generate() string {
+	ret := "00000000-0000-0000-0000-" + strings.Repeat("0", (12-len(fmt.Sprint(gen.count)))) + fmt.Sprint(gen.count)
+	gen.count++
+	return ret
+}
+
+type IncrementalUUID struct {
+	gen *IncrementalUUIDBase
+}
+
+func (gen IncrementalUUID) Generate() string {
+	return gen.gen.Generate()
+}
+
+func NewIncrementalUUIDGenerator() uuid.GenerateUUIDs {
+	fakeGenBase := IncrementalUUIDBase{}
+	fakeGen := IncrementalUUID{
+		gen: &fakeGenBase,
+	}
+	return fakeGen
 }
