@@ -21,6 +21,7 @@ MAKEFLAGS += --no-builtin-rules
 
 export CGO_ENABLED=0
 
+IMAGE_REGISTRY?=ghcr.io/freiheit-com/kuberpult
 GO := go
 
 GO_FILES := $(shell find . -type f -name '*.go')
@@ -56,11 +57,13 @@ run: bin/main
 
 build: bin/main
 
-build-pr: test release-pr
+build-pr:
 	echo "build on pull request"
+	$(EARTHLY) --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
-build-main: test release-main
+build-main:
 	echo "build on main"
+	$(EARTHLY) --push --max-remote-cache +build-main --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 .PHONY: cleanup-pr
 cleanup-pr:
@@ -101,18 +104,6 @@ lint-scss: deps
 
 docker:
 	$(EARTHLY) +docker --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
-
-release-pr:
-	$(EARTHLY) --push +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
-ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
-	$(EARTHLY) --push +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
-endif
-
-release-main:
-	$(EARTHLY) --push --max-remote-cache +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
-ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
-	$(EARTHLY) --push --max-remote-cache +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
-endif
 
 all: test docker
 

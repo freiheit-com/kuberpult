@@ -21,7 +21,7 @@ include ../../Makefile.variables
 MAKEFLAGS += --no-builtin-rules
 
 export CGO_ENABLED=1
-
+IMAGE_REGISTRY?=ghcr.io/freiheit-com/kuberpult
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:$(VERSION)
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:${VERSION}
 
@@ -62,11 +62,13 @@ bin/:
 
 build: bin/main
 
-build-pr: test release-pr
+build-pr:
 	echo "build on pull request"
+	$(EARTHLY) --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
-build-main: test release-main
+build-main:
 	echo "build on main"
+	$(EARTHLY) --push --max-remote-cache +build-main --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 .PHONY: cleanup-pr
 cleanup-pr:
@@ -95,20 +97,6 @@ test:
 
 docker:
 	$(EARTHLY) +docker --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
-
-# set IMAGENAME=... to the image where you want to deploy (registry of the project)
-# e.g IMAGENAME=ghcr.io/replace_me...cd-service:1.2.3 make release
-release-pr:
-	$(EARTHLY) --push +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
-ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
-	$(EARTHLY) --push +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
-endif
-
-release-main:
-	$(EARTHLY) --push --max-remote-cache +release --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
-ifeq ($(ARTIFACT_REGISTRY_MIRROR), true)
-	$(EARTHLY) --push --max-remote-cache +release --registry=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult --tag=$(VERSION)
-endif
 
 all: test docker
 
