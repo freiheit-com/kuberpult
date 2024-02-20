@@ -182,9 +182,12 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kuberpult-frontend-service
-{{- if .Values.ingress.iap.enabled }}
   annotations:
+{{- if .Values.ingress.iap.enabled }}
     cloud.google.com/backend-config: '{"default": "kuberpult"}'
+{{- end }}
+{{- range $key, $value := .Values.frontend.service.annotations }}
+    {{ $key | quote}}: {{ $value | quote}}
 {{- end }}
 spec:
   ports:
