@@ -73,6 +73,7 @@ frontend:
 # For testing purposes, we allow to overwrite the tags individually, to test an old frontend service with a new cd service.
   tag: "$VERSION"
 # Annotations given here will be added to kuberpult-frontend-service annotations.
+# See frontend-service.yaml for automatically added annotations.
   service:
     annotations: {}
   resources:
