@@ -397,12 +397,6 @@ func (c *CreateApplicationVersion) Transform(
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceCommitId), []byte(c.SourceCommitId), 0666); err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
-		if valid.SHA1CommitID(c.SourceCommitId) {
-			commitDir := commitApplicationDirectory(fs, c.SourceCommitId, c.Application)
-			if err := fs.MkdirAll(commitDir, 0777); err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
-		}
 	}
 	if c.SourceAuthor != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
@@ -525,6 +519,9 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 		return nil
 	}
 	commitDir := commitDirectory(fs, sourceCommitId)
+	if err := fs.MkdirAll(commitDir, 0777); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
 	if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
 	}
