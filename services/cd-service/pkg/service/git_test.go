@@ -475,7 +475,7 @@ func TestGetCommitInfo(t *testing.T) {
 				CommitHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			},
 			allowReadingCommitData: true, // … but attempt to read anyway
-			expectedError:          status.Error(codes.NotFound, "commit info does not exist"),
+			expectedError:          status.Error(codes.NotFound, "error: commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa was not found in the manifest repo"),
 			expectedResponse:       nil,
 		},
 	}
