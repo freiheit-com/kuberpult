@@ -2094,7 +2094,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 			ReleaseTrainEnv:    "staging",
 			shouldSucceed:      true,
 			expectedError:      "",
-			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 1 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"\n\n\n\n\n",
+			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 1 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"",
 			overrideCommitHash: "",
 		},
 		{
@@ -2136,12 +2136,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 Release Train to 'staging' environment:
 
 The release train deployed 1 services from 'dev' to 'staging'
-deployed version 1 of "test" to "staging"
-
-
-
-
-`,
+deployed version 1 of "test" to "staging"`,
 		},
 		{
 			Name: "Release train done with commit but nothing to deploy",
@@ -2171,11 +2166,7 @@ deployed version 1 of "test" to "staging"
 
 Release Train to 'dev' environment:
 
-The release train deployed 0 services from 'latest' to 'dev'
-
-
-
-`,
+The release train deployed 0 services from 'latest' to 'dev'`,
 		},
 		{
 			Name: "Release train with invalid commitHash",

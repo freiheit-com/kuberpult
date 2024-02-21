@@ -1657,6 +1657,105 @@ type ReleaseTrain struct {
 	CommitHash string
 	Repo       Repository
 }
+type Overview struct {
+	App     string
+	Version uint64
+}
+
+func getEnvironmentInGroup(groups []*api.EnvironmentGroup, groupNameToReturn string, envNameToReturn string) *api.Environment {
+	for _, currentGroup := range groups {
+		if currentGroup.EnvironmentGroupName == groupNameToReturn {
+			for _, currentEnv := range currentGroup.Environments {
+				if currentEnv.Name == envNameToReturn {
+					return currentEnv
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func getOverrideVersions(commitHash, upstreamEnvName string, repo Repository) (resp []Overview, err error) {
+	oid, err := git.NewOid(commitHash)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating new oid for commitHash %s: %w", commitHash, err)
+	}
+	s, err := repo.StateAt(oid)
+	if err != nil {
+		var gerr *git.GitError
+		if errors.As(err, &gerr) {
+			if gerr.Code == git.ErrNotFound {
+				return nil, fmt.Errorf("ErrNotFound: %w", err)
+			}
+		}
+		return nil, fmt.Errorf("unable to get oid: %w", err)
+	}
+	envs, err := s.GetEnvironmentConfigs()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get EnvironmentConfigs for %s: %w", commitHash, err)
+	}
+	result := mapper.MapEnvironmentsToGroups(envs)
+	for envName, config := range envs {
+		var groupName = mapper.DeriveGroupName(config, envName)
+		var envInGroup = getEnvironmentInGroup(result, groupName, envName)
+		if upstreamEnvName != envInGroup.Name || upstreamEnvName != groupName {
+			continue
+		}
+		apps, err := s.GetEnvironmentApplications(envName)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get EnvironmentApplication for env %s: %w", envName, err)
+		}
+		for _, appName := range apps {
+			app := api.Environment_Application{
+				Name: appName,
+			}
+			version, err := s.GetEnvironmentApplicationVersion(envName, appName)
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, fmt.Errorf("unable to get EnvironmentApplicationVersion for %s: %w", appName, err)
+			}
+			if version == nil {
+				continue
+			}
+			app.Version = *version
+			resp = append(resp, Overview{App: app.Name, Version: app.Version})
+		}
+	}
+	return resp, nil
+}
+
+func (c *ReleaseTrain) getUpstreamLatestApp(upstreamLatest bool, state *State, ctx context.Context, upstreamEnvName, source, commitHash string) (apps []string, appVersions []Overview, err error) {
+	if commitHash != "" {
+		appVersions, err := getOverrideVersions(c.CommitHash, upstreamEnvName, c.Repo)
+		if err != nil {
+			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get app version for commitHash %s for %s: %w", c.CommitHash, c.Target, err))
+		}
+		// check that commit hash is not older than 20 commits in the past
+		for _, app := range appVersions {
+			apps = append(apps, app.App)
+			versions, err := findOldApplicationVersions(state, app.App)
+			if err != nil {
+				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("unable to find findOldApplicationVersions for app %s: %w", app.App, err))
+			}
+			if len(versions) > 0 && versions[0] > app.Version {
+				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("Version for app %s is older than 20 commits when running release train to commitHash %s: %w", app.App, c.CommitHash, err))
+			}
+
+		}
+		return apps, appVersions, nil
+	}
+	if upstreamLatest {
+		apps, err = state.GetApplications()
+		if err != nil {
+			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get all applications for %q: %w", source, err))
+		}
+		return apps, nil, nil
+	}
+	apps, err = state.GetEnvironmentApplications(upstreamEnvName)
+	if err != nil {
+		return nil, nil, grpc.PublicError(ctx, fmt.Errorf("upstream environment (%q) does not have applications: %w", upstreamEnvName, err))
+	}
+	return apps, nil, nil
+}
 
 func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string) map[string]config.EnvironmentConfig {
 
@@ -1777,9 +1876,10 @@ func (c *envReleaseTrain) Transform(
 			"Target Environment '%s' is locked - skipping.",
 			c.Env), nil
 	}
-	apps, overrideVersions, err := c.getUpstreamLatestApp(upstreamLatest, state, ctx, upstreamEnvName, source, c.CommitHash)
+	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(upstreamLatest, state, ctx, upstreamEnvName, source, c.Parent.CommitHash)
 	if err != nil {
-		return "", nil, err
+		return "", err
+	}
 	sort.Strings(apps)
 	// now iterate over all apps, deploying all that are not locked
 	numServices := 0
@@ -1797,7 +1897,13 @@ func (c *envReleaseTrain) Transform(
 			return "", grpc.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, c.Env, err))
 		}
 		var versionToDeploy uint64
-		if upstreamLatest {
+		if overrideVersions != nil {
+			for _, override := range overrideVersions {
+				if override.App == appName {
+					versionToDeploy = override.Version
+				}
+			}
+		} else if upstreamLatest {
 			versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
 			if err != nil {
 				return "", grpc.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err))
