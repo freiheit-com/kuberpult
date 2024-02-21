@@ -1916,15 +1916,20 @@ func TestSendWebhookToArgoCd(t *testing.T) {
 	tcs := []struct {
 		Name    string
 		Changes TransformerResult
+		webUrl  string
+		branch  string
 	}{
 		{
 			Name: "webhook",
 			Changes: TransformerResult{
+
 				Commits: &CommitIds{
 					Current:  git.NewOidFromBytes([]byte{'C', 'U', 'R', 'R', 'E', 'N', 'T', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 					Previous: git.NewOidFromBytes([]byte{'P', 'R', 'E', 'V', 'I', 'O', 'U', 'S', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 				},
 			},
+			webUrl: "http://example.com",
+			branch: "examplebranch",
 		},
 	}
 	for _, tc := range tcs {
@@ -1952,7 +1957,7 @@ func TestSendWebhookToArgoCd(t *testing.T) {
 				t.Fatalf("new: expected no error, got '%v'", err)
 			}
 			repoInternal := repo.(*repository)
-			repoInternal.config.ArgoWebhookUrl = "http://example.com"
+			repoInternal.config.ArgoWebhookUrl = "http://argo.example.com"
 			rec := httptest.NewRecorder()
 			resolver := TestWebhookResolver{
 				t:        t,
@@ -1962,6 +1967,8 @@ func TestSendWebhookToArgoCd(t *testing.T) {
 			repoInternal.config.WebhookResolver = resolver
 
 			// when
+			repoInternal.config.WebURL = tc.webUrl
+			repoInternal.config.Branch = tc.branch
 			repoInternal.sendWebhookToArgoCd(ctx, logger, &tc.Changes)
 
 			// then
@@ -1975,12 +1982,21 @@ func TestSendWebhookToArgoCd(t *testing.T) {
 				t.Errorf("Error parsing request body '%s' as json: %v", string(buf), err)
 			}
 			after := jsonRequest["after"].(string)
-			before := jsonRequest["before"].(string)
 			if after != tc.Changes.Commits.Current.String() {
 				t.Fatalf("after '%s' does not match current '%s'", after, tc.Changes.Commits.Current)
 			}
+			before := jsonRequest["before"].(string)
 			if before != tc.Changes.Commits.Previous.String() {
 				t.Fatalf("before '%s' does not match previous '%s'", before, tc.Changes.Commits.Previous)
+			}
+			ref := jsonRequest["ref"].(string)
+			if ref != fmt.Sprintf("refs/heads/%s", tc.branch) {
+				t.Fatalf("refs '%s' does not match expected for branch given as '%s'", ref, tc.branch)
+			}
+			repository := jsonRequest["repository"].(map[string]any)
+			htmlUrl := repository["html_url"].(string)
+			if htmlUrl != tc.webUrl {
+				t.Fatalf("repository/html_url '%s' does not match expected for webUrl given as '%s'", htmlUrl, tc.webUrl)
 			}
 		})
 	}
