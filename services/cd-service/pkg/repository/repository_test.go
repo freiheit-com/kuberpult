@@ -18,8 +18,10 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -1893,25 +1895,36 @@ func TestGitPushDoesntGetStuck(t *testing.T) {
 }
 
 type TestWebhookResolver struct {
-	t   *testing.T
-	rec *httptest.ResponseRecorder
+	t        *testing.T
+	rec      *httptest.ResponseRecorder
+	requests chan *http.Request
 }
 
 func (resolver TestWebhookResolver) Resolve(insecure bool, req *http.Request) (*http.Response, error) {
 	testhandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resolver.t.Logf("called with request: %v", *r)
+		resolver.requests <- req
+		close(resolver.requests)
 	})
 	testhandler.ServeHTTP(resolver.rec, req)
-	resolver.t.Logf("responded with: %v", resolver.rec.Result())
-	return resolver.rec.Result(), nil
+	response := resolver.rec.Result()
+	resolver.t.Logf("responded with: %v", response)
+	return response, nil
 }
 
 func TestSendWebhookToArgoCd(t *testing.T) {
 	tcs := []struct {
-		Name string
+		Name    string
+		Changes TransformerResult
 	}{
 		{
 			Name: "webhook",
+			Changes: TransformerResult{
+				Commits: &CommitIds{
+					Current:  git.NewOidFromBytes([]byte{'C', 'U', 'R', 'R', 'E', 'N', 'T', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
+					Previous: git.NewOidFromBytes([]byte{'P', 'R', 'E', 'V', 'I', 'O', 'U', 'S', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
+				},
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -1922,6 +1935,10 @@ func TestSendWebhookToArgoCd(t *testing.T) {
 			t.Parallel()
 
 			// given
+			logger, err := zap.NewDevelopment()
+			if err != nil {
+				t.Fatalf("error creating logger: %v", err)
+			}
 			dir := t.TempDir()
 			path := path.Join(dir, "repo")
 			repo, _, err := New2(
@@ -1932,33 +1949,39 @@ func TestSendWebhookToArgoCd(t *testing.T) {
 				},
 			)
 			if err != nil {
-				t.Fatalf("new: expected no error, got '%e'", err)
+				t.Fatalf("new: expected no error, got '%v'", err)
 			}
 			repoInternal := repo.(*repository)
 			repoInternal.config.ArgoWebhookUrl = "http://example.com"
 			rec := httptest.NewRecorder()
-			repoInternal.config.WebhookResolver = TestWebhookResolver{
-				t:   t,
-				rec: rec,
+			resolver := TestWebhookResolver{
+				t:        t,
+				rec:      rec,
+				requests: make(chan *http.Request, 1),
 			}
-			someOid := &git.Oid{}
-			commits := CommitIds{
-				Current:  someOid,
-				Previous: someOid,
-			}
-			changes := TransformerResult{
-				Commits: &commits,
-			}
-			logger, err := zap.NewDevelopment()
-			if err != nil {
-				t.Fatalf("error creating logger: %e", err)
-			}
+			repoInternal.config.WebhookResolver = resolver
 
 			// when
-			repoInternal.sendWebhookToArgoCd(ctx, logger, &changes)
+			repoInternal.sendWebhookToArgoCd(ctx, logger, &tc.Changes)
 
 			// then
-			t.Fatalf("found result: %v", rec.Result())
+			req := <-resolver.requests
+			buf := make([]byte, req.ContentLength)
+			if _, err = io.ReadFull(req.Body, buf); err != nil {
+				t.Errorf("error reading request body: %v", err)
+			}
+			var jsonRequest map[string]any
+			if err = json.Unmarshal(buf, &jsonRequest); err != nil {
+				t.Errorf("Error parsing request body '%s' as json: %v", string(buf), err)
+			}
+			after := jsonRequest["after"].(string)
+			before := jsonRequest["before"].(string)
+			if after != tc.Changes.Commits.Current.String() {
+				t.Fatalf("after '%s' does not match current '%s'", after, tc.Changes.Commits.Current)
+			}
+			if before != tc.Changes.Commits.Previous.String() {
+				t.Fatalf("before '%s' does not match previous '%s'", before, tc.Changes.Commits.Previous)
+			}
 		})
 	}
 }
