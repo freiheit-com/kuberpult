@@ -2094,7 +2094,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 			ReleaseTrainEnv:    "staging",
 			shouldSucceed:      true,
 			expectedError:      "",
-			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment for 1 apps:\n\nThe release train deployed 1 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"\n\n\n\n\n",
+			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 1 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"\n\n\n\n\n",
 			overrideCommitHash: "",
 		},
 		{
@@ -2127,12 +2127,13 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 					Version:     1,
 				},
 			},
-			ReleaseTrainEnv: "staging",
-			shouldSucceed:   true,
-			expectedError:   "",
+			ReleaseTrainEnv:    "staging",
+			shouldSucceed:      true,
+			expectedError:      "",
+			overrideCommitHash: "TO_BE_REPLACED",
 			expectedCommitMsg: `Release Train to environment/environment group 'staging':
 
-Release Train to 'staging' environment for 1 apps:
+Release Train to 'staging' environment:
 
 The release train deployed 1 services from 'dev' to 'staging'
 deployed version 1 of "test" to "staging"
@@ -2162,12 +2163,13 @@ deployed version 1 of "test" to "staging"
 					Version:     1,
 				},
 			},
-			ReleaseTrainEnv: "dev",
-			shouldSucceed:   true,
-			expectedError:   "",
+			ReleaseTrainEnv:    "dev",
+			shouldSucceed:      true,
+			expectedError:      "",
+			overrideCommitHash: "TO_BE_REPLACED",
 			expectedCommitMsg: `Release Train to environment/environment group 'dev':
 
-Release Train to 'dev' environment for 0 apps:
+Release Train to 'dev' environment:
 
 The release train deployed 0 services from 'latest' to 'dev'
 
@@ -2274,7 +2276,7 @@ The release train deployed 0 services from 'latest' to 'dev'
 				Target:     tc.ReleaseTrainEnv,
 				Repo:       repo,
 			}
-			if tc.overrideCommitHash != "" {
+			if tc.overrideCommitHash != "TO_BE_REPLACED" {
 				releaseTrain = &ReleaseTrain{
 					CommitHash: tc.overrideCommitHash,
 					Target:     tc.ReleaseTrainEnv,
