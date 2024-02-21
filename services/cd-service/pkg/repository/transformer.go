@@ -226,8 +226,12 @@ func RunTransformer(ctx context.Context, t Transformer, s *State) (string, *Tran
 }
 
 type transformerRunner struct {
-	Context         context.Context
-	State           *State
+	Context context.Context
+	State   *State
+	// Stores the current stack of commit messages. Each entry of
+	// the outer slice corresponds to a step being executed. Each
+	// entry of the inner slices correspond to a message generated
+	// by that step.
 	Stack           [][]string
 	ChangedApps     []AppEnv
 	DeletedRootApps []RootApp
