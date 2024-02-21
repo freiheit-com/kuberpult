@@ -519,6 +519,9 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 		return nil
 	}
 	commitDir := commitDirectory(fs, sourceCommitId)
+	if err := fs.MkdirAll(commitDir, 0777); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
 	if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
 	}

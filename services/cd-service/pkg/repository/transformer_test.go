@@ -434,7 +434,11 @@ func TestCreateApplicationVersionEvents(t *testing.T) {
 			Name: "createRelease event should write files",
 			Transformers: []Transformer{
 				&CreateEnvironment{
-					Environment: "acceptance",
+					Environment: envAcceptance,
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
+				},
+				&CreateEnvironment{
+					Environment: envProduction,
 					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: false}},
 				},
 				&CreateApplicationVersion{
