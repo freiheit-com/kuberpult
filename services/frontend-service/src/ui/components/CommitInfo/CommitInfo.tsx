@@ -44,7 +44,7 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                         <tr>
                             <th>Commit Hash:</th>
                             <th>Commit Message:</th>
-                            <th>Touched apps: </th>
+                            <th>Touched apps:</th>
                         </tr>
                     </thead>
                     <tbody>
