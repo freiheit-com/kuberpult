@@ -40,7 +40,9 @@ values.yaml: values.yaml.tpl
 
 $(TGZ_FILE): Chart.yaml values.yaml templates/*
 	helm dependency update
-	(rm -rf charts && helm dep update && cd charts && find ./ -type f -name "*.tgz" -exec sh -c 'tar -xzvf "$0" && rm "$0"' {} \;)
+	rm -rf charts
+	helm dep update
+	(cd charts && tar -xzvf *.tgz)
 	helm package .
 
 ci/test-values.yaml: Chart.yaml values.yaml
