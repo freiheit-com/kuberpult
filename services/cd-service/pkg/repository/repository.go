@@ -111,6 +111,23 @@ type repository struct {
 	backOffProvider func() backoff.BackOff
 }
 
+type WebhookResolver interface {
+	Resolve(insecure bool, req *http.Request) (*http.Response, error)
+}
+
+type DefaultWebhookResolver struct{}
+
+func (r DefaultWebhookResolver) Resolve(insecure bool, req *http.Request) (*http.Response, error) {
+	tr := &http.Transport{
+		// we reach argo from within the cluster, so there's no ssl:
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: insecure,
+		},
+	}
+	client := &http.Client{Transport: tr}
+	return client.Do(req)
+}
+
 type RepositoryConfig struct {
 	// Mandatory Config
 	// the URL used for git checkout, (ssh protocol)
@@ -140,6 +157,7 @@ type RepositoryConfig struct {
 	WebURL          string
 	DogstatsdEvents bool
 	WriteCommitData bool
+	WebhookResolver WebhookResolver
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -685,14 +703,11 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	// now pretend that we are GitHub by adding this header, otherwise argo will ignore our request:
 	req.Header.Set("X-GitHub-Event", "push")
 
-	tr := &http.Transport{
-		// we reach argo from within the cluster, so there's no ssl:
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: repoConfig.ArgoInsecure,
-		},
+	var webhookResolver WebhookResolver = DefaultWebhookResolver{}
+	if repoConfig.WebhookResolver != nil {
+		webhookResolver = repoConfig.WebhookResolver
 	}
-	client := &http.Client{Transport: tr}
-	resp, err := client.Do(req)
+	resp, err := webhookResolver.Resolve(repoConfig.ArgoInsecure, req)
 	if err != nil {
 		return errors.New(fmt.Sprintf("doWebhookPostRequest: could not send request to '%s': %s", url, err.Error())), false
 	}
@@ -778,7 +793,7 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 		commitMsg := []string{}
 		ctxWithTime := WithTimeNow(ctx, time.Now())
 		for _, t := range transformers {
-			if msg, subChanges, err := t.Transform(ctxWithTime, state); err != nil {
+			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state); err != nil {
 				return nil, nil, nil, err
 			} else {
 				commitMsg = append(commitMsg, msg)
