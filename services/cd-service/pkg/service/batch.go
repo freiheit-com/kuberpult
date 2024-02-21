@@ -202,6 +202,8 @@ func (d *BatchServer) processAction(
 				Target:         in.Target,
 				Team:           in.Team,
 				Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+				Repo:           d.Repository,
+				CommitHash:     in.CommitHash,
 			}, &api.BatchResult{
 				Result: &api.BatchResult_ReleaseTrain{
 					ReleaseTrain: &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team},

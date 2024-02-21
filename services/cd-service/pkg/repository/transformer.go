@@ -21,8 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/freiheit-com/kuberpult/pkg/metrics"
 	"io"
 	"io/fs"
 	"os"
@@ -32,8 +30,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/freiheit-com/kuberpult/pkg/metrics"
+
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
+	git "github.com/libgit2/git2go/v34"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
@@ -1650,8 +1652,10 @@ func (c *DeployApplicationVersion) Transform(
 
 type ReleaseTrain struct {
 	Authentication
-	Target string
-	Team   string
+	Target     string
+	Team       string
+	CommitHash string
+	Repo       Repository
 }
 
 func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string) map[string]config.EnvironmentConfig {
@@ -1773,18 +1777,9 @@ func (c *envReleaseTrain) Transform(
 			"Target Environment '%s' is locked - skipping.",
 			c.Env), nil
 	}
-	var apps []string
-	if upstreamLatest {
-		apps, err = state.GetApplications()
-		if err != nil {
-			return "", grpc.InternalError(ctx, fmt.Errorf("could not get all applications for %q: %w", source, err))
-		}
-	} else {
-		apps, err = state.GetEnvironmentApplications(upstreamEnvName)
-		if err != nil {
-			return "", grpc.PublicError(ctx, fmt.Errorf("upstream environment (%q) does not have applications: %w", upstreamEnvName, err))
-		}
-	}
+	apps, overrideVersions, err := c.getUpstreamLatestApp(upstreamLatest, state, ctx, upstreamEnvName, source, c.CommitHash)
+	if err != nil {
+		return "", nil, err
 	sort.Strings(apps)
 	// now iterate over all apps, deploying all that are not locked
 	numServices := 0
