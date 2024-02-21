@@ -18,10 +18,13 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"io"
 	"io/fs"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path"
@@ -29,6 +32,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"go.uber.org/zap"
 
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 
@@ -1883,6 +1889,114 @@ func TestGitPushDoesntGetStuck(t *testing.T) {
 			)
 			if err != nil {
 				t.Errorf("expected no error, got %q ( %#v )", err, err)
+			}
+		})
+	}
+}
+
+type TestWebhookResolver struct {
+	t        *testing.T
+	rec      *httptest.ResponseRecorder
+	requests chan *http.Request
+}
+
+func (resolver TestWebhookResolver) Resolve(insecure bool, req *http.Request) (*http.Response, error) {
+	testhandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resolver.t.Logf("called with request: %v", *r)
+		resolver.requests <- req
+		close(resolver.requests)
+	})
+	testhandler.ServeHTTP(resolver.rec, req)
+	response := resolver.rec.Result()
+	resolver.t.Logf("responded with: %v", response)
+	return response, nil
+}
+
+func TestSendWebhookToArgoCd(t *testing.T) {
+	tcs := []struct {
+		Name    string
+		Changes TransformerResult
+		webUrl  string
+		branch  string
+	}{
+		{
+			Name: "webhook",
+			Changes: TransformerResult{
+
+				Commits: &CommitIds{
+					Current:  git.NewOidFromBytes([]byte{'C', 'U', 'R', 'R', 'E', 'N', 'T', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
+					Previous: git.NewOidFromBytes([]byte{'P', 'R', 'E', 'V', 'I', 'O', 'U', 'S', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
+				},
+			},
+			webUrl: "http://example.com",
+			branch: "examplebranch",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			// given
+			logger, err := zap.NewDevelopment()
+			if err != nil {
+				t.Fatalf("error creating logger: %v", err)
+			}
+			dir := t.TempDir()
+			path := path.Join(dir, "repo")
+			repo, _, err := New2(
+				ctx,
+				RepositoryConfig{
+					URL:  fmt.Sprintf("file://%s", path),
+					Path: path,
+				},
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%v'", err)
+			}
+			repoInternal := repo.(*repository)
+			repoInternal.config.ArgoWebhookUrl = "http://argo.example.com"
+			rec := httptest.NewRecorder()
+			resolver := TestWebhookResolver{
+				t:        t,
+				rec:      rec,
+				requests: make(chan *http.Request, 1),
+			}
+			repoInternal.config.WebhookResolver = resolver
+
+			// when
+			repoInternal.config.WebURL = tc.webUrl
+			repoInternal.config.Branch = tc.branch
+			repoInternal.sendWebhookToArgoCd(ctx, logger, &tc.Changes)
+
+			// then
+			req := <-resolver.requests
+			buf := make([]byte, req.ContentLength)
+			if _, err = io.ReadFull(req.Body, buf); err != nil {
+				t.Errorf("error reading request body: %v", err)
+			}
+			var jsonRequest map[string]any
+			if err = json.Unmarshal(buf, &jsonRequest); err != nil {
+				t.Errorf("Error parsing request body '%s' as json: %v", string(buf), err)
+			}
+			after := jsonRequest["after"].(string)
+			if after != tc.Changes.Commits.Current.String() {
+				t.Fatalf("after '%s' does not match current '%s'", after, tc.Changes.Commits.Current)
+			}
+			before := jsonRequest["before"].(string)
+			if before != tc.Changes.Commits.Previous.String() {
+				t.Fatalf("before '%s' does not match previous '%s'", before, tc.Changes.Commits.Previous)
+			}
+			ref := jsonRequest["ref"].(string)
+			if ref != fmt.Sprintf("refs/heads/%s", tc.branch) {
+				t.Fatalf("refs '%s' does not match expected for branch given as '%s'", ref, tc.branch)
+			}
+			repository := jsonRequest["repository"].(map[string]any)
+			htmlUrl := repository["html_url"].(string)
+			if htmlUrl != tc.webUrl {
+				t.Fatalf("repository/html_url '%s' does not match expected for webUrl given as '%s'", htmlUrl, tc.webUrl)
 			}
 		})
 	}
