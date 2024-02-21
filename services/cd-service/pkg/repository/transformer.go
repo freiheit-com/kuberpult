@@ -32,6 +32,7 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
@@ -446,6 +447,25 @@ func (c *CreateApplicationVersion) Transform(
 	}
 
 	var allEnvsOfThisApp []string = nil
+
+	for env, _ := range c.Manifests {
+		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
+	}
+	gen, ok := getGeneratorFromContext(ctx)
+	if !ok || gen == nil {
+		logger.FromContext(ctx).Info("using real UUID generator.")
+		gen = uuid.RealUUIDGenerator{}
+	} else {
+		logger.FromContext(ctx).Info("using  UUID generator from context.")
+	}
+	eventUuid := gen.Generate()
+	if c.WriteCommitData {
+		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, fs)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
 	for env, man := range c.Manifests {
 		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
 		if err != nil {
@@ -488,20 +508,6 @@ func (c *CreateApplicationVersion) Transform(
 					return "", GetCreateReleaseGeneralFailure(err)
 				}
 			}
-		}
-	}
-	gen, ok := getGeneratorFromContext(ctx)
-	if !ok || gen == nil {
-		logger.FromContext(ctx).Info("using real UUID generator.")
-		gen = uuid.RealUUIDGenerator{}
-	} else {
-		logger.FromContext(ctx).Info("using  UUID generator from context.")
-	}
-	eventUuid := gen.Generate()
-	if c.WriteCommitData {
-		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, fs)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
@@ -1653,6 +1659,37 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 
+	if c.WriteCommitData { // write the corresponding event
+		commitIdPath := fs.Join(releaseDir, "source_commit_id")
+
+		if data, err := util.ReadFile(fs, commitIdPath); err != nil {
+			logger.FromContext(ctx).Sugar().Infof("Error while reading source commit ID file at %s, error %w. Deployment event not stored.", commitIdPath, err)
+			// return "", nil, fmt.Errorf("Error while reading source commit ID file at %s, error %w", commitIdPath, err)
+		} else {
+			commitId := string(data)
+			// if the stored source commit ID is invalid then we will not be able to store the event (simply)
+			if !valid.SHA1CommitID(commitId) {
+				logger.FromContext(ctx).Sugar().Infof("The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.", commitId)
+				// return "", nil, fmt.Errorf("The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored", commitId)
+			} else {
+
+				gen, ok := getGeneratorFromContext(ctx)
+				if !ok || gen == nil {
+					logger.FromContext(ctx).Info("using real UUID generator.")
+					gen = uuid.RealUUIDGenerator{}
+				} else {
+					logger.FromContext(ctx).Info("using  UUID generator from context.")
+				}
+				eventUuid := gen.Generate()
+
+				if err := writeDeploymentEvent(fs, commitId, eventUuid, c.Application, c.Environment, c.SourceTrain); err != nil {
+					return "", fmt.Errorf("could not write the deployment event for commit %s, error: %w", commitId, err)
+				}
+			}
+		}
+
+	}
+
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
@@ -1698,10 +1735,11 @@ func writeDeploymentEvent(fs billy.Filesystem, commitId, eventId, application, e
 
 type ReleaseTrain struct {
 	Authentication
-	Target     string
-	Team       string
-	CommitHash string
-	Repo       Repository
+	Target          string
+	Team            string
+	CommitHash      string
+	WriteCommitData bool
+	Repo            Repository
 }
 type Overview struct {
 	App     string
@@ -1847,11 +1885,18 @@ func (c *ReleaseTrain) Transform(
 	sort.Strings(envGroups)
 
 	for _, envName := range envGroups {
+		var trainGroup *string
+		if isEnvGroup {
+			trainGroup = ptr.FromString(targetGroupName)
+		}
+
 		if err := t.Execute(&envReleaseTrain{
 			Parent:          c,
 			Env:             envName,
 			EnvConfigs:      configs,
 			EnvGroupConfigs: envGroupConfigs,
+			WriteCommitData: c.WriteCommitData,
+			TrainGroup:      trainGroup,
 		}); err != nil {
 			return "", err
 		}
@@ -1867,6 +1912,8 @@ type envReleaseTrain struct {
 	Env             string
 	EnvConfigs      map[string]config.EnvironmentConfig
 	EnvGroupConfigs map[string]config.EnvironmentConfig
+	WriteCommitData bool
+	TrainGroup      *string
 }
 
 func (c *envReleaseTrain) Transform(
@@ -1976,11 +2023,16 @@ func (c *envReleaseTrain) Transform(
 		}
 
 		d := &DeployApplicationVersion{
-			Environment:    c.Env, // here we deploy to the next env
-			Application:    appName,
-			Version:        versionToDeploy,
-			LockBehaviour:  api.LockBehavior_RECORD,
-			Authentication: c.Parent.Authentication,
+			Environment:     c.Env, // here we deploy to the next env
+			Application:     appName,
+			Version:         versionToDeploy,
+			LockBehaviour:   api.LockBehavior_RECORD,
+			Authentication:  c.Parent.Authentication,
+			WriteCommitData: c.WriteCommitData,
+			SourceTrain: &DeployApplicationVersionSource{
+				Upstream:    upstreamEnvName,
+				TargetGroup: c.TrainGroup,
+			},
 		}
 		if err := t.Execute(d); err != nil {
 			_, ok := err.(*LockedError)

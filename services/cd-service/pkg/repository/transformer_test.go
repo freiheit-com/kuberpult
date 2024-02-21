@@ -1585,7 +1585,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			tc := tc
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
-			// t.Parallel()
+			t.Parallel()
 			repo := setupRepositoryTest(t)
 			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			if err != nil {
