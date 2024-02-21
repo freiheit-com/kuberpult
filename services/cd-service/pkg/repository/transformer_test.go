@@ -21,7 +21,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"io"
 	"math/rand"
 	"os/exec"
@@ -33,6 +32,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 
@@ -2037,6 +2038,245 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 			repo := setupRepositoryTest(t)
 			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			// note that we only check the LAST error here:
+			if tc.shouldSucceed {
+				if err != nil {
+					t.Fatalf("Expected no error: %v", err)
+				}
+				actualMsg := commitMsg[len(commitMsg)-1]
+				if diff := cmp.Diff(actualMsg, tc.expectedCommitMsg); diff != "" {
+					t.Errorf("got \n%s\n, want \n%s\n, diff (-want +got)\n%s\n", actualMsg, tc.expectedCommitMsg, diff)
+				}
+			} else {
+				if err == nil {
+					t.Fatalf("Expected an error but got none")
+				} else {
+					actualMsg := err.Error()
+					if actualMsg != tc.expectedError {
+						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestReleaseTrainWithCommit(t *testing.T) {
+	tcs := []struct {
+		Name               string
+		SetupTransformers  []Transformer
+		ReleaseTrainEnv    string
+		expectedError      string
+		expectedCommitMsg  string
+		shouldSucceed      bool
+		overrideCommitHash string
+	}{
+		{
+			Name: "Release train done without commit Hash",
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest:      false,
+							Environment: "dev",
+						},
+					},
+				},
+			},
+			ReleaseTrainEnv:    "staging",
+			shouldSucceed:      true,
+			expectedError:      "",
+			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 1 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"",
+			overrideCommitHash: "",
+		},
+		{
+			Name: "Release train done with commit Hash",
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"dev":     "dev",
+						"staging": "staging",
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest:      false,
+							Environment: "dev",
+						},
+					},
+				},
+				&DeployApplicationVersion{
+					Application: "test",
+					Environment: "dev",
+					Version:     1,
+				},
+			},
+			ReleaseTrainEnv:    "staging",
+			shouldSucceed:      true,
+			expectedError:      "",
+			overrideCommitHash: "TO_BE_REPLACED",
+			expectedCommitMsg: `Release Train to environment/environment group 'staging':
+
+Release Train to 'staging' environment:
+
+The release train deployed 1 services from 'dev' to 'staging'
+deployed version 1 of "test" to "staging"`,
+		},
+		{
+			Name: "Release train done with commit but nothing to deploy",
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"dev": "dev",
+					},
+				},
+				&DeployApplicationVersion{
+					Application: "test",
+					Environment: "dev",
+					Version:     1,
+				},
+			},
+			ReleaseTrainEnv:    "dev",
+			shouldSucceed:      true,
+			expectedError:      "",
+			overrideCommitHash: "TO_BE_REPLACED",
+			expectedCommitMsg: `Release Train to environment/environment group 'dev':
+
+Release Train to 'dev' environment:
+
+The release train deployed 0 services from 'latest' to 'dev'`,
+		},
+		{
+			Name: "Release train with invalid commitHash",
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"dev": "dev",
+					},
+				},
+				&DeployApplicationVersion{
+					Application: "test",
+					Environment: "dev",
+					Version:     1,
+				},
+			},
+			ReleaseTrainEnv:    "dev",
+			shouldSucceed:      false,
+			expectedError:      "rpc error: code = InvalidArgument desc = error: could not get app version for commitHash 3f1debc97f5880c59caab9b36ad31f52604ce4dd for dev: ErrNotFound: object not found - no match for id (3f1debc97f5880c59caab9b36ad31f52604ce4dd)",
+			overrideCommitHash: "3f1debc97f5880c59caab9b36ad31f52604ce4dd",
+		},
+		{
+			Name: "Release train with invalid oid value",
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Version:     1,
+					Manifests: map[string]string{
+						"dev": "dev",
+					},
+				},
+				&DeployApplicationVersion{
+					Application: "test",
+					Environment: "dev",
+					Version:     1,
+				},
+			},
+			ReleaseTrainEnv:    "dev",
+			shouldSucceed:      false,
+			expectedError:      "rpc error: code = InvalidArgument desc = error: could not get app version for commitHash aa for dev: Error creating new oid for commitHash aa: invalid oid",
+			overrideCommitHash: "aa",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			err := cmd.Start()
+			if err != nil {
+				t.Errorf("could not start git init")
+			}
+			err = cmd.Wait()
+			if err != nil {
+				t.Errorf("could not wait for git init to finish")
+			}
+			ctx := testutil.MakeTestContext()
+			repo, err := New(
+				ctx,
+				RepositoryConfig{
+					URL:            "file://" + remoteDir,
+					Path:           localDir,
+					CommitterEmail: "kuberpult@freiheit.com",
+					CommitterName:  "kuberpult",
+					Branch:         "main",
+				},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = repo.Apply(ctx, tc.SetupTransformers...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cmd2 := exec.Command("git", "-C", remoteDir, "rev-parse", "main")
+			out2, err := cmd2.Output()
+			if err != nil {
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					t.Logf("stderr: %s\n", exitErr.Stderr)
+				}
+				t.Fatal(err)
+			}
+			commitHash := strings.TrimSpace(string(out2))
+			if tc.overrideCommitHash != "TO_BE_REPLACED" {
+				commitHash = tc.overrideCommitHash
+			}
+			releaseTrain := &ReleaseTrain{
+				CommitHash: commitHash,
+				Target:     tc.ReleaseTrainEnv,
+				Repo:       repo,
+			}
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), releaseTrain)
+
 			if tc.shouldSucceed {
 				if err != nil {
 					t.Fatalf("Expected no error: %v", err)
