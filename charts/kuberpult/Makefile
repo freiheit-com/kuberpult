@@ -32,11 +32,8 @@ CT := docker run --mount=type=bind,source=$(TOP_DIR),target=/src,readonly --work
 
 TGZ_FILE := kuberpult-$(VERSION).tgz
 
-Chart.yaml: Chart.yaml.tpl 
-	env VERSION="$(VERSION)" envsubst < Chart.yaml.tpl > $@
-
-values.yaml: values.yaml.tpl 
-	env VERSION="$(VERSION)" envsubst < values.yaml.tpl > $@
+Chart.yaml: Chart.yaml.tpl
+	env VERSION="$(VERSION)" envsubst < $< > $@
 
 $(TGZ_FILE): Chart.yaml values.yaml templates/*
 	helm dependency update
@@ -64,7 +61,7 @@ test-ci: test-helm
 test: ct-test test-helm
 
 clean:
-	rm -f Chart.yaml values.yaml
+	rm -f Chart.yaml
 	rm -f kuberpult-*.tgz
 	rm -f ci/test-values.yaml
 	rm -fr ./charts/
@@ -74,4 +71,4 @@ release-tag: $(TGZ_FILE)
 
 .PHONY: clean
 
-all: Chart.yaml values.yaml
+all: Chart.yaml
