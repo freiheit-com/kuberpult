@@ -2271,15 +2271,15 @@ The release train deployed 0 services from 'latest' to 'dev'
 				}
 				t.Fatal(err)
 			}
-			commitHash:=strings.TrimSpace(string(out2))
+			commitHash := strings.TrimSpace(string(out2))
 			if tc.overrideCommitHash != "TO_BE_REPLACED" {
-        			commitHash:=tc.overrideCommitHash
+				commitHash = tc.overrideCommitHash
 			}
-		        releaseTrain = &ReleaseTrain{
-			        CommitHash: commitHash,
-			        Target:     tc.ReleaseTrainEnv,
-			        Repo:       repo,
-	        	}
+			releaseTrain := &ReleaseTrain{
+				CommitHash: commitHash,
+				Target:     tc.ReleaseTrainEnv,
+				Repo:       repo,
+			}
 			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), releaseTrain)
 
 			if tc.shouldSucceed {
