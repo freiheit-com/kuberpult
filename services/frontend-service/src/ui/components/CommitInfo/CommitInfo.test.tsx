@@ -30,7 +30,7 @@ test('CommitInfo component does not render commit info when the response is unde
 test('CommitInfo component renders commit info when the response is valid', () => {
     type Table = {
         head: string[];
-        // NOTE: strip the expected strings out of newlines if there are any, since they will be checked using .toHaveTextContent
+        // NOTE: newlines, if there are any, will effectively be removed, since they will be checked using .toHaveTextContent
         body: string[][];
     };
 
