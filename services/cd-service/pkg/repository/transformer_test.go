@@ -1393,12 +1393,12 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 	}
 }
 
-type ContentRequirement struct {
+type FileWithContent struct {
 	Path    string
 	Content string
 }
 
-func verifyContent(fs billy.Filesystem, required []ContentRequirement) error {
+func verifyContent(fs billy.Filesystem, required []FileWithContent) error {
 	for _, contentRequirement := range required {
 		if data, err := util.ReadFile(fs, contentRequirement.Path); err != nil {
 			return fmt.Errorf("Error while opening file %s, error: %w", contentRequirement.Path, err)
@@ -1413,7 +1413,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 	type TestCase struct {
 		Name            string
 		Transformers    []Transformer
-		expectedContent []ContentRequirement
+		expectedContent []FileWithContent
 	}
 
 	tcs := []TestCase{
@@ -1436,7 +1436,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					Version:         1,
 				},
 			},
-			expectedContent: []ContentRequirement{
+			expectedContent: []FileWithContent{
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/application",
 					Content: "app",
@@ -1491,7 +1491,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					WriteCommitData: true,
 				},
 			},
-			expectedContent: []ContentRequirement{
+			expectedContent: []FileWithContent{
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/application",
 					Content: "app",
@@ -1552,7 +1552,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					WriteCommitData: true,
 				},
 			},
-			expectedContent: []ContentRequirement{
+			expectedContent: []FileWithContent{
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/application",
 					Content: "app",
