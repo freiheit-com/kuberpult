@@ -576,7 +576,7 @@ func TestGetCommitInfo(t *testing.T) {
 			expectedResponse:       nil,
 		},
 		{
-			name: "release trains on environments are correctly retrieved by GetCommitInfo",
+			name: "events for release trains on environments are correctly retrieved by GetCommitInfo",
 			transformers: []rp.Transformer{
 				&rp.CreateApplicationVersion{
 					Application: "app",
