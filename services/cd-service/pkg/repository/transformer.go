@@ -1673,10 +1673,7 @@ func (c *DeployApplicationVersion) Transform(
 
 				gen, ok := getGeneratorFromContext(ctx)
 				if !ok || gen == nil {
-					logger.FromContext(ctx).Info("using real UUID generator.")
 					gen = uuid.RealUUIDGenerator{}
-				} else {
-					logger.FromContext(ctx).Info("using  UUID generator from context.")
 				}
 				eventUuid := gen.Generate()
 
