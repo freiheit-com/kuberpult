@@ -61,11 +61,32 @@ message Event {
   // data that is different per event type:
   oneof event_type {
     CreateReleaseEvent create_release_event = 2;
+    DeploymentEvent deployment_event = 3;
   }
 }
 
 message CreateReleaseEvent {
   repeated string environment_names = 1;
+}
+
+message DeploymentEvent {
+  // app locks that prevented a deployment
+  repeated AppLock app_locks = 1;
+  // environment locks that prevented a deployment
+  repeated EnvLock env_locks = 2;
+
+  message AppLock {
+    string app = 1;
+    string env = 2;
+    string id = 3;
+    string message = 4;
+  }
+
+  message EnvLock {
+    string env = 1;
+    string id = 2;
+    string message = 3;
+  }
 }
 
 message TagData {

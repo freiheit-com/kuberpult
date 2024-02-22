@@ -27,7 +27,6 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	eventmod "github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
@@ -209,44 +208,11 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPa
 }
 
 func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPath string, eventId timeuuid.UUID) (*api.Event, error) {
-	eventTypePath := fs.Join(eventPath, "eventType")
-	eventTypeRaw, err := util.ReadFile(fs, eventTypePath) // full path: commits/<commitHash2>/<commitHash38>/events/<eventUUID>/eventType
+	event, err := eventmod.Read(fs, eventPath)
 	if err != nil {
-		return nil, fmt.Errorf("could not read eventType in path %s - %v", eventTypePath, err)
+		return nil, err
 	}
-	var eventType = string(eventTypeRaw)
-
-	if eventType == eventmod.NewReleaseEventName {
-		eventEnvsPath := fs.Join(eventPath, "environments")
-
-		potentialEnvironmentDirs, err := fs.ReadDir(eventEnvsPath)
-		if err != nil {
-			return nil, fmt.Errorf("could not read events environments directory '%s' - %v", eventEnvsPath, err)
-		}
-
-		var envs []string = nil
-		for i := range potentialEnvironmentDirs {
-			envDir := potentialEnvironmentDirs[i]
-			fileName := envDir.Name()
-			if envDir.IsDir() {
-				envs = append(envs, fileName)
-			} else {
-				logger.FromContext(ctx).Sugar().Warnf(
-					"found entry in %s that was not an environment directory", fs.Join(eventEnvsPath, fileName))
-			}
-		}
-
-		var result = &api.Event{
-			CreatedAt: uuid.GetTime(&eventId),
-			EventType: &api.Event_CreateReleaseEvent{
-				CreateReleaseEvent: &api.CreateReleaseEvent{
-					EnvironmentNames: envs,
-				},
-			},
-		}
-		return result, nil
-	}
-	return nil, fmt.Errorf("could not read event, did not recognize event type '%s'", eventType)
+	return eventmod.ToProto(event, uuid.GetTime(&eventId)), nil
 }
 
 // findCommitID checks if the "commits" directory in the given

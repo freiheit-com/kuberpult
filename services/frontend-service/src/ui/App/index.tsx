@@ -34,10 +34,7 @@ import { AzureAuthProvider, useAzureAuthSub } from '../utils/AzureAuthProvider';
 import { Snackbar } from '../components/snackbar/snackbar';
 import { mergeMap, retryWhen } from 'rxjs/operators';
 import { Observable, throwError, timer } from 'rxjs';
-import { GetFrontendConfigResponse } from '../../api/api';
-import { EnvironmentConfigDialog } from '../components/EnvironmentConfigDialog/EnvironmentConfigDialog';
-import { getOpenEnvironmentConfigDialog } from '../utils/Links';
-import { useSearchParams } from 'react-router-dom';
+import { GetFrontendConfigResponse, RolloutStatus } from '../../api/api';
 
 // retry strategy: retries the observable subscription with randomized exponential backoff
 // source: https://www.learnrxjs.io/learn-rxjs/operators/error_handling/retrywhen#examples
@@ -65,6 +62,27 @@ export const App: React.FC = () => {
             document.title = 'Kuberpult ' + kuberpultVersion;
         }
     }, [kuberpultVersion, api]);
+
+    React.useEffect(() => {
+        UpdateRolloutStatus({
+            application: 'myapp',
+            environment: 'staging',
+            version: 1,
+            rolloutStatus: RolloutStatus.ROLLOUT_STATUS_UNHEALTHY,
+        });
+        UpdateRolloutStatus({
+            application: 'myapp',
+            environment: 'development',
+            version: 1,
+            rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+        });
+        UpdateRolloutStatus({
+            application: 'myapp',
+            environment: 'development2',
+            version: 1,
+            rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
+        });
+    }, []);
 
     React.useEffect(() => {
         api.configService()
@@ -109,7 +127,7 @@ export const App: React.FC = () => {
                 .pipe(retryWhen(retryStrategy(8)))
                 .subscribe(
                     (result) => {
-                        UpdateRolloutStatus(result);
+                        //UpdateRolloutStatus(result);
                     },
                     (error) => {
                         if (error.code === 12) {
@@ -133,15 +151,12 @@ export const App: React.FC = () => {
         }
     );
 
-    const [params] = useSearchParams();
     const { app, version } = useReleaseDialogParams();
-    const currentOpenConfig = getOpenEnvironmentConfigDialog(params);
 
     return (
         <AzureAuthProvider>
             <div className={'app-container--v2'}>
                 {app && version ? <ReleaseDialog app={app} version={version} /> : null}
-                {currentOpenConfig.length > 0 ? <EnvironmentConfigDialog environmentName={currentOpenConfig} /> : null}
                 <NavigationBar />
                 <div className="mdc-drawer-app-content">
                     <PageRoutes />

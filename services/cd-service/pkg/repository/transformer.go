@@ -541,43 +541,29 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 	if err := util.WriteFile(fs, fs.Join(commitAppDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
 	}
-	err := writeEvent(ctx, eventId, sourceCommitId, fs, environments)
+	envMap := make(map[string]struct{}, len(environments))
+	for _, env := range environments {
+		envMap[env] = struct{}{}
+	}
+	err := writeEvent(ctx, eventId, sourceCommitId, fs, &event.NewRelease{
+		Environments: envMap,
+	})
 	if err != nil {
 		return fmt.Errorf("error while writing event: %v", err)
 	}
 	return nil
 }
 
-func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, envs []string) error {
+func writeEvent(
+	ctx context.Context,
+	eventId string,
+	sourceCommitId string,
+	filesystem billy.Filesystem,
+	ev event.Event,
+) error {
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
-	_, err := filesystem.Stat(eventDir)
-	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			// anything except "not exists" is an error:
-			return fmt.Errorf("event directory %s already existed: %v", eventDir, err)
-		}
-	}
-	if err := filesystem.MkdirAll(eventDir, 0777); err != nil {
-		return fmt.Errorf("could not create directory %s: %v", eventDir, err)
-	}
-	for i := range envs {
-		env := envs[i]
-		environmentDir := filesystem.Join(eventDir, "environments", env)
-		if err := filesystem.MkdirAll(environmentDir, 0777); err != nil {
-			return fmt.Errorf("could not create directory %s: %v", environmentDir, err)
-		}
-		environmentNamePath := filesystem.Join(environmentDir, ".gitkeep")
-		if err := util.WriteFile(filesystem, environmentNamePath, make([]byte, 0), 0666); err != nil {
-			return fmt.Errorf("could not write file %s: %v", environmentNamePath, err)
-		}
-	}
-	eventTypePath := filesystem.Join(eventDir, "eventType")
-	if err := util.WriteFile(filesystem, eventTypePath, []byte(event.NewReleaseEventName), 0666); err != nil {
-		return fmt.Errorf("could not write file %s: %v", eventTypePath, err)
-	}
-
 	// Note: we do not store the "createAt" date here, because we use UUIDs with timestamp information
-	return nil
+	return event.Write(filesystem, eventDir, ev)
 }
 
 func (c *CreateApplicationVersion) calculateVersion(state *State) (uint64, error) {
@@ -1696,14 +1682,31 @@ func (c *ReleaseTrain) Transform(
 	}
 	sort.Strings(envGroups)
 
+	var releaseEvent api.DeploymentEvent
 	for _, envName := range envGroups {
-		if err := t.Execute(&envReleaseTrain{
+		envTrain := envReleaseTrain{
 			Parent:          c,
 			Env:             envName,
 			EnvConfigs:      configs,
 			EnvGroupConfigs: envGroupConfigs,
-		}); err != nil {
+		}
+		if err := t.Execute(&envTrain); err != nil {
 			return "", err
+		}
+		if envTrain.EnvLockID != "" {
+			releaseEvent.EnvLocks = append(releaseEvent.EnvLocks, &api.DeploymentEvent_EnvLock{
+				Env:     envName,
+				Id:      envTrain.EnvLockID,
+				Message: envTrain.EnvLockMessage,
+			})
+		}
+		for _, lock := range envTrain.AppLocks {
+			releaseEvent.AppLocks = append(releaseEvent.AppLocks, &api.DeploymentEvent_AppLock{
+				App:     lock.App,
+				Env:     envName,
+				Id:      lock.LockID,
+				Message: lock.LockMessage,
+			})
 		}
 	}
 
@@ -1717,6 +1720,17 @@ type envReleaseTrain struct {
 	Env             string
 	EnvConfigs      map[string]config.EnvironmentConfig
 	EnvGroupConfigs map[string]config.EnvironmentConfig
+
+	// Result values
+	EnvLockID      string // if not empty, the environment was locked
+	EnvLockMessage string
+	AppLocks       []releaseTrainAppLock
+}
+
+type releaseTrainAppLock struct {
+	App         string
+	LockID      string
+	LockMessage string
 }
 
 func (c *envReleaseTrain) Transform(
@@ -1769,6 +1783,12 @@ func (c *envReleaseTrain) Transform(
 		return "", grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err))
 	}
 	if len(envLocks) > 0 {
+		// Get one of the locks
+		for lockID, lock := range envLocks {
+			c.EnvLockID = lockID
+			c.EnvLockMessage = lock.Message
+			break
+		}
 		return fmt.Sprintf(
 			"Target Environment '%s' is locked - skipping.",
 			c.Env), nil
@@ -1835,8 +1855,17 @@ func (c *envReleaseTrain) Transform(
 			Authentication: c.Parent.Authentication,
 		}
 		if err := t.Execute(d); err != nil {
-			_, ok := err.(*LockedError)
+			lockErr, ok := err.(*LockedError)
 			if ok {
+				// Get one app lock
+				for lockID, lock := range lockErr.EnvironmentApplicationLocks {
+					c.AppLocks = append(c.AppLocks, releaseTrainAppLock{
+						App:         appName,
+						LockID:      lockID,
+						LockMessage: lock.Message,
+					})
+					break
+				}
 				continue // locked errors are to be expected
 			}
 			if errors.Is(err, os.ErrNotExist) {
