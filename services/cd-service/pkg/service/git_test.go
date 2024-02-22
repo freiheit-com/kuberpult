@@ -764,7 +764,6 @@ func TestGetCommitInfo(t *testing.T) {
 				Config:          config,
 			}
 
-			ctx = testutil.MakeTestContext()
 			commitInfo, err := sv.GetCommitInfo(ctx, tc.request)
 
 			if !errors.Is(err, tc.expectedError) {
