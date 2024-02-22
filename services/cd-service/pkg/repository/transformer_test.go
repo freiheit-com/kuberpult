@@ -1572,7 +1572,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					Content: "staging",
 				},
 				{
-					Path: "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/source_train_group",
+					Path: "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/source_train_environment_group",
 					Content: "production-group",
 				},
 			},

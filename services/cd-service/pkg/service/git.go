@@ -276,7 +276,7 @@ func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPat
 
 			deploymentEvent.ReleaseTrainSource.UpstreamEnvironment = string(data)
 			
-			targetGroupPath := fs.Join(eventPath, "source_train_group")
+			targetGroupPath := fs.Join(eventPath, "source_train_environment_group")
 			if data, err := util.ReadFile(fs, targetGroupPath); err != nil {
 				if !errors.Is(err, os.ErrNotExist) { // something is wrong
 					return nil, fmt.Errorf("an unexpected error occured when reading the target group file at %s, error: %w", targetGroupPath, err)
