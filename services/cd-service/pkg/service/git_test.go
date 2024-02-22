@@ -24,9 +24,7 @@ import (
 	"time"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
-	"github.com/onokonem/sillyQueueServer/timeuuid"
-	"google.golang.org/protobuf/types/known/timestamppb"
-
+	
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 
@@ -278,11 +276,6 @@ func fixedTime() time.Time {
 	return time.Unix(666, 0)
 }
 func TestGetCommitInfo(t *testing.T) {
-	timeFromUUID := func(uuidStr string) *timestamppb.Timestamp {
-		uuidVar, _ := timeuuid.ParseUUID(uuidStr)
-		return uuid.GetTime(&uuidVar)
-	}
-
 	environmentSetup := []rp.Transformer{
 		&rp.CreateEnvironment{
 			Environment: "development-1",
@@ -360,7 +353,7 @@ func TestGetCommitInfo(t *testing.T) {
 				Events: []*api.Event{
 					{
 						Uuid:      "00000000-0000-0000-0000-000000000000",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000000"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000000"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{
 								EnvironmentNames: []string{"development-1"},
@@ -369,7 +362,7 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 					{
 						Uuid:      "00000000-0000-0000-0000-000000000001",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000001"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000001"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application:        "app",
@@ -428,7 +421,7 @@ func TestGetCommitInfo(t *testing.T) {
 				Events: []*api.Event{
 					{
 						Uuid:      "00000000-0000-0000-0000-000000000000",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000000"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000000"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{
 								EnvironmentNames: []string{"development-1"},
@@ -437,7 +430,7 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 					{
 						Uuid:      "00000000-0000-0000-0000-000000000001",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000001"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000001"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application:        "app-1",
@@ -448,7 +441,7 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 					{
 						Uuid:      "00000000-0000-0000-0000-000000000002",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000002"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000002"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{
 								EnvironmentNames: []string{"development-2"},
@@ -457,7 +450,7 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 					{
 						Uuid:      "00000000-0000-0000-0000-000000000003",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000003"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000003"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application:        "app-2",
@@ -468,7 +461,7 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 					{
 						Uuid:      "00000000-0000-0000-0000-000000000004",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000004"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000004"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{
 								EnvironmentNames: []string{"development-3"},
@@ -477,7 +470,7 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 					{
 						Uuid:      "00000000-0000-0000-0000-000000000005",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000005"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000005"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application:        "app-3",
@@ -527,7 +520,7 @@ func TestGetCommitInfo(t *testing.T) {
 				Events: []*api.Event{
 					{
 						Uuid: "00000000-0000-0000-0000-000000000000",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000000"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000000"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{},
 						},
@@ -614,7 +607,7 @@ func TestGetCommitInfo(t *testing.T) {
 				Events: []*api.Event{
 					{
 						Uuid: "00000000-0000-0000-0000-000000000002",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000002"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000002"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{
 								EnvironmentNames: []string{
@@ -626,7 +619,7 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 					{
 						Uuid: "00000000-0000-0000-0000-000000000003",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000003"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000003"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application: "app",
@@ -638,7 +631,7 @@ func TestGetCommitInfo(t *testing.T) {
 
 					{
 						Uuid: "00000000-0000-0000-0000-000000000004",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000004"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000004"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application: "app",
@@ -692,7 +685,7 @@ func TestGetCommitInfo(t *testing.T) {
 				Events: []*api.Event{
 					{
 						Uuid: "00000000-0000-0000-0000-000000000002",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000002"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000002"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{
 								EnvironmentNames: []string{
@@ -704,7 +697,7 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 					{
 						Uuid: "00000000-0000-0000-0000-000000000003",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000003"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000003"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application: "app",
@@ -716,7 +709,7 @@ func TestGetCommitInfo(t *testing.T) {
 
 					{
 						Uuid: "00000000-0000-0000-0000-000000000004",
-						CreatedAt: timeFromUUID("00000000-0000-0000-0000-000000000004"),
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000004"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application: "app",
