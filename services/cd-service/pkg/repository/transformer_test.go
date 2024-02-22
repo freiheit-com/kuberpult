@@ -1402,10 +1402,8 @@ func verifyContent(fs billy.Filesystem, required []ContentRequirement) error {
 	for _, contentRequirement := range required {
 		if data, err := util.ReadFile(fs, contentRequirement.Path); err != nil {
 			return fmt.Errorf("Error while opening file %s, error: %w", contentRequirement.Path, err)
-		} else {
-			if string(data) != contentRequirement.Content {
-				return fmt.Errorf("Actual file content is not equal to required content. Expected: %s, actual: %s", contentRequirement.Content, string(data))
-			}
+		} else if string(data) != contentRequirement.Content {
+			return fmt.Errorf("Actual file content is not equal to required content. Expected: %s, actual: %s", contentRequirement.Content, string(data))
 		}
 	}
 	return nil
@@ -1469,12 +1467,12 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
 							Environment: "staging",
-							Latest: true,
+							Latest:      true,
 						},
 					},
 				},
 				&CreateApplicationVersion{
-					Application: "app",
+					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 					Manifests: map[string]string{
 						"production": "some production manifest 2",
@@ -1489,25 +1487,25 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					WriteCommitData: true,
 				},
 				&ReleaseTrain{
-					Target: "production",
+					Target:          "production",
 					WriteCommitData: true,
 				},
 			},
 			expectedContent: []ContentRequirement{
 				{
-					Path: "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/application",
-					Content: "app", 
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/application",
+					Content: "app",
 				},
 				{
-					Path: "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/environment",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/environment",
 					Content: "production",
 				},
 				{
-					Path: "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
 					Content: "deployment",
 				},
 				{
-					Path: "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/source_train_upstream",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/source_train_upstream",
 					Content: "staging",
 				},
 			},
@@ -1530,12 +1528,12 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					Config: config.EnvironmentConfig{
 						Upstream: &config.EnvironmentConfigUpstream{
 							Environment: "staging",
-							Latest: true,
+							Latest:      true,
 						},
 					},
 				},
 				&CreateApplicationVersion{
-					Application: "app",
+					Application:    "app",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 					Manifests: map[string]string{
 						"production": "some production manifest 2",
@@ -1550,29 +1548,29 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					WriteCommitData: true,
 				},
 				&ReleaseTrain{
-					Target: "production-group",
+					Target:          "production-group",
 					WriteCommitData: true,
 				},
 			},
 			expectedContent: []ContentRequirement{
 				{
-					Path: "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/application",
-					Content: "app", 
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/application",
+					Content: "app",
 				},
 				{
-					Path: "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/environment",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/environment",
 					Content: "production",
 				},
 				{
-					Path: "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
 					Content: "deployment",
 				},
 				{
-					Path: "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/source_train_upstream",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/source_train_upstream",
 					Content: "staging",
 				},
 				{
-					Path: "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/source_train_environment_group",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/source_train_environment_group",
 					Content: "production-group",
 				},
 			},
@@ -1587,7 +1585,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
-			
+
 			repo := setupRepositoryTest(t)
 			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			if err != nil {
