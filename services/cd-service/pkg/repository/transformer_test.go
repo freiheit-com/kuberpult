@@ -1581,11 +1581,13 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			fakeGen := testutil.NewIncrementalUUIDGenerator()
 			tc := tc
+			t.Parallel()
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
-			t.Parallel()
+			
 			repo := setupRepositoryTest(t)
 			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			if err != nil {
