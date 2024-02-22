@@ -283,7 +283,7 @@ func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPat
 				}
 				// everything okay, deployment not triggered by release train on an environment group
 			} else { // deployment triggered by release train on an environment group
-				deploymentEvent.ReleaseTrainSource.TargetGroup = ptr.FromString(string(data))
+				deploymentEvent.ReleaseTrainSource.TargetEnvironmentGroup = ptr.FromString(string(data))
 			}
 		}
 

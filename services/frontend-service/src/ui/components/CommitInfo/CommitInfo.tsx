@@ -115,7 +115,7 @@ const eventDescription = (event: Event): [JSX.Element, string] => {
                     </span>
                 );
             else {
-                if (de.releaseTrainSource?.targetGroup === undefined)
+                if (de.releaseTrainSource?.targetEnvironmentGroup === undefined)
                     description = (
                         <span>
                             Release train deployment of application <b>{de.application}</b> from environment{' '}
@@ -127,7 +127,7 @@ const eventDescription = (event: Event): [JSX.Element, string] => {
                     description = (
                         <span>
                             Release train deployment of application <b>{de.application}</b> on environment group{' '}
-                            <b>{de.releaseTrainSource.targetGroup}</b> from environment{' '}
+                            <b>{de.releaseTrainSource.targetEnvironmentGroup}</b> from environment{' '}
                             <b>{de.releaseTrainSource?.upstreamEnvironment}</b> to environment{' '}
                             <b>{de.targetEnvironment}</b>
                         </span>

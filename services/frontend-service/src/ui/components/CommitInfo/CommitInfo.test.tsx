@@ -96,7 +96,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
                                 targetEnvironment: 'staging',
                                 releaseTrainSource: {
                                     upstreamEnvironment: 'dev',
-                                    targetGroup: 'staging-group',
+                                    targetEnvironmentGroup: 'staging-group',
                                 },
                             },
                         },

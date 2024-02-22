@@ -72,7 +72,7 @@ message CreateReleaseEvent {
 message DeploymentEvent {
   message ReleaseTrainSource {
     string upstream_environment = 1;
-    optional string target_group = 2;
+    optional string target_environment_group = 2;
   }
   string application = 1;
   string target_environment = 2;

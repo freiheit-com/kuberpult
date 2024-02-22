@@ -645,7 +645,7 @@ func TestGetCommitInfo(t *testing.T) {
 								TargetEnvironment: "staging-1",
 								ReleaseTrainSource: &api.DeploymentEvent_ReleaseTrainSource{
 									UpstreamEnvironment: "development-1",
-									TargetGroup: nil,
+									TargetEnvironmentGroup: nil,
 								},
 							},
 						},
@@ -723,7 +723,7 @@ func TestGetCommitInfo(t *testing.T) {
 								TargetEnvironment: "staging-1",
 								ReleaseTrainSource: &api.DeploymentEvent_ReleaseTrainSource{
 									UpstreamEnvironment: "development-1",
-									TargetGroup: ptr.FromString("staging"),
+									TargetEnvironmentGroup: ptr.FromString("staging"),
 								},
 							},
 						},
