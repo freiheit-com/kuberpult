@@ -451,13 +451,7 @@ func (c *CreateApplicationVersion) Transform(
 	for env, _ := range c.Manifests {
 		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
 	}
-	gen, ok := getGeneratorFromContext(ctx)
-	if !ok || gen == nil {
-		logger.FromContext(ctx).Info("using real UUID generator.")
-		gen = uuid.RealUUIDGenerator{}
-	} else {
-		logger.FromContext(ctx).Info("using  UUID generator from context.")
-	}
+	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
 		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, fs)
@@ -513,9 +507,12 @@ func (c *CreateApplicationVersion) Transform(
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
 }
 
-func getGeneratorFromContext(ctx context.Context) (uuid.GenerateUUIDs, bool) {
+func getGenerator(ctx context.Context) uuid.GenerateUUIDs {
 	gen, ok := ctx.Value(ctxMarkerGenerateUuidKey).(uuid.GenerateUUIDs)
-	return gen, ok
+	if !ok || gen == nil {
+		return uuid.RealUUIDGenerator{}
+	}
+	return gen
 }
 
 func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.Context {
@@ -1671,10 +1668,7 @@ func (c *DeployApplicationVersion) Transform(
 				logger.FromContext(ctx).Sugar().Infof("The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.", commitId)
 			} else {
 
-				gen, ok := getGeneratorFromContext(ctx)
-				if !ok || gen == nil {
-					gen = uuid.RealUUIDGenerator{}
-				}
+				gen := getGenerator(ctx)
 				eventUuid := gen.Generate()
 
 				if err := writeDeploymentEvent(fs, commitId, eventUuid, c.Application, c.Environment, c.SourceTrain); err != nil {
