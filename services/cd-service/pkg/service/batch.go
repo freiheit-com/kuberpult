@@ -153,8 +153,8 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.CreateUndeployApplicationVersion{
-			Application:    act.Application,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			Application:     act.Application,
+			Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
 			WriteCommitData: d.Config.WriteCommitData,
 		}, nil, nil
 	case *api.BatchAction_Undeploy:
@@ -203,6 +203,7 @@ func (d *BatchServer) processAction(
 		return &repository.ReleaseTrain{
 				Target:          in.Target,
 				Team:            in.Team,
+				CommitHash:      in.CommitHash,
 				WriteCommitData: d.Config.WriteCommitData,
 				Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
 			}, &api.BatchResult{
