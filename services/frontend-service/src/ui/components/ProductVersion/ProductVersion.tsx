@@ -20,6 +20,8 @@ import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
 import { EnvironmentGroup, ProductSummary } from '../../../api/api';
 import { useSearchParams } from 'react-router-dom';
+import { Button } from '../button';
+import { ReleaseTrainDialog } from './ReleaseTrainDialog';
 
 export type TableProps = {
     productSummary: ProductSummary[];
@@ -132,6 +134,21 @@ export const ProductVersion: React.FC = () => {
         [setSearchParams, searchParams, selectedTag]
     );
     const [displaySummary, setDisplayVersion] = React.useState(false);
+    const [showReleaseTrainEnvs, setShowReleaseTrainEnvs] = React.useState(false);
+    const handleClose = React.useCallback(() => {
+        setShowReleaseTrainEnvs(false);
+    }, []);
+    const [showButton, setShowButton] = React.useState(false);
+    React.useEffect(() => {
+        if (localStorage.getItem('testing') !== null) {
+            setShowButton(true);
+        } else {
+            setShowButton(false);
+        }
+    }, []);
+    const openDialog = React.useCallback(() => {
+        setShowReleaseTrainEnvs(true);
+    }, []);
 
     React.useEffect(() => {
         if (tagsResponse.response.tagData.length > 0) {
@@ -154,37 +171,46 @@ export const ProductVersion: React.FC = () => {
         return <Spinner message="Loading Production Version" />;
     }
 
+    const dialog = <ReleaseTrainDialog environment={environment} open={showReleaseTrainEnvs} onCancel={handleClose} />;
+
     return (
         <div className="product_version">
             <h1 className="environment_name">{'Product Version Page'}</h1>
-
+            {dialog}
             {tagsResponse.response.tagData.length > 0 ? (
-                <div className="dropdown_div">
-                    <select
-                        onChange={openClose}
-                        onSelect={openClose}
-                        className="drop_down"
-                        data-testid="drop_down"
-                        value={selectedTag}>
-                        <option value="default" disabled>
-                            Select a Tag
-                        </option>
-                        {tagsResponse.response.tagData.map((tag) => (
-                            <option value={tag.commitId} key={tag.tag}>
-                                {tag.tag.slice(10)}
+                <div className="space_apart_row">
+                    <div className="dropdown_div">
+                        <select
+                            onChange={openClose}
+                            onSelect={openClose}
+                            className="drop_down"
+                            data-testid="drop_down"
+                            value={selectedTag}>
+                            <option value="default" disabled>
+                                Select a Tag
                             </option>
-                        ))}
-                    </select>
-                    <select className="env_drop_down" onChange={changeEnv} value={environment}>
-                        <option value="default" disabled>
-                            Select an Environment or Environment Group
-                        </option>
-                        {envList.map((env) => (
-                            <option value={env} key={env}>
-                                {env}
+                            {tagsResponse.response.tagData.map((tag) => (
+                                <option value={tag.commitId} key={tag.tag}>
+                                    {tag.tag.slice(10)}
+                                </option>
+                            ))}
+                        </select>
+                        <select className="env_drop_down" onChange={changeEnv} value={environment}>
+                            <option value="default" disabled>
+                                Select an Environment or Environment Group
                             </option>
-                        ))}
-                    </select>
+                            {envList.map((env) => (
+                                <option value={env} key={env}>
+                                    {env}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    {showButton ? (
+                        <Button label={'Run Release Train'} className="release_train_button" onClick={openDialog} />
+                    ) : (
+                        <></>
+                    )}
                 </div>
             ) : (
                 <div />
