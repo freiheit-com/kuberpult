@@ -1664,13 +1664,11 @@ func (c *DeployApplicationVersion) Transform(
 
 		if data, err := util.ReadFile(fs, commitIdPath); err != nil {
 			logger.FromContext(ctx).Sugar().Infof("Error while reading source commit ID file at %s, error %w. Deployment event not stored.", commitIdPath, err)
-			// return "", nil, fmt.Errorf("Error while reading source commit ID file at %s, error %w", commitIdPath, err)
 		} else {
 			commitId := string(data)
 			// if the stored source commit ID is invalid then we will not be able to store the event (simply)
 			if !valid.SHA1CommitID(commitId) {
 				logger.FromContext(ctx).Sugar().Infof("The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.", commitId)
-				// return "", nil, fmt.Errorf("The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored", commitId)
 			} else {
 
 				gen, ok := getGeneratorFromContext(ctx)
