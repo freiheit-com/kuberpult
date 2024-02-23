@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"sync"
 	"time"
 
@@ -74,7 +75,11 @@ func (r *Dispatcher) Dispatch(ctx context.Context, k Key, ev *v1alpha1.Applicati
 func (r *Dispatcher) tryResolve(ctx context.Context, k Key, ev *v1alpha1.ApplicationWatchEvent) *versions.VersionInfo {
 	r.mx.Lock()
 	defer r.mx.Unlock()
+	ddSpan, ok := tracer.SpanFromContext(ctx)
 	revision := ev.Application.Status.Sync.Revision
+	if ok && ddSpan != nil {
+		ddSpan.SetTag("argoSyncRevision", revision)
+	}
 	// 0. Check if this is delete event, if yes then we can delete the entry right away
 	if ev.Type == "DELETED" {
 		version := &versions.ZeroVersion
