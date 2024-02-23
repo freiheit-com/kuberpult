@@ -74,34 +74,60 @@ export type PlainDialogProps = {
 /**
  * A dialog that just renders its children. Invoker must take care of all buttons.
  */
+
 export const PlainDialog: React.FC<PlainDialogProps> = (props) => {
-    const { onClose, open, children } = props;
-    const classPrefix = props.center ? 'confirmation' : 'plain';
+    const { onClose, open, children, center, disableBackground, classNames } = props;
+    const classPrefix = center ? 'confirmation' : 'plain';
+    const initialRef: HTMLElement | null = null;
+    const rootRef = React.useRef(initialRef);
+
     React.useEffect(() => {
-        window.addEventListener('keyup', (event) => {
+        if (!open) {
+            return () => {};
+        }
+        const winListener = (event: KeyboardEvent): void => {
             if (event.key === 'Escape') {
                 onClose();
             }
-        });
-        document.addEventListener('click', (event) => {
-            if (open) {
-                if (event.target instanceof HTMLElement) {
-                    const isOutside = event.target.className.indexOf(classPrefix + '-dialog-container') >= 0;
-                    if (isOutside) {
-                        onClose();
-                    }
-                }
+        };
+        const docListener = (event: MouseEvent): void => {
+            if (!(event.target instanceof HTMLElement)) {
+                return;
             }
-        });
-    }, [onClose, open, classPrefix]);
+            const eventTarget: HTMLElement = event.target;
+
+            if (rootRef.current === null) {
+                return;
+            }
+            const rootRefCurrent: HTMLElement = rootRef.current;
+
+            let isOutside: boolean;
+            if (center) {
+                // NOTE: here the dialog is taking the full screen so we click outside we will find a parent of our root reference
+                isOutside = eventTarget.contains(rootRefCurrent);
+            } else {
+                // NOTE: here the dialog is part of the DOM and clicking outside will hit an element not at all related to the dialog
+                isOutside = !rootRefCurrent.contains(eventTarget);
+            }
+            if (isOutside) {
+                onClose();
+            }
+        };
+        window.addEventListener('keyup', winListener);
+        document.addEventListener('pointerup', docListener);
+        return () => {
+            document.removeEventListener('keyup', winListener);
+            document.removeEventListener('pointerup', docListener);
+        };
+    }, [onClose, open, classPrefix, center]);
 
     if (!open) {
         return <div className={''}></div>;
     }
-    const clas = props.disableBackground ? classPrefix + '-dialog-container-open' : '';
+    const clas = open && disableBackground ? classPrefix + '-dialog-container-open' : '';
     return (
-        <div className={classPrefix + '-dialog-container ' + (props.open ? clas : '')}>
-            <div className={classPrefix + '-dialog-open ' + props.classNames}>{children}</div>
+        <div ref={rootRef} className={classPrefix + '-dialog-container ' + clas}>
+            <div className={classPrefix + '-dialog-open ' + classNames}>{children}</div>
         </div>
     );
 };
