@@ -519,7 +519,7 @@ func TestGetCommitInfo(t *testing.T) {
 				TouchedApps:   []string{"app"},
 				Events: []*api.Event{
 					{
-						Uuid: "00000000-0000-0000-0000-000000000000",
+						Uuid:      "00000000-0000-0000-0000-000000000000",
 						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000000"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{},
@@ -575,22 +575,22 @@ func TestGetCommitInfo(t *testing.T) {
 					Application: "app",
 					Manifests: map[string]string{
 						"development-1": "manifest 1",
-						"staging-1": "manifest 2",
+						"staging-1":     "manifest 2",
 					},
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					WriteCommitData: true,
 				},
 				&rp.CreateApplicationVersion{
 					Application: "app",
 					Manifests: map[string]string{
 						"development-1": "manifest 1",
-						"staging-1": "manifest 2",
+						"staging-1":     "manifest 2",
 					},
-					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					SourceCommitId:  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 					WriteCommitData: true,
 				},
 				&rp.ReleaseTrain{
-					Target: "staging-1",
+					Target:          "staging-1",
 					WriteCommitData: true,
 				},
 			},
@@ -599,14 +599,14 @@ func TestGetCommitInfo(t *testing.T) {
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 			},
 			expectedResponse: &api.GetCommitInfoResponse{
-				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 				CommitMessage: "",
 				TouchedApps: []string{
 					"app",
 				},
 				Events: []*api.Event{
 					{
-						Uuid: "00000000-0000-0000-0000-000000000002",
+						Uuid:      "00000000-0000-0000-0000-000000000002",
 						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000002"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{
@@ -618,26 +618,26 @@ func TestGetCommitInfo(t *testing.T) {
 						},
 					},
 					{
-						Uuid: "00000000-0000-0000-0000-000000000003",
+						Uuid:      "00000000-0000-0000-0000-000000000003",
 						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000003"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
-								Application: "app",
-								TargetEnvironment: "development-1",
+								Application:        "app",
+								TargetEnvironment:  "development-1",
 								ReleaseTrainSource: nil,
 							},
 						},
 					},
 
 					{
-						Uuid: "00000000-0000-0000-0000-000000000004",
+						Uuid:      "00000000-0000-0000-0000-000000000004",
 						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000004"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
-								Application: "app",
+								Application:       "app",
 								TargetEnvironment: "staging-1",
 								ReleaseTrainSource: &api.DeploymentEvent_ReleaseTrainSource{
-									UpstreamEnvironment: "development-1",
+									UpstreamEnvironment:    "development-1",
 									TargetEnvironmentGroup: nil,
 								},
 							},
@@ -653,22 +653,22 @@ func TestGetCommitInfo(t *testing.T) {
 					Application: "app",
 					Manifests: map[string]string{
 						"development-1": "manifest 1",
-						"staging-1": "manifest 2",
+						"staging-1":     "manifest 2",
 					},
-					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					SourceCommitId:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					WriteCommitData: true,
 				},
 				&rp.CreateApplicationVersion{
 					Application: "app",
 					Manifests: map[string]string{
 						"development-1": "manifest 1",
-						"staging-1": "manifest 2",
+						"staging-1":     "manifest 2",
 					},
-					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					SourceCommitId:  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 					WriteCommitData: true,
 				},
 				&rp.ReleaseTrain{
-					Target: "staging",
+					Target:          "staging",
 					WriteCommitData: true,
 				},
 			},
@@ -677,14 +677,14 @@ func TestGetCommitInfo(t *testing.T) {
 				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 			},
 			expectedResponse: &api.GetCommitInfoResponse{
-				CommitHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				CommitHash:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 				CommitMessage: "",
 				TouchedApps: []string{
 					"app",
 				},
 				Events: []*api.Event{
 					{
-						Uuid: "00000000-0000-0000-0000-000000000002",
+						Uuid:      "00000000-0000-0000-0000-000000000002",
 						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000002"),
 						EventType: &api.Event_CreateReleaseEvent{
 							CreateReleaseEvent: &api.CreateReleaseEvent{
@@ -696,26 +696,26 @@ func TestGetCommitInfo(t *testing.T) {
 						},
 					},
 					{
-						Uuid: "00000000-0000-0000-0000-000000000003",
+						Uuid:      "00000000-0000-0000-0000-000000000003",
 						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000003"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
-								Application: "app",
-								TargetEnvironment: "development-1",
+								Application:        "app",
+								TargetEnvironment:  "development-1",
 								ReleaseTrainSource: nil,
 							},
 						},
 					},
 
 					{
-						Uuid: "00000000-0000-0000-0000-000000000004",
+						Uuid:      "00000000-0000-0000-0000-000000000004",
 						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000004"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
-								Application: "app",
+								Application:       "app",
 								TargetEnvironment: "staging-1",
 								ReleaseTrainSource: &api.DeploymentEvent_ReleaseTrainSource{
-									UpstreamEnvironment: "development-1",
+									UpstreamEnvironment:    "development-1",
 									TargetEnvironmentGroup: ptr.FromString("staging"),
 								},
 							},
@@ -767,6 +767,11 @@ func TestGetCommitInfo(t *testing.T) {
 				sort.Slice(commitInfo.Events, func(i, j int) bool {
 					return commitInfo.Events[i].Uuid < commitInfo.Events[j].Uuid
 				})
+				for _, event := range commitInfo.Events {
+					if createReleaseEvent, ok := event.EventType.(*api.Event_CreateReleaseEvent); ok {
+						sort.Strings(createReleaseEvent.CreateReleaseEvent.EnvironmentNames)
+					}
+				}
 			}
 
 			if !proto.Equal(tc.expectedResponse, commitInfo) {
