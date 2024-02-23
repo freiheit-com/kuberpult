@@ -1705,15 +1705,13 @@ func writeDeploymentEvent(fs billy.Filesystem, commitId, eventId, application, e
 	}
 
 	if sourceTrain != nil {
-		eventTrainPath := fs.Join(eventPath)
-
 		if sourceTrain.TargetGroup != nil {
-			eventTrainGroupPath := fs.Join(eventTrainPath, "source_train_environment_group")
+			eventTrainGroupPath := fs.Join(eventPath, "source_train_environment_group")
 			if err := util.WriteFile(fs, eventTrainGroupPath, []byte(*sourceTrain.TargetGroup), 0666); err != nil {
 				return fmt.Errorf("could not write source train group file at %s, error: %w", eventTrainGroupPath, err)
 			}
 		}
-		eventTrainUpstreamPath := fs.Join(eventTrainPath, "source_train_upstream")
+		eventTrainUpstreamPath := fs.Join(eventPath, "source_train_upstream")
 		if err := util.WriteFile(fs, eventTrainUpstreamPath, []byte(sourceTrain.Upstream), 0666); err != nil {
 			return fmt.Errorf("could not write source train upstream file at %s, error: %w", eventTrainUpstreamPath, err)
 		}
