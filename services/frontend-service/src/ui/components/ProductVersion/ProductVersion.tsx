@@ -159,7 +159,7 @@ export const ProductVersion: React.FC = () => {
     }, []);
     const confirmReleaseTrainFunction = React.useCallback((selectedEnvs: string[]) => {
         selectedEnvs.forEach((env) => {
-            // TODO (GS): addAction()
+            // addAction() call added in DSN-3ZRNTG
         });
         return;
     }, []);
