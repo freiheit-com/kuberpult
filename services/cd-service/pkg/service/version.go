@@ -40,7 +40,9 @@ func (o *VersionServiceServer) GetVersion(
 	in *api.GetVersionRequest) (*api.GetVersionResponse, error) {
 	oid, err := git.NewOid(in.GitRevision)
 	if err != nil {
-		return nil, grpc.NotFoundError(ctx, fmt.Errorf("getVersion: could not find revision %v: %v", in.GitRevision, err))
+		// Note that "not finding a oid" does not mean that it doesn't exist.
+		// Because we do a shallow clone, we won't have information on all existing OIDs.
+		return nil, grpc.PublicError(ctx, fmt.Errorf("getVersion: could not find revision %v: %v", in.GitRevision, err))
 	}
 	state, err := o.Repository.StateAt(oid)
 	if err != nil {
