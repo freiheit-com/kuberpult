@@ -58,7 +58,7 @@ func (o *OverviewServiceServer) GetOverview(
 	if in.GitRevision != "" {
 		oid, err := git.NewOid(in.GitRevision)
 		if err != nil {
-			return nil, err
+			return nil, grpc.PublicError(ctx, fmt.Errorf("getOverview: could not find revision %v: %v", in.GitRevision, err))
 		}
 		state, err := o.Repository.StateAt(oid)
 		if err != nil {
