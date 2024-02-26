@@ -101,15 +101,8 @@ export const PlainDialog: React.FC<PlainDialogProps> = (props) => {
             }
             const rootRefCurrent: HTMLElement = rootRef.current;
 
-            let isOutside: boolean;
-            if (center) {
-                // NOTE: here the dialog is taking the full screen so we click outside we will find a parent of our root reference
-                isOutside = eventTarget.contains(rootRefCurrent);
-            } else {
-                // NOTE: here the dialog is part of the DOM and clicking outside will hit an element not at all related to the dialog
-                isOutside = !rootRefCurrent.contains(eventTarget);
-            }
-            if (isOutside) {
+            const isInside = rootRefCurrent.contains(eventTarget);
+            if (!isInside) {
                 onClose();
             }
         };
@@ -124,10 +117,13 @@ export const PlainDialog: React.FC<PlainDialogProps> = (props) => {
     if (!open) {
         return <div className={''}></div>;
     }
+    // NOTE: disableBackground only works for ConfirmationDialog for now, there is no plain-dialog-container-open CSS specification
     const clas = open && disableBackground ? classPrefix + '-dialog-container-open' : '';
     return (
-        <div ref={rootRef} className={classPrefix + '-dialog-container ' + clas}>
-            <div className={classPrefix + '-dialog-open ' + classNames}>{children}</div>
+        <div className={classPrefix + '-dialog-container ' + clas}>
+            <div ref={rootRef} className={classPrefix + '-dialog-open ' + classNames}>
+                {children}
+            </div>
         </div>
     );
 };
