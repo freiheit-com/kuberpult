@@ -33,7 +33,7 @@ func InternalError(ctx context.Context, err error) error {
 
 func PublicError(ctx context.Context, err error) error {
 	logger := logger.FromContext(ctx)
-	logger.Error("grpc.public", zap.Error(err))
+	logger.Info("grpc.public", zap.Error(err))
 	return status.Error(codes.InvalidArgument, "error: "+err.Error())
 }
 
@@ -51,6 +51,6 @@ func AuthError(_ context.Context, err error) error {
 
 func NotFoundError(ctx context.Context, err error) error {
 	logger := logger.FromContext(ctx)
-	logger.Error("grpc.public", zap.Error(err))
+	logger.Info("grpc.notFound", zap.Error(err))
 	return status.Error(codes.NotFound, "error: "+err.Error())
 }
