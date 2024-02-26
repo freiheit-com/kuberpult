@@ -19,6 +19,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/grpc"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -38,7 +40,7 @@ func (o *VersionServiceServer) GetVersion(
 	in *api.GetVersionRequest) (*api.GetVersionResponse, error) {
 	oid, err := git.NewOid(in.GitRevision)
 	if err != nil {
-		return nil, err
+		return nil, grpc.NotFoundError(ctx, fmt.Errorf("getVersion: could not find revision %v: %v", in.GitRevision, err))
 	}
 	state, err := o.Repository.StateAt(oid)
 	if err != nil {
