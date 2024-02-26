@@ -15,13 +15,20 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import './ProductVersion.scss';
 import * as React from 'react';
-import { refreshTags, useTags, getSummary, useSummaryDisplay, useEnvironmentGroups } from '../../utils/store';
+import {
+    refreshTags,
+    useTags,
+    getSummary,
+    useSummaryDisplay,
+    useEnvironmentGroups,
+    useEnvironments,
+} from '../../utils/store';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
 import { EnvironmentGroup, ProductSummary } from '../../../api/api';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../button';
-import { ReleaseTrainDialog } from './ReleaseTrainDialog';
+import { EnvSelectionDialog } from '../ServiceLane/EnvSelectionDialog';
 
 export type TableProps = {
     productSummary: ProductSummary[];
@@ -120,6 +127,7 @@ export const ProductVersion: React.FC = () => {
         [environment, searchParams, setSearchParams]
     );
     const [selectedTag, setSelectedTag] = React.useState('');
+    const envsList = useEnvironments();
 
     const tagsResponse = useTags();
     const changeEnv = React.useCallback(
@@ -149,6 +157,12 @@ export const ProductVersion: React.FC = () => {
     const openDialog = React.useCallback(() => {
         setShowReleaseTrainEnvs(true);
     }, []);
+    const confirmReleaseTrainFunction = React.useCallback((selectedEnvs: string[]) => {
+        selectedEnvs.forEach((env) => {
+            // TODO (GS): addAction()
+        });
+        return;
+    }, []);
 
     React.useEffect(() => {
         if (tagsResponse.response.tagData.length > 0) {
@@ -171,7 +185,17 @@ export const ProductVersion: React.FC = () => {
         return <Spinner message="Loading Production Version" />;
     }
 
-    const dialog = <ReleaseTrainDialog environment={environment} open={showReleaseTrainEnvs} onCancel={handleClose} />;
+    const dialog = (
+        <EnvSelectionDialog
+            environments={envsList
+                .filter((env, index) => environment === env.config?.upstream?.environment)
+                .map((env) => env.name)}
+            open={showReleaseTrainEnvs}
+            onCancel={handleClose}
+            onSubmit={confirmReleaseTrainFunction}
+            envSelectionDialog={false}
+        />
+    );
 
     return (
         <div className="product_version">
