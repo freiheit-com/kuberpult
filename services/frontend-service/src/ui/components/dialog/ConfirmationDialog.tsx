@@ -27,7 +27,7 @@ export type ConfirmationDialogProps = {
     classNames: string;
 };
 
-// TODO: Tests for these components will be in SRX-UJ4PMT
+// TODO: SRX-UJ4PMT tests for these components
 
 /**
  * A dialog that is used to confirm a question with either yes or no.

@@ -25,6 +25,8 @@ type TestData = {
 
 const mySpy = jest.fn();
 
+// TODO: SRX-UJ4PMT tests for close on click outside
+
 const data: TestData[] = [
     {
         name: 'renders empty list',
