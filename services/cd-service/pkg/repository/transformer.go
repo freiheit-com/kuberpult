@@ -32,6 +32,7 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
@@ -446,8 +447,20 @@ func (c *CreateApplicationVersion) Transform(
 	}
 
 	var allEnvsOfThisApp []string = nil
-	for env, man := range c.Manifests {
+
+	for env, _ := range c.Manifests {
 		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
+	}
+	gen := getGenerator(ctx)
+	eventUuid := gen.Generate()
+	if c.WriteCommitData {
+		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, fs)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
+	for env, man := range c.Manifests {
 		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
@@ -473,11 +486,12 @@ func (c *CreateApplicationVersion) Transform(
 		t.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
-				Environment:    env,
-				Application:    c.Application,
-				Version:        version, // the train should queue deployments, instead of giving up:
-				LockBehaviour:  api.LockBehavior_RECORD,
-				Authentication: c.Authentication,
+				Environment:     env,
+				Application:     c.Application,
+				Version:         version, // the train should queue deployments, instead of giving up:
+				LockBehaviour:   api.LockBehavior_RECORD,
+				Authentication:  c.Authentication,
+				WriteCommitData: c.WriteCommitData,
 			}
 			err := t.Execute(d)
 			if err != nil {
@@ -490,26 +504,15 @@ func (c *CreateApplicationVersion) Transform(
 			}
 		}
 	}
-	gen, ok := getGeneratorFromContext(ctx)
-	if !ok || gen == nil {
-		logger.FromContext(ctx).Info("using real UUID generator.")
-		gen = uuid.RealUUIDGenerator{}
-	} else {
-		logger.FromContext(ctx).Info("using  UUID generator from context.")
-	}
-	eventUuid := gen.Generate()
-	if c.WriteCommitData {
-		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, fs)
-		if err != nil {
-			return "", GetCreateReleaseGeneralFailure(err)
-		}
-	}
 	return fmt.Sprintf("created version %d of %q", version, c.Application), nil
 }
 
-func getGeneratorFromContext(ctx context.Context) (uuid.GenerateUUIDs, bool) {
+func getGenerator(ctx context.Context) uuid.GenerateUUIDs {
 	gen, ok := ctx.Value(ctxMarkerGenerateUuidKey).(uuid.GenerateUUIDs)
-	return gen, ok
+	if !ok || gen == nil {
+		return uuid.RealUUIDGenerator{}
+	}
+	return gen
 }
 
 func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.Context {
@@ -540,14 +543,14 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 	if err := util.WriteFile(fs, fs.Join(commitAppDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
 	}
-	err := writeEvent(ctx, eventId, sourceCommitId, fs, environments)
+	err := writeNewReleaseEvent(ctx, eventId, sourceCommitId, fs, environments)
 	if err != nil {
 		return fmt.Errorf("error while writing event: %v", err)
 	}
 	return nil
 }
 
-func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, envs []string) error {
+func writeNewReleaseEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, envs []string) error {
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
 	_, err := filesystem.Stat(eventDir)
 	if err != nil {
@@ -724,7 +727,8 @@ func isLatestsVersion(state *State, application string, version uint64) (bool, e
 
 type CreateUndeployApplicationVersion struct {
 	Authentication
-	Application string
+	Application     string
+	WriteCommitData bool
 }
 
 func (c *CreateUndeployApplicationVersion) Transform(
@@ -791,8 +795,9 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				Application: c.Application,
 				Version:     lastRelease + 1,
 				// the train should queue deployments, instead of giving up:
-				LockBehaviour:  api.LockBehavior_RECORD,
-				Authentication: c.Authentication,
+				LockBehaviour:   api.LockBehavior_RECORD,
+				Authentication:  c.Authentication,
+				WriteCommitData: c.WriteCommitData,
 			}
 			err := t.Execute(d)
 			if err != nil {
@@ -1516,10 +1521,17 @@ func (c *QueueApplicationVersion) Transform(
 
 type DeployApplicationVersion struct {
 	Authentication
-	Environment   string
-	Application   string
-	Version       uint64
-	LockBehaviour api.LockBehavior
+	Environment     string
+	Application     string
+	Version         uint64
+	LockBehaviour   api.LockBehavior
+	WriteCommitData bool
+	SourceTrain     *DeployApplicationVersionSource
+}
+
+type DeployApplicationVersionSource struct {
+	TargetGroup *string
+	Upstream    string
 }
 
 func (c *DeployApplicationVersion) Transform(
@@ -1644,15 +1656,77 @@ func (c *DeployApplicationVersion) Transform(
 		return "", err
 	}
 
+	if c.WriteCommitData { // write the corresponding event
+		commitIdPath := fs.Join(releaseDir, "source_commit_id")
+
+		if data, err := util.ReadFile(fs, commitIdPath); err != nil {
+			logger.FromContext(ctx).Sugar().Infof("Error while reading source commit ID file at %s, error %w. Deployment event not stored.", commitIdPath, err)
+		} else {
+			commitId := string(data)
+			// if the stored source commit ID is invalid then we will not be able to store the event (simply)
+			if !valid.SHA1CommitID(commitId) {
+				logger.FromContext(ctx).Sugar().Infof("The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.", commitId)
+			} else {
+
+				gen := getGenerator(ctx)
+				eventUuid := gen.Generate()
+
+				if err := writeDeploymentEvent(fs, commitId, eventUuid, c.Application, c.Environment, c.SourceTrain); err != nil {
+					return "", fmt.Errorf("could not write the deployment event for commit %s, error: %w", commitId, err)
+				}
+			}
+		}
+
+	}
+
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
+}
+
+func writeDeploymentEvent(fs billy.Filesystem, commitId, eventId, application, environment string, sourceTrain *DeployApplicationVersionSource) error {
+	eventPath := commitEventDir(fs, commitId, eventId)
+
+	if err := fs.MkdirAll(eventPath, 0777); err != nil {
+		return fmt.Errorf("could not create event directory at %s, error: %w", eventPath, err)
+	}
+
+	eventTypePath := fs.Join(eventPath, "eventType")
+	if err := util.WriteFile(fs, eventTypePath, []byte(event.DeploymentEventName), 0666); err != nil {
+		return fmt.Errorf("could not write the event type file at %s, error: %w", eventTypePath, err)
+	}
+
+	eventApplicationPath := fs.Join(eventPath, "application")
+	if err := util.WriteFile(fs, eventApplicationPath, []byte(application), 0666); err != nil {
+		return fmt.Errorf("could not write the application file at %s, error: %w", eventApplicationPath, err)
+	}
+
+	eventEnvironmentPath := fs.Join(eventPath, "environment")
+	if err := util.WriteFile(fs, eventEnvironmentPath, []byte(environment), 0666); err != nil {
+		return fmt.Errorf("could not write the environment file at %s, error: %w", eventEnvironmentPath, err)
+	}
+
+	if sourceTrain != nil {
+		if sourceTrain.TargetGroup != nil {
+			eventTrainGroupPath := fs.Join(eventPath, "source_train_environment_group")
+			if err := util.WriteFile(fs, eventTrainGroupPath, []byte(*sourceTrain.TargetGroup), 0666); err != nil {
+				return fmt.Errorf("could not write source train group file at %s, error: %w", eventTrainGroupPath, err)
+			}
+		}
+		eventTrainUpstreamPath := fs.Join(eventPath, "source_train_upstream")
+		if err := util.WriteFile(fs, eventTrainUpstreamPath, []byte(sourceTrain.Upstream), 0666); err != nil {
+			return fmt.Errorf("could not write source train upstream file at %s, error: %w", eventTrainUpstreamPath, err)
+		}
+	}
+
+	return nil
 }
 
 type ReleaseTrain struct {
 	Authentication
-	Target     string
-	Team       string
-	CommitHash string
-	Repo       Repository
+	Target          string
+	Team            string
+	CommitHash      string
+	WriteCommitData bool
+	Repo            Repository
 }
 type Overview struct {
 	App     string
@@ -1754,12 +1828,13 @@ func (c *ReleaseTrain) getUpstreamLatestApp(upstreamLatest bool, state *State, c
 	return apps, nil, nil
 }
 
-func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string) map[string]config.EnvironmentConfig {
-
+func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.EnvironmentConfig, targetGroupName string) (map[string]config.EnvironmentConfig, bool) {
 	envGroupConfigs := make(map[string]config.EnvironmentConfig)
+	isEnvGroup := false
 
 	for env, config := range configs {
 		if config.EnvironmentGroup != nil && *config.EnvironmentGroup == targetGroupName {
+			isEnvGroup = true
 			envGroupConfigs[env] = config
 		}
 	}
@@ -1769,7 +1844,7 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 			envGroupConfigs[targetGroupName] = envConfig
 		}
 	}
-	return envGroupConfigs
+	return envGroupConfigs, isEnvGroup
 }
 
 func (c *ReleaseTrain) Transform(
@@ -1783,7 +1858,7 @@ func (c *ReleaseTrain) Transform(
 	if err != nil {
 		return "", grpc.InternalError(ctx, err)
 	}
-	var envGroupConfigs = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
+	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
 
 	if len(envGroupConfigs) == 0 {
 		return "", grpc.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName))
@@ -1797,11 +1872,18 @@ func (c *ReleaseTrain) Transform(
 	sort.Strings(envGroups)
 
 	for _, envName := range envGroups {
+		var trainGroup *string
+		if isEnvGroup {
+			trainGroup = ptr.FromString(targetGroupName)
+		}
+
 		if err := t.Execute(&envReleaseTrain{
 			Parent:          c,
 			Env:             envName,
 			EnvConfigs:      configs,
 			EnvGroupConfigs: envGroupConfigs,
+			WriteCommitData: c.WriteCommitData,
+			TrainGroup:      trainGroup,
 		}); err != nil {
 			return "", err
 		}
@@ -1817,6 +1899,8 @@ type envReleaseTrain struct {
 	Env             string
 	EnvConfigs      map[string]config.EnvironmentConfig
 	EnvGroupConfigs map[string]config.EnvironmentConfig
+	WriteCommitData bool
+	TrainGroup      *string
 }
 
 func (c *envReleaseTrain) Transform(
@@ -1926,11 +2010,16 @@ func (c *envReleaseTrain) Transform(
 		}
 
 		d := &DeployApplicationVersion{
-			Environment:    c.Env, // here we deploy to the next env
-			Application:    appName,
-			Version:        versionToDeploy,
-			LockBehaviour:  api.LockBehavior_RECORD,
-			Authentication: c.Parent.Authentication,
+			Environment:     c.Env, // here we deploy to the next env
+			Application:     appName,
+			Version:         versionToDeploy,
+			LockBehaviour:   api.LockBehavior_RECORD,
+			Authentication:  c.Parent.Authentication,
+			WriteCommitData: c.WriteCommitData,
+			SourceTrain: &DeployApplicationVersionSource{
+				Upstream:    upstreamEnvName,
+				TargetGroup: c.TrainGroup,
+			},
 		}
 		if err := t.Execute(d); err != nil {
 			_, ok := err.(*LockedError)

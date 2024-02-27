@@ -44,7 +44,7 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                         <tr>
                             <th>Commit Hash:</th>
                             <th>Commit Message:</th>
-                            <th>Touched apps: </th>
+                            <th>Touched apps:</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -78,14 +78,14 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => (
             </tr>
         </thead>
         <tbody>
-            {props.events.map((event) => {
+            {props.events.map((event, eventIdx) => {
                 const createdAt = event.createdAt?.toISOString() || '';
                 const [description, environments] = eventDescription(event);
                 return (
-                    <tr>
+                    <tr key={event.uuid}>
                         <td>{createdAt}</td>
                         <td>{description}</td>
-                        <td>{environments.join(', ')}</td>
+                        <td>{environments}</td>
                     </tr>
                 );
             })}
@@ -93,16 +93,46 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => (
     </table>
 );
 
-const eventDescription = (event: Event): [string, string[]] => {
+const eventDescription = (event: Event): [JSX.Element, string] => {
     const tp = event.eventType;
     if (tp === undefined) {
-        return ['Unspecified event type', []];
+        return [<span>Unspecified event type</span>, ''];
     }
     switch (tp.$case) {
         case 'createReleaseEvent':
             return [
-                'Kuberpult received data about this commit for the first time',
-                tp.createReleaseEvent.environmentNames,
+                <span>Kuberpult received data about this commit for the first time</span>,
+                tp.createReleaseEvent.environmentNames.join(', '),
             ];
+        case 'deploymentEvent':
+            const de = tp.deploymentEvent;
+            let description: JSX.Element;
+            if (de.releaseTrainSource === undefined)
+                description = (
+                    <span>
+                        Manual deployment of application <b>{de.application}</b> to environment{' '}
+                        <b>{de.targetEnvironment}</b>
+                    </span>
+                );
+            else {
+                if (de.releaseTrainSource?.targetEnvironmentGroup === undefined)
+                    description = (
+                        <span>
+                            Release train deployment of application <b>{de.application}</b> from environment{' '}
+                            <b>{de.releaseTrainSource.upstreamEnvironment}</b> to environment{' '}
+                            <b>{de.targetEnvironment}</b>
+                        </span>
+                    );
+                else
+                    description = (
+                        <span>
+                            Release train deployment of application <b>{de.application}</b> on environment group{' '}
+                            <b>{de.releaseTrainSource.targetEnvironmentGroup}</b> from environment{' '}
+                            <b>{de.releaseTrainSource?.upstreamEnvironment}</b> to environment{' '}
+                            <b>{de.targetEnvironment}</b>
+                        </span>
+                    );
+            }
+            return [description, de.targetEnvironment];
     }
 };
