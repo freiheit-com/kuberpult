@@ -23,6 +23,7 @@ export type EnvSelectionDialogProps = {
     onSubmit: (selectedEnvs: string[]) => void;
     onCancel: () => void;
     open: boolean;
+    envSelectionDialog: boolean; // false if release train dialog
 };
 
 export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => {
@@ -59,8 +60,12 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
             onConfirm={onConfirm}
             onCancel={onCancel}
             open={props.open}
-            headerLabel={'Select all environments to be removed:'}
-            confirmLabel={'Remove app from environments'}>
+            headerLabel={
+                props.envSelectionDialog
+                    ? 'Select all environments to be removed:'
+                    : 'Select which environments to run release train to:'
+            }
+            confirmLabel={props.envSelectionDialog ? 'Remove app from environments' : 'Release Train'}>
             <div className="envs-dropdown-select">
                 {props.environments.map((env: string, index: number) => {
                     const enabled = selectedEnvs.includes(env);
