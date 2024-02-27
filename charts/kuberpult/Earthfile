@@ -37,22 +37,14 @@ chart.yaml:
 
     SAVE ARTIFACT Chart.yaml AS LOCAL Chart.yaml
 
-values.yaml:
-    FROM +deps
-    WORKDIR /kp
 
-    COPY values.yaml.tpl .
-
-    RUN env VERSION=$VERSION envsubst < values.yaml.tpl > values.yaml
-
-    SAVE ARTIFACT values.yaml AS LOCAL values.yaml
 
 chart-tarball:
     FROM +deps
     WORKDIR /kp
 
     COPY +chart.yaml/Chart.yaml .
-    COPY +values.yaml/values.yaml .
+    COPY values.yaml .
     COPY templates templates
 
     RUN helm dependency update
@@ -68,7 +60,7 @@ test-values.yaml:
     FROM +deps
     WORKDIR /kp
 
-    COPY +values.yaml/values.yaml values.yaml
+    COPY values.yaml .
     COPY ci ci
 
     RUN grep -o '^[^#]*' values.yaml > ci/test-values.yaml
@@ -103,7 +95,7 @@ test:
     BUILD +ct-test
     BUILD +test-helm
 
-cleanup:
+clean:
     LOCALLY
 
     RUN rm -rf Chart.yaml
