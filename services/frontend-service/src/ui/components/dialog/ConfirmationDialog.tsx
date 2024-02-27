@@ -67,6 +67,7 @@ export type PlainDialogProps = {
     onClose: () => void;
     children: JSX.Element;
     classNames: string;
+    // NOTE: disableBackground only works for ConfirmationDialog for now, there is no plain-dialog-container-open CSS specification
     disableBackground: boolean;
     center: boolean;
 };
@@ -117,7 +118,6 @@ export const PlainDialog: React.FC<PlainDialogProps> = (props) => {
     if (!open) {
         return <div className={''}></div>;
     }
-    // NOTE: disableBackground only works for ConfirmationDialog for now, there is no plain-dialog-container-open CSS specification
     const clas = open && disableBackground ? classPrefix + '-dialog-container-open' : '';
     return (
         <div className={classPrefix + '-dialog-container ' + clas}>
