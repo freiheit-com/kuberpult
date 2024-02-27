@@ -201,6 +201,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
             open={showEnvSelectionDialog}
             onSubmit={confirmEnvAppDelete}
             onCancel={handleClose}
+            envSelectionDialog={true}
         />
     );
 

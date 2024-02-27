@@ -115,7 +115,6 @@ integration-test:
     COPY pkg/ptr pkg/ptr
     
     RUN envsubst < Chart.yaml.tpl > Chart.yaml
-    RUN envsubst < values.yaml.tpl > values.yaml
 
     RUN gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
     RUN gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg

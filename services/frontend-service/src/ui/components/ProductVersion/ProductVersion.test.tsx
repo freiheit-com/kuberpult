@@ -23,6 +23,19 @@ const mock_UseEnvGroups = Spy('envGroup');
 const mock_UseTags = Spy('Overview');
 const mock_UseSummaryDisplay = Spy('Status');
 
+const localStorageMock = (() => {
+    const store: { [key: string]: string } = {};
+    return {
+        getItem: (key: string) => store[key] || null,
+        setItem: (key: string, value: string) => {
+            store[key] = value.toString();
+        },
+    };
+})();
+Object.defineProperty(window, 'localStorage', {
+    value: localStorageMock,
+});
+
 jest.mock('../../utils/store', () => ({
     getSummary() {
         return {};
@@ -38,6 +51,9 @@ jest.mock('../../utils/store', () => ({
     },
     useSummaryDisplay() {
         return mock_UseSummaryDisplay();
+    },
+    useEnvironments() {
+        return [];
     },
 }));
 
@@ -68,6 +84,7 @@ describe('Product Version Data', () => {
         expectedDropDown: string;
         tags: TagData[];
         productSummary: ProductSummary[];
+        localStorageVal: string;
     };
     const data: TestData[] = [
         {
@@ -84,6 +101,7 @@ describe('Product Version Data', () => {
                     priority: Priority.UNRECOGNIZED,
                 },
             ],
+            localStorageVal: '',
         },
         {
             name: 'tags to Display with summary',
@@ -108,6 +126,7 @@ describe('Product Version Data', () => {
                     priority: Priority.UNRECOGNIZED,
                 },
             ],
+            localStorageVal: '',
         },
         {
             name: 'table to be displayed with multiple rows of data',
@@ -136,6 +155,32 @@ describe('Product Version Data', () => {
                     priority: Priority.UNRECOGNIZED,
                 },
             ],
+            localStorageVal: '',
+        },
+        {
+            name: 'test the release train button shown',
+            environmentName: 'tester',
+            tags: [{ commitId: '123', tag: 'refs/tags/dummyTag' }],
+            expectedDropDown: 'dummyTag',
+            productSummary: [
+                {
+                    app: 'testing-app',
+                    version: '4',
+                    commitId: '123',
+                    displayVersion: 'v1.2.3',
+                    environment: 'dev',
+                    team: 'sre-team',
+                },
+            ],
+            environmentGroups: [
+                {
+                    environments: [sampleEnvsA[0]],
+                    distanceToUpstream: 1,
+                    environmentGroupName: 'g1',
+                    priority: Priority.UNRECOGNIZED,
+                },
+            ],
+            localStorageVal: 'testing',
         },
     ];
 
@@ -143,6 +188,7 @@ describe('Product Version Data', () => {
         // given
         it(testCase.name, () => {
             // replicate api calls
+            localStorage.setItem(testCase.localStorageVal, testCase.localStorageVal);
             mock_UseEnvGroups.returns(testCase.environmentGroups);
             mock_UseTags.returns({ response: { tagData: testCase.tags }, tagsReady: true });
             mock_UseSummaryDisplay.returns({
@@ -166,6 +212,12 @@ describe('Product Version Data', () => {
                 expect(document.querySelector('.page_description')?.textContent).toContain(
                     'This page shows the version'
                 );
+            }
+            const releaseTrainButton = screen.queryByText('Run Release Train');
+            if (testCase.localStorageVal !== '') {
+                expect(releaseTrainButton).toBeInTheDocument();
+            } else {
+                expect(releaseTrainButton).toBeNull();
             }
         });
     });
