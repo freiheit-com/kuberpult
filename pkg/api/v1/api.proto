@@ -57,15 +57,26 @@ message GetCommitInfoResponse {
 message Event {
   // data that ALL events have:
   google.protobuf.Timestamp created_at = 1;
-
+  string uuid = 2;
   // data that is different per event type:
   oneof event_type {
-    CreateReleaseEvent create_release_event = 2;
+    CreateReleaseEvent create_release_event = 3;
+    DeploymentEvent deployment_event = 4;
   }
 }
 
 message CreateReleaseEvent {
   repeated string environment_names = 1;
+}
+
+message DeploymentEvent {
+  message ReleaseTrainSource {
+    string upstream_environment = 1;
+    optional string target_environment_group = 2;
+  }
+  string application = 1;
+  string target_environment = 2;
+  optional ReleaseTrainSource release_train_source = 3;
 }
 
 message TagData {
