@@ -1,4 +1,4 @@
-VERSION 0.8
+VERSION 0.7
 
 ARG --required --global DOCKER_REGISTRY_URI
 ARG --required --global IMAGE_TAG
