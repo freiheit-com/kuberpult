@@ -1,4 +1,4 @@
-name: "Execution Plan on Pull Request"
+name: "Check license"
 'on':
   pull_request:
     branches:
