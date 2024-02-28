@@ -19,7 +19,7 @@ include ../../../Makefile.variables
 IMAGENAME?=$(DOCKER_REGISTRY_URI)/infrastructure/docker/git-ssh:${IMAGE_TAG}
 
 build:
-	docker build -t $(IMAGENAME) .
+	earthly +build --DOCKER_REGISTRY_URI=$(DOCKER_REGISTRY_URI) --IMAGE_TAG=$(IMAGE_TAG)
 
 build-pr: build publish
 	echo "Building on pull request"
@@ -36,6 +36,7 @@ cleanup-main:
 	echo "Nothing to clean"
 
 release:
+# we will not trust Earthly for authenticating to the container registry just yet
 	echo "Releasing $(IMAGENAME)"
 	docker push $(IMAGENAME)
 
