@@ -4,8 +4,6 @@ Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
 the Free Software Foundation.
 
-whatever string just to check the script
-
 Kuberpult is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
