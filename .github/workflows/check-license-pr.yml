@@ -13,4 +13,4 @@ jobs:
         fetch-depth: 0
     - name: Run license checking script
       run: |
-        sh check.sh
+        bash check.sh
