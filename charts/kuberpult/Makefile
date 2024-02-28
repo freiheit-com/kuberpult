@@ -32,9 +32,6 @@ CT := docker run --mount=type=bind,source=$(TOP_DIR),target=/src,readonly --work
 
 TGZ_FILE := kuberpult-$(VERSION).tgz
 
-# Chart.yaml: Chart.yaml.tpl
-# 	env VERSION="$(VERSION)" envsubst < $< > $@
-
 Chart.yaml:
 	earthly +chart.yaml --VERSION=$(VERSION)
 
