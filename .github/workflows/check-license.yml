@@ -3,6 +3,11 @@ name: "Check license"
   pull_request:
     branches:
       - main
+  push:
+    tags-ignore:
+      - "**"
+    branches:
+      - main
 jobs:
   check-license:
     runs-on: ubuntu-latest
