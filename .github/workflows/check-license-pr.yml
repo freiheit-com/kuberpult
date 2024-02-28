@@ -13,4 +13,4 @@ jobs:
         fetch-depth: 0
     - name: Run license checking script
       run: |
-        bash check.sh
+        bash check.sh || (echo run "bash check.sh" locally, commit the result and push; exit 1)
