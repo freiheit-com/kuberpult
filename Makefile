@@ -55,10 +55,6 @@ init:
 
 .PHONY: release  $(addsuffix /release,$(MAKEDIRS)) all $(addsuffix /all,$(MAKEDIRS)) clean $(addsuffix /clean,$(MAKEDIRS))
 
-.PHONY: check-license
-check-license:
-	@bash check.sh || (echo run "bash check.sh" locally, commit the result and push; exit 1)
-
 .PHONY: version
 version:
 	@echo $(VERSION)
