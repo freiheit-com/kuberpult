@@ -269,7 +269,6 @@ cd:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${IMAGE_TAG_KUBERPULT}"
 frontend:
   resources:
     limits:
@@ -278,7 +277,6 @@ frontend:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${IMAGE_TAG_KUBERPULT}"
 rollout:
   enabled: true
   resources:
@@ -288,7 +286,6 @@ rollout:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${IMAGE_TAG_KUBERPULT}"
 ingress:
   domainName: kuberpult.example.com
 log:

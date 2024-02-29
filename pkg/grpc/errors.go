@@ -31,9 +31,7 @@ func InternalError(ctx context.Context, err error) error {
 	return status.Error(codes.Internal, "internal error")
 }
 
-func PublicError(ctx context.Context, err error) error {
-	logger := logger.FromContext(ctx)
-	logger.Error("grpc.public", zap.Error(err))
+func PublicError(_ context.Context, err error) error {
 	return status.Error(codes.InvalidArgument, "error: "+err.Error())
 }
 
@@ -49,8 +47,6 @@ func AuthError(_ context.Context, err error) error {
 	return status.Error(codes.Unauthenticated, "error: "+err.Error())
 }
 
-func NotFoundError(ctx context.Context, err error) error {
-	logger := logger.FromContext(ctx)
-	logger.Error("grpc.public", zap.Error(err))
+func NotFoundError(_ context.Context, err error) error {
 	return status.Error(codes.NotFound, "error: "+err.Error())
 }

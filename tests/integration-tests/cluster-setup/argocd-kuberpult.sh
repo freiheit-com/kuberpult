@@ -137,7 +137,6 @@ cd:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${VERSION}"
 frontend:
   resources:
     limits:
@@ -146,7 +145,6 @@ frontend:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${VERSION}"
 rollout:
   enabled: true
   resources:
@@ -156,7 +154,6 @@ rollout:
     requests:
       memory: 200Mi
       cpu: 0.05
-  tag: "${VERSION}"
 ingress:
   domainName: kuberpult.example.com
 log:
