@@ -567,7 +567,6 @@ func writeEvent(
 	ev event.Event,
 ) error {
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
-	// Note: we do not store the "createAt" date here, because we use UUIDs with timestamp information
 	return event.Write(filesystem, eventDir, ev)
 }
 
