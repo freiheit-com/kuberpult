@@ -261,7 +261,11 @@ func RunTransformer(ctx context.Context, t Transformer, s *State) (string, *Tran
 	if err := runner.Execute(t); err != nil {
 		return "", nil, err
 	}
-	return runner.Stack[0][0], &TransformerResult{
+	commitMsg := ""
+	if len(runner.Stack[0]) > 0 {
+		commitMsg = runner.Stack[0][0]
+	}
+	return commitMsg, &TransformerResult{
 		ChangedApps:     runner.ChangedApps,
 		DeletedRootApps: runner.DeletedRootApps,
 		Commits:         runner.Commits,
