@@ -17,4 +17,5 @@ package event
 
 const (
 	NewReleaseEventName = "new-release"
+	DeploymentEventName = "deployment"
 )

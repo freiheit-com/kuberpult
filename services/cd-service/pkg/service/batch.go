@@ -153,8 +153,9 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		return &repository.CreateUndeployApplicationVersion{
-			Application:    act.Application,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			Application:     act.Application,
+			Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
+			WriteCommitData: d.Config.WriteCommitData,
 		}, nil, nil
 	case *api.BatchAction_Undeploy:
 		act := action.Undeploy
@@ -177,11 +178,12 @@ func (d *BatchServer) processAction(
 			b = api.LockBehavior_IGNORE
 		}
 		return &repository.DeployApplicationVersion{
-			Environment:    act.Environment,
-			Application:    act.Application,
-			Version:        act.Version,
-			LockBehaviour:  b,
-			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+			Environment:     act.Environment,
+			Application:     act.Application,
+			Version:         act.Version,
+			LockBehaviour:   b,
+			WriteCommitData: d.Config.WriteCommitData,
+			Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
 		}, nil, nil
 	case *api.BatchAction_DeleteEnvFromApp:
 		act := action.DeleteEnvFromApp
@@ -199,11 +201,11 @@ func (d *BatchServer) processAction(
 			return nil, nil, status.Error(codes.InvalidArgument, "invalid Team name")
 		}
 		return &repository.ReleaseTrain{
-				Target:         in.Target,
-				Team:           in.Team,
-				Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
-				Repo:           d.Repository,
-				CommitHash:     in.CommitHash,
+				Target:          in.Target,
+				Team:            in.Team,
+				CommitHash:      in.CommitHash,
+				WriteCommitData: d.Config.WriteCommitData,
+				Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
 			}, &api.BatchResult{
 				Result: &api.BatchResult_ReleaseTrain{
 					ReleaseTrain: &api.ReleaseTrainResponse{Target: in.Target, Team: in.Team},

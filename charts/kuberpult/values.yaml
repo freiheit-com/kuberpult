@@ -1,3 +1,18 @@
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright 2023 freiheit.com
 # Default values for ..
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
@@ -46,10 +61,6 @@ log:
   level: "WARN"
 cd:
   image: kuberpult-cd-service
-# In MOST cases, do NOT overwrite the "tag".
-# In general, kuberpult only guarantees that running with the same version of frontend and cd service will work.
-# For testing purposes, we allow to overwrite the tags individually, to test an old frontend service with a new cd service.
-  tag: "$VERSION"
   backendConfig:
     create: false   # Add backend config for health checks on GKE only
     timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
@@ -63,15 +74,19 @@ cd:
   enableSqlite: true
   probes:
     liveness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
       initialDelaySeconds: 5
     readiness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
       initialDelaySeconds: 5
 frontend:
   image: kuberpult-frontend-service
-# In MOST cases, do NOT overwrite the "tag".
-# In general, kuberpult only guarantees that running with the same version of frontend and cd service will work.
-# For testing purposes, we allow to overwrite the tags individually, to test an old frontend service with a new cd service.
-  tag: "$VERSION"
 # Annotations given here will be added to kuberpult-frontend-service annotations.
 # See frontend-service.yaml for automatically added annotations.
   service:
@@ -89,10 +104,6 @@ frontend:
 rollout:
   enabled: false
   image: kuberpult-rollout-service
-# In MOST cases, do NOT overwrite the "tag".
-# In general, kuberpult only guarantees that running with the same version of frontend and cd service will work.
-# For testing purposes, we allow to overwrite the tags individually, to test an old frontend service with a new cd service.
-  tag: "$VERSION"
   resources:
     limits:
       cpu: 500m

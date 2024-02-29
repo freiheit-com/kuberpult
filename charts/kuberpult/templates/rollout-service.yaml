@@ -14,6 +14,10 @@
 
 # Copyright 2023 freiheit.com
 # This file is part of kuberpult.
+{{- if .Values.rollout.tag }}
+{{ fail "Values.rollout.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
+{{ end -}}
+
 {{- if .Values.rollout.enabled }}
 {{- if not (regexMatch "^https?://[^:]+:[0-9]+$" .Values.argocd.server) -}}
 {{ fail "argocd.server must be a valid http/https url including the port"}}
@@ -31,7 +35,7 @@ metadata:
     app: kuberpult-rollout-service
 {{- if .Values.datadogTracing.enabled }}
     tags.datadoghq.com/service: kuberpult-rollout-service
-    tags.datadoghq.com/version: {{ .Values.rollout.tag }}
+    tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
     tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
 {{- end }}
 spec:
@@ -46,7 +50,7 @@ spec:
 {{- if .Values.datadogTracing.enabled }}
         tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
         tags.datadoghq.com/service: kuberpult-rollout-service
-        tags.datadoghq.com/version: {{ .Values.rollout.tag }}
+        tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
 {{- end }}
       annotations:
 {{ $podAnnotations | toYaml | indent 8}}
@@ -57,7 +61,7 @@ spec:
       {{- end }}
       containers:
       - name: service
-        image: "{{ .Values.hub }}/{{ .Values.rollout.image }}:{{ .Values.rollout.tag }}"
+        image: "{{ .Values.hub }}/{{ .Values.rollout.image }}:{{ $.Chart.AppVersion }}"
         ports:
           - name: http
             containerPort: 8080

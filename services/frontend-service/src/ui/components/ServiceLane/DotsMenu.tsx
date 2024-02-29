@@ -29,12 +29,17 @@ export type DotsMenuProps = {
 
 export const DotsMenu: React.FC<DotsMenuProps> = (props) => {
     const [open, setOpen] = useState(false);
+
+    const initialRef: HTMLElement | null = null;
+    const rootRef = React.useRef(initialRef);
+
     const openMenu = React.useCallback(() => {
         setOpen(true);
     }, []);
     const closeMenu = React.useCallback(() => {
         setOpen(false);
     }, []);
+
     const memoizedOnClick = React.useCallback(
         (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
             const index = e.currentTarget.id;
@@ -43,6 +48,39 @@ export const DotsMenu: React.FC<DotsMenuProps> = (props) => {
         },
         [props.buttons]
     );
+
+    React.useEffect(() => {
+        if (!open) {
+            return () => {};
+        }
+        const winListener = (event: KeyboardEvent): void => {
+            if (event.key === 'Escape') {
+                closeMenu();
+            }
+        };
+        const docListener = (event: MouseEvent): void => {
+            if (!(event.target instanceof HTMLElement)) {
+                return;
+            }
+            const eventTarget: HTMLElement = event.target;
+
+            if (rootRef.current === null) {
+                return;
+            }
+            const rootRefCurrent: HTMLElement = rootRef.current;
+
+            const isOutside: boolean = !rootRefCurrent.contains(eventTarget);
+            if (isOutside) {
+                closeMenu();
+            }
+        };
+        window.addEventListener('keyup', winListener);
+        document.addEventListener('pointerup', docListener);
+        return () => {
+            document.removeEventListener('keyup', winListener);
+            document.removeEventListener('pointerup', docListener);
+        };
+    }, [closeMenu, open]);
 
     if (!open) {
         return (
@@ -53,7 +91,7 @@ export const DotsMenu: React.FC<DotsMenuProps> = (props) => {
     }
 
     return (
-        <div className={'dots-menu dots-menu-open'} onMouseLeave={closeMenu}>
+        <div className={'dots-menu dots-menu-open'} ref={rootRef}>
             <ul className={'list'}>
                 {props.buttons.map((button, index) => (
                     <li className={'item'} key={'button-menu-' + String(index)}>
