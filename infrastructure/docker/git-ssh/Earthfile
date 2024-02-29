@@ -14,18 +14,10 @@ build:
 
     SAVE IMAGE $IMAGE_NAME
 
-build-pr:
+publish:
     # duplication since earthly doesn't allow the --global flag with variables defined with LET
     LET IMAGE_NAME=$DOCKER_REGISTRY_URI/infrastructure/docker/git-ssh:$IMAGE_TAG
     
     FROM +image
 
-    SAVE IMAGE --push $IMAGE_NAME
-
-build-main:
-    # duplication since earthly doesn't allow the --global flag with variables defined with LET
-    LET IMAGE_NAME=$DOCKER_REGISTRY_URI/infrastructure/docker/git-ssh:$IMAGE_TAG
-    
-    FROM +image
-    
     SAVE IMAGE --push $IMAGE_NAME
