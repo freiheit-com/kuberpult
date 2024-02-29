@@ -27,9 +27,6 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/ptr"
-	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	eventmod "github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -210,94 +207,11 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPa
 }
 
 func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPath string, eventId timeuuid.UUID) (*api.Event, error) {
-	eventTypePath := fs.Join(eventPath, "eventType")
-	eventTypeRaw, err := util.ReadFile(fs, eventTypePath) // full path: commits/<commitHash2>/<commitHash38>/events/<eventUUID>/eventType
+	event, err := eventmod.Read(fs, eventPath)
 	if err != nil {
-		return nil, fmt.Errorf("could not read eventType in path %s - %v", eventTypePath, err)
+		return nil, err
 	}
-	var eventType = string(eventTypeRaw)
-
-	if eventType == eventmod.NewReleaseEventName {
-		eventEnvsPath := fs.Join(eventPath, "environments")
-
-		potentialEnvironmentDirs, err := fs.ReadDir(eventEnvsPath)
-		if err != nil {
-			return nil, fmt.Errorf("could not read events environments directory '%s' - %v", eventEnvsPath, err)
-		}
-
-		var envs []string = nil
-		for i := range potentialEnvironmentDirs {
-			envDir := potentialEnvironmentDirs[i]
-			fileName := envDir.Name()
-			if envDir.IsDir() {
-				envs = append(envs, fileName)
-			} else {
-				logger.FromContext(ctx).Sugar().Warnf(
-					"found entry in %s that was not an environment directory", fs.Join(eventEnvsPath, fileName))
-			}
-		}
-
-		var result = &api.Event{
-			Uuid: eventId.String(),
-			CreatedAt: uuid.GetTime(&eventId),
-			EventType: &api.Event_CreateReleaseEvent{
-				CreateReleaseEvent: &api.CreateReleaseEvent{
-					EnvironmentNames: envs,
-				},
-			},
-		}
-		return result, nil
-	}
-	if eventType == eventmod.DeploymentEventName {
-		deploymentEvent := api.DeploymentEvent{}
-
-		applicationNamePath := fs.Join(eventPath, "application")
-		if data, err := util.ReadFile(fs, applicationNamePath); err != nil {
-			return nil, fmt.Errorf("could not read the application name file at %s, error: %w", applicationNamePath, err)
-		} else {
-			deploymentEvent.Application = string(data)
-		}
-
-		environmentNamePath := fs.Join(eventPath, "environment")
-		if data, err := util.ReadFile(fs, environmentNamePath); err != nil {
-			return nil, fmt.Errorf("could not read the environment name file at %s, error: %w", environmentNamePath, err)
-		} else {
-			deploymentEvent.TargetEnvironment = string(data)
-		}
-
-		upstreamNamePath := fs.Join(eventPath, "source_train_upstream")
-		if data, err := util.ReadFile(fs, upstreamNamePath); err != nil {
-			if !errors.Is(err, os.ErrNotExist) { // something is wrong
-				return nil, fmt.Errorf("an unexpected error occured when reading the upstream file at %s, error: %w", upstreamNamePath, err)
-			}
-			// everything okay, deployment not triggered by release train
-		} else { // deployment triggered by release train
-			deploymentEvent.ReleaseTrainSource = &api.DeploymentEvent_ReleaseTrainSource{}
-
-			deploymentEvent.ReleaseTrainSource.UpstreamEnvironment = string(data)
-			
-			targetGroupPath := fs.Join(eventPath, "source_train_environment_group")
-			if data, err := util.ReadFile(fs, targetGroupPath); err != nil {
-				if !errors.Is(err, os.ErrNotExist) { // something is wrong
-					return nil, fmt.Errorf("an unexpected error occured when reading the target group file at %s, error: %w", targetGroupPath, err)
-				}
-				// everything okay, deployment not triggered by release train on an environment group
-			} else { // deployment triggered by release train on an environment group
-				deploymentEvent.ReleaseTrainSource.TargetEnvironmentGroup = ptr.FromString(string(data))
-			}
-		}
-
-		result := &api.Event{
-			Uuid: eventId.String(),
-			CreatedAt: uuid.GetTime(&eventId),
-			EventType: &api.Event_DeploymentEvent{
-				DeploymentEvent: &deploymentEvent,
-			},
-		}
-
-		return result, nil
-	}
-	return nil, fmt.Errorf("could not read event, did not recognize event type '%s'", eventType)
+	return eventmod.ToProto(eventId, event), nil
 }
 
 // findCommitID checks if the "commits" directory in the given

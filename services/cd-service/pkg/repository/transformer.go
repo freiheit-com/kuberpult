@@ -547,43 +547,27 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 	if err := util.WriteFile(fs, fs.Join(commitAppDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
 	}
-	err := writeNewReleaseEvent(ctx, eventId, sourceCommitId, fs, environments)
+	envMap := make(map[string]struct{}, len(environments))
+	for _, env := range environments {
+		envMap[env] = struct{}{}
+	}
+	err := writeEvent(eventId, sourceCommitId, fs, &event.NewRelease{
+		Environments: envMap,
+	})
 	if err != nil {
 		return fmt.Errorf("error while writing event: %v", err)
 	}
 	return nil
 }
 
-func writeNewReleaseEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, envs []string) error {
+func writeEvent(
+	eventId string,
+	sourceCommitId string,
+	filesystem billy.Filesystem,
+	ev event.Event,
+) error {
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
-	_, err := filesystem.Stat(eventDir)
-	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			// anything except "not exists" is an error:
-			return fmt.Errorf("event directory %s already existed: %v", eventDir, err)
-		}
-	}
-	if err := filesystem.MkdirAll(eventDir, 0777); err != nil {
-		return fmt.Errorf("could not create directory %s: %v", eventDir, err)
-	}
-	for i := range envs {
-		env := envs[i]
-		environmentDir := filesystem.Join(eventDir, "environments", env)
-		if err := filesystem.MkdirAll(environmentDir, 0777); err != nil {
-			return fmt.Errorf("could not create directory %s: %v", environmentDir, err)
-		}
-		environmentNamePath := filesystem.Join(environmentDir, ".gitkeep")
-		if err := util.WriteFile(filesystem, environmentNamePath, make([]byte, 0), 0666); err != nil {
-			return fmt.Errorf("could not write file %s: %v", environmentNamePath, err)
-		}
-	}
-	eventTypePath := filesystem.Join(eventDir, "eventType")
-	if err := util.WriteFile(filesystem, eventTypePath, []byte(event.NewReleaseEventName), 0666); err != nil {
-		return fmt.Errorf("could not write file %s: %v", eventTypePath, err)
-	}
-
-	// Note: we do not store the "createAt" date here, because we use UUIDs with timestamp information
-	return nil
+	return event.Write(filesystem, eventDir, ev)
 }
 
 func (c *CreateApplicationVersion) calculateVersion(state *State) (uint64, error) {
@@ -1687,41 +1671,17 @@ func (c *DeployApplicationVersion) Transform(
 }
 
 func writeDeploymentEvent(fs billy.Filesystem, commitId, eventId, application, environment string, sourceTrain *DeployApplicationVersionSource) error {
-	eventPath := commitEventDir(fs, commitId, eventId)
-
-	if err := fs.MkdirAll(eventPath, 0777); err != nil {
-		return fmt.Errorf("could not create event directory at %s, error: %w", eventPath, err)
+	ev := event.Deployment{
+		Application: application,
+		Environment: environment,
 	}
-
-	eventTypePath := fs.Join(eventPath, "eventType")
-	if err := util.WriteFile(fs, eventTypePath, []byte(event.DeploymentEventName), 0666); err != nil {
-		return fmt.Errorf("could not write the event type file at %s, error: %w", eventTypePath, err)
-	}
-
-	eventApplicationPath := fs.Join(eventPath, "application")
-	if err := util.WriteFile(fs, eventApplicationPath, []byte(application), 0666); err != nil {
-		return fmt.Errorf("could not write the application file at %s, error: %w", eventApplicationPath, err)
-	}
-
-	eventEnvironmentPath := fs.Join(eventPath, "environment")
-	if err := util.WriteFile(fs, eventEnvironmentPath, []byte(environment), 0666); err != nil {
-		return fmt.Errorf("could not write the environment file at %s, error: %w", eventEnvironmentPath, err)
-	}
-
 	if sourceTrain != nil {
 		if sourceTrain.TargetGroup != nil {
-			eventTrainGroupPath := fs.Join(eventPath, "source_train_environment_group")
-			if err := util.WriteFile(fs, eventTrainGroupPath, []byte(*sourceTrain.TargetGroup), 0666); err != nil {
-				return fmt.Errorf("could not write source train group file at %s, error: %w", eventTrainGroupPath, err)
-			}
+			ev.SourceTrainEnvironmentGroup = sourceTrain.TargetGroup
 		}
-		eventTrainUpstreamPath := fs.Join(eventPath, "source_train_upstream")
-		if err := util.WriteFile(fs, eventTrainUpstreamPath, []byte(sourceTrain.Upstream), 0666); err != nil {
-			return fmt.Errorf("could not write source train upstream file at %s, error: %w", eventTrainUpstreamPath, err)
-		}
+		ev.SourceTrainUpstream = &sourceTrain.Upstream
 	}
-
-	return nil
+	return writeEvent(eventId, commitId, fs, &ev)
 }
 
 type ReleaseTrain struct {
