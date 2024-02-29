@@ -74,7 +74,7 @@ ct-test:
     
     COPY ci ci
     COPY +chart.yaml/Chart.yaml .
-    COPY +values.yaml/values.yaml .
+    COPY values.yaml .
     COPY templates templates
     
     RUN ct lint --debug --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --chart-dirs=. --charts=. --remote=git@github.com:freiheit-com/kuberpult.git
