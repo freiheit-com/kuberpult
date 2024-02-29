@@ -70,10 +70,10 @@ jobs:
         packages: write
         contents: read
     steps:
-      - name: Install Earthly
-        run: |
-          wget https://github.com/earthly/earthly/releases/download/v0.8.4/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly
-          echo '1090e7b9fb65c0b9d3ce680dad2430dff2e0919a56f98de27156c3b9aa65f43d  /usr/local/bin/earthly' | sha256sum -c
+      - name: Install earthly
+        uses: earthly/actions-setup@v1
+        with:
+            version: v0.8.4
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
