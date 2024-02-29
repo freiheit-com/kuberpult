@@ -50,6 +50,7 @@ export enum ActionTypes {
     CreateApplicationLock,
     DeleteApplicationLock,
     DeleteEnvFromApp,
+    ReleaseTrain,
     UNKNOWN,
 }
 
@@ -186,6 +187,15 @@ export const getActionDetails = (
                     action.deleteEnvFromApp.application +
                     '"',
                 application: action.deleteEnvFromApp.application,
+            };
+        case 'releaseTrain':
+            return {
+                type: ActionTypes.ReleaseTrain,
+                name: 'Release Train',
+                dialogTitle: 'Are you sure you want to run a Release Train',
+                tooltip: '',
+                summary: 'Run release train for environment ' + action.releaseTrain.target,
+                environment: action.releaseTrain.target,
             };
         default:
             return {

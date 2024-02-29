@@ -249,10 +249,11 @@ export const addAction = (action: BatchAction): void => {
             if (
                 actions.some(
                     (act) =>
-                        act.action?.$case === 'deploy' &&
-                        action.action?.$case === 'deploy' &&
-                        act.action.deploy.application === action.action.deploy.application &&
-                        act.action.deploy.environment === action.action.deploy.environment
+                        (act.action?.$case === 'deploy' &&
+                            action.action?.$case === 'deploy' &&
+                            act.action.deploy.application === action.action.deploy.application &&
+                            act.action.deploy.environment === action.action.deploy.environment) ||
+                        act.action?.$case === 'releaseTrain'
                     // version, lockBehavior and ignoreAllLocks are ignored
                 )
             )
@@ -279,6 +280,16 @@ export const addAction = (action: BatchAction): void => {
                 )
             )
                 return;
+            break;
+        case 'releaseTrain':
+            // only allow one release train at a time to avoid conflicts or if there are existing deploy actions
+            if (actions.some((act) => act.action?.$case === 'releaseTrain' || act.action?.$case === 'deploy')) {
+                showSnackbarError(
+                    'Can only have one release train action at a time and can not have deploy actions in parrallel'
+                );
+                return;
+            }
+
             break;
     }
     UpdateAction.set({ actions: [...UpdateAction.get().actions, action] });
