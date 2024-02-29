@@ -67,6 +67,6 @@ rules:
   new-line-at-end-of-file: enable
   new-lines:
     type: unix
-  trailing-spaces: disable
+  trailing-spaces: enable
   truthy:
     level: warning
