@@ -99,6 +99,5 @@ clean:
     LOCALLY
 
     RUN rm -rf Chart.yaml
-    RUN rm -rf values.yaml
     RUN rm -rf ci/test-values.yaml
     RUN rm -rf kuberpult-$VERSION.tgz
