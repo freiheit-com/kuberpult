@@ -1,6 +1,7 @@
 VERSION 0.7
 
-ARG --required --global VERSION
+LOCALLY
+ARG --global VERSION=$(git describe --always --long --tags || echo 0.0.1)
 
 deps:
     FROM python:3.12-alpine
