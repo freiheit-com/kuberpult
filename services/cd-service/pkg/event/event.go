@@ -22,8 +22,9 @@ import (
 	"slices"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/go-git/go-billy/v5"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"github.com/onokonem/sillyQueueServer/timeuuid"
 )
 
 type eventType struct {
@@ -130,9 +131,10 @@ func Write(filesystem billy.Filesystem, eventDir string, event Event) error {
 }
 
 // Convert an event to its protobuf representation
-func ToProto(ev Event, createdAt *timestamppb.Timestamp) *api.Event {
+func ToProto(eventID timeuuid.UUID, ev Event) *api.Event {
 	result := &api.Event{
-		CreatedAt: createdAt,
+		CreatedAt: uuid.GetTime(&eventID),
+		Uuid:      eventID.String(),
 	}
 	ev.toProto(result)
 	return result

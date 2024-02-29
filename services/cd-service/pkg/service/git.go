@@ -27,7 +27,6 @@ import (
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	grpcErrors "github.com/freiheit-com/kuberpult/pkg/grpc"
-	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	eventmod "github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -212,7 +211,7 @@ func (s *GitServer) ReadEvent(ctx context.Context, fs billy.Filesystem, eventPat
 	if err != nil {
 		return nil, err
 	}
-	return eventmod.ToProto(event, uuid.GetTime(&eventId)), nil
+	return eventmod.ToProto(eventId, event), nil
 }
 
 // findCommitID checks if the "commits" directory in the given
