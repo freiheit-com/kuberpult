@@ -1,0 +1,23 @@
+VERSION 0.8
+
+ARG --required --global DOCKER_REGISTRY_URI
+ARG --required --global IMAGE_TAG
+
+image:
+    FROM DOCKERFILE .
+
+build:
+    # duplication since earthly doesn't allow the --global flag with variables defined with LET
+    LET IMAGE_NAME=$DOCKER_REGISTRY_URI/infrastructure/docker/git-ssh:$IMAGE_TAG
+    
+    FROM +image
+
+    SAVE IMAGE $IMAGE_NAME
+
+publish:
+    # duplication since earthly doesn't allow the --global flag with variables defined with LET
+    LET IMAGE_NAME=$DOCKER_REGISTRY_URI/infrastructure/docker/git-ssh:$IMAGE_TAG
+    
+    FROM +image
+
+    SAVE IMAGE --push $IMAGE_NAME

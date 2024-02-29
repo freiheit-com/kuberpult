@@ -32,39 +32,33 @@ CT := docker run --mount=type=bind,source=$(TOP_DIR),target=/src,readonly --work
 
 TGZ_FILE := kuberpult-$(VERSION).tgz
 
-Chart.yaml: Chart.yaml.tpl
-	env VERSION="$(VERSION)" envsubst < $< > $@
+Chart.yaml:
+	earthly +chart.yaml --VERSION=$(VERSION)
 
-$(TGZ_FILE): Chart.yaml values.yaml templates/*
-	helm dependency update
-	rm -rf charts
-	helm dep update
-	(cd charts && tar -xzvf *.tgz)
-	helm package .
+$(TGZ_FILE):
+	earthly +chart-tarball --VERSION=$(VERSION)
 
-ci/test-values.yaml: Chart.yaml values.yaml
-	grep -o '^[^#]*' values.yaml > ci/test-values.yaml
-	yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' ci/test-values.yaml ci/test-values-override.yaml 
+ci/test-values.yaml:
+	earthly +test-values.yaml --VERSION=$(VERSION)
 
-ct-test: Chart.yaml values.yaml
+ct-test:
 ifeq ($(CI),true)
 	@echo "running on CI no need to test this again! Check chart testing action."
 else
-	$(CT) lint --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --target-branch=main --chart-dirs=. --charts=.
+	earthly +ct-test --VERSION=$(VERSION)
 endif
 
-test-helm: $(TGZ_FILE)
-	helm lint $(TGZ_FILE) --set git.url=test --set ingress.domainName=kuberpult.example.com
+test-helm:
+	earthly +test-helm --VERSION=$(VERSION)
 
-test-ci: test-helm
+test-ci:
+	earthly +test-ci --VERSION=$(VERSION)
 
-test: ct-test test-helm
+test:
+	earthly +test --VERSION=$(VERSION)
 
 clean:
-	rm -f Chart.yaml
-	rm -f kuberpult-*.tgz
-	rm -f ci/test-values.yaml
-	rm -fr ./charts/
+	earthly +clean --VERSION=$(VERSION)
 
 release-tag: $(TGZ_FILE)
 	echo "Creating release via git tag pipeline"
