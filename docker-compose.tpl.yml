@@ -5,6 +5,7 @@ services:
     environment:
       - KUBERPULT_GIT_URL=/repository_remote
       - KUBERPULT_GIT_BRANCH=master
+      - KUBERPULT_GIT_WRITE_COMMIT_DATA=true
     ports:
       - "8080:8080"
       - "8443:8443"
