@@ -74,8 +74,16 @@ cd:
   enableSqlite: true
   probes:
     liveness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
       initialDelaySeconds: 5
     readiness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
       initialDelaySeconds: 5
 frontend:
   image: kuberpult-frontend-service
