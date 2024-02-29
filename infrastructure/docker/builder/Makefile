@@ -37,11 +37,8 @@ cleanup-main:
 	echo "Nothing to clean"
 
 release:
-# we will not trust Earthly for authenticating to the container registry just yet
 	echo "Releasing $(IMAGENAME)"
-	docker push $(IMAGENAME)
-	docker tag $(IMAGENAME) $(IMAGENAME_VERSIONED)
-	docker push $(IMAGENAME_VERSIONED)
+	earthly --push +build --DOCKER_REGISTRY_URI=$(DOCKER_REGISTRY_URI) --IMAGE_TAG=$(IMAGE_TAG) --VERSION=$(VERSION)
 
 publish: release
 	echo $(IMAGE_TAG)
