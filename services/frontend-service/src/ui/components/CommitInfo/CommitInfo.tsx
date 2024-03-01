@@ -153,6 +153,7 @@ const lockTypeName = (tp: LockPreventedDeploymentEvent_LockType): string => {
         case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_ENV:
             return 'an environment lock';
         case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_UNKNOWN:
+        case LockPreventedDeploymentEvent_LockType.UNRECOGNIZED:
             return 'an unknown lock';
     }
 };
