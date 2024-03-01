@@ -24,6 +24,10 @@ compile:
 unit-test:
     FROM +compile
     DO go-build+UNIT_TEST
+
+lint:
+    FROM +deps
+    DO go-build+LINT
     
 docker:
     FROM alpine:3.18
@@ -61,6 +65,7 @@ BUILD_ALL:
     ARG mirror="false"
 
     FROM +deps
+    BUILD +lint
     BUILD +unit-test 
     BUILD +release --registry=$registry --tag=$tag
     IF [ "$mirror" = "true" ]
