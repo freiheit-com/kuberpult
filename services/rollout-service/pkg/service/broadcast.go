@@ -176,7 +176,10 @@ func (b *Broadcast) StreamStatus(req *api.StreamStatusRequest, svc api.RolloutSe
 	resp, ch, unsubscribe := b.Start()
 	defer unsubscribe()
 	for _, r := range resp {
-		svc.Send(streamStatus(r))
+		err := svc.Send(streamStatus(r))
+		if err != nil {
+			return err
+		}
 	}
 	for {
 		select {
