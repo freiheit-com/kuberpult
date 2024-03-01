@@ -24,6 +24,9 @@ deps:
         SHA=$(cat buf_sha256.txt | grep "buf-${OS}-${ARCH}$" | cut -d ' ' -f1) && \
         echo "${SHA}  ${BUF_BIN_PATH}/buf" | sha256sum -c
     
+    ARG GO_CI_LINT_VERSION="v1.51.2"
+    RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
+
     WORKDIR /kp
     COPY go.mod go.sum ./
     RUN go mod download
