@@ -1,4 +1,5 @@
 VERSION 0.7
+IMPORT ../infrastructure/earthly/go AS go-build
 
 deps:
     FROM ../+deps
@@ -12,6 +13,7 @@ lint:
     FROM +deps
     WORKDIR pkg
     RUN buf lint
+    DO go-build+LINT
 test:
     FROM +deps
     WORKDIR pkg
