@@ -62,6 +62,7 @@ message Event {
   oneof event_type {
     CreateReleaseEvent create_release_event = 3;
     DeploymentEvent deployment_event = 4;
+    LockPreventedDeploymentEvent lock_prevented_deployment_event = 5;
   }
 }
 
@@ -77,6 +78,18 @@ message DeploymentEvent {
   string application = 1;
   string target_environment = 2;
   optional ReleaseTrainSource release_train_source = 3;
+}
+
+message LockPreventedDeploymentEvent {
+  enum LockType {
+    LOCK_TYPE_UNKNOWN = 0;
+    LOCK_TYPE_ENV = 1;
+    LOCK_TYPE_APP = 2;
+  }
+  string application = 1;
+  string environment = 2;
+  string lock_message = 3;
+  LockType lock_type = 4;
 }
 
 message TagData {

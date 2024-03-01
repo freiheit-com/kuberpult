@@ -1575,6 +1575,89 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Block deployments using locks",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateEnvironmentLock{
+					Environment: "staging",
+					LockId:      "lock1",
+					Message:     "lock staging",
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: "dev",
+					Application: "myapp",
+					LockId:      "lock2",
+					Message:     "lock myapp",
+				},
+				&CreateApplicationVersion{
+					Application:    "myapp",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"dev":     "some dev manifest",
+						"staging": "some staging manifest",
+					},
+					WriteCommitData: true,
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
+					Content: "lock-prevented-deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
+					Content: "myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
+					Content: "dev",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/lock_message",
+					Content: "lock myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/lock_type",
+					Content: "application",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
+					Content: "lock-prevented-deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/application",
+					Content: "myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/environment",
+					Content: "staging",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_message",
+					Content: "lock staging",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_type",
+					Content: "environment",
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {

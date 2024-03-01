@@ -60,6 +60,15 @@ func Test_roundtrip(t *testing.T) {
 				SourceTrainUpstream:         ptr("B"),
 			},
 		},
+		{
+			Name: "lock-prevented-deployment",
+			Event: &LockPreventedDeployment{
+				Application: "app",
+				Environment: "env",
+				LockMessage: "msg",
+				LockType:    "application",
+			},
+		},
 	} {
 		test := test
 		t.Run(test.Name, func(t *testing.T) {

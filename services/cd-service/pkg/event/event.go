@@ -89,6 +89,37 @@ func (ev *Deployment) toProto(trg *api.Event) {
 	}
 }
 
+type LockPreventedDeployment struct {
+	Application string `fs:"application"`
+	Environment string `fs:"environment"`
+	LockMessage string `fs:"lock_message"`
+	LockType    string `fs:"lock_type"`
+}
+
+func (_ *LockPreventedDeployment) eventType() string {
+	return "lock-prevented-deployment"
+}
+
+func (ev *LockPreventedDeployment) toProto(trg *api.Event) {
+	var lockType api.LockPreventedDeploymentEvent_LockType
+	switch ev.LockType {
+	case "application":
+		lockType = api.LockPreventedDeploymentEvent_LOCK_TYPE_APP
+	case "environment":
+		lockType = api.LockPreventedDeploymentEvent_LOCK_TYPE_ENV
+	default:
+		lockType = api.LockPreventedDeploymentEvent_LOCK_TYPE_UNKNOWN
+	}
+	trg.EventType = &api.Event_LockPreventedDeploymentEvent{
+		LockPreventedDeploymentEvent: &api.LockPreventedDeploymentEvent{
+			Application: ev.Application,
+			Environment: ev.Environment,
+			LockMessage: ev.LockMessage,
+			LockType:    lockType,
+		},
+	}
+}
+
 // Event is a commit-releated event
 type Event interface {
 	eventType() string
@@ -107,6 +138,8 @@ func Read(fs billy.Filesystem, eventDir string) (Event, error) {
 		result = &NewRelease{}
 	case "deployment":
 		result = &Deployment{}
+	case "lock-prevented-deployment":
+		result = &LockPreventedDeployment{}
 	default:
 		return nil, fmt.Errorf("unknown event type: %q", tp.EventType)
 	}
