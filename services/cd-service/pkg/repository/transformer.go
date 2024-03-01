@@ -1562,6 +1562,30 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 		if len(envLocks) > 0 || len(appLocks) > 0 {
+			if c.WriteCommitData {
+				var lockType, lockMsg string
+				if len(envLocks) > 0 {
+					lockType = "environment"
+					for _, lock := range envLocks {
+						lockMsg = lock.Message
+						break
+					}
+				} else {
+					lockType = "application"
+					for _, lock := range appLocks {
+						lockMsg = lock.Message
+						break
+					}
+				}
+				if err := addEventForRelease(ctx, fs, releaseDir, &event.LockPreventedDeployment{
+					Application: c.Application,
+					Environment: c.Environment,
+					LockMessage: lockMsg,
+					LockType:    lockType,
+				}); err != nil {
+					return "", err
+				}
+			}
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
 				q := QueueApplicationVersion{
@@ -1575,8 +1599,6 @@ func (c *DeployApplicationVersion) Transform(
 					EnvironmentApplicationLocks: appLocks,
 					EnvironmentLocks:            envLocks,
 				}
-			case api.LockBehavior_IGNORE:
-				// just continue
 			}
 		}
 	}
@@ -1645,32 +1667,44 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if c.WriteCommitData { // write the corresponding event
-		commitIdPath := fs.Join(releaseDir, "source_commit_id")
-
-		if data, err := util.ReadFile(fs, commitIdPath); err != nil {
-			logger.FromContext(ctx).Sugar().Infof("Error while reading source commit ID file at %s, error %w. Deployment event not stored.", commitIdPath, err)
-		} else {
-			commitId := string(data)
-			// if the stored source commit ID is invalid then we will not be able to store the event (simply)
-			if !valid.SHA1CommitID(commitId) {
-				logger.FromContext(ctx).Sugar().Infof("The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.", commitId)
-			} else {
-
-				gen := getGenerator(ctx)
-				eventUuid := gen.Generate()
-
-				if err := writeDeploymentEvent(fs, commitId, eventUuid, c.Application, c.Environment, c.SourceTrain); err != nil {
-					return "", fmt.Errorf("could not write the deployment event for commit %s, error: %w", commitId, err)
-				}
-			}
+		if err := addEventForRelease(ctx, fs, releaseDir, createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)); err != nil {
+			return "", err
 		}
-
 	}
 
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
-func writeDeploymentEvent(fs billy.Filesystem, commitId, eventId, application, environment string, sourceTrain *DeployApplicationVersionSource) error {
+func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir string, ev event.Event) error {
+	commitIdPath := fs.Join(releaseDir, "source_commit_id")
+
+	commitIDBytes, err := util.ReadFile(fs, commitIdPath)
+	if err != nil {
+		logger.FromContext(ctx).Sugar().Infof(
+			"Error while reading source commit ID file at %s, error %w. Deployment event not stored.",
+			commitIdPath, err)
+		return nil
+	}
+	commitID := string(commitIDBytes)
+	// if the stored source commit ID is invalid then we will not be able to store the event (simply)
+	if !valid.SHA1CommitID(commitID) {
+		logger.FromContext(ctx).Sugar().Infof(
+			"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
+			commitID)
+		return nil
+	}
+	gen := getGenerator(ctx)
+	eventUuid := gen.Generate()
+
+	if err := writeEvent(eventUuid, commitID, fs, ev); err != nil {
+		return fmt.Errorf(
+			"could not write an event for commit %s, error: %w",
+			commitID, err)
+	}
+	return nil
+}
+
+func createDeploymentEvent(application, environment string, sourceTrain *DeployApplicationVersionSource) *event.Deployment {
 	ev := event.Deployment{
 		Application: application,
 		Environment: environment,
@@ -1681,7 +1715,7 @@ func writeDeploymentEvent(fs billy.Filesystem, commitId, eventId, application, e
 		}
 		ev.SourceTrainUpstream = &sourceTrain.Upstream
 	}
-	return writeEvent(eventId, commitId, fs, &ev)
+	return &ev
 }
 
 type ReleaseTrain struct {

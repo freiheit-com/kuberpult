@@ -16,7 +16,7 @@ Copyright 2023 freiheit.com*/
 import { render } from '@testing-library/react';
 import { CommitInfo } from './CommitInfo';
 import { MemoryRouter } from 'react-router-dom';
-import { GetCommitInfoResponse } from '../../../api/api';
+import { GetCommitInfoResponse, LockPreventedDeploymentEvent_LockType } from '../../../api/api';
 
 test('CommitInfo component does not render commit info when the response is undefined', () => {
     const { container } = render(
@@ -101,6 +101,19 @@ test('CommitInfo component renders commit info when the response is valid', () =
                             },
                         },
                     },
+                    {
+                        uuid: '00000000-0000-0000-0000-000000000004',
+                        createdAt: new Date('2024-02-13T09:46:00Z'),
+                        eventType: {
+                            $case: 'lockPreventedDeploymentEvent',
+                            lockPreventedDeploymentEvent: {
+                                application: 'app',
+                                environment: 'dev',
+                                lockMessage: 'locked',
+                                lockType: LockPreventedDeploymentEvent_LockType.LOCK_TYPE_ENV,
+                            },
+                        },
+                    },
                 ],
             },
             expectedTitle: 'Commit tomato',
@@ -122,6 +135,11 @@ test('CommitInfo component renders commit info when the response is valid', () =
                         '2024-02-12T09:46:00',
                         'Release train deployment of application app on environment group staging-group from environment dev to environment staging',
                         'staging',
+                    ],
+                    [
+                        '2024-02-13T09:46:00',
+                        'Application app was blocked from deploying due to an environment lock with message "locked"',
+                        'dev',
                     ],
                 ],
             },
