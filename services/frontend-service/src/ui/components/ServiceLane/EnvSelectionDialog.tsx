@@ -47,11 +47,13 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
                 const copy = selectedEnvs.concat();
                 copy.splice(indexOf, 1);
                 setSelectedEnvs(copy);
+            } else if (!props.envSelectionDialog) {
+                setSelectedEnvs([newTeam]);
             } else {
                 setSelectedEnvs(selectedEnvs.concat(newTeam));
             }
         },
-        [selectedEnvs]
+        [props.envSelectionDialog, selectedEnvs]
     );
 
     return (
@@ -66,22 +68,35 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
                     : 'Select which environments to run release train to:'
             }
             confirmLabel={props.envSelectionDialog ? 'Remove app from environments' : 'Release Train'}>
-            <div className="envs-dropdown-select">
-                {props.environments.map((env: string, index: number) => {
-                    const enabled = selectedEnvs.includes(env);
-                    return (
-                        <div key={env}>
-                            <Checkbox
-                                enabled={enabled}
-                                onClick={addTeam}
-                                id={String(env)}
-                                label={env}
-                                classes={'env' + env}
-                            />
+            {props.environments.length > 0 ? (
+                <div className="envs-dropdown-select">
+                    {props.environments.map((env: string, index: number) => {
+                        const enabled = selectedEnvs.includes(env);
+                        return (
+                            <div key={env}>
+                                <Checkbox
+                                    enabled={enabled}
+                                    onClick={addTeam}
+                                    id={String(env)}
+                                    label={env}
+                                    classes={'env' + env}
+                                />
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <div className="envs-dropdown-select">
+                    {props.envSelectionDialog ? (
+                        <div id="missing_envs">There are no environments to list</div>
+                    ) : (
+                        <div id="missing_envs">
+                            There are no environments that have the selected environment as the upstream target or you
+                            are attempting with an environment group
                         </div>
-                    );
-                })}
-            </div>
+                    )}
+                </div>
+            )}
         </ConfirmationDialog>
     );
 };

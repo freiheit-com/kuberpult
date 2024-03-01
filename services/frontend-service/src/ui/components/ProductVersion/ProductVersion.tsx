@@ -22,6 +22,8 @@ import {
     useSummaryDisplay,
     useEnvironmentGroups,
     useEnvironments,
+    addAction,
+    showSnackbarError,
 } from '../../utils/store';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
@@ -132,42 +134,54 @@ export const ProductVersion: React.FC = () => {
     const tagsResponse = useTags();
     const changeEnv = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
-            const env = splitCombinedGroupName(e.target.value);
             searchParams.set('env', e.target.value);
-            searchParams.set('tag', selectedTag);
             setEnvironment(e.target.value);
             setSearchParams(searchParams);
-            getSummary(selectedTag, env[0], env[1]);
         },
-        [setSearchParams, searchParams, selectedTag]
+        [setSearchParams, searchParams]
     );
     const [displaySummary, setDisplayVersion] = React.useState(false);
     const [showReleaseTrainEnvs, setShowReleaseTrainEnvs] = React.useState(false);
     const handleClose = React.useCallback(() => {
         setShowReleaseTrainEnvs(false);
     }, []);
-    const [showButton, setShowButton] = React.useState(false);
-    React.useEffect(() => {
-        if (localStorage.getItem('testing') !== null) {
-            setShowButton(true);
-        } else {
-            setShowButton(false);
-        }
-    }, []);
     const openDialog = React.useCallback(() => {
         setShowReleaseTrainEnvs(true);
     }, []);
-    const confirmReleaseTrainFunction = React.useCallback((selectedEnvs: string[]) => {
-        selectedEnvs.forEach((env) => {
-            // addAction() call added in DSN-3ZRNTG
-        });
-        return;
-    }, []);
+    const confirmReleaseTrainFunction = React.useCallback(
+        (selectedEnvs: string[]) => {
+            if (teams.length < 1) {
+                selectedEnvs.forEach((env) => {
+                    addAction({
+                        action: {
+                            $case: 'releaseTrain',
+                            releaseTrain: { target: env, commitHash: selectedTag, team: '' },
+                        },
+                    });
+                });
+            } else {
+                if (teams.length > 1) {
+                    showSnackbarError('Can only run one release train action at a time, should only select one team');
+                    return;
+                }
+                selectedEnvs.forEach((env) => {
+                    addAction({
+                        action: {
+                            $case: 'releaseTrain',
+                            releaseTrain: { target: env, commitHash: selectedTag, team: teams[0] },
+                        },
+                    });
+                });
+            }
+            return;
+        },
+        [selectedTag, teams]
+    );
 
     React.useEffect(() => {
         if (tagsResponse.response.tagData.length > 0) {
             const env = splitCombinedGroupName(environment);
-            if (searchParams.get('tag') === '') {
+            if (searchParams.get('tag') === null) {
                 setSelectedTag(tagsResponse.response.tagData[0].commitId);
                 searchParams.set('tag', tagsResponse.response.tagData[0].commitId);
                 setSearchParams(searchParams);
@@ -188,7 +202,7 @@ export const ProductVersion: React.FC = () => {
     const dialog = (
         <EnvSelectionDialog
             environments={envsList
-                .filter((env, index) => environment === env.config?.upstream?.environment)
+                .filter((env, index) => splitCombinedGroupName(environment)[0] === env.config?.upstream?.environment)
                 .map((env) => env.name)}
             open={showReleaseTrainEnvs}
             onCancel={handleClose}
@@ -230,11 +244,7 @@ export const ProductVersion: React.FC = () => {
                             ))}
                         </select>
                     </div>
-                    {showButton ? (
-                        <Button label={'Run Release Train'} className="release_train_button" onClick={openDialog} />
-                    ) : (
-                        <></>
-                    )}
+                    <Button label={'Run Release Train'} className="release_train_button" onClick={openDialog} />
                 </div>
             ) : (
                 <div />
