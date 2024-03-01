@@ -448,6 +448,30 @@ func TestResolveRevision(t *testing.T) {
 	}
 }
 
+func TestGetRevisionMetadata(t *testing.T) {
+	tcs := []struct {
+		Name string
+	}{
+		{
+			Name: "returns a dummy",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			srv := (*reposerver)(nil)
+			req := argorepo.RepoServerRevisionMetadataRequest{}
+			_, err := srv.GetRevisionMetadata(
+				context.Background(),
+				&req,
+			)
+			if err != nil {
+				t.Errorf("expected no error, but got %q", err)
+			}
+		})
+	}
+}
+
 func testRepository(t *testing.T) (repository.Repository, repository.RepositoryConfig) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
