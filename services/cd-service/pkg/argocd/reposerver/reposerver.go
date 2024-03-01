@@ -116,8 +116,9 @@ func (*reposerver) GetHelmCharts(context.Context, *argorepo.HelmChartsRequest) (
 }
 
 // GetRevisionMetadata implements apiclient.RepoServerServiceServer.
-func (*reposerver) GetRevisionMetadata(context.Context, *argorepo.RepoServerRevisionMetadataRequest) (*v1alpha1.RevisionMetadata, error) {
-	return nil, notImplemented
+func (*reposerver) GetRevisionMetadata(ctx context.Context, req *argorepo.RepoServerRevisionMetadataRequest) (*v1alpha1.RevisionMetadata, error) {
+	// It doesn't matter too much what is in here as long as we don't give an error.
+	return &v1alpha1.RevisionMetadata{}, nil
 }
 
 // ListApps implements apiclient.RepoServerServiceServer.
