@@ -156,24 +156,24 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 }
 
 func calculateGroupPriority(distanceToUpstream, downstreamDepth uint32) api.Priority {
-	lookup := [][]api.Priority {
-		[]api.Priority {api.Priority_YOLO},
-		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PROD},
-		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_PROD},
-		[]api.Priority {api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
-		[]api.Priority {api.Priority_UPSTREAM, api.Priority_OTHER, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
+	lookup := [][]api.Priority{
+		[]api.Priority{api.Priority_YOLO},
+		[]api.Priority{api.Priority_UPSTREAM, api.Priority_PROD},
+		[]api.Priority{api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_PROD},
+		[]api.Priority{api.Priority_UPSTREAM, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
+		[]api.Priority{api.Priority_UPSTREAM, api.Priority_OTHER, api.Priority_PRE_PROD, api.Priority_CANARY, api.Priority_PROD},
 	}
-	if downstreamDepth > uint32(len(lookup) - 1) {
+	if downstreamDepth > uint32(len(lookup)-1) {
 		if distanceToUpstream == 0 {
 			return api.Priority_UPSTREAM
 		}
 		if distanceToUpstream == downstreamDepth {
 			return api.Priority_PROD
 		}
-		if distanceToUpstream == downstreamDepth - 1 {
+		if distanceToUpstream == downstreamDepth-1 {
 			return api.Priority_CANARY
 		}
-		if distanceToUpstream == downstreamDepth - 2 {
+		if distanceToUpstream == downstreamDepth-2 {
 			return api.Priority_PRE_PROD
 		}
 		return api.Priority_OTHER
