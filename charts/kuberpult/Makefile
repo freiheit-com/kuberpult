@@ -17,19 +17,6 @@
 include ../../Makefile.variables
 MAKEFLAGS += --no-builtin-rules
 
-top_dir = \
-	$(if $(wildcard $1/.git), \
-		$1, \
-		$(call top_dir,$(patsubst %/,%,$(dir $1))))
-TOP_DIR := $(realpath $(call top_dir,$(CURDIR)))
-REL_DIR := $(subst $(TOP_DIR)/,,$(CURDIR))
-
-# Run from container image, as recommended by https://github.com/helm/chart-testing#installation
-# `ct` analyses the Git history, so we need to mount the whole repository.
-CT := docker run --mount=type=bind,source=$(TOP_DIR),target=/src,readonly --workdir=/src/$(REL_DIR) quay.io/helmpack/chart-testing:v3.5.0 ct
-# Manual / local installation
-#CT := ct
-
 TGZ_FILE := kuberpult-$(VERSION).tgz
 
 Chart.yaml:
@@ -39,7 +26,7 @@ $(TGZ_FILE):
 	earthly +chart-tarball --VERSION=$(VERSION)
 
 ci/test-values.yaml:
-	earthly +test-values.yaml --VERSION=$(VERSION)
+	earthly +test-values.yaml
 
 ct-test:
 ifeq ($(CI),true)
@@ -50,9 +37,6 @@ endif
 
 test-helm:
 	earthly +test-helm --VERSION=$(VERSION)
-
-test-ci:
-	earthly +test-ci --VERSION=$(VERSION)
 
 test:
 	earthly +test --VERSION=$(VERSION)

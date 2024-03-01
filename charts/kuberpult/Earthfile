@@ -1,8 +1,5 @@
 VERSION 0.7
 
-LOCALLY
-ARG --global VERSION=$(git describe --always --long --tags || echo 0.0.1)
-
 deps:
     FROM python:3.12-alpine
     WORKDIR /deps
@@ -27,8 +24,11 @@ deps:
     RUN tar xzf chart-testing_3.10.1_linux_amd64.tar.gz
     RUN mv ct /usr/local/bin/ct
     RUN chmod +x /usr/local/bin/ct
-        
+
 chart.yaml:
+    LOCALLY
+    ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
+
     FROM +deps
     WORKDIR /kp
 
@@ -38,9 +38,10 @@ chart.yaml:
 
     SAVE ARTIFACT Chart.yaml AS LOCAL Chart.yaml
 
-
-
 chart-tarball:
+    LOCALLY
+    ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
+    
     FROM +deps
     WORKDIR /kp
 
@@ -70,35 +71,40 @@ test-values.yaml:
     SAVE ARTIFACT ci/test-values.yaml AS LOCAL ci/test-values.yaml
 
 ct-test:
+    LOCALLY
+    ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
+    
     FROM +deps
     WORKDIR /kp
     
     COPY ci ci
-    COPY +chart.yaml/Chart.yaml .
+    COPY (+chart.yaml/Chart.yaml --VERSION=$VERSION) .
     COPY values.yaml .
     COPY templates templates
     
     RUN ct lint --debug --chart-yaml-schema=ci/chart_schema.yaml --lint-conf=ci/lintconf.yaml --chart-dirs=. --charts=. --remote=git@github.com:freiheit-com/kuberpult.git
 
-
 test-helm:
+    LOCALLY
+    ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
+
     FROM +deps
     WORKDIR /kp
 
-    COPY +chart-tarball/kuberpult-$VERSION.tgz .
+    COPY (+chart-tarball/kuberpult-*.tgz --VERSION=$VERSION) . 
     
-    RUN helm lint kuberpult-$VERSION.tgz --set git.url=test --set ingress.domainName=kuberpult.example.com
-
-test-ci:
-    BUILD +test-helm
+    RUN helm lint kuberpult-*.tgz --set git.url=test --set ingress.domainName=kuberpult.example.com
 
 test:
-    BUILD +ct-test
-    BUILD +test-helm
+    LOCALLY
+    ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
+    
+    BUILD +ct-test --VERSION=$VERSION
+    BUILD +test-helm --VERSION=$VERSION
 
 clean:
     LOCALLY
 
     RUN rm -rf Chart.yaml
     RUN rm -rf ci/test-values.yaml
-    RUN rm -rf kuberpult-$VERSION.tgz
+    RUN rm -rf kuberpult-*.tgz
