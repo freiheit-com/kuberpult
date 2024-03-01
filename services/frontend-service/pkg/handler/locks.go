@@ -99,7 +99,7 @@ func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Reques
 		signature := body.Signature
 		if len(signature) == 0 {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Missing signature in request body"))
+			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
 			return
 		}
 
@@ -149,7 +149,7 @@ func (s Server) handleDeleteEnvironmentLock(w http.ResponseWriter, req *http.Req
 
 		if len(signature) == 0 {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Missing signature in request body"))
+			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
 			return
 		}
 
@@ -205,7 +205,7 @@ func (s Server) handlePutEnvironmentGroupLock(w http.ResponseWriter, req *http.R
 	signature := body.Signature
 	if len(signature) == 0 && s.AzureAuth {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Missing signature in request body - this is required with AzureAuth enabled"))
+		w.Write([]byte("Missing signature in request body - this is required with AzureAuth enabled")) //nolint:errcheck
 		return
 	}
 
@@ -246,7 +246,10 @@ func (s Server) handlePutEnvironmentGroupLock(w http.ResponseWriter, req *http.R
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	w.Write(jsonResponse)
+	_, err = w.Write(jsonResponse)
+	if err != nil {
+		logger.FromContext(req.Context()).Error("Failed while sending the response: " + err.Error())
+	}
 }
 
 func (s Server) checkContentType(w http.ResponseWriter, req *http.Request) bool {
@@ -276,7 +279,7 @@ func (s Server) handleDeleteEnvironmentGroupLock(w http.ResponseWriter, req *htt
 		}
 		if len(signature) == 0 && s.AzureAuth {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Missing signature in request body"))
+			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
 			return
 		}
 		if len(signature) > 0 {
@@ -313,7 +316,7 @@ func (s Server) handleDeleteEnvironmentGroupLock(w http.ResponseWriter, req *htt
 
 	if response == nil || len(response.Results) == 0 {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("cd-service did not return a result"))
+		w.Write([]byte("cd-service did not return a result")) //nolint:errcheck
 		return
 	}
 	jsonResponse, err := json.Marshal(response.Results[0])
@@ -321,5 +324,8 @@ func (s Server) handleDeleteEnvironmentGroupLock(w http.ResponseWriter, req *htt
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write(jsonResponse)
+	_, err = w.Write(jsonResponse)
+	if err != nil {
+		logger.FromContext(req.Context()).Error("Failed while sending the response: " + err.Error())
+	}
 }
