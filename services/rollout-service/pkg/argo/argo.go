@@ -41,7 +41,7 @@ type SimplifiedApplicationServiceClient interface {
 }
 
 type ArgoAppProcessor struct {
-	trigger               chan *api.GetOverviewResponse
+	trigger        chan *api.GetOverviewResponse
 	lastOverview          *api.GetOverviewResponse
 	argoApps              chan *v1alpha1.ApplicationWatchEvent
 	ApplicationClient     application.ApplicationServiceClient

@@ -49,7 +49,7 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 	config, ok := form.Value["config"]
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Missing config in request body")) //nolint:errcheck
+		w.Write([]byte("Missing config in request body"))
 		return
 	}
 	err := json.Unmarshal([]byte(config[0]), &envConfig)
