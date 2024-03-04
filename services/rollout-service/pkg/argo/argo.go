@@ -281,33 +281,41 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 		}
 		ignoreDifferences[index] = difference
 	}
-
+	//exhaustruct:ignore
+	ObjectMeta := metav1.ObjectMeta{
+		Name:        fmt.Sprintf("%s-%s", env.Name, app.Name),
+		Annotations: annotations,
+		Labels:      labels,
+		Finalizers:  calculateFinalizers(),
+	}
+	//exhaustruct:ignore
+	Source := &v1alpha1.ApplicationSource{
+		RepoURL:        overview.ManifestRepoUrl,
+		Path:           manifestPath,
+		TargetRevision: overview.Branch,
+	}
+	//exhaustruct:ignore
+	SyncPolicy := &v1alpha1.SyncPolicy{
+		Automated: &v1alpha1.SyncPolicyAutomated{
+			Prune:    true,
+			SelfHeal: true,
+			// We always allow empty, because it makes it easier to delete apps/environments
+			AllowEmpty: true,
+		},
+		SyncOptions: env.Config.Argocd.SyncOptions,
+	}
+	//exhaustruct:ignore
+	Spec := v1alpha1.ApplicationSpec{
+		Source: Source,
+		SyncPolicy: SyncPolicy,
+		Project: env.Name,
+		Destination: applicationDestination,
+		IgnoreDifferences: ignoreDifferences,
+	}
+	//exhaustruct:ignore
 	deployApp := &v1alpha1.Application{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        fmt.Sprintf("%s-%s", env.Name, app.Name),
-			Annotations: annotations,
-			Labels:      labels,
-			Finalizers:  calculateFinalizers(),
-		},
-		Spec: v1alpha1.ApplicationSpec{
-			Project: env.Name,
-			Source: &v1alpha1.ApplicationSource{
-				RepoURL:        overview.ManifestRepoUrl,
-				Path:           manifestPath,
-				TargetRevision: overview.Branch,
-			},
-			Destination: applicationDestination,
-			SyncPolicy: &v1alpha1.SyncPolicy{
-				Automated: &v1alpha1.SyncPolicyAutomated{
-					Prune:    true,
-					SelfHeal: true,
-					// We always allow empty, because it makes it easier to delete apps/environments
-					AllowEmpty: true,
-				},
-				SyncOptions: env.Config.Argocd.SyncOptions,
-			},
-			IgnoreDifferences: ignoreDifferences,
-		},
+		ObjectMeta: ObjectMeta,
+		Spec: Spec,
 	}
 
 	return deployApp
