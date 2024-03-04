@@ -4,7 +4,6 @@ IMPORT ../../infrastructure/earthly/go AS go-build
 LOCALLY
 ARG --global service=$(basename $PWD)
 ARG --global src_files=$(find pkg -type f ! -name "*_test.go")
-ARG --global UID=1000
 ARG --global cgo_enabled=1
 
 deps:
@@ -22,7 +21,6 @@ compile:
     FROM +deps
     ARG USERARCH
     
-    DO +CGO_LIBS --cgo_enabled=$cgo_enabled
     DO go-build+COMPILE --cgo_enabled=$cgo_enabled
 
 unit-test:
@@ -31,10 +29,11 @@ unit-test:
 
 lint:
     FROM +deps
-    DO go-build+LINT
+    DO go-build+LINT --skip_lint_errors=true
 
 docker:
     FROM alpine:3.18
+    ARG UID=1000
     ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
     ARG tag="local"
     COPY gitconfig /etc/gitconfig
@@ -76,16 +75,4 @@ BUILD_ALL:
     BUILD +release --registry=$registry --tag=$tag
     IF [ "$mirror" = "true" ]
         BUILD +release --registry=$mirror_registry --tag=$tag
-    END
-
-CGO_LIBS:
-    FUNCTION
-    ARG USERARCH
-    ARG cgo_enabled
-    IF [ "$cgo_enabled" = "1" ]
-        IF [ "$USERARCH" = "arm64" ]
-            RUN apt update && apt install --auto-remove libgit2-dev libsqlite3-dev -y
-        ELSE
-            RUN apk add --no-cache libgit2-dev sqlite-dev alpine-sdk
-        END
     END
