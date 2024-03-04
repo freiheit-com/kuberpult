@@ -49,12 +49,10 @@ type VersionClient interface {
 }
 
 type versionClient struct {
-	overviewClient        api.OverviewServiceClient
-	versionClient         api.VersionServiceClient
-	cache                 *lru.Cache
-	manageArgoAppsEnabled bool
-	manageArgoAppsFilter  string
-	ArgoProcessor         argo.ArgoAppProcessor
+	overviewClient api.OverviewServiceClient
+	versionClient  api.VersionServiceClient
+	cache          *lru.Cache
+	ArgoProcessor  argo.ArgoAppProcessor
 }
 
 type VersionInfo struct {

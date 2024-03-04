@@ -45,12 +45,6 @@ func New(client SimplifiedApplicationInterface, concurrencyLimit int) Notifier {
 	return n
 }
 
-type queueElement struct {
-	ctx         context.Context
-	environment string
-	application string
-}
-
 type notifier struct {
 	client   SimplifiedApplicationInterface
 	errGroup errgroup.Group
