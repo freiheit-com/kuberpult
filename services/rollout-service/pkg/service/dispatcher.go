@@ -55,6 +55,7 @@ func NewDispatcher(sink ArgoEventProcessor, vc versions.VersionClient) *Dispatch
 	bo.MaxElapsedTime = 0
 	bo.MaxInterval = 5 * time.Minute
 	rs := &Dispatcher{
+		mx:            sync.Mutex{},
 		sink:          sink,
 		versionClient: vc,
 		known:         map[Key]*knownRevision{},
