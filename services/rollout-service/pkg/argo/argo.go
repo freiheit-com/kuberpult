@@ -284,8 +284,8 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 			Destination: applicationDestination,
 			SyncPolicy: &v1alpha1.SyncPolicy{
 				Automated: &v1alpha1.SyncPolicyAutomated{
-					Prune:    false,
-					SelfHeal: false,
+					Prune:    true,
+					SelfHeal: true,
 					// We always allow empty, because it makes it easier to delete apps/environments
 					AllowEmpty: true,
 				},
