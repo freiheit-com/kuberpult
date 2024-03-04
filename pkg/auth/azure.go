@@ -47,6 +47,7 @@ func JWKSInitAzureFromJson() (*keyfunc.JWKS, error) {
 
 func JWKSInitAzure(ctx context.Context) (*keyfunc.JWKS, error) {
 	jwksURL := "https://login.microsoftonline.com/common/discovery/v2.0/keys"
+	//exhaustruct:ignore
 	options := keyfunc.Options{
 		Ctx: ctx,
 		RefreshErrorHandler: func(err error) {

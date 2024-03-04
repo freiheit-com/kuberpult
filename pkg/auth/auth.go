@@ -132,6 +132,7 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 	logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original mail %s. Decoded: %s", originalEmail, userMail))
 	logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original name %s. Decoded: %s", originalName, userName))
 	u := &User{
+		DexAuthContext: nil,
 		Email: userMail,
 		Name:  userName,
 	}
@@ -204,6 +205,7 @@ func WriteUserRoleToHttpHeader(r *http.Request, role string) {
 
 func GetUserOrDefault(u *User, defaultUser User) User {
 	var userAdapted = User{
+		DexAuthContext: nil,
 		Email: defaultUser.Email,
 		Name:  defaultUser.Name,
 	}

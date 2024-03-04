@@ -107,6 +107,7 @@ type ServerConfig struct {
 }
 
 func Run(ctx context.Context, config ServerConfig) {
+	//exhaustruct:ignore
 	s := &setup{}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -235,6 +236,7 @@ func runHTTPHandler(ctx context.Context, s *setup, handler http.Handler, port st
 		handler = NewBasicAuthHandler(basicAuth, handler)
 	}
 
+	//exhaustruct:ignore
 	httpS := &http.Server{
 		Handler: handler,
 	}
