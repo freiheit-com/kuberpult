@@ -154,7 +154,7 @@ func RunServer() {
 		}
 
 		cfg := repository.RepositoryConfig{
-			WebhookResolver: repository.DefaultWebhookResolver{},
+			WebhookResolver: nil,
 			URL:             c.GitUrl,
 			Path:            "./repository",
 			CommitterEmail:  c.GitCommitterEmail,
