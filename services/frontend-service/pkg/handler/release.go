@@ -286,7 +286,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		{
 			msg := "unknown response type in /release"
 			jsonBlob, err := json.Marshal(releaseResponse)
-			jsonBlobRequest, _ := json.Marshal(tf) //nolint:govet
+			jsonBlobRequest, _ := json.Marshal(&tf)
 			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s, %s", msg, jsonBlob, err))
 			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: request: %s, response: %s", msg, jsonBlobRequest, jsonBlob)), err, http.StatusInternalServerError)
 		}
