@@ -76,7 +76,7 @@ const (
 // NewDexAppClient a Dex Client.
 func NewDexAppClient(clientID, clientSecret, baseURL string, scopes []string) (*DexAppClient, error) {
 	a := DexAppClient{
-		Client: nil,
+		Client:       nil,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Scopes:       scopes,

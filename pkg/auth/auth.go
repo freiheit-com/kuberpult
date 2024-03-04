@@ -133,8 +133,8 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 	logger.FromContext(ctx).Info(fmt.Sprintf("Extract: original name %s. Decoded: %s", originalName, userName))
 	u := &User{
 		DexAuthContext: nil,
-		Email: userMail,
-		Name:  userName,
+		Email:          userMail,
+		Name:           userName,
 	}
 	if u.Email == "" || u.Name == "" {
 		return nil, grpc.AuthError(ctx, errors.New("email and name in grpc context cannot both be empty"))
@@ -206,8 +206,8 @@ func WriteUserRoleToHttpHeader(r *http.Request, role string) {
 func GetUserOrDefault(u *User, defaultUser User) User {
 	var userAdapted = User{
 		DexAuthContext: nil,
-		Email: defaultUser.Email,
-		Name:  defaultUser.Name,
+		Email:          defaultUser.Email,
+		Name:           defaultUser.Name,
 	}
 	if u != nil && u.Email != "" {
 		userAdapted.Email = u.Email

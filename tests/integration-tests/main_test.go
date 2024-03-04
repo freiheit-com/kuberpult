@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,7 +13,8 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright 2023 freiheit.com
+*/
 package integration_tests
 
 import (
@@ -22,7 +24,6 @@ import (
 	"strconv"
 	"testing"
 )
-
 
 // The appSuffix is a unique string consisting of only characters that are valid app names.
 // This is used to make tests repeatable.
