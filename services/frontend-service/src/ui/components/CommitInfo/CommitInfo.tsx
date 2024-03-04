@@ -16,7 +16,7 @@ Copyright 2023 freiheit.com*/
 
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import React from 'react';
-import { GetCommitInfoResponse, Event } from '../../../api/api';
+import { GetCommitInfoResponse, Event, LockPreventedDeploymentEvent_LockType } from '../../../api/api';
 
 type CommitInfoProps = {
     commitInfo: GetCommitInfoResponse | undefined;
@@ -134,5 +134,26 @@ const eventDescription = (event: Event): [JSX.Element, string] => {
                     );
             }
             return [description, de.targetEnvironment];
+        case 'lockPreventedDeploymentEvent':
+            const inner = tp.lockPreventedDeploymentEvent;
+            return [
+                <span>
+                    Application <b>{inner.application}</b> was blocked from deploying due to{' '}
+                    {lockTypeName(inner.lockType)} with message "{inner.lockMessage}"
+                </span>,
+                inner.environment,
+            ];
+    }
+};
+
+const lockTypeName = (tp: LockPreventedDeploymentEvent_LockType): string => {
+    switch (tp) {
+        case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_APP:
+            return 'an application lock';
+        case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_ENV:
+            return 'an environment lock';
+        case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_UNKNOWN:
+        case LockPreventedDeploymentEvent_LockType.UNRECOGNIZED:
+            return 'an unknown lock';
     }
 };
