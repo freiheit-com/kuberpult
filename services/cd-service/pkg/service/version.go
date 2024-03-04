@@ -54,6 +54,7 @@ func (o *VersionServiceServer) GetVersion(
 		}
 		return nil, err
 	}
+	//exhaustruct:ignore
 	res := api.GetVersionResponse{}
 	version, err := state.GetEnvironmentApplicationVersion(in.Environment, in.Application)
 	if version != nil {

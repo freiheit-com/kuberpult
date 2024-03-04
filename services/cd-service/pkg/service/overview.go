@@ -83,6 +83,8 @@ func (o *OverviewServiceServer) getOverview(
 		rev = s.Commit.Id().String()
 	}
 	result := api.GetOverviewResponse{
+		Branch:            "",
+		ManifestRepoUrl:   "",
 		Applications:      map[string]*api.Application{},
 		EnvironmentGroups: []*api.EnvironmentGroup{},
 		GitRevision:       rev,
@@ -96,12 +98,15 @@ func (o *OverviewServiceServer) getOverview(
 		for envName, config := range envs {
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
+			//exhaustruct:ignore
 			argocd := &api.EnvironmentConfig_ArgoCD{}
 			if config.ArgoCd != nil {
 				argocd = mapper.TransformArgocd(*config.ArgoCd)
 			}
 			env := api.Environment{
-				Name: envName,
+				DistanceToUpstream: 0,
+				Priority:           api.Priority_PROD,
+				Name:               envName,
 				Config: &api.EnvironmentConfig{
 					Upstream:         mapper.TransformUpstream(config.Upstream),
 					Argocd:           argocd,
@@ -132,9 +137,16 @@ func (o *OverviewServiceServer) getOverview(
 			} else {
 				for _, appName := range apps {
 					app := api.Environment_Application{
-						Name:               appName,
-						Locks:              map[string]*api.Lock{},
-						DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{},
+						Version:         0,
+						QueuedVersion:   0,
+						UndeployVersion: false,
+						ArgoCd:          nil,
+						Name:            appName,
+						Locks:           map[string]*api.Lock{},
+						DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+							DeployAuthor: "",
+							DeployTime:   "",
+						},
 					}
 					var version *uint64
 					if version, err = s.GetEnvironmentApplicationVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -208,10 +220,12 @@ func (o *OverviewServiceServer) getOverview(
 	} else {
 		for _, appName := range apps {
 			app := api.Application{
-				Name:          appName,
-				Releases:      []*api.Release{},
-				SourceRepoUrl: "",
-				Team:          "",
+				UndeploySummary: 0,
+				Warnings:        nil,
+				Name:            appName,
+				Releases:        []*api.Release{},
+				SourceRepoUrl:   "",
+				Team:            "",
 			}
 			if rels, err := s.GetApplicationReleases(appName); err != nil {
 				return nil, err
@@ -221,6 +235,7 @@ func (o *OverviewServiceServer) getOverview(
 						return nil, err
 					} else {
 						release := &api.Release{
+							PrNumber:        "",
 							Version:         id,
 							SourceAuthor:    rel.SourceAuthor,
 							SourceCommitId:  rel.SourceCommitId,

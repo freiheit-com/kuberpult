@@ -37,14 +37,19 @@ func MapEnvironmentsToGroups(envs map[string]config.EnvironmentConfig) []*api.En
 		var bucket, ok = buckets[groupName]
 		if !ok {
 			bucket = &api.EnvironmentGroup{
+				DistanceToUpstream:   0,
+				Priority:             api.Priority_PROD,
 				EnvironmentGroupName: groupNameCopy,
 				Environments:         []*api.Environment{},
 			}
 			buckets[groupNameCopy] = bucket
 		}
 		var newEnv = &api.Environment{
-			Name: envName,
+			DistanceToUpstream: 0,
+			Priority:           api.Priority_PROD,
+			Name:               envName,
 			Config: &api.EnvironmentConfig{
+				Argocd:           nil,
 				Upstream:         TransformUpstream(env.Upstream),
 				EnvironmentGroup: &groupNameCopy,
 			},
@@ -301,11 +306,13 @@ func TransformUpstream(upstream *config.EnvironmentConfigUpstream) *api.Environm
 	}
 	if upstream.Latest {
 		return &api.EnvironmentConfig_Upstream{
-			Latest: &upstream.Latest,
+			Environment: nil,
+			Latest:      &upstream.Latest,
 		}
 	}
 	if upstream.Environment != "" {
 		return &api.EnvironmentConfig_Upstream{
+			Latest:      nil,
 			Environment: &upstream.Environment,
 		}
 	}

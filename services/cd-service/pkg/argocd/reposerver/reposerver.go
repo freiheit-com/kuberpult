@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"time"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
@@ -34,6 +35,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type reposerver struct {
@@ -93,9 +95,15 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 		return nil, err
 	}
 	resp := &argorepo.ManifestResponse{
-		Manifests:  mn,
-		Revision:   state.Commit.Id().String(),
-		SourceType: "Directory",
+		Namespace:            "",
+		Server:               "",
+		VerifyResult:         "",
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     nil,
+		XXX_sizecache:        0,
+		Manifests:            mn,
+		Revision:             state.Commit.Id().String(),
+		SourceType:           "Directory",
 	}
 	return resp, nil
 }
@@ -118,7 +126,15 @@ func (*reposerver) GetHelmCharts(context.Context, *argorepo.HelmChartsRequest) (
 // GetRevisionMetadata implements apiclient.RepoServerServiceServer.
 func (*reposerver) GetRevisionMetadata(ctx context.Context, req *argorepo.RepoServerRevisionMetadataRequest) (*v1alpha1.RevisionMetadata, error) {
 	// It doesn't matter too much what is in here as long as we don't give an error.
-	return &v1alpha1.RevisionMetadata{}, nil
+	return &v1alpha1.RevisionMetadata{
+		Author: "",
+		Date: v1.Time{
+			Time: time.Time{},
+		},
+		Tags:          nil,
+		Message:       "",
+		SignatureInfo: "",
+	}, nil
 }
 
 // ListApps implements apiclient.RepoServerServiceServer.
@@ -143,15 +159,21 @@ func (r *reposerver) ResolveRevision(ctx context.Context, req *argorepo.ResolveR
 		// This looks a bit strange but argocd actually responds with a succes response if the ambiguous ref can be parsed as a git commit id even if that commit does not exists at all.
 		if serr, ok := status.FromError(err); ok && serr.Code() == codes.NotFound && oid != nil {
 			return &argorepo.ResolveRevisionResponse{
-				Revision:          oid.String(),
-				AmbiguousRevision: fmt.Sprintf("%s (%s)", req.AmbiguousRevision, oid),
+				XXX_NoUnkeyedLiteral: struct{}{},
+				XXX_unrecognized:     nil,
+				XXX_sizecache:        0,
+				Revision:             oid.String(),
+				AmbiguousRevision:    fmt.Sprintf("%s (%s)", req.AmbiguousRevision, oid),
 			}, nil
 		}
 		return nil, err
 	}
 	resp := argorepo.ResolveRevisionResponse{
-		Revision:          state.Commit.Id().String(),
-		AmbiguousRevision: fmt.Sprintf("%s (%s)", req.AmbiguousRevision, state.Commit.Id()),
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     nil,
+		XXX_sizecache:        0,
+		Revision:             state.Commit.Id().String(),
+		AmbiguousRevision:    fmt.Sprintf("%s (%s)", req.AmbiguousRevision, state.Commit.Id()),
 	}
 	return &resp, nil
 }

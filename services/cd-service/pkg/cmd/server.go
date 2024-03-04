@@ -154,10 +154,11 @@ func RunServer() {
 		}
 
 		cfg := repository.RepositoryConfig{
-			URL:            c.GitUrl,
-			Path:           "./repository",
-			CommitterEmail: c.GitCommitterEmail,
-			CommitterName:  c.GitCommitterName,
+			WebhookResolver: repository.DefaultWebhookResolver{},
+			URL:             c.GitUrl,
+			Path:            "./repository",
+			CommitterEmail:  c.GitCommitterEmail,
+			CommitterName:   c.GitCommitterName,
 			Credentials: repository.Credentials{
 				SshKey: c.GitSshKey,
 			},
@@ -191,6 +192,7 @@ func RunServer() {
 		shutdownCh := make(chan struct{})
 		setup.Run(ctx, setup.ServerConfig{
 			HTTP: []setup.HTTPConfig{
+				//exhaustruct:ignore
 				{
 					Port: "8080",
 					Register: func(mux *http.ServeMux) {
@@ -203,7 +205,8 @@ func RunServer() {
 				},
 			},
 			GRPC: &setup.GRPCConfig{
-				Port: "8443",
+				Shutdown: nil,
+				Port:     "8443",
 				Opts: []grpc.ServerOption{
 					grpc.ChainStreamInterceptor(grpcStreamInterceptors...),
 					grpc.ChainUnaryInterceptor(grpcUnaryInterceptors...),
@@ -236,7 +239,8 @@ func RunServer() {
 			},
 			Background: []setup.BackgroundTaskConfig{
 				{
-					Name: "ddmetrics",
+					Shutdown: nil,
+					Name:     "ddmetrics",
 					Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
 						reporter.ReportReady("sending metrics")
 						repository.RegularlySendDatadogMetrics(repo, 300, func(repository2 repository.Repository) {
@@ -246,8 +250,9 @@ func RunServer() {
 					},
 				},
 				{
-					Name: "push queue",
-					Run:  repoQueue,
+					Shutdown: nil,
+					Name:     "push queue",
+					Run:      repoQueue,
 				},
 			},
 			Shutdown: func(ctx context.Context) error {

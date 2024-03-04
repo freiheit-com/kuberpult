@@ -72,6 +72,7 @@ func (ev *Deployment) toProto(trg *api.Event) {
 	var releaseTrainSource *api.DeploymentEvent_ReleaseTrainSource
 	if ev.SourceTrainEnvironmentGroup != nil {
 		releaseTrainSource = &api.DeploymentEvent_ReleaseTrainSource{
+			UpstreamEnvironment:    "",
 			TargetEnvironmentGroup: ev.SourceTrainEnvironmentGroup,
 		}
 	}
@@ -136,10 +137,13 @@ func Read(fs billy.Filesystem, eventDir string) (Event, error) {
 	var result Event
 	switch tp.EventType {
 	case "new-release":
+		//exhaustruct:ignore
 		result = &NewRelease{}
 	case "deployment":
+		//exhaustruct:ignore
 		result = &Deployment{}
 	case "lock-prevented-deployment":
+		//exhaustruct:ignore
 		result = &LockPreventedDeployment{}
 	default:
 		return nil, fmt.Errorf("unknown event type: %q", tp.EventType)
@@ -167,6 +171,7 @@ func Write(filesystem billy.Filesystem, eventDir string, event Event) error {
 // Convert an event to its protobuf representation
 func ToProto(eventID timeuuid.UUID, ev Event) *api.Event {
 	result := &api.Event{
+		EventType: nil,
 		CreatedAt: uuid.GetTime(&eventID),
 		Uuid:      eventID.String(),
 	}
