@@ -269,10 +269,10 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled bool, manageArgoApplicationFilter []string) VersionClient {
 	result := &versionClient{
-		cache:                 lru.New(20),
-		overviewClient:        oclient,
-		versionClient:         vclient,
-		ArgoProcessor:         argo.New(appClient, manageArgoApplicationEnabled, manageArgoApplicationFilter),
+		cache:          lru.New(20),
+		overviewClient: oclient,
+		versionClient:  vclient,
+		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, manageArgoApplicationFilter),
 	}
 	return result
 }

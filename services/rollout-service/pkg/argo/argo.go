@@ -306,16 +306,16 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 	}
 	//exhaustruct:ignore
 	Spec := v1alpha1.ApplicationSpec{
-		Source: Source,
-		SyncPolicy: SyncPolicy,
-		Project: env.Name,
-		Destination: applicationDestination,
+		Source:            Source,
+		SyncPolicy:        SyncPolicy,
+		Project:           env.Name,
+		Destination:       applicationDestination,
 		IgnoreDifferences: ignoreDifferences,
 	}
 	//exhaustruct:ignore
 	deployApp := &v1alpha1.Application{
 		ObjectMeta: ObjectMeta,
-		Spec: Spec,
+		Spec:       Spec,
 	}
 
 	return deployApp
