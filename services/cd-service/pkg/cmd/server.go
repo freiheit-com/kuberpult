@@ -194,8 +194,8 @@ func RunServer() {
 			HTTP: []setup.HTTPConfig{
 				{
 					BasicAuth: nil,
-					Shutdown: nil,
-					Port: "8080",
+					Shutdown:  nil,
+					Port:      "8080",
 					Register: func(mux *http.ServeMux) {
 						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
 						if c.EnableTracing {
