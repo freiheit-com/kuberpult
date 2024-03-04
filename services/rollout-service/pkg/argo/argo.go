@@ -51,6 +51,7 @@ type ArgoAppProcessor struct {
 
 func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled bool, manageArgoApplicationFilter []string) ArgoAppProcessor {
 	return ArgoAppProcessor{
+		lastOverview:          nil,
 		ApplicationClient:     appClient,
 		ManageArgoAppsEnabled: manageArgoApplicationEnabled,
 		ManageArgoAppsFilter:  manageArgoApplicationFilter,
@@ -141,9 +142,12 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			upsert := false
 			validate := false
 			appCreateRequest := &application.ApplicationCreateRequest{
-				Application: appToCreate,
-				Upsert:      &upsert,
-				Validate:    &validate,
+				XXX_NoUnkeyedLiteral: struct{}{},
+				XXX_unrecognized:     nil,
+				XXX_sizecache:        0,
+				Application:          appToCreate,
+				Upsert:               &upsert,
+				Validate:             &validate,
 			}
 			_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
 			if err != nil {
@@ -156,9 +160,12 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			validate := false
 			appToUpdate := CreateArgoApplication(overview, app, k.Environment)
 			appUpdateRequest := &application.ApplicationUpdateRequest{
-				Validate:    ptr.Bool(validate),
-				Application: appToUpdate,
-				Project:     ptr.FromString(appToUpdate.Spec.Project),
+				XXX_NoUnkeyedLiteral: struct{}{},
+				XXX_unrecognized:     nil,
+				XXX_sizecache:        0,
+				Validate:             ptr.Bool(validate),
+				Application:          appToUpdate,
+				Project:              ptr.FromString(appToUpdate.Spec.Project),
 			}
 			_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
 			if err != nil {
@@ -170,6 +177,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 
 func (a *ArgoAppProcessor) ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter) error {
 	return hlth.Retry(ctx, func() error {
+		//exhaustruct:ignore
 		watch, err := a.ApplicationClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
 			if status.Code(err) == codes.Canceled {
@@ -213,7 +221,14 @@ func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[strin
 
 	for i := range toDelete {
 		_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
-			Name: ptr.FromString(toDelete[i].Name),
+			Cascade:              nil,
+			PropagationPolicy:    nil,
+			AppNamespace:         nil,
+			Project:              nil,
+			XXX_NoUnkeyedLiteral: struct{}{},
+			XXX_unrecognized:     nil,
+			XXX_sizecache:        0,
+			Name:                 ptr.FromString(toDelete[i].Name),
 		})
 
 		if err != nil {

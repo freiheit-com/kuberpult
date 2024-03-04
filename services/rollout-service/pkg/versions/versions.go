@@ -38,8 +38,9 @@ import (
 // This is a the user that the rollout service uses to query the versions.
 // It is not written to the repository.
 var RolloutServiceUser auth.User = auth.User{
-	Email: "kuberpult-rollout-service@local",
-	Name:  "kuberpult-rollout-service",
+	DexAuthContext: nil,
+	Email:          "kuberpult-rollout-service@local",
+	Name:           "kuberpult-rollout-service",
 }
 
 type VersionClient interface {
@@ -182,7 +183,9 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 	environmentGroups := map[key]string{}
 	teams := map[key]string{}
 	return hr.Retry(ctx, func() error {
-		client, err := v.overviewClient.StreamOverview(ctx, &api.GetOverviewRequest{})
+		client, err := v.overviewClient.StreamOverview(ctx, &api.GetOverviewRequest{
+			GitRevision: "",
+		})
 		if err != nil {
 			return fmt.Errorf("overview.connect: %w", err)
 		}
@@ -246,11 +249,16 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 			for k := range versions {
 				if seen[k] == 0 {
 					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+						IsProduction:     false,
 						Application:      k.Application,
 						Environment:      k.Environment,
 						EnvironmentGroup: environmentGroups[k],
 						Team:             teams[k],
-						Version:          &VersionInfo{},
+						Version: &VersionInfo{
+							Version:        0,
+							SourceCommitId: "",
+							DeployedAt:     time.Time{},
+						},
 					})
 				}
 			}
@@ -261,10 +269,12 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 func New(oclient api.OverviewServiceClient, vclient api.VersionServiceClient, appClient application.ApplicationServiceClient, manageArgoApplicationEnabled bool, manageArgoApplicationFilter []string) VersionClient {
 	result := &versionClient{
-		cache:          lru.New(20),
-		overviewClient: oclient,
-		versionClient:  vclient,
-		ArgoProcessor:  argo.New(appClient, manageArgoApplicationEnabled, manageArgoApplicationFilter),
+		manageArgoAppsEnabled: false,
+		manageArgoAppsFilter:  "",
+		cache:                 lru.New(20),
+		overviewClient:        oclient,
+		versionClient:         vclient,
+		ArgoProcessor:         argo.New(appClient, manageArgoApplicationEnabled, manageArgoApplicationFilter),
 	}
 	return result
 }
