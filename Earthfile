@@ -28,10 +28,10 @@ deps:
     RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
 
     RUN wget https://github.com/GaijinEntertainment/go-exhaustruct/archive/refs/tags/v3.2.0.tar.gz -O exhaustruct.tar.gz
+    RUN echo 511d0ba05092386a59dca74b6cbeb99f510b814261cc04b68213a9ae31cf8bf6  exchaustruct.tar.gz | sha256sum -c
     RUN tar xzf exhaustruct.tar.gz
     WORKDIR go-exhaustruct-3.2.0
     RUN go build ./cmd/exhaustruct
-    RUN echo c1378c7cd853e989854022fdab1fe4f4a634c22a54f1f255f07cfff1e81b378a  exhaustruct | sha256sum -c
     RUN mv exhaustruct /usr/local/bin/exhaustruct
 
     WORKDIR /kp
