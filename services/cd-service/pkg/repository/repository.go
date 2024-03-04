@@ -228,8 +228,14 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 		CredentialsCallback:      credentials.CredentialsCallback(ctx),
 		CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
 	}
-	//exhaustruct:ignore
 	fetchOptions := git.FetchOptions{
+		Prune: git.FetchPruneUnspecified,
+		UpdateFetchhead: false,
+		Headers: nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url: "",
+		},
 		RemoteCallbacks: RemoteCallbacks,
 		DownloadTags:    git.DownloadTagsAll,
 	}

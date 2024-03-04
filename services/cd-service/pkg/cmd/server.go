@@ -192,8 +192,9 @@ func RunServer() {
 		shutdownCh := make(chan struct{})
 		setup.Run(ctx, setup.ServerConfig{
 			HTTP: []setup.HTTPConfig{
-				//exhaustruct:ignore
 				{
+					BasicAuth: nil,
+					Shutdown: nil,
 					Port: "8080",
 					Register: func(mux *http.ServeMux) {
 						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
