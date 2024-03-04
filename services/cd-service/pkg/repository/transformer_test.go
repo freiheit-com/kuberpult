@@ -38,8 +38,6 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-	"google.golang.org/protobuf/encoding/prototext"
-	"google.golang.org/protobuf/proto"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -77,7 +75,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedError:     "UndeployApplication: error cannot undeploy non-existing application 'app1'",
+			expectedError:     "error at index 0 of transformer batch: UndeployApplication: error cannot undeploy non-existing application 'app1'",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
 		},
@@ -122,7 +120,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedError:     "cannot undeploy non-existing application 'app1'",
+			expectedError:     "error at index 3 of transformer batch: cannot undeploy non-existing application 'app1'",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
 		},
@@ -214,7 +212,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedError:     "UndeployApplication: error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed: 'environments/acceptance/applications/app1/version/undeploy'",
+			expectedError:     "error at index 4 of transformer batch: UndeployApplication: error cannot un-deploy application 'app1' the release 'acceptance' is not un-deployed: 'environments/acceptance/applications/app1/version/undeploy'",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
 		},
@@ -302,7 +300,7 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedError:     "UndeployApplication: error last release is not un-deployed application version of 'app1'",
+			expectedError:     "error at index 3 of transformer batch: UndeployApplication: error last release is not un-deployed application version of 'app1'",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
 		},
@@ -474,17 +472,21 @@ func TestCreateApplicationVersionEvents(t *testing.T) {
 			repo := setupRepositoryTest(t)
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
-			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
-			if err != nil {
-				t.Fatalf("expected no error but transformer failed with %v", err)
+			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			if applyErr != nil {
+				t.Fatalf("expected no error but transformer failed with %v", applyErr)
 			}
 			// find out the name of the events directory:
 			baseDir := "commits/ca/fe1cafe2cafe1cafe2cafe1cafe2cafe1cafe2/events/"
 			fs := updatedState.Filesystem
 			files, err := fs.ReadDir(baseDir)
+			if err != nil {
+				t.Fatalf("Error reading baseDir: %s", err.Error())
+			}
 			if len(files) != 1 {
 				t.Fatalf("Expected one event: %s - bot got %d", baseDir, len(files))
 			}
+
 			file := files[0]
 			eventId := file.Name()
 
@@ -755,7 +757,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 					WriteCommitData: true,
 				},
 			},
-			expectedErrorMsg: "already_exists_same:{}",
+			expectedErrorMsg: "error at index 2 of transformer batch: already_exists_same:{}",
 		},
 		{
 			Name: "recreate same version without idempotence",
@@ -781,7 +783,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 					WriteCommitData: true,
 				},
 			},
-			expectedErrorMsg: `already_exists_different:{first_differing_field:MANIFESTS diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
+			expectedErrorMsg: `error at index 2 of transformer batch: already_exists_different:{first_differing_field:MANIFESTS diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
 		},
 		{
 			Name: "recreate same version with idempotence, but different formatting of yaml",
@@ -807,7 +809,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 					WriteCommitData: true,
 				},
 			},
-			expectedErrorMsg: "already_exists_same:{}",
+			expectedErrorMsg: "error at index 2 of transformer batch: already_exists_same:{}",
 		},
 	}
 	for _, tc := range tcs {
@@ -817,22 +819,13 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 			t.Parallel()
 
 			// optimization: no need to set up the repository if this fails
-			var expectedErr api.CreateReleaseResponse
-			if err := prototext.Unmarshal([]byte(tc.expectedErrorMsg), &expectedErr); err != nil {
-				t.Fatalf("failed to unmarshal the expected error object: %v", err)
-			}
 			repo := setupRepositoryTest(t)
 			_, _, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
 			if err == nil {
 				t.Fatalf("expected error, got none.")
 			}
-			var actualErr api.CreateReleaseResponse
-			if err := prototext.Unmarshal([]byte(err.Error()), &actualErr); err != nil {
-				t.Fatalf("failed to unmarshal the actual error object: %v", err)
-			}
-
-			if !proto.Equal(&expectedErr, &actualErr) {
-				t.Fatalf("Expected different error (expected: %v, got: %v)", expectedErr, actualErr)
+			if err.Error() != tc.expectedErrorMsg {
+				t.Fatalf("unexpected error: (expected: %s, got %v)", tc.expectedErrorMsg, err)
 			}
 		})
 	}
@@ -1369,13 +1362,13 @@ func TestCreateApplicationVersionCommitPath(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
-			if err != nil {
-				t.Fatalf("encountered error but no error is expected here: %v", err)
+			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			if applyErr != nil {
+				t.Fatalf("encountered error but no error is expected here: %v", applyErr)
 			}
 			fs := updatedState.Filesystem
 
-			err = verifyCommitPathsExist(fs, tc.ExistentCommitPaths)
+			err := verifyCommitPathsExist(fs, tc.ExistentCommitPaths)
 			if err != nil {
 				t.Fatalf("some paths failed to create: %v", err)
 			}
@@ -1790,13 +1783,13 @@ func TestUndeployApplicationCommitPath(t *testing.T) {
 			ctx := testutil.MakeTestContext()
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
-			if err != nil {
-				t.Fatalf("encountered error but no error is expected here: %v", err)
+			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			if applyErr != nil {
+				t.Fatalf("encountered error but no error is expected here: %v", applyErr)
 			}
 			fs := updatedState.Filesystem
 
-			err = verifyCommitPathsExist(fs, tc.ExistentCommitPaths)
+			err := verifyCommitPathsExist(fs, tc.ExistentCommitPaths)
 			if err != nil {
 				t.Fatalf("some paths failed to create: %v", err)
 			}
@@ -1897,9 +1890,9 @@ func TestDeployApplicationVersion(t *testing.T) {
 			ctxWithTime := WithTimeNow(testutil.MakeTestContext(), timeNowOld)
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			_, updatedState, _, err := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
-			if err != nil {
-				t.Fatalf("Expected no error when applying: %v", err)
+			_, updatedState, _, applyErr := repo.ApplyTransformersInternal(ctxWithTime, tc.Transformers...)
+			if applyErr != nil {
+				t.Fatalf("Expected no error when applying: %v", applyErr)
 			}
 
 			fullPath := updatedState.Filesystem.Join(updatedState.Filesystem.Root(), tc.expectedPath)
@@ -2062,7 +2055,7 @@ func TestUndeployErrors(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedError:     "cannot undeploy non-existing application 'app1'",
+			expectedError:     "error at index 0 of transformer batch: cannot undeploy non-existing application 'app1'",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
 		},
@@ -2177,7 +2170,7 @@ func TestReleaseTrainErrors(t *testing.T) {
 					Target: "doesnotexistenvironment",
 				},
 			},
-			expectedError:     "rpc error: code = InvalidArgument desc = error: could not find environment group or environment configs for 'doesnotexistenvironment'",
+			expectedError:     "error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = error: could not find environment group or environment configs for 'doesnotexistenvironment'",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
 		},
@@ -2483,7 +2476,7 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 			},
 			ReleaseTrainEnv:    "dev",
 			shouldSucceed:      false,
-			expectedError:      "rpc error: code = InvalidArgument desc = error: could not get app version for commitHash 3f1debc97f5880c59caab9b36ad31f52604ce4dd for dev: ErrNotFound: object not found - no match for id (3f1debc97f5880c59caab9b36ad31f52604ce4dd)",
+			expectedError:      "error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = error: could not get app version for commitHash 3f1debc97f5880c59caab9b36ad31f52604ce4dd for dev: ErrNotFound: object not found - no match for id (3f1debc97f5880c59caab9b36ad31f52604ce4dd)",
 			overrideCommitHash: "3f1debc97f5880c59caab9b36ad31f52604ce4dd",
 		},
 		{
@@ -2508,7 +2501,7 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 			},
 			ReleaseTrainEnv:    "dev",
 			shouldSucceed:      false,
-			expectedError:      "rpc error: code = InvalidArgument desc = error: could not get app version for commitHash aa for dev: Error creating new oid for commitHash aa: invalid oid",
+			expectedError:      "error at index 0 of transformer batch: rpc error: code = InvalidArgument desc = error: could not get app version for commitHash aa for dev: Error creating new oid for commitHash aa: invalid oid",
 			overrideCommitHash: "aa",
 		},
 	}
@@ -2564,21 +2557,21 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 				Target:     tc.ReleaseTrainEnv,
 				Repo:       repo,
 			}
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), releaseTrain)
+			commitMsg, _, _, applyErr := repo.ApplyTransformersInternal(testutil.MakeTestContext(), releaseTrain)
 
 			if tc.shouldSucceed {
-				if err != nil {
-					t.Fatalf("Expected no error: %v", err)
+				if applyErr != nil {
+					t.Fatalf("Expected no error: %v", *applyErr)
 				}
 				actualMsg := commitMsg[len(commitMsg)-1]
 				if diff := cmp.Diff(actualMsg, tc.expectedCommitMsg); diff != "" {
 					t.Errorf("got \n%s\n, want \n%s\n, diff (-want +got)\n%s\n", actualMsg, tc.expectedCommitMsg, diff)
 				}
 			} else {
-				if err == nil {
+				if applyErr == nil {
 					t.Fatalf("Expected an error but got none")
 				} else {
-					actualMsg := err.Error()
+					actualMsg := applyErr.Error()
 					if actualMsg != tc.expectedError {
 						t.Fatalf("expected a different error.\nExpected: %q\nGot %q", tc.expectedError, actualMsg)
 					}
@@ -4132,7 +4125,7 @@ func TestTransformer(t *testing.T) {
 				},
 			},
 			ErrorTest: func(t *testing.T, err error) {
-				expected := "already_exists_same:{}"
+				expected := "error at index 0 of transformer batch: already_exists_same:{}"
 				if err.Error() != expected {
 					t.Fatalf("expected: %s, got: %s", expected, err.Error())
 				}
@@ -4185,7 +4178,7 @@ func TestTransformer(t *testing.T) {
 				return t
 			}(),
 			ErrorTest: func(t *testing.T, err error) {
-				expected := "too_old:{}"
+				expected := "error at index 0 of transformer batch: too_old:{}"
 				if err.Error() != expected {
 					t.Fatalf("expected: %s, got: %s", expected, err.Error())
 				}
@@ -4329,8 +4322,12 @@ func TestTransformer(t *testing.T) {
 			Name:         "Deploy version when environment is locked fails LockBehavior=Fail",
 			Transformers: makeTransformersDeployTestEnvLock(api.LockBehavior_FAIL),
 			ErrorTest: func(t *testing.T, err error) {
+				var applyErr *TransformerBatchApplyError
+				if !errors.As(err, &applyErr) {
+					t.Errorf("error must be a TransformerBatchAppyError, but got %#v", err)
+				}
 				var lockErr *LockedError
-				if !errors.As(err, &lockErr) {
+				if !errors.As(applyErr.TransformerError, &lockErr) {
 					t.Errorf("error must be a LockError, but got %#v", err)
 				} else {
 					expectedEnvLocks := map[string]Lock{
@@ -4409,12 +4406,16 @@ func TestTransformer(t *testing.T) {
 			},
 		},
 		{
-			Name:         "Deploy version ignoring locks when application in environment is locked and LockBehaviourFail",
+			Name:         "Deploy version ignoring locks when application in environment is locked and LockBehaviour=Fail",
 			Transformers: makeTransformersDeployTestAppLock(api.LockBehavior_FAIL),
 			ErrorTest: func(t *testing.T, err error) {
+				var applyErr *TransformerBatchApplyError
+				if !errors.As(err, &applyErr) {
+					t.Errorf("error must be a TransformerBatchAppyError, but got %#v", err)
+				}
 				var lockErr *LockedError
-				if !errors.As(err, &lockErr) {
-					t.Errorf("error must be a LockError, but got %#v", err)
+				if !errors.As(applyErr.TransformerError, &lockErr) {
+					t.Errorf("error must be a LockError, but got %#v", applyErr)
 				} else {
 					expectedEnvLocks := map[string]Lock{
 						"manual": {
@@ -5019,7 +5020,7 @@ spec:
 				&CreateEnvironment{Environment: "production", Config: c1},
 			},
 			ErrorTest: func(t *testing.T, err error) {
-				expectedError := "Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead."
+				expectedError := "error at index 0 of transformer batch: Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead."
 				if err.Error() != expectedError {
 					t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
 				}
@@ -5304,49 +5305,49 @@ func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
 			createLockBefore: true,
 			operation:        testfs.REMOVE,
 			filename:         "environments/dev/locks/foo",
-			expectedError:    "failed to delete directory \"environments/dev/locks/foo\": obscure error",
+			expectedError:    "error at index 0 of transformer batch: failed to delete directory \"environments/dev/locks/foo\": obscure error",
 		},
 		{
 			name:             "delete lock parent dir fails",
 			createLockBefore: true,
 			operation:        testfs.READDIR,
 			filename:         "environments/dev/locks",
-			expectedError:    "DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
+			expectedError:    "error at index 0 of transformer batch: DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
 		},
 		{
 			name:             "readdir fails on apps",
 			createLockBefore: true,
 			operation:        testfs.READDIR,
 			filename:         "environments/dev/applications",
-			expectedError:    "environment applications for \"dev\" not found: obscure error",
+			expectedError:    "error at index 0 of transformer batch: environment applications for \"dev\" not found: obscure error",
 		},
 		{
 			name:             "readdir fails on locks",
 			createLockBefore: true,
 			operation:        testfs.READDIR,
 			filename:         "environments/dev/locks",
-			expectedError:    "DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
+			expectedError:    "error at index 0 of transformer batch: DeleteDirIfEmpty: failed to read directory \"environments/dev/locks\": obscure error",
 		},
 		{
 			name:             "stat fails on lock dir",
 			createLockBefore: true,
 			operation:        testfs.STAT,
 			filename:         "environments/dev/locks/foo",
-			expectedError:    "obscure error",
+			expectedError:    "error at index 0 of transformer batch: obscure error",
 		},
 		{
 			name:             "remove fails on locks",
 			createLockBefore: true,
 			operation:        testfs.REMOVE,
 			filename:         "environments/dev/locks",
-			expectedError:    "DeleteDirIfEmpty: failed to delete directory \"environments/dev/locks\": obscure error",
+			expectedError:    "error at index 0 of transformer batch: DeleteDirIfEmpty: failed to delete directory \"environments/dev/locks\": obscure error",
 		},
 		{
 			name:             "remove fails when lock does not exist",
 			createLockBefore: false,
 			operation:        testfs.REMOVE,
 			filename:         "environments/dev/locks",
-			expectedError:    "rpc error: code = FailedPrecondition desc = error: directory environments/dev/locks/foo for env lock does not exist",
+			expectedError:    "error at index 0 of transformer batch: rpc error: code = FailedPrecondition desc = error: directory environments/dev/locks/foo for env lock does not exist",
 		},
 	}
 	for _, tc := range tcs {
@@ -5425,35 +5426,35 @@ func TestAllErrorsHandledDeleteEnvironmentApplicationLock(t *testing.T) {
 			createLockBefore: true,
 			operation:        testfs.REMOVE,
 			filename:         "environments/dev/applications/bar/locks/foo",
-			expectedError:    "failed to delete directory \"environments/dev/applications/bar/locks/foo\": obscure error",
+			expectedError:    "error at index 0 of transformer batch: failed to delete directory \"environments/dev/applications/bar/locks/foo\": obscure error",
 		},
 		{
 			name:             "delete lock fails - readdir",
 			createLockBefore: true,
 			operation:        testfs.READDIR,
 			filename:         "environments/dev/applications/bar/locks",
-			expectedError:    "DeleteDirIfEmpty: failed to read directory \"environments/dev/applications/bar/locks\": obscure error",
+			expectedError:    "error at index 0 of transformer batch: DeleteDirIfEmpty: failed to read directory \"environments/dev/applications/bar/locks\": obscure error",
 		},
 		{
 			name:             "stat queue fails",
 			createLockBefore: true,
 			operation:        testfs.READLINK,
 			filename:         "environments/dev/applications/bar/queued_version",
-			expectedError:    "failed reading symlink \"environments/dev/applications/bar/queued_version\": obscure error",
+			expectedError:    "error at index 0 of transformer batch: failed reading symlink \"environments/dev/applications/bar/queued_version\": obscure error",
 		},
 		{
 			name:             "stat queue fails 2",
 			createLockBefore: true,
 			operation:        testfs.STAT,
 			filename:         "environments/dev/applications/bar/locks/foo",
-			expectedError:    "obscure error",
+			expectedError:    "error at index 0 of transformer batch: obscure error",
 		},
 		{
 			name:             "remove fails 2",
 			createLockBefore: true,
 			operation:        testfs.REMOVE,
 			filename:         "environments/dev/applications/bar/locks",
-			expectedError:    "DeleteDirIfEmpty: failed to delete directory \"environments/dev/applications/bar/locks\": obscure error",
+			expectedError:    "error at index 0 of transformer batch: DeleteDirIfEmpty: failed to delete directory \"environments/dev/applications/bar/locks\": obscure error",
 		},
 	}
 	for _, tc := range tcs {
@@ -5760,12 +5761,12 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 			ddMetrics = client
 			repo := setupRepositoryTest(t)
 
-			_, state, _, err := repo.ApplyTransformersInternal(ctx, tc.transformers...)
-			if err != nil {
-				t.Fatalf("Expected no error: %v", err)
+			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.transformers...)
+			if applyErr != nil {
+				t.Fatalf("Expected no error: %v", applyErr)
 			}
 
-			err = UpdateDatadogMetrics(ctx, state, nil, time.UnixMilli(0))
+			err := UpdateDatadogMetrics(ctx, state, nil, time.UnixMilli(0))
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}
@@ -5942,12 +5943,12 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 			ddMetrics = client
 			repo := setupRepositoryTest(t)
 
-			_, state, _, err := repo.ApplyTransformersInternal(ctx, tc.transformers...)
-			if err != nil {
-				t.Fatalf("Expected no error: %v", err)
+			_, state, _, applyErr := repo.ApplyTransformersInternal(ctx, tc.transformers...)
+			if applyErr != nil {
+				t.Fatalf("Expected no error: %v", applyErr)
 			}
 
-			err = UpdateDatadogMetrics(ctx, state, tc.changes, time.UnixMilli(0))
+			err := UpdateDatadogMetrics(ctx, state, tc.changes, time.UnixMilli(0))
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}
@@ -6060,7 +6061,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Environment: envProduction,
 				},
 			},
-			expectedError:     "DeleteEnvFromApp app '' on env 'production': Need to provide the application",
+			expectedError:     "error at index 3 of transformer batch: DeleteEnvFromApp app '' on env 'production': Need to provide the application",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
 		},
@@ -6088,7 +6089,7 @@ func TestDeleteEnvFromApp(t *testing.T) {
 					Application: "app1",
 				},
 			},
-			expectedError:     "DeleteEnvFromApp app 'app1' on env '': Need to provide the environment",
+			expectedError:     "error at index 3 of transformer batch: DeleteEnvFromApp app 'app1' on env '': Need to provide the environment",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
 		},
@@ -6371,7 +6372,7 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 					Message:          "my-message",
 				},
 			},
-			expectedError:     "rpc error: code = InvalidArgument desc = error: No environment found with given group 'dev'",
+			expectedError:     "error at index 3 of transformer batch: rpc error: code = InvalidArgument desc = error: No environment found with given group 'dev'",
 			expectedCommitMsg: "",
 			shouldSucceed:     false,
 		},

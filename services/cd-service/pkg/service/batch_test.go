@@ -19,14 +19,14 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"testing"
 
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
@@ -301,7 +301,7 @@ func TestBatchServiceFails(t *testing.T) {
 			Batch:         []*api.BatchAction{},
 			context:       testutil.MakeTestContextDexEnabled(),
 			svc:           &BatchServer{},
-			expectedError: status.Errorf(codes.PermissionDenied, "PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production'").Error(),
+			expectedError: "error at index 0 of transformer batch: rpc error: code = PermissionDenied desc = PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production'",
 		},
 	}
 	for _, tc := range tcs {
@@ -363,7 +363,7 @@ func TestBatchServiceErrors(t *testing.T) {
 					},
 				}},
 			ExpectedResponse: "",
-			ExpectedError:    "deployment failed: could not open manifest for app myapp with release 666 on env dev 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist",
+			ExpectedError:    "error at index 0 of transformer batch: deployment failed: could not open manifest for app myapp with release 666 on env dev 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist",
 		},
 		{
 			Name:  "create release endpoint fails app validity check",
@@ -384,7 +384,7 @@ func TestBatchServiceErrors(t *testing.T) {
 						},
 					},
 				}},
-			ExpectedResponse: `results:{create_release_response:{too_long:{app_name:"myappIsWayTooLongDontYouThink" reg_exp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z" max_len:39}}}`,
+			ExpectedResponse: `results:{create_release_response:{too_long:{app_name:"myappIsWayTooLongDontYouThink" reg_exp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z"  max_len:39}}}`,
 		},
 	}
 	for _, tc := range tcs {
@@ -415,8 +415,11 @@ func TestBatchServiceErrors(t *testing.T) {
 			if tc.ExpectedResponse != "" && !proto.Equal(response, &expectedResponseObject) {
 				t.Fatalf("expected:\n%s\ngot:\n%s\n%s", tc.ExpectedResponse, response.String(), processErr)
 			}
+			if tc.ExpectedResponse == "" && processErr == nil {
+				t.Fatalf("expected error:\n%s\ngot: nil", tc.ExpectedError)
+			}
 			if tc.ExpectedResponse == "" && tc.ExpectedError != processErr.Error() {
-				t.Fatalf("expected error\n%s\ngot:\n%s\n%s", tc.ExpectedError, response.String(), processErr)
+				t.Fatalf("expected error\n%s\ngot:\n%s\n%s", tc.ExpectedError, response.String(), processErr.Error())
 			}
 		})
 	}

@@ -1363,7 +1363,7 @@ func TestApplyQueue(t *testing.T) {
 			Name: "error at the start",
 			Actions: []action{
 				{
-					ExpectedError: TransformerError,
+					ExpectedError: &TransformerBatchApplyError{TransformerError: TransformerError, Index: 0},
 					Transformer:   &ErrorTransformer{},
 				}, {}, {},
 			},
@@ -1376,7 +1376,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{},
 				{
-					ExpectedError: TransformerError,
+					ExpectedError: &TransformerBatchApplyError{TransformerError: TransformerError, Index: 0},
 					Transformer:   &ErrorTransformer{},
 				}, {},
 			},
@@ -1389,7 +1389,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{}, {},
 				{
-					ExpectedError: TransformerError,
+					ExpectedError: &TransformerBatchApplyError{TransformerError: TransformerError, Index: 0},
 					Transformer:   &ErrorTransformer{},
 				},
 			},
@@ -1401,7 +1401,7 @@ func TestApplyQueue(t *testing.T) {
 			Name: "Invalid json error at start",
 			Actions: []action{
 				{
-					ExpectedError: InvalidJson,
+					ExpectedError: &TransformerBatchApplyError{TransformerError: InvalidJson, Index: 0},
 					Transformer:   &InvalidJsonTransformer{},
 				},
 				{}, {},
@@ -1415,7 +1415,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{},
 				{
-					ExpectedError: InvalidJson,
+					ExpectedError: &TransformerBatchApplyError{TransformerError: InvalidJson, Index: 0},
 					Transformer:   &InvalidJsonTransformer{},
 				},
 				{},
@@ -1429,7 +1429,7 @@ func TestApplyQueue(t *testing.T) {
 			Actions: []action{
 				{}, {},
 				{
-					ExpectedError: InvalidJson,
+					ExpectedError: &TransformerBatchApplyError{TransformerError: InvalidJson, Index: 0},
 					Transformer:   &InvalidJsonTransformer{},
 				},
 			},
@@ -1494,7 +1494,7 @@ func TestApplyQueue(t *testing.T) {
 			finished <- struct{}{}
 			// Check for the correct errors
 			for i, action := range tc.Actions {
-				if err := <-results[i]; err != action.ExpectedError {
+				if err := <-results[i]; err != nil && err.Error() != action.ExpectedError.Error() {
 					t.Errorf("result[%d] error is not \"%v\" but got \"%v\"", i, action.ExpectedError, err)
 				}
 			}

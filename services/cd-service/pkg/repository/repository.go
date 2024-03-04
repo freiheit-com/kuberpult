@@ -64,10 +64,25 @@ import (
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
 	Push(ctx context.Context, pushAction func() error) error
-	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, error)
+	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
 	Notify() *notify.Notify
+}
+
+type TransformerBatchApplyError struct {
+	TransformerError error // the error that caused the batch to fail. nil if no error happened
+	Index            int   // the index of the transformer that caused the batch to fail or -1 if the error happened outside one specific transformer
+}
+
+func (err *TransformerBatchApplyError) Error() string {
+	if err == nil {
+		return "no transformer error!"
+	}
+	if err.Index < 0 {
+		return fmt.Sprintf("error not specific to one transformer of this batch: %s", err.TransformerError.Error())
+	}
+	return fmt.Sprintf("error at index %d of transformer batch: %s", err.Index, err.TransformerError.Error())
 }
 
 func defaultBackOffProvider() backoff.BackOff {
@@ -453,7 +468,7 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 		subChanges, applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
 		changes.Combine(subChanges)
 		if applyErr != nil {
-			if errors.Is(applyErr, InvalidJson) && allowFetchAndReset {
+			if errors.Is(applyErr.TransformerError, InvalidJson) && allowFetchAndReset {
 				// Invalid state. fetch and reset and redo
 				err := r.FetchAndReset(e.ctx)
 				if err != nil {
@@ -605,7 +620,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 				return
 			}
 			if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
-				err = &InternalError{inner: pushErr}
+				err = pushErr
 			}
 		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			err = grpc.CanceledError(ctx, err)
@@ -835,16 +850,20 @@ type ArgoWebhookData struct {
 	Commits       []commit
 }
 
-func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, error) {
+func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError) {
 	if state, err := r.StateAt(nil); err != nil {
-		return nil, nil, nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in StateAt", err))
+		return nil, nil, nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in StateAt", err), Index: -1}
 	} else {
 		var changes []*TransformerResult = nil
 		commitMsg := []string{}
 		ctxWithTime := WithTimeNow(ctx, time.Now())
-		for _, t := range transformers {
+		for i, t := range transformers {
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state); err != nil {
-				return nil, nil, nil, err
+				applyErr := TransformerBatchApplyError{
+					TransformerError: err,
+					Index:            i,
+				}
+				return nil, nil, nil, &applyErr
 			} else {
 				commitMsg = append(commitMsg, msg)
 				changes = append(changes, subChanges)
@@ -916,18 +935,18 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 	return r
 }
 
-func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (*TransformerResult, error) {
-	commitMsg, state, changes, err := r.ApplyTransformersInternal(ctx, transformers...)
-	if err != nil {
-		return nil, err
+func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transformers...)
+	if applyErr != nil {
+		return nil, applyErr
 	}
 	if err := r.afterTransform(ctx, *state); err != nil {
-		return nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "failure in afterTransform", err))
+		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
 
-	treeId, err := state.Filesystem.(*fs.TreeBuilderFS).Insert()
-	if err != nil {
-		return nil, &InternalError{inner: err}
+	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
+	if insertError != nil {
+		return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
 	}
 	committer := &git.Signature{
 		Name:  r.config.CommitterName,
@@ -935,10 +954,13 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		When:  time.Now(),
 	}
 
-	user, err := auth.ReadUserFromContext(ctx)
+	user, readUserErr := auth.ReadUserFromContext(ctx)
 
-	if err != nil {
-		return nil, err
+	if readUserErr != nil {
+		return nil, &TransformerBatchApplyError{
+			TransformerError: readUserErr,
+			Index:            -1,
+		}
 	}
 
 	author := &git.Signature{
@@ -954,7 +976,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	}
 	oldCommitId := rev
 
-	newCommitId, err := r.repository.CreateCommitFromIds(
+	newCommitId, createErr := r.repository.CreateCommitFromIds(
 		fmt.Sprintf("refs/heads/%s", r.config.Branch),
 		author,
 		committer,
@@ -962,8 +984,11 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		treeId,
 		rev,
 	)
-	if err != nil {
-		return nil, grpc.InternalError(ctx, fmt.Errorf("%s: %w", "createCommitFromIds failed", err))
+	if createErr != nil {
+		return nil, &TransformerBatchApplyError{
+			TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),
+			Index:            -1,
+		}
 	}
 	result := CombineArray(changes)
 	result.Commits = &CommitIds{
@@ -1006,7 +1031,7 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 		return remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 	})
 	if err != nil {
-		return &InternalError{inner: err}
+		return err
 	}
 	var zero git.Oid
 	var rev *git.Oid = &zero
