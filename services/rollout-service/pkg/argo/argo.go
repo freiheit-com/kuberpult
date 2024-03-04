@@ -253,8 +253,6 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 		Server:    env.Config.Argocd.Destination.Server,
 	}
 
-	syncWindows := v1alpha1.SyncWindows{}
-
 	ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(env.Config.Argocd.IgnoreDifferences))
 	for index, value := range env.Config.Argocd.IgnoreDifferences {
 		difference := v1alpha1.ResourceIgnoreDifferences{
@@ -267,20 +265,6 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 			ManagedFieldsManagers: value.ManagedFieldsManagers,
 		}
 		ignoreDifferences[index] = difference
-	}
-
-	for _, w := range env.Config.Argocd.SyncWindows {
-		apps := []string{"*"}
-		if len(w.Applications) > 0 {
-			apps = w.Applications
-		}
-		syncWindows = append(syncWindows, &v1alpha1.SyncWindow{
-			Applications: apps,
-			Schedule:     w.Schedule,
-			Duration:     w.Duration,
-			Kind:         w.Kind,
-			ManualSync:   true,
-		})
 	}
 
 	deployApp := &v1alpha1.Application{
@@ -300,8 +284,8 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 			Destination: applicationDestination,
 			SyncPolicy: &v1alpha1.SyncPolicy{
 				Automated: &v1alpha1.SyncPolicyAutomated{
-					Prune:    false,
-					SelfHeal: false,
+					Prune:    true,
+					SelfHeal: true,
 					// We always allow empty, because it makes it easier to delete apps/environments
 					AllowEmpty: true,
 				},

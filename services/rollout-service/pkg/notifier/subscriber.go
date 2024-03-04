@@ -20,16 +20,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/service"
 )
 
 var errChannelClosed error = fmt.Errorf("subscriber: channel closed")
-
-var backOffFactory func() backoff.BackOff = func() backoff.BackOff {
-	return backoff.NewExponentialBackOff()
-}
 
 func Subscribe(ctx context.Context, notifier Notifier, broadcast *service.Broadcast, health *setup.HealthReporter) error {
 	s := subscriber{notifier: notifier, notifyStatus: map[key]*notifyStatus{}}

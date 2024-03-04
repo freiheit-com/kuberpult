@@ -50,7 +50,7 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 	config, ok := form.Value["config"]
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Missing config in request body"))
+		w.Write([]byte("Missing config in request body")) //nolint:errcheck
 		return
 	}
 	err := json.Unmarshal([]byte(config[0]), &envConfig)
@@ -73,7 +73,7 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 		}
 	} else if s.AzureAuth {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Missing signature in request body"))
+		w.Write([]byte("Missing signature in request body")) //nolint:errcheck
 		return
 	}
 
