@@ -45,6 +45,8 @@ LINT:
         RUN echo "Formatting required for:\n$FILES_TO_FORMAT\nRun \"go fmt ./...\" to fix the errors" && exit 1
     END
 
+    RUN exhaustruct ./...
+
 DOCKER:
     FUNCTION
     ARG UID=1000

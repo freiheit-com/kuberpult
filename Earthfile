@@ -27,6 +27,13 @@ deps:
     ARG GO_CI_LINT_VERSION="v1.51.2"
     RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@$GO_CI_LINT_VERSION
 
+    RUN wget https://github.com/GaijinEntertainment/go-exhaustruct/archive/refs/tags/v3.2.0.tar.gz -O exhaustruct.tar.gz
+    RUN tar xzf exhaustruct.tar.gz
+    WORKDIR go-exhaustruct-3.2.0
+    RUN go build ./cmd/exhaustruct
+    RUN echo c1378c7cd853e989854022fdab1fe4f4a634c22a54f1f255f07cfff1e81b378a  exhaustruct | sha256sum -c
+    RUN mv exhaustruct /usr/local/bin/exhaustruct
+
     WORKDIR /kp
     COPY go.mod go.sum ./
     RUN go mod download
