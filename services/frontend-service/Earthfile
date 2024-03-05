@@ -4,7 +4,6 @@ IMPORT ../../infrastructure/earthly/go AS go-build
 LOCALLY
 ARG --global service=$(basename $PWD)
 ARG --global src_files=$(find pkg -type f ! -name "*_test.go")
-ARG --global UID=1000
 ARG --global cgo_enabled=0
 
 deps:
@@ -31,6 +30,7 @@ lint:
     
 docker:
     FROM alpine:3.18
+    ARG UID=1000
     ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
     ARG tag="local"
     COPY +deps-ui/build /build

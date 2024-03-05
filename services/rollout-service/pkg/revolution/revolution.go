@@ -43,7 +43,13 @@ type Config struct {
 
 func New(config Config) *Subscriber {
 	sub := &Subscriber{
-		group: errgroup.Group{},
+		token:  nil,
+		url:    "",
+		ready:  nil,
+		state:  nil,
+		maxAge: 0,
+		now:    nil,
+		group:  errgroup.Group{},
 	}
 	sub.group.SetLimit(config.Concurrency)
 	sub.url = config.URL
@@ -142,6 +148,7 @@ type kuberpultEvent struct {
 
 func (s *Subscriber) notify(ctx context.Context, ev *service.BroadcastEvent) func() error {
 	event := kuberpultEvent{
+		URL:         "",
 		Id:          uuidFor(ev.Application, ev.ArgocdVersion.SourceCommitId, ev.ArgocdVersion.DeployedAt.String()),
 		CommitHash:  ev.ArgocdVersion.SourceCommitId,
 		EventTime:   ev.ArgocdVersion.DeployedAt.Format(time.RFC3339),

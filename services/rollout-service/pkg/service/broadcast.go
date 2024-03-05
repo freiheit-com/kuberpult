@@ -100,6 +100,8 @@ type Broadcast struct {
 
 func New() *Broadcast {
 	return &Broadcast{
+		mx:       sync.Mutex{},
+		waiting:  nil,
 		state:    map[Key]*appState{},
 		listener: map[chan *BroadcastEvent]struct{}{},
 	}
@@ -114,6 +116,7 @@ func (b *Broadcast) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
 		Environment: ev.Environment,
 	}
 	if b.state[k] == nil {
+		//exhaustruct:ignore
 		b.state[k] = &appState{}
 	}
 	msg := b.state[k].applyArgoEvent(&ev)
@@ -142,6 +145,7 @@ func (b *Broadcast) ProcessKuberpultEvent(ctx context.Context, ev versions.Kuber
 		Environment: ev.Environment,
 	}
 	if b.state[k] == nil {
+		//exhaustruct:ignore
 		b.state[k] = &appState{}
 	}
 	msg := b.state[k].applyKuberpultEvent(&ev)
@@ -176,7 +180,10 @@ func (b *Broadcast) StreamStatus(req *api.StreamStatusRequest, svc api.RolloutSe
 	resp, ch, unsubscribe := b.Start()
 	defer unsubscribe()
 	for _, r := range resp {
-		svc.Send(streamStatus(r))
+		err := svc.Send(streamStatus(r))
+		if err != nil {
+			return err
+		}
 	}
 	for {
 		select {

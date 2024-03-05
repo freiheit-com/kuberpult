@@ -207,6 +207,14 @@ func (m *mockApplicationServiceClient) Create(ctx context.Context, req *applicat
 }
 
 func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T, expectedConsumed int) {
+	for _, app := range m.Apps {
+		if !app.App.Spec.SyncPolicy.Automated.SelfHeal {
+			t.Errorf("expected app %s to have selfHeal enabled", app.App.Name)
+		}
+		if !app.App.Spec.SyncPolicy.Automated.Prune {
+			t.Errorf("expected app %s to have prune enabled", app.App.Name)
+		}
+	}
 	if expectedConsumed != m.current && m.current < len(m.Steps) {
 		t.Errorf("expected to consume all %d replies, only consumed %d", len(m.Steps), m.current)
 	}

@@ -7,10 +7,10 @@ deps:
     ARG USERARCH
     IF [ "$USERARCH" = "arm64" ]
         FROM golang:1.21-bookworm
-        RUN apt update && apt install --auto-remove ca-certificates tzdata -y
+        RUN apt update && apt install --auto-remove ca-certificates tzdata libgit2-dev libsqlite3-dev -y
     ELSE
         FROM golang:1.21-alpine3.18
-        RUN apk add --no-cache ca-certificates tzdata bash
+        RUN apk add --no-cache ca-certificates tzdata bash libgit2-dev sqlite-dev alpine-sdk
     END
     
     COPY buf_sha256.txt .

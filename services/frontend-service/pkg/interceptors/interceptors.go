@@ -52,8 +52,9 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 	var u *auth.User = nil
 	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
 		u = &auth.User{
-			Email: claims["email"].(string),
-			Name:  claims["name"].(string),
+			DexAuthContext: nil,
+			Email:          claims["email"].(string),
+			Name:           claims["name"].(string),
 		}
 	}
 

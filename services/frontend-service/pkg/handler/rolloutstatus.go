@@ -114,7 +114,7 @@ func (s Server) handleEnvironmentGroupRolloutStatus(w http.ResponseWriter, req *
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write(jsonResponse)
+	w.Write(jsonResponse) //nolint:errcheck
 
 }
 

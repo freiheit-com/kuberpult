@@ -56,7 +56,7 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, tar
 
 		if len(signature) == 0 {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Missing signature in request body"))
+			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
 			return
 		}
 
@@ -75,8 +75,9 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, tar
 		&api.BatchRequest{Actions: []*api.BatchAction{
 			{Action: &api.BatchAction_ReleaseTrain{
 				ReleaseTrain: &api.ReleaseTrainRequest{
-					Target: target,
-					Team:   teamParam,
+					CommitHash: "",
+					Target:     target,
+					Team:       teamParam,
 				}}},
 		},
 		})
@@ -88,5 +89,5 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, tar
 	if err != nil {
 		return
 	}
-	w.Write(json)
+	w.Write(json) //nolint:errcheck
 }

@@ -51,6 +51,7 @@ type ArgoAppProcessor struct {
 
 func New(appClient application.ApplicationServiceClient, manageArgoApplicationEnabled bool, manageArgoApplicationFilter []string) ArgoAppProcessor {
 	return ArgoAppProcessor{
+		lastOverview:          nil,
 		ApplicationClient:     appClient,
 		ManageArgoAppsEnabled: manageArgoApplicationEnabled,
 		ManageArgoAppsFilter:  manageArgoApplicationFilter,
@@ -141,9 +142,12 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			upsert := false
 			validate := false
 			appCreateRequest := &application.ApplicationCreateRequest{
-				Application: appToCreate,
-				Upsert:      &upsert,
-				Validate:    &validate,
+				XXX_NoUnkeyedLiteral: struct{}{},
+				XXX_unrecognized:     nil,
+				XXX_sizecache:        0,
+				Application:          appToCreate,
+				Upsert:               &upsert,
+				Validate:             &validate,
 			}
 			_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
 			if err != nil {
@@ -156,9 +160,12 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			validate := false
 			appToUpdate := CreateArgoApplication(overview, app, k.Environment)
 			appUpdateRequest := &application.ApplicationUpdateRequest{
-				Validate:    ptr.Bool(validate),
-				Application: appToUpdate,
-				Project:     ptr.FromString(appToUpdate.Spec.Project),
+				XXX_NoUnkeyedLiteral: struct{}{},
+				XXX_unrecognized:     nil,
+				XXX_sizecache:        0,
+				Validate:             ptr.Bool(validate),
+				Application:          appToUpdate,
+				Project:              ptr.FromString(appToUpdate.Spec.Project),
 			}
 			_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
 			if err != nil {
@@ -170,6 +177,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 
 func (a *ArgoAppProcessor) ConsumeArgo(ctx context.Context, hlth *setup.HealthReporter) error {
 	return hlth.Retry(ctx, func() error {
+		//exhaustruct:ignore
 		watch, err := a.ApplicationClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
 			if status.Code(err) == codes.Canceled {
@@ -213,7 +221,14 @@ func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[strin
 
 	for i := range toDelete {
 		_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
-			Name: ptr.FromString(toDelete[i].Name),
+			Cascade:              nil,
+			PropagationPolicy:    nil,
+			AppNamespace:         nil,
+			Project:              nil,
+			XXX_NoUnkeyedLiteral: struct{}{},
+			XXX_unrecognized:     nil,
+			XXX_sizecache:        0,
+			Name:                 ptr.FromString(toDelete[i].Name),
 		})
 
 		if err != nil {
@@ -253,8 +268,6 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 		Server:    env.Config.Argocd.Destination.Server,
 	}
 
-	syncWindows := v1alpha1.SyncWindows{}
-
 	ignoreDifferences := make([]v1alpha1.ResourceIgnoreDifferences, len(env.Config.Argocd.IgnoreDifferences))
 	for index, value := range env.Config.Argocd.IgnoreDifferences {
 		difference := v1alpha1.ResourceIgnoreDifferences{
@@ -268,47 +281,41 @@ func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environme
 		}
 		ignoreDifferences[index] = difference
 	}
-
-	for _, w := range env.Config.Argocd.SyncWindows {
-		apps := []string{"*"}
-		if len(w.Applications) > 0 {
-			apps = w.Applications
-		}
-		syncWindows = append(syncWindows, &v1alpha1.SyncWindow{
-			Applications: apps,
-			Schedule:     w.Schedule,
-			Duration:     w.Duration,
-			Kind:         w.Kind,
-			ManualSync:   true,
-		})
+	//exhaustruct:ignore
+	ObjectMeta := metav1.ObjectMeta{
+		Name:        fmt.Sprintf("%s-%s", env.Name, app.Name),
+		Annotations: annotations,
+		Labels:      labels,
+		Finalizers:  calculateFinalizers(),
 	}
-
+	//exhaustruct:ignore
+	Source := &v1alpha1.ApplicationSource{
+		RepoURL:        overview.ManifestRepoUrl,
+		Path:           manifestPath,
+		TargetRevision: overview.Branch,
+	}
+	//exhaustruct:ignore
+	SyncPolicy := &v1alpha1.SyncPolicy{
+		Automated: &v1alpha1.SyncPolicyAutomated{
+			Prune:    true,
+			SelfHeal: true,
+			// We always allow empty, because it makes it easier to delete apps/environments
+			AllowEmpty: true,
+		},
+		SyncOptions: env.Config.Argocd.SyncOptions,
+	}
+	//exhaustruct:ignore
+	Spec := v1alpha1.ApplicationSpec{
+		Source:            Source,
+		SyncPolicy:        SyncPolicy,
+		Project:           env.Name,
+		Destination:       applicationDestination,
+		IgnoreDifferences: ignoreDifferences,
+	}
+	//exhaustruct:ignore
 	deployApp := &v1alpha1.Application{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        fmt.Sprintf("%s-%s", env.Name, app.Name),
-			Annotations: annotations,
-			Labels:      labels,
-			Finalizers:  calculateFinalizers(),
-		},
-		Spec: v1alpha1.ApplicationSpec{
-			Project: env.Name,
-			Source: &v1alpha1.ApplicationSource{
-				RepoURL:        overview.ManifestRepoUrl,
-				Path:           manifestPath,
-				TargetRevision: overview.Branch,
-			},
-			Destination: applicationDestination,
-			SyncPolicy: &v1alpha1.SyncPolicy{
-				Automated: &v1alpha1.SyncPolicyAutomated{
-					Prune:    false,
-					SelfHeal: false,
-					// We always allow empty, because it makes it easier to delete apps/environments
-					AllowEmpty: true,
-				},
-				SyncOptions: env.Config.Argocd.SyncOptions,
-			},
-			IgnoreDifferences: ignoreDifferences,
-		},
+		ObjectMeta: ObjectMeta,
+		Spec:       Spec,
 	}
 
 	return deployApp

@@ -76,7 +76,10 @@ func readPgpKeyRing() (openpgp.KeyRing, error) {
 }
 
 func RunServer() {
-	logger.Wrap(context.Background(), runServer)
+	err := logger.Wrap(context.Background(), runServer)
+	if err != nil {
+		fmt.Printf("error: %v %#v", err, err)
+	}
 }
 
 func runServer(ctx context.Context) error {
@@ -125,6 +128,7 @@ func runServer(ctx context.Context) error {
 			msg := "failed to read CA certificates"
 			return fmt.Errorf(msg)
 		}
+		//exhaustruct:ignore
 		cred = credentials.NewTLS(&tls.Config{
 			RootCAs: systemRoots,
 		})
@@ -156,8 +160,9 @@ func runServer(ctx context.Context) error {
 	}
 
 	var defaultUser = auth.User{
-		Email: c.GitAuthorEmail,
-		Name:  c.GitAuthorName,
+		DexAuthContext: nil,
+		Email:          c.GitAuthorEmail,
+		Name:           c.GitAuthorName,
 	}
 
 	if c.AzureEnableAuth {
@@ -357,6 +362,7 @@ func runServer(ctx context.Context) error {
 	corsHandler := &setup.CORSMiddleware{
 		PolicyFor: func(r *http.Request) *setup.CORSPolicy {
 			return &setup.CORSPolicy{
+				MaxAge:           0,
 				AllowMethods:     "POST",
 				AllowHeaders:     "content-type,x-grpc-web,authorization",
 				AllowOrigin:      c.AllowedOrigins,
@@ -367,9 +373,14 @@ func runServer(ctx context.Context) error {
 	}
 
 	setup.Run(ctx, setup.ServerConfig{
+		GRPC:       nil,
+		Background: nil,
+		Shutdown:   nil,
 		HTTP: []setup.HTTPConfig{
 			{
-				Port: "8081",
+				BasicAuth: nil,
+				Shutdown:  nil,
+				Port:      "8081",
 				Register: func(mux *http.ServeMux) {
 					mux.Handle("/", corsHandler)
 				},
@@ -412,7 +423,9 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.U
 
 	// get the authenticated email
 	u := &auth.User{
-		Email: payload.Claims["email"].(string),
+		Name:           "",
+		DexAuthContext: nil,
+		Email:          payload.Claims["email"].(string),
 	}
 	return u
 }
@@ -422,12 +435,12 @@ func getRequestAuthorFromAzure(ctx context.Context, r *http.Request) (*auth.User
 }
 
 func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logger.Wrap(r.Context(), func(ctx context.Context) error {
+	err := logger.Wrap(r.Context(), func(ctx context.Context) error {
 		span, ctx := tracer.StartSpanFromContext(ctx, "ServeHTTP")
 		defer span.Finish()
 		var user *auth.User = nil
-		var err error = nil
-		var source = ""
+		var err error
+		var source string
 		if c.AzureEnableAuth {
 			user, err = getRequestAuthorFromAzure(ctx, r)
 			if err != nil {
@@ -451,6 +464,9 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
 		return nil
 	})
+	if err != nil {
+		fmt.Printf("error: %v %#v", err, err)
+	}
 }
 
 // GrpcProxy passes through gRPC messages to another server.

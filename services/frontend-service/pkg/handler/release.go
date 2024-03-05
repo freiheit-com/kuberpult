@@ -72,8 +72,8 @@ func writeReleaseResponse(w http.ResponseWriter, r *http.Request, jsonBlob []byt
 		return
 	}
 	w.WriteHeader(status)
-	w.Write(jsonBlob)
-	w.Write([]byte("\n"))
+	w.Write(jsonBlob)     //nolint:errcheck
+	w.Write([]byte("\n")) //nolint:errcheck
 }
 
 func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail string) {
@@ -84,7 +84,16 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	tf := api.CreateReleaseRequest{
-		Manifests: map[string]string{},
+		Environment:    "",
+		Application:    "",
+		Team:           "",
+		Version:        0,
+		SourceCommitId: "",
+		SourceAuthor:   "",
+		SourceMessage:  "",
+		SourceRepoUrl:  "",
+		DisplayVersion: "",
+		Manifests:      map[string]string{},
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -155,7 +164,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 				}
 				if !validSignature {
 					w.WriteHeader(400)
-					fmt.Fprintf(w, fmt.Sprintf("signature not found for %s", environmentName))
+					fmt.Fprintf(w, "signature not found for %s", environmentName)
 					return
 				}
 
@@ -210,7 +219,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	if displayVersion, ok := form.Value["display_version"]; ok {
 		if len(displayVersion) != 1 {
 			w.WriteHeader(400)
-			fmt.Fprintf(w, fmt.Sprintf("Invalid number of display versions provided: %d, ", len(displayVersion)))
+			fmt.Fprintf(w, "Invalid number of display versions provided: %d, ", len(displayVersion))
 		}
 		if len(displayVersion[0]) > 15 {
 			w.WriteHeader(400)
@@ -286,7 +295,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		{
 			msg := "unknown response type in /release"
 			jsonBlob, err := json.Marshal(releaseResponse)
-			jsonBlobRequest, _ := json.Marshal(tf)
+			jsonBlobRequest, _ := json.Marshal(&tf)
 			logger.FromContext(ctx).Error(fmt.Sprintf("%s: %s, %s", msg, jsonBlob, err))
 			writeReleaseResponse(w, r, []byte(fmt.Sprintf("%s: request: %s, response: %s", msg, jsonBlobRequest, jsonBlob)), err, http.StatusInternalServerError)
 		}

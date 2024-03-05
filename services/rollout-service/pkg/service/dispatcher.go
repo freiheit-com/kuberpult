@@ -18,20 +18,16 @@ package service
 
 import (
 	"context"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"sync"
 	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 )
-
-type unresolvedArgoEvent struct {
-	Key
-	event *v1alpha1.ApplicationWatchEvent
-}
 
 type knownRevision struct {
 	revision string
@@ -55,6 +51,7 @@ func NewDispatcher(sink ArgoEventProcessor, vc versions.VersionClient) *Dispatch
 	bo.MaxElapsedTime = 0
 	bo.MaxInterval = 5 * time.Minute
 	rs := &Dispatcher{
+		mx:            sync.Mutex{},
 		sink:          sink,
 		versionClient: vc,
 		known:         map[Key]*knownRevision{},
