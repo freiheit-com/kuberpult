@@ -76,6 +76,7 @@ const (
 // NewDexAppClient a Dex Client.
 func NewDexAppClient(clientID, clientSecret, baseURL string, scopes []string) (*DexAppClient, error) {
 	a := DexAppClient{
+		Client:       nil,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Scopes:       scopes,
@@ -83,9 +84,11 @@ func NewDexAppClient(clientID, clientSecret, baseURL string, scopes []string) (*
 		RedirectURI:  baseURL + callbackPATH,
 		IssuerURL:    baseURL + issuerPATH,
 	}
+	//exhaustruct:ignore
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 	}
+	//exhaustruct:ignore
 	a.Client = &http.Client{
 		Transport: transport,
 	}
@@ -222,6 +225,7 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 	// Stores the oauth token into the cookie.
 	if idTokenRAW != "" {
 		expiration := time.Now().Add(time.Duration(expirationDays) * 24 * time.Hour)
+		//exhaustruct:ignore
 		cookie := http.Cookie{
 			Name:    dexOAUTHTokenName,
 			Value:   idTokenRAW,
@@ -240,6 +244,7 @@ func ValidateOIDCToken(ctx context.Context, issuerURL, rawToken string, allowedA
 	}
 
 	// Token must be verified against an allowed audience.
+	//exhaustruct:ignore
 	config := oidc.Config{ClientID: allowedAudience}
 	verifier := p.Verifier(&config)
 	idToken, err := verifier.Verify(ctx, rawToken)
