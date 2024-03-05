@@ -23,7 +23,6 @@ import (
 	"testing"
 )
 
-
 // The appSuffix is a unique string consisting of only characters that are valid app names.
 // This is used to make tests repeatable.
 var appSuffix string

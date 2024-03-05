@@ -98,7 +98,10 @@ func RenderV1Alpha1(gitUrl string, gitBranch string, config config.EnvironmentCo
 	project := v1alpha1.AppProject{
 		TypeMeta: v1alpha1.AppProjectTypeMeta,
 		ObjectMeta: v1alpha1.ObjectMeta{
-			Name: env,
+			Annotations: nil,
+			Labels:      nil,
+			Finalizers:  nil,
+			Name:        env,
 		},
 		Spec: v1alpha1.AppProjectSpec{
 			Description:              env,

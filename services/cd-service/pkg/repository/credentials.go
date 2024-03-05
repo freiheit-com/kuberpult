@@ -43,7 +43,10 @@ func base64encode(c []byte) string {
 }
 
 func (c *Credentials) load() (*credentialsStore, error) {
-	store := &credentialsStore{}
+	store := &credentialsStore{
+		sshPrivateKey: "",
+		sshPublicKey:  "",
+	}
 	if c.SshKey != "" {
 		pkey, err := os.Open(c.SshKey)
 		if err != nil {
