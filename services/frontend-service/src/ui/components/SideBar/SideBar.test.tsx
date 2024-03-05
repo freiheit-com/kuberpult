@@ -577,6 +577,27 @@ describe('Action details', () => {
                 application: 'foo',
             },
         },
+        {
+            name: 'test releaseTrain action',
+            action: {
+                action: {
+                    $case: 'releaseTrain',
+                    releaseTrain: {
+                        target: 'dev',
+                        team: '',
+                        commitHash: '',
+                    },
+                },
+            },
+            expectedDetails: {
+                type: ActionTypes.ReleaseTrain,
+                name: 'Release Train',
+                dialogTitle: 'Are you sure you want to run a Release Train',
+                summary: 'Run release train to environment dev',
+                tooltip: '',
+                environment: 'dev',
+            },
+        },
     ];
 
     describe.each(data)('Test getActionDetails function', (testcase) => {

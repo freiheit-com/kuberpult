@@ -22,8 +22,10 @@ type TestDataSelection = {
     input: EnvSelectionDialogProps;
     expectedNumItems: number;
     clickOnButton: string;
+    secondClick: string;
     expectedNumSelectedAfterClick: number;
     expectedNumDeselectedAfterClick: number;
+    expectedNumSelectedAfterSecondClick: number;
 };
 
 const mySubmitSpy = jest.fn();
@@ -45,6 +47,8 @@ const dataSelection: TestDataSelection[] = [
         clickOnButton: 'dev',
         expectedNumSelectedAfterClick: 1,
         expectedNumDeselectedAfterClick: 1,
+        secondClick: 'staging',
+        expectedNumSelectedAfterSecondClick: 2,
     },
     {
         name: 'renders 3 item list',
@@ -59,6 +63,40 @@ const dataSelection: TestDataSelection[] = [
         clickOnButton: 'staging',
         expectedNumSelectedAfterClick: 1,
         expectedNumDeselectedAfterClick: 2,
+        secondClick: 'prod',
+        expectedNumSelectedAfterSecondClick: 2,
+    },
+    {
+        name: 'only one item allowed for release trains',
+        input: {
+            environments: ['dev', 'staging', 'prod'],
+            open: true,
+            onSubmit: mySubmitSpy,
+            onCancel: myCancelSpy,
+            envSelectionDialog: false,
+        },
+        expectedNumItems: 3,
+        clickOnButton: 'staging',
+        expectedNumSelectedAfterClick: 1,
+        expectedNumDeselectedAfterClick: 2,
+        secondClick: 'prod',
+        expectedNumSelectedAfterSecondClick: 1,
+    },
+    {
+        name: 'renders empty item list',
+        input: {
+            environments: [],
+            open: true,
+            onSubmit: mySubmitSpy,
+            onCancel: myCancelSpy,
+            envSelectionDialog: true,
+        },
+        expectedNumItems: 0,
+        clickOnButton: '',
+        expectedNumSelectedAfterClick: 0,
+        expectedNumDeselectedAfterClick: 0,
+        secondClick: '',
+        expectedNumSelectedAfterSecondClick: 0,
     },
 ];
 
@@ -124,7 +162,7 @@ const dataCallbacks: TestDataCallbacks[] = [
         },
         clickThis: confirmButtonSelector,
         expectedCancelCallCount: 0,
-        expectedSubmitCallCount: 1,
+        expectedSubmitCallCount: 0,
     },
 ];
 
@@ -144,15 +182,30 @@ describe('EnvSelectionDialog', () => {
             expect(document.querySelectorAll('.envs-dropdown-select .test-button-checkbox').length).toEqual(
                 testcase.expectedNumItems
             );
-            const result = documentQuerySelectorSafe('.id-' + testcase.clickOnButton);
-            act(() => {
-                result.click();
-            });
+            if (testcase.clickOnButton !== '') {
+                const result = documentQuerySelectorSafe('.id-' + testcase.clickOnButton);
+                act(() => {
+                    result.click();
+                });
+            } else {
+                expect(document.querySelector('.env-selection-dialog')?.textContent).toContain(
+                    'There are no environments'
+                );
+            }
             expect(document.querySelectorAll('.test-button-checkbox.enabled').length).toEqual(
                 testcase.expectedNumSelectedAfterClick
             );
             expect(document.querySelectorAll('.test-button-checkbox.disabled').length).toEqual(
                 testcase.expectedNumDeselectedAfterClick
+            );
+            if (testcase.secondClick !== '') {
+                const result = documentQuerySelectorSafe('.id-' + testcase.secondClick);
+                act(() => {
+                    result.click();
+                });
+            }
+            expect(document.querySelectorAll('.test-button-checkbox.enabled').length).toEqual(
+                testcase.expectedNumSelectedAfterSecondClick
             );
         });
     });
