@@ -1,0 +1,36 @@
+name: "Setup earthly runner"
+description: "Set up mTLS for connection to the remote buildkit"
+author: "ahmed-nour-fdc"
+inputs:
+  remote_buildkit_host:
+    description: "Earthly remote buildkit host"
+    required: true
+  tlsca:
+    description: "Certificate for the certificate authority"
+    required: true
+  tlscert:
+    description: "TLS Certificate"
+    required: true
+  tlskey:
+    description: "TLS key"
+    required: true
+  tls_enabled:
+    description: "Enable TLS"
+    required: false
+    default: "true"
+runs:
+  using: "composite"
+  steps:
+    - shell: sh
+      run: |
+        mkdir -p ~/certs
+        chmod 700 ~/certs
+        echo "${{ inputs.tlsca }}" > ~/certs/CACert.pem
+        echo "${{ inputs.tlscert }}" > ~/certs/TLSCert.pem
+        echo "${{ inputs.tlskey }}" > ~/certs/TLSKey.pem
+
+        earthly config global.tlsca $HOME/certs/CACert.pem
+        earthly config global.tlscert $HOME/certs/TLSCert.pem
+        earthly config global.tlskey $HOME/certs/TLSKey.pem
+        earthly config global.tls_enabled ${{ inputs.tls_enabled }}
+        earthly config global.buildkit_host ${{ inputs.remote_buildkit_host }}

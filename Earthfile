@@ -92,6 +92,7 @@ integration-test-deps:
 
 integration-test:
     FROM docker:24.0.7-dind-alpine3.18
+    RUN apk add --no-cache curl gpg gpg-agent gettext bash git go
 
     ARG --required kuberpult_version
 
@@ -113,8 +114,6 @@ integration-test:
     ENV GIT_COMMITTER_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com'
     WORKDIR /kp
 
-    RUN apk add --no-cache curl gpg gpg-agent gettext bash git go
-
     COPY +integration-test-deps/* /usr/bin/
     COPY tests/integration-tests/cluster-setup/docker-compose-k3s.yml .
     COPY charts/kuberpult .
@@ -126,7 +125,7 @@ integration-test:
     
     RUN envsubst < Chart.yaml.tpl > Chart.yaml
 
-    RUN gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
+    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
     RUN gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
     WITH DOCKER --compose docker-compose-k3s.yml
         RUN --no-cache \

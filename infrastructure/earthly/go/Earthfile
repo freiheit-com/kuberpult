@@ -45,7 +45,7 @@ LINT:
     IF [ ! -z "$FILES_TO_FORMAT" ]
         RUN echo "Formatting required for:\n$FILES_TO_FORMAT\nRun \"go fmt ./...\" to fix the errors" && exit 1
     END
-    RUN golangci-lint run --timeout=5m -j4 --tests=false --skip-files=".*\.pb\.go$" ./... || $skip_lint_errors
+    RUN golangci-lint run --timeout=15m -j4 --tests=false --skip-files=".*\.pb\.go$" ./... || $skip_lint_errors
 
     RUN exhaustruct -test=false $(go list ./... | grep -v "github.com/freiheit-com/kuberpult/pkg/api")
 
