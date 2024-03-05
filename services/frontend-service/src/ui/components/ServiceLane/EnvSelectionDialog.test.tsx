@@ -162,7 +162,7 @@ const dataCallbacks: TestDataCallbacks[] = [
         },
         clickThis: confirmButtonSelector,
         expectedCancelCallCount: 0,
-        expectedSubmitCallCount: 1,
+        expectedSubmitCallCount: 0,
     },
 ];
 

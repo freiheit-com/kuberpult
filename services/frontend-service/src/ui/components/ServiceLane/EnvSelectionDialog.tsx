@@ -17,6 +17,7 @@ import * as React from 'react';
 import { useState } from 'react';
 import { Checkbox } from '../dropdown/checkbox';
 import { ConfirmationDialog } from '../dialog/ConfirmationDialog';
+import { showSnackbarError } from '../../utils/store';
 
 export type EnvSelectionDialogProps = {
     environments: string[];
@@ -30,6 +31,10 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
     const [selectedEnvs, setSelectedEnvs] = useState<string[]>([]);
 
     const onConfirm = React.useCallback(() => {
+        if (selectedEnvs.length < 1) {
+            showSnackbarError('There needs to be at least one environment selected to perform this action');
+            return;
+        }
         props.onSubmit(selectedEnvs);
         setSelectedEnvs([]);
     }, [props, selectedEnvs]);
@@ -41,16 +46,16 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
 
     const addTeam = React.useCallback(
         (env: string) => {
-            const newTeam = env;
-            const indexOf = selectedEnvs.indexOf(newTeam);
+            const newEnv = env;
+            const indexOf = selectedEnvs.indexOf(newEnv);
             if (indexOf >= 0) {
                 const copy = selectedEnvs.concat();
                 copy.splice(indexOf, 1);
                 setSelectedEnvs(copy);
             } else if (!props.envSelectionDialog) {
-                setSelectedEnvs([newTeam]);
+                setSelectedEnvs([newEnv]);
             } else {
-                setSelectedEnvs(selectedEnvs.concat(newTeam));
+                setSelectedEnvs(selectedEnvs.concat(newEnv));
             }
         },
         [props.envSelectionDialog, selectedEnvs]
@@ -91,8 +96,8 @@ export const EnvSelectionDialog: React.FC<EnvSelectionDialogProps> = (props) => 
                         <div id="missing_envs">There are no environments to list</div>
                     ) : (
                         <div id="missing_envs">
-                            There are no environments that have the selected environment as the upstream target or you
-                            are attempting with an environment group
+                            There are no available environments to run a release train to based on the current
+                            environment/environmentGroup
                         </div>
                     )}
                 </div>

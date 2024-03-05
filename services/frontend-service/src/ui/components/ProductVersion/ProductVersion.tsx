@@ -158,21 +158,21 @@ export const ProductVersion: React.FC = () => {
                             releaseTrain: { target: env, commitHash: selectedTag, team: '' },
                         },
                     });
-                });
-            } else {
-                if (teams.length > 1) {
-                    showSnackbarError('Can only run one release train action at a time, should only select one team');
                     return;
-                }
-                selectedEnvs.forEach((env) => {
-                    addAction({
-                        action: {
-                            $case: 'releaseTrain',
-                            releaseTrain: { target: env, commitHash: selectedTag, team: teams[0] },
-                        },
-                    });
                 });
             }
+            if (teams.length > 1) {
+                showSnackbarError('Can only run one release train action at a time, should only select one team');
+                return;
+            }
+            selectedEnvs.forEach((env) => {
+                addAction({
+                    action: {
+                        $case: 'releaseTrain',
+                        releaseTrain: { target: env, commitHash: selectedTag, team: teams[0] },
+                    },
+                });
+            });
             return;
         },
         [selectedTag, teams]

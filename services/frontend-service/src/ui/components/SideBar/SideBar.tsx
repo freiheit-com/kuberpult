@@ -194,7 +194,7 @@ export const getActionDetails = (
                 name: 'Release Train',
                 dialogTitle: 'Are you sure you want to run a Release Train',
                 tooltip: '',
-                summary: 'Run release train for environment ' + action.releaseTrain.target,
+                summary: 'Run release train to environment ' + action.releaseTrain.target,
                 environment: action.releaseTrain.target,
             };
         default:

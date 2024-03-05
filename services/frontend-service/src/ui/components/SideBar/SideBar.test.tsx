@@ -593,7 +593,7 @@ describe('Action details', () => {
                 type: ActionTypes.ReleaseTrain,
                 name: 'Release Train',
                 dialogTitle: 'Are you sure you want to run a Release Train',
-                summary: 'Run release train for environment dev',
+                summary: 'Run release train to environment dev',
                 tooltip: '',
                 environment: 'dev',
             },
