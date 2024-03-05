@@ -118,13 +118,18 @@ type WebhookResolver interface {
 type DefaultWebhookResolver struct{}
 
 func (r DefaultWebhookResolver) Resolve(insecure bool, req *http.Request) (*http.Response, error) {
-	tr := &http.Transport{
-		// we reach argo from within the cluster, so there's no ssl:
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: insecure,
-		},
+	//exhaustruct:ignore
+	TLSClientConfig := &tls.Config{
+		InsecureSkipVerify: insecure,
 	}
-	client := &http.Client{Transport: tr}
+	//exhaustruct:ignore
+	tr := &http.Transport{
+		TLSClientConfig: TLSClientConfig,
+	}
+	//exhaustruct:ignore
+	client := &http.Client{
+		Transport: tr,
+	}
 	return client.Do(req)
 }
 
@@ -218,12 +223,21 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	}
 
 	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	//exhaustruct:ignore
+	RemoteCallbacks := git.RemoteCallbacks{
+		CredentialsCallback:      credentials.CredentialsCallback(ctx),
+		CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+	}
 	fetchOptions := git.FetchOptions{
-		RemoteCallbacks: git.RemoteCallbacks{
-			CredentialsCallback:      credentials.CredentialsCallback(ctx),
-			CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+		Prune:           git.FetchPruneUnspecified,
+		UpdateFetchhead: false,
+		Headers:         nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
 		},
-		DownloadTags: git.DownloadTagsAll,
+		RemoteCallbacks: RemoteCallbacks,
+		DownloadTags:    git.DownloadTagsAll,
 	}
 	remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
 	if err != nil {
@@ -323,6 +337,10 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			return nil, nil, err
 		} else {
 			result := &repository{
+				writesDone:      0,
+				headLock:        sync.Mutex{},
+				notify:          notify.Notify{},
+				writeLock:       sync.Mutex{},
 				config:          &cfg,
 				credentials:     credentials,
 				certificates:    certificates,
@@ -334,18 +352,28 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 			defer result.headLock.Unlock()
 			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
-			fetchOptions := git.FetchOptions{
-				RemoteCallbacks: git.RemoteCallbacks{
-					UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-						logger.Debug("git.fetched",
-							zap.String("refname", refname),
-							zap.String("revision.new", b.String()),
-						)
-						return nil
-					},
-					CredentialsCallback:      credentials.CredentialsCallback(ctx),
-					CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+			//exhaustruct:ignore
+			RemoteCallbacks := git.RemoteCallbacks{
+				UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
+					logger.Debug("git.fetched",
+						zap.String("refname", refname),
+						zap.String("revision.new", b.String()),
+					)
+					return nil
 				},
+				CredentialsCallback:      credentials.CredentialsCallback(ctx),
+				CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+			}
+			fetchOptions := git.FetchOptions{
+				Prune:           git.FetchPruneUnspecified,
+				UpdateFetchhead: false,
+				DownloadTags:    git.DownloadTagsUnspecified,
+				Headers:         nil,
+				ProxyOptions: git.ProxyOptions{
+					Type: git.ProxyTypeNone,
+					Url:  "",
+				},
+				RemoteCallbacks: RemoteCallbacks,
 			}
 			err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 			if err != nil {
@@ -418,6 +446,7 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 }
 
 func (r *repository) applyElements(elements []element, allowFetchAndReset bool) ([]element, error, *TransformerResult) {
+	//exhaustruct:ignore
 	var changes = &TransformerResult{}
 	for i := 0; i < len(elements); {
 		e := elements[i]
@@ -533,12 +562,21 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	elements = append(elements, r.drainQueue()...)
 
 	var pushSuccess = true
+
+	//exhaustruct:ignore
+	RemoteCallbacks := git.RemoteCallbacks{
+		CredentialsCallback:         r.credentials.CredentialsCallback(e.ctx),
+		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(e.ctx),
+		PushUpdateReferenceCallback: callback(r.config.Branch, &pushSuccess),
+	}
 	pushOptions := git.PushOptions{
-		RemoteCallbacks: git.RemoteCallbacks{
-			CredentialsCallback:         r.credentials.CredentialsCallback(e.ctx),
-			CertificateCheckCallback:    r.certificates.CertificateCheckCallback(e.ctx),
-			PushUpdateReferenceCallback: callback(r.config.Branch, &pushSuccess),
+		PbParallelism: 0,
+		Headers:       nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
 		},
+		RemoteCallbacks: RemoteCallbacks,
 	}
 
 	// Apply the items
@@ -621,7 +659,8 @@ func (r *repository) sendWebhookToArgoCd(ctx context.Context, logger *zap.Logger
 		htmlUrl:  r.config.WebURL, // if this does not match, argo will completely ignore the request and return 200
 		revision: "refs/heads/" + r.config.Branch,
 		change: changeInfo{
-			payloadAfter: changes.Commits.Current.String(),
+			payloadBefore: "",
+			payloadAfter:  changes.Commits.Current.String(),
 		},
 		defaultBranch: r.config.Branch, // this is questionable, because we don't actually know the default branch, but it seems to work fine in practice
 		Commits: []commit{
@@ -681,15 +720,18 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	l := logger.FromContext(ctx)
 	l.Info(fmt.Sprintf("doWebhookPostRequest: URL: %s", url))
 
+	//exhaustruct:ignore
+	Repository := v1alpha1.Repository{
+		HTMLURL:       data.htmlUrl,
+		DefaultBranch: data.defaultBranch,
+	}
+	//exhaustruct:ignore
 	var argoFormat = v1alpha1.PushPayload{
-		Ref:    data.revision,
-		Before: data.change.payloadBefore,
-		After:  data.change.payloadAfter,
-		Repository: v1alpha1.Repository{
-			HTMLURL:       data.htmlUrl,
-			DefaultBranch: data.defaultBranch,
-		},
-		Commits: toArgoCommits(data.Commits),
+		Ref:        data.revision,
+		Before:     data.change.payloadBefore,
+		After:      data.change.payloadAfter,
+		Repository: Repository,
+		Commits:    toArgoCommits(data.Commits),
 	}
 
 	jsonBytes, err := json.MarshalIndent(argoFormat, " ", " ")
@@ -753,12 +795,20 @@ func toArgoCommits(commits []commit) []v1alpha1.Commit {
 				Name     string `json:"name"`
 				Email    string `json:"email"`
 				Username string `json:"username"`
-			}{},
+			}{
+				Name:     "",
+				Email:    "",
+				Username: "",
+			},
 			Committer: struct {
 				Name     string `json:"name"`
 				Email    string `json:"email"`
 				Username string `json:"username"`
-			}{},
+			}{
+				Name:     "",
+				Email:    "",
+				Username: "",
+			},
 			Added:    c.Added,
 			Removed:  c.Removed,
 			Modified: c.Modified,
@@ -858,6 +908,7 @@ func (r *TransformerResult) Combine(other *TransformerResult) {
 }
 
 func CombineArray(others []*TransformerResult) *TransformerResult {
+	//exhaustruct:ignore
 	var r *TransformerResult = &TransformerResult{}
 	for i := range others {
 		r.Combine(others[i])
@@ -928,18 +979,28 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 func (r *repository) FetchAndReset(ctx context.Context) error {
 	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", r.config.Branch, r.config.Branch)
 	logger := logger.FromContext(ctx)
-	fetchOptions := git.FetchOptions{
-		RemoteCallbacks: git.RemoteCallbacks{
-			UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-				logger.Debug("git.fetched",
-					zap.String("refname", refname),
-					zap.String("revision.new", b.String()),
-				)
-				return nil
-			},
-			CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
-			CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
+	//exhaustruct:ignore
+	RemoteCallbacks := git.RemoteCallbacks{
+		UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
+			logger.Debug("git.fetched",
+				zap.String("refname", refname),
+				zap.String("revision.new", b.String()),
+			)
+			return nil
 		},
+		CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
+		CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
+	}
+	fetchOptions := git.FetchOptions{
+		Prune:           git.FetchPruneUnspecified,
+		UpdateFetchhead: false,
+		DownloadTags:    git.DownloadTagsUnspecified,
+		Headers:         nil,
+		ProxyOptions: git.ProxyOptions{
+			Type: git.ProxyTypeNone,
+			Url:  "",
+		},
+		RemoteCallbacks: RemoteCallbacks,
 	}
 	err := r.useRemote(ctx, func(remote *git.Remote) error {
 		return remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
@@ -971,6 +1032,7 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	//exhaustruct:ignore
 	err = r.repository.ResetToCommit(commit, git.ResetSoft, &git.CheckoutOptions{Strategy: git.CheckoutForce})
 	if err != nil {
 		return err
@@ -1105,6 +1167,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 			if errors.As(err, &gerr) {
 				if gerr.Code == git.ErrNotFound {
 					return &State{
+						Commit:                 nil,
 						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
 						BootstrapMode:          r.config.BootstrapMode,
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
@@ -1266,7 +1329,14 @@ type Lock struct {
 }
 
 func readLock(fs billy.Filesystem, lockDir string) (*Lock, error) {
-	lock := &Lock{}
+	lock := &Lock{
+		Message: "",
+		CreatedBy: Actor{
+			Name:  "",
+			Email: "",
+		},
+		CreatedAt: time.Time{},
+	}
 
 	if cnt, err := readFile(fs, fs.Join(lockDir, "message")); err != nil {
 		if !os.IsNotExist(err) {
@@ -1640,7 +1710,15 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 	if err != nil {
 		return nil, wrapFileError(err, base, "could not call stat")
 	}
-	release := Release{Version: version}
+	release := Release{
+		Version:         version,
+		UndeployVersion: false,
+		SourceAuthor:    "",
+		SourceCommitId:  "",
+		SourceMessage:   "",
+		CreatedAt:       time.Time{},
+		DisplayVersion:  "",
+	}
 	if cnt, err := readFile(s.Filesystem, s.Filesystem.Join(base, "source_commit_id")); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err

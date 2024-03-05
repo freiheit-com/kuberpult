@@ -206,9 +206,14 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, changes *Transforme
 				return ""
 			}()
 			evt := statsd.Event{
-				Title:     "Kuberpult app deployed",
-				Text:      fmt.Sprintf("Kuberpult has deployed %s to %s%s", oneChange.App, oneChange.Env, teamMessage),
-				Timestamp: now,
+				Hostname:       "",
+				AggregationKey: "",
+				Priority:       "",
+				SourceTypeName: "",
+				AlertType:      "",
+				Title:          "Kuberpult app deployed",
+				Text:           fmt.Sprintf("Kuberpult has deployed %s to %s%s", oneChange.App, oneChange.Env, teamMessage),
+				Timestamp:      now,
 				Tags: []string{
 					"kuberpult.application:" + oneChange.App,
 					"kuberpult.environment:" + oneChange.Env,
@@ -254,9 +259,12 @@ type TransformerContext interface {
 
 func RunTransformer(ctx context.Context, t Transformer, s *State) (string, *TransformerResult, error) {
 	runner := transformerRunner{
-		Context: ctx,
-		State:   s,
-		Stack:   [][]string{nil},
+		ChangedApps:     nil,
+		DeletedRootApps: nil,
+		Commits:         nil,
+		Context:         ctx,
+		State:           s,
+		Stack:           [][]string{nil},
 	}
 	if err := runner.Execute(t); err != nil {
 		return "", nil, err
@@ -316,8 +324,9 @@ func (r *transformerRunner) AddAppEnv(app string, env string, team string) {
 
 func (r *transformerRunner) DeleteEnvFromApp(app string, env string) {
 	r.ChangedApps = append(r.ChangedApps, AppEnv{
-		App: app,
-		Env: env,
+		Team: "",
+		App:  app,
+		Env:  env,
 	})
 	r.DeletedRootApps = append(r.DeletedRootApps, RootApp{
 		Env: env,
@@ -490,6 +499,7 @@ func (c *CreateApplicationVersion) Transform(
 		t.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest && isLatest {
 			d := &DeployApplicationVersion{
+				SourceTrain:     nil,
 				Environment:     env,
 				Application:     c.Application,
 				Version:         version, // the train should queue deployments, instead of giving up:
@@ -779,6 +789,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		t.AddAppEnv(c.Application, env, teamOwner)
 		if hasUpstream && config.Upstream.Latest {
 			d := &DeployApplicationVersion{
+				SourceTrain: nil,
 				Environment: env,
 				Application: c.Application,
 				Version:     lastRelease + 1,
@@ -1251,7 +1262,10 @@ func (c *DeleteEnvironmentLock) Transform(
 	}
 	fs := state.Filesystem
 	s := State{
-		Filesystem: fs,
+		Commit:                 nil,
+		BootstrapMode:          false,
+		EnvironmentConfigsPath: "",
+		Filesystem:             fs,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
 	_, err = fs.Stat(lockDir)
@@ -1425,7 +1439,10 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	}
 	s := State{
-		Filesystem: fs,
+		Commit:                 nil,
+		BootstrapMode:          false,
+		EnvironmentConfigsPath: "",
+		Filesystem:             fs,
 	}
 	if err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
 		return "", err
@@ -1457,7 +1474,9 @@ func (c *CreateEnvironment) Transform(
 	envDir := fs.Join("environments", c.Environment)
 	// Creation of environment is possible, but configuring it is not if running in bootstrap mode.
 	// Configuration needs to be done by modifying config map in source repo
-	if state.BootstrapMode && c.Config != (config.EnvironmentConfig{}) {
+	//exhaustruct:ignore
+	defaultConfig := config.EnvironmentConfig{}
+	if state.BootstrapMode && c.Config != defaultConfig {
 		return "", fmt.Errorf("Cannot create or update configuration in bootstrap mode. Please update configuration in config map instead.")
 	}
 	if err := fs.MkdirAll(envDir, 0777); err != nil {
@@ -1653,7 +1672,10 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	s := State{
-		Filesystem: fs,
+		Commit:                 nil,
+		BootstrapMode:          false,
+		EnvironmentConfigsPath: "",
+		Filesystem:             fs,
 	}
 	err = s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
 	if err != nil {
@@ -1706,8 +1728,10 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 
 func createDeploymentEvent(application, environment string, sourceTrain *DeployApplicationVersionSource) *event.Deployment {
 	ev := event.Deployment{
-		Application: application,
-		Environment: environment,
+		SourceTrainEnvironmentGroup: nil,
+		SourceTrainUpstream:         nil,
+		Application:                 application,
+		Environment:                 environment,
 	}
 	if sourceTrain != nil {
 		if sourceTrain.TargetGroup != nil {
@@ -1776,7 +1800,13 @@ func getOverrideVersions(commitHash, upstreamEnvName string, repo Repository) (r
 		}
 		for _, appName := range apps {
 			app := api.Environment_Application{
-				Name: appName,
+				Version:            0,
+				Locks:              nil,
+				QueuedVersion:      0,
+				UndeployVersion:    false,
+				ArgoCd:             nil,
+				DeploymentMetaData: nil,
+				Name:               appName,
 			}
 			version, err := s.GetEnvironmentApplicationVersion(envName, appName)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {

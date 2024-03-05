@@ -178,6 +178,7 @@ func (d *BatchServer) processAction(
 			b = api.LockBehavior_IGNORE
 		}
 		return &repository.DeployApplicationVersion{
+			SourceTrain:     nil,
 			Environment:     act.Environment,
 			Application:     act.Application,
 			Version:         act.Version,
@@ -201,6 +202,7 @@ func (d *BatchServer) processAction(
 			return nil, nil, status.Error(codes.InvalidArgument, "invalid Team name")
 		}
 		return &repository.ReleaseTrain{
+				Repo:            d.Repository,
 				Target:          in.Target,
 				Team:            in.Team,
 				CommitHash:      in.CommitHash,
@@ -239,6 +241,7 @@ func (d *BatchServer) processAction(
 		in := action.CreateEnvironment
 		conf := in.Config
 		if conf == nil {
+			//exhaustruct:ignore
 			conf = &api.EnvironmentConfig{}
 		}
 		var argocd *config.EnvironmentConfigArgoCd

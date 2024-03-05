@@ -74,13 +74,22 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 			for _, env := range group.Environments {
 				if env.Name == *in.Environment {
 					for _, app := range env.Applications {
-						summaryFromEnv = append(summaryFromEnv, api.ProductSummary{App: app.Name, Version: strconv.FormatUint(app.Version, 10), Environment: *in.Environment})
+						summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
+							CommitId:       "",
+							DisplayVersion: "",
+							Team:           "",
+							App:            app.Name,
+							Version:        strconv.FormatUint(app.Version, 10),
+							Environment:    *in.Environment,
+						})
 					}
 				}
 			}
 		}
 		if len(summaryFromEnv) == 0 {
-			return &api.GetProductSummaryResponse{}, nil
+			return &api.GetProductSummaryResponse{
+				ProductSummary: nil,
+			}, nil
 		}
 		sort.Slice(summaryFromEnv, func(i, j int) bool {
 			a := summaryFromEnv[i].App
@@ -93,7 +102,14 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 				for _, env := range group.Environments {
 					var singleEnvSummary []api.ProductSummary
 					for _, app := range env.Applications {
-						singleEnvSummary = append(singleEnvSummary, api.ProductSummary{App: app.Name, Version: strconv.FormatUint(app.Version, 10), Environment: env.Name})
+						singleEnvSummary = append(singleEnvSummary, api.ProductSummary{
+							CommitId:       "",
+							DisplayVersion: "",
+							Team:           "",
+							App:            app.Name,
+							Version:        strconv.FormatUint(app.Version, 10),
+							Environment:    env.Name,
+						})
 					}
 					sort.Slice(singleEnvSummary, func(i, j int) bool {
 						a := singleEnvSummary[i].App

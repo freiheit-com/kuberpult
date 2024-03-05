@@ -32,8 +32,9 @@ import (
 
 func MakeTestContext() context.Context {
 	u := auth.User{
-		Email: "testmail@example.com",
-		Name:  "test tester",
+		DexAuthContext: nil,
+		Email:          "testmail@example.com",
+		Name:           "test tester",
 	}
 	ctx := auth.WriteUserToContext(context.Background(), u)
 
@@ -73,7 +74,8 @@ func MakeEnvConfigLatest(argoCd *config.EnvironmentConfigArgoCd) config.Environm
 func MakeEnvConfigLatestWithGroup(argoCd *config.EnvironmentConfigArgoCd, envGroup *string) config.EnvironmentConfig {
 	return config.EnvironmentConfig{
 		Upstream: &config.EnvironmentConfigUpstream{
-			Latest: true,
+			Environment: "",
+			Latest:      true,
 		},
 		ArgoCd:           argoCd,
 		EnvironmentGroup: envGroup,
@@ -118,7 +120,9 @@ func (gen IncrementalUUID) Generate() string {
 }
 
 func NewIncrementalUUIDGenerator() uuid.GenerateUUIDs {
-	fakeGenBase := IncrementalUUIDBase{}
+	fakeGenBase := IncrementalUUIDBase{
+		count: 0,
+	}
 	fakeGen := IncrementalUUID{
 		gen: &fakeGenBase,
 	}
