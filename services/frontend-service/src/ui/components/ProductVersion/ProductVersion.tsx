@@ -158,8 +158,8 @@ export const ProductVersion: React.FC = () => {
                             releaseTrain: { target: env, commitHash: selectedTag, team: '' },
                         },
                     });
-                    return;
                 });
+                return;
             }
             if (teams.length > 1) {
                 showSnackbarError('Can only run one release train action at a time, should only select one team');
