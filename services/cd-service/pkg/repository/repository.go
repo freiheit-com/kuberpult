@@ -795,12 +795,20 @@ func toArgoCommits(commits []commit) []v1alpha1.Commit {
 				Name     string `json:"name"`
 				Email    string `json:"email"`
 				Username string `json:"username"`
-			}{Name: "", Email: "", Username: ""},
+			}{
+				Name: "",
+				Email: "",
+				Username: "",
+			},
 			Committer: struct {
 				Name     string `json:"name"`
 				Email    string `json:"email"`
 				Username string `json:"username"`
-			}{Name: "", Email: "", Username: ""},
+			}{
+				Name: "",
+				Email: "",
+				Username: "",
+			},
 			Added:    c.Added,
 			Removed:  c.Removed,
 			Modified: c.Modified,
