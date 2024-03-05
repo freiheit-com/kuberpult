@@ -24,6 +24,7 @@ export CGO_ENABLED=1
 IMAGE_REGISTRY?=ghcr.io/freiheit-com/kuberpult
 IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-cd-service:$(VERSION)
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:${VERSION}
+COVERAGE_THRESHOLD=75.0
 
 export KUBERPULT_DEX_MOCK=false
 export KUBERPULT_DEX_ENABLED=false

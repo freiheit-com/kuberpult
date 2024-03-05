@@ -31,6 +31,8 @@ IMAGENAME?=$(IMAGE_REGISTRY)/kuberpult-rollout-service:${VERSION}
 ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-rollout-service:${VERSION}
 EARTHLY := earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-$(SERVICE_NAME):cache
 GARBAGE := *.sentinel
+COVERAGE_THRESHOLD=70.0
+
 proto:
 	$(MAKE) -C../../pkg/api all
 
@@ -68,7 +70,7 @@ clean:
 	git clean -Xfd
 
 test:
-	$(EARTHLY) +unit-test
+	$(EARTHLY) +unit-test --coverage_threshold=$(COVERAGE_THRESHOLD)
 
 test-go: $(GO_FILES) proto
 	$(GO) test ./...

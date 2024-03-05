@@ -35,6 +35,8 @@ GARBAGE := *.sentinel
 
 SERVICE_NAME := $(shell basename $$PWD)
 EARTHLY := earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-$(SERVICE_NAME):cache
+COVERAGE_THRESHOLD=39.0
+
 image-name:
 	@echo "$(IMAGENAME)"
 
@@ -88,7 +90,7 @@ test-dependencies:
 	make -C ../../pkg/api test
 
 test:
-	$(EARTHLY) +unit-test
+	$(EARTHLY) +unit-test --coverage_threshold=$(COVERAGE_THRESHOLD)
 	$(EARTHLY) +unit-test-ui
 
 test-go: $(ALL_GO_FILES) | proto
