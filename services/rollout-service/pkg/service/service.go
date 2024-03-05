@@ -48,6 +48,7 @@ type ArgoEventProcessor interface {
 
 func ConsumeEvents(ctx context.Context, appClient SimplifiedApplicationServiceClient, dispatcher *Dispatcher, hlth *setup.HealthReporter) error {
 	return hlth.Retry(ctx, func() error {
+		//exhaustruct:ignore
 		watch, err := appClient.Watch(ctx, &application.ApplicationQuery{})
 		if err != nil {
 			if status.Code(err) == codes.Canceled {
