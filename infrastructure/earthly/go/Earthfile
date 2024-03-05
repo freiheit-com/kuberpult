@@ -36,8 +36,6 @@ COMPILE:
 UNIT_TEST:
     FUNCTION
     ARG coverage_threshold=75.0
-    RUN echo $coverage_threshold
-    RUN exit 1
     COPY pkg pkg
 
     RUN go test ./... -coverprofile=coverage-profile.out
