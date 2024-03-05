@@ -44,6 +44,7 @@ func (s Server) handleCreateEnvironment(w http.ResponseWriter, req *http.Request
 	}
 
 	form := req.MultipartForm
+	//exhaustruct:ignore
 	envConfig := api.EnvironmentConfig{}
 
 	config, ok := form.Value["config"]

@@ -75,8 +75,9 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, tar
 		&api.BatchRequest{Actions: []*api.BatchAction{
 			{Action: &api.BatchAction_ReleaseTrain{
 				ReleaseTrain: &api.ReleaseTrainRequest{
-					Target: target,
-					Team:   teamParam,
+					CommitHash: "",
+					Target:     target,
+					Team:       teamParam,
 				}}},
 		},
 		})
