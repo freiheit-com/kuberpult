@@ -35,8 +35,25 @@ COMPILE:
 
 UNIT_TEST:
     FUNCTION
+    ARG coverage_threshold=75.0
+    RUN echo $coverage_threshold
+    RUN exit 1
     COPY pkg pkg
-    RUN go test ./...
+
+    RUN go test ./... -coverprofile=coverage-profile.out
+    RUN grep -v -i -E 'main.go|pb.go' "coverage-profile.out" > coverage-profile-filtered.out
+
+    LET DISCREPANCY=5.0
+    LET LINE_COV=$(go tool cover "-func=coverage-profile.out" | grep total | sed 's/[^0-9\.]*//g' | tr -d '\n')
+
+    IF [ $(echo "$LINE_COV < $coverage_threshold" | bc -l) = 1 ]
+        RUN echo "Coverage too low, coverage is $LINE_COV, should be at least $coverage_threshold"
+        RUN exit 1
+    END
+    IF [ $(echo "$LINE_COV > $coverage_threshold + $DISCREPANCY" | bc -l) = 1 ]
+        RUN echo "The current coverage $LINE_COV is more than $DISCREPANCY percent greater than the threshold $coverage_threshold. Please adjust the threshold of the service accordingly."
+        RUN exit 1
+    END
 
 LINT:
     FUNCTION

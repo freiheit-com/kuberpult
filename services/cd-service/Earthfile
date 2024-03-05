@@ -1,4 +1,4 @@
-VERSION --use-function-keyword 0.7
+VERSION --use-function-keyword --arg-scope-and-set 0.7
 IMPORT ../../infrastructure/earthly/go AS go-build
 
 LOCALLY
@@ -25,7 +25,12 @@ compile:
 
 unit-test:
     FROM +compile
-    DO go-build+UNIT_TEST
+    ARG coverage_threshold
+    IF [ -z "$coverage_threshold" ]
+        DO go-build+UNIT_TEST
+    ELSE
+        DO go-build+UNIT_TEST --coverage_threshold=$coverage_threshold
+    END
 
 lint:
     FROM +deps

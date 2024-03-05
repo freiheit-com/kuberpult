@@ -93,7 +93,7 @@ test-dependancies:
 	make -C ../../pkg/api test
 
 test:
-	$(EARTHLY) +unit-test
+	$(EARTHLY) +unit-test --coverage_threshold=$(COVERAGE_THRESHOLD)
 
 docker:
 	$(EARTHLY) +docker --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)
