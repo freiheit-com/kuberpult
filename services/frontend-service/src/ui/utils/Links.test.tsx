@@ -304,11 +304,6 @@ describe('DisplayCommitHistoryLink', () => {
             expectedLink: '/ui/commits/123',
         },
         {
-            name: 'Test without displayString',
-            commitId: '123',
-            expectedLink: '/ui/commits/123',
-        },
-        {
             name: 'Test Without commit should render nothing',
             commitId: '',
             expectedLink: undefined,
