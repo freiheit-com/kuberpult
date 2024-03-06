@@ -47,6 +47,8 @@ LINT:
     END
     RUN golangci-lint run --timeout=5m -j4 ./... || $skip_lint_errors
 
+    RUN exhaustruct ./...
+
 DOCKER:
     FUNCTION
     ARG UID=1000
