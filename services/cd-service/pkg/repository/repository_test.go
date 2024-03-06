@@ -1728,7 +1728,7 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 func TestProcessQueueOnce(t *testing.T) {
 	tcs := []struct {
 		Name           string
-		Element        element
+		Element        transformerBatch
 		PushUpdateFunc PushUpdateFunc
 		PushActionFunc PushActionCallbackFunc
 		ExpectedError  error
@@ -1737,7 +1737,7 @@ func TestProcessQueueOnce(t *testing.T) {
 			Name:           "success",
 			PushUpdateFunc: defaultPushUpdate,
 			PushActionFunc: DefaultPushActionCallback,
-			Element: element{
+			Element: transformerBatch{
 				ctx: testutil.MakeTestContext(),
 				transformers: []Transformer{
 					&EmptyTransformer{},
@@ -1753,7 +1753,7 @@ func TestProcessQueueOnce(t *testing.T) {
 				return nil
 			},
 			PushActionFunc: DefaultPushActionCallback,
-			Element: element{
+			Element: transformerBatch{
 				ctx: testutil.MakeTestContext(),
 				transformers: []Transformer{
 					&EmptyTransformer{},
@@ -1772,7 +1772,7 @@ func TestProcessQueueOnce(t *testing.T) {
 					return git.MakeGitError(1)
 				}
 			},
-			Element: element{
+			Element: transformerBatch{
 				ctx: testutil.MakeTestContext(),
 				transformers: []Transformer{
 					&EmptyTransformer{},

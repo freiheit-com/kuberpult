@@ -783,7 +783,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 					WriteCommitData: true,
 				},
 			},
-			expectedErrorMsg: `error at index 2 of transformer batch: already_exists_different:{first_differing_field:MANIFESTS diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
+			expectedErrorMsg: `error at index 2 of transformer batch: already_exists_different:{first_differing_field:MANIFESTS  diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
 		},
 		{
 			Name: "recreate same version with idempotence, but different formatting of yaml",

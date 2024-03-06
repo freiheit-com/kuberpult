@@ -430,8 +430,8 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthReporter) error {
 	defer func() {
-		close(r.queue.elements)
-		for e := range r.queue.elements {
+		close(r.queue.transformerBatches)
+		for e := range r.queue.transformerBatches {
 			e.result <- ctx.Err()
 			close(e.result)
 		}
@@ -455,17 +455,17 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 			// this triggers a for loop every `NetworkTimeout` to refresh the readiness
 		case <-ctx.Done():
 			return nil
-		case e := <-r.queue.elements:
+		case e := <-r.queue.transformerBatches:
 			r.ProcessQueueOnce(ctx, e, defaultPushUpdate, DefaultPushActionCallback)
 		}
 	}
 }
 
-func (r *repository) applyElements(elements []element, allowFetchAndReset bool) ([]element, error, *TransformerResult) {
+func (r *repository) applyTransformerBatches(transformerBatches []transformerBatch, allowFetchAndReset bool) ([]transformerBatch, error, *TransformerResult) {
 	//exhaustruct:ignore
 	var changes = &TransformerResult{}
-	for i := 0; i < len(elements); {
-		e := elements[i]
+	for i := 0; i < len(transformerBatches); {
+		e := transformerBatches[i]
 		subChanges, applyErr := r.ApplyTransformers(e.ctx, e.transformers...)
 		changes.Combine(subChanges)
 		if applyErr != nil {
@@ -473,21 +473,21 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 				// Invalid state. fetch and reset and redo
 				err := r.FetchAndReset(e.ctx)
 				if err != nil {
-					return elements, err, nil
+					return transformerBatches, err, nil
 				}
-				return r.applyElements(elements, false)
+				return r.applyTransformerBatches(transformerBatches, false)
 			} else {
 				e.result <- applyErr
 				close(e.result)
-				// here, we keep all elements "behind i".
-				// these are the elements that have not been applied yet
-				elements = append(elements[:i], elements[i+1:]...)
+				// here, we keep all transformerBatches "behind i".
+				// these are the transformerBatches that have not been applied yet
+				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
 			}
 		} else {
 			i++
 		}
 	}
-	return elements, nil, changes
+	return transformerBatches, nil, changes
 }
 
 var panicError = errors.New("Panic")
@@ -515,21 +515,21 @@ func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) e
 	}
 }
 
-func (r *repository) drainQueue() []element {
-	elements := []element{}
+func (r *repository) drainQueue() []transformerBatch {
+	transformerBatches := []transformerBatch{}
 	for {
 		select {
-		case f := <-r.queue.elements:
+		case f := <-r.queue.transformerBatches:
 			// Check that the item is not already cancelled
 			select {
 			case <-f.ctx.Done():
 				f.result <- f.ctx.Err()
 				close(f.result)
 			default:
-				elements = append(elements, f)
+				transformerBatches = append(transformerBatches, f)
 			}
 		default:
-			return elements
+			return transformerBatches
 		}
 	}
 }
@@ -559,11 +559,11 @@ func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushA
 
 type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 
-func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
+func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
 	logger := logger.FromContext(ctx)
 	var err error = panicError
-	elements := []element{e}
-	// Check that the first element is not already canceled
+	transformerBatches := []transformerBatch{e}
+	// Check that the first transformerBatch is not already canceled
 	select {
 	case <-e.ctx.Done():
 		e.result <- e.ctx.Err()
@@ -572,14 +572,14 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	default:
 	}
 	defer func() {
-		for _, el := range elements {
+		for _, el := range transformerBatches {
 			el.result <- err
 			close(el.result)
 		}
 	}()
 
 	// Try to fetch more items from the queue in order to push more things together
-	elements = append(elements, r.drainQueue()...)
+	transformerBatches = append(transformerBatches, r.drainQueue()...)
 
 	var pushSuccess = true
 
@@ -600,12 +600,12 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	}
 
 	// Apply the items
-	elements, err, changes := r.applyElements(elements, true)
+	transformerBatches, err, changes := r.applyTransformerBatches(transformerBatches, true)
 	if err != nil {
 		return
 	}
 
-	if len(elements) == 0 {
+	if len(transformerBatches) == 0 {
 		return
 	}
 
@@ -620,8 +620,8 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 				return
 			}
 			// Apply the items
-			elements, err, changes = r.applyElements(elements, false)
-			if err != nil || len(elements) == 0 {
+			transformerBatches, err, changes = r.applyTransformerBatches(transformerBatches, false)
+			if err != nil || len(transformerBatches) == 0 {
 				return
 			}
 			if pushErr := r.Push(e.ctx, pushAction(pushOptions, r)); pushErr != nil {
