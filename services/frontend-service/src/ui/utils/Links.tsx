@@ -67,6 +67,13 @@ export const deriveReleaseDirLink = (
     return undefined;
 };
 
+export const getCommitHistoryLink = (commitId: string | undefined): string | undefined => {
+    if (commitId) {
+        return '/ui/commits/' + commitId;
+    }
+    return undefined;
+};
+
 export const ArgoTeamLink: React.FC<{ team: string | undefined }> = (props): JSX.Element | null => {
     const { team } = props;
     const argoBaseUrl = useArgoCdBaseUrl();
@@ -144,6 +151,22 @@ export const DisplayManifestLink: React.FC<{ displayString: string; app: string;
             </a>
         );
     }
+    return null;
+};
+
+export const DisplayCommitHistoryLink: React.FC<{ displayString: string; commitId: string }> = (
+    props
+): JSX.Element | null => {
+    const { displayString, commitId } = props;
+    if (commitId) {
+        const listLink = getCommitHistoryLink(commitId);
+        return (
+            <a title={'Opens the commit history'} href={listLink}>
+                {displayString}
+            </a>
+        );
+    }
+
     return null;
 };
 

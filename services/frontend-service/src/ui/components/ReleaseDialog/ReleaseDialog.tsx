@@ -29,7 +29,13 @@ import { Button } from '../button';
 import { Close, Locks } from '../../../images';
 import { EnvironmentChip } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
-import { ArgoAppLink, ArgoTeamLink, DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
+import {
+    ArgoAppLink,
+    ArgoTeamLink,
+    DisplayManifestLink,
+    DisplaySourceLink,
+    DisplayCommitHistoryLink,
+} from '../../utils/Links';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { PlainDialog } from '../dialog/ConfirmationDialog';
 import { ExpandButton } from '../button/ExpandButton';
@@ -307,6 +313,11 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                                 <DisplaySourceLink commitId={release.sourceCommitId} displayString={'Source'} />
                                 &nbsp;
                                 <DisplayManifestLink app={app} version={release.version} displayString="Manifest" />
+                                &nbsp;
+                                <DisplayCommitHistoryLink
+                                    commitId={release.sourceCommitId}
+                                    displayString={'Commit History'}
+                                />
                             </span>
                         </div>
                         <div className={classNames('release-dialog-app', className)}>
