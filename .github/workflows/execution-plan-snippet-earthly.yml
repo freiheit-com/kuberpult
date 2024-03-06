@@ -75,6 +75,10 @@ jobs:
         uses: earthly/actions-setup@v1
         with:
             version: v0.8.4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+            fetch-depth: 0
       - name: Setup remote runner
         uses: ./.github/actions/setup-earthly-runner
         with:
@@ -83,10 +87,6 @@ jobs:
             tlscert: ${{ secrets.EARTHLY_CLIENT_CERT }}
             tlskey: ${{ secrets.EARTHLY_CLIENT_KEY }}
             tls_enabled: "true"
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-            fetch-depth: 0
       - name: Set version pr/main
         if: inputs.trigger == 'pull-request' || inputs.trigger == 'main'
         run: |
