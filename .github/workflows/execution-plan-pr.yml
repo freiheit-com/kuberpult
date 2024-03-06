@@ -5,7 +5,7 @@ name: "Execution Plan on Pull Request"
       - main
 jobs:
   execution-plan:
-    uses: ./.github/workflows/execution-plan-snippet.yml
+    uses: ./.github/workflows/execution-plan-snippet-earthly.yml
     with:
       trigger: pull-request
     secrets: inherit
@@ -15,3 +15,4 @@ jobs:
     uses: ./.github/workflows/integration-tests.yml
     with:
       trigger: pull-request
+    secrets: inherit

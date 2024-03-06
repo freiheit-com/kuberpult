@@ -34,7 +34,7 @@ ARTIFACT_REGISTRY_IMAGE_NAME=europe-west3-docker.pkg.dev/fdc-public-docker-regis
 GARBAGE := *.sentinel
 
 SERVICE_NAME := $(shell basename $$PWD)
-EARTHLY := earthly --remote-cache=ghcr.io/freiheit-com/kuberpult/kuberpult-$(SERVICE_NAME):cache
+EARTHLY := earthly
 image-name:
 	@echo "$(IMAGENAME)"
 
@@ -63,7 +63,7 @@ build-pr:
 
 build-main:
 	echo "build on main"
-	$(EARTHLY) --push --max-remote-cache +build-main --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) --push +build-main --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 .PHONY: cleanup-pr
 cleanup-pr:
