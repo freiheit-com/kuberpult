@@ -433,6 +433,7 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 		close(r.queue.elements)
 		for e := range r.queue.elements {
 			e.result <- ctx.Err()
+			close(e.result)
 		}
 	}()
 	tick := time.Tick(r.config.NetworkTimeout)
@@ -477,6 +478,7 @@ func (r *repository) applyElements(elements []element, allowFetchAndReset bool) 
 				return r.applyElements(elements, false)
 			} else {
 				e.result <- applyErr
+				close(e.result)
 				// here, we keep all elements "behind i".
 				// these are the elements that have not been applied yet
 				elements = append(elements[:i], elements[i+1:]...)
@@ -522,6 +524,7 @@ func (r *repository) drainQueue() []element {
 			select {
 			case <-f.ctx.Done():
 				f.result <- f.ctx.Err()
+				close(f.result)
 			default:
 				elements = append(elements, f)
 			}
@@ -560,18 +563,20 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e element, callback P
 	logger := logger.FromContext(ctx)
 	var err error = panicError
 	elements := []element{e}
-	defer func() {
-		for _, el := range elements {
-			el.result <- err
-		}
-	}()
 	// Check that the first element is not already canceled
 	select {
 	case <-e.ctx.Done():
 		e.result <- e.ctx.Err()
+		close(e.result)
 		return
 	default:
 	}
+	defer func() {
+		for _, el := range elements {
+			el.result <- err
+			close(el.result)
+		}
+	}()
 
 	// Try to fetch more items from the queue in order to push more things together
 	elements = append(elements, r.drainQueue()...)
