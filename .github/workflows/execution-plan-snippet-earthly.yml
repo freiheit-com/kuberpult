@@ -1,3 +1,4 @@
+# This workflow was created to test the performance of earthly with a remote buildkit. Cleaning up duplicate workflows will be handled in SRX-0ZZ92S
 name: "Execution Plan"
 on:
   workflow_call:
