@@ -89,6 +89,19 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
             </option>
           </select>
         </div>
+        <button
+          aria-label="Run Release Train"
+          class="mdc-button release_train_button"
+        >
+          <div
+            class="mdc-button__ripple"
+          />
+          <span
+            class="mdc-button__label"
+          >
+            Run Release Train
+          </span>
+        </button>
       </div>
       <div>
         <div
@@ -164,121 +177,6 @@ exports[`Product Version Data Displays Product Version Page table to be displaye
 `;
 
 exports[`Product Version Data Displays Product Version Page tags to Display with summary 1`] = `
-<body>
-  <div>
-    <div
-      class="product_version"
-    >
-      <h1
-        class="environment_name"
-      >
-        Product Version Page
-      </h1>
-      <div
-        class=""
-      />
-      <div
-        class="space_apart_row"
-      >
-        <div
-          class="dropdown_div"
-        >
-          <select
-            class="drop_down"
-            data-testid="drop_down"
-          >
-            <option
-              disabled=""
-              value="default"
-            >
-              Select a Tag
-            </option>
-            <option
-              value="123"
-            >
-              dummyTag
-            </option>
-          </select>
-          <select
-            class="env_drop_down"
-          >
-            <option
-              disabled=""
-              value="default"
-            >
-              Select an Environment or Environment Group
-            </option>
-            <option
-              value="g1"
-            >
-              g1
-            </option>
-            <option
-              value="g1/tester"
-            >
-              g1/tester
-            </option>
-          </select>
-        </div>
-      </div>
-      <div>
-        <div
-          class="table_padding"
-        >
-          <table
-            class="table"
-          >
-            <tbody>
-              <tr
-                class="table_title"
-              >
-                <th>
-                  App Name
-                </th>
-                <th>
-                  Version
-                </th>
-                <th>
-                  Environment
-                </th>
-                <th>
-                  Team
-                </th>
-                <th>
-                  ManifestRepoLink
-                </th>
-                <th>
-                  SourceRepoLink
-                </th>
-              </tr>
-              <tr
-                class="table_data"
-              >
-                <td>
-                  testing-app
-                </td>
-                <td>
-                  v1.2.3
-                </td>
-                <td>
-                  dev
-                </td>
-                <td>
-                  sre-team
-                </td>
-                <td />
-                <td />
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</body>
-`;
-
-exports[`Product Version Data Displays Product Version Page test the release train button shown 1`] = `
 <body>
   <div>
     <div

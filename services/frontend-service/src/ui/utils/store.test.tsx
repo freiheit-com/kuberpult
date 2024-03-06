@@ -853,3 +853,136 @@ describe('Test useLocksConflictingWithActions', () => {
         });
     });
 });
+
+describe('Test addAction blocking release train additions', () => {
+    type TestDataStore = {
+        name: string;
+        firstAction: BatchAction;
+        differentAction: BatchAction;
+        expectedActions: number;
+    };
+
+    const testdata: TestDataStore[] = [
+        {
+            name: 'deploy 2 in a row',
+            expectedActions: 2,
+            firstAction: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'dev',
+                        application: 'app1',
+                        version: 1,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'dev',
+                        application: 'app2',
+                        version: 1,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+        },
+        {
+            name: 'can not add release train after deploy action',
+            expectedActions: 1,
+            firstAction: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'dev',
+                        application: 'app1',
+                        version: 1,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'releaseTrain',
+                    releaseTrain: {
+                        target: 'dev',
+                        team: '',
+                        commitHash: '',
+                    },
+                },
+            },
+        },
+        {
+            name: 'can not add release train after release train',
+            expectedActions: 1,
+            firstAction: {
+                action: {
+                    $case: 'releaseTrain',
+                    releaseTrain: {
+                        target: 'dev',
+                        team: '',
+                        commitHash: '',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'releaseTrain',
+                    releaseTrain: {
+                        target: 'stagin',
+                        team: '',
+                        commitHash: '',
+                    },
+                },
+            },
+        },
+        {
+            name: 'can not add deploy action after release train',
+            expectedActions: 1,
+            firstAction: {
+                action: {
+                    $case: 'releaseTrain',
+                    releaseTrain: {
+                        target: 'dev',
+                        team: '',
+                        commitHash: '',
+                    },
+                },
+            },
+            differentAction: {
+                action: {
+                    $case: 'deploy',
+                    deploy: {
+                        environment: 'dev',
+                        application: 'app1',
+                        version: 1,
+                        ignoreAllLocks: false,
+                        lockBehavior: LockBehavior.IGNORE,
+                    },
+                },
+            },
+        },
+    ];
+
+    describe.each(testdata)('with', (testcase) => {
+        it(testcase.name, () => {
+            // given
+            updateActions([]);
+
+            // when
+            addAction(testcase.firstAction);
+            // then
+            expect(UpdateAction.get().actions.length).toStrictEqual(1);
+
+            // when
+            addAction(testcase.differentAction);
+            // then
+            expect(UpdateAction.get().actions.length).toStrictEqual(testcase.expectedActions);
+        });
+    });
+});
