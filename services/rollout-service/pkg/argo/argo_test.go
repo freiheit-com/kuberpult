@@ -212,7 +212,6 @@ func (m *mockApplicationServiceClient) Create(ctx context.Context, req *applicat
 }
 
 func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T, expectedConsumed int) {
-	fmt.Println(m.Apps)
 	for _, app := range m.Apps {
 		if !app.App.Spec.SyncPolicy.Automated.SelfHeal {
 			t.Errorf("expected app %s to have selfHeal enabled", app.App.Name)
@@ -638,7 +637,6 @@ func TestArgoConsume(t *testing.T) {
 				trigger:           make(chan *api.GetOverviewResponse, 10),
 				argoApps:          make(chan *v1alpha1.ApplicationWatchEvent, 10),
 			}
-			fmt.Println(argoProcessor.argoApps)
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			errCh := make(chan error)
 			go func() {
