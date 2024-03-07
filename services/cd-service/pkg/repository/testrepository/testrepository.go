@@ -42,8 +42,8 @@ func (fr *failingRepository) Push(ctx context.Context, pushAction func() error) 
 	return fr.err
 }
 
-func (fr *failingRepository) ApplyTransformersInternal(ctx context.Context, transformers ...repository.Transformer) ([]string, *repository.State, []*repository.TransformerResult, error) {
-	return nil, nil, nil, fr.err
+func (fr *failingRepository) ApplyTransformersInternal(ctx context.Context, transformers ...repository.Transformer) ([]string, *repository.State, []*repository.TransformerResult, *repository.TransformerBatchApplyError) {
+	return nil, nil, nil, &repository.TransformerBatchApplyError{TransformerError: fr.err, Index: 0}
 }
 
 func (fr *failingRepository) State() *repository.State {
