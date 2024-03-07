@@ -130,7 +130,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 
 		appExists := false
 		for _, argoApp := range appsKnownToArgo {
-			if argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
+			if argoApp.Name == app.Name && argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
 				appExists = true
 				break
 			}

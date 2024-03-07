@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"k8s.io/apimachinery/pkg/watch"
 	"testing"
 	"time"
 
@@ -42,11 +43,6 @@ type step struct {
 	WatchErr      error
 	RecvErr       error
 	CancelContext bool
-}
-
-type mockApplicationRequest struct {
-	Type string
-	Name string
 }
 
 func (m *mockApplicationServiceClient) Recv() (*v1alpha1.ApplicationWatchEvent, error) {
@@ -101,7 +97,7 @@ func (a *mockArgoProcessor) checkEvent(ev *v1alpha1.ApplicationWatchEvent) bool 
 	return false
 }
 
-func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context, triggerError bool) error {
+func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context, expectedTypes []string, triggerError bool) error {
 	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{}
 	for {
 		select {
@@ -123,6 +119,12 @@ func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context, triggerEr
 		case ev := <-a.argoApps:
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
+				if ev.Type != watch.EventType(expectedTypes[0]) {
+					t.Fatalf("expected type to be %s, but got %s", expectedTypes[0], ev.Type)
+				}
+				if len(expectedTypes) > 1 {
+					expectedTypes = expectedTypes[1:]
+				}
 			}
 
 		case <-ctx.Done():
@@ -197,11 +199,16 @@ func (m *mockApplicationServiceClient) Create(ctx context.Context, req *applicat
 		App:       req.Application,
 		LastEvent: "ADDED",
 	}
-	m.Apps = append(m.Apps, newApp)
-
-	if triggerError {
-		return status.Error(codes.InvalidArgument, "application already exists")
+	for _, existingArgoApp := range m.Apps {
+		if existingArgoApp.App.Name == req.Application.Name {
+			if !triggerError {
+				return status.Error(codes.InvalidArgument, "application already exists")
+			} else {
+				return nil
+			}
+		}
 	}
+	m.Apps = append(m.Apps, newApp)
 
 	return nil
 }
@@ -220,20 +227,16 @@ func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T, expectedCon
 	}
 }
 
-// Process implements service.EventProcessor
-func (m *mockApplicationServiceClient) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
-	m.lastEvent <- &ev
-}
-
 func TestArgoConsume(t *testing.T) {
 	tcs := []struct {
-		Name             string
-		Steps            []step
-		Overview         *api.GetOverviewResponse
-		ExpectedError    string
-		ExpectedReady    bool
-		ExpectedConsumed int
-		TriggerError     bool
+		Name                  string
+		Steps                 []step
+		Overview              *api.GetOverviewResponse
+		ExpectedError         string
+		ExpectedReady         bool
+		ExpectedConsumed      int
+		ExpectedConsumedTypes []string
+		TriggerError          bool
 	}{
 		{
 			Name: "when ctx in cancelled no app is processed",
@@ -433,9 +436,10 @@ func TestArgoConsume(t *testing.T) {
 				},
 				GitRevision: "1234",
 			},
-			ExpectedReady:    true,
-			TriggerError:     false,
-			ExpectedConsumed: 2,
+			ExpectedReady:         true,
+			ExpectedConsumedTypes: []string{"ADDED", "MODIFIED"},
+			TriggerError:          false,
+			ExpectedConsumed:      2,
 		},
 		{
 			Name: "create an app and try to create it again",
@@ -524,9 +528,10 @@ func TestArgoConsume(t *testing.T) {
 				},
 				GitRevision: "1234",
 			},
-			ExpectedReady:    true,
-			ExpectedConsumed: 2,
-			TriggerError:     true,
+			ExpectedReady:         true,
+			ExpectedConsumed:      1,
+			ExpectedConsumedTypes: []string{"ADDED"},
+			TriggerError:          true,
 		},
 	}
 	for _, tc := range tcs {
@@ -549,7 +554,7 @@ func TestArgoConsume(t *testing.T) {
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			errCh := make(chan error)
 			go func() {
-				errCh <- argoProcessor.Consume(t, ctx, tc.TriggerError)
+				errCh <- argoProcessor.Consume(t, ctx, tc.ExpectedConsumedTypes, tc.TriggerError)
 			}()
 
 			go func() {
@@ -598,7 +603,7 @@ func (a mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 	appExists := false
 
 	for _, argoApp := range appsKnownToArgo {
-		if argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
+		if argoApp.Name == env.Name && argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
 			appExists = true
 			break
 		}
