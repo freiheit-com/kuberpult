@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"k8s.io/apimachinery/pkg/watch"
 	"testing"
 	"time"
 
@@ -42,11 +43,6 @@ type step struct {
 	WatchErr      error
 	RecvErr       error
 	CancelContext bool
-}
-
-type mockApplicationRequest struct {
-	Type string
-	Name string
 }
 
 func (m *mockApplicationServiceClient) Recv() (*v1alpha1.ApplicationWatchEvent, error) {
@@ -101,7 +97,7 @@ func (a *mockArgoProcessor) checkEvent(ev *v1alpha1.ApplicationWatchEvent) bool 
 	return false
 }
 
-func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context, triggerError bool) error {
+func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context, expectedTypes []string) error {
 	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{}
 	for {
 		select {
@@ -116,13 +112,19 @@ func (a *mockArgoProcessor) Consume(t *testing.T, ctx context.Context, triggerEr
 					}
 
 					for _, app := range env.Applications {
-						a.CreateOrUpdateApp(ctx, overview, app, env, envAppsKnownToArgo, triggerError)
+						a.CreateOrUpdateApp(ctx, overview, app, env, envAppsKnownToArgo)
 					}
 				}
 			}
 		case ev := <-a.argoApps:
 			switch ev.Type {
 			case "ADDED", "MODIFIED", "DELETED":
+				if ev.Type != watch.EventType(expectedTypes[0]) {
+					t.Fatalf("expected type to be %s, but got %s", expectedTypes[0], ev.Type)
+				}
+				if len(expectedTypes) > 1 {
+					expectedTypes = expectedTypes[1:]
+				}
 			}
 
 		case <-ctx.Done():
@@ -190,18 +192,21 @@ func (m *mockApplicationServiceClient) UpdateSpec(ctx context.Context, req *appl
 			break
 		}
 	}
+	// If reached here, no application in the request is known to argo
 }
 
-func (m *mockApplicationServiceClient) Create(ctx context.Context, req *application.ApplicationCreateRequest, triggerError bool) error {
+func (m *mockApplicationServiceClient) Create(ctx context.Context, req *application.ApplicationCreateRequest) error {
 	newApp := &ArgoApp{
 		App:       req.Application,
 		LastEvent: "ADDED",
 	}
-	m.Apps = append(m.Apps, newApp)
-
-	if triggerError {
-		return status.Error(codes.InvalidArgument, "application already exists")
+	for _, existingArgoApp := range m.Apps {
+		if existingArgoApp.App.Name == req.Application.Name {
+			// App alrady exists
+			return nil
+		}
 	}
+	m.Apps = append(m.Apps, newApp)
 
 	return nil
 }
@@ -220,20 +225,15 @@ func (m *mockApplicationServiceClient) testAllConsumed(t *testing.T, expectedCon
 	}
 }
 
-// Process implements service.EventProcessor
-func (m *mockApplicationServiceClient) ProcessArgoEvent(ctx context.Context, ev ArgoEvent) {
-	m.lastEvent <- &ev
-}
-
 func TestArgoConsume(t *testing.T) {
 	tcs := []struct {
-		Name             string
-		Steps            []step
-		Overview         *api.GetOverviewResponse
-		ExpectedError    string
-		ExpectedReady    bool
-		ExpectedConsumed int
-		TriggerError     bool
+		Name                  string
+		Steps                 []step
+		Overview              *api.GetOverviewResponse
+		ExpectedError         string
+		ExpectedReady         bool
+		ExpectedConsumed      int
+		ExpectedConsumedTypes []string
 	}{
 		{
 			Name: "when ctx in cancelled no app is processed",
@@ -433,9 +433,9 @@ func TestArgoConsume(t *testing.T) {
 				},
 				GitRevision: "1234",
 			},
-			ExpectedReady:    true,
-			TriggerError:     false,
-			ExpectedConsumed: 2,
+			ExpectedReady:         true,
+			ExpectedConsumedTypes: []string{"ADDED", "MODIFIED"},
+			ExpectedConsumed:      2,
 		},
 		{
 			Name: "create an app and try to create it again",
@@ -524,9 +524,100 @@ func TestArgoConsume(t *testing.T) {
 				},
 				GitRevision: "1234",
 			},
-			ExpectedReady:    true,
-			ExpectedConsumed: 2,
-			TriggerError:     true,
+			ExpectedReady:         true,
+			ExpectedConsumed:      1,
+			ExpectedConsumedTypes: []string{"ADDED"},
+		},
+		{
+			Name: "update a non-existing app and try to create it",
+			Steps: []step{
+				{
+					Event: &v1alpha1.ApplicationWatchEvent{
+						Type: "UPDATED",
+						Application: v1alpha1.Application{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "foo",
+								Annotations: map[string]string{},
+							},
+							Spec: v1alpha1.ApplicationSpec{
+								Project: "",
+							},
+							Status: v1alpha1.ApplicationStatus{
+								Sync:   v1alpha1.SyncStatus{Revision: "1234"},
+								Health: v1alpha1.HealthStatus{},
+							},
+						},
+					},
+				},
+				{
+					Event: &v1alpha1.ApplicationWatchEvent{
+						Type: "ADDED",
+						Application: v1alpha1.Application{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "foo",
+								Annotations: map[string]string{},
+							},
+							Spec: v1alpha1.ApplicationSpec{
+								Project: "",
+							},
+							Status: v1alpha1.ApplicationStatus{
+								Sync:   v1alpha1.SyncStatus{Revision: "1234"},
+								Health: v1alpha1.HealthStatus{},
+							},
+						},
+					},
+				},
+				{
+					RecvErr:       status.Error(codes.Canceled, "context cancelled"),
+					CancelContext: true,
+				},
+			},
+			Overview: &api.GetOverviewResponse{
+				Applications: map[string]*api.Application{
+					"foo": {
+						Releases: []*api.Release{
+							{
+								Version:        1,
+								SourceCommitId: "00001",
+							},
+						},
+						Team: "footeam",
+					},
+				},
+				EnvironmentGroups: []*api.EnvironmentGroup{
+					{
+
+						EnvironmentGroupName: "staging-group",
+						Environments: []*api.Environment{
+							{
+								Name: "staging",
+								Applications: map[string]*api.Environment_Application{
+									"foo": {
+										Name:    "foo",
+										Version: 1,
+										DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
+											DeployTime: "123456789",
+										},
+									},
+								},
+								Priority: api.Priority_UPSTREAM,
+								Config: &api.EnvironmentConfig{
+									Argocd: &api.EnvironmentConfig_ArgoCD{
+										Destination: &api.EnvironmentConfig_ArgoCD_Destination{
+											Name:   "staging",
+											Server: "test-server",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				GitRevision: "1234",
+			},
+			ExpectedReady:         true,
+			ExpectedConsumed:      1,
+			ExpectedConsumedTypes: []string{"ADDED"},
 		},
 	}
 	for _, tc := range tcs {
@@ -549,7 +640,7 @@ func TestArgoConsume(t *testing.T) {
 			hlth.BackOffFactory = func() backoff.BackOff { return backoff.NewConstantBackOff(0) }
 			errCh := make(chan error)
 			go func() {
-				errCh <- argoProcessor.Consume(t, ctx, tc.TriggerError)
+				errCh <- argoProcessor.Consume(t, ctx, tc.ExpectedConsumedTypes)
 			}()
 
 			go func() {
@@ -592,13 +683,13 @@ func (a mockArgoProcessor) DeleteArgoApps(ctx context.Context, appsKnownToArgo m
 	return nil
 }
 
-func (a mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application, triggerError bool) {
+func (a mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
 	k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
 
 	appExists := false
 
 	for _, argoApp := range appsKnownToArgo {
-		if argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
+		if argoApp.Name == env.Name && argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
 			appExists = true
 			break
 		}
@@ -614,7 +705,7 @@ func (a mockArgoProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.
 			Upsert:      &upsert,
 			Validate:    &validate,
 		}
-		err := a.ApplicationClient.Create(ctx, appCreateRequest, triggerError)
+		err := a.ApplicationClient.Create(ctx, appCreateRequest)
 		if err != nil {
 			// We check if the application was created in the meantime
 			if status.Code(err) != codes.InvalidArgument {
