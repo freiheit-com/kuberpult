@@ -41,6 +41,13 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                   class="links"
                 >
                    
+                   
+                  <a
+                    href="/ui/commits/commit"
+                    title="Opens the commit history"
+                  >
+                    Commit History
+                  </a>
                 </span>
               </div>
               <div
@@ -302,6 +309,13 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                   class="links"
                 >
                    
+                   
+                  <a
+                    href="/ui/commits/commit"
+                    title="Opens the commit history"
+                  >
+                    Commit History
+                  </a>
                 </span>
               </div>
               <div
@@ -566,6 +580,13 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                   class="links"
                 >
                    
+                   
+                  <a
+                    href="/ui/commits/cafe"
+                    title="Opens the commit history"
+                  >
+                    Commit History
+                  </a>
                 </span>
               </div>
               <div
@@ -1017,6 +1038,7 @@ exports[`Release Dialog Renders the environment locks undeploy version release 1
                 <span
                   class="links"
                 >
+                   
                    
                 </span>
               </div>

@@ -15,7 +15,14 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { render } from '@testing-library/react';
 import React from 'react';
-import { ArgoAppEnvLink, ArgoAppLink, ArgoTeamLink, DisplayManifestLink, DisplaySourceLink } from './Links';
+import {
+    ArgoAppEnvLink,
+    ArgoAppLink,
+    ArgoTeamLink,
+    DisplayManifestLink,
+    DisplaySourceLink,
+    DisplayCommitHistoryLink,
+} from './Links';
 import { GetFrontendConfigResponse_ArgoCD } from '../../api/api';
 import { UpdateFrontendConfig } from './store';
 import { elementQuerySelectorSafe } from '../../setupTests';
@@ -271,6 +278,42 @@ describe('DisplaySourceLink', () => {
         const getWrapper = () => render(getNode());
         it(testcase.name, () => {
             setupSourceRepo(testcase.sourceRepo);
+            const { container } = getWrapper();
+
+            if (testcase.expectedLink) {
+                // Either render the link:
+                const aElem = elementQuerySelectorSafe(container, 'a');
+                expect(aElem.attributes.getNamedItem('href')?.value).toBe(testcase.expectedLink);
+            } else {
+                // or render nothing:
+                expect(document.body.textContent).toBe('');
+            }
+        });
+    });
+});
+
+describe('DisplayCommitHistoryLink', () => {
+    const cases: {
+        name: string;
+        commitId: string;
+        expectedLink: string | undefined;
+    }[] = [
+        {
+            name: 'Test with displayString',
+            commitId: '123',
+            expectedLink: '/ui/commits/123',
+        },
+        {
+            name: 'Test Without commit should render nothing',
+            commitId: '',
+            expectedLink: undefined,
+        },
+    ];
+
+    describe.each(cases)('RendersProperly', (testcase) => {
+        const getNode = () => <DisplayCommitHistoryLink displayString={''} commitId={testcase.commitId} />;
+        const getWrapper = () => render(getNode());
+        it(testcase.name, () => {
             const { container } = getWrapper();
 
             if (testcase.expectedLink) {
