@@ -102,6 +102,7 @@ frontend:
 # This MUST be lower than the combined timeouts of ALL http proxies in use.
   maxWaitDuration: 10m
   batchClient:
+    # This value needs to be higher than the network timeout for git
     timeout: 2m
 rollout:
   enabled: false
