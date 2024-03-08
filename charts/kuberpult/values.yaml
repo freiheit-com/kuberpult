@@ -91,6 +91,8 @@ frontend:
 # See frontend-service.yaml for automatically added annotations.
   service:
     annotations: {}
+    batchClient:
+      timeout: 2m
   resources:
     limits:
       cpu: 500m
