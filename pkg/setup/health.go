@@ -232,7 +232,7 @@ func (h *HealthServer) Reporter(name string) *HealthReporter {
 	if h.BackOffFactory != nil {
 		bo = h.BackOffFactory()
 	} else {
-		bo = backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 5)
+		bo = backoff.NewExponentialBackOff()
 	}
 	r := &HealthReporter{
 		server:  h,
