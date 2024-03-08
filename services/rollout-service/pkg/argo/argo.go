@@ -153,7 +153,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			if err != nil {
 				// We check if the application was created in the meantime
 				if status.Code(err) != codes.InvalidArgument {
-					logger.FromContext(ctx).Error("creating " + appToCreate.Name + ",env " + env.Name)
+					logger.FromContext(ctx).Error("creating "+appToCreate.Name+",env "+env.Name, zap.Error(err))
 				}
 			}
 		} else {
@@ -169,7 +169,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			}
 			_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
 			if err != nil {
-				logger.FromContext(ctx).Error("updating application: " + appToUpdate.Name + ",env " + env.Name)
+				logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+env.Name, zap.Error(err))
 			}
 		}
 	}
