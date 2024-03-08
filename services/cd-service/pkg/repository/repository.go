@@ -63,7 +63,7 @@ import (
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
-	Push(ctx context.Context, pushAction func() error) error
+	Push(ctx context.Context, pushAction func(context.Context) error) error
 	ApplyTransformersInternal(ctx context.Context, transformers ...Transformer) ([]string, *State, []*TransformerResult, *TransformerBatchApplyError)
 	State() *State
 	StateAt(oid *git.Oid) (*State, error)
@@ -545,13 +545,14 @@ func defaultPushUpdate(branch string, success *bool) git.PushUpdateReferenceCall
 	}
 }
 
-type PushActionFunc func() error
+type PushActionFunc func(context.Context) error
 type PushActionCallbackFunc func(git.PushOptions, *repository) PushActionFunc
 
 // DefaultPushActionCallback is public for testing reasons only.
 func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushActionFunc {
-	return func() error {
-		return r.useRemote(context.Background(), func(remote *git.Remote) error {
+	return func(ctx context.Context) error {
+		return r.useRemote(ctx, func(remote *git.Remote) error {
+
 			return remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
 		})
 	}
@@ -1089,24 +1090,26 @@ func (r *repository) applyDeferred(ctx context.Context, transformers ...Transfor
 }
 
 // Push returns an 'error' for typing reasons, really it is always a git.GitError
-func (r *repository) Push(ctx context.Context, pushAction func() error) error {
-
+func (r *repository) Push(ctx context.Context, pushAction func(ctx context.Context) error) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "Apply")
 	defer span.Finish()
 
 	eb := r.backOffProvider()
 	return backoff.Retry(
 		func() error {
-			span, _ := tracer.StartSpanFromContext(ctx, "Push")
+			span, ctx := tracer.StartSpanFromContext(ctx, "Push")
 			defer span.Finish()
-			err := pushAction()
+			err := pushAction(ctx)
 			if err != nil {
+				span.Finish(tracer.WithError(err))
 				gerr, ok := err.(*git.GitError)
 				if ok && gerr.Code == git.ErrorCodeNonFastForward {
 					return backoff.Permanent(err)
 				}
+				return err
+			} else {
+				return nil
 			}
-			return err
 		},
 		eb,
 	)

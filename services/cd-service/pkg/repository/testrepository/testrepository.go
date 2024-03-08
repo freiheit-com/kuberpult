@@ -38,7 +38,7 @@ func (fr *failingRepository) Apply(ctx context.Context, transformers ...reposito
 	return fr.err
 }
 
-func (fr *failingRepository) Push(ctx context.Context, pushAction func() error) error {
+func (fr *failingRepository) Push(ctx context.Context, pushAction func(_ context.Context) error) error {
 	return fr.err
 }
 
