@@ -63,6 +63,7 @@ message Event {
     CreateReleaseEvent create_release_event = 3;
     DeploymentEvent deployment_event = 4;
     LockPreventedDeploymentEvent lock_prevented_deployment_event = 5;
+    ReplacedByEvent replaced_by_event = 6;
   }
 }
 
@@ -90,6 +91,12 @@ message LockPreventedDeploymentEvent {
   string environment = 2;
   string lock_message = 3;
   LockType lock_type = 4;
+}
+
+message ReplacedByEvent{
+  string replacedByCommitId = 1;
+  string application = 2;
+  string environment = 3;
 }
 
 message TagData {

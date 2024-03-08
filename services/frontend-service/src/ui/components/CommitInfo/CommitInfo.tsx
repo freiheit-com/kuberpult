@@ -61,7 +61,7 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                         </tr>
                     </tbody>
                 </table>
-                <h2>Events</h2>
+                <h2>Events ({commitInfo.events.length})</h2>
                 <CommitInfoEvents events={commitInfo.events} />
             </main>
         </div>
@@ -142,6 +142,18 @@ const eventDescription = (event: Event): [JSX.Element, string] => {
                     {lockTypeName(inner.lockType)} with message "{inner.lockMessage}"
                 </span>,
                 inner.environment,
+            ];
+        case 'replacedByEvent':
+            return [
+                <span>
+                    This commit was replaced by
+                    <a href={'/ui/commits/' + tp.replacedByEvent.replacedByCommitId}>
+                        , {tp.replacedByEvent.replacedByCommitId}
+                    </a>
+                    on <b></b>
+                    {tp.replacedByEvent.environment}.
+                </span>,
+                tp.replacedByEvent.environment,
             ];
     }
 };

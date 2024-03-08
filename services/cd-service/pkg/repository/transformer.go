@@ -1689,6 +1689,12 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if c.WriteCommitData { // write the corresponding event
+		// if err := addEventForRelease(ctx, fs, releaseDir, createReplacedByEvent(c.Application, c.Environment, "123456")); err != nil {
+		// 	return "", err
+		// }
+		//Find out what commit is in current environment for given application
+		//Create an event on release (commit) that is the new type replacedByEvent
+		//Continue as usual
 		if err := addEventForRelease(ctx, fs, releaseDir, createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)); err != nil {
 			return "", err
 		}
@@ -1738,6 +1744,15 @@ func createDeploymentEvent(application, environment string, sourceTrain *DeployA
 			ev.SourceTrainEnvironmentGroup = sourceTrain.TargetGroup
 		}
 		ev.SourceTrainUpstream = &sourceTrain.Upstream
+	}
+	return &ev
+}
+
+func createReplacedByEvent(application, environment, commitId string) *event.ReplacedBy {
+	ev := event.ReplacedBy{
+		Application:       application,
+		Environment:       environment,
+		CommitIDtoReplace: commitId,
 	}
 	return &ev
 }
