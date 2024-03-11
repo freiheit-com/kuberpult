@@ -61,7 +61,7 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                         </tr>
                     </tbody>
                 </table>
-                <h2>Events ({commitInfo.events.length})</h2>
+                <h2>Events</h2>
                 <CommitInfoEvents events={commitInfo.events} />
             </main>
         </div>
