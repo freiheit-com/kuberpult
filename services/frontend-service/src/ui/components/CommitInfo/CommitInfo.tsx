@@ -150,8 +150,7 @@ const eventDescription = (event: Event): [JSX.Element, string] => {
                     <a href={'/ui/commits/' + tp.replacedByEvent.replacedByCommitId}>
                         , {tp.replacedByEvent.replacedByCommitId}
                     </a>
-                    on <b></b>
-                    {tp.replacedByEvent.environment}.
+                    on <b>{tp.replacedByEvent.environment}</b>.
                 </span>,
                 tp.replacedByEvent.environment,
             ];
