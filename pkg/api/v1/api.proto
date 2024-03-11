@@ -94,7 +94,7 @@ message LockPreventedDeploymentEvent {
 }
 
 message ReplacedByEvent{
-  string replacedByCommitId = 1;
+  string replaced_by_commit_Id = 1;
   string application = 2;
   string environment = 3;
 }
