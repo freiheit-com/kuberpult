@@ -1554,6 +1554,7 @@ func (c *DeployApplicationVersion) Transform(
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
 	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
+
 	manifestContent := []byte{}
 	if file, err := fs.Open(manifest); err != nil {
 		return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
@@ -1621,12 +1622,38 @@ func (c *DeployApplicationVersion) Transform(
 			}
 		}
 	}
-	// Create a symlink to the release
+
 	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
+
+	firstDeployment := false
+	versionFile := fs.Join(applicationDir, "version")
+	//commitIdPath := ""
+	oldReleaseDir := ""
+	//Check if there is a version of target app already deployed on target env
+	if _, err := fs.Lstat(versionFile); err == nil {
+		firstDeployment = false
+
+		//Extract Information regarding the current version
+
+		evaledPath, err := fs.Readlink(versionFile)
+
+		oldReleaseDir = evaledPath
+
+		if err != nil {
+			logger.FromContext(ctx).Sugar().Infof(
+				"Error while reading source commit ID file at %s, error %w. Deployment event not stored.",
+				fs.Join(evaledPath, "source_commit_id"), err)
+			return "", err
+		}
+	} else {
+		firstDeployment = true
+	}
+
+	// Create a symlink to the release
 	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
 		return "", err
 	}
-	versionFile := fs.Join(applicationDir, "version")
+
 	if err := fs.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
 	}
@@ -1689,18 +1716,40 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if c.WriteCommitData { // write the corresponding event
-		// if err := addEventForRelease(ctx, fs, releaseDir, createReplacedByEvent(c.Application, c.Environment, "123456")); err != nil {
-		// 	return "", err
-		// }
-		//Find out what commit is in current environment for given application
-		//Create an event on release (commit) that is the new type replacedByEvent
-		//Continue as usual
+
 		if err := addEventForRelease(ctx, fs, releaseDir, createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)); err != nil {
 			return "", err
 		}
+
+		if !firstDeployment {
+			//If not first deployment and current deployment is successful, signal a new replaced by event
+			newReleaseCommitId, err := getCommitId(ctx, fs, releaseDir)
+
+			if err != nil {
+				return "", err
+			}
+
+			if err := addEventForRelease(ctx, fs, oldReleaseDir, createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)); err != nil {
+				return "", err
+			}
+		}
+
 	}
 
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
+}
+
+func getCommitId(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
+	commitIdPath := fs.Join(releaseDir, "source_commit_id")
+
+	commitIDBytes, err := util.ReadFile(fs, commitIdPath)
+	if err != nil {
+		logger.FromContext(ctx).Sugar().Infof(
+			"Error while reading source commit ID file at %s, error %w. Deployment event not stored.",
+			commitIdPath, err)
+		return "", err
+	}
+	return string(commitIDBytes), nil
 }
 
 func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir string, ev event.Event) error {
