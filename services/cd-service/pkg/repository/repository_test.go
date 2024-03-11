@@ -989,7 +989,7 @@ func TestRetrySsh(t *testing.T) {
 			repo.backOffProvider = func() backoff.BackOff {
 				return backoff.WithMaxRetries(&backoff.ZeroBackOff{}, 5)
 			}
-			resp := repo.Push(testutil.MakeTestContext(), func() error {
+			resp := repo.Push(testutil.MakeTestContext(), func(_ context.Context) error {
 				counter++
 				if counter > tc.NumOfFailures {
 					return nil
@@ -1768,7 +1768,7 @@ func TestProcessQueueOnce(t *testing.T) {
 				return nil
 			},
 			PushActionFunc: func(options git.PushOptions, r *repository) PushActionFunc {
-				return func() error {
+				return func(_ context.Context) error {
 					return git.MakeGitError(1)
 				}
 			},
