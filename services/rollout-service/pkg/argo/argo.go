@@ -19,6 +19,7 @@ package argo
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"path/filepath"
 	"slices"
 
@@ -125,18 +126,18 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 
 func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
 	t := team(overview, app.Name)
+	var existingApp *v1alpha1.Application
 	if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, t) {
 		k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
 
-		appExists := false
 		for _, argoApp := range appsKnownToArgo {
 			if argoApp.Name == app.Name && argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
-				appExists = true
+				existingApp = argoApp
 				break
 			}
 		}
 
-		if !appExists {
+		if existingApp == nil {
 			appToCreate := CreateArgoApplication(overview, app, k.Environment)
 			appToCreate.ResourceVersion = ""
 			upsert := false
@@ -157,19 +158,20 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				}
 			}
 		} else {
-			validate := false
 			appToUpdate := CreateArgoApplication(overview, app, k.Environment)
 			appUpdateRequest := &application.ApplicationUpdateRequest{
 				XXX_NoUnkeyedLiteral: struct{}{},
 				XXX_unrecognized:     nil,
 				XXX_sizecache:        0,
-				Validate:             ptr.Bool(validate),
+				Validate:             ptr.Bool(false),
 				Application:          appToUpdate,
 				Project:              ptr.FromString(appToUpdate.Spec.Project),
 			}
-			_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
-			if err != nil {
-				logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+env.Name, zap.Error(err))
+			if !cmp.Equal(appUpdateRequest.Application.Spec, existingApp.Spec) {
+				_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
+				if err != nil {
+					logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+env.Name, zap.Error(err))
+				}
 			}
 		}
 	}
