@@ -27,15 +27,22 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/blendle/zapdriver"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 func FromContext(ctx context.Context) *zap.Logger {
-	return ctxzap.Extract(ctx)
+	logger := ctxzap.Extract(ctx)
+	span, ok := tracer.SpanFromContext(ctx)
+	if !ok {
+		return logger
+	}
+	return logger.With(zap.String("dd.trace_id", strconv.FormatUint(span.Context().TraceID(), 10)), zap.String("dd.span_id", strconv.FormatUint(span.Context().SpanID(), 10)))
 }
 
 func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {

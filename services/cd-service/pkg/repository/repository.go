@@ -492,12 +492,13 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 
 var panicError = errors.New("Panic")
 
-func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) error) error {
+func (r *repository) useRemote(ctx context.Context, callback func(context.Context, *git.Remote) error) error {
 	remote, err := r.repository.Remotes.CreateAnonymous(r.config.URL)
 	if err != nil {
 		return fmt.Errorf("opening remote %q: %w", r.config.URL, err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), r.config.NetworkTimeout)
+	// The outer context may have its own timeout but we override it here with the network timeout.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), r.config.NetworkTimeout)
 	defer cancel()
 	errCh := make(chan error, 1)
 	go func() {
@@ -505,7 +506,7 @@ func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) e
 		// The issue with that is that the `callback` requires the remote, and cannot be cancelled properly.
 		// So `callback` may run longer than `useRemote`, and if at that point `Disconnect` was already called, we get a `panic`.
 		defer remote.Disconnect()
-		errCh <- callback(remote)
+		errCh <- callback(ctx, remote)
 	}()
 	select {
 	case <-ctx.Done():
@@ -551,8 +552,21 @@ type PushActionCallbackFunc func(git.PushOptions, *repository) PushActionFunc
 // DefaultPushActionCallback is public for testing reasons only.
 func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushActionFunc {
 	return func(ctx context.Context) error {
-		return r.useRemote(ctx, func(remote *git.Remote) error {
-
+		return r.useRemote(ctx, func(ctx context.Context, remote *git.Remote) error {
+			log := logger.FromContext(ctx)
+			pushOptions := pushOptions
+			pushOptions.RemoteCallbacks.PushTransferProgressCallback = func(current, total uint32, bytes uint) error {
+				log.Info("git.push progress", zap.Uint32("current", current), zap.Uint32("total", total), zap.Uint("bytes", bytes))
+				return nil
+			}
+			pushOptions.RemoteCallbacks.SidebandProgressCallback = func(str string) error {
+				log.Info("git.push message", zap.String("message", str))
+				return nil
+			}
+			pushOptions.RemoteCallbacks.PackProgressCallback = func(stage int32, current, total uint32) error {
+				log.Info("git.push: pack progress", zap.Uint32("current", current), zap.Uint32("total", total))
+				return nil
+			}
 			return remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
 		})
 	}
@@ -1033,7 +1047,7 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 		},
 		RemoteCallbacks: RemoteCallbacks,
 	}
-	err := r.useRemote(ctx, func(remote *git.Remote) error {
+	err := r.useRemote(ctx, func(_ context.Context, remote *git.Remote) error {
 		return remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 	})
 	if err != nil {
