@@ -783,7 +783,7 @@ func TestCreateApplicationVersionIdempotency(t *testing.T) {
 					WriteCommitData: true,
 				},
 			},
-			expectedErrorMsg: `error at index 2 of transformer batch: already_exists_different:{first_differing_field:MANIFESTS  diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
+			expectedErrorMsg: `error at index 2 of transformer batch: already_exists_different:{first_differing_field:MANIFESTS diff:"--- acceptance-existing\n+++ acceptance-request\n@@ -1 +1 @@\n-{}\n\\ No newline at end of file\n+{ \"different\": \"yes\" }\n\\ No newline at end of file\n"}`,
 		},
 		{
 			Name: "recreate same version with idempotence, but different formatting of yaml",
@@ -1680,6 +1680,7 @@ func TestReplacedByEvent(t *testing.T) {
 		Name            string
 		Transformers    []Transformer
 		expectedContent []FileWithContent
+		ExpectedError   string
 	}
 
 	tcs := []TestCase{
@@ -1704,18 +1705,11 @@ func TestReplacedByEvent(t *testing.T) {
 			},
 			expectedContent: []FileWithContent{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/application",
-					Content: "app",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/environment",
-					Content: "staging",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "deployment",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/commit",
+					Content: "does-not-matter",
 				},
 			},
+			ExpectedError: "Error while opening file commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/commit, error: file does not exist",
 		},
 		{
 			Name: "Replace an already existing version on some environment",
@@ -1787,6 +1781,7 @@ func TestReplacedByEvent(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
 				},
 			},
+			ExpectedError: "",
 		},
 	}
 
@@ -1805,8 +1800,19 @@ func TestReplacedByEvent(t *testing.T) {
 				t.Fatalf("encountered error but no error is expected here: %v", err)
 			}
 			fs := updatedState.Filesystem
-			if err := verifyContent(fs, tc.expectedContent); err != nil {
-				t.Fatalf("Error while verifying content: %v. Filesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
+
+			verErr := verifyContent(fs, tc.expectedContent)
+
+			if verErr != nil {
+				if !(strings.Contains(verErr.Error(), tc.ExpectedError)) {
+					t.Fatalf("want :\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, verErr.Error())
+				}
+				if tc.ExpectedError == "" {
+					t.Fatalf("Error while verifying content: %v. Filesystem content:\n%s", verErr, strings.Join(listFiles(fs), "\n"))
+				}
+
+			} else if tc.ExpectedError != "" {
+				t.Fatalf("Expected error %s, but got noting.", tc.ExpectedError)
 			}
 		})
 	}
