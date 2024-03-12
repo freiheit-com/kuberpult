@@ -1710,7 +1710,7 @@ func (c *DeployApplicationVersion) Transform(
 
 		if !firstDeployment && !lockPreventedDeployment {
 			//If not first deployment and current deployment is successful, signal a new replaced by event
-			if newReleaseCommitId, err := getCommitIDFromReleasDir(ctx, fs, releaseDir); err == nil && valid.SHA1CommitID(newReleaseCommitId) {
+			if newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir); err == nil && valid.SHA1CommitID(newReleaseCommitId) {
 				if err := addEventForRelease(ctx, fs, oldReleaseDir, createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)); err != nil {
 					return "", err
 				}
@@ -1725,7 +1725,7 @@ func (c *DeployApplicationVersion) Transform(
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
-func getCommitIDFromReleasDir(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
+func getCommitIDFromReleaseDir(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
 	commitIdPath := fs.Join(releaseDir, "source_commit_id")
 
 	commitIDBytes, err := util.ReadFile(fs, commitIdPath)
@@ -1741,7 +1741,7 @@ func getCommitIDFromReleasDir(ctx context.Context, fs billy.Filesystem, releaseD
 }
 
 func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir string, ev event.Event) error {
-	if commitID, err := getCommitIDFromReleasDir(ctx, fs, releaseDir); err == nil {
+	if commitID, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir); err == nil {
 		gen := getGenerator(ctx)
 		eventUuid := gen.Generate()
 
@@ -1758,18 +1758,6 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 		}
 	}
 	return nil
-}
-
-func getCommitIdReleaseDir(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
-	commitIdPath := fs.Join(releaseDir, "source_commit_id")
-
-	commitIDBytes, err := util.ReadFile(fs, commitIdPath)
-
-	if err != nil {
-		return "", err
-	}
-
-	return string(commitIDBytes), nil
 }
 
 func createDeploymentEvent(application, environment string, sourceTrain *DeployApplicationVersionSource) *event.Deployment {
