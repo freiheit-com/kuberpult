@@ -1710,12 +1710,17 @@ func (c *DeployApplicationVersion) Transform(
 
 		if !firstDeployment && !lockPreventedDeployment {
 			//If not first deployment and current deployment is successful, signal a new replaced by event
-			if newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir); err == nil && valid.SHA1CommitID(newReleaseCommitId) {
-				if err := addEventForRelease(ctx, fs, oldReleaseDir, createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)); err != nil {
-					return "", err
+			if newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir); err == nil {
+				if !valid.SHA1CommitID(newReleaseCommitId) {
+					logger.FromContext(ctx).Sugar().Infof(
+						"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
+						newReleaseCommitId)
+				} else {
+					if err := addEventForRelease(ctx, fs, oldReleaseDir, createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)); err != nil {
+						return "", err
+					}
 				}
 			}
-
 		} else {
 			logger.FromContext(ctx).Sugar().Infof(
 				"Release to replace decteted, but could not retrieve new commit information. Replaced-by event not stored.")
