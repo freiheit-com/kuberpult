@@ -25,9 +25,8 @@ export type ConfirmationDialogProps = {
     headerLabel: string;
     confirmLabel: string;
     classNames: string;
+    testIdRootRefParent?: string;
 };
-
-// TODO: SRX-UJ4PMT tests for these components
 
 /**
  * A dialog that is used to confirm a question with either yes or no.
@@ -38,7 +37,8 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => 
         onClose={props.onCancel}
         classNames={props.classNames}
         disableBackground={true}
-        center={true}>
+        center={true}
+        testIdRootRefParent={props.testIdRootRefParent}>
         <>
             <div className={'confirmation-dialog-header'}>{props.headerLabel}</div>
             <hr />
@@ -47,14 +47,16 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => 
             <div className={'confirmation-dialog-footer'}>
                 <div className={'item'} key={'button-menu-cancel'} title={'ESC also closes the dialog'}>
                     <Button
-                        className="mdc-button--ripple button-cancel test-button-cancel"
+                        className="mdc-button--ripple button-cancel"
+                        testId="test-confirm-button-cancel"
                         label={'Cancel'}
                         onClick={props.onCancel}
                     />
                 </div>
                 <div className={'item'} key={'button-menu-confirm'}>
                     <Button
-                        className="mdc-button--unelevated button-confirm test-button-confirm"
+                        className="mdc-button--unelevated button-confirm test-confirm-button-confirm"
+                        testId="test-confirm-button-confirm"
                         label={props.confirmLabel}
                         onClick={props.onConfirm}
                     />
@@ -72,6 +74,7 @@ export type PlainDialogProps = {
     // NOTE: disableBackground only works for ConfirmationDialog for now, there is no plain-dialog-container-open CSS specification
     disableBackground: boolean;
     center: boolean;
+    testIdRootRefParent?: string;
 };
 
 /**
@@ -79,7 +82,7 @@ export type PlainDialogProps = {
  */
 
 export const PlainDialog: React.FC<PlainDialogProps> = (props) => {
-    const { onClose, open, children, center, disableBackground, classNames } = props;
+    const { onClose, open, children, center, disableBackground, classNames, testIdRootRefParent } = props;
     const classPrefix = center ? 'confirmation' : 'plain';
     const initialRef: HTMLElement | null = null;
     const rootRef = React.useRef(initialRef);
@@ -122,8 +125,8 @@ export const PlainDialog: React.FC<PlainDialogProps> = (props) => {
     }
     const clas = open && disableBackground ? classPrefix + '-dialog-container-open' : '';
     return (
-        <div className={classPrefix + '-dialog-container ' + clas}>
-            <div ref={rootRef} className={classPrefix + '-dialog-open ' + classNames}>
+        <div className={classPrefix + '-dialog-container ' + clas} data-testid={testIdRootRefParent}>
+            <div ref={rootRef} className={classPrefix + '-dialog-open ' + (classNames ?? '')}>
                 {children}
             </div>
         </div>
