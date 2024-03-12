@@ -1084,7 +1084,6 @@ func (c *CleanupOldApplicationVersions) Transform(
 		if err != nil {
 			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
-
 		{
 			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
 			dat, err := util.ReadFile(fs, commitIDFile)
@@ -1706,44 +1705,26 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if c.WriteCommitData { // write the corresponding event
-
 		if err := addEventForRelease(ctx, fs, releaseDir, createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)); err != nil {
 			return "", err
 		}
 
 		if !firstDeployment && !lockPreventedDeployment {
 			//If not first deployment and current deployment is successful, signal a new replaced by event
-			newReleaseCommitId, err := getCommitIdReleaseDir(ctx, fs, releaseDir)
-
-			commitIdPath := fs.Join(releaseDir, "source_commit_id")
-
-			commitIDBytes, err := util.ReadFile(fs, commitIdPath)
-			if err != nil {
-				logger.FromContext(ctx).Sugar().Infof(
-					"Error while reading source commit ID file at %s, error %w. Deployment event not stored.",
-					commitIdPath, err)
-			} else {
-				commitID := string(commitIDBytes)
-				// if the stored source commit ID is invalid then we will not be able to store the event (simply)
-				if !valid.SHA1CommitID(commitID) {
-					logger.FromContext(ctx).Sugar().Infof(
-						"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
-						commitID)
-
-				} else {
-					if err := addEventForRelease(ctx, fs, oldReleaseDir, createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)); err != nil {
-						return "", err
-					}
+			if newReleaseCommitId, err := getCommitIDFromReleasDir(ctx, fs, releaseDir); err == nil {
+				if err := addEventForRelease(ctx, fs, oldReleaseDir, createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)); err != nil {
+					return "", err
 				}
-
+			} else {
+				logger.FromContext(ctx).Sugar().Infof(
+					"Release to replace decteted, but could not retrieve new commit information. Replaced-by event not stored.")
 			}
 		}
-
 	}
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
-func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir string, ev event.Event) error {
+func getCommitIDFromReleasDir(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
 	commitIdPath := fs.Join(releaseDir, "source_commit_id")
 
 	commitIDBytes, err := util.ReadFile(fs, commitIdPath)
@@ -1751,7 +1732,7 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 		logger.FromContext(ctx).Sugar().Infof(
 			"Error while reading source commit ID file at %s, error %w. Deployment event not stored.",
 			commitIdPath, err)
-		return nil
+		return "", err
 	}
 	commitID := string(commitIDBytes)
 	// if the stored source commit ID is invalid then we will not be able to store the event (simply)
@@ -1759,15 +1740,21 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 		logger.FromContext(ctx).Sugar().Infof(
 			"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
 			commitID)
-		return nil
+		return "", err
 	}
-	gen := getGenerator(ctx)
-	eventUuid := gen.Generate()
+	return commitID, nil
+}
 
-	if err := writeEvent(eventUuid, commitID, fs, ev); err != nil {
-		return fmt.Errorf(
-			"could not write an event for commit %s, error: %w",
-			commitID, err)
+func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir string, ev event.Event) error {
+	if commitID, err := getCommitIDFromReleasDir(ctx, fs, releaseDir); err == nil {
+		gen := getGenerator(ctx)
+		eventUuid := gen.Generate()
+
+		if err := writeEvent(eventUuid, commitID, fs, ev); err != nil {
+			return fmt.Errorf(
+				"could not write an event for commit %s, error: %w",
+				commitID, err)
+		}
 	}
 	return nil
 }
