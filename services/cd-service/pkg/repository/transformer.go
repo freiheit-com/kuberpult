@@ -1566,7 +1566,7 @@ func (c *DeployApplicationVersion) Transform(
 		}
 		file.Close()
 	}
-
+	lockPreventedDeployment := false
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
@@ -1605,6 +1605,7 @@ func (c *DeployApplicationVersion) Transform(
 				}); err != nil {
 					return "", err
 				}
+				lockPreventedDeployment = true
 			}
 			switch c.LockBehaviour {
 			case api.LockBehavior_RECORD:
@@ -1624,28 +1625,17 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	applicationDir := fs.Join("environments", c.Environment, "applications", c.Application)
-
 	firstDeployment := false
 	versionFile := fs.Join(applicationDir, "version")
-	//commitIdPath := ""
 	oldReleaseDir := ""
-	//Check if there is a version of target app already deployed on target env
+
+	//Check if there is a version of target app already deployed on target environment
 	if _, err := fs.Lstat(versionFile); err == nil {
-		firstDeployment = false
-
-		//Extract Information regarding the current version
-
-		evaledPath, err := fs.Readlink(versionFile)
-
+		//File Exists
+		evaledPath, _ := fs.Readlink(versionFile) //Version is stored as symlink, eval it
 		oldReleaseDir = evaledPath
-
-		if err != nil {
-			logger.FromContext(ctx).Sugar().Infof(
-				"Error while reading source commit ID file at %s, error %w. Deployment event not stored.",
-				fs.Join(evaledPath, "source_commit_id"), err)
-			return "", err
-		}
 	} else {
+		//File does not exist
 		firstDeployment = true
 	}
 
@@ -1721,35 +1711,36 @@ func (c *DeployApplicationVersion) Transform(
 			return "", err
 		}
 
-		if !firstDeployment {
+		if !firstDeployment && !lockPreventedDeployment {
 			//If not first deployment and current deployment is successful, signal a new replaced by event
-			newReleaseCommitId, err := getCommitId(ctx, fs, releaseDir)
+			newReleaseCommitId, err := getCommitIdReleaseDir(ctx, fs, releaseDir)
 
+			commitIdPath := fs.Join(releaseDir, "source_commit_id")
+
+			commitIDBytes, err := util.ReadFile(fs, commitIdPath)
 			if err != nil {
-				return "", err
-			}
+				logger.FromContext(ctx).Sugar().Infof(
+					"Error while reading source commit ID file at %s, error %w. Deployment event not stored.",
+					commitIdPath, err)
+			} else {
+				commitID := string(commitIDBytes)
+				// if the stored source commit ID is invalid then we will not be able to store the event (simply)
+				if !valid.SHA1CommitID(commitID) {
+					logger.FromContext(ctx).Sugar().Infof(
+						"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
+						commitID)
 
-			if err := addEventForRelease(ctx, fs, oldReleaseDir, createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)); err != nil {
-				return "", err
+				} else {
+					if err := addEventForRelease(ctx, fs, oldReleaseDir, createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)); err != nil {
+						return "", err
+					}
+				}
+
 			}
 		}
 
 	}
-
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
-}
-
-func getCommitId(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
-	commitIdPath := fs.Join(releaseDir, "source_commit_id")
-
-	commitIDBytes, err := util.ReadFile(fs, commitIdPath)
-	if err != nil {
-		logger.FromContext(ctx).Sugar().Infof(
-			"Error while reading source commit ID file at %s, error %w. Deployment event not stored.",
-			commitIdPath, err)
-		return "", err
-	}
-	return string(commitIDBytes), nil
 }
 
 func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir string, ev event.Event) error {
@@ -1779,6 +1770,18 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 			commitID, err)
 	}
 	return nil
+}
+
+func getCommitIdReleaseDir(ctx context.Context, fs billy.Filesystem, releaseDir string) (string, error) {
+	commitIdPath := fs.Join(releaseDir, "source_commit_id")
+
+	commitIDBytes, err := util.ReadFile(fs, commitIdPath)
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(commitIDBytes), nil
 }
 
 func createDeploymentEvent(application, environment string, sourceTrain *DeployApplicationVersionSource) *event.Deployment {
