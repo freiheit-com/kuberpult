@@ -214,3 +214,61 @@ The `"argocd"` field has a few subfields:
 The `"environmentGroup"` field is a string that defines which environment group the environment belongs to (Example: `Production` can be an environment group to group production environments in different countries).
 EnvironmentGroups are still in development. We'll update this section once they are ready.
 The goal of EnvironmentGroups is to make handling of many similar clusters easier. They will also work with Release Trains.
+
+---
+
+## Best practices
+
+### Remove individual environments from a service
+
+To remove a service from some (but not all) environments, the process is:
+
+<details>
+
+#### In your repository:
+
+- Remove the `<enviornment>` (in the example below `development` or `development2`) kuberpult overlay from the service so that it does not get deployed anymore.
+- Merge the overlay removal(s), triggering a new release.
+
+#### In Kuberpult:
+
+- Remove environments from app (for each app/environment):
+![](./assets/img/remove_env/dots_menu.png)  
+![](./assets/img/remove_env/from_app.png)
+- Select environment(s) to remove. Note that you *cannot* remove all environments here, one has to stay. If you want to remove a service entirely, see [Remove a service entirely](#remove-a-service-entirely) below.
+  ![](./assets/img/remove_env/select.png)
+- Finally: Apply the change  
+  ![](./assets/img/remove_env/apply.png)
+</details>
+
+### Remove a service entirely
+
+To remove a service _altogether_, proceed as follows:
+
+<details>
+
+#### In your repository:
+
+- Remove the service completely (including all overlays)
+- Merge the removal, triggering a new release
+
+#### In Kuberpult:
+
+- Hit "prepare to undeploy"  
+  ![](./assets/img/undeploy/prepare.png)
+- Be sure to remove all locks specific to this service & hit apply  
+  ![](./assets/img/undeploy/locks.png)
+- Hit "Apply" & confirm  
+  ![](./assets/img/undeploy/apply.png)  
+- This creates an empty manifest that can be deployed like any other version.  
+  ![](./assets/img/undeploy/version.png)
+- Then, alternatively:
+  - Either wait for the normal release trains to roll this out on all environments
+  - Or deploy the "undeploy version" to all environments manually
+- Hit "Delete Forever"
+  - If that button doesn't exist, it means the "undeploy" version is not rolled out everywhere, or there is a lock.  
+    ![](./assets/img/undeploy/delete_forever.png)
+- Finally, hit "Apply"
+  - Note that ArgoCd may need some time to apply this change.  
+    ![](./assets/img/undeploy/delete_forever_apply.png)
+</details>
