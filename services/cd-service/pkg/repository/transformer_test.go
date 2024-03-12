@@ -1812,7 +1812,7 @@ func TestReplacedByEvent(t *testing.T) {
 				}
 
 			} else if tc.ExpectedError != "" {
-				t.Fatalf("Expected error %s, but got noting.", tc.ExpectedError)
+				t.Fatalf("Expected error %s, but got nothing.", tc.ExpectedError)
 			}
 		})
 	}

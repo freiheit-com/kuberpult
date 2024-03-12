@@ -577,7 +577,13 @@ func writeEvent(
 	ev event.Event,
 ) error {
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
-	return event.Write(filesystem, eventDir, ev)
+	if err := event.Write(filesystem, eventDir, ev); err != nil {
+		return fmt.Errorf(
+			"could not write an event for commit %s for uuid %s, error: %w",
+			sourceCommitId, eventId, err)
+	}
+	return nil
+
 }
 
 func (c *CreateApplicationVersion) calculateVersion(state *State) (uint64, error) {
@@ -1756,10 +1762,14 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 				commitID)
 			return nil
 		}
+
 		if err := writeEvent(eventUuid, commitID, fs, ev); err != nil {
 			return fmt.Errorf(
 				"could not write an event for commit %s, error: %w",
 				commitID, err)
+			//return fmt.Errorf(
+			//	"could not write an event for commit %s with uuid %s, error: %w",
+			//	commitID, eventUuid, err)
 		}
 	}
 	return nil
