@@ -1486,19 +1486,19 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			},
 			expectedContent: []FileWithContent{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/application",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/application",
 					Content: "app",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/environment",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/environment",
 					Content: "production",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
 					Content: "deployment",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/source_train_upstream",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/source_train_upstream",
 					Content: "staging",
 				},
 			},
@@ -1547,23 +1547,23 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			},
 			expectedContent: []FileWithContent{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/application",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/application",
 					Content: "app",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/environment",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/environment",
 					Content: "production",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
 					Content: "deployment",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/source_train_upstream",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/source_train_upstream",
 					Content: "staging",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/source_train_environment_group",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/source_train_environment_group",
 					Content: "production-group",
 				},
 			},
@@ -1670,6 +1670,149 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			fs := updatedState.Filesystem
 			if err := verifyContent(fs, tc.expectedContent); err != nil {
 				t.Fatalf("Error while verifying content: %v. Filesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
+			}
+		})
+	}
+}
+
+func TestReplacedByEvent(t *testing.T) {
+	type TestCase struct {
+		Name            string
+		Transformers    []Transformer
+		expectedContent []FileWithContent
+		ExpectedError   string
+	}
+
+	tcs := []TestCase{
+		{
+			Name: "Create a single application version and deploy it, no replaced by event should be generated",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+				},
+				&DeployApplicationVersion{
+					Application:     "app",
+					Environment:     "staging",
+					WriteCommitData: true,
+					Version:         1,
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/commit",
+					Content: "does-not-matter",
+				},
+			},
+			ExpectedError: "Error while opening file commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/commit, error: file does not exist",
+		},
+		{
+			Name: "Replace an already existing version on some environment",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"staging": "some staging manifest 2",
+					},
+					WriteCommitData: true,
+				},
+				&DeployApplicationVersion{
+					Environment:     "staging",
+					Application:     "app",
+					Version:         1,
+					WriteCommitData: true,
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+					Manifests: map[string]string{
+						"staging": "some staging manifest 2",
+					},
+					WriteCommitData: true,
+				},
+				&DeployApplicationVersion{
+					Environment:     "staging",
+					Application:     "app",
+					Version:         2,
+					WriteCommitData: true,
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
+					Content: "app",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
+					Content: "staging",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
+					Content: "deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/application",
+					Content: "app",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/environment",
+					Content: "staging",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
+					Content: "replaced-by",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/commit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+				},
+			},
+			ExpectedError: "",
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
+			ctx := testutil.MakeTestContext()
+			ctx = AddGeneratorToContext(ctx, fakeGen)
+
+			repo := setupRepositoryTest(t)
+			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			if err != nil {
+				t.Fatalf("encountered error but no error is expected here: %v", err)
+			}
+			fs := updatedState.Filesystem
+
+			verErr := verifyContent(fs, tc.expectedContent)
+
+			if verErr != nil {
+				if !(strings.Contains(verErr.Error(), tc.ExpectedError)) {
+					t.Fatalf("want :\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, verErr.Error())
+				}
+				if tc.ExpectedError == "" {
+					t.Fatalf("Error while verifying content: %v. Filesystem content:\n%s", verErr, strings.Join(listFiles(fs), "\n"))
+				}
+
+			} else if tc.ExpectedError != "" {
+				t.Fatalf("Expected error %s, but got nothing.", tc.ExpectedError)
 			}
 		})
 	}

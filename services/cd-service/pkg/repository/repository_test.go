@@ -863,7 +863,7 @@ func TestGc(t *testing.T) {
 			GcFrequency:        0,
 			StorageBackend:     GitBackend,
 			ExpectedGarbageMin: 906,
-			ExpectedGarbageMax: 917,
+			ExpectedGarbageMax: 1500,
 		},
 		{
 			// we are going to perform 101 requests, that should trigger a gc

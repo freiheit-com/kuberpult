@@ -143,6 +143,17 @@ const eventDescription = (event: Event): [JSX.Element, string] => {
                 </span>,
                 inner.environment,
             ];
+        case 'replacedByEvent':
+            return [
+                <span>
+                    This commit was replaced by{' '}
+                    <a href={'/ui/commits/' + tp.replacedByEvent.replacedByCommitId}>
+                        {tp.replacedByEvent.replacedByCommitId.substring(0, 8)}
+                    </a>{' '}
+                    on <b>{tp.replacedByEvent.environment}</b>.
+                </span>,
+                tp.replacedByEvent.environment,
+            ];
     }
 };
 

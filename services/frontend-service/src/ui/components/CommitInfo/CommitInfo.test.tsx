@@ -114,6 +114,18 @@ test('CommitInfo component renders commit info when the response is valid', () =
                             },
                         },
                     },
+                    {
+                        uuid: '00000000-0000-0000-0000-000000000005',
+                        createdAt: new Date('2024-02-13T09:46:00Z'),
+                        eventType: {
+                            $case: 'replacedByEvent',
+                            replacedByEvent: {
+                                application: 'app',
+                                environment: 'dev',
+                                replacedByCommitId: '1234567891011121314ABCD',
+                            },
+                        },
+                    },
                 ],
             },
             expectedTitle: 'Commit tomato',
@@ -141,6 +153,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
                         'Application app was blocked from deploying due to an environment lock with message "locked"',
                         'dev',
                     ],
+                    ['2024-02-13T09:46:00', 'This commit was replaced by 12345678 on dev.', 'dev'],
                 ],
             },
         },
