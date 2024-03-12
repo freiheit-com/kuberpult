@@ -1084,6 +1084,7 @@ func (c *CleanupOldApplicationVersions) Transform(
 		if err != nil {
 			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
 		}
+
 		{
 			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
 			dat, err := util.ReadFile(fs, commitIDFile)
@@ -1553,7 +1554,6 @@ func (c *DeployApplicationVersion) Transform(
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
 	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
-
 	manifestContent := []byte{}
 	if file, err := fs.Open(manifest); err != nil {
 		return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
@@ -1642,7 +1642,6 @@ func (c *DeployApplicationVersion) Transform(
 	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
 		return "", err
 	}
-
 	if err := fs.Remove(versionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
 	}
