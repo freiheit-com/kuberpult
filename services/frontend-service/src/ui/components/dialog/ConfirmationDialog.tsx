@@ -48,15 +48,15 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => 
                 <div className={'item'} key={'button-menu-cancel'} title={'ESC also closes the dialog'}>
                     <Button
                         className="mdc-button--ripple button-cancel"
-                        testId="test-button-cancel"
+                        testId="test-confirm-button-cancel"
                         label={'Cancel'}
                         onClick={props.onCancel}
                     />
                 </div>
                 <div className={'item'} key={'button-menu-confirm'}>
                     <Button
-                        className="mdc-button--unelevated button-confirm test-button-confirm"
-                        testId="test-button-confirm"
+                        className="mdc-button--unelevated button-confirm test-confirm-button-confirm"
+                        testId="test-confirm-button-confirm"
                         label={props.confirmLabel}
                         onClick={props.onConfirm}
                     />

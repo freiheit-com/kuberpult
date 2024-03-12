@@ -119,7 +119,7 @@ describe('ConfirmDialog', () => {
         {
             name: 'close if cancel button pressed',
             ...fixtureTestData(),
-            clickButton: ['test-button-cancel'],
+            clickButton: ['test-confirm-button-cancel'],
             expectClose: true,
         },
         {
@@ -184,9 +184,9 @@ describe('ConfirmDialog', () => {
                 expect(header).toHaveLength(1);
                 expect(header[0]).toHaveTextContent(testcase.props.headerLabel ?? '');
 
-                const confirm = getByTestId(container, 'test-button-confirm');
+                const confirm = getByTestId(container, 'test-confirm-button-confirm');
                 expect(confirm).toHaveTextContent(testcase.props.confirmLabel ?? '');
-                expect(getByTestId(container, 'test-button-cancel')).toBeVisible();
+                expect(getByTestId(container, 'test-confirm-button-cancel')).toBeVisible();
 
                 testcase.expectRootRefClasses.forEach((clas) =>
                     expect(getByTestId(container, testIdRootRefParent)).toHaveClass(clas)
