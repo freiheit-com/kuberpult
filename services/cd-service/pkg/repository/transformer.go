@@ -1710,16 +1710,18 @@ func (c *DeployApplicationVersion) Transform(
 
 		if !firstDeployment && !lockPreventedDeployment {
 			//If not first deployment and current deployment is successful, signal a new replaced by event
-			if newReleaseCommitId, err := getCommitIDFromReleasDir(ctx, fs, releaseDir); err == nil {
+			if newReleaseCommitId, err := getCommitIDFromReleasDir(ctx, fs, releaseDir); err == nil && valid.SHA1CommitID(newReleaseCommitId) {
 				if err := addEventForRelease(ctx, fs, oldReleaseDir, createReplacedByEvent(c.Application, c.Environment, newReleaseCommitId)); err != nil {
 					return "", err
 				}
-			} else {
-				logger.FromContext(ctx).Sugar().Infof(
-					"Release to replace decteted, but could not retrieve new commit information. Replaced-by event not stored.")
 			}
+
+		} else {
+			logger.FromContext(ctx).Sugar().Infof(
+				"Release to replace decteted, but could not retrieve new commit information. Replaced-by event not stored.")
 		}
 	}
+
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 
@@ -1735,12 +1737,6 @@ func getCommitIDFromReleasDir(ctx context.Context, fs billy.Filesystem, releaseD
 	}
 	commitID := string(commitIDBytes)
 	// if the stored source commit ID is invalid then we will not be able to store the event (simply)
-	if !valid.SHA1CommitID(commitID) {
-		logger.FromContext(ctx).Sugar().Infof(
-			"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
-			commitID)
-		return "", err
-	}
 	return commitID, nil
 }
 
@@ -1749,6 +1745,12 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 		gen := getGenerator(ctx)
 		eventUuid := gen.Generate()
 
+		if !valid.SHA1CommitID(commitID) {
+			logger.FromContext(ctx).Sugar().Infof(
+				"The source commit ID %s is not a valid/complete SHA1 hash, event cannot be stored.",
+				commitID)
+			return nil
+		}
 		if err := writeEvent(eventUuid, commitID, fs, ev); err != nil {
 			return fmt.Errorf(
 				"could not write an event for commit %s, error: %w",
