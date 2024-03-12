@@ -21,13 +21,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"io"
 	"net/http"
 	"os"
 	"strings"
-	"time"
-
-	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
@@ -221,7 +219,7 @@ func runServer(ctx context.Context) error {
 
 	batchClient := &service.BatchServiceWithDefaultTimeout{
 		Inner:          api.NewBatchServiceClient(cdCon),
-		DefaultTimeout: 2 * time.Minute,
+		DefaultTimeout: c.BatchClientTimeout,
 	}
 	gproxy := &GrpcProxy{
 		OverviewClient:           api.NewOverviewServiceClient(cdCon),

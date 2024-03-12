@@ -101,6 +101,9 @@ frontend:
 # Limit for the wait time for resources that support waiting on conditions ( e.g. rollout-status ).
 # This MUST be lower than the combined timeouts of ALL http proxies in use.
   maxWaitDuration: 10m
+  batchClient:
+    # This value needs to be higher than the network timeout for git
+    timeout: 2m
 rollout:
   enabled: false
   image: kuberpult-rollout-service
