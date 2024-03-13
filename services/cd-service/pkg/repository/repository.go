@@ -196,6 +196,8 @@ type RepositoryConfig struct {
 	DogstatsdEvents bool
 	WriteCommitData bool
 	WebhookResolver WebhookResolver
+
+	MaximumCommitsPerPush uint
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -532,8 +534,12 @@ func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) e
 }
 
 func (r *repository) drainQueue() []transformerBatch {
+	if r.config.MaximumCommitsPerPush == 0 {
+		return nil
+	}
+	limit := r.config.MaximumCommitsPerPush - 1
 	transformerBatches := []transformerBatch{}
-	for {
+	for uint(len(transformerBatches)) < limit {
 		select {
 		case f := <-r.queue.transformerBatches:
 			// Check that the item is not already cancelled
@@ -547,6 +553,7 @@ func (r *repository) drainQueue() []transformerBatch {
 			return transformerBatches
 		}
 	}
+	return transformerBatches
 }
 
 // It returns always nil

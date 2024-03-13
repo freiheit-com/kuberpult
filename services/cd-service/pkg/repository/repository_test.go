@@ -1141,8 +1141,9 @@ func TestApplyQueuePanic(t *testing.T) {
 			repo, processQueue, err := New2(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:  "file://" + remoteDir,
-					Path: localDir,
+					URL:                   "file://" + remoteDir,
+					Path:                  localDir,
+					MaximumCommitsPerPush: 3,
 				},
 			)
 			if err != nil {
@@ -1466,8 +1467,9 @@ func TestApplyQueue(t *testing.T) {
 			repo, err := New(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:  "file://" + remoteDir,
-					Path: localDir,
+					URL:                   "file://" + remoteDir,
+					Path:                  localDir,
+					MaximumCommitsPerPush: 10,
 				},
 			)
 			if err != nil {

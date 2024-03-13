@@ -52,6 +52,9 @@ git:
   # Disabling this option does not delete the `/commit` directory.
   enableWritingCommitData: false
 
+  # Kuberpult tries to reduce the number of pushes and can bundle concurrent commits into a single push.
+  maximumCommitsPerPush: 5
+
 hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
 log:
