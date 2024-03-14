@@ -52,6 +52,8 @@ message GetCommitInfoResponse {
   string commit_message = 1;
   repeated string touched_apps = 2;
   repeated Event events = 3;
+  string next_commit_hash = 5;
+  string previous_commit_hash = 6;
 }
 
 message Event {

@@ -112,10 +112,11 @@ describe('Commit info page tests', () => {
                     commitHash: 'potato',
                     touchedApps: ['google', 'windows'],
                     commitMessage: `Add google to windows
-        
 Commit message body line 1
 Commit message body line 2`,
                     events: [],
+                    previousCommitHash: '',
+                    nextCommitHash: '',
                 },
             },
         },
