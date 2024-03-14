@@ -306,13 +306,16 @@ test('CommitInfo component renders commit info when the response is valid', () =
                 expect(targetElements[0]).toHaveTextContent('Previous Commit');
                 expect(targetElements[1]).toHaveTextContent('Next Commit');
             } else {
-                expect(targetElements.length).toEqual(1);
-                const target = targetElements[0];
-                if (testCase.commitInfo.previousCommitHash !== '') {
-                    expect(target).toHaveTextContent('Previous Commit');
-                }
-                if (testCase.commitInfo.nextCommitHash !== '') {
-                    expect(target).toHaveTextContent('Next Commit');
+                if (testCase.commitInfo.previousCommitHash !== '' || testCase.commitInfo.nextCommitHash !== '') {
+                    const target = targetElements[0];
+                    if (testCase.commitInfo.previousCommitHash !== '') {
+                        expect(target).toHaveTextContent('Previous Commit');
+                    }
+                    if (testCase.commitInfo.nextCommitHash !== '') {
+                        expect(target).toHaveTextContent('Next Commit');
+                    }
+                } else {
+                    expect(targetElements.length).toEqual(0);
                 }
             }
         } else {
