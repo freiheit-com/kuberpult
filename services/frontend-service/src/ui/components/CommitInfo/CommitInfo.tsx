@@ -80,24 +80,25 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                     <div>
                         {commitInfo.touchedApps.length < 2 && (
                             <div className="next-prev-buttons">
-                                <div className="history-button-container">
-                                    {commitInfo.previousCommitHash !== '' && (
+                                {commitInfo.previousCommitHash !== '' && (
+                                    <div className="history-button-container">
                                         <Button
                                             id={'previous-button'}
                                             onClick={onClickPrevious}
                                             label={' Previous Commit '}
                                             className={'history-button'}></Button>
-                                    )}
-                                </div>
-                                <div className="history-button-container">
-                                    {commitInfo.nextCommitHash !== '' && (
+                                    </div>
+                                )}
+
+                                {commitInfo.nextCommitHash !== '' && (
+                                    <div className="history-button-container">
                                         <Button
                                             id={'next-button'}
                                             onClick={onClickNext}
                                             label={' Next Commit '}
                                             className={'history-button'}></Button>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
