@@ -347,8 +347,8 @@ type CreateApplicationVersion struct {
 	Team            string
 	DisplayVersion  string
 	WriteCommitData bool
-	previousCommit  string
-	nextCommit      string
+	PreviousCommit  string
+	NextCommit      string
 }
 
 type ctxMarkerGenerateUuid struct{}
@@ -401,12 +401,14 @@ func (c *CreateApplicationVersion) Transform(
 	}
 
 	var checkInvalidCommit = func(commit string) {
-		logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", commit)
+		if !valid.SHA1CommitID(commit) {
+			logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", commit)
+		}
 	}
 
 	checkInvalidCommit(c.SourceCommitId)
-	checkInvalidCommit(c.previousCommit)
-	checkInvalidCommit(c.nextCommit)
+	checkInvalidCommit(c.PreviousCommit)
+	checkInvalidCommit(c.NextCommit)
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -476,7 +478,7 @@ func (c *CreateApplicationVersion) Transform(
 	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
-		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.previousCommit, c.nextCommit, fs)
+		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.PreviousCommit, c.NextCommit, fs)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -553,6 +555,7 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 	if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
 	}
+
 	previousCommitId = strings.ToLower(previousCommitId)
 	if err := util.WriteFile(fs, fs.Join(commitDir, fieldPreviousCommitId), []byte(previousCommitId), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
