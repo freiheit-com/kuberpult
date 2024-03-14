@@ -400,15 +400,15 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 
-	var checkInvalidCommit = func(commit string) {
+	var checkInvalidCommitId = func(commit string) {
 		if !valid.SHA1CommitID(commit) {
 			logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", commit)
 		}
 	}
 
-	checkInvalidCommit(c.SourceCommitId)
-	checkInvalidCommit(c.PreviousCommit)
-	checkInvalidCommit(c.NextCommit)
+	checkInvalidCommitId(c.SourceCommitId)
+	checkInvalidCommitId(c.PreviousCommit)
+	checkInvalidCommitId(c.NextCommit)
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {

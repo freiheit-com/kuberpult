@@ -1674,7 +1674,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 		})
 	}
 }
-func TestNextAndPrevious(t *testing.T) {
+func TestNextAndPreviousCommitCreation(t *testing.T) {
 	type TestCase struct {
 		Name            string
 		Transformers    []Transformer
@@ -1694,8 +1694,8 @@ func TestNextAndPrevious(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					nextCommit:      "123456789",
-					previousCommit:  "ABCDEFABC",
+					NextCommit:      "123456789",
+					PreviousCommit:  "ABCDEFABC",
 				},
 			},
 			expectedContent: []FileWithContent{
