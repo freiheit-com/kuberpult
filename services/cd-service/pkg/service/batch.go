@@ -301,16 +301,16 @@ func (d *BatchServer) ProcessBatch(
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions))
 	}
 
-	results := make([]*api.BatchResult, len(in.GetActions()))
+	results := make([]*api.BatchResult, 0, len(in.GetActions()))
 	transformers := make([]repository.Transformer, 0, maxBatchActions)
-	for i, batchAction := range in.GetActions() {
+	for _, batchAction := range in.GetActions() {
 		transformer, result, err := d.processAction(batchAction)
 		if err != nil {
 			// Validation error
 			return nil, err
 		}
 		transformers = append(transformers, transformer)
-		results[i] = result
+		results = append(results, result)
 	}
 
 	err = d.Repository.Apply(ctx, transformers...)

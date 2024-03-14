@@ -20,9 +20,10 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"os"
 	"strings"
+
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -200,6 +201,33 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy map[strin
 	return policy, nil
 }
 
+type PermissionError struct {
+	User        string
+	Role        string
+	Action      string
+	Environment string
+	Team        string
+}
+
+func (e PermissionError) Error() string {
+	var msg = fmt.Sprintf(
+		"%s The user '%s' with role '%s' is not allowed to perform the action '%s' on environment '%s'",
+		codes.PermissionDenied.String(),
+		e.User,
+		e.Role,
+		e.Action,
+		e.Environment,
+	)
+	if e.Team != "" {
+		msg += fmt.Sprintf(" for team '%s'", e.Team)
+	}
+	return msg
+}
+
+func (e PermissionError) GRPCStatus() *status.Status {
+	return status.New(codes.PermissionDenied, e.Error())
+}
+
 // Checks user permissions on the RBAC policy.
 func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup, application, action string) error {
 	// If the action is environment independent, the env format is <ENVIRONMENT_GROUP>:*
@@ -220,11 +248,13 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup
 		}
 	}
 	// The permission is not found. Return an error.
-	var errorMsg = fmt.Sprintf("%s: The user '%s' with role '%s' is not allowed to perform the action '%s' on environment '%s'", codes.PermissionDenied.String(), user.Name, user.DexAuthContext.Role, action, env)
-	if team != "" {
-		errorMsg = errorMsg + fmt.Sprintf(" for team '%s'", team)
+	return PermissionError{
+		User:        user.Name,
+		Role:        user.DexAuthContext.Role,
+		Action:      action,
+		Environment: env,
+		Team:        team,
 	}
-	return status.Errorf(codes.PermissionDenied, errorMsg)
 }
 
 // Helper function to parse the scopes

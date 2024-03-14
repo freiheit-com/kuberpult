@@ -29,6 +29,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/rollout-service/pkg/versions"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -145,7 +146,7 @@ func TestArgoConection(t *testing.T) {
 		KnownVersions []version
 		Steps         []step
 
-		ExpectedError string
+		ExpectedError error
 		ExpectedReady bool
 	}{
 		{
@@ -383,16 +384,8 @@ func TestArgoConection(t *testing.T) {
 			dispatcher := NewDispatcher(&as, &mockVersionClient{versions: tc.KnownVersions})
 			go dispatcher.Work(ctx, hlth.Reporter("dispatcher"))
 			err := ConsumeEvents(ctx, &as, dispatcher, hlth.Reporter("consume"))
-			if tc.ExpectedError == "" {
-				if err != nil {
-					t.Errorf("expected no error, but got %q", err)
-				}
-			} else {
-				if err == nil {
-					t.Errorf("expected error %q, but got <nil>", tc.ExpectedError)
-				} else if err.Error() != tc.ExpectedError {
-					t.Errorf("expected error %q, but got %q", tc.ExpectedError, err)
-				}
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			ready := hlth.IsReady("consume")
 			if tc.ExpectedReady != ready {

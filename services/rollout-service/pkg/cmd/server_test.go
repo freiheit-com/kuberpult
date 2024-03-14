@@ -19,28 +19,44 @@ package cmd
 import (
 	"context"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
+
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 func TestService(t *testing.T) {
 	tcs := []struct {
 		Name          string
-		ExpectedError string
+		ExpectedError error
 		Config        Config
 	}{
 		{
 			Name:          "simple case",
-			ExpectedError: "invalid argocd server url: parse \"\": empty url",
+			ExpectedError: errMatcher{"invalid argocd server url: parse \"\": empty url"},
 		},
 		{
 			Name:          "invalid argocd url",
-			ExpectedError: "invalid argocd server url: parse \"not a http address\": invalid URI for request",
+			ExpectedError: errMatcher{"invalid argocd server url: parse \"not a http address\": invalid URI for request"},
 			Config: Config{
 				ArgocdServer: "not a http address",
 			},
 		},
 		{
 			Name:          "valid http argocd url",
-			ExpectedError: "connecting to argocd version: dial tcp 127.0.0.1:32761: connect: connection refused",
+			ExpectedError: errMatcher{"connecting to argocd version: dial tcp 127.0.0.1:32761: connect: connection refused"},
 			Config: Config{
 				ArgocdServer: "http://127.0.0.1:32761",
 			},
@@ -52,12 +68,8 @@ func TestService(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := context.Background()
 			err := runServer(ctx, tc.Config)
-			if err != nil {
-				if err.Error() != tc.ExpectedError {
-					t.Errorf("expected error %q but got %q", tc.ExpectedError, err)
-				}
-			} else if tc.ExpectedError != "" {
-				t.Errorf("expected error %q but got <nil>", tc.ExpectedError)
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
@@ -68,7 +80,7 @@ func TestClientConfig(t *testing.T) {
 		Name   string
 		Config Config
 
-		ExpectedError      string
+		ExpectedError      error
 		ExpectedServerAddr string
 		ExpectedPlainText  bool
 	}{
@@ -93,19 +105,15 @@ func TestClientConfig(t *testing.T) {
 			Config: Config{
 				ArgocdServer: "not a url",
 			},
-			ExpectedError: "invalid argocd server url: parse \"not a url\": invalid URI for request",
+			ExpectedError: errMatcher{"invalid argocd server url: parse \"not a url\": invalid URI for request"},
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			clientConfig, err := tc.Config.ClientConfig()
-			if err != nil {
-				if err.Error() != tc.ExpectedError {
-					t.Errorf("expected error %q but got %q", tc.ExpectedError, err)
-				}
-			} else if tc.ExpectedError != "" {
-				t.Errorf("expected error %q but got <nil>", tc.ExpectedError)
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			if clientConfig.ServerAddr != tc.ExpectedServerAddr {
 				t.Errorf("mismatched ServerAddr, expected %q, got %q", tc.ExpectedServerAddr, clientConfig.ServerAddr)

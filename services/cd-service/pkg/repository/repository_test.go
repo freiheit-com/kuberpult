@@ -44,10 +44,24 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	git "github.com/libgit2/git2go/v34"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 func TestNew(t *testing.T) {
 	tcs := []struct {
@@ -180,8 +194,8 @@ func TestNew(t *testing.T) {
 				}
 				state := repo.State()
 				localRev := state.Commit.Id().String()
-				if localRev != strings.TrimSpace(string(out)) {
-					t.Errorf("mismatched revision. expected %q but got %q", localRev, strings.TrimSpace(string(out)))
+				if diff := cmp.Diff(localRev, strings.TrimSpace(string(out))); diff != "" {
+					t.Errorf("mismatched revision (-want, +got):\n%s", diff)
 				}
 			},
 		},
@@ -254,16 +268,16 @@ func TestNew(t *testing.T) {
 				}
 				state := repo.State()
 				localRev := state.Commit.Id().String()
-				if localRev != strings.TrimSpace(string(out)) {
-					t.Errorf("mismatched revision. expected %q but got %q", localRev, strings.TrimSpace(string(out)))
+				if diff := cmp.Diff(localRev, strings.TrimSpace(string(out))); diff != "" {
+					t.Errorf("mismatched revision (-want, +got):\n%s", diff)
 				}
 
 				content, err := util.ReadFile(state.Filesystem, "hello.txt")
 				if err != nil {
 					t.Fatal(err)
 				}
-				if string(content) != "hello" {
-					t.Errorf("mismatched file content, expected %s, got %s", "hello", content)
+				if diff := cmp.Diff("hello", string(content)); diff != "" {
+					t.Errorf("mismatched file content (-want, +got):\n%s", diff)
 				}
 			},
 		},
@@ -1671,28 +1685,25 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 		Name           string
 		CreateThisDir  string
 		DeleteThisDir  string
-		ExpectedError  string
+		ExpectedError  error
 		ExpectedReason SuccessReason
 	}{
 		{
 			Name:           "Should succeed: dir exists and is empty",
 			CreateThisDir:  "foo/bar",
 			DeleteThisDir:  "foo/bar",
-			ExpectedError:  "",
 			ExpectedReason: NoReason,
 		},
 		{
 			Name:           "Should succeed: dir does not exist",
 			CreateThisDir:  "foo/bar",
 			DeleteThisDir:  "foo/bar/pow",
-			ExpectedError:  "",
 			ExpectedReason: DirDoesNotExist,
 		},
 		{
 			Name:           "Should succeed: dir does not exist",
 			CreateThisDir:  "foo/bar/pow",
 			DeleteThisDir:  "foo/bar",
-			ExpectedError:  "",
 			ExpectedReason: DirNotEmpty,
 		},
 	}
@@ -1708,15 +1719,8 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 				return
 			}
 			successReason, err := state.DeleteDirIfEmpty(tc.DeleteThisDir)
-			errString := ""
-			if err != nil {
-				errString = err.Error()
-			} else {
-				errString = ""
-			}
-
-			if !cmp.Equal(errString, tc.ExpectedError) {
-				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedError, errString))
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			if successReason != tc.ExpectedReason {
 				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReason, successReason))
@@ -1760,7 +1764,7 @@ func TestProcessQueueOnce(t *testing.T) {
 				},
 				result: make(chan error, 1),
 			},
-			ExpectedError: errors.New("failed to push - this indicates that branch protection is enabled in 'file://$DIR/remote' on branch 'master'"),
+			ExpectedError: errMatcher{"failed to push - this indicates that branch protection is enabled in 'file://$DIR/remote' on branch 'master'"},
 		},
 		{
 			Name: "failure because error is returned in push (ssh key has read only access)",
@@ -1779,7 +1783,7 @@ func TestProcessQueueOnce(t *testing.T) {
 				},
 				result: make(chan error, 1),
 			},
-			ExpectedError: errors.New("rpc error: code = InvalidArgument desc = error: could not push to manifest repository 'file://$DIR/remote' on branch 'master' - this indicates that the ssh key does not have write access"),
+			ExpectedError: errMatcher{"rpc error: code = InvalidArgument desc = error: could not push to manifest repository 'file://$DIR/remote' on branch 'master' - this indicates that the ssh key does not have write access"},
 		},
 	}
 	for _, tc := range tcs {
@@ -1809,18 +1813,13 @@ func TestProcessQueueOnce(t *testing.T) {
 
 			result := tc.Element.result
 			actualError = <-result
-			if tc.ExpectedError == nil && actualError == nil {
-				return
+
+			var expectedError error
+			if tc.ExpectedError != nil {
+				expectedError = errMatcher{strings.ReplaceAll(tc.ExpectedError.Error(), "$DIR", dir)}
 			}
-			if tc.ExpectedError == nil && actualError != nil {
-				t.Fatalf("result error is not:\n\"%v\"\nbut got:\n\"%v\"", nil, actualError.Error())
-			}
-			if tc.ExpectedError != nil && actualError == nil {
-				t.Fatalf("result error is not:\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, nil)
-			}
-			expectedError := strings.ReplaceAll(tc.ExpectedError.Error(), "$DIR", dir)
-			if actualError.Error() != expectedError {
-				t.Errorf("result error is not:\n\"%v\"\nbut got:\n\"%v\"", expectedError, actualError.Error())
+			if diff := cmp.Diff(expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
