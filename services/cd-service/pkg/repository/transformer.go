@@ -566,6 +566,30 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 		return GetCreateReleaseGeneralFailure(err)
 	}
 
+	//Go to prev commit, set sourceCommitId as Next
+	if previousCommitId != "" {
+		previousCommitDir := commitDirectory(fs, previousCommitId)
+		if _, err := fs.Stat(previousCommitDir); err != nil {
+			return GetCreateReleaseGeneralFailure(err)
+		}
+
+		if err := util.WriteFile(fs, fs.Join(previousCommitDir, fieldNextCommidId), []byte(sourceCommitId), 0666); err != nil {
+			return GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
+	//Go to next Commit, set sourceCommitId as previous commit
+	if nextCommitId != "" {
+		nextCommitDir := commitDirectory(fs, nextCommitId)
+		if _, err := fs.Stat(nextCommitDir); err != nil {
+			return GetCreateReleaseGeneralFailure(err)
+		}
+
+		if err := util.WriteFile(fs, fs.Join(nextCommitDir, fieldPreviousCommitId), []byte(sourceCommitId), 0666); err != nil {
+			return GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
 	commitAppDir := commitApplicationDirectory(fs, sourceCommitId, app)
 	if err := fs.MkdirAll(commitAppDir, 0777); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
