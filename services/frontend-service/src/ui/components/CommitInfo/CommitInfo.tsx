@@ -15,8 +15,10 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 
 import { TopAppBar } from '../TopAppBar/TopAppBar';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { GetCommitInfoResponse, Event, LockPreventedDeploymentEvent_LockType } from '../../../api/api';
+import { Button } from '../button';
+import './CommitInfo.scss';
 
 type CommitInfoProps = {
     commitInfo: GetCommitInfoResponse | undefined;
@@ -24,6 +26,19 @@ type CommitInfoProps = {
 
 export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
     const commitInfo = props.commitInfo;
+
+    const onClickPrevious = useCallback((): void => {
+        if (commitInfo !== undefined) {
+            window.location.href = commitInfo?.previousCommitHash;
+        }
+    }, [commitInfo, commitInfo?.previousCommitHash]);
+
+    const onClickNext = useCallback((): void => {
+        if (commitInfo !== undefined) {
+            window.location.href = commitInfo?.nextCommitHash;
+        }
+    }, [commitInfo, commitInfo?.nextCommitHash]);
+
     if (commitInfo === undefined) {
         return (
             <div>
@@ -39,28 +54,54 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                 <h1>This page is still in beta</h1>
                 <br />
                 <h1> Commit {commitInfo.commitMessage.split('\n')[0]} </h1>
-                <table border={1}>
-                    <thead>
-                        <tr>
-                            <th>Commit Hash:</th>
-                            <th>Commit Message:</th>
-                            <th>Touched apps:</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>{commitInfo.commitHash}</td>
-                            <td>
-                                <div className={'commit-page-message'}>
-                                    {commitInfo.commitMessage.split('\n').map((msg, index) => (
-                                        <div key={index}>{msg} &nbsp;</div>
-                                    ))}
+                <div>
+                    <table border={1}>
+                        <thead>
+                            <tr>
+                                <th>Commit Hash:</th>
+                                <th>Commit Message:</th>
+                                <th>Touched apps:</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>{commitInfo.commitHash}</td>
+                                <td>
+                                    <div className={'commit-page-message'}>
+                                        {commitInfo.commitMessage.split('\n').map((msg, index) => (
+                                            <div key={index}>{msg} &nbsp;</div>
+                                        ))}
+                                    </div>
+                                </td>
+                                <td>{commitInfo.touchedApps.join(', ')}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div>
+                        {commitInfo.touchedApps.length < 2 && (
+                            <div className="next-prev-buttons">
+                                <div className="history-button-container">
+                                    {commitInfo.previousCommitHash !== '' && (
+                                        <Button
+                                            id={'previous-button'}
+                                            onClick={onClickPrevious}
+                                            label={' Previous Commit '}
+                                            className={'history-button'}></Button>
+                                    )}
                                 </div>
-                            </td>
-                            <td>{commitInfo.touchedApps.join(', ')}</td>
-                        </tr>
-                    </tbody>
-                </table>
+                                <div className="history-button-container">
+                                    {commitInfo.nextCommitHash !== '' && (
+                                        <Button
+                                            id={'next-button'}
+                                            onClick={onClickNext}
+                                            label={' Next Commit '}
+                                            className={'history-button'}></Button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
                 <h2>Events</h2>
                 <CommitInfoEvents events={commitInfo.events} />
             </main>
