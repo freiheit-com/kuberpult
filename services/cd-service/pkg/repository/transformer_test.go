@@ -1674,6 +1674,76 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 		})
 	}
 }
+func TestNextAndPrevious(t *testing.T) {
+	type TestCase struct {
+		Name            string
+		Transformers    []Transformer
+		expectedContent []FileWithContent
+		ExpectedError   string
+	}
+
+	tcs := []TestCase{
+		{
+			Name: "Create a single application Version",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					nextCommit:      "123456789",
+					previousCommit:  "ABCDEFABC",
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/nextCommit",
+					Content: "123456789",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/previousCommit",
+					Content: "abcdefabc",
+				},
+			},
+			ExpectedError: "",
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
+			ctx := testutil.MakeTestContext()
+			ctx = AddGeneratorToContext(ctx, fakeGen)
+
+			repo := setupRepositoryTest(t)
+			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			if err != nil {
+				t.Fatalf("encountered error but no error is expected here: %v", err)
+			}
+			fs := updatedState.Filesystem
+
+			verErr := verifyContent(fs, tc.expectedContent)
+
+			if verErr != nil {
+				if !(strings.Contains(verErr.Error(), tc.ExpectedError)) {
+					t.Fatalf("want :\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, verErr.Error())
+				}
+				if tc.ExpectedError == "" {
+					t.Fatalf("Error while verifying content: %v. Filesystem content:\n%s", verErr, strings.Join(listFiles(fs), "\n"))
+				}
+
+			} else if tc.ExpectedError != "" {
+				t.Fatalf("Expected error %s, but got nothing.", tc.ExpectedError)
+			}
+		})
+	}
+}
 
 func TestReplacedByEvent(t *testing.T) {
 	type TestCase struct {

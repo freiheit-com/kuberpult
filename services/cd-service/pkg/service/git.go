@@ -168,6 +168,26 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		commitMessage = string(dat)
 	}
 
+	var previousCommitMessagePath = fs.Join(commitPath, "previousCommit")
+	var previousCommitId string
+	if data, err := util.ReadFile(fs, previousCommitMessagePath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("could not open the previous commit file at %s, err: %w", previousCommitMessagePath, err)
+		}
+	} else {
+		previousCommitId = string(data)
+	}
+
+	var nextCommitMessagePath = fs.Join(commitPath, "previousCommitMessagePath")
+	var nextCommitId string
+	if data, err := util.ReadFile(fs, nextCommitMessagePath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("could not open the next commit file at %s, err: %w", nextCommitMessagePath, err)
+		} //If no file exists, there is no next commit
+	} else {
+		nextCommitId = string(data)
+	}
+
 	commitApplicationsDirPath := fs.Join(commitPath, "applications")
 	dirs, err := fs.ReadDir(commitApplicationsDirPath)
 	if err != nil {
@@ -185,10 +205,12 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	}
 
 	return &api.GetCommitInfoResponse{
-		CommitHash:    commitID,
-		CommitMessage: commitMessage,
-		TouchedApps:   touchedApps,
-		Events:        events,
+		CommitHash:         commitID,
+		CommitMessage:      commitMessage,
+		TouchedApps:        touchedApps,
+		Events:             events,
+		PreviousCommitHash: previousCommitId,
+		NextCommitHash:     nextCommitId,
 	}, nil
 }
 

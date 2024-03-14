@@ -57,15 +57,17 @@ import (
 )
 
 const (
-	queueFileName       = "queued_version"
-	yamlParsingError    = "# yaml parsing error"
-	fieldSourceAuthor   = "source_author"
-	fieldSourceMessage  = "source_message"
-	fieldSourceCommitId = "source_commit_id"
-	fieldDisplayVersion = "display_version"
-	fieldSourceRepoUrl  = "sourceRepoUrl" // urgh, inconsistent
-	fieldCreatedAt      = "created_at"
-	fieldTeam           = "team"
+	queueFileName         = "queued_version"
+	yamlParsingError      = "# yaml parsing error"
+	fieldSourceAuthor     = "source_author"
+	fieldSourceMessage    = "source_message"
+	fieldSourceCommitId   = "source_commit_id"
+	fieldDisplayVersion   = "display_version"
+	fieldSourceRepoUrl    = "sourceRepoUrl" // urgh, inconsistent
+	fieldCreatedAt        = "created_at"
+	fieldTeam             = "team"
+	fieldNextCommidId     = "nextCommit"
+	fieldPreviousCommitId = "previousCommit"
 	// number of old releases that will ALWAYS be kept in addition to the ones that are deployed:
 	keptVersionsOnCleanup = 20
 )
@@ -345,6 +347,8 @@ type CreateApplicationVersion struct {
 	Team            string
 	DisplayVersion  string
 	WriteCommitData bool
+	previousCommit  string
+	nextCommit      string
 }
 
 type ctxMarkerGenerateUuid struct{}
@@ -396,9 +400,13 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 
-	if !valid.SHA1CommitID(c.SourceCommitId) {
-		logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", c.SourceCommitId)
+	var checkInvalidCommit = func(commit string) {
+		logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", commit)
 	}
+
+	checkInvalidCommit(c.SourceCommitId)
+	checkInvalidCommit(c.previousCommit)
+	checkInvalidCommit(c.nextCommit)
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -414,6 +422,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
+
 	if c.SourceAuthor != "" {
 		if err := util.WriteFile(fs, fs.Join(releaseDir, fieldSourceAuthor), []byte(c.SourceAuthor), 0666); err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
@@ -467,7 +476,7 @@ func (c *CreateApplicationVersion) Transform(
 	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
-		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, fs)
+		err = writeCommitData(ctx, c.SourceCommitId, c.SourceMessage, c.Application, eventUuid, allEnvsOfThisApp, c.previousCommit, c.nextCommit, fs)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
@@ -533,7 +542,7 @@ func AddGeneratorToContext(ctx context.Context, gen uuid.GenerateUUIDs) context.
 	return context.WithValue(ctx, ctxMarkerGenerateUuidKey, gen)
 }
 
-func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, fs billy.Filesystem) error {
+func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage string, app string, eventId string, environments []string, previousCommitId string, nextCommitId string, fs billy.Filesystem) error {
 	if !valid.SHA1CommitID(sourceCommitId) {
 		return nil
 	}
@@ -544,6 +553,16 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 	if err := util.WriteFile(fs, fs.Join(commitDir, ".empty"), make([]byte, 0), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
 	}
+	previousCommitId = strings.ToLower(previousCommitId)
+	if err := util.WriteFile(fs, fs.Join(commitDir, fieldPreviousCommitId), []byte(previousCommitId), 0666); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+
+	nextCommitId = strings.ToLower(nextCommitId)
+	if err := util.WriteFile(fs, fs.Join(commitDir, fieldNextCommidId), []byte(nextCommitId), 0666); err != nil {
+		return GetCreateReleaseGeneralFailure(err)
+	}
+
 	commitAppDir := commitApplicationDirectory(fs, sourceCommitId, app)
 	if err := fs.MkdirAll(commitAppDir, 0777); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
@@ -554,6 +573,7 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 	if err := util.WriteFile(fs, fs.Join(commitDir, "source_message"), []byte(sourceMessage), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
 	}
+
 	if err := util.WriteFile(fs, fs.Join(commitAppDir, ".gitkeep"), make([]byte, 0), 0666); err != nil {
 		return GetCreateReleaseGeneralFailure(err)
 	}
