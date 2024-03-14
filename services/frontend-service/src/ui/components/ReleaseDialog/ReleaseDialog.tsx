@@ -71,6 +71,7 @@ export const AppLock: React.FC<{
 
 export type EnvironmentListItemProps = {
     env: Environment;
+    envGroup: EnvironmentGroup;
     app: string;
     release: Release;
     queuedVersion: number;
@@ -103,6 +104,7 @@ const DeployedVersion: React.FC<CommitIdProps> = ({ application, app, env, other
 
 export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     env,
+    envGroup,
     app,
     release,
     queuedVersion,
@@ -185,6 +187,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                 <EnvironmentChip
                     env={env}
                     app={app}
+                    envGroup={envGroup}
                     className={'release-environment'}
                     key={env.name}
                     groupNameOverride={undefined}
@@ -258,6 +261,7 @@ export const EnvironmentList: React.FC<{
                         <EnvironmentListItem
                             key={env.name}
                             env={env}
+                            envGroup={envGroup}
                             app={app}
                             release={release}
                             className={className}
