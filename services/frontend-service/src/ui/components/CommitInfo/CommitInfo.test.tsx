@@ -50,6 +50,8 @@ test('CommitInfo component renders commit info when the response is valid', () =
         Commit message body line 1
         Commit message body line 2`,
                 touchedApps: ['google', 'windows'],
+                nextCommitHash: '123456789',
+                previousCommitHash: '',
                 events: [
                     {
                         uuid: '00000000-0000-0000-0000-000000000000',
@@ -157,6 +159,94 @@ test('CommitInfo component renders commit info when the response is valid', () =
                 ],
             },
         },
+        {
+            commitInfo: {
+                commitHash: 'potato',
+                commitMessage: `tomato
+                
+        Commit message body line 1
+        Commit message body line 2`,
+                touchedApps: ['google'],
+                nextCommitHash: '123456789',
+                previousCommitHash: '987654321',
+                events: [],
+            },
+            expectedTitle: 'Commit tomato',
+            expectedCommitDescriptionTable: {
+                head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
+                body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
+            },
+            expectedEventsTable: {
+                head: ['Date:', 'Event Description:', 'Environments:'],
+                body: [],
+            },
+        },
+        {
+            commitInfo: {
+                commitHash: 'potato',
+                commitMessage: `tomato
+                
+        Commit message body line 1
+        Commit message body line 2`,
+                touchedApps: ['google'],
+                nextCommitHash: '123456789',
+                previousCommitHash: '',
+                events: [],
+            },
+            expectedTitle: 'Commit tomato',
+            expectedCommitDescriptionTable: {
+                head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
+                body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
+            },
+            expectedEventsTable: {
+                head: ['Date:', 'Event Description:', 'Environments:'],
+                body: [],
+            },
+        },
+        {
+            commitInfo: {
+                commitHash: 'potato',
+                commitMessage: `tomato
+                
+        Commit message body line 1
+        Commit message body line 2`,
+                touchedApps: ['google'],
+                nextCommitHash: '',
+                previousCommitHash: '987654321',
+                events: [],
+            },
+            expectedTitle: 'Commit tomato',
+            expectedCommitDescriptionTable: {
+                head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
+                body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
+            },
+            expectedEventsTable: {
+                head: ['Date:', 'Event Description:', 'Environments:'],
+                body: [],
+            },
+        },
+        {
+            commitInfo: {
+                commitHash: 'potato',
+                commitMessage: `tomato
+                
+        Commit message body line 1
+        Commit message body line 2`,
+                touchedApps: ['google'],
+                nextCommitHash: '',
+                previousCommitHash: '',
+                events: [],
+            },
+            expectedTitle: 'Commit tomato',
+            expectedCommitDescriptionTable: {
+                head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
+                body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
+            },
+            expectedEventsTable: {
+                head: ['Date:', 'Event Description:', 'Environments:'],
+                body: [],
+            },
+        },
     ];
 
     const verifyTable = (actualTable: HTMLTableElement, expectedTable: Table) => {
@@ -208,6 +298,26 @@ test('CommitInfo component renders commit info when the response is valid', () =
 
         const actualCommitDescriptionTable = tables[0];
         const actualEventsTable = tables[1];
+
+        const targetElements = container.getElementsByClassName('history-button-container');
+        if (testCase.commitInfo.touchedApps.length < 2) {
+            if (testCase.commitInfo.previousCommitHash !== '' && testCase.commitInfo.nextCommitHash !== '') {
+                expect(targetElements.length).toEqual(2);
+                expect(targetElements[0]).toHaveTextContent('Previous Commit');
+                expect(targetElements[1]).toHaveTextContent('Next Commit');
+            } else {
+                expect(targetElements.length).toEqual(1);
+                const target = targetElements[0];
+                if (testCase.commitInfo.previousCommitHash !== '') {
+                    expect(target).toHaveTextContent('Previous Commit');
+                }
+                if (testCase.commitInfo.nextCommitHash !== '') {
+                    expect(target).toHaveTextContent('Next Commit');
+                }
+            }
+        } else {
+            expect(targetElements.length).toEqual(0);
+        }
 
         verifyTable(actualCommitDescriptionTable, testCase.expectedCommitDescriptionTable);
         verifyTable(actualEventsTable, testCase.expectedEventsTable);
