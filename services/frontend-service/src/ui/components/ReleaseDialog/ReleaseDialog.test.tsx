@@ -21,6 +21,7 @@ import { Spy } from 'spy4js';
 import { SideBar } from '../SideBar/SideBar';
 import { MemoryRouter } from 'react-router-dom';
 
+
 const mock_FormattedDate = Spy.mockModule('../FormattedDate/FormattedDate', 'FormattedDate');
 
 describe('Release Dialog', () => {
