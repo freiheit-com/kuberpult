@@ -50,6 +50,8 @@ test('CommitInfo component renders commit info when the response is valid', () =
         Commit message body line 1
         Commit message body line 2`,
                 touchedApps: ['google', 'windows'],
+                nextCommitHash: '',
+                previousCommitHash: '',
                 events: [
                     {
                         uuid: '00000000-0000-0000-0000-000000000000',
