@@ -192,6 +192,8 @@ message CreateReleaseRequest {
   string source_message = 8;
   string source_repo_url = 9;
   string display_version = 10;
+  string previous_commit_id = 11;
+  string next_commit_id = 12;
 }
 
 message CreateReleaseResponseSuccess {

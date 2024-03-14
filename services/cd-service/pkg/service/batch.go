@@ -224,6 +224,8 @@ func (d *BatchServer) processAction(
 				SourceAuthor:    in.SourceAuthor,
 				SourceMessage:   in.SourceMessage,
 				SourceRepoUrl:   in.SourceRepoUrl,
+				PreviousCommit:  in.PreviousCommitId,
+				NextCommit:      in.NextCommitId,
 				Team:            in.Team,
 				DisplayVersion:  in.DisplayVersion,
 				Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},

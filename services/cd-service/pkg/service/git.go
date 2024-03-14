@@ -178,7 +178,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 		previousCommitId = string(data)
 	}
 
-	var nextCommitMessagePath = fs.Join(commitPath, "previousCommitMessagePath")
+	var nextCommitMessagePath = fs.Join(commitPath, "nextCommit")
 	var nextCommitId string
 	if data, err := util.ReadFile(fs, nextCommitMessagePath); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
