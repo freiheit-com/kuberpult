@@ -630,8 +630,8 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 
 					{
-						Uuid:      "00000000-0000-0000-0000-000000000004",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000004"),
+						Uuid:      "00000000-0000-0000-0000-000000000005",
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000005"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application:       "app",
@@ -708,8 +708,8 @@ func TestGetCommitInfo(t *testing.T) {
 					},
 
 					{
-						Uuid:      "00000000-0000-0000-0000-000000000004",
-						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000004"),
+						Uuid:      "00000000-0000-0000-0000-000000000005",
+						CreatedAt: uuid.TimeFromUUID("00000000-0000-0000-0000-000000000005"),
 						EventType: &api.Event_DeploymentEvent{
 							DeploymentEvent: &api.DeploymentEvent{
 								Application:       "app",

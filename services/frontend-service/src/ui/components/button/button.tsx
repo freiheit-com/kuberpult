@@ -25,10 +25,11 @@ export const Button = (props: {
     label?: string;
     icon?: JSX.Element;
     onClick?: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
+    testId?: string;
 }): JSX.Element => {
     const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLButtonElement>(null);
-    const { id, disabled, className, label, icon, onClick } = props;
+    const { id, disabled, className, label, icon, onClick, testId } = props;
 
     useEffect(() => {
         if (control.current) {
@@ -44,7 +45,8 @@ export const Button = (props: {
             className={classNames('mdc-button', className)}
             onClick={onClick}
             ref={control}
-            aria-label={label || ''}>
+            aria-label={label || ''}
+            data-testid={testId}>
             <div className="mdc-button__ripple" />
             {icon &&
                 cloneElement(icon, {

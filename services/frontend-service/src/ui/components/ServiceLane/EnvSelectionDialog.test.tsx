@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { act, render } from '@testing-library/react';
+import { act, render, getByTestId } from '@testing-library/react';
 import { documentQuerySelectorSafe } from '../../../setupTests';
 import { EnvSelectionDialog, EnvSelectionDialogProps } from './EnvSelectionDialog';
 
@@ -31,7 +31,8 @@ type TestDataSelection = {
 const mySubmitSpy = jest.fn();
 const myCancelSpy = jest.fn();
 
-const confirmButtonSelector = '.test-button-confirm';
+const confirmButtonTestId = 'test-confirm-button-confirm';
+const cancelButtonTestId = 'test-confirm-button-cancel';
 
 const dataSelection: TestDataSelection[] = [
     {
@@ -147,7 +148,7 @@ const dataCallbacks: TestDataCallbacks[] = [
             onCancel: myCancelSpy,
             envSelectionDialog: true,
         },
-        clickThis: '.test-button-cancel',
+        clickThis: cancelButtonTestId,
         expectedCancelCallCount: 1,
         expectedSubmitCallCount: 0,
     },
@@ -160,7 +161,7 @@ const dataCallbacks: TestDataCallbacks[] = [
             onCancel: myCancelSpy,
             envSelectionDialog: true,
         },
-        clickThis: confirmButtonSelector,
+        clickThis: confirmButtonTestId,
         expectedCancelCallCount: 0,
         expectedSubmitCallCount: 0,
     },
@@ -222,13 +223,13 @@ describe('EnvSelectionDialog', () => {
             expect(mySubmitSpy).toHaveBeenCalledTimes(0);
             expect(myCancelSpy).toHaveBeenCalledTimes(0);
 
-            getWrapper(testcase.input);
+            const { container } = getWrapper(testcase.input);
 
-            const theButton = documentQuerySelectorSafe(testcase.clickThis);
+            const theButton = getByTestId(container, testcase.clickThis);
             act(() => {
                 theButton.click();
             });
-            documentQuerySelectorSafe(testcase.clickThis); // should not crash
+            getByTestId(container, testcase.clickThis); // should not crash
 
             expect(myCancelSpy).toHaveBeenCalledTimes(testcase.expectedCancelCallCount);
             expect(mySubmitSpy).toHaveBeenCalledTimes(testcase.expectedSubmitCallCount);
@@ -294,7 +295,7 @@ describe('EnvSelectionDialog', () => {
             expect(mySubmitSpy).toHaveBeenCalledTimes(0);
             expect(myCancelSpy).toHaveBeenCalledTimes(0);
 
-            getWrapper(testcase.input);
+            const { container } = getWrapper(testcase.input);
 
             testcase.clickTheseTeams.forEach((value, index) => {
                 const teamButton = documentQuerySelectorSafe('.id-' + value);
@@ -302,7 +303,7 @@ describe('EnvSelectionDialog', () => {
                     teamButton.click();
                 });
             });
-            const confirmButton = documentQuerySelectorSafe(confirmButtonSelector);
+            const confirmButton = getByTestId(container, confirmButtonTestId);
             act(() => {
                 confirmButton.click();
             });

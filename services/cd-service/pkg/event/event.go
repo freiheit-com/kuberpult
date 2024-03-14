@@ -122,6 +122,26 @@ func (ev *LockPreventedDeployment) toProto(trg *api.Event) {
 	}
 }
 
+type ReplacedBy struct {
+	Application       string `fs:"application"`
+	Environment       string `fs:"environment"`
+	CommitIDtoReplace string `fs:"commit"`
+}
+
+func (_ *ReplacedBy) eventType() string {
+	return "replaced-by"
+}
+
+func (ev *ReplacedBy) toProto(trg *api.Event) {
+	trg.EventType = &api.Event_ReplacedByEvent{
+		ReplacedByEvent: &api.ReplacedByEvent{
+			Application:        ev.Application,
+			Environment:        ev.Environment,
+			ReplacedByCommitId: ev.CommitIDtoReplace,
+		},
+	}
+}
+
 // Event is a commit-releated event
 type Event interface {
 	eventType() string
@@ -145,6 +165,9 @@ func Read(fs billy.Filesystem, eventDir string) (Event, error) {
 	case "lock-prevented-deployment":
 		//exhaustruct:ignore
 		result = &LockPreventedDeployment{}
+	case "replaced-by":
+		//exhaustruct:ignore
+		result = &ReplacedBy{}
 	default:
 		return nil, fmt.Errorf("unknown event type: %q", tp.EventType)
 	}
