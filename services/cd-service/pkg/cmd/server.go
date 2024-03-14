@@ -200,6 +200,7 @@ func RunServer() {
 			NetworkTimeout:         c.GitNetworkTimeout,
 			DogstatsdEvents:        c.EnableMetrics,
 			WriteCommitData:        c.GitWriteCommitData,
+			MaximumCommitsPerPush:  c.GitMaximumCommitsPerPush,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {
