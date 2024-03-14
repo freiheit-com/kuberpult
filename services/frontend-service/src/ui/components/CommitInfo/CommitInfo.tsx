@@ -31,13 +31,13 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
         if (commitInfo !== undefined) {
             window.location.href = commitInfo?.previousCommitHash;
         }
-    }, [commitInfo, commitInfo?.previousCommitHash]);
+    }, [commitInfo]);
 
     const onClickNext = useCallback((): void => {
         if (commitInfo !== undefined) {
             window.location.href = commitInfo?.nextCommitHash;
         }
-    }, [commitInfo, commitInfo?.nextCommitHash]);
+    }, [commitInfo]);
 
     if (commitInfo === undefined) {
         return (
