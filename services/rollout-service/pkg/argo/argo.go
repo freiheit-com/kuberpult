@@ -19,6 +19,8 @@ package argo
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path/filepath"
 	"slices"
 
@@ -81,16 +83,19 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 	hlth.ReportReady("event-consuming")
 	l := logger.FromContext(ctx).With(zap.String("self-manage", "consuming"))
 	appsKnownToArgo := map[string]map[string]*v1alpha1.Application{}
+	envAppsKnownToArgo := make(map[string]*v1alpha1.Application)
 	for {
 		select {
 		case overview := <-a.trigger:
 			for _, envGroup := range overview.EnvironmentGroups {
 				for _, env := range envGroup.Environments {
-					envAppsKnownToArgo := appsKnownToArgo[env.Name]
-					err := a.DeleteArgoApps(ctx, envAppsKnownToArgo, env.Applications)
-					if err != nil {
-						l.Error("deleting applications")
-						continue
+					if ok := appsKnownToArgo[env.Name]; ok != nil {
+						envAppsKnownToArgo = appsKnownToArgo[env.Name]
+						err := a.DeleteArgoApps(ctx, envAppsKnownToArgo, env.Applications)
+						if err != nil {
+							l.Error("deleting applications", zap.Error(err))
+							continue
+						}
 					}
 
 					for _, app := range env.Applications {
@@ -125,19 +130,21 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 
 func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
 	t := team(overview, app.Name)
-	if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, t) {
-		k := Key{AppName: app.Name, EnvName: env.Name, Application: app, Environment: env}
+	span, ctx := tracer.StartSpanFromContext(ctx, "Create or Update Applications")
+	defer span.Finish()
 
-		appExists := false
+	var existingApp *v1alpha1.Application
+	if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, t) {
+
 		for _, argoApp := range appsKnownToArgo {
-			if argoApp.Name == app.Name && argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
-				appExists = true
+			if argoApp.Annotations["com.freiheit.kuberpult/application"] == app.Name && argoApp.Annotations["com.freiheit.kuberpult/environment"] == env.Name {
+				existingApp = argoApp
 				break
 			}
 		}
 
-		if !appExists {
-			appToCreate := CreateArgoApplication(overview, app, k.Environment)
+		if existingApp == nil {
+			appToCreate := CreateArgoApplication(overview, app, env)
 			appToCreate.ResourceVersion = ""
 			upsert := false
 			validate := false
@@ -157,19 +164,26 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				}
 			}
 		} else {
-			validate := false
-			appToUpdate := CreateArgoApplication(overview, app, k.Environment)
+			appToUpdate := CreateArgoApplication(overview, app, env)
 			appUpdateRequest := &application.ApplicationUpdateRequest{
 				XXX_NoUnkeyedLiteral: struct{}{},
 				XXX_unrecognized:     nil,
 				XXX_sizecache:        0,
-				Validate:             ptr.Bool(validate),
+				Validate:             ptr.Bool(false),
 				Application:          appToUpdate,
 				Project:              ptr.FromString(appToUpdate.Spec.Project),
 			}
-			_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
-			if err != nil {
-				logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+env.Name, zap.Error(err))
+			//We have to exclude the unexported type isServerInferred. It is managed by Argo.
+
+			//exhaustruct:ignore
+			emptyAppSpec := v1alpha1.ApplicationSpec{}
+			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(emptyAppSpec.Destination))
+			if diff != "" {
+				_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
+				if err != nil {
+					span.SetTag("argoDiff", diff)
+					logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+env.Name, zap.Error(err))
+				}
 			}
 		}
 	}
