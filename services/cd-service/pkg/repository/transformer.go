@@ -400,15 +400,17 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 
-	var checkForInvalidCommitId = func(commit string) {
-		if !valid.SHA1CommitID(commit) {
-			logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", commit)
+	var checkForInvalidCommitId = func(commitId, helperText string) {
+		if !valid.SHA1CommitID(commitId) {
+			logger.FromContext(ctx).
+				Sugar().
+				Warnf("%s commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", commitId, helperText)
 		}
 	}
 
-	checkForInvalidCommitId(c.SourceCommitId)
-	checkForInvalidCommitId(c.PreviousCommit)
-	checkForInvalidCommitId(c.NextCommit)
+	checkForInvalidCommitId(c.SourceCommitId, "Source")
+	checkForInvalidCommitId(c.PreviousCommit, "Previous")
+	checkForInvalidCommitId(c.NextCommit, "Next")
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -617,7 +619,7 @@ func writeNextPrevInfo(sourceCommitId string, otherCommitId string, fieldSource 
 			fieldOther = fieldPreviousCommitId
 		}
 
-		//This is a hack. util.WriteFile does NOT truncate file contents.
+		//This is a workaround. util.WriteFile does NOT truncate file contents, so we simply delete the file before writing.
 		if err := fs.Remove(fs.Join(otherCommitDir, fieldOther)); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}

@@ -1849,7 +1849,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			tc := tc
-			//t.Parallel()
+			t.Parallel()
 
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
 			ctx := testutil.MakeTestContext()
