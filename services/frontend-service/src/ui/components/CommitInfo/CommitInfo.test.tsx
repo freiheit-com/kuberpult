@@ -227,7 +227,6 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
         commitInfo: GetCommitInfoResponse;
         expectedTitle: string;
         expectedCommitDescriptionTable: Table;
-        expectedEventsTable: Table;
         expectedButtons: string[];
     };
 
@@ -249,10 +248,6 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
                 head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
                 body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
             },
-            expectedEventsTable: {
-                head: ['Date:', 'Event Description:', 'Environments:'],
-                body: [],
-            },
             expectedButtons: ['Previous Commit', 'Next Commit'],
         },
         {
@@ -271,10 +266,6 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
             expectedCommitDescriptionTable: {
                 head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
                 body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
-            },
-            expectedEventsTable: {
-                head: ['Date:', 'Event Description:', 'Environments:'],
-                body: [],
             },
             expectedButtons: ['Next Commit'],
         },
@@ -295,10 +286,6 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
                 head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
                 body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
             },
-            expectedEventsTable: {
-                head: ['Date:', 'Event Description:', 'Environments:'],
-                body: [],
-            },
             expectedButtons: ['Previous Commit'],
         },
         {
@@ -318,10 +305,6 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
                 head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
                 body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
             },
-            expectedEventsTable: {
-                head: ['Date:', 'Event Description:', 'Environments:'],
-                body: [],
-            },
             expectedButtons: [],
         },
         {
@@ -340,10 +323,6 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
             expectedCommitDescriptionTable: {
                 head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
                 body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
-            },
-            expectedEventsTable: {
-                head: ['Date:', 'Event Description:', 'Environments:'],
-                body: [],
             },
             expectedButtons: [],
         },

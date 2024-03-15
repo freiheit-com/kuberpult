@@ -16,7 +16,6 @@ Copyright 2023 freiheit.com*/
 
 import { TopAppBar } from '../TopAppBar/TopAppBar';
 import { GetCommitInfoResponse, Event, LockPreventedDeploymentEvent_LockType } from '../../../api/api';
-import './CommitInfo.scss';
 
 type CommitInfoProps = {
     commitInfo: GetCommitInfoResponse | undefined;
