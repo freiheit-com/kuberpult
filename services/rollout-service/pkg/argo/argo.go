@@ -180,6 +180,8 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			if !cmp.Equal(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(emptyAppSpec.Destination)) {
 				_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
 				if err != nil {
+					diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(emptyAppSpec.Destination))
+					span.SetTag("argoDiff", diff)
 					logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+env.Name, zap.Error(err))
 				}
 			}
