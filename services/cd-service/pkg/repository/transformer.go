@@ -400,15 +400,15 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(err)
 	}
 
-	var checkInvalidCommitId = func(commit string) {
+	var checkForInvalidCommitId = func(commit string) {
 		if !valid.SHA1CommitID(commit) {
 			logger.FromContext(ctx).Sugar().Warnf("commit ID is not a valid SHA1 hash, should be exactly 40 characters [0-9a-fA-F] %s\n", commit)
 		}
 	}
 
-	checkInvalidCommitId(c.SourceCommitId)
-	checkInvalidCommitId(c.PreviousCommit)
-	checkInvalidCommitId(c.NextCommit)
+	checkForInvalidCommitId(c.SourceCommitId)
+	checkForInvalidCommitId(c.PreviousCommit)
+	checkForInvalidCommitId(c.NextCommit)
 
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
@@ -556,36 +556,13 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 		return GetCreateReleaseGeneralFailure(err)
 	}
 
-	previousCommitId = strings.ToLower(previousCommitId)
-	if err := util.WriteFile(fs, fs.Join(commitDir, fieldPreviousCommitId), []byte(previousCommitId), 0666); err != nil {
-		return GetCreateReleaseGeneralFailure(err)
-	}
-
-	nextCommitId = strings.ToLower(nextCommitId)
-	if err := util.WriteFile(fs, fs.Join(commitDir, fieldNextCommidId), []byte(nextCommitId), 0666); err != nil {
-		return GetCreateReleaseGeneralFailure(err)
-	}
-
-	//Go to prev commit, set sourceCommitId as Next
 	if previousCommitId != "" {
-		previousCommitDir := commitDirectory(fs, previousCommitId)
-		if _, err := fs.Stat(previousCommitDir); err != nil {
-			return GetCreateReleaseGeneralFailure(err)
-		}
-
-		if err := util.WriteFile(fs, fs.Join(previousCommitDir, fieldNextCommidId), []byte(sourceCommitId), 0666); err != nil {
+		if err := writeNextPrevInfo(sourceCommitId, strings.ToLower(previousCommitId), fieldPreviousCommitId, fs); err != nil {
 			return GetCreateReleaseGeneralFailure(err)
 		}
 	}
-
-	//Go to next Commit, set sourceCommitId as previous commit
 	if nextCommitId != "" {
-		nextCommitDir := commitDirectory(fs, nextCommitId)
-		if _, err := fs.Stat(nextCommitDir); err != nil {
-			return GetCreateReleaseGeneralFailure(err)
-		}
-
-		if err := util.WriteFile(fs, fs.Join(nextCommitDir, fieldPreviousCommitId), []byte(sourceCommitId), 0666); err != nil {
+		if err := writeNextPrevInfo(sourceCommitId, strings.ToLower(nextCommitId), fieldNextCommidId, fs); err != nil {
 			return GetCreateReleaseGeneralFailure(err)
 		}
 	}
@@ -613,6 +590,41 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 	})
 	if err != nil {
 		return fmt.Errorf("error while writing event: %v", err)
+	}
+	return nil
+}
+
+func writeNextPrevInfo(sourceCommitId string, otherCommitId string, fieldSource string, fs billy.Filesystem) error {
+
+	otherCommitId = strings.ToLower(otherCommitId)
+	sourceCommitDir := commitDirectory(fs, sourceCommitId)
+
+	otherCommitDir := commitDirectory(fs, otherCommitId)
+
+	if _, err := fs.Stat(otherCommitDir); err != nil {
+		return err
+	}
+
+	if err := util.WriteFile(fs, fs.Join(sourceCommitDir, fieldSource), []byte(otherCommitId), 0666); err != nil {
+		return err
+	}
+	fieldOther := ""
+	if otherCommitId != "" {
+
+		if fieldSource == fieldPreviousCommitId {
+			fieldOther = fieldNextCommidId
+		} else {
+			fieldOther = fieldPreviousCommitId
+		}
+
+		//This is a hack. util.WriteFile does NOT truncate file contents.
+		if err := fs.Remove(fs.Join(otherCommitDir, fieldOther)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+
+		if err := util.WriteFile(fs, fs.Join(otherCommitDir, fieldOther), []byte(sourceCommitId), 0666); err != nil {
+			return err
+		}
 	}
 	return nil
 }

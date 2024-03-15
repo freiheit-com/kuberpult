@@ -1694,24 +1694,44 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 						"staging": "doesn't matter",
 					},
 					WriteCommitData: true,
-					NextCommit:      "123456789",
-					PreviousCommit:  "ABCDEFABC",
+					NextCommit:      "",
+					PreviousCommit:  "",
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "",
+					PreviousCommit:  "",
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			},
 			expectedContent: []FileWithContent{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/nextCommit",
-					Content: "123456789",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/nextCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/previousCommit",
-					Content: "abcdefabc",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/previousCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			},
 			ExpectedError: "",
 		},
 		{
-			Name: "Create a single application Version",
+			Name: "Create a circle of next and prev",
 			// no need to bother with environments here
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
@@ -1773,12 +1793,63 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 			},
 			ExpectedError: "",
 		},
+		{
+			Name: "New Release overwrites",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "",
+					PreviousCommit:  "",
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "",
+					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/nextCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/previousCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/nextCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+				},
+			},
+			ExpectedError: "",
+		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			tc := tc
-			t.Parallel()
+			//t.Parallel()
 
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
 			ctx := testutil.MakeTestContext()
@@ -1798,7 +1869,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					t.Fatalf("want :\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, verErr.Error())
 				}
 				if tc.ExpectedError == "" {
-					t.Fatalf("Error while verifying content: %v. Filesystem content:\n%s", verErr, strings.Join(listFiles(fs), "\n"))
+					t.Fatalf("Error while verifying content of : %v. Filesystem content:\n%s", verErr, strings.Join(listFiles(fs), "\n"))
 				}
 
 			} else if tc.ExpectedError != "" {
