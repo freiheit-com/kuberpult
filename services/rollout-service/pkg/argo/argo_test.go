@@ -430,7 +430,7 @@ func TestArgoConsume(t *testing.T) {
 			Steps: []step{
 				{
 					Event: &v1alpha1.ApplicationWatchEvent{
-						Type: "UPDATED",
+						Type: "MODIFIED",
 						Application: v1alpha1.Application{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "foo",
@@ -495,7 +495,7 @@ func TestArgoConsume(t *testing.T) {
 				GitRevision: "1234",
 			},
 			ExpectedConsumed:      1,
-			ExpectedConsumedTypes: []string{"UPDATED"},
+			ExpectedConsumedTypes: []string{"MODIFIED"},
 			ExistingArgoApps:      true,
 		},
 		{
@@ -503,7 +503,7 @@ func TestArgoConsume(t *testing.T) {
 			Steps: []step{
 				{
 					Event: &v1alpha1.ApplicationWatchEvent{
-						Type: "UPDATED",
+						Type: "MODIFIED",
 						Application: v1alpha1.Application{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "foo",
@@ -584,7 +584,7 @@ func TestArgoConsume(t *testing.T) {
 				GitRevision: "1234",
 			},
 			ExpectedConsumed:      1,
-			ExpectedConsumedTypes: []string{"UPDATED"},
+			ExpectedConsumedTypes: []string{"MODIFIED"},
 			ExistingArgoApps:      true,
 		},
 		{

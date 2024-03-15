@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/go-cmp/cmp"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path/filepath"
 	"slices"
 
@@ -92,7 +93,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 						envAppsKnownToArgo = appsKnownToArgo[env.Name]
 						err := a.DeleteArgoApps(ctx, envAppsKnownToArgo, env.Applications)
 						if err != nil {
-							l.Error("deleting applications")
+							l.Error("deleting applications", zap.Error(err))
 							continue
 						}
 					}
@@ -129,11 +130,14 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 
 func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
 	t := team(overview, app.Name)
+	span, ctx := tracer.StartSpanFromContext(ctx, "Create or Update Applications")
+	defer span.Finish()
+
 	var existingApp *v1alpha1.Application
 	if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, t) {
 
 		for _, argoApp := range appsKnownToArgo {
-			if argoApp.Name == fmt.Sprintf("%s-%s", env.Name, app.Name) && argoApp.Annotations["com.freiheit.kuberpult/application"] != "" {
+			if argoApp.Annotations["com.freiheit.kuberpult/application"] == app.Name && argoApp.Annotations["com.freiheit.kuberpult/environment"] == env.Name {
 				existingApp = argoApp
 				break
 			}
