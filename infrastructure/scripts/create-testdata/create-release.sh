@@ -106,7 +106,6 @@ curl http://localhost:${FRONTEND_PORT}/release \
   --form-string "source_commit_id=${commit_id}" \
   --form-string "source_author=${author}" \
   --form-string "previous_commit_id=${prev}" \
-  --form-string "next_commit_id=${next}" \
   ${release_version} \
   --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \

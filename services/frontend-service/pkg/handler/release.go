@@ -201,12 +201,6 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		}
 	}
 
-	if nextCommitId, ok := form.Value["next_commit_id"]; ok {
-		if len(nextCommitId) == 1 && isCommitId(nextCommitId[0]) {
-			tf.NextCommitId = nextCommitId[0]
-		}
-	}
-
 	if sourceAuthor, ok := form.Value["source_author"]; ok {
 		if len(sourceAuthor) == 1 && isAuthor(sourceAuthor[0]) {
 			tf.SourceAuthor = sourceAuthor[0]
