@@ -125,7 +125,8 @@ integration-test:
     
     RUN envsubst < Chart.yaml.tpl > Chart.yaml
 
-    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
+    RUN gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
+    RUN gpgconf --kill keyboxd
     RUN gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
     WITH DOCKER --compose docker-compose-k3s.yml
         RUN --no-cache \
