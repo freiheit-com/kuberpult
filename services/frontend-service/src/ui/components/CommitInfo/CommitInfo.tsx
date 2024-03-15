@@ -15,9 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 
 import { TopAppBar } from '../TopAppBar/TopAppBar';
-import React, { useCallback } from 'react';
 import { GetCommitInfoResponse, Event, LockPreventedDeploymentEvent_LockType } from '../../../api/api';
-import { Button } from '../button';
 import './CommitInfo.scss';
 
 type CommitInfoProps = {
@@ -26,18 +24,6 @@ type CommitInfoProps = {
 
 export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
     const commitInfo = props.commitInfo;
-
-    const onClickPrevious = useCallback((): void => {
-        if (commitInfo !== undefined) {
-            window.location.href = commitInfo?.previousCommitHash;
-        }
-    }, [commitInfo]);
-
-    const onClickNext = useCallback((): void => {
-        if (commitInfo !== undefined) {
-            window.location.href = commitInfo?.nextCommitHash;
-        }
-    }, [commitInfo]);
 
     if (commitInfo === undefined) {
         return (
@@ -82,21 +68,13 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                             <div className="next-prev-buttons">
                                 {commitInfo.previousCommitHash !== '' && (
                                     <div className="history-button-container">
-                                        <Button
-                                            id={'previous-button'}
-                                            onClick={onClickPrevious}
-                                            label={' Previous Commit '}
-                                            className={'history-button'}></Button>
+                                        <a href={'/ui/commits/' + commitInfo.previousCommitHash}>Previous Commit</a>
                                     </div>
                                 )}
 
                                 {commitInfo.nextCommitHash !== '' && (
                                     <div className="history-button-container">
-                                        <Button
-                                            id={'next-button'}
-                                            onClick={onClickNext}
-                                            label={' Next Commit '}
-                                            className={'history-button'}></Button>
+                                        <a href={'/ui/commits/' + commitInfo.nextCommitHash}>Next Commit</a>
                                     </div>
                                 )}
                             </div>
