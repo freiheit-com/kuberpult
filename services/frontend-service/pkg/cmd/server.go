@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 
 	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
@@ -112,6 +113,7 @@ func runServer(ctx context.Context) error {
 	}
 	logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
 	logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
+	logger.FromContext(ctx).Info("config.gke_backend_service_name: " + c.GKEBackendServiceName + "\n")
 
 	grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 
@@ -408,12 +410,17 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.U
 
 	if c.GKEProjectNumber == "" {
 		// environment variables not set up correctly
-		logger.FromContext(ctx).Info("iap.gke environment variables are not set up correctly! missing project_number")
+		logger.FromContext(ctx).Info("gke environment variables are not set up correctly! missing project_number")
 		return nil
 	}
 
 	if c.GKEBackendServiceID == "" && c.GKEBackendServiceName == "" {
-		logger.FromContext(ctx).Info("iap.gke environment variables are not set up correctly! missing backend_service_id or backend_service_name")
+		logger.FromContext(ctx).Info("gke environment variables are not set up correctly! missing backend_service_id or backend_service_name")
+		return nil
+	}
+
+	if c.GKEBackendServiceID != "" && c.GKEBackendServiceName != "" {
+		logger.FromContext(ctx).Info("gke environment variables are not set up correctly! backend_service_id and backend_service_name cannot be set simultaneously")
 		return nil
 	}
 
@@ -421,21 +428,34 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.U
 		backendServiceId = c.GKEBackendServiceID
 	} else {
 		if backendServiceId == "" {
+			regex, err := regexp.Compile(c.GKEBackendServiceName)
+			if err != nil {
+				fmt.Println("Error compiling regex for backend_service_name:", err)
+				return nil
+			}
 			computeService, err := compute.NewService(ctx)
 			if err != nil {
 				logger.FromContext(ctx).Info("Failed to create Compute Service client: %v", zap.Error(err))
 				return nil
 			}
 
-			backendService, err := computeService.BackendServices.Get(c.GKEProjectNumber, c.GKEBackendServiceName).Do()
+			backendServices, err := computeService.BackendServices.List(c.GKEProjectNumber).Do()
 			if err != nil {
 				logger.FromContext(ctx).Info("Failed to get backend service: %v", zap.Error(err))
 				return nil
 			}
-			backendServiceId = fmt.Sprint(backendService.Id)
+			for _, backendService := range backendServices.Items {
+				if regex.MatchString(backendService.Name) {
+					backendServiceId = fmt.Sprint(backendService.Id)
+				}
+			}
+			if backendServiceId == "" {
+				logger.FromContext(ctx).Info("Failed to get backend service. No backend services match %s", zap.String("pattern", c.GKEBackendServiceName))
+				return nil
+			}
+			logger.FromContext(ctx).Info("Found backend service with id: " + backendServiceId + "\n")
 		}
 	}
-
 	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, backendServiceId)
 	payload, err := idtoken.Validate(ctx, iapJWT, aud)
 	if err != nil {
