@@ -129,6 +129,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 }
 
 func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
+	//exhaustruct:ignore
 	t := team(overview, app.Name)
 	span, ctx := tracer.StartSpanFromContext(ctx, "Create or Update Applications")
 	defer span.Finish()
@@ -174,7 +175,6 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				Project:              ptr.FromString(appToUpdate.Spec.Project),
 			}
 			//We have to exclude the unexported type isServerInferred. It is managed by Argo.
-			//exhaustruct:ignore
 			if !cmp.Equal(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(v1alpha1.ApplicationSpec{}.Destination)) {
 				_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
 				if err != nil {
