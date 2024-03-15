@@ -129,7 +129,6 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 }
 
 func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
-	//exhaustruct:ignore
 	t := team(overview, app.Name)
 	span, ctx := tracer.StartSpanFromContext(ctx, "Create or Update Applications")
 	defer span.Finish()
