@@ -889,3 +889,5 @@ export const GetEnvironmentConfigPretty = (environmentName: string): Promise<str
             }
             return JSON.stringify(res.config, null, ' ');
         });
+
+export const useArgoCDNamespace = (): string | undefined => useFrontendConfig((c) => c.configs.argoCd?.namespace);
