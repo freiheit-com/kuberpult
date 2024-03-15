@@ -181,7 +181,6 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			if diff != "" {
 				_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
 				if err != nil {
-					
 					span.SetTag("argoDiff", diff)
 					logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+env.Name, zap.Error(err))
 				}
