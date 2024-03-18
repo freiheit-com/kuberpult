@@ -13,8 +13,10 @@ You can check this repo out like this:
 You now have a repo.
 you still need to fill it with some basic data:
 environments and releases.
-For environments, just copy`testdata_template` to the root of your manifest repo.
-Commit and push (you may need `--force` to push).
+For environments, ensure that kuberpult is running (use the docker-compose file),
+and then run `./create-environments.sh` to create environments. This defaults to the 
+environments inside tesdata_template/environments, but you can also provide your own
+enviroments and respective configurations by running `./create-environments.sh /path/to/envs`
 
 For releases, ensure kuberpult is running (use the docker-compose file),
 and then run `./create-release.sh my-service my-team` to create releases
