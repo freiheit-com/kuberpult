@@ -173,7 +173,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
-			expectedBody: "releasetrain does not accept additional path arguments, got: '/junk'\n",
+			expectedBody: "release trains must be invoked via either /releasetrain or /releasetrain/prognosis, but it was invoked via /releasetrain/junk\n",
 		},
 		{
 			name:             "release train - Azure enabled",

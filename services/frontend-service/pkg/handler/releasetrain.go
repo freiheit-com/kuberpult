@@ -29,13 +29,9 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 )
 
-func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
+func (s Server) handleReleaseTrainApplication(w http.ResponseWriter, req *http.Request, target string) {
 	if req.Method != http.MethodPut {
 		http.Error(w, fmt.Sprintf("releasetrain only accepts method PUT, got: '%s'", req.Method), http.StatusMethodNotAllowed)
-		return
-	}
-	if tail != "/" {
-		http.Error(w, fmt.Sprintf("releasetrain does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
 		return
 	}
 	queryParams := req.URL.Query()
@@ -90,4 +86,20 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, tar
 		return
 	}
 	w.Write(json) //nolint:errcheck
+}
+
+func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Request, target string) {
+	w.Write([]byte("You are trying prognosis"))
+}
+
+func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
+	switch tail {
+	case "/":
+		s.handleReleaseTrainApplication(w, req, target)
+	case "/prognosis":
+		s.handleReleaseTrainPrognosis(w, req, target)
+	default:
+		http.Error(w, fmt.Sprintf("release trains must be invoked via either /releasetrain or /releasetrain/prognosis, but it was invoked via /releasetrain%s", tail), http.StatusNotFound)
+		return
+	}
 }
