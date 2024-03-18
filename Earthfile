@@ -86,6 +86,14 @@ integration-test-deps:
     RUN wget -O "/usr/bin/argocd" https://github.com/argoproj/argo-cd/releases/download/v2.7.5/argocd-linux-amd64 && \
         echo "a7680140ddb9011c3d282eaff5f5a856be18e8653ff9f0c7047a318f640753be /usr/bin/argocd" | sha256sum -c - && \
         chmod +x "/usr/bin/argocd"
+    WORKDIR /kp
+    RUN apk add --no-cache gpg gpg-agent
+    RUN gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
+    RUN gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
+    RUN echo list keys A
+    RUN gpg --keyring trustedkeys-kuberpult.gpg --list-keys
+    SAVE ARTIFACT /root/.gnupg/
+    SAVE ARTIFACT /kp/kuberpult-keyring.gpg
     SAVE ARTIFACT /usr/bin/kubectl
     SAVE ARTIFACT /usr/bin/helm
     SAVE ARTIFACT /usr/bin/argocd
@@ -126,8 +134,9 @@ integration-test:
     
     RUN envsubst < Chart.yaml.tpl > Chart.yaml
 
-    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
-    RUN gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
+    RUN echo list keys B
+    RUN gpg --keyring trustedkeys-kuberpult.gpg --list-keys
+
     WITH DOCKER --compose docker-compose-k3s.yml
         RUN --no-cache \
             echo Waiting for K3s cluster to be ready; \
