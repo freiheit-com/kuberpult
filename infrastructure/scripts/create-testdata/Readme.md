@@ -16,7 +16,7 @@ environments and releases.
 For environments, ensure that kuberpult is running (use the docker-compose file),
 and then run `./create-environments.sh` to create environments. This defaults to the 
 environments inside tesdata_template/environments, but you can also provide your own
-enviroments and respective configurations by running `./create-environments.sh /path/to/envs`
+environments and respective configurations by running `./create-environments.sh /path/to/envs`
 
 For releases, ensure kuberpult is running (use the docker-compose file),
 and then run `./create-release.sh my-service my-team` to create releases
