@@ -59,6 +59,7 @@ import (
 
 var c config.ServerConfig
 var backendServiceId string = ""
+var backendServiceRegex *regexp.Regexp
 
 func readAllAndClose(r io.ReadCloser, maxBytes int64) {
 	_, _ = io.ReadAll(io.LimitReader(r, maxBytes))
@@ -110,6 +111,14 @@ func runServer(ctx context.Context) error {
 			logger.FromContext(ctx).Fatal("Unable to initialize jwks for azure auth")
 			return err
 		}
+	}
+	if c.GKEBackendServiceName != "" {
+		regex, err := regexp.Compile(c.GKEBackendServiceName)
+		if err != nil {
+			logger.FromContext(ctx).Error("Error compiling regex for backend_service_name: %v", zap.Error(err))
+			return err
+		}
+		backendServiceRegex = regex
 	}
 	logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
 	logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
@@ -428,29 +437,23 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.U
 		backendServiceId = c.GKEBackendServiceID
 	} else {
 		if backendServiceId == "" {
-			regex, err := regexp.Compile(c.GKEBackendServiceName)
-			if err != nil {
-				fmt.Println("Error compiling regex for backend_service_name:", err)
-				return nil
-			}
 			computeService, err := compute.NewService(ctx)
 			if err != nil {
 				logger.FromContext(ctx).Info("Failed to create Compute Service client: %v", zap.Error(err))
 				return nil
 			}
-
 			backendServices, err := computeService.BackendServices.List(c.GKEProjectNumber).Do()
 			if err != nil {
 				logger.FromContext(ctx).Info("Failed to get backend service: %v", zap.Error(err))
 				return nil
 			}
 			for _, backendService := range backendServices.Items {
-				if regex.MatchString(backendService.Name) {
+				if backendServiceRegex.MatchString(backendService.Name) {
 					backendServiceId = fmt.Sprint(backendService.Id)
 				}
 			}
 			if backendServiceId == "" {
-				logger.FromContext(ctx).Info("Failed to get backend service. No backend services match %s", zap.String("pattern", c.GKEBackendServiceName))
+				logger.FromContext(ctx).Info("Failed to get backend service. No backend services match %v", zap.String("pattern", c.GKEBackendServiceName))
 				return nil
 			}
 			logger.FromContext(ctx).Info("Found backend service with id: " + backendServiceId + "\n")
