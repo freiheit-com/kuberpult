@@ -456,7 +456,7 @@ func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.U
 	}
 
 	if backendServiceId == "" {
-		logger.FromContext(ctx).Info("Failed to get backend_service_id! Make sure gke environment variables are set up correctly.")
+		logger.FromContext(ctx).Warn("Failed to get backend_service_id! Author information will be lost. Make sure gke environment variables are set up correctly.")
 		return nil
 	}
 
