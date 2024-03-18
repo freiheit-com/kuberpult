@@ -35,8 +35,9 @@ COMPILE:
 
 UNIT_TEST:
     FUNCTION
+    ARG GO_TEST_ARGS
     COPY pkg pkg
-    RUN go test ./...
+    RUN go test $GO_TEST_ARGS ./...
 
 LINT:
     FUNCTION

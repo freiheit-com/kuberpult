@@ -16,7 +16,7 @@ Copyright 2023 freiheit.com*/
 import { EnvironmentListItem, ReleaseDialog, ReleaseDialogProps } from './ReleaseDialog';
 import { fireEvent, render } from '@testing-library/react';
 import { UpdateAction, UpdateOverview, UpdateRolloutStatus, UpdateSidebar } from '../../utils/store';
-import { Environment, Priority, Release, RolloutStatus, UndeploySummary } from '../../../api/api';
+import { Environment, EnvironmentGroup, Priority, Release, RolloutStatus, UndeploySummary } from '../../../api/api';
 import { Spy } from 'spy4js';
 import { SideBar } from '../SideBar/SideBar';
 import { MemoryRouter } from 'react-router-dom';
@@ -36,6 +36,7 @@ describe('Release Dialog', () => {
         props: ReleaseDialogProps;
         rels: Release[];
         envs: Environment[];
+        envGroups: EnvironmentGroup[];
         expect_message: boolean;
         expect_queues: number;
         data_length: number;
@@ -52,6 +53,7 @@ describe('Release Dialog', () => {
         props: ReleaseDialogProps;
         rels: Release[];
         envs: Environment[];
+        envGroups: EnvironmentGroup[];
         expect_message: boolean;
         expect_queues: number;
         data_length: number;
@@ -90,6 +92,15 @@ describe('Release Dialog', () => {
                         },
                     },
                     distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                },
+            ],
+            envGroups: [
+                {
+                    // this data should never appear (group with no envs with a well-defined priority), but we'll make it for the sake of the test.
+                    distanceToUpstream: 0,
+                    environmentGroupName: 'prod',
+                    environments: [],
                     priority: Priority.UPSTREAM,
                 },
             ],
@@ -135,6 +146,15 @@ describe('Release Dialog', () => {
                     priority: Priority.UPSTREAM,
                 },
             ],
+            envGroups: [
+                {
+                    // this data should never appear (group with no envs with a well-defined priority), but we'll make it for the sake of the test.
+                    distanceToUpstream: 0,
+                    environmentGroupName: 'prod',
+                    environments: [],
+                    priority: Priority.UPSTREAM,
+                },
+            ],
             expect_message: true,
             expect_queues: 0,
             data_length: 2,
@@ -173,6 +193,15 @@ describe('Release Dialog', () => {
                         },
                     },
                     distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                },
+            ],
+            envGroups: [
+                {
+                    // this data should never appear (group with no envs with a well-defined priority), but we'll make it for the sake of the test.
+                    distanceToUpstream: 0,
+                    environmentGroupName: 'prod',
+                    environments: [],
                     priority: Priority.UPSTREAM,
                 },
             ],
@@ -216,6 +245,15 @@ describe('Release Dialog', () => {
                         },
                     },
                     distanceToUpstream: 0,
+                    priority: Priority.UPSTREAM,
+                },
+            ],
+            envGroups: [
+                {
+                    // this data should never appear (group with no envs with a well-defined priority), but we'll make it for the sake of the test.
+                    distanceToUpstream: 0,
+                    environmentGroupName: 'prod',
+                    environments: [],
                     priority: Priority.UPSTREAM,
                 },
             ],
@@ -279,6 +317,7 @@ describe('Release Dialog', () => {
                 },
             ],
             envs: [],
+            envGroups: [],
             expect_message: false,
             expect_queues: 0,
             data_length: 0,
@@ -418,6 +457,7 @@ describe('Release Dialog', () => {
                 render(
                     <EnvironmentListItem
                         env={testcase.envs[0]}
+                        envGroup={testcase.envGroups[0]}
                         app={testcase.props.app}
                         queuedVersion={0}
                         release={{ ...testcase.rels[0], version: 3 }}
@@ -463,6 +503,7 @@ describe('Release Dialog', () => {
             render(
                 <EnvironmentListItem
                     env={testcase.envs[0]}
+                    envGroup={testcase.envGroups[0]}
                     app={testcase.props.app}
                     queuedVersion={0}
                     release={testcase.rels[0]}
