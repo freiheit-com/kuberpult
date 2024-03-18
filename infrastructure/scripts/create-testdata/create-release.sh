@@ -89,8 +89,8 @@ FRONTEND_PORT=8081 # see docker-compose.yml
 
 if [[ $(uname -o) == Darwin ]];
 then
-  EMAIL=$(echo -n "script-user@example.com" | base64 -b0)
-  AUTHOR=$(echo -n "script-user" | base64 -b0)
+  EMAIL=$(echo -n "script-user@example.com" | base64 -b 0)
+  AUTHOR=$(echo -n "script-user" | base64 -b 0)
 else
   EMAIL=$(echo -n "script-user@example.com" | base64 -w 0)
   AUTHOR=$(echo -n "script-user" | base64 -w 0)
