@@ -216,7 +216,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
     }
 });
 
-test('CommitInfo component renders next and previous buttons correctly', () => {
+describe('CommitInfo component renders next and previous buttons correctly', () => {
     type Table = {
         head: string[];
         // NOTE: newlines, if there are any, will effectively be removed, since they will be checked using .toHaveTextContent
@@ -225,6 +225,7 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
 
     type TestCase = {
         commitInfo: GetCommitInfoResponse;
+        name: string;
         expectedTitle: string;
         expectedCommitDescriptionTable: Table;
         expectedButtons: string[];
@@ -232,6 +233,7 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
 
     const testCases: TestCase[] = [
         {
+            name: 'Both buttons render when there information for both commits exist',
             commitInfo: {
                 commitHash: 'potato',
                 commitMessage: `tomato
@@ -251,6 +253,7 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
             expectedButtons: ['Previous Commit', 'Next Commit'],
         },
         {
+            name: 'Previous is correctly hidden.',
             commitInfo: {
                 commitHash: 'potato',
                 commitMessage: `tomato
@@ -270,6 +273,7 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
             expectedButtons: ['Next Commit'],
         },
         {
+            name: 'Next is correctly hidden',
             commitInfo: {
                 commitHash: 'potato',
                 commitMessage: `tomato
@@ -289,6 +293,7 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
             expectedButtons: ['Previous Commit'],
         },
         {
+            name: 'No button shows when no info is provided',
             commitInfo: {
                 commitHash: 'potato',
                 commitMessage: `tomato
@@ -308,6 +313,7 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
             expectedButtons: [],
         },
         {
+            name: 'No button shows when more than one app is touched',
             commitInfo: {
                 commitHash: 'potato',
                 commitMessage: `tomato
@@ -327,18 +333,19 @@ test('CommitInfo component renders next and previous buttons correctly', () => {
             expectedButtons: [],
         },
     ];
+    describe.each(testCases)(`Test Buttons Work`, (testCase) => {
+        it(testCase.name, () => {
+            const { container } = render(
+                <MemoryRouter>
+                    <CommitInfo commitInfo={testCase.commitInfo} />
+                </MemoryRouter>
+            );
 
-    for (const testCase of testCases) {
-        const { container } = render(
-            <MemoryRouter>
-                <CommitInfo commitInfo={testCase.commitInfo} />
-            </MemoryRouter>
-        );
-
-        const targetElements = container.getElementsByClassName('history-button-container');
-        expect(targetElements.length).toEqual(testCase.expectedButtons.length);
-        for (let i = 0; i < testCase.expectedButtons.length; i++) {
-            expect(targetElements[i]).toHaveTextContent(testCase.expectedButtons[i]);
-        }
-    }
+            const targetElements = container.getElementsByClassName('history-button-container');
+            expect(targetElements.length).toEqual(testCase.expectedButtons.length);
+            for (let i = 0; i < testCase.expectedButtons.length; i++) {
+                expect(targetElements[i]).toHaveTextContent(testCase.expectedButtons[i]);
+            }
+        });
+    });
 });
