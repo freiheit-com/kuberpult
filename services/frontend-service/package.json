@@ -59,8 +59,8 @@
     "react-refresh": "^0.14.0",
     "sass": "^1.70.0",
     "spy4js": "^3.1.0",
-    "ts-proto": "^1.167.2",
-    "typescript": "5.3.3"
+    "ts-proto": "^1.169.1",
+    "typescript": "5.4.2"
   },
   "jest": {
     "collectCoverageFrom": [
