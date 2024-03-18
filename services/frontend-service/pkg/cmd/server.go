@@ -73,34 +73,33 @@ func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
 
 	if c.GKEBackendServiceID != "" {
 		return c.GKEBackendServiceID
-	} else {
-		regex, err := regexp.Compile(c.GKEBackendServiceName)
-		if err != nil {
-			logger.FromContext(ctx).Warn("Error compiling regex for backend_service_name: %v", zap.Error(err))
-			return ""
-		}
-		computeService, err := compute.NewService(ctx)
-		if err != nil {
-			logger.FromContext(ctx).Warn("Failed to create Compute Service client: %v", zap.Error(err))
-			return ""
-		}
-		backendServices, err := computeService.BackendServices.List(c.GKEProjectNumber).Do()
-		if err != nil {
-			logger.FromContext(ctx).Warn("Failed to get backend service: %v", zap.Error(err))
-			return ""
-		}
-
-		serviceId := ""
-		for _, backendService := range backendServices.Items {
-			if regex.MatchString(backendService.Name) {
-				serviceId = fmt.Sprint(backendService.Id)
-			}
-		}
-		if serviceId == "" {
-			logger.FromContext(ctx).Warn("No backend services found matching:", zap.String("pattern", c.GKEBackendServiceName))
-		}
-		return serviceId
 	}
+	regex, err := regexp.Compile(c.GKEBackendServiceName)
+	if err != nil {
+		logger.FromContext(ctx).Warn("Error compiling regex for backend_service_name: %v", zap.Error(err))
+		return ""
+	}
+	computeService, err := compute.NewService(ctx)
+	if err != nil {
+		logger.FromContext(ctx).Warn("Failed to create Compute Service client: %v", zap.Error(err))
+		return ""
+	}
+	backendServices, err := computeService.BackendServices.List(c.GKEProjectNumber).Do()
+	if err != nil {
+		logger.FromContext(ctx).Warn("Failed to get backend service: %v", zap.Error(err))
+		return ""
+	}
+
+	serviceId := ""
+	for _, backendService := range backendServices.Items {
+		if regex.MatchString(backendService.Name) {
+			serviceId = fmt.Sprint(backendService.Id)
+		}
+	}
+	if serviceId == "" {
+		logger.FromContext(ctx).Warn("No backend services found matching:", zap.String("pattern", c.GKEBackendServiceName))
+	}
+	return serviceId
 }
 func readAllAndClose(r io.ReadCloser, maxBytes int64) {
 	_, _ = io.ReadAll(io.LimitReader(r, maxBytes))
