@@ -1679,7 +1679,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 		Name            string
 		Transformers    []Transformer
 		expectedContent []FileWithContent
-		ExpectedError   string
 	}
 
 	tcs := []TestCase{
@@ -1728,7 +1727,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			},
-			ExpectedError: "",
 		},
 		{
 			Name: "Create a circle of next and prev",
@@ -1791,7 +1789,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 				},
 			},
-			ExpectedError: "",
 		},
 		{
 			Name: "New Release overwrites",
@@ -1842,7 +1839,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
 				},
 			},
-			ExpectedError: "",
 		},
 	}
 
@@ -1865,15 +1861,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 			verErr := verifyContent(fs, tc.expectedContent)
 
 			if verErr != nil {
-				if !(strings.Contains(verErr.Error(), tc.ExpectedError)) {
-					t.Fatalf("want :\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, verErr.Error())
-				}
-				if tc.ExpectedError == "" {
-					t.Fatalf("Error while verifying content of : %v. Filesystem content:\n%s", verErr, strings.Join(listFiles(fs), "\n"))
-				}
-
-			} else if tc.ExpectedError != "" {
-				t.Fatalf("Expected error %s, but got nothing.", tc.ExpectedError)
+				t.Fatalf("Error while verifying content of : %v. Filesystem content:\n%s", verErr, strings.Join(listFiles(fs), "\n"))
 			}
 		})
 	}
