@@ -68,10 +68,10 @@ clean:
 	git clean -Xfd
 
 test:
-	$(EARTHLY) +unit-test
+	$(EARTHLY) +unit-test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
 
 test-go: $(GO_FILES) proto
-	$(GO) test ./...
+	$(GO) test $(GO_TEST_ARGS) ./...
 
 docker:
 	$(EARTHLY) +docker --registry=$(IMAGE_REGISTRY) --tag=$(VERSION)

@@ -88,11 +88,11 @@ test-dependencies:
 	make -C ../../pkg/api test
 
 test:
-	$(EARTHLY) +unit-test
+	$(EARTHLY) +unit-test "--GO_TEST_ARGS=$(GO_TEST_ARGS)"
 	$(EARTHLY) +unit-test-ui
 
 test-go: $(ALL_GO_FILES) | proto
-	$(GO) test ./...
+	$(GO) test $(GO_TEST_ARGS) ./...
 
 test-ts: src/api/api.ts
 	pnpm eslint
