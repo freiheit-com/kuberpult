@@ -4,10 +4,8 @@ set -o pipefail
 #set -x
 
 # usage
-# ./create-release.sh my-service-name [my-team-name]
+# ./create-environments.sh [path/to/envs]
 # Note that this just creates files, it doesn't push in git
-
-
 
 FRONTEND_PORT=8081 # see docker-compose.yml
 
@@ -22,6 +20,4 @@ for filename in "$testData"/*; do
          http://localhost:${FRONTEND_PORT}/environments/${env}
 done
 
-
 echo # curl sometimes does not print a trailing \n
-
