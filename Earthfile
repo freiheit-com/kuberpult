@@ -95,6 +95,7 @@ integration-test:
     RUN apk add --no-cache curl gpg gpg-agent gettext bash git go
 
     ARG --required kuberpult_version
+    ARG GO_TEST_ARGS
 
     # K3S environment variables
     ENV KUBECONFIG=/kp/kubeconfig.yaml
@@ -133,6 +134,6 @@ integration-test:
             sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 3; \
             ./integration-tests/cluster-setup/setup-cluster-ssh.sh; sleep 3; \
             ./integration-tests/cluster-setup/argocd-kuberpult.sh && \
-            cd integration-tests && go test ./... && \
+            cd integration-tests && go test $GO_TEST_ARGS ./... && \
             echo ============ SUCCESS ============
     END
