@@ -587,7 +587,7 @@ message GetStatusResponse {
 }
 
 service ReleaseTrainPrognosisService {
-  rpc GetReleaseTrainPrognosis (ReleaseTrainRequest) GetReleaseTrainPrognosisResponse {}
+  rpc GetReleaseTrainPrognosis (ReleaseTrainRequest) returns (GetReleaseTrainPrognosisResponse) {}
 }
 
 message GetReleaseTrainPrognosisResponse {
