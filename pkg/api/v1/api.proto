@@ -585,3 +585,11 @@ message GetStatusResponse {
   RolloutStatus status = 1;
   repeated ApplicationStatus applications = 2;
 }
+
+service ReleaseTrainPrognosisService {
+  rpc GetReleaseTrainPrognosis (ReleaseTrainRequest) GetReleaseTrainPrognosisResponse {}
+}
+
+message GetReleaseTrainPrognosisResponse {
+  repeated string deployment = 1;
+}
