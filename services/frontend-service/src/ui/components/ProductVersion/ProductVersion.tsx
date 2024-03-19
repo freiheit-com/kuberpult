@@ -18,8 +18,6 @@ import * as React from 'react';
 import {
     refreshTags,
     useTags,
-    getSummary,
-    useSummaryDisplay,
     useEnvironmentGroups,
     useEnvironments,
     addAction,
@@ -27,10 +25,12 @@ import {
 } from '../../utils/store';
 import { DisplayManifestLink, DisplaySourceLink } from '../../utils/Links';
 import { Spinner } from '../Spinner/Spinner';
-import { EnvironmentGroup, ProductSummary } from '../../../api/api';
+import { EnvironmentGroup, GetProductSummaryResponse, ProductSummary } from '../../../api/api';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../button';
 import { EnvSelectionDialog } from '../ServiceLane/EnvSelectionDialog';
+import { useState } from 'react';
+import { useApi } from '../../utils/GrpcApi';
 
 export type TableProps = {
     productSummary: ProductSummary[];
@@ -116,22 +116,47 @@ export const ProductVersion: React.FC = () => {
     const envList = useEnvironmentGroupCombinations(envGroupResponse);
     const [searchParams, setSearchParams] = useSearchParams();
     const [environment, setEnvironment] = React.useState(searchParams.get('env') || envList[0]);
-    const summaryResponse = useSummaryDisplay();
+    const [showSummary, setShowSummary] = useState(false);
+    const [summaryLoading, setSummaryLoading] = useState(false);
+    const [productSummaries, setProductSummaries] = useState(Array<ProductSummary>());
     const teams = (searchParams.get('teams') || '').split(',').filter((val) => val !== '');
-    const openClose = React.useCallback(
+    const [selectedTag, setSelectedTag] = React.useState('');
+    const envsList = useEnvironments();
+    const tagsResponse = useTags();
+
+    const onChangeTag = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
-            const env = splitCombinedGroupName(environment);
-            getSummary(e.target.value, env[0], env[1]);
             setSelectedTag(e.target.value);
             searchParams.set('tag', e.target.value);
             setSearchParams(searchParams);
         },
-        [environment, searchParams, setSearchParams]
+        [searchParams, setSearchParams]
     );
-    const [selectedTag, setSelectedTag] = React.useState('');
-    const envsList = useEnvironments();
+    React.useEffect(() => {
+        let tag = searchParams.get('tag');
+        if (tag === null) {
+            if (tagsResponse.response.tagData.length === 0) return;
+            tag = tagsResponse.response.tagData[0].commitId;
+            if (tag === null) return;
+            setSelectedTag(tag);
+            searchParams.set('tag', tag);
+            setSearchParams(searchParams);
+        }
+        const env = splitCombinedGroupName(environment);
+        setShowSummary(true);
+        setSummaryLoading(true);
+        useApi
+            .gitService()
+            .GetProductSummary({ commitHash: tag, environment: env[0], environmentGroup: env[1] })
+            .then((result: GetProductSummaryResponse) => {
+                setProductSummaries(result.productSummary);
+            })
+            .catch((e) => {
+                showSnackbarError(e.message);
+            });
+        setSummaryLoading(false);
+    }, [tagsResponse, envGroupResponse, environment, searchParams, setSearchParams]);
 
-    const tagsResponse = useTags();
     const changeEnv = React.useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
             searchParams.set('env', e.target.value);
@@ -140,7 +165,6 @@ export const ProductVersion: React.FC = () => {
         },
         [setSearchParams, searchParams]
     );
-    const [displaySummary, setDisplayVersion] = React.useState(false);
     const [showReleaseTrainEnvs, setShowReleaseTrainEnvs] = React.useState(false);
     const handleClose = React.useCallback(() => {
         setShowReleaseTrainEnvs(false);
@@ -178,24 +202,10 @@ export const ProductVersion: React.FC = () => {
         [selectedTag, teams]
     );
 
-    React.useEffect(() => {
-        if (tagsResponse.response.tagData.length > 0) {
-            const env = splitCombinedGroupName(environment);
-            if (searchParams.get('tag') === null) {
-                setSelectedTag(tagsResponse.response.tagData[0].commitId);
-                searchParams.set('tag', tagsResponse.response.tagData[0].commitId);
-                setSearchParams(searchParams);
-                getSummary(tagsResponse.response.tagData[0].commitId, env[0], env[1]);
-            } else {
-                getSummary(searchParams.get('tag') || tagsResponse.response.tagData[0].commitId, env[0], env[1]);
-            }
-            setDisplayVersion(true);
-        }
-    }, [tagsResponse, envGroupResponse, environment, searchParams, setSearchParams]);
     if (!tagsResponse.tagsReady) {
         return <Spinner message="Loading Git Tags" />;
     }
-    if (!summaryResponse.summaryReady) {
+    if (summaryLoading) {
         return <Spinner message="Loading Production Version" />;
     }
 
@@ -219,8 +229,7 @@ export const ProductVersion: React.FC = () => {
                 <div className="space_apart_row">
                     <div className="dropdown_div">
                         <select
-                            onChange={openClose}
-                            onSelect={openClose}
+                            onChange={onChangeTag}
                             className="drop_down"
                             data-testid="drop_down"
                             value={selectedTag}>
@@ -250,9 +259,9 @@ export const ProductVersion: React.FC = () => {
                 <div />
             )}
             <div>
-                {displaySummary ? (
+                {showSummary ? (
                     <div className="table_padding">
-                        <TableFiltered productSummary={summaryResponse.response.productSummary} teams={teams} />
+                        <TableFiltered productSummary={productSummaries} teams={teams} />
                     </div>
                 ) : (
                     <div className="page_description">
