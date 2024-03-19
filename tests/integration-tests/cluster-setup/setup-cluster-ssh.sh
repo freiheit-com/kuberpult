@@ -6,8 +6,8 @@ set -o pipefail
 
 scratch=$(mktemp -d)
 
-ssh-keygen -t ed25519 -N "" -C host -f "${scratch}/host"
-ssh-keygen -t ed25519 -N "" -C client -f "${scratch}/client"
+ssh-keygen -t ed25519 -N "" -C host -f "${scratch}/host" &>/dev/null
+ssh-keygen -t ed25519 -N "" -C client -f "${scratch}/client" &>/dev/null
 
 host_pub="$(cat "${scratch}/host.pub")"
 
@@ -136,5 +136,3 @@ spec:
       restartPolicy: Always
 EOF
 echo "done setting up ssh"
-
-
