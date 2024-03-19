@@ -12,7 +12,7 @@ An example for this can be found [here](https://github.com/freiheit-com/kuberpul
 The `/release` endpoint accepts several parameters:
 * `manifests` the (kubernetes) manifests that belong to this service. Needs to be unique for each version. You can achieve this by adding the git commit id to the docker image tag of your kubernetes Deployment.
 * `application` name of the microservice. Must be the same name over all releases, otherwise Kuberpult assumes this is a separate microservice.
-* `source_commit_id` git commit hash, we recommend to use the first 12 characters (but can be shorter/longer if needed).
+* `source_commit_id` git commit hash, we recommend to use the whole 40 characters.
 * `source_author` git author of the new change.
 * `source_message` git commit message of the new change.
 * `author-email` and `author-name` are base64 encoded http headers. They define the `git author` that pushes to the manifest repository.
