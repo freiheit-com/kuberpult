@@ -108,6 +108,8 @@ spec:
           value: {{ .Values.log.level | quote }}
         - name: KUBERPULT_GKE_BACKEND_SERVICE_ID
           value: "{{ .Values.gke.backend_service_id }}"
+        - name: KUBERPULT_GKE_BACKEND_SERVICE_NAME
+          value: "{{ .Values.gke.backend_service_name }}"
         - name: KUBERPULT_GKE_PROJECT_NUMBER
           value: "{{ .Values.gke.project_number }}"
         - name: KUBERPULT_ALLOWED_ORIGINS
