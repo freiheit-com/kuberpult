@@ -21,11 +21,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
+
+	grpcerrors "github.com/freiheit-com/kuberpult/pkg/grpc"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
@@ -44,6 +46,7 @@ import (
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
+	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -55,7 +58,49 @@ import (
 )
 
 var c config.ServerConfig
+var backendServiceId string = ""
 
+func getBackendServiceId(c config.ServerConfig, ctx context.Context) string {
+	if c.GKEBackendServiceID == "" && c.GKEBackendServiceName == "" {
+		logger.FromContext(ctx).Warn("gke environment variables are not set up correctly! missing backend_service_id or backend_service_name")
+		return ""
+	}
+
+	if c.GKEBackendServiceID != "" && c.GKEBackendServiceName != "" {
+		logger.FromContext(ctx).Warn("gke environment variables are not set up correctly! backend_service_id and backend_service_name cannot be set simultaneously")
+		return ""
+	}
+
+	if c.GKEBackendServiceID != "" {
+		return c.GKEBackendServiceID
+	}
+	regex, err := regexp.Compile(c.GKEBackendServiceName)
+	if err != nil {
+		logger.FromContext(ctx).Warn("Error compiling regex for backend_service_name: %v", zap.Error(err))
+		return ""
+	}
+	computeService, err := compute.NewService(ctx)
+	if err != nil {
+		logger.FromContext(ctx).Warn("Failed to create Compute Service client: %v", zap.Error(err))
+		return ""
+	}
+	backendServices, err := computeService.BackendServices.List(c.GKEProjectNumber).Do()
+	if err != nil {
+		logger.FromContext(ctx).Warn("Failed to get backend service: %v", zap.Error(err))
+		return ""
+	}
+
+	serviceId := ""
+	for _, backendService := range backendServices.Items {
+		if regex.MatchString(backendService.Name) {
+			serviceId = fmt.Sprint(backendService.Id)
+		}
+	}
+	if serviceId == "" {
+		logger.FromContext(ctx).Warn("No backend services found matching:", zap.String("pattern", c.GKEBackendServiceName))
+	}
+	return serviceId
+}
 func readAllAndClose(r io.ReadCloser, maxBytes int64) {
 	_, _ = io.ReadAll(io.LimitReader(r, maxBytes))
 	_ = r.Close()
@@ -107,8 +152,14 @@ func runServer(ctx context.Context) error {
 			return err
 		}
 	}
+
 	logger.FromContext(ctx).Info("config.gke_project_number: " + c.GKEProjectNumber + "\n")
 	logger.FromContext(ctx).Info("config.gke_backend_service_id: " + c.GKEBackendServiceID + "\n")
+	logger.FromContext(ctx).Info("config.gke_backend_service_name: " + c.GKEBackendServiceName + "\n")
+
+	if c.GKEProjectNumber != "" {
+		backendServiceId = getBackendServiceId(c, ctx)
+	}
 
 	grpcServerLogger := logger.FromContext(ctx).Named("grpc_server")
 
@@ -397,20 +448,18 @@ type Auth struct {
 
 func getRequestAuthorFromGoogleIAP(ctx context.Context, r *http.Request) *auth.User {
 	iapJWT := r.Header.Get("X-Goog-IAP-JWT-Assertion")
-
 	if iapJWT == "" {
 		// not using iap (local), default user
 		logger.FromContext(ctx).Info("iap.jwt header was not found or doesn't exist")
 		return nil
 	}
 
-	if c.GKEProjectNumber == "" || c.GKEBackendServiceID == "" {
-		// environment variables not set up correctly
-		logger.FromContext(ctx).Info("iap.jke environment variables are not set up correctly")
+	if backendServiceId == "" {
+		logger.FromContext(ctx).Warn("Failed to get backend_service_id! Author information will be lost. Make sure gke environment variables are set up correctly.")
 		return nil
 	}
 
-	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, c.GKEBackendServiceID)
+	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", c.GKEProjectNumber, backendServiceId)
 	payload, err := idtoken.Validate(ctx, iapJWT, aud)
 	if err != nil {
 		logger.FromContext(ctx).Warn("iap.idtoken.validate", zap.Error(err))
