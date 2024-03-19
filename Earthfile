@@ -91,9 +91,11 @@ integration-test-deps:
     SAVE ARTIFACT /usr/bin/argocd
 
 integration-test:
-    FROM alpine:3.18
-    RUN apk add --no-cache curl gpg gpg-agent gettext bash git go openssh
-
+#    FROM alpine:3.18
+#    RUN apk add --no-cache curl gpg gpg-agent gettext bash git go openssh
+#
+    FROM ubuntu:22.04
+    RUN apt update && apt install -y curl gpg gpg-agent gettext bash git golang netcat-openbsd
     ARG GO_TEST_ARGS
     # K3S environment variables
     ENV KUBECONFIG=/kp/kubeconfig.yaml
@@ -110,17 +112,22 @@ integration-test:
     ENV GIT_COMMITTER_EMAIL='team.sre.permanent+kuberpult-initial-commiter@freiheit.com'
     WORKDIR /kp
 
-    RUN gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
-    RUN gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
-
     COPY +integration-test-deps/* /usr/bin/
     COPY tests/integration-tests/cluster-setup/docker-compose-k3s.yml .
+
+    RUN --no-cache echo GPG gen starting...
+    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
+    RUN --no-cache echo GPG export starting...
+    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > /kuberpult-keyring.gpg
+
     COPY charts/kuberpult .
     COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
+
     COPY infrastructure/scripts/create-testdata/create-release.sh .
     COPY tests/integration-tests integration-tests
     COPY go.mod go.sum .
     COPY pkg/ptr pkg/ptr
+
 
     ARG --required kuberpult_version
     ENV VERSION=$kuberpult_version
