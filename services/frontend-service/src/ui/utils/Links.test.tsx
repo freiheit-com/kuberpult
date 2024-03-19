@@ -22,6 +22,7 @@ import {
     DisplayManifestLink,
     DisplaySourceLink,
     DisplayCommitHistoryLink,
+    KuberpultGitHubLink,
 } from './Links';
 import { GetFrontendConfigResponse_ArgoCD } from '../../api/api';
 import { UpdateFrontendConfig } from './store';
@@ -324,6 +325,34 @@ describe('DisplayCommitHistoryLink', () => {
                 // or render nothing:
                 expect(document.body.textContent).toBe('');
             }
+        });
+    });
+});
+
+describe('KuberpultGitHubLink', () => {
+    const cases: {
+        version: string;
+        expectedLink: string;
+    }[] = [
+        {
+            version: '2.6.0',
+            expectedLink: 'https://github.com/freiheit-com/kuberpult/blob/v2.6.0/README.md',
+        },
+        {
+            version: '6.6.6',
+            expectedLink: 'https://github.com/freiheit-com/kuberpult/blob/v6.6.6/README.md',
+        },
+    ];
+    describe.each(cases)('Renders properly', (testcase) => {
+        const getNode = () => <KuberpultGitHubLink version={testcase.version} />;
+        const getWrapper = () => render(getNode());
+        it(testcase.version, () => {
+            //given
+            const { container } = getWrapper();
+            // when
+            const aElem = elementQuerySelectorSafe(container, 'a');
+            // then
+            expect(aElem.attributes.getNamedItem('href')?.value).toBe(testcase.expectedLink);
         });
     });
 });
