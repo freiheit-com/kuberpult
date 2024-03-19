@@ -174,7 +174,7 @@ argocd:
     enabled: true
 pgp:
   keyRing: |
-$(sed -e "s/^/    /" </kuberpult-keyring.gpg)
+$(sed -e "s/^/    /" </kp/kuberpult-keyring.gpg)
 VALUES
 
 # Get helm dependency charts and unzip them

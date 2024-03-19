@@ -91,9 +91,9 @@ integration-test-deps:
     SAVE ARTIFACT /usr/bin/argocd
 
 integration-test:
-#    FROM alpine:3.18
-#    RUN apk add --no-cache curl gpg gpg-agent gettext bash git go openssh
-#
+# We pick ubuntu here because it seems to have the least amount of issues.
+# With alpine:3.18, we get occasional issues with gpg that says there's a process running already, even though there shouldn't be.
+# Ubuntu:22.04 seems to solve this issue.
     FROM ubuntu:22.04
     RUN apt update && apt install -y curl gpg gpg-agent gettext bash git golang netcat-openbsd
     ARG GO_TEST_ARGS
@@ -118,8 +118,9 @@ integration-test:
     RUN --no-cache echo GPG gen starting...
     RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
     RUN --no-cache echo GPG export starting...
-    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > /kuberpult-keyring.gpg
-
+    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > /kp/kuberpult-keyring.gpg
+    # Note that multiple commands here are writing to "." which is slightly dangerous, because
+    # if there are files with the same name, old ones will be overridden.
     COPY charts/kuberpult .
     COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
 
@@ -127,7 +128,6 @@ integration-test:
     COPY tests/integration-tests integration-tests
     COPY go.mod go.sum .
     COPY pkg/ptr pkg/ptr
-
 
     ARG --required kuberpult_version
     ENV VERSION=$kuberpult_version
