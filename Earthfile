@@ -87,13 +87,15 @@ integration-test-deps:
         echo "a7680140ddb9011c3d282eaff5f5a856be18e8653ff9f0c7047a318f640753be /usr/bin/argocd" | sha256sum -c - && \
         chmod +x "/usr/bin/argocd"
     WORKDIR /kp
-    RUN apk add --no-cache gpg gpg-agent
-    RUN gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
-    RUN gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
-    RUN --no-cache echo list keys A
-    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --list-keys
-    SAVE ARTIFACT /root/.gnupg/
-    SAVE ARTIFACT /kp/kuberpult-keyring.gpg
+#    RUN apk add --no-cache gpg gpg-agent
+#    RUN gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
+#    RUN sleep 3
+#    RUN gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
+#    RUN sleep 3
+#    RUN --no-cache echo list keys A
+#    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --list-keys
+#    SAVE ARTIFACT /root/.gnupg/
+#    SAVE ARTIFACT /kp/kuberpult-keyring.gpg
     SAVE ARTIFACT /usr/bin/kubectl
     SAVE ARTIFACT /usr/bin/helm
     SAVE ARTIFACT /usr/bin/argocd
@@ -101,6 +103,8 @@ integration-test-deps:
 integration-test:
     FROM docker:24.0.7-dind-alpine3.18
     RUN apk add --no-cache curl gpg gpg-agent gettext bash git go
+    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
+    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
 
     ARG --required kuberpult_version
     ARG GO_TEST_ARGS
@@ -124,6 +128,8 @@ integration-test:
     WORKDIR /kp
 
     COPY +integration-test-deps/* /usr/bin/
+#    COPY --keep-own +integration-test-deps/.gnupg/ /root/.gnupg/
+#    COPY --keep-own +integration-test-deps/kuberpult-keyring.gpg /kp/kuberpult-keyring.gpg
     COPY tests/integration-tests/cluster-setup/docker-compose-k3s.yml .
     COPY charts/kuberpult .
     COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
@@ -131,13 +137,15 @@ integration-test:
     COPY tests/integration-tests integration-tests
     COPY go.mod go.sum .
     COPY pkg/ptr pkg/ptr
-    
+
+#    RUN chmod 700 /root/.gnupg/
+
     RUN envsubst < Chart.yaml.tpl > Chart.yaml
 
-    RUN --no-cache echo list keys B
-    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --list-keys
+ #   RUN --no-cache echo list keys B
+ #   RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --list-keys
 
-    WITH DOCKER --compose docker-compose-k3s.yml
+    WITH DOCKER --compose docker-compose-k3s.yml --load services/cd-service+docker --tag
         RUN --no-cache \
             echo Waiting for K3s cluster to be ready; \
             sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 3; \
