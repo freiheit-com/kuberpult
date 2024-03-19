@@ -19,10 +19,11 @@ package argo
 import (
 	"context"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path/filepath"
 	"slices"
+
+	"github.com/google/go-cmp/cmp"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -160,7 +161,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			if err != nil {
 				// We check if the application was created in the meantime
 				if status.Code(err) != codes.InvalidArgument {
-					logger.FromContext(ctx).Error("creating "+appToCreate.Name+",env "+env.Name, zap.Error(err))
+					logger.FromContext(ctx).Error("creating  "+appToCreate.Name+",env "+env.Name, zap.Error(err))
 				}
 			}
 		} else {
