@@ -14,6 +14,7 @@ Kuberpult is a catapult for [kubernetes](https://kubernetes.io/) :) it catapults
 While [Argo CD](https://argo-cd.readthedocs.io/en/stable) applies the *current* version of your services in clusters,
 Kuberpult also helps you with managing what is deployed *next*.
 
+
 ## Purpose
 The purpose of Kuberpult is to help roll out quickly yet organized.
 We use it for requirements like this:
