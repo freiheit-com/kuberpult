@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os/exec"
@@ -29,6 +28,8 @@ import (
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 const (
@@ -37,10 +38,23 @@ const (
 	frontendPort = "8081"
 )
 
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
+
 func postWithForm(client *http.Client, url string, values map[string]io.Reader, files map[string]io.Reader) (*http.Response, error) {
 	// Prepare a form that you will submit to that URL.
 	var b bytes.Buffer
-	var err error = nil
+	var err error
 	multipartWriter := multipart.NewWriter(&b)
 	for key, r := range values {
 		var fw io.Writer
@@ -87,11 +101,6 @@ func postWithForm(client *http.Client, url string, values map[string]io.Reader, 
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
-	}
-
-	// Check the response
-	if res.StatusCode != http.StatusOK {
-		err = fmt.Errorf("bad status: %s", res.Status)
 	}
 	return res, nil
 }
@@ -256,7 +265,7 @@ func TestReleaseCalls(t *testing.T) {
 
 			actualStatusCode, body, err := callRelease(values, files)
 			if err != nil {
-				log.Fatalf("callRelease failed: %s", err.Error())
+				t.Fatalf("callRelease failed: %s", err.Error())
 			}
 			if actualStatusCode != tc.expectedStatusCode {
 				t.Errorf("expected code %v but got %v. Body: %s", tc.expectedStatusCode, actualStatusCode, body)
@@ -294,7 +303,7 @@ func TestGroupLock(t *testing.T) {
 			}
 			actualStatusCode, respBody, err := callCreateGroupLock(t, tc.inputEnvGroup, lockId, requestBody)
 			if err != nil {
-				log.Fatalf("callRelease failed: %s", err.Error())
+				t.Fatalf("callCreateGroupLock failed: %s", err.Error())
 			}
 			if actualStatusCode != tc.expectedStatusCode {
 				t.Errorf("expected code %v but got %v. Body: '%s'", tc.expectedStatusCode, actualStatusCode, respBody)
@@ -308,19 +317,20 @@ func TestAppParameter(t *testing.T) {
 		name                string
 		inputNumberAppParam int
 		expectedStatusCode  int
-		expectedError       string
+		expectedError       error
+		expectedBody        string
 	}{
 		{
 			name:                "0 app names",
 			inputNumberAppParam: 0,
 			expectedStatusCode:  400,
-			expectedError:       "Must provide application name",
+			expectedBody:        "Must provide application name",
 		},
 		{
 			name:                "1 app name",
 			inputNumberAppParam: 1,
 			expectedStatusCode:  201,
-			expectedError:       "{\"Success\":{}}\n",
+			expectedBody:        "{\"Success\":{}}\n",
 		},
 		// having multiple app names would be a bit harder to test
 	}
@@ -338,16 +348,14 @@ func TestAppParameter(t *testing.T) {
 			files["signatures[dev]"] = strings.NewReader(CalcSignature(t, "manifest"))
 
 			actualStatusCode, actualBody, err := callRelease(values, files)
-
-			if err != nil {
-				t.Errorf("form error %s", err.Error())
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
-
 			if actualStatusCode != tc.expectedStatusCode {
 				t.Errorf("expected code %v but got %v", tc.expectedStatusCode, actualStatusCode)
 			}
-			if actualBody != tc.expectedError {
-				t.Errorf("expected message '%s' but got '%s'", tc.expectedError, actualBody)
+			if diff := cmp.Diff(tc.expectedBody, actualBody); diff != "" {
+				t.Errorf("response body mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
@@ -357,12 +365,12 @@ func TestManifestParameterMissing(t *testing.T) {
 	testCases := []struct {
 		name               string
 		expectedStatusCode int
-		expectedError      string
+		expectedBody       string
 	}{
 		{
 			name:               "missing manifest",
 			expectedStatusCode: 400,
-			expectedError:      "No manifest files provided",
+			expectedBody:       "No manifest files provided",
 		},
 	}
 
@@ -383,8 +391,8 @@ func TestManifestParameterMissing(t *testing.T) {
 			if actualStatusCode != tc.expectedStatusCode {
 				t.Errorf("expected code %v but got %v", tc.expectedStatusCode, actualStatusCode)
 			}
-			if actualBody != tc.expectedError {
-				t.Errorf("expected message '%s' but got '%s'", tc.expectedError, actualBody)
+			if diff := cmp.Diff(tc.expectedBody, actualBody); diff != "" {
+				t.Errorf("response body mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
@@ -394,17 +402,17 @@ func TestServeHttpInvalidInput(t *testing.T) {
 	tcs := []struct {
 		Name           string
 		ExpectedStatus int
-		ExpectedError  string
+		ExpectedBody   string
 		FormMetaData   string
 	}{{
 		Name:           "Error when no boundary provided",
 		ExpectedStatus: 400,
-		ExpectedError:  "Invalid body: no multipart boundary param in Content-Type",
+		ExpectedBody:   "Invalid body: no multipart boundary param in Content-Type",
 		FormMetaData:   "multipart/form-data;",
 	}, {
 		Name:           "Error when no content provided",
 		ExpectedStatus: 400,
-		ExpectedError:  "Invalid body: multipart: NextPart: EOF",
+		ExpectedBody:   "Invalid body: multipart: NextPart: EOF",
 		FormMetaData:   "multipart/form-data;boundary=nonExistantBoundary;",
 	}}
 
@@ -428,9 +436,8 @@ func TestServeHttpInvalidInput(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				bodyString := string(bodyBytes)
-				if bodyString != tc.ExpectedError {
-					t.Fatalf(`expected http body "%s", received "%s"`, tc.ExpectedError, bodyString)
+				if diff := cmp.Diff(tc.ExpectedBody, string(bodyBytes)); diff != "" {
+					t.Errorf("response body mismatch (-want, +got):\n%s", diff)
 				}
 			}
 		})

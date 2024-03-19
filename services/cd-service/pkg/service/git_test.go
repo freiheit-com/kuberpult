@@ -17,24 +17,25 @@ Copyright 2023 freiheit.com*/
 package service
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"google.golang.org/protobuf/proto"
 )
 
 func TestGetProductOverview(t *testing.T) {
@@ -759,8 +760,8 @@ func TestGetCommitInfo(t *testing.T) {
 
 			commitInfo, err := sv.GetCommitInfo(ctx, tc.request)
 
-			if !errors.Is(err, tc.expectedError) {
-				t.Fatalf("expected error %v\nreceived error %v", tc.expectedError, err)
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 
 			if commitInfo != nil {
@@ -774,8 +775,8 @@ func TestGetCommitInfo(t *testing.T) {
 				}
 			}
 
-			if !proto.Equal(tc.expectedResponse, commitInfo) {
-				t.Fatalf("expected response:\n%v\nreceived response:\n%v\n", tc.expectedResponse, commitInfo)
+			if diff := cmp.Diff(tc.expectedResponse, commitInfo, protocmp.Transform()); diff != "" {
+				t.Errorf("response mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}

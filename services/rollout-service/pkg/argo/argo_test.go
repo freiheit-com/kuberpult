@@ -19,11 +19,11 @@ package argo
 import (
 	"context"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
 	"io"
-	"k8s.io/apimachinery/pkg/watch"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -33,11 +33,26 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 type step struct {
 	Event         *v1alpha1.ApplicationWatchEvent
@@ -239,7 +254,7 @@ func TestArgoConsume(t *testing.T) {
 		Name                  string
 		Steps                 []step
 		Overview              *api.GetOverviewResponse
-		ExpectedError         string
+		ExpectedError         error
 		ExpectedConsumed      int
 		ExpectedConsumedTypes []string
 		ExistingArgoApps      bool
@@ -350,7 +365,7 @@ func TestArgoConsume(t *testing.T) {
 				},
 				GitRevision: "1234",
 			},
-			ExpectedError:    "watching applications: no",
+			ExpectedError:    errMatcher{"watching applications: no"},
 			ExpectedConsumed: 1,
 		},
 		{
@@ -691,10 +706,8 @@ func TestArgoConsume(t *testing.T) {
 			time.Sleep(10 * time.Second)
 			err := <-errCh
 
-			if err != nil {
-				if tc.ExpectedError == "" || tc.ExpectedError != err.Error() {
-					t.Errorf("expected no error, but got %q", err)
-				}
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			as.testAllConsumed(t, tc.ExpectedConsumed)
 		})

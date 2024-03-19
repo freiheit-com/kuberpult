@@ -28,40 +28,54 @@ import (
 	"github.com/MicahParks/keyfunc/v2"
 	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
+
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 func TestValidateTokenStatic(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		Token         string
-		ExpectedError string
+		ExpectedError error
 		noInit        bool
 	}{
 		{
 			Name:          "Not a token",
 			Token:         "asdf",
-			ExpectedError: "Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
 		},
 		{
 			Name:          "Not initialized",
 			Token:         "asdf",
 			noInit:        true,
-			ExpectedError: "JWKS not initialized.",
+			ExpectedError: errMatcher{"JWKS not initialized."},
 		},
 		{
 			Name:          "Not a token 2",
 			Token:         "asdf.asdf.asdf",
-			ExpectedError: "Failed to parse the JWT.\nError: token is malformed: could not JSON decode header: invalid character 'j' looking for beginning of value",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: could not JSON decode header: invalid character 'j' looking for beginning of value"},
 		},
 		{
 			Name:          "Kid not present",
 			Token:         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.WDlNbJFe8ZX6C1mS27xwxg-9tk8vtkk6sDgucRj8xW0",
-			ExpectedError: "Failed to parse the JWT.\nError: token is unverifiable: error while executing keyfunc: the JWT has an invalid kid: could not find kid in JWT header",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is unverifiable: error while executing keyfunc: the JWT has an invalid kid: could not find kid in JWT header"},
 		},
 		{
 			Name:          "Kid not part of jwks",
 			Token:         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImFzZGYifQ.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.aNyAK8qpCScGchUmv1q1pBXOddWKN8_7agLUo7pXDog",
-			ExpectedError: "Failed to parse the JWT.\nError: token is unverifiable: error while executing keyfunc: the given key ID was not found in the JWKS",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is unverifiable: error while executing keyfunc: the given key ID was not found in the JWKS"},
 		},
 	}
 
@@ -74,13 +88,13 @@ func TestValidateTokenStatic(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
+			testJWKS := jwks
 			if tc.noInit {
-				_, err = ValidateToken(tc.Token, nil, "clientId", "tenantId")
-			} else {
-				_, err = ValidateToken(tc.Token, jwks, "clientId", "tenantId")
+				testJWKS = nil
 			}
-			if diff := cmp.Diff(err.Error(), tc.ExpectedError); diff != "" {
-				t.Errorf("Error mismatch (-want +got):\n%s", diff)
+			_, err = ValidateToken(tc.Token, testJWKS, "clientId", "tenantId")
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
@@ -148,7 +162,7 @@ func TestValidateTokenGenerated(t *testing.T) {
 		Name          string
 		ClientId      string
 		TenantId      string
-		ExpectedError string
+		ExpectedError error
 		Expiry        int64
 		Kid           string
 	}{
@@ -156,42 +170,42 @@ func TestValidateTokenGenerated(t *testing.T) {
 			Name:          "invalid client id",
 			ClientId:      "invalidClient",
 			TenantId:      "tenantId",
-			ExpectedError: "Unknown client id provided: invalidClient",
+			ExpectedError: errMatcher{"Unknown client id provided: invalidClient"},
 			Kid:           "testKey",
 		},
 		{
 			Name:          "No client id",
 			ClientId:      "",
 			TenantId:      "tenantId",
-			ExpectedError: "Client id not found in token.",
+			ExpectedError: errMatcher{"Client id not found in token."},
 			Kid:           "testKey",
 		},
 		{
 			Name:          "invalid tenant id",
 			ClientId:      "clientId",
 			TenantId:      "invalidTenant",
-			ExpectedError: "Unknown tenant id provided: invalidTenant",
+			ExpectedError: errMatcher{"Unknown tenant id provided: invalidTenant"},
 			Kid:           "testKey",
 		},
 		{
 			Name:          "No tenant id",
 			ClientId:      "clientId",
 			TenantId:      "",
-			ExpectedError: "Tenant id not found in token.",
+			ExpectedError: errMatcher{"Tenant id not found in token."},
 			Kid:           "testKey",
 		},
 		{
 			Name:          "invalid  kid",
 			ClientId:      "clientId",
 			TenantId:      "tenantId",
-			ExpectedError: "Failed to parse the JWT.\nError: token is unverifiable: error while executing keyfunc: the given key ID was not found in the JWKS",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is unverifiable: error while executing keyfunc: the given key ID was not found in the JWKS"},
 			Kid:           "tests",
 		},
 		{
 			Name:          "Expired key",
 			ClientId:      "clientId",
 			TenantId:      "tenantId",
-			ExpectedError: "Failed to parse the JWT.\nError: token has invalid claims: token is expired",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token has invalid claims: token is expired"},
 			Expiry:        time.Now().Unix(),
 			Kid:           "testKey",
 		},
@@ -224,17 +238,8 @@ func TestValidateTokenGenerated(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, err = ValidateToken(tokenString, jwks, "clientId", "tenantId")
-			if len(tc.ExpectedError) > 0 {
-				if err == nil {
-					t.Fatalf("Expected error \n%s, got nil", tc.ExpectedError)
-				}
-				if diff := cmp.Diff(err.Error(), tc.ExpectedError); diff != "" {
-					t.Fatalf("Error mismatch (-want +got):\n%s", diff)
-				}
-			} else {
-				if err != nil {
-					t.Fatalf("Expected no error got):\n%s", err.Error())
-				}
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
@@ -245,95 +250,89 @@ func TestHttpMiddleware(t *testing.T) {
 		Name          string
 		Path          string
 		Method        string
-		ExpectedError string
+		ExpectedError error
 		Authenticated bool
 	}{
 		{
-			Name:          "root path",
-			Path:          "/",
-			Method:        http.MethodGet,
-			ExpectedError: "",
+			Name:   "root path",
+			Path:   "/",
+			Method: http.MethodGet,
 		},
 		{
-			Name:          "js path",
-			Path:          "/static/js/content.js",
-			Method:        http.MethodGet,
-			ExpectedError: "",
+			Name:   "js path",
+			Path:   "/static/js/content.js",
+			Method: http.MethodGet,
 		},
 		{
-			Name:          "css path",
-			Path:          "/static/css/content.css",
-			Method:        http.MethodGet,
-			ExpectedError: "",
+			Name:   "css path",
+			Path:   "/static/css/content.css",
+			Method: http.MethodGet,
 		},
 		{
 			Name:          "api call - wrong url",
 			Path:          "/environment/production/locks/999",
 			Method:        http.MethodGet,
-			ExpectedError: "Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 		{
 			Name:          "api call - wrong url path",
 			Path:          "/environment/production/releasetrainisawsome",
 			Method:        http.MethodGet,
-			ExpectedError: "Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 		{
 			Name:          "api call rleasetrain",
 			Path:          "/environments/production/releasetrain",
 			Method:        http.MethodGet,
-			ExpectedError: "",
 			Authenticated: false,
 		},
 		{
 			Name:          "api call ",
 			Path:          "/environments/production/locks/999",
 			Method:        http.MethodGet,
-			ExpectedError: "",
 			Authenticated: false,
 		},
 		{
 			Name:          "api call create environment POST",
 			Path:          "/environments/dev",
 			Method:        http.MethodPost,
-			ExpectedError: "",
 			Authenticated: false,
 		},
 		{
 			Name:          "api call create environment GET",
 			Path:          "/environments/dev",
 			Method:        http.MethodGet,
-			ExpectedError: "Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 		{
 			Name:          "api call create environment wrong url",
 			Path:          "/environments/dev/something",
 			Method:        http.MethodPost,
-			ExpectedError: "Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 		{
 			Name:          "api call create environment another wrong url GET",
 			Path:          "/environments/something/dev",
 			Method:        http.MethodPost,
-			ExpectedError: "Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 		{
 			Name:          "api call create environment another wrong url POST",
 			Path:          "/environments/something/dev",
 			Method:        http.MethodPost,
-			ExpectedError: "Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 		{
 			Name:          "api call create environment - no env",
 			Path:          "/environments/",
 			Method:        http.MethodPost,
-			ExpectedError: "Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments",
+			ExpectedError: errMatcher{"Failed to parse the JWT.\nError: token is malformed: token contains an invalid number of segments"},
 			Authenticated: false,
 		},
 	}
@@ -367,28 +366,17 @@ func TestHttpMiddleware(t *testing.T) {
 			}
 			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				err := HttpAuthMiddleWare(w, r, jwks, "clientId", "tenantId", []string{"/"}, []string{"/static/js", "/static/css"})
-				if len(tc.ExpectedError) > 0 {
-
-					if err == nil {
-						t.Fatalf("Expected error %s, got nil", tc.ExpectedError)
+				if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				}
+				if tc.Authenticated {
+					username := req.Header.Get("username")
+					email := req.Header.Get("email")
+					if username != "testName" {
+						t.Fatalf("Expected username testName but got %q", username)
 					}
-					if diff := cmp.Diff(err.Error(), tc.ExpectedError); diff != "" {
-						t.Fatalf("Error mismatch (-want +got):\n%s", diff)
-					}
-				} else {
-					if tc.Authenticated {
-						username := req.Header.Get("username")
-						email := req.Header.Get("email")
-						if username != "testName" {
-							t.Fatalf("Expected username testName but got %q", username)
-						}
-						if email != "test.email@com" {
-							t.Fatalf("Expected email test.email@com but got %q", email)
-						}
-
-					}
-					if err != nil {
-						t.Fatalf("Expected no error, got %s", err.Error())
+					if email != "test.email@com" {
+						t.Fatalf("Expected email test.email@com but got %q", email)
 					}
 				}
 			})
