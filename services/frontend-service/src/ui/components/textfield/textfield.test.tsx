@@ -24,7 +24,7 @@ describe('Textfield', () => {
         // given
         const { container } = render(
             <MemoryRouter>
-                <Textfield floatingLabel="Floating label" />
+                <Textfield placeholder="Floating label" />
             </MemoryRouter>
         );
         // when & then
@@ -45,7 +45,6 @@ describe('Textfield', () => {
         expect(container.querySelector('i')).toMatchInlineSnapshot(`
     <i
       class="material-icons mdc-text-field__icon mdc-text-field__icon--leading"
-      role="button"
       tabindex="0"
     >
       search
@@ -67,7 +66,7 @@ describe('Verify textfield content', () => {
         );
     };
 
-    const getWrapper = (overrides?: { floatingLabel: string; value: string; className: string }, entries?: string[]) =>
+    const getWrapper = (overrides?: { placeholder: string; value: string; className: string }, entries?: string[]) =>
         render(getNode(overrides));
 
     it(`Renders a navigation item base`, () => {
@@ -80,7 +79,7 @@ describe('Verify textfield content', () => {
     interface dataT {
         name: string;
         className: string;
-        floatingLabel: string;
+        placeholder: string;
         value: string;
         expect: (container: HTMLElement) => void;
     }
@@ -89,7 +88,7 @@ describe('Verify textfield content', () => {
         {
             name: 'Empty textfield',
             className: 'top-app-bar-search-field',
-            floatingLabel: 'Search',
+            placeholder: 'Search',
             value: '',
             expect: (container) =>
                 expect(container.getElementsByClassName('mdc-text-field__input')[0]).toHaveTextContent(''),
@@ -97,7 +96,7 @@ describe('Verify textfield content', () => {
         {
             name: 'Textfield with content',
             className: 'top-app-bar-search-field',
-            floatingLabel: 'Search',
+            placeholder: 'Search',
             value: 'test-search',
             expect: (container) => {
                 const input = getElementsByClassNameSafe(container, 'mdc-text-field__input')[0];
@@ -111,9 +110,9 @@ describe('Verify textfield content', () => {
 
     describe.each(data)(`Renders a navigation item with selected`, (testcase) => {
         it(testcase.name, () => {
-            const { className, floatingLabel, value } = testcase;
+            const { className, placeholder, value } = testcase;
             // when
-            const { container } = getWrapper({ floatingLabel, className, value });
+            const { container } = getWrapper({ placeholder, className, value });
             // then
             testcase.expect(container);
         });

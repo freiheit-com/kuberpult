@@ -13,45 +13,29 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback } from 'react';
 import classNames from 'classnames';
-import { MDCTextField } from '@material/textfield';
 import { useSearchParams } from 'react-router-dom';
 
 export type TextfieldProps = {
     className?: string;
-    floatingLabel?: string;
+    placeholder?: string;
     value?: string | number;
     leadingIcon?: string;
 };
 
 export const Textfield = (props: TextfieldProps): JSX.Element => {
-    const { className, floatingLabel, leadingIcon, value } = props;
-    const control = useRef<HTMLDivElement>(null);
-    const input = useRef<HTMLInputElement>(null);
-    const MDComponent = useRef<MDCTextField>();
+    const { className, placeholder, leadingIcon, value } = props;
 
-    useEffect(() => {
-        if (control.current) {
-            MDComponent.current = new MDCTextField(control.current);
-        }
-        return (): void => MDComponent.current?.destroy();
-    }, []);
-
-    useEffect(() => {
-        if (floatingLabel) {
-            MDComponent.current?.layout();
-        }
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams(
+        value === undefined || value === '' ? undefined : { application: `${value}` }
+    );
 
     const allClassName = classNames(
         'mdc-text-field',
         'mdc-text-field--outlined',
+        'mdc-text-field--no-label',
         {
-            'mdc-text-field--no-label': !floatingLabel,
             'mdc-text-field--with-leading-icon': leadingIcon,
         },
         className
@@ -67,22 +51,9 @@ export const Textfield = (props: TextfieldProps): JSX.Element => {
     );
 
     return (
-        <div className={allClassName} ref={control}>
+        <div className={allClassName}>
             <span className="mdc-notched-outline">
                 <span className="mdc-notched-outline__leading" />
-                {!!floatingLabel && (
-                    <span className="mdc-notched-outline__notch">
-                        <span
-                            className={classNames('mdc-floating-label', {
-                                'mdc-floating-label--float-above':
-                                    !!value ||
-                                    (input.current && input.current.value !== '') ||
-                                    input.current === document.activeElement,
-                            })}>
-                            {floatingLabel}
-                        </span>
-                    </span>
-                )}
                 <span className="mdc-notched-outline__trailing" />
             </span>
             {leadingIcon && (
@@ -91,12 +62,11 @@ export const Textfield = (props: TextfieldProps): JSX.Element => {
                 </i>
             )}
             <input
-                type="text"
+                type="search"
                 className="mdc-text-field__input"
-                defaultValue={value}
-                ref={input}
-                aria-label={floatingLabel}
-                disabled={window.location.href.includes('environments')}
+                value={searchParams.get('application') ?? ''}
+                placeholder={placeholder}
+                aria-label={placeholder}
                 onChange={setQueryParam}
             />
         </div>
