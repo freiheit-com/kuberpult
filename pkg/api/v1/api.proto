@@ -297,6 +297,7 @@ message GetFrontendConfigRequest {
 message GetFrontendConfigResponse {
   message ArgoCD {
     string base_url = 1;
+    string namespace = 2;
   }
   message Auth {
     message AzureAuthConfig {

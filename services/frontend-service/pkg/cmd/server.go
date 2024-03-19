@@ -287,7 +287,10 @@ func runServer(ctx context.Context) error {
 
 	frontendConfigService := &service.FrontendConfigServiceServer{
 		Config: config.FrontendConfig{
-			ArgoCd: &config.ArgoCdConfig{BaseUrl: c.ArgocdBaseUrl},
+			ArgoCd: &config.ArgoCdConfig{
+				BaseUrl:   c.ArgocdBaseUrl,
+				Namespace: c.ArgocdNamespace,
+			},
 			Auth: &config.AuthConfig{
 				AzureAuth: &config.AzureAuthConfig{
 					Enabled:       c.AzureEnableAuth,
