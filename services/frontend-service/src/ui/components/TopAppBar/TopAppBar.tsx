@@ -66,6 +66,18 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
             </div>
         );
 
+    const [searchParams, setSearchParams] = useSearchParams(
+        appNameParam === '' ? undefined : { application: `${appNameParam}` }
+    );
+    const onChangeApplication = useCallback(
+        (event: any) => {
+            if (event.target.value !== '') searchParams.set('application', event.target.value);
+            else searchParams.delete('application');
+            setSearchParams(searchParams);
+        },
+        [searchParams, setSearchParams]
+    );
+
     const renderedAppFilter =
         props.showAppFilter === true ? (
             <div className="mdc-top-app-bar__section top-app-bar--wide-filter">
@@ -74,6 +86,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                     placeholder={'Application Name'}
                     value={appNameParam}
                     leadingIcon={'search'}
+                    onChangeHandler={onChangeApplication}
                 />
             </div>
         ) : (

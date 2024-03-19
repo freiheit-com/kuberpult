@@ -13,23 +13,19 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { useCallback } from 'react';
+import { ChangeEventHandler } from 'react';
 import classNames from 'classnames';
-import { useSearchParams } from 'react-router-dom';
 
 export type TextfieldProps = {
     className?: string;
     placeholder?: string;
     value?: string | number;
     leadingIcon?: string;
+    onChangeHandler?: ChangeEventHandler;
 };
 
 export const Textfield = (props: TextfieldProps): JSX.Element => {
-    const { className, placeholder, leadingIcon, value } = props;
-
-    const [searchParams, setSearchParams] = useSearchParams(
-        value === undefined || value === '' ? undefined : { application: `${value}` }
-    );
+    const { className, placeholder, leadingIcon, value, onChangeHandler } = props;
 
     const allClassName = classNames(
         'mdc-text-field',
@@ -39,15 +35,6 @@ export const Textfield = (props: TextfieldProps): JSX.Element => {
             'mdc-text-field--with-leading-icon': leadingIcon,
         },
         className
-    );
-
-    const setQueryParam = useCallback(
-        (event: any) => {
-            if (event.target.value !== '') searchParams.set('application', event.target.value);
-            else searchParams.delete('application');
-            setSearchParams(searchParams);
-        },
-        [searchParams, setSearchParams]
     );
 
     return (
@@ -64,10 +51,10 @@ export const Textfield = (props: TextfieldProps): JSX.Element => {
             <input
                 type="search"
                 className="mdc-text-field__input"
-                value={searchParams.get('application') ?? ''}
+                defaultValue={value}
                 placeholder={placeholder}
                 aria-label={placeholder}
-                onChange={setQueryParam}
+                onChange={onChangeHandler}
             />
         </div>
     );
