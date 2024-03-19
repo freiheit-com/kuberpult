@@ -76,7 +76,7 @@ func Test_roundtrip(t *testing.T) {
 			t.Parallel()
 			fs := memfs.New()
 			if err := Write(fs, "test", test.Event); err != nil {
-				t.Fatal("writing event:", err)
+				t.Fatal("writing  event:", err)
 			}
 			result, err := Read(fs, "test")
 			if err != nil {
