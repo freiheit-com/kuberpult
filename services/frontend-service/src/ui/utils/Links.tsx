@@ -208,6 +208,18 @@ export const ProductVersionLink: React.FC<{ env: string; groupName: string }> = 
     );
 };
 
+export const KuberpultGitHubLink: React.FC<{ version: string }> = (props): JSX.Element | null => {
+    const { version } = props;
+    const vversion = 'v' + version;
+    return (
+        <a
+            title={'Opens the Kuberpult Readme for the current version ' + vversion}
+            href={'https://github.com/freiheit-com/kuberpult/blob/v' + version + '/README.md'}>
+            {vversion}
+        </a>
+    );
+};
+
 const hideWithoutWarningsParamName = 'hideWithoutWarnings';
 const hideWithoutWarningsParamEnabledValue = 'Y';
 export const hideWithoutWarnings = (params: URLSearchParams): boolean => {
