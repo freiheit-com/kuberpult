@@ -346,11 +346,11 @@ describe('KuberpultGitHubLink', () => {
         expectedLink: string;
     }[] = [
         {
-            version: '2.6.0',
+            version: 'v2.6.0',
             expectedLink: 'https://github.com/freiheit-com/kuberpult/blob/v2.6.0/README.md',
         },
         {
-            version: '6.6.6',
+            version: 'v6.6.6',
             expectedLink: 'https://github.com/freiheit-com/kuberpult/blob/v6.6.6/README.md',
         },
     ];
