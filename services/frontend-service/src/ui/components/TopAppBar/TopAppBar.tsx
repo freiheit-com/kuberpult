@@ -66,14 +66,27 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
             </div>
         );
 
+    const [searchParams, setSearchParams] = useSearchParams(
+        appNameParam === '' ? undefined : { application: `${appNameParam}` }
+    );
+    const onChangeApplication = useCallback(
+        (event: any) => {
+            if (event.target.value !== '') searchParams.set('application', event.target.value);
+            else searchParams.delete('application');
+            setSearchParams(searchParams);
+        },
+        [searchParams, setSearchParams]
+    );
+
     const renderedAppFilter =
         props.showAppFilter === true ? (
             <div className="mdc-top-app-bar__section top-app-bar--wide-filter">
                 <Textfield
                     className={'top-app-bar-search-field'}
-                    floatingLabel={'Application Name'}
+                    placeholder={'Application Name'}
                     value={appNameParam}
                     leadingIcon={'search'}
+                    onChangeHandler={onChangeApplication}
                 />
             </div>
         ) : (
@@ -82,7 +95,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const renderedTeamsFilter =
         props.showTeamFilter === true ? (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter">
-                <Dropdown className={'top-app-bar-search-field'} floatingLabel={'Teams'} leadingIcon={'search'} />
+                <Dropdown className={'top-app-bar-search-field'} placeholder={'Teams'} leadingIcon={'search'} />
             </div>
         ) : (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>

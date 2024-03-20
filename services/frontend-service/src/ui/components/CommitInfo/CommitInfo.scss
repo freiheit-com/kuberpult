@@ -13,9 +13,13 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-@use '@material/floating-label/mdc-floating-label';
-@use '@material/notched-outline/mdc-notched-outline';
-@use '@material/textfield/mdc-text-field';
-@use '@material/textfield/icon';
 
-@include icon.icon-core-styles;
+.next-prev-buttons {
+    display: flex;
+    flex-direction: row;
+}
+
+.history-button-container {
+    width: auto;
+    padding: 5px;
+}
