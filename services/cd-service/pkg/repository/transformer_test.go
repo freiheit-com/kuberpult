@@ -1670,6 +1670,198 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 		})
 	}
 }
+func TestNextAndPreviousCommitCreation(t *testing.T) {
+	type TestCase struct {
+		Name            string
+		Transformers    []Transformer
+		expectedContent []FileWithContent
+	}
+
+	tcs := []TestCase{
+		{
+			Name: "Create a single application Version",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "",
+					PreviousCommit:  "",
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "",
+					PreviousCommit:  "",
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/nextCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/previousCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+			},
+		},
+		{
+			Name: "Create a circle of next and prev",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "",
+					PreviousCommit:  "",
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "",
+					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/nextCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/previousCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/nextCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/previousCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/nextCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/previousCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+				},
+			},
+		},
+		{
+			Name: "New Release overwrites",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "",
+					PreviousCommit:  "",
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "",
+					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					PreviousCommit:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/nextCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac/previousCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/nextCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
+			ctx := testutil.MakeTestContext()
+			ctx = AddGeneratorToContext(ctx, fakeGen)
+
+			repo := setupRepositoryTest(t)
+			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
+			if err != nil {
+				t.Fatalf("encountered error but no error is expected here: %v", err)
+			}
+			fs := updatedState.Filesystem
+
+			verErr := verifyContent(fs, tc.expectedContent)
+
+			if verErr != nil {
+				t.Fatalf("Error while verifying content of : %v. Filesystem content:\n%s", verErr, strings.Join(listFiles(fs), "\n"))
+			}
+		})
+	}
+}
 
 func TestReplacedByEvent(t *testing.T) {
 	type TestCase struct {

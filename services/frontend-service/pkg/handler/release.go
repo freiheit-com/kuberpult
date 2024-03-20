@@ -84,16 +84,18 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	tf := api.CreateReleaseRequest{
-		Environment:    "",
-		Application:    "",
-		Team:           "",
-		Version:        0,
-		SourceCommitId: "",
-		SourceAuthor:   "",
-		SourceMessage:  "",
-		SourceRepoUrl:  "",
-		DisplayVersion: "",
-		Manifests:      map[string]string{},
+		Environment:      "",
+		Application:      "",
+		Team:             "",
+		Version:          0,
+		SourceCommitId:   "",
+		SourceAuthor:     "",
+		SourceMessage:    "",
+		SourceRepoUrl:    "",
+		PreviousCommitId: "",
+		NextCommitId:     "",
+		DisplayVersion:   "",
+		Manifests:        map[string]string{},
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -190,6 +192,16 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	if sourceCommitId, ok := form.Value["source_commit_id"]; ok {
 		if len(sourceCommitId) == 1 && isCommitId(sourceCommitId[0]) {
 			tf.SourceCommitId = sourceCommitId[0]
+		}
+	}
+
+	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {
+		if len(previousCommitId) == 1 && isCommitId(previousCommitId[0]) {
+			tf.PreviousCommitId = previousCommitId[0]
+		} else {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Too many previous commits provided.")
+			return
 		}
 	}
 

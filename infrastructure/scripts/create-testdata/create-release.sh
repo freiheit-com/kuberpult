@@ -9,6 +9,8 @@ set -o pipefail
 
 name=${1}
 applicationOwnerTeam=${2:-sreteam}
+prev=${3:-""}
+
 # 40 is the length of a full git commit hash.
 commit_id=$(LC_CTYPE=C tr -dc a-f0-9 </dev/urandom | head -c 40 ; echo '')
 authors[0]="urbansky"
@@ -102,6 +104,7 @@ curl http://localhost:${FRONTEND_PORT}/release \
   --form-string "application=$name" \
   --form-string "source_commit_id=${commit_id}" \
   --form-string "source_author=${author}" \
+  --form-string "previous_commit_id=${prev}" \
   ${release_version} \
   --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
