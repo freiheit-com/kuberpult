@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,6 +38,7 @@ import (
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1alpha1 "github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
@@ -1754,6 +1756,33 @@ type Release struct {
 	DisplayVersion  string
 }
 
+func (rel *Release) ToProto() *api.Release {
+	if rel == nil {
+		return nil
+	}
+	return &api.Release{
+		PrNumber:        extractPrNumber(rel.SourceMessage),
+		Version:         rel.Version,
+		SourceAuthor:    rel.SourceAuthor,
+		SourceCommitId:  rel.SourceCommitId,
+		SourceMessage:   rel.SourceMessage,
+		UndeployVersion: rel.UndeployVersion,
+		CreatedAt:       timestamppb.New(rel.CreatedAt),
+		DisplayVersion:  rel.DisplayVersion,
+	}
+}
+
+func extractPrNumber(sourceMessage string) string {
+	re := regexp.MustCompile("\\(#(\\d+)\\)")
+	res := re.FindAllStringSubmatch(sourceMessage, -1)
+
+	if len(res) == 0 {
+		return ""
+	} else {
+		return res[len(res)-1][1]
+	}
+}
+
 func (s *State) IsUndeployVersion(application string, version uint64) (bool, error) {
 	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
 	_, err := s.Filesystem.Stat(base)
@@ -1830,6 +1859,36 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		}
 	}
 	return &release, nil
+}
+
+func (s *State) GetApplicationReleaseManifests(application string, version uint64) (map[string]*api.Manifest, error) {
+	dir := manifestDirectoryWithReleasesVersion(s.Filesystem, application, version)
+
+	entries, err := s.Filesystem.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("reading manifest directory: %w", err)
+	}
+	manifests := map[string]*api.Manifest{}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		manifestPath := filepath.Join(dir, entry.Name(), "manifests.yaml")
+		file, err := s.Filesystem.Open(manifestPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open %s: %w", manifestPath, err)
+		}
+		content, err := io.ReadAll(file)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s: %w", manifestPath, err)
+		}
+
+		manifests[entry.Name()] = &api.Manifest{
+			Environment: entry.Name(),
+			Content:     string(content),
+		}
+	}
+	return manifests, nil
 }
 
 func (s *State) GetApplicationTeamOwner(application string) (string, error) {

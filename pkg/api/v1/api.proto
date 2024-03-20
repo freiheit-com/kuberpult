@@ -335,6 +335,7 @@ message GetVersionResponse {
 
 service VersionService {
   rpc GetVersion (GetVersionRequest) returns (GetVersionResponse) {}
+  rpc GetManifests (GetManifestsRequest) returns (GetManifestsResponse) {}
 }
 
 service OverviewService {
@@ -589,4 +590,19 @@ message GetStatusResponse {
   }
   RolloutStatus status = 1;
   repeated ApplicationStatus applications = 2;
+}
+
+message GetManifestsRequest {
+  string application = 1;
+  string release = 2;
+}
+
+message Manifest {
+  string environment = 1;
+  string content = 2;
+}
+
+message GetManifestsResponse {
+  Release release = 1;
+  map<string, Manifest> manifests = 2;
 }

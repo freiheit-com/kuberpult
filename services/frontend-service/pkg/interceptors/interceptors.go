@@ -18,11 +18,12 @@ package interceptors
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/handler"
+	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -99,10 +100,36 @@ func StreamAuthInterceptor(
 // DexLoginInterceptor must only be used if dex is enabled.
 // If the user us not logged in, it redirected the calls to the Dex login page.
 // If the user is already logged in, proceeds with the request.
+func GoogleIAPInterceptor(
+	w http.ResponseWriter,
+	req *http.Request,
+	httpHandler http.HandlerFunc,
+	backendServiceId, gkeProjectNumber string,
+) {
+	iapJWT := req.Header.Get("X-Goog-IAP-JWT-Assertion")
+	if iapJWT == "" {
+		http.Error(w, "iap.jwt header was not found or doesn't exist", http.StatusUnauthorized)
+		return
+	}
+
+	aud := fmt.Sprintf("/projects/%s/global/backendServices/%s", gkeProjectNumber, backendServiceId)
+	// NOTE: currently we just validate that the token exists, but no handlers are using data from the payload.
+	// This might change in the future.
+	_, err := idtoken.Validate(req.Context(), iapJWT, aud)
+	if err != nil {
+		http.Error(w, "iap.jwt could not be validated", http.StatusUnauthorized)
+	}
+	httpHandler(w, req)
+}
+
+// DexLoginInterceptor intercepts HTTP calls to the frontend service.
+// DexLoginInterceptor must only be used if dex is enabled.
+// If the user us not logged in, it redirected the calls to the Dex login page.
+// If the user is already logged in, proceeds with the request.
 func DexLoginInterceptor(
 	w http.ResponseWriter,
 	req *http.Request,
-	httpHandler handler.Server,
+	httpHandler http.HandlerFunc,
 	clientID, baseURL string,
 ) {
 	role, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
@@ -113,5 +140,5 @@ func DexLoginInterceptor(
 	auth.WriteUserRoleToHttpHeader(req, role)
 	httpCtx := auth.WriteUserRoleToGrpcContext(req.Context(), role)
 	req = req.WithContext(httpCtx)
-	httpHandler.Handle(w, req)
+	httpHandler(w, req)
 }
