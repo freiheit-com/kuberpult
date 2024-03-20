@@ -1,8 +1,6 @@
 #!/bin/bash
 set -eu
 set -o pipefail
-#set -x
-
 # usage
 # ./create-environments.sh [path/to/envs]
 # Note that this just creates files, it doesn't push in git
