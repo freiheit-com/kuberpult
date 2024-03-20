@@ -102,7 +102,7 @@ if [ "$prev" != "" ];
 then
   prev_data+=(--form-string "previous_commit_id=${prev}")
 fi
-echo ${prev_data[0]+"${prev_data[@]}"}
+
 curl http://localhost:${FRONTEND_PORT}/release \
   -H "author-email:${EMAIL}" \
   -H "author-name:${AUTHOR}=" \
