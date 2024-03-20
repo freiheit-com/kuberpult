@@ -166,7 +166,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 				}
 				if !validSignature {
 					w.WriteHeader(400)
-					fmt.Fprintf(w, "signature not found for %s", environmentName)
+					fmt.Fprintf(w, "signature is invalid or it was not found for environment %s", environmentName)
 					return
 				}
 

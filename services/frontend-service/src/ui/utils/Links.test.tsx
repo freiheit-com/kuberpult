@@ -22,15 +22,17 @@ import {
     DisplayManifestLink,
     DisplaySourceLink,
     DisplayCommitHistoryLink,
+    KuberpultGitHubLink,
 } from './Links';
 import { GetFrontendConfigResponse_ArgoCD } from '../../api/api';
 import { UpdateFrontendConfig } from './store';
 import { elementQuerySelectorSafe } from '../../setupTests';
 
-const setupArgoCd = (baseUrl: string | undefined) => {
+const setupArgoCd = (baseUrl: string | undefined, namespace: string) => {
     const argo: GetFrontendConfigResponse_ArgoCD | undefined = baseUrl
         ? {
               baseUrl: baseUrl,
+              namespace: namespace,
           }
         : undefined;
     UpdateFrontendConfig.set({
@@ -50,21 +52,25 @@ describe('ArgoTeamLink', () => {
         name: string;
         team: string | undefined;
         baseUrl: string | undefined;
+        namespace: string;
     }[] = [
         {
             name: 'with team, without url',
             team: 'foo',
             baseUrl: undefined,
+            namespace: 'tools',
         },
         {
             name: 'with team, with url',
             team: 'foo',
             baseUrl: 'https://example.com/argo/',
+            namespace: 'tools',
         },
         {
             name: 'without team, with url',
             team: undefined,
             baseUrl: 'https://example.com/argo/',
+            namespace: 'tools',
         },
     ];
     describe.each(cases)('Renders properly', (testcase) => {
@@ -72,7 +78,7 @@ describe('ArgoTeamLink', () => {
         const getWrapper = () => render(getNode());
         it(testcase.name, () => {
             //given
-            setupArgoCd(testcase.baseUrl);
+            setupArgoCd(testcase.baseUrl, testcase.namespace);
             getWrapper();
             // when
             // then
@@ -87,26 +93,29 @@ describe('ArgoAppEnvLink', () => {
         app: string;
         env: string;
         baseUrl: string | undefined;
+        namespace: string;
     }[] = [
         {
             name: ' without url',
             app: 'foo',
             env: 'dev',
             baseUrl: undefined,
+            namespace: 'tools',
         },
         {
             name: ' with url',
             app: 'foo',
             env: 'dev',
             baseUrl: 'https://example.com/argo/',
+            namespace: 'tools',
         },
     ];
     describe.each(cases)('Renders properly', (testcase) => {
-        const getNode = () => <ArgoAppEnvLink app={testcase.app} env={testcase.env} />;
+        const getNode = () => <ArgoAppEnvLink app={testcase.app} env={testcase.env} namespace={testcase.namespace} />;
         const getWrapper = () => render(getNode());
         it(testcase.name, () => {
             //given
-            setupArgoCd(testcase.baseUrl);
+            setupArgoCd(testcase.baseUrl, testcase.namespace);
             getWrapper();
             // when
             // then
@@ -120,16 +129,19 @@ describe('ArgoAppLink', () => {
         name: string;
         app: string;
         baseUrl: string | undefined;
+        namespace: string;
     }[] = [
         {
             name: 'without url',
             app: 'foo',
             baseUrl: undefined,
+            namespace: 'tools',
         },
         {
             name: 'with url',
             app: 'foo',
             baseUrl: 'https://example.com/argo/',
+            namespace: 'tools',
         },
     ];
     describe.each(cases)('Renders properly', (testcase) => {
@@ -137,7 +149,7 @@ describe('ArgoAppLink', () => {
         const getWrapper = () => render(getNode());
         it(testcase.name, () => {
             //given
-            setupArgoCd(testcase.baseUrl);
+            setupArgoCd(testcase.baseUrl, testcase.namespace);
             getWrapper();
             // when
             // then
@@ -324,6 +336,34 @@ describe('DisplayCommitHistoryLink', () => {
                 // or render nothing:
                 expect(document.body.textContent).toBe('');
             }
+        });
+    });
+});
+
+describe('KuberpultGitHubLink', () => {
+    const cases: {
+        version: string;
+        expectedLink: string;
+    }[] = [
+        {
+            version: 'v2.6.0',
+            expectedLink: 'https://github.com/freiheit-com/kuberpult/blob/v2.6.0/README.md',
+        },
+        {
+            version: 'v6.6.6',
+            expectedLink: 'https://github.com/freiheit-com/kuberpult/blob/v6.6.6/README.md',
+        },
+    ];
+    describe.each(cases)('Renders properly', (testcase) => {
+        const getNode = () => <KuberpultGitHubLink version={testcase.version} />;
+        const getWrapper = () => render(getNode());
+        it(testcase.version, () => {
+            //given
+            const { container } = getWrapper();
+            // when
+            const aElem = elementQuerySelectorSafe(container, 'a');
+            // then
+            expect(aElem.attributes.getNamedItem('href')?.value).toBe(testcase.expectedLink);
         });
     });
 });

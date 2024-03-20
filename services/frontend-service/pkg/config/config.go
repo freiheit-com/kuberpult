@@ -28,6 +28,7 @@ type ServerConfig struct {
 	GKEBackendServiceName string        `default:"" split_words:"true"`
 	EnableTracing         bool          `default:"false" split_words:"true"`
 	ArgocdBaseUrl         string        `default:"" split_words:"true"`
+	ArgocdNamespace       string        `default:"tools" split_words:"true"`
 	PgpKeyRingPath        string        `split_words:"true"`
 	AzureEnableAuth       bool          `default:"false" split_words:"true"`
 	AzureCloudInstance    string        `default:"https://login.microsoftonline.com/" split_words:"true"`
@@ -60,7 +61,8 @@ type FrontendConfig struct {
 }
 
 type ArgoCdConfig struct {
-	BaseUrl string `json:"baseUrl"`
+	BaseUrl   string `json:"baseUrl"`
+	Namespace string `json:"namespace"`
 }
 
 type AuthConfig struct {

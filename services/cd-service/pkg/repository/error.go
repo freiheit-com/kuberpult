@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 type CreateReleaseError struct {
@@ -31,7 +32,18 @@ func (e *CreateReleaseError) Error() string {
 }
 
 func (e *CreateReleaseError) Response() *api.CreateReleaseResponse {
+	if e == nil {
+		return nil
+	}
 	return &e.response
+}
+
+func (e *CreateReleaseError) Is(target error) bool {
+	tgt, ok := target.(*CreateReleaseError)
+	if !ok {
+		return false
+	}
+	return proto.Equal(e.Response(), tgt.Response())
 }
 
 func GetCreateReleaseGeneralFailure(err error) *CreateReleaseError {

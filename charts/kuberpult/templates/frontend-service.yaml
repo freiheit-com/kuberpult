@@ -94,6 +94,8 @@ spec:
           value: kuberpult-cd-service:8443
         - name: KUBERPULT_ARGOCD_BASE_URL
           value: {{ .Values.argocd.baseUrl | quote }}
+        - name: KUBERPULT_ARGOCD_NAMESPACE
+          value: {{ .Values.argocd.namespace | quote }}
         - name: KUBERPULT_BATCH_CLIENT_TIMEOUT
           value: {{ .Values.frontend.batchClient.timeout | quote }}
         - name: KUBERPULT_VERSION
