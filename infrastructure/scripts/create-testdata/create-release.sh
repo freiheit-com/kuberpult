@@ -118,6 +118,3 @@ curl http://localhost:${FRONTEND_PORT}/release \
   "${manifests[@]}" -v
 
 echo # curl sometimes does not print a trailing \n
-
-
-  #--form-string "previous_commit_id=${prev}" \
