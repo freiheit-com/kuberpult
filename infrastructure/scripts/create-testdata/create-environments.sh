@@ -6,8 +6,9 @@ set -o pipefail
 # Note that this just creates files, it doesn't push in git
 
 FRONTEND_PORT=8081 # see docker-compose.yml
-
+cd $(dirname $0)
 testData=${1:-"./testdata_template/environments"}
+
 for filename in "$testData"/*; do
   configFile="$filename"/config.json
   env=$(basename -- "$filename")
