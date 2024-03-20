@@ -200,7 +200,11 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 			tf.PreviousCommitId = previousCommitId[0]
 		} else {
 			w.WriteHeader(400)
-			fmt.Fprintf(w, "Too many previous commits provided.")
+			if len(previousCommitId) > 1 {
+				fmt.Fprintf(w, "Invalid number of previous commit IDs provided. Expecting 1, got %d", len(previousCommitId))
+			} else if !isCommitId(previousCommitId[0]) {
+				fmt.Fprintf(w, "Provided commit id (%s) is not valid.", previousCommitId[0])
+			}
 			return
 		}
 	}

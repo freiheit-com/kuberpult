@@ -1,7 +1,6 @@
 #!/bin/bash
-set -eu
+set -e
 set -o pipefail
-#set -x
 
 # usage
 # ./create-release.sh my-service-name [my-team-name]
@@ -82,7 +81,7 @@ data:
 EOF
   echo "wrote file ${file}"
   manifests+=("--form" "manifests[${env}]=@${file}")
-  gpg  --keyring trustedkeys-kuberpult.gpg --local-user kuberpult-kind@example.com --detach --sign --armor < "${file}" > "${signatureFile}"
+  #gpg  --keyring trustedkeys-kuberpult.gpg --local-user kuberpult-kind@example.com --detach --sign --armor < "${file}" > "${signatureFile}"
   manifests+=("--form" "signatures[${env}]=@${signatureFile}")
 done
 echo commit id: "${commit_id}"
@@ -98,13 +97,19 @@ else
   AUTHOR=$(echo -n "script-user" | base64 -w 0)
 fi
 
+prev_data=()
+if [ "$prev" != "" ];
+then
+  prev_data+=(--form-string "previous_commit_id=${prev}")
+fi
+echo ${prev_data[0]+"${prev_data[@]}"}
 curl http://localhost:${FRONTEND_PORT}/release \
   -H "author-email:${EMAIL}" \
   -H "author-name:${AUTHOR}=" \
   --form-string "application=$name" \
   --form-string "source_commit_id=${commit_id}" \
   --form-string "source_author=${author}" \
-  --form-string "previous_commit_id=${prev}" \
+  "${prev_data[@]}" \
   ${release_version} \
   --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
@@ -113,3 +118,5 @@ curl http://localhost:${FRONTEND_PORT}/release \
 
 echo # curl sometimes does not print a trailing \n
 
+
+  #--form-string "previous_commit_id=${prev}" \
