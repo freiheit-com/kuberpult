@@ -13,7 +13,7 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-import { ChangeEventHandler } from 'react';
+import { ChangeEventHandler, useCallback, useState } from 'react';
 import classNames from 'classnames';
 
 export type TextfieldProps = {
@@ -27,12 +27,18 @@ export type TextfieldProps = {
 export const Textfield = (props: TextfieldProps): JSX.Element => {
     const { className, placeholder, leadingIcon, value, onChangeHandler } = props;
 
+    const [hasFocus, setFocus] = useState(false);
+
+    const onFocus = useCallback((): void => setFocus(true), [setFocus]);
+    const onBlur = useCallback((): void => setFocus(false), [setFocus]);
+
     const allClassName = classNames(
         'mdc-text-field',
         'mdc-text-field--outlined',
         'mdc-text-field--no-label',
         {
             'mdc-text-field--with-leading-icon': leadingIcon,
+            'mdc-text-field--focused': hasFocus,
         },
         className
     );
@@ -55,6 +61,8 @@ export const Textfield = (props: TextfieldProps): JSX.Element => {
                 placeholder={placeholder}
                 aria-label={placeholder}
                 onChange={onChangeHandler}
+                onFocus={onFocus}
+                onBlur={onBlur}
             />
         </div>
     );
