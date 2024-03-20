@@ -77,12 +77,30 @@ type TransformerBatchApplyError struct {
 
 func (err *TransformerBatchApplyError) Error() string {
 	if err == nil {
-		return "no transformer error!"
+		return ""
 	}
 	if err.Index < 0 {
 		return fmt.Sprintf("error not specific to one transformer of this batch: %s", err.TransformerError.Error())
 	}
 	return fmt.Sprintf("error at index %d of transformer batch: %s", err.Index, err.TransformerError.Error())
+}
+
+func (err *TransformerBatchApplyError) Is(target error) bool {
+	tgt, ok := target.(*TransformerBatchApplyError)
+	if !ok {
+		return false
+	}
+	if err == nil {
+		return target == nil
+	}
+	if target == nil {
+		return false
+	}
+	// now both target and err are guaranteed to be non-nil
+	if err.Index != tgt.Index {
+		return false
+	}
+	return errors.Is(err.TransformerError, tgt.TransformerError)
 }
 
 func defaultBackOffProvider() backoff.BackOff {

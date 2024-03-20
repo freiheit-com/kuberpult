@@ -30,7 +30,7 @@ import {
     useSidebarShown,
 } from '../../utils/store';
 import { Warning } from '../../../api/api';
-import { hideWithoutWarnings, setHideWithoutWarnings } from '../../utils/Links';
+import { hideWithoutWarnings, KuberpultGitHubLink, setHideWithoutWarnings } from '../../utils/Links';
 
 export type TopAppBarProps = {
     showAppFilter: boolean;
@@ -46,7 +46,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const appNameParam = params.get('application') || '';
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
-    const version = useKuberpultVersion();
+    const version = useKuberpultVersion() || '2.6.0';
 
     const hideWithoutWarningsValue = hideWithoutWarnings(params);
     const allWarnings: Warning[] = useAllWarnings();
@@ -101,11 +101,14 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
         ) : (
             <div className="mdc-top-app-bar__section top-app-bar--narrow-filter"></div>
         );
+
     return (
         <div className="mdc-top-app-bar">
             <div className="mdc-top-app-bar__row">
                 <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-                    <span className="mdc-top-app-bar__title">Kuberpult {version}</span>
+                    <span className="mdc-top-app-bar__title">
+                        Kuberpult <KuberpultGitHubLink version={version} />
+                    </span>
                 </div>
                 {renderedAppFilter}
                 {renderedTeamsFilter}

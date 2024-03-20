@@ -94,6 +94,8 @@ spec:
           value: kuberpult-cd-service:8443
         - name: KUBERPULT_ARGOCD_BASE_URL
           value: {{ .Values.argocd.baseUrl | quote }}
+        - name: KUBERPULT_ARGOCD_NAMESPACE
+          value: {{ .Values.argocd.namespace | quote }}
         - name: KUBERPULT_BATCH_CLIENT_TIMEOUT
           value: {{ .Values.frontend.batchClient.timeout | quote }}
         - name: KUBERPULT_VERSION
@@ -108,6 +110,8 @@ spec:
           value: {{ .Values.log.level | quote }}
         - name: KUBERPULT_GKE_BACKEND_SERVICE_ID
           value: "{{ .Values.gke.backend_service_id }}"
+        - name: KUBERPULT_GKE_BACKEND_SERVICE_NAME
+          value: "{{ .Values.gke.backend_service_name }}"
         - name: KUBERPULT_GKE_PROJECT_NUMBER
           value: "{{ .Values.gke.project_number }}"
         - name: KUBERPULT_ALLOWED_ORIGINS

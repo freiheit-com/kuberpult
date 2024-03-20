@@ -202,7 +202,10 @@ gke:
   # ```
   # gcloud compute backend-services describe --global $(gcloud compute backend-services list | grep "kuberpult-frontend-service-80" | cut -d" " -f1) | yq .id
   # ```
+  # Alternatively, you can set the name of the backend service as regex, and kuberpult will try to get the id of the first matching backend service using google compute SDK.
+  # Only one of backend_service_id and backend_service_name should be set. Setting both is not supported and lead to an error.
   backend_service_id: ""
+  backend_service_name: ""
   #
   # Use this bash script to obtain the project number:
   #

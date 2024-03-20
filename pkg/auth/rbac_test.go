@@ -17,20 +17,17 @@ Copyright 2023 freiheit.com*/
 package auth
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestValidateRbacPermission(t *testing.T) {
 	tcs := []struct {
 		Name           string
 		Permission     string
-		WantError      string
+		WantError      error
 		WantPermission *Permission
 	}{
 		{
@@ -46,32 +43,32 @@ func TestValidateRbacPermission(t *testing.T) {
 		{
 			Name:       "Invalid permission Application",
 			Permission: "Developer,CreateLock,dev:development-d2,VeryLongAppWithInvalidName,allow",
-			WantError:  "invalid application VeryLongAppWithInvalidName",
+			WantError:  errMatcher{"invalid application VeryLongAppWithInvalidName"},
 		},
 		{
 			Name:       "Invalid permission Action",
 			Permission: "Developer,WRONG_ACTION,dev:development-d2,*,allow",
-			WantError:  "invalid action WRONG_ACTION",
+			WantError:  errMatcher{"invalid action WRONG_ACTION"},
 		},
 		{
 			Name:       "Invalid permission Environment <ENVIRONMENT_GROUP:ENVIRONMENT>",
 			Permission: "Developer,CreateLock,dev:-foo,*,allow",
-			WantError:  "invalid environment dev:-foo",
+			WantError:  errMatcher{"invalid environment dev:-foo"},
 		},
 		{
 			Name:       "Invalid permission Environment <ENVIRONMENT>",
 			Permission: "Developer,CreateLock,-foo,*,allow",
-			WantError:  "invalid environment -foo",
+			WantError:  errMatcher{"invalid environment -foo"},
 		},
 		{
 			Name:       "Invalid permission Empty Environment",
 			Permission: "Developer,CreateLock,,*,allow",
-			WantError:  "invalid environment ",
+			WantError:  errMatcher{"invalid environment "},
 		},
 		{
 			Name:       "Invalid permission for Environment Independent action <ENVIRONMENT_GROUP:*>",
 			Permission: "Developer,DeployUndeploy,dev:development-1,*,allow",
-			WantError:  "the action DeployUndeploy requires the environment * and got dev:development-1",
+			WantError:  errMatcher{"the action DeployUndeploy requires the environment * and got dev:development-1"},
 		},
 	}
 
@@ -79,13 +76,11 @@ func TestValidateRbacPermission(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			permission, err := ValidateRbacPermission(tc.Permission)
+			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
 			if diff := cmp.Diff(permission, tc.WantPermission, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("%s: unexpected result diff : %v", tc.Name, diff)
-			}
-			if tc.WantError != "" {
-				if diff := cmp.Diff(tc.WantError, err.Error(), cmpopts.EquateErrors()); diff != "" {
-					t.Errorf("Error mismatch (-want +got):\n%s", diff)
-				}
 			}
 		})
 	}
@@ -132,7 +127,12 @@ func TestCheckUserPermissions(t *testing.T) {
 			action:      PermissionCreateLock,
 			rbacConfig:  RBACConfig{DexEnabled: true, Policy: map[string]*Permission{"Developer,CreateLock,production:production,app1,allow": {Role: "Developer"}}},
 			team:        "random-team",
-			WantError:   status.Errorf(codes.PermissionDenied, fmt.Sprintf("PermissionDenied: The user '' with role 'Developer' is not allowed to perform the action 'CreateLock' on environment 'production' for team 'random-team'")),
+			WantError: PermissionError{
+				Role:        "Developer",
+				Action:      "CreateLock",
+				Environment: "production",
+				Team:        "random-team",
+			},
 		},
 		{
 			Name:        "User does not have permission: wrong app",
@@ -143,7 +143,12 @@ func TestCheckUserPermissions(t *testing.T) {
 			action:      PermissionCreateLock,
 			team:        "other-team",
 			rbacConfig:  RBACConfig{DexEnabled: true, Policy: map[string]*Permission{"Developer,CreateLock,production:production,app1,allow": {Role: "Developer"}}},
-			WantError:   status.Errorf(codes.PermissionDenied, fmt.Sprintf("PermissionDenied: The user '' with role 'Developer' is not allowed to perform the action 'CreateLock' on environment 'production' for team 'other-team'")),
+			WantError: PermissionError{
+				Role:        "Developer",
+				Action:      "CreateLock",
+				Environment: "production",
+				Team:        "other-team",
+			},
 		},
 	}
 
