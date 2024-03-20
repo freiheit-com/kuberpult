@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -eu
 set -o pipefail
 
 # usage
@@ -97,19 +97,20 @@ else
   AUTHOR=$(echo -n "script-user" | base64 -w 0)
 fi
 
-prev_data=()
+inputs=()
+inputs+=(--form-string "application=$name")
+inputs+=(--form-string "source_commit_id=$commit_id")
+inputs+=(--form-string "source_author=$author")
+
 if [ "$prev" != "" ];
 then
-  prev_data+=(--form-string "previous_commit_id=${prev}")
+  inputs+=(--form-string "previous_commit_id=${prev}")
 fi
 
 curl http://localhost:${FRONTEND_PORT}/release \
   -H "author-email:${EMAIL}" \
   -H "author-name:${AUTHOR}=" \
-  --form-string "application=$name" \
-  --form-string "source_commit_id=${commit_id}" \
-  --form-string "source_author=${author}" \
-  "${prev_data[@]}" \
+  "${inputs[@]}" \
   ${release_version} \
   --form-string "display_version=${displayVersion}" \
   --form "source_message=<${commit_message_file}" \
