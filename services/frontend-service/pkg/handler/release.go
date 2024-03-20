@@ -196,13 +196,15 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {
-		if len(previousCommitId) == 1 && isCommitId(previousCommitId[0]) {
-			tf.PreviousCommitId = previousCommitId[0]
-		} else {
+		if len(previousCommitId) != 1 {
 			w.WriteHeader(400)
-			fmt.Fprintf(w, "Too many previous commits provided.")
-			return
+			fmt.Fprintf(w, "Invalid number of previous commit IDs provided. Expecting 1, got %d", len(previousCommitId))
 		}
+		if !isCommitId(previousCommitId[0]) {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Provided commit id (%s) is not valid.", previousCommitId[0])
+		}
+		tf.PreviousCommitId = previousCommitId[0]
 	}
 
 	if sourceAuthor, ok := form.Value["source_author"]; ok {
