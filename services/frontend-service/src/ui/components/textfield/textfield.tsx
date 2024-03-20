@@ -21,11 +21,11 @@ export type TextfieldProps = {
     placeholder?: string;
     value?: string | number;
     leadingIcon?: string;
-    onChangeHandler?: ChangeEventHandler;
+    onChange?: ChangeEventHandler;
 };
 
 export const Textfield = (props: TextfieldProps): JSX.Element => {
-    const { className, placeholder, leadingIcon, value, onChangeHandler } = props;
+    const { className, placeholder, leadingIcon, value, onChange } = props;
 
     const [hasFocus, setFocus] = useState(false);
 
@@ -60,7 +60,7 @@ export const Textfield = (props: TextfieldProps): JSX.Element => {
                 defaultValue={value}
                 placeholder={placeholder}
                 aria-label={placeholder}
-                onChange={onChangeHandler}
+                onChange={onChange}
                 onFocus={onFocus}
                 onBlur={onBlur}
             />

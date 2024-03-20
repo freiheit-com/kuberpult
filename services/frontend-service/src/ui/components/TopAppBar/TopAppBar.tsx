@@ -86,7 +86,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                     placeholder={'Application Name'}
                     value={appNameParam}
                     leadingIcon={'search'}
-                    onChangeHandler={onChangeApplication}
+                    onChange={onChangeApplication}
                 />
             </div>
         ) : (

@@ -127,6 +127,19 @@ Copyright 2023 freiheit.com*/
     position: relative;
 }
 
+.mdc-drawer-sidebar .mdc-drawer-sidebar-footer-input {
+    border: 2px solid #f2f5f7;
+    border-radius: 10px;
+    border-bottom-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    background-color: white;
+    padding: 20px;
+    width: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: row;
+}
+
 .mdc-drawer-sidebar .mdc-sidebar-sidebar-footer {
     position: relative;
     color: white;

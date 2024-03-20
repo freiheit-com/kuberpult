@@ -19,3 +19,7 @@ Copyright 2023 freiheit.com*/
 @use '@material/textfield/icon';
 
 @include icon.icon-core-styles;
+
+.mdc-text-field {
+    width: 100%;
+}
