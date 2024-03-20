@@ -185,10 +185,12 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 	}
 
 	return &api.GetCommitInfoResponse{
-		CommitHash:    commitID,
-		CommitMessage: commitMessage,
-		TouchedApps:   touchedApps,
-		Events:        events,
+		CommitHash:         commitID,
+		CommitMessage:      commitMessage,
+		TouchedApps:        touchedApps,
+		Events:             events,
+		NextCommitHash:     "",
+		PreviousCommitHash: "",
 	}, nil
 }
 
