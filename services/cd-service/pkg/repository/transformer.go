@@ -605,7 +605,7 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 
 	if _, err := fs.Stat(otherCommitDir); err != nil {
 		logger.FromContext(ctx).Sugar().Warnf(
-			"%s application does not contain any commit with the provided id (%s). Ignoring provided information.", application, otherCommitId)
+			"Could not find the previous commit while trying to create a new release for commit %s and application %s. This is expected when `git.enableWritingCommitData` was just turned on, however it should not happen multiple times.", otherCommitId, application, otherCommitDir)
 		return nil
 	}
 
