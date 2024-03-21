@@ -118,7 +118,7 @@ curl -f -X POST -H "Authorization: Bearer $IAPToken" \
 
 **Example:**
 
-Below you can find an example of the curl request needed to create an environment named `staging`, accessing a kuberpult instance running locally hearing on port `8081`, reading the some `config.json` file from the local filesystem that contains the configuration data.
+Below you can find an example of the curl request needed to create an environment named `staging`, accessing a kuberpult instance running locally hearing on port `8081`, reading some `config.json` file from the local filesystem that contains the configuration data.
 For local development, the IAPToken can be omitted.
 
 ```shell
