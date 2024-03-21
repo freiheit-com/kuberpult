@@ -309,6 +309,9 @@ argocd:
 manageArgoApplications:
   enabled: false
   filter: ""
+datadogProfiling:
+  enabled: false
+  apiKey: invalid-3
 pgp:
   keyRing: |
 $(sed -e "s/^/    /" <./kuberpult-keyring.gpg)

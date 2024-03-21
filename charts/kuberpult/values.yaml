@@ -176,6 +176,12 @@ datadogTracing:
   debugging: false
   environment: "shared"
 
+datadogProfiling:
+  # Note that the profiling environment is taken from the field `datadogTracing.environment`
+  enabled: false
+  # In order to use the datadog profile, you must provide a datadog api key:
+  apiKey: ""
+
 dogstatsdMetrics:
   # send metrics:
   enabled: false
