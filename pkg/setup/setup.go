@@ -55,9 +55,8 @@ type shutdown struct {
 // Setup structure that holds only the shutdown callbacks for all
 // grpc and http server for endpoints, metrics, health checks, etc.
 type setup struct {
-	health          HealthServer
-	shutdown        []shutdown
-	shutdownChannel chan bool
+	health   HealthServer
+	shutdown []shutdown
 }
 
 type BasicAuth struct {
@@ -114,7 +113,7 @@ func Run(ctx context.Context, config ServerConfig) {
 	pv, handler, _ := metrics.Init()
 	ctx = metrics.WithProvider(ctx, pv)
 
-	pv.Meter("setup").Int64ObservableGauge("background_job_ready", metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+	pv.Meter("setup").Int64ObservableGauge("background_job_ready", metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error { //nolint:errcheck
 		reports := s.health.reports()
 		for name, report := range reports {
 			var value int64
@@ -167,10 +166,10 @@ func (s *setup) listenToShutdownSignal(ctx context.Context, cancelFunc context.C
 	cancelFunc()
 
 	// call shutdown hooks
-	gracefulShutdown(ctx, s, 30*time.Second)
+	gracefulShutdown(s, 30*time.Second)
 }
 
-func gracefulShutdown(ctx context.Context, s *setup, timeout time.Duration) {
+func gracefulShutdown(s *setup, timeout time.Duration) {
 	// Instantiate background context
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()

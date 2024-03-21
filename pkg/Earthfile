@@ -13,7 +13,7 @@ lint:
     FROM +deps
     WORKDIR pkg
     RUN buf lint
-    DO go-build+LINT --skip_lint_errors=true
+    DO go-build+LINT --skip_lint_errors=false
 test:
     FROM +deps
     ARG GO_TEST_ARGS
