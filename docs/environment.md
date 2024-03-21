@@ -104,7 +104,7 @@ The goal of EnvironmentGroups is to make handling of many similar clusters easie
 
 Kuberpult offers an API endpoint for environment creation. This endpoint is expecting the following information:
 * **IAP Token**:
-  * You need to provide kuberpult with your own IAP access token. We use google cloud authentication in order generate it. For more information on programmatic authentication, plase refere to [this resource](https://cloud.google.com/iap/docs/authentication-howto).
+  * If IAP is enabled ( in helm: `ingress.iap.enabled: false`) You need to provide kuberpult with your own IAP access token. We use google cloud authentication in order generate it. For more information on programmatic authentication, plase refere to [this resource](https://cloud.google.com/iap/docs/authentication-howto).
 * **Environment Name**
   * The name of the environment you are trying to create.
 * **Configuration Data**:
