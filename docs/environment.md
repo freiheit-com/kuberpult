@@ -129,4 +129,6 @@ curl -f -X POST -H "multipart/form-data" --form-string "config=$DATA" \
 
 **IMPORTANT**
 
-It is also possible to directly push your environment configuration and push your changes directly into the manifest repository. **This is highly discouraged and will soon be deprecated**. Kuberpult should be the only one interacting with the manifest repository. **Direct manipulation of the manifest repository should be avoided.**
+In the past, the common way to change the environment configuration (`config.json` files) was to directly edit the files in the manifest repo and push.
+This is no longer recommended and now *highly discouraged*.
+Kuberpult should be the only one writing to the manifest repository. **Direct manipulation of the manifest repository should be avoided.**
