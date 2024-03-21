@@ -30,7 +30,7 @@ unit-test:
 
 lint:
     FROM +deps
-    DO go-build+LINT --skip_lint_errors=true
+    DO go-build+LINT --skip_lint_errors=false
 
 docker:
     FROM alpine:3.18

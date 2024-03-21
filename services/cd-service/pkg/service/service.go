@@ -18,9 +18,10 @@ package service
 
 import (
 	"fmt"
+	"net/http"
+
 	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"net/http"
 )
 
 type Service struct {
@@ -36,7 +37,6 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "release endpoint is now only provided in the frontend-service")
 	}
-	return
 }
 
 func (s *Service) ServeHTTPHealth(w http.ResponseWriter, r *http.Request) {

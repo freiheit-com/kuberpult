@@ -18,11 +18,13 @@ package cmd
 
 import (
 	"context"
-	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/reposerver"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/interceptors"
@@ -86,7 +88,7 @@ func (c *Config) storageBackend() repository.StorageBackend {
 }
 
 func RunServer() {
-	logger.Wrap(context.Background(), func(ctx context.Context) error {
+	err := logger.Wrap(context.Background(), func(ctx context.Context) error {
 
 		var c Config
 
@@ -165,7 +167,7 @@ func RunServer() {
 			if err != nil {
 				logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
 			}
-			ctx = context.WithValue(ctx, "ddMetrics", ddMetrics)
+			ctx = context.WithValue(ctx, "ddMetrics", ddMetrics) //nolint: staticcheck
 		}
 
 		// If the tracer is not started, calling this function is a no-op.
@@ -293,4 +295,7 @@ func RunServer() {
 
 		return nil
 	})
+	if err != nil {
+		fmt.Printf("error: %v %#v", err, err)
+	}
 }

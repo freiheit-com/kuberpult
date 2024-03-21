@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"sync"
 	"sync/atomic"
 
@@ -63,7 +64,7 @@ func (o *OverviewServiceServer) GetOverview(
 		if err != nil {
 			var gerr *git.GitError
 			if errors.As(err, &gerr) {
-				if gerr.Code == git.ErrNotFound {
+				if gerr.Code == git.ErrorCodeNotFound {
 					return nil, status.Error(codes.NotFound, "not found")
 				}
 			}
@@ -406,10 +407,8 @@ func (o *OverviewServiceServer) subscribe() (<-chan struct{}, notify.Unsubscribe
 		// Channels obtained from subscribe are by default triggered
 		//
 		// This means, we have to wait here until the first overview is loaded.
-		select {
-		case <-ch:
-			o.update(o.Repository.State())
-		}
+		<-ch
+		o.update(o.Repository.State())
 		go func() {
 			defer unsub()
 			for {
@@ -432,4 +431,15 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 	}
 	o.response.Store(r)
 	o.notify.Notify()
+}
+
+func extractPrNumber(sourceMessage string) string {
+	re := regexp.MustCompile(`\(#(\d+)\)`)
+	res := re.FindAllStringSubmatch(sourceMessage, -1)
+
+	if len(res) == 0 {
+		return ""
+	} else {
+		return res[len(res)-1][1]
+	}
 }

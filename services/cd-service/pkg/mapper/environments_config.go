@@ -338,9 +338,6 @@ func TransformSyncWindows(syncWindows []config.ArgoCdSyncWindow, appName string)
 }
 
 func TransformArgocd(config config.EnvironmentConfigArgoCd) *api.EnvironmentConfig_ArgoCD {
-	if &config == nil {
-		return nil
-	}
 	var syncWindows []*api.EnvironmentConfig_ArgoCD_SyncWindows
 	var accessList []*api.EnvironmentConfig_ArgoCD_AccessEntry
 	var ignoreDifferences []*api.EnvironmentConfig_ArgoCD_IgnoreDifferences

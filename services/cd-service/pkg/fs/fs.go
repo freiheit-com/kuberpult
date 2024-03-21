@@ -114,7 +114,7 @@ func (b *treeBuilderBlob) insert() (*git.Oid, git.Filemode, error) {
 }
 
 func (b *treeBuilderBlob) osInfo() os.FileInfo {
-	b.load()
+	b.load() //nolint: errcheck
 	return &fileInfo{
 		name: b.name,
 		size: int64(len(b.content)),
@@ -136,7 +136,7 @@ func (b *treeBuilderBlob) Write(p []byte) (int, error) {
 }
 
 func (b *treeBuilderBlob) Read(p []byte) (int, error) {
-	b.load()
+	b.load() //nolint: errcheck
 	n := copy(p, b.content[b.pos:])
 	b.pos += n
 	if n == 0 {
