@@ -1150,10 +1150,14 @@ func (r *repository) afterTransform(ctx context.Context, state State) error {
 }
 
 func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
+	defer span.Finish()
 	fs := state.Filesystem
 	if apps, err := state.GetEnvironmentApplications(env); err != nil {
 		return err
 	} else {
+		span, ctx := tracer.StartSpanFromContext(ctx, "collectData")
+		defer span.Finish()
 		appData := []argocd.AppData{}
 		sort.Strings(apps)
 		for _, appName := range apps {
@@ -1182,9 +1186,15 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 				TeamName: team,
 			})
 		}
-		if manifests, err := argocd.Render(r.config.URL, r.config.Branch, config, env, appData); err != nil {
+		span.Finish()
+
+		span, ctx = tracer.StartSpanFromContext(ctx, "RenderAndWrite")
+		defer span.Finish()
+		if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
 			return err
 		} else {
+			span, ctx = tracer.StartSpanFromContext(ctx, "Write")
+			defer span.Finish()
 			for apiVersion, content := range manifests {
 				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
 					return err
