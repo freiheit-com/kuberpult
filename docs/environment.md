@@ -104,14 +104,13 @@ The goal of EnvironmentGroups is to make handling of many similar clusters easie
 
 #### Environment Creation
 
-Kuberpult offers an API endpoint for environment creation. This endpoint is expecting some information:
+Kuberpult offers an API endpoint for environment creation. This endpoint is expecting the following information:
 * **IAP Token**:
   * You need to provide kuberpult with your own IAP access token. We use google cloud authentication in order generate it. For more information on programmatic authentication, plase refere to [this resource](https://cloud.google.com/iap/docs/authentication-howto).
 * **Environment Name**
   * The name of the environment you are trying to create.
 * **Configuration Data**:
   * You need to provide some configuration specifications to your environment. The provided data must be in JSON format. [This previous section](#environment-config) goes into detail regarding the information that must be contained within your configuration file. You can find an example file [here](../infrastructure/scripts/create-testdata/testdata_template/environments/staging/config.json).
-
 
 ```shell
 curl -f -X POST -H "Authorization: Bearer $IAPToken" \
