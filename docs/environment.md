@@ -8,6 +8,8 @@ An `environment` is the set of machines where your microservices will run.
 For example: `development`, `staging` and `production` are typical environments.
 When using environment groups, typical examples are `de-prod`, `jp-prod`, and `pt-prod` which would all be `production` environments - and belong to the `production` environment group - but are machines in different countries.
 
+
+
 #### Environment Config
 
 In a cloud provider like GCP, we recommend separating the environments on a project level. This means that one GCP project correlates to one Kuberpult environment 1:1 - although this is not a technical requirement.
@@ -100,3 +102,34 @@ The `"environmentGroup"` field is a string that defines which environment group 
 EnvironmentGroups are still in development. We'll update this section once they are ready.
 The goal of EnvironmentGroups is to make handling of many similar clusters easier. They will also work with Release Trains.
 
+#### Environment Creation
+
+Kuberpult offers an API endpoint for environment creation. This endpoint is expecting some information:
+* **IAP Token**:
+  * You need to provide kuberpult with your own IAP access token. We use google cloud authentication in order generate it. For more information on programmatic authentication, plase refere to [this resource](https://cloud.google.com/iap/docs/authentication-howto).
+* **Environment Name**
+  * The name of the environment you are trying to create.
+* **Configuration Data**:
+  * You need to provide some configuration specifications to your environment. The provided data must be in JSON format. [This previous section](#environment-config) goes into detail regarding the information that must be contained within your configuration file. You can find an example file [here](../infrastructure/scripts/create-testdata/testdata_template/environments/staging/config.json).
+
+
+```shell
+curl -f -X POST -H "Authorization: Bearer $IAPToken" \
+                -H "multipart/form-data" --form-string "config=$DATA" \
+                $KUBERPULT_API_URL/environments/$ENVIRONMENT_NAME
+```
+
+**Example:**
+
+Below you can find an example of the curl request needed to create an environment named `staging`, accessing a kuberpult instance running locally hearing on port `8081`, reading the some `config.json` file from the local filesystem that contains the configuration data.
+For local development, the IAPToken can be omitted.
+
+```shell
+DATA=$(cat config.json)
+curl -f -X POST -H "multipart/form-data" --form-string "config=$DATA" \
+                http://localhost:8081/environments/staging
+```
+
+**IMPORTANT**
+
+It is also possible to directly push your environment configuration and push your changes directly into the manifest repository. **This is highly discouraged and will soon be deprecated**. Kuberpult should be the only one interacting with the manifest repository. **Direct manipulation of the manifest repository should be avoided.**
