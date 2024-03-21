@@ -8,8 +8,6 @@ An `environment` is the set of machines where your microservices will run.
 For example: `development`, `staging` and `production` are typical environments.
 When using environment groups, typical examples are `de-prod`, `jp-prod`, and `pt-prod` which would all be `production` environments - and belong to the `production` environment group - but are machines in different countries.
 
-
-
 #### Environment Config
 
 In a cloud provider like GCP, we recommend separating the environments on a project level. This means that one GCP project correlates to one Kuberpult environment 1:1 - although this is not a technical requirement.
