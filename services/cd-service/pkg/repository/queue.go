@@ -27,6 +27,7 @@ This queue does not improve the latency, because each request still waits for th
 
 import (
 	"context"
+	"fmt"
 )
 
 type queue struct {
@@ -60,11 +61,24 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 	case <-ctx.Done():
 		e.finish(ctx.Err())
 		return resultChannel
+	default:
+		//Channel is full, we don't want to put anything else there.
+		e.finish(&TransformerBatchApplyError{
+			Index:            -1,
+			TransformerError: fmt.Errorf("Queue is full"),
+		})
+		return resultChannel
 	}
 }
 
 func makeQueue() queue {
 	return queue{
 		transformerBatches: make(chan transformerBatch, 5),
+	}
+}
+
+func makeQueueN(size int) queue {
+	return queue{
+		transformerBatches: make(chan transformerBatch, size),
 	}
 }

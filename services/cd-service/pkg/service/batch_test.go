@@ -468,7 +468,103 @@ func TestBatchServiceErrors(t *testing.T) {
 	}
 }
 
-func TestBatchServiceLimit(t *testing.T) {
+func TestLimit(t *testing.T) {
+	transformers := []repository.Transformer{
+		&repository.CreateEnvironment{
+			Environment: "production",
+			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+		},
+		&repository.CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				"production": "manifest",
+			},
+		},
+		&repository.CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				"production": "manifest2",
+			},
+		},
+	}
+	tcs := []struct {
+		Name               string
+		numberBatchActions int
+		ShouldSucceed      bool
+		limit              int
+		Setup              []repository.Transformer
+	}{
+		{
+			Name:               "exactly the maximum number of actions",
+			ShouldSucceed:      true,
+			limit:              5,
+			numberBatchActions: 1,
+			Setup:              transformers,
+		},
+		{
+			Name:               "more than the maximum number of actions",
+			numberBatchActions: 6,
+			limit:              5,
+			ShouldSucceed:      false,
+			Setup:              transformers,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			tc := tc
+
+			repo, err := setupRepositoryTest(t)
+
+			for _, tr := range tc.Setup {
+				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			svc := &BatchServer{
+				Repository: repo,
+			}
+
+			batch := getNBatchActions(tc.numberBatchActions)
+
+			_, err = svc.ProcessBatch(
+				testutil.MakeTestContext(),
+				&api.BatchRequest{
+					Actions: batch,
+				},
+			)
+			if !tc.ShouldSucceed {
+				fmt.Println("Should NOT succeed...")
+				if err == nil {
+					t.Fatal("expected an error but got none")
+				}
+
+				s, ok := status.FromError(err)
+				if !ok {
+					t.Fatalf("error is not a status error, got: %#v", err)
+				}
+				expectedMessage := fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions)
+				if s.Message() != expectedMessage {
+					t.Errorf("invalid error message: expected %q, actual: %q", expectedMessage, s.Message())
+				}
+			} else {
+				fmt.Println("Should succeed...")
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, err := svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func TestMaxBatchActionsAllowed(t *testing.T) {
 	transformers := []repository.Transformer{
 		&repository.CreateEnvironment{
 			Environment: "production",
