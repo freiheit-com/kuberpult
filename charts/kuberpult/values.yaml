@@ -270,7 +270,7 @@ auth:
     # As of now this applies only to the manifest endpoint <insert rest pattern here>
     # If you do not have Googles IAP enabled, but still want to use the API, be aware that it is publicly available,
     # so you would need a protection outside of kuberpult (e.g. a VPN).
-    # If `enableDespiteNoAuth=true`, then the API will only respond, if IAP is enabled in this helm chart (`ingress.iap.enabled=true`).
+    # If `enableDespiteNoAuth=true`, then the API will respond, even if IAP is disabled in this helm chart (`ingress.iap.enabled=true`).
     enableDespiteNoAuth: false
 
 # The Dex configuration values. For more information please check the Dex repository https://github.com/dexidp/dex
