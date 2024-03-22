@@ -74,7 +74,7 @@ type Config struct {
 	ArgoCdServer             string        `default:"" split_words:"true"`
 	ArgoCdInsecure           bool          `default:"false" split_words:"true"`
 	GitWebUrl                string        `default:"" split_words:"true"`
-	GitMaximumCommitsPerPush uint          `default:"0" split_words:"true"`
+	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -176,7 +176,11 @@ func RunServer() {
 				zap.String("url", c.GitUrl),
 				zap.String("details", "https is not supported for git communication, only ssh is supported"))
 		}
-
+		if c.GitMaximumCommitsPerPush == 0 {
+			logger.FromContext(ctx).Fatal("git.config",
+				zap.String("details", "the maximum number of commits per push must be at least 1"),
+			)
+		}
 		cfg := repository.RepositoryConfig{
 			WebhookResolver: nil,
 			URL:             c.GitUrl,

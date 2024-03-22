@@ -348,6 +348,9 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	if cfg.NetworkTimeout == 0 {
 		cfg.NetworkTimeout = time.Minute
 	}
+	if cfg.MaximumCommitsPerPush == 0 {
+		cfg.MaximumCommitsPerPush = 1
+	}
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	var err error
@@ -534,7 +537,7 @@ func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) e
 }
 
 func (r *repository) drainQueue() []transformerBatch {
-	if r.config.MaximumCommitsPerPush == 0 {
+	if r.config.MaximumCommitsPerPush < 2 {
 		return nil
 	}
 	limit := r.config.MaximumCommitsPerPush - 1
