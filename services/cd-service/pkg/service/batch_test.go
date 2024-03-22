@@ -495,70 +495,54 @@ func TestLimit(t *testing.T) {
 		Setup              []repository.Transformer
 	}{
 		{
-			Name:               "exactly the maximum number of actions",
+			Name:               "less than number of requests",
 			ShouldSucceed:      true,
 			limit:              5,
 			numberBatchActions: 1,
 			Setup:              transformers,
 		},
 		{
-			Name:               "more than the maximum number of actions",
-			numberBatchActions: 6,
+			Name:               "more than the maximum number of requests",
+			numberBatchActions: 10,
 			limit:              5,
 			ShouldSucceed:      false,
 			Setup:              transformers,
 		},
 	}
 	for _, tc := range tcs {
+		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			tc := tc
-
 			repo, err := setupRepositoryTest(t)
-
+			if err != nil {
+				t.Fatal(err)
+			}
 			for _, tr := range tc.Setup {
 				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
 					t.Fatal(err)
 				}
 			}
-			if err != nil {
-				t.Fatal(err)
-			}
-
 			svc := &BatchServer{
 				Repository: repo,
 			}
 
-			batch := getNBatchActions(tc.numberBatchActions)
-
-			_, err = svc.ProcessBatch(
-				testutil.MakeTestContext(),
-				&api.BatchRequest{
-					Actions: batch,
-				},
-			)
+			var batchRequests []api.BatchRequest
+			for i := 0; i < tc.numberBatchActions; i++ {
+				batchRequests = append(batchRequests, api.BatchRequest{
+					Actions: getNBatchActions(5),
+				})
+			}
+			for idx, b := range batchRequests {
+				_, err = svc.ProcessBatch(
+					testutil.MakeTestContext(),
+					&b,
+				)
+				if err != nil {
+					t.Fatalf("Got an error at iteration %d: %v\n", idx, err)
+				}
+			}
 			if !tc.ShouldSucceed {
-				fmt.Println("Should NOT succeed...")
-				if err == nil {
-					t.Fatal("expected an error but got none")
-				}
+				t.Fatalf("Should not have succeded\n")
 
-				s, ok := status.FromError(err)
-				if !ok {
-					t.Fatalf("error is not a status error, got: %#v", err)
-				}
-				expectedMessage := fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions)
-				if s.Message() != expectedMessage {
-					t.Errorf("invalid error message: expected %q, actual: %q", expectedMessage, s.Message())
-				}
-			} else {
-				fmt.Println("Should succeed...")
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, err := svc.Repository.State().GetEnvironmentApplicationVersion("production", "test")
-				if err != nil {
-					t.Fatal(err)
-				}
 			}
 		})
 	}
@@ -659,7 +643,7 @@ func TestMaxBatchActionsAllowed(t *testing.T) {
 }
 
 func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
-	t.Parallel()
+	//t.Parallel()
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")

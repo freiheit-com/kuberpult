@@ -540,6 +540,7 @@ func (r *repository) drainQueue() []transformerBatch {
 	if r.config.MaximumCommitsPerPush < 2 {
 		return nil
 	}
+	fmt.Println("DRAIN QUEUE")
 	limit := r.config.MaximumCommitsPerPush - 1
 	transformerBatches := []transformerBatch{}
 	for uint(len(transformerBatches)) < limit {

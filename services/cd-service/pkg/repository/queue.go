@@ -55,6 +55,8 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 		transformers: transformers,
 		result:       resultChannel,
 	}
+
+	fmt.Printf("Length: %d", len(q.transformerBatches))
 	select {
 	case q.transformerBatches <- e:
 		return resultChannel

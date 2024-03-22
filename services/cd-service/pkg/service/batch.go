@@ -314,7 +314,6 @@ func (d *BatchServer) ProcessBatch(
 		transformers = append(transformers, transformer)
 		results = append(results, result)
 	}
-
 	err = d.Repository.Apply(ctx, transformers...)
 	if err != nil {
 		var applyErr *repository.TransformerBatchApplyError
