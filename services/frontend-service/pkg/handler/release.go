@@ -84,18 +84,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	tf := api.CreateReleaseRequest{
-		Environment:      "",
-		Application:      "",
-		Team:             "",
-		Version:          0,
-		SourceCommitId:   "",
-		SourceAuthor:     "",
-		SourceMessage:    "",
-		SourceRepoUrl:    "",
-		PreviousCommitId: "",
-		NextCommitId:     "",
-		DisplayVersion:   "",
-		Manifests:        map[string]string{},
+		Manifests: map[string]string{},
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
