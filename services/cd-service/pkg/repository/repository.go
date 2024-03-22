@@ -196,6 +196,8 @@ type RepositoryConfig struct {
 	DogstatsdEvents bool
 	WriteCommitData bool
 	WebhookResolver WebhookResolver
+
+	MaximumCommitsPerPush uint
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -346,6 +348,9 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	if cfg.NetworkTimeout == 0 {
 		cfg.NetworkTimeout = time.Minute
 	}
+	if cfg.MaximumCommitsPerPush == 0 {
+		cfg.MaximumCommitsPerPush = 1
+	}
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	var err error
@@ -450,8 +455,7 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 	defer func() {
 		close(r.queue.transformerBatches)
 		for e := range r.queue.transformerBatches {
-			e.result <- ctx.Err()
-			close(e.result)
+			e.finish(ctx.Err())
 		}
 	}()
 	tick := time.Tick(r.config.NetworkTimeout)
@@ -495,8 +499,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 				}
 				return r.applyTransformerBatches(transformerBatches, false)
 			} else {
-				e.result <- applyErr
-				close(e.result)
+				e.finish(applyErr)
 				// here, we keep all transformerBatches "behind i".
 				// these are the transformerBatches that have not been applied yet
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
@@ -534,15 +537,18 @@ func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) e
 }
 
 func (r *repository) drainQueue() []transformerBatch {
+	if r.config.MaximumCommitsPerPush < 2 {
+		return nil
+	}
+	limit := r.config.MaximumCommitsPerPush - 1
 	transformerBatches := []transformerBatch{}
-	for {
+	for uint(len(transformerBatches)) < limit {
 		select {
 		case f := <-r.queue.transformerBatches:
 			// Check that the item is not already cancelled
 			select {
 			case <-f.ctx.Done():
-				f.result <- f.ctx.Err()
-				close(f.result)
+				f.finish(f.ctx.Err())
 			default:
 				transformerBatches = append(transformerBatches, f)
 			}
@@ -550,6 +556,7 @@ func (r *repository) drainQueue() []transformerBatch {
 			return transformerBatches
 		}
 	}
+	return transformerBatches
 }
 
 // It returns always nil
@@ -580,19 +587,19 @@ type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
 	logger := logger.FromContext(ctx)
 	var err error = panicError
-	transformerBatches := []transformerBatch{e}
+
 	// Check that the first transformerBatch is not already canceled
 	select {
 	case <-e.ctx.Done():
-		e.result <- e.ctx.Err()
-		close(e.result)
+		e.finish(e.ctx.Err())
 		return
 	default:
 	}
+
+	transformerBatches := []transformerBatch{e}
 	defer func() {
 		for _, el := range transformerBatches {
-			el.result <- err
-			close(el.result)
+			el.finish(err)
 		}
 	}()
 

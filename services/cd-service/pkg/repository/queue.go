@@ -39,6 +39,14 @@ type transformerBatch struct {
 	result       chan error
 }
 
+func (t *transformerBatch) finish(err error) {
+	select {
+	case t.result <- err:
+		close(t.result)
+	default:
+	}
+}
+
 func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan error {
 	resultChannel := make(chan error, 1)
 	e := transformerBatch{
@@ -50,7 +58,7 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 	case q.transformerBatches <- e:
 		return resultChannel
 	case <-ctx.Done():
-		resultChannel <- ctx.Err()
+		e.finish(ctx.Err())
 		return resultChannel
 	}
 }

@@ -38,6 +38,7 @@ type TestServer struct {
 	KnownHosts string
 	ClientKey  string
 	Url        string
+	Pushes     uint
 	l          net.Listener
 	execDelay  time.Duration
 }
@@ -137,6 +138,9 @@ func (ts *TestServer) handleConn(con net.Conn, workdir string, sc *ssh.ServerCon
 					req.Reply(false, nil)
 					ch.Close()
 					return
+				}
+				if args[0] == "git-receive-pack" {
+					ts.Pushes = ts.Pushes + 1
 				}
 				args[1] = filepath.Join(workdir, args[1])
 				cmd := exec.Command(args[0], args[1:len(args)]...)

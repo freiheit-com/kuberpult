@@ -35,6 +35,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 
@@ -1141,8 +1142,9 @@ func TestApplyQueuePanic(t *testing.T) {
 			repo, processQueue, err := New2(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:  "file://" + remoteDir,
-					Path: localDir,
+					URL:                   "file://" + remoteDir,
+					Path:                  localDir,
+					MaximumCommitsPerPush: 3,
 				},
 			)
 			if err != nil {
@@ -1466,8 +1468,9 @@ func TestApplyQueue(t *testing.T) {
 			repo, err := New(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:  "file://" + remoteDir,
-					Path: localDir,
+					URL:                   "file://" + remoteDir,
+					Path:                  localDir,
+					MaximumCommitsPerPush: 10,
 				},
 			)
 			if err != nil {
@@ -1515,6 +1518,81 @@ func TestApplyQueue(t *testing.T) {
 			releases, _ := repo.State().Releases("foo")
 			if !cmp.Equal(convertToSet(tc.ExpectedReleases), convertToSet(releases)) {
 				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReleases, releases))
+			}
+
+		})
+	}
+}
+
+func TestMaximumCommitsPerPush(t *testing.T) {
+	tcs := []struct {
+		NumberOfCommits       uint
+		MaximumCommitsPerPush uint
+		ExpectedAtLeastPushes uint
+	}{
+		{
+			NumberOfCommits:       7,
+			MaximumCommitsPerPush: 5,
+			ExpectedAtLeastPushes: 2,
+		},
+		{
+			NumberOfCommits:       5,
+			MaximumCommitsPerPush: 0,
+			ExpectedAtLeastPushes: 5,
+		},
+		{
+			NumberOfCommits:       5,
+			MaximumCommitsPerPush: 10,
+			ExpectedAtLeastPushes: 1,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(fmt.Sprintf("with %d commits and %d per push", tc.NumberOfCommits, tc.MaximumCommitsPerPush), func(t *testing.T) {
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Run()
+			ts := testssh.New(remoteDir)
+			defer ts.Close()
+			repo, processor, err := New2(
+				testutil.MakeTestContext(),
+				RepositoryConfig{
+					URL:  ts.Url,
+					Path: localDir,
+					Certificates: Certificates{
+						KnownHostsFile: ts.KnownHosts,
+					},
+					Credentials: Credentials{
+						SshKey: ts.ClientKey,
+					},
+
+					MaximumCommitsPerPush: tc.MaximumCommitsPerPush,
+				},
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%e'", err)
+			}
+			var eg errgroup.Group
+			for i := uint(0); i < tc.NumberOfCommits; i++ {
+				eg.Go(func() error {
+					return repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
+						Application: "foo",
+						Manifests:   map[string]string{"development": "foo"},
+					})
+				})
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			go func() {
+				processor(ctx, nil)
+			}()
+			eg.Wait()
+			if ts.Pushes < tc.ExpectedAtLeastPushes {
+				t.Errorf("expected at least %d pushes, but %d happened", tc.ExpectedAtLeastPushes, ts.Pushes)
 			}
 
 		})
