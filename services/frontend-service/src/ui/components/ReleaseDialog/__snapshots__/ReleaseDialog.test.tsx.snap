@@ -107,7 +107,7 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                       >
                         <div
                           class="tooltip-container"
-                          data-tooltip-delay-hide="1000000"
+                          data-tooltip-delay-hide="50"
                           data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
                           data-tooltip-id="kuberpult-tooltip"
                           data-tooltip-place="bottom"
@@ -373,7 +373,7 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                       >
                         <div
                           class="tooltip-container"
-                          data-tooltip-delay-hide="1000000"
+                          data-tooltip-delay-hide="50"
                           data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
                           data-tooltip-id="kuberpult-tooltip"
                           data-tooltip-place="bottom"
@@ -645,7 +645,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                       >
                         <div
                           class="tooltip-container"
-                          data-tooltip-delay-hide="1000000"
+                          data-tooltip-delay-hide="50"
                           data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
                           data-tooltip-id="kuberpult-tooltip"
                           data-tooltip-place="bottom"
@@ -825,7 +825,7 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                       >
                         <div
                           class="tooltip-container"
-                          data-tooltip-delay-hide="1000000"
+                          data-tooltip-delay-hide="50"
                           data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
                           data-tooltip-id="kuberpult-tooltip"
                           data-tooltip-place="bottom"
