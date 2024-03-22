@@ -107,29 +107,27 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                       >
                         <div
                           class="tooltip-container"
+                          data-tooltip-delay-hide="1000000"
+                          data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
+                          data-tooltip-id="kuberpult-tooltip"
+                          data-tooltip-place="bottom"
+                          id="tooltipenv-group-chip-id-ui-envlock"
                         >
-                          <a
-                            data-tooltip-delay-hide="50"
-                            data-tooltip-place="bottom"
-                            href="#"
-                            id="tooltipenv-group-chip-id-ui-envlock"
-                          >
-                            <div>
-                              <button
-                                aria-label=""
-                                class="mdc-button button-lock"
+                          <div>
+                            <button
+                              aria-label=""
+                              class="mdc-button button-lock"
+                            >
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <svg
+                                class="env-card-env-lock-icon fixed-size"
                               >
-                                <div
-                                  class="mdc-button__ripple"
-                                />
-                                <svg
-                                  class="env-card-env-lock-icon fixed-size"
-                                >
-                                  Locks_White.svg
-                                </svg>
-                              </button>
-                            </div>
-                          </a>
+                                Locks_White.svg
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </span>
@@ -375,29 +373,27 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                       >
                         <div
                           class="tooltip-container"
+                          data-tooltip-delay-hide="1000000"
+                          data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
+                          data-tooltip-id="kuberpult-tooltip"
+                          data-tooltip-place="bottom"
+                          id="tooltipenv-group-chip-id-ui-envlock"
                         >
-                          <a
-                            data-tooltip-delay-hide="50"
-                            data-tooltip-place="bottom"
-                            href="#"
-                            id="tooltipenv-group-chip-id-ui-envlock"
-                          >
-                            <div>
-                              <button
-                                aria-label=""
-                                class="mdc-button button-lock"
+                          <div>
+                            <button
+                              aria-label=""
+                              class="mdc-button button-lock"
+                            >
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <svg
+                                class="env-card-env-lock-icon fixed-size"
                               >
-                                <div
-                                  class="mdc-button__ripple"
-                                />
-                                <svg
-                                  class="env-card-env-lock-icon fixed-size"
-                                >
-                                  Locks_White.svg
-                                </svg>
-                              </button>
-                            </div>
-                          </a>
+                                Locks_White.svg
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </span>
@@ -649,29 +645,27 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                       >
                         <div
                           class="tooltip-container"
+                          data-tooltip-delay-hide="1000000"
+                          data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
+                          data-tooltip-id="kuberpult-tooltip"
+                          data-tooltip-place="bottom"
+                          id="tooltipenv-group-chip-id-ui-envlock"
                         >
-                          <a
-                            data-tooltip-delay-hide="50"
-                            data-tooltip-place="bottom"
-                            href="#"
-                            id="tooltipenv-group-chip-id-ui-envlock"
-                          >
-                            <div>
-                              <button
-                                aria-label=""
-                                class="mdc-button button-lock"
+                          <div>
+                            <button
+                              aria-label=""
+                              class="mdc-button button-lock"
+                            >
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <svg
+                                class="env-card-env-lock-icon fixed-size"
                               >
-                                <div
-                                  class="mdc-button__ripple"
-                                />
-                                <svg
-                                  class="env-card-env-lock-icon fixed-size"
-                                >
-                                  Locks_White.svg
-                                </svg>
-                              </button>
-                            </div>
-                          </a>
+                                Locks_White.svg
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </span>
@@ -831,29 +825,27 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                       >
                         <div
                           class="tooltip-container"
+                          data-tooltip-delay-hide="1000000"
+                          data-tooltip-html="<div><div>Environment locked by unknown</div><div>with Message: <b>envLock</b></div><div>ID: ui-envlock</div><div>Click to unlock.</div></div>"
+                          data-tooltip-id="kuberpult-tooltip"
+                          data-tooltip-place="bottom"
+                          id="tooltipenv-group-chip-id-ui-envlock"
                         >
-                          <a
-                            data-tooltip-delay-hide="50"
-                            data-tooltip-place="bottom"
-                            href="#"
-                            id="tooltipenv-group-chip-id-ui-envlock"
-                          >
-                            <div>
-                              <button
-                                aria-label=""
-                                class="mdc-button button-lock"
+                          <div>
+                            <button
+                              aria-label=""
+                              class="mdc-button button-lock"
+                            >
+                              <div
+                                class="mdc-button__ripple"
+                              />
+                              <svg
+                                class="env-card-env-lock-icon fixed-size"
                               >
-                                <div
-                                  class="mdc-button__ripple"
-                                />
-                                <svg
-                                  class="env-card-env-lock-icon fixed-size"
-                                >
-                                  Locks_White.svg
-                                </svg>
-                              </button>
-                            </div>
-                          </a>
+                                Locks_White.svg
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </span>

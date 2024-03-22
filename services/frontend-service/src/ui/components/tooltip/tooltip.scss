@@ -15,22 +15,17 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 @use '../../../../node_modules/@material/tooltip/styles';
 
-.tooltip-container {
-    a {
-        text-decoration: none;
-    }
-    .tooltip {
-        z-index: 1000;
-        background-color: white;
-        color: black;
-        font-size: 14px;
-        border-radius: 8px;
-        .release__hash--container {
-            padding: 2px 0px 0px 0px;
+#kuberpult-tooltip {
+    z-index: 1000;
+    background-color: white;
+    color: black;
+    font-size: 14px;
+    border-radius: 8px;
+    .release__hash--container {
+        padding: 2px 0px 0px 0px;
 
-            .release__hash {
-                padding: 0;
-            }
+        .release__hash {
+            padding: 0;
         }
     }
 }
