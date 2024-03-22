@@ -1156,8 +1156,8 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 	if apps, err := state.GetEnvironmentApplications(env); err != nil {
 		return err
 	} else {
-		span, _ := tracer.StartSpanFromContext(ctx, "collectData")
-		defer span.Finish()
+		spanCollectData, _ := tracer.StartSpanFromContext(ctx, "collectData")
+		defer spanCollectData.Finish()
 		appData := []argocd.AppData{}
 		sort.Strings(apps)
 		for _, appName := range apps {
@@ -1186,15 +1186,15 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 				TeamName: team,
 			})
 		}
-		span.Finish()
+		spanCollectData.Finish()
 
-		span, ctx = tracer.StartSpanFromContext(ctx, "RenderAndWrite")
-		defer span.Finish()
+		spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
+		defer spanRenderAndWrite.Finish()
 		if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
 			return err
 		} else {
-			span, ctx = tracer.StartSpanFromContext(ctx, "Write")
-			defer span.Finish()
+			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
+			defer spanWrite.Finish()
 			for apiVersion, content := range manifests {
 				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
 					return err
