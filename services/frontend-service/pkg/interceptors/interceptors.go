@@ -97,9 +97,7 @@ func StreamAuthInterceptor(
 }
 
 // GoogleIAPInterceptor intercepts HTTP calls to the frontend service.
-// DexLoginInterceptor must only be used if dex is enabled.
-// If the user us not logged in, it redirected the calls to the Dex login page.
-// If the user is already logged in, proceeds with the request.
+// If the user us not logged in or no JWT is found, an Unauthenticated error is returned.
 func GoogleIAPInterceptor(
 	w http.ResponseWriter,
 	req *http.Request,
