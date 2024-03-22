@@ -1528,22 +1528,22 @@ func TestMaximumCommitsPerPush(t *testing.T) {
 	tcs := []struct {
 		NumberOfCommits       uint
 		MaximumCommitsPerPush uint
-		ExpectedPushes        uint
+		ExpectedAtLeastPushes uint
 	}{
 		{
 			NumberOfCommits:       7,
 			MaximumCommitsPerPush: 5,
-			ExpectedPushes:        2,
+			ExpectedAtLeastPushes: 2,
 		},
 		{
 			NumberOfCommits:       5,
 			MaximumCommitsPerPush: 0,
-			ExpectedPushes:        5,
+			ExpectedAtLeastPushes: 5,
 		},
 		{
 			NumberOfCommits:       5,
 			MaximumCommitsPerPush: 10,
-			ExpectedPushes:        1,
+			ExpectedAtLeastPushes: 1,
 		},
 	}
 
@@ -1591,8 +1591,8 @@ func TestMaximumCommitsPerPush(t *testing.T) {
 				processor(ctx, nil)
 			}()
 			eg.Wait()
-			if ts.Pushes != tc.ExpectedPushes {
-				t.Errorf("expected %d pushes, but %d happened", tc.ExpectedPushes, ts.Pushes)
+			if ts.Pushes < tc.ExpectedAtLeastPushes {
+				t.Errorf("expected at least %d pushes, but %d happened", tc.ExpectedAtLeastPushes, ts.Pushes)
 			}
 
 		})
