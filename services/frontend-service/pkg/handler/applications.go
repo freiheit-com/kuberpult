@@ -140,8 +140,7 @@ func (s Server) handleApplicationRelease(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	var group string
-	group, tail = xpath.Shift(tail)
+	group, _ := xpath.Shift(tail)
 	switch group {
 	case "manifests":
 		s.handleApplicationReleaseManifests(w, req, applicationID, releaseNum)
