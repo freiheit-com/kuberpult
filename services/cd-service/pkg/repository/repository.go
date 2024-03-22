@@ -198,6 +198,8 @@ type RepositoryConfig struct {
 	WebhookResolver WebhookResolver
 
 	MaximumCommitsPerPush uint
+
+	MaximumQueueSize uint
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -315,6 +317,15 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	return tags, nil
 }
 
+func NewAuxiliary(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
+	repo, _, err := New2(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	//go bg(ctx, nil)
+	return repo, err
+}
+
 // Opens a repository. The repository is initialized and updated in the background.
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	repo, bg, err := New2(ctx, cfg)
@@ -351,6 +362,10 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	if cfg.MaximumCommitsPerPush == 0 {
 		cfg.MaximumCommitsPerPush = 1
 	}
+
+	if cfg.MaximumQueueSize == 0 {
+		cfg.MaximumQueueSize = 5
+	}
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	var err error
@@ -383,7 +398,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 				credentials:     credentials,
 				certificates:    certificates,
 				repository:      repo2,
-				queue:           makeQueue(),
+				queue:           makeQueueN(5),
 				backOffProvider: defaultBackOffProvider,
 			}
 			result.headLock.Lock()
@@ -1101,7 +1116,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		r.writesDone = r.writesDone + uint(len(transformers))
 		r.maybeGc(ctx)
 	}()
-	eCh := r.applyDeferred(ctx, transformers...)
+	eCh := r.ApplyDeferred(ctx, transformers...)
 	select {
 	case err := <-eCh:
 		return err
@@ -1110,7 +1125,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	}
 }
 
-func (r *repository) applyDeferred(ctx context.Context, transformers ...Transformer) <-chan error {
+func (r *repository) ApplyDeferred(ctx context.Context, transformers ...Transformer) <-chan error {
 	return r.queue.add(ctx, transformers)
 }
 

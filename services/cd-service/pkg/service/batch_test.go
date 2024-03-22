@@ -468,86 +468,6 @@ func TestBatchServiceErrors(t *testing.T) {
 	}
 }
 
-func TestLimit(t *testing.T) {
-	transformers := []repository.Transformer{
-		&repository.CreateEnvironment{
-			Environment: "production",
-			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-		},
-		&repository.CreateApplicationVersion{
-			Application: "test",
-			Manifests: map[string]string{
-				"production": "manifest",
-			},
-		},
-		&repository.CreateApplicationVersion{
-			Application: "test",
-			Manifests: map[string]string{
-				"production": "manifest2",
-			},
-		},
-	}
-	tcs := []struct {
-		Name               string
-		numberBatchActions int
-		ShouldSucceed      bool
-		limit              int
-		Setup              []repository.Transformer
-	}{
-		{
-			Name:               "less than number of requests",
-			ShouldSucceed:      true,
-			limit:              5,
-			numberBatchActions: 1,
-			Setup:              transformers,
-		},
-		{
-			Name:               "more than the maximum number of requests",
-			numberBatchActions: 10,
-			limit:              5,
-			ShouldSucceed:      false,
-			Setup:              transformers,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			repo, err := setupRepositoryTest(t)
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, tr := range tc.Setup {
-				if err := repo.Apply(testutil.MakeTestContext(), tr); err != nil {
-					t.Fatal(err)
-				}
-			}
-			svc := &BatchServer{
-				Repository: repo,
-			}
-
-			var batchRequests []api.BatchRequest
-			for i := 0; i < tc.numberBatchActions; i++ {
-				batchRequests = append(batchRequests, api.BatchRequest{
-					Actions: getNBatchActions(5),
-				})
-			}
-			for idx, b := range batchRequests {
-				_, err = svc.ProcessBatch(
-					testutil.MakeTestContext(),
-					&b,
-				)
-				if err != nil {
-					t.Fatalf("Got an error at iteration %d: %v\n", idx, err)
-				}
-			}
-			if !tc.ShouldSucceed {
-				t.Fatalf("Should not have succeded\n")
-
-			}
-		})
-	}
-}
-
 func TestMaxBatchActionsAllowed(t *testing.T) {
 	transformers := []repository.Transformer{
 		&repository.CreateEnvironment{
@@ -641,8 +561,11 @@ func TestMaxBatchActionsAllowed(t *testing.T) {
 		})
 	}
 }
-
 func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
+	return setupRepositoryTestAux(t, 0)
+}
+
+func setupRepositoryTestAux(t *testing.T, commits uint) (repository.Repository, error) {
 	//t.Parallel()
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
@@ -659,6 +582,7 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 			CommitterEmail:         "kuberpult@freiheit.com",
 			CommitterName:          "kuberpult",
 			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+			MaximumCommitsPerPush:  commits,
 		},
 	)
 	if err != nil {

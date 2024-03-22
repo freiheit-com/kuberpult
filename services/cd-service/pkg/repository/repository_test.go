@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"io"
 	"io/fs"
 	"net/http"
@@ -1158,7 +1159,7 @@ func TestApplyQueuePanic(t *testing.T) {
 				if t == nil {
 					t = &EmptyTransformer{}
 				}
-				results[i] = repo.(*repository).applyDeferred(testutil.MakeTestContext(), t)
+				results[i] = repo.(*repository).ApplyDeferred(testutil.MakeTestContext(), t)
 			}
 			defer func() {
 				r := recover()
@@ -1492,7 +1493,7 @@ func TestApplyQueue(t *testing.T) {
 					cancel()
 				}
 				if action.Transformer != nil {
-					results[i] = repoInternal.applyDeferred(ctx, action.Transformer)
+					results[i] = repoInternal.ApplyDeferred(ctx, action.Transformer)
 				} else {
 					tf := &CreateApplicationVersion{
 						Application: "foo",
@@ -1501,7 +1502,7 @@ func TestApplyQueue(t *testing.T) {
 						},
 						Version: uint64(i + 1),
 					}
-					results[i] = repoInternal.applyDeferred(ctx, tf)
+					results[i] = repoInternal.ApplyDeferred(ctx, tf)
 				}
 				if action.CancelAfterAdd {
 					cancel()
@@ -1694,7 +1695,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 	t.StartTimer()
 	for i := 0; i < t.N; i++ {
 		tf, expectedResult := getTransformer(i)
-		results[i] = repoInternal.applyDeferred(testutil.MakeTestContext(), tf)
+		results[i] = repoInternal.ApplyDeferred(testutil.MakeTestContext(), tf)
 		expectedResults[i] = expectedResult
 		if expectedResult == nil {
 			expectedReleases[i+1] = true
@@ -2077,4 +2078,130 @@ func TestSendWebhookToArgoCd(t *testing.T) {
 			}
 		})
 	}
+}
+func TestLimit(t *testing.T) {
+	transformers := []Transformer{
+		&CreateEnvironment{
+			Environment: "production",
+			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+		},
+		&CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				"production": "manifest",
+			},
+		},
+		&CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				"production": "manifest2",
+			},
+		},
+	}
+	tcs := []struct {
+		Name               string
+		numberBatchActions int
+		ShouldSucceed      bool
+		limit              int
+		Setup              []Transformer
+		ExpectedError      error
+	}{
+		{
+			Name:               "less than number of requests",
+			ShouldSucceed:      true,
+			limit:              5,
+			numberBatchActions: 1,
+			Setup:              transformers,
+			ExpectedError:      nil,
+		},
+		{
+			Name:               "more than the maximum number of requests",
+			numberBatchActions: 10,
+			limit:              5,
+			ShouldSucceed:      false,
+			Setup:              transformers,
+			ExpectedError:      errMatcher{"error not specific to one transformer of this batch: Queue is full"},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+
+			repo, err := setupRepositoryTestAux(t, 3)
+			ctx := testutil.MakeTestContext()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, tr := range tc.Setup {
+				errCh := repo.(*repository).ApplyDeferred(ctx, tr)
+				select {
+				case e := <-repo.(*repository).queue.transformerBatches:
+					dummyPushUpdateFunction := func(string, *bool) git.PushUpdateReferenceCallback { return nil }
+					dummyPushActionFunction := func(options git.PushOptions, r *repository) PushActionFunc {
+						return func() error {
+							return nil
+						}
+					}
+					repo.(*repository).ProcessQueueOnce(ctx, e, dummyPushUpdateFunction, dummyPushActionFunction)
+				default:
+				}
+				select {
+				case err := <-errCh:
+					t.Log(err)
+				default:
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			expectedErrorNumber := tc.numberBatchActions - tc.limit
+			actualErrorNumber := 0
+			for i := 0; i < tc.numberBatchActions; i++ {
+				errCh := repo.(*repository).ApplyDeferred(ctx, transformers[0])
+				select {
+				case err := <-errCh:
+					if tc.ShouldSucceed {
+						t.Fatalf("Got an error at iteration %d and was not expecting it %v\n", i, err)
+					}
+					//Should get some errors, check if they are the ones we expect
+					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+						t.Errorf("error mismatch (-want, +got):\n%s", diff)
+					}
+					actualErrorNumber += 1
+				default:
+					// If there is no error,
+				}
+			}
+			if expectedErrorNumber > 0 && expectedErrorNumber != actualErrorNumber {
+				t.Errorf("error number mismatch expected: %d, got %d", expectedErrorNumber, actualErrorNumber)
+			}
+		})
+	}
+}
+
+func setupRepositoryTestAux(t *testing.T, commits uint) (Repository, error) {
+	t.Parallel()
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	cmd.Start()
+	cmd.Wait()
+	t.Logf("test created dir: %s", localDir)
+	repo, err := NewAuxiliary(
+		testutil.MakeTestContext(),
+		RepositoryConfig{
+			URL:                    remoteDir,
+			Path:                   localDir,
+			CommitterEmail:         "kuberpult@freiheit.com",
+			CommitterName:          "kuberpult",
+			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+			MaximumCommitsPerPush:  commits,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo, nil
 }
