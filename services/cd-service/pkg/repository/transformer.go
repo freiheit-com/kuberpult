@@ -96,6 +96,10 @@ func releasesDirectoryWithVersion(fs billy.Filesystem, application string, versi
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
 }
 
+func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application string, version uint64) string {
+	return fs.Join(releasesDirectoryWithVersion(fs, application, version), "environments")
+}
+
 func commitDirectory(fs billy.Filesystem, commit string) string {
 	return fs.Join("commits", commit[:2], commit[2:])
 }

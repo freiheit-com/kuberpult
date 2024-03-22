@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"regexp"
 	"sync"
 	"sync/atomic"
 
@@ -234,18 +233,8 @@ func (o *OverviewServiceServer) getOverview(
 					if rel, err := s.GetApplicationRelease(appName, id); err != nil {
 						return nil, err
 					} else {
-						release := &api.Release{
-							PrNumber:        "",
-							Version:         id,
-							SourceAuthor:    rel.SourceAuthor,
-							SourceCommitId:  rel.SourceCommitId,
-							SourceMessage:   rel.SourceMessage,
-							UndeployVersion: rel.UndeployVersion,
-							CreatedAt:       timestamppb.New(rel.CreatedAt),
-							DisplayVersion:  rel.DisplayVersion,
-						}
-
-						release.PrNumber = extractPrNumber(release.SourceMessage)
+						release := rel.ToProto()
+						release.Version = id
 
 						app.Releases = append(app.Releases, release)
 					}
@@ -443,15 +432,4 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 	}
 	o.response.Store(r)
 	o.notify.Notify()
-}
-
-func extractPrNumber(sourceMessage string) string {
-	re := regexp.MustCompile("\\(#(\\d+)\\)")
-	res := re.FindAllStringSubmatch(sourceMessage, -1)
-
-	if len(res) == 0 {
-		return ""
-	} else {
-		return res[len(res)-1][1]
-	}
 }
