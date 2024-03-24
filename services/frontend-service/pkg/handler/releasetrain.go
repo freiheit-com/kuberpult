@@ -89,7 +89,21 @@ func (s Server) handleReleaseTrainApplication(w http.ResponseWriter, req *http.R
 }
 
 func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Request, target string) {
-	w.Write([]byte("You are trying prognosis"))
+	response, err := s.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(req.Context(), &api.ReleaseTrainRequest{
+		Target:     target,
+		CommitHash: "",
+		Team:       "",
+	})
+
+	if err != nil {
+		handleGRPCError(req.Context(), w, err)
+		return
+	}
+	json, err := json.Marshal(response.Deployment)
+	if err != nil {
+		return
+	}
+	w.Write(json) //nolint:errcheck
 }
 
 func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {

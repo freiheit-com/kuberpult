@@ -233,6 +233,13 @@ func RunServer() {
 					api.RegisterGitServiceServer(srv, &service.GitServer{Config: cfg, OverviewService: overviewSrv})
 					api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 					api.RegisterEnvironmentServiceServer(srv, &service.EnvironmentServiceServer{Repository: repo})
+					api.RegisterReleaseTrainPrognosisServiceServer(srv, &service.ReleaseTrainPrognosisServer{
+						Repository: repo,
+						RBACConfig: auth.RBACConfig{
+							DexEnabled: c.DexEnabled,
+							Policy:     dexRbacPolicy,
+						},
+					})
 					reflection.Register(srv)
 					reposerver.Register(srv, repo, cfg)
 
