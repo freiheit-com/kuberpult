@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
