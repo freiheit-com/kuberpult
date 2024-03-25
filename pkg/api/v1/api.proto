@@ -590,6 +590,23 @@ service ReleaseTrainPrognosisService {
   rpc GetReleaseTrainPrognosis (ReleaseTrainRequest) returns (GetReleaseTrainPrognosisResponse) {}
 }
 
+message ReleaseTrainApplicationPrognosis {
+  oneof outcome {
+    string skipped_message = 1;
+    uint64 deployed_version = 2;
+  }
+}
+
+message ReleaseTrainEnvironmentPrognosis {
+  message AppsPrognosesWrapper {
+    map<string, ReleaseTrainApplicationPrognosis> prognoses = 1;
+  }
+  oneof outcome {
+    string skipped_message = 1;
+    AppsPrognosesWrapper apps_prognoses = 2;
+  }
+}
+
 message GetReleaseTrainPrognosisResponse {
-  repeated string deployment = 1;
+  map<string, ReleaseTrainEnvironmentPrognosis> envs_prognoses = 1;
 }

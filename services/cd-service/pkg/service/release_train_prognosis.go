@@ -30,23 +30,59 @@ type ReleaseTrainPrognosisServer struct {
 }
 
 func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Context, in *api.ReleaseTrainRequest) (*api.GetReleaseTrainPrognosisResponse, error) {
-	s.Repository.ApplyTransformersInternal(ctx, []rp.Transformer{
-		&rp.ReleaseTrain{
-			Authentication: rp.Authentication{
-				RBACConfig: s.RBACConfig,
-			},
-			Target:          in.Target,
-			Team:            in.Team,
-			CommitHash:      in.CommitHash,
-			WriteCommitData: false,
-			Repo:            s.Repository,
+	t := &rp.ReleaseTrain{
+		Authentication: rp.Authentication{
+			RBACConfig: s.RBACConfig,
 		},
-	}...)
-	
-	
-	return &api.GetReleaseTrainPrognosisResponse{
-		Deployment: []string{
-			"placeholder",
-		},
-	}, nil
+		Target:          in.Target,
+		Team:            in.Team,
+		CommitHash:      in.CommitHash,
+		WriteCommitData: false,
+		Repo:            s.Repository,
+	}
+
+	prognosis := t.Prognosis(ctx, s.Repository.State())
+
+	if prognosis.Outcome == rp.ReleaseTrainPrognosisOutcome_ERROR {
+		return nil, prognosis.Error
+	}
+
+	ret := &api.GetReleaseTrainPrognosisResponse{
+		EnvsPrognoses: make(map[string]*api.ReleaseTrainEnvironmentPrognosis),
+	}
+
+	for envName, envPrognosis := range prognosis.EnvironmentPrognoses {
+		retEnvPrognosis := &api.ReleaseTrainEnvironmentPrognosis{}
+
+		if envPrognosis.Outcome == rp.ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED {
+			retEnvPrognosis.Outcome = &api.ReleaseTrainEnvironmentPrognosis_SkippedMessage{
+				SkippedMessage: envPrognosis.Message,
+			}
+		} else if envPrognosis.Outcome == rp.ReleaseTrainEnvironmentPrognosisOutcome_ERROR {
+			// this case should never be reached since an error in the environment prognosis is propagated to the release train prognosis
+			return nil, envPrognosis.Error
+		} else {
+			retEnvPrognosis.Outcome = &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
+				AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
+					Prognoses: make(map[string]*api.ReleaseTrainApplicationPrognosis),
+				},
+			}
+			for appName, appPrognosis := range envPrognosis.AppsPrognoses {
+				retAppPrognosis := &api.ReleaseTrainApplicationPrognosis{}
+				if appPrognosis.Outcome == rp.ReleaseTrainApplicationPrognosisOutcome_SKIPPED {
+					retAppPrognosis.Outcome = &api.ReleaseTrainApplicationPrognosis_SkippedMessage{
+						SkippedMessage: appPrognosis.Message,
+					}
+				} else {
+					retAppPrognosis.Outcome = &api.ReleaseTrainApplicationPrognosis_DeployedVersion{
+						DeployedVersion: appPrognosis.Version,
+					}
+				}
+				retEnvPrognosis.GetAppsPrognoses().Prognoses[appName] = retAppPrognosis
+			}
+		}
+		ret.EnvsPrognoses[envName] = retEnvPrognosis
+	}
+
+	return ret, nil
 }
