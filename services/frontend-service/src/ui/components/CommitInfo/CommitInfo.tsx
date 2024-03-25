@@ -114,7 +114,7 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => (
         </thead>
         <tbody>
             {props.events.map((event, _) => {
-                const createdAt = event.createdAt?.toLocaleString() || '';
+                const createdAt = event.createdAt?.toISOString() || '';
                 const [description, environments] = eventDescription(event);
                 return (
                     <tr key={event.uuid}>
