@@ -182,7 +182,7 @@ func RunServer() {
 				zap.String("details", "the maximum number of commits per push must be at least 1"),
 			)
 		}
-		if c.MaximumQueueSize < 1 || c.MaximumQueueSize > 100 {
+		if c.MaximumQueueSize < 2 || c.MaximumQueueSize > 100 {
 			logger.FromContext(ctx).Fatal("cd.config",
 				zap.String("details", "the size of the queue must be between 2 and 100"),
 			)
