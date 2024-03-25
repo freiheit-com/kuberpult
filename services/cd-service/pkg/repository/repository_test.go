@@ -2107,7 +2107,7 @@ func TestLimit(t *testing.T) {
 		ExpectedError      error
 	}{
 		{
-			Name:               "less than number maximum number of requests",
+			Name:               "less than maximum number of requests",
 			ShouldSucceed:      true,
 			limit:              5,
 			numberBatchActions: 1,
