@@ -2326,7 +2326,6 @@ func (c *envReleaseTrain) Transform(
 	}
 	sort.Strings(appNames)
 
-
 	for _, appName := range appNames {
 		appPrognosis := prognosis.AppsPrognoses[appName]
 		if appPrognosis.Outcome == ReleaseTrainApplicationPrognosisOutcome_SKIPPED {
