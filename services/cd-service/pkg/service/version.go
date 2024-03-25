@@ -20,6 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
+
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 
 	"google.golang.org/grpc/codes"
@@ -71,4 +74,52 @@ func (o *VersionServiceServer) GetVersion(
 		res.SourceCommitId = release.SourceCommitId
 	}
 	return &res, nil
+}
+
+func (o *VersionServiceServer) GetManifests(ctx context.Context, req *api.GetManifestsRequest) (*api.GetManifestsResponse, error) {
+	if req.Application == "" {
+		return nil, status.Error(codes.InvalidArgument, "no application specified")
+	}
+
+	state := o.Repository.State()
+
+	wrapError := func(what string, err error) error {
+		if !os.IsNotExist(err) {
+			return status.Errorf(codes.NotFound, "%s not found", what)
+		} else {
+			return status.Error(codes.Internal, err.Error())
+		}
+	}
+
+	var (
+		err     error
+		release uint64
+	)
+	if req.Release == "latest" {
+		release, err = repository.GetLastRelease(state.Filesystem, req.Application)
+		if err != nil {
+			return nil, wrapError("application", err)
+		}
+		if release == 0 {
+			return nil, status.Errorf(codes.NotFound, "no releases found for application %s", req.Application)
+		}
+	} else {
+		release, err = strconv.ParseUint(req.Release, 10, 64)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid release number, expected uint or 'latest'")
+		}
+	}
+	repoRelease, err := state.GetApplicationRelease(req.Application, release)
+	if err != nil {
+		return nil, wrapError("release", err)
+	}
+	manifests, err := state.GetApplicationReleaseManifests(req.Application, release)
+	if err != nil {
+		return nil, wrapError("manifests", err)
+	}
+
+	return &api.GetManifestsResponse{
+		Release:   repoRelease.ToProto(),
+		Manifests: manifests,
+	}, nil
 }
