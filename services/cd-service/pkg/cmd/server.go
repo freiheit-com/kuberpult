@@ -182,6 +182,11 @@ func RunServer() {
 				zap.String("details", "the maximum number of commits per push must be at least 1"),
 			)
 		}
+		if c.GitMaximumQueueSize < 1 || c.GitMaximumQueueSize > 100 {
+			logger.FromContext(ctx).Fatal("git.config",
+				zap.String("details", "the size of the queue must be between 2 and 100"),
+			)
+		}
 		cfg := repository.RepositoryConfig{
 			WebhookResolver: nil,
 			URL:             c.GitUrl,
