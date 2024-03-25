@@ -349,7 +349,7 @@ func runServer(ctx context.Context) error {
 			http.Error(w, "IAP not enabled, /api unavailable.", http.StatusUnauthorized)
 			return
 		}
-		interceptors.GoogleIAPInterceptor(w, req, httpHandler.HandleAPI, backendServiceId, c.GKEBackendServiceID)
+		interceptors.GoogleIAPInterceptor(w, req, httpHandler.HandleAPI, backendServiceId, c.GKEProjectNumber)
 	})
 	for _, endpoint := range []string{
 		"/api",
