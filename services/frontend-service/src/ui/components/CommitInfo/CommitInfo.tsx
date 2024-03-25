@@ -32,20 +32,25 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
             </div>
         );
     }
+    // most commit messages and with "/n" but that looks odd when rendered in a table:
+    const msgWithoutTrailingN = commitInfo.commitMessage.trimEnd();
+    const nextPrevMessage =
+        'Note that kuberpult links to the next commit in the repository that it is aware of.' +
+        'This is not necessarily the next/previous commit that touches the desired microservice.';
+    const tooltipMsg = ' Limitation: Currently only commits that touch exactly one app are linked.';
+    const showInfo = !commitInfo.nextCommitHash || !commitInfo.previousCommitHash;
     return (
         <div>
             <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
             <main className="main-content commit-page">
-                <h1>This page is still in beta</h1>
-                <br />
-                <h1> Commit {commitInfo.commitMessage.split('\n')[0]} </h1>
+                <h1> Commit: {commitInfo.commitMessage.split('\n')[0]} </h1>
                 <div>
-                    <table border={1}>
+                    <table className={'metadata'} border={1}>
                         <thead>
                             <tr>
-                                <th>Commit Hash:</th>
-                                <th>Commit Message:</th>
-                                <th>Touched apps:</th>
+                                <th className={'hash'}>Commit Hash:</th>
+                                <th className={'message'}>Commit Message:</th>
+                                <th className={'apps'}>Touched apps:</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -53,8 +58,11 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                                 <td>{commitInfo.commitHash}</td>
                                 <td>
                                     <div className={'commit-page-message'}>
-                                        {commitInfo.commitMessage.split('\n').map((msg, index) => (
-                                            <div key={index}>{msg} &nbsp;</div>
+                                        {msgWithoutTrailingN.split('\n').map((msg, index) => (
+                                            <div key={index}>
+                                                <span>{msg}</span>
+                                                <br />
+                                            </div>
                                         ))}
                                     </div>
                                 </td>
@@ -67,15 +75,23 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                             <div className="next-prev-buttons">
                                 {commitInfo.previousCommitHash !== '' && (
                                     <div className="history-button-container">
-                                        <a href={'/ui/commits/' + commitInfo.previousCommitHash}>Previous Commit</a>
+                                        <a
+                                            href={'/ui/commits/' + commitInfo.previousCommitHash}
+                                            title={nextPrevMessage}>
+                                            Previous Commit
+                                        </a>
                                     </div>
                                 )}
 
                                 {commitInfo.nextCommitHash !== '' && (
                                     <div className="history-button-container">
-                                        <a href={'/ui/commits/' + commitInfo.nextCommitHash}>Next Commit</a>
+                                        <a href={'/ui/commits/' + commitInfo.nextCommitHash} title={nextPrevMessage}>
+                                            Next Commit
+                                        </a>
                                     </div>
                                 )}
+
+                                {showInfo && <div title={tooltipMsg}> ⓘ </div>}
                             </div>
                         )}
                     </div>
@@ -88,17 +104,17 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
 };
 
 const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => (
-    <table border={1}>
+    <table className={'events'} border={1}>
         <thead>
             <tr>
-                <th>Date:</th>
-                <th>Event Description:</th>
-                <th>Environments:</th>
+                <th className={'date'}>Date:</th>
+                <th className={'description'}>Event Description:</th>
+                <th className={'environments'}>Environments:</th>
             </tr>
         </thead>
         <tbody>
-            {props.events.map((event, eventIdx) => {
-                const createdAt = event.createdAt?.toISOString() || '';
+            {props.events.map((event, _) => {
+                const createdAt = event.createdAt?.toLocaleString() || '';
                 const [description, environments] = eventDescription(event);
                 return (
                     <tr key={event.uuid}>

@@ -14,12 +14,54 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-.next-prev-buttons {
-    display: flex;
-    flex-direction: row;
-}
 
-.history-button-container {
-    width: auto;
-    padding: 5px;
+.commit-page {
+    .next-prev-buttons {
+        display: flex;
+        flex-direction: row;
+    }
+
+    .history-button-container {
+        width: auto;
+        padding: 5px;
+    }
+
+    table, th, td {
+        border: 1px solid var(--mdc-theme-primary);
+        border-collapse: collapse;
+    }
+
+    table {
+        width: 100%;
+    }
+
+    .metadata {
+        th.hash {
+            width: 25%;
+        }
+
+        th.message {
+            width: 50%;
+        }
+
+        th.apps {
+            width: 25%;
+        }
+    }
+
+    .events {
+        th.date {
+            width: 25%;
+        }
+
+        th.description {
+            width: 50%;
+        }
+
+        th.environments {
+            width: 25%;
+        }
+    }
+
+
 }
