@@ -18,7 +18,9 @@ package cmd
 
 import (
 	"context"
+	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -43,31 +45,37 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
+const datadogNameCd = "kuberpult-cd-service"
+
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
-	GitUrl             string        `required:"true" split_words:"true"`
-	GitBranch          string        `default:"master" split_words:"true"`
-	BootstrapMode      bool          `default:"false" split_words:"true"`
-	GitCommitterEmail  string        `default:"kuberpult@freiheit.com" split_words:"true"`
-	GitCommitterName   string        `default:"kuberpult" split_words:"true"`
-	GitSshKey          string        `default:"/etc/ssh/identity" split_words:"true"`
-	GitSshKnownHosts   string        `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
-	GitNetworkTimeout  time.Duration `default:"1m" split_words:"true"`
-	GitWriteCommitData bool          `default:"false" split_words:"true"`
-	PgpKeyRingPath     string        `split_words:"true"`
-	AzureEnableAuth    bool          `default:"false" split_words:"true"`
-	DexEnabled         bool          `default:"false" split_words:"true"`
-	DexRbacPolicyPath  string        `split_words:"true"`
-	EnableTracing      bool          `default:"false" split_words:"true"`
-	EnableMetrics      bool          `default:"false" split_words:"true"`
-	EnableEvents       bool          `default:"false" split_words:"true"`
-	DogstatsdAddr      string        `default:"127.0.0.1:8125" split_words:"true"`
-	EnableSqlite       bool          `default:"true" split_words:"true"`
-	DexMock            bool          `default:"false" split_words:"true"`
-	DexMockRole        string        `default:"Developer" split_words:"true"`
-	ArgoCdServer       string        `default:"" split_words:"true"`
-	ArgoCdInsecure     bool          `default:"false" split_words:"true"`
-	GitWebUrl          string        `default:"" split_words:"true"`
+	GitUrl                   string        `required:"true" split_words:"true"`
+	GitBranch                string        `default:"master" split_words:"true"`
+	BootstrapMode            bool          `default:"false" split_words:"true"`
+	GitCommitterEmail        string        `default:"kuberpult@freiheit.com" split_words:"true"`
+	GitCommitterName         string        `default:"kuberpult" split_words:"true"`
+	GitSshKey                string        `default:"/etc/ssh/identity" split_words:"true"`
+	GitSshKnownHosts         string        `default:"/etc/ssh/ssh_known_hosts" split_words:"true"`
+	GitNetworkTimeout        time.Duration `default:"1m" split_words:"true"`
+	GitWriteCommitData       bool          `default:"false" split_words:"true"`
+	PgpKeyRingPath           string        `split_words:"true"`
+	AzureEnableAuth          bool          `default:"false" split_words:"true"`
+	DexEnabled               bool          `default:"false" split_words:"true"`
+	DexRbacPolicyPath        string        `split_words:"true"`
+	EnableTracing            bool          `default:"false" split_words:"true"`
+	EnableMetrics            bool          `default:"false" split_words:"true"`
+	EnableEvents             bool          `default:"false" split_words:"true"`
+	DogstatsdAddr            string        `default:"127.0.0.1:8125" split_words:"true"`
+	EnableProfiling          bool          `default:"false" split_words:"true"`
+	DatadogApiKeyLocation    string        `default:"" split_words:"true"`
+	EnableSqlite             bool          `default:"true" split_words:"true"`
+	DexMock                  bool          `default:"false" split_words:"true"`
+	DexMockRole              string        `default:"Developer" split_words:"true"`
+	ArgoCdServer             string        `default:"" split_words:"true"`
+	ArgoCdInsecure           bool          `default:"false" split_words:"true"`
+	GitWebUrl                string        `default:"" split_words:"true"`
+	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
+	MaximumQueueSize         uint          `default:"5" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -86,6 +94,23 @@ func RunServer() {
 		err := envconfig.Process("kuberpult", &c)
 		if err != nil {
 			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
+		}
+
+		if c.EnableProfiling {
+			ddFilename := c.DatadogApiKeyLocation
+			if ddFilename == "" {
+				logger.FromContext(ctx).Fatal("config.profiler.apikey.notfound", zap.Error(err))
+			}
+			fileContentBytes, err := os.ReadFile(ddFilename)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("config.profiler.apikey.file", zap.Error(err))
+			}
+			fileContent := string(fileContentBytes)
+			err = profiler.Start(profiler.WithAPIKey(fileContent), profiler.WithService(datadogNameCd))
+			if err != nil {
+				logger.FromContext(ctx).Fatal("config.profiler.error", zap.Error(err))
+			}
+			defer profiler.Stop()
 		}
 
 		var reader auth.GrpcContextReader
@@ -129,10 +154,10 @@ func RunServer() {
 			defer tracer.Stop()
 
 			grpcStreamInterceptors = append(grpcStreamInterceptors,
-				grpctrace.StreamServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-cd-service"))),
+				grpctrace.StreamServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName(datadogNameCd))),
 			)
 			grpcUnaryInterceptors = append(grpcUnaryInterceptors,
-				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-cd-service"))),
+				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName(datadogNameCd))),
 			)
 		}
 
@@ -152,7 +177,16 @@ func RunServer() {
 				zap.String("url", c.GitUrl),
 				zap.String("details", "https is not supported for git communication, only ssh is supported"))
 		}
-
+		if c.GitMaximumCommitsPerPush == 0 {
+			logger.FromContext(ctx).Fatal("git.config",
+				zap.String("details", "the maximum number of commits per push must be at least 1"),
+			)
+		}
+		if c.MaximumQueueSize < 2 || c.MaximumQueueSize > 100 {
+			logger.FromContext(ctx).Fatal("cd.config",
+				zap.String("details", "the size of the queue must be between 2 and 100"),
+			)
+		}
 		cfg := repository.RepositoryConfig{
 			WebhookResolver: nil,
 			URL:             c.GitUrl,
@@ -176,6 +210,8 @@ func RunServer() {
 			NetworkTimeout:         c.GitNetworkTimeout,
 			DogstatsdEvents:        c.EnableMetrics,
 			WriteCommitData:        c.GitWriteCommitData,
+			MaximumCommitsPerPush:  c.GitMaximumCommitsPerPush,
+			MaximumQueueSize:       c.MaximumQueueSize,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {
@@ -199,7 +235,7 @@ func RunServer() {
 					Register: func(mux *http.ServeMux) {
 						handler := logger.WithHttpLogger(httpServerLogger, repositoryService)
 						if c.EnableTracing {
-							handler = httptrace.WrapHandler(handler, "kuberpult-cd-service", "/")
+							handler = httptrace.WrapHandler(handler, datadogNameCd, "/")
 						}
 						mux.Handle("/", handler)
 					},

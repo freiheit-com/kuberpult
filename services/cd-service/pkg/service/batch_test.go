@@ -27,9 +27,8 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/prototext"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -38,6 +37,19 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
+
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 func getBatchActions() []*api.BatchAction {
 	opDeploy := &api.BatchAction_Deploy{
@@ -115,7 +127,7 @@ func TestBatchServiceWorks(t *testing.T) {
 		Setup         []repository.Transformer
 		context       context.Context
 		svc           *BatchServer
-		expectedError string
+		expectedError error
 	}{
 		{
 			Name: "5 sample actions",
@@ -193,8 +205,9 @@ func TestBatchServiceWorks(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(tc.context, tr); err != nil && err.Error() != tc.expectedError {
-					t.Fatalf("error during setup: %v", err)
+				err := repo.Apply(tc.context, tr)
+				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 			}
 
@@ -205,11 +218,11 @@ func TestBatchServiceWorks(t *testing.T) {
 					Actions: tc.Batch,
 				},
 			)
-			if err != nil && err.Error() == tc.expectedError {
-				return
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
-			if err != nil {
-				t.Fatalf("error during processBatch: %v", err.Error())
+			if tc.expectedError != nil {
+				return
 			}
 
 			if len(resp.Results) != len(tc.Batch) {
@@ -271,12 +284,13 @@ func TestBatchServiceWorks(t *testing.T) {
 
 func TestBatchServiceFails(t *testing.T) {
 	tcs := []struct {
-		Name          string
-		Batch         []*api.BatchAction
-		Setup         []repository.Transformer
-		context       context.Context
-		svc           *BatchServer
-		expectedError string
+		Name               string
+		Batch              []*api.BatchAction
+		Setup              []repository.Transformer
+		context            context.Context
+		svc                *BatchServer
+		expectedError      error
+		expectedSetupError error
 	}{
 		{
 			Name: "testing Dex setup without permissions",
@@ -298,10 +312,19 @@ func TestBatchServiceFails(t *testing.T) {
 					Authentication: repository.Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true}},
 				},
 			},
-			Batch:         []*api.BatchAction{},
-			context:       testutil.MakeTestContextDexEnabled(),
-			svc:           &BatchServer{},
-			expectedError: "error at index 0 of transformer batch: rpc error: code = PermissionDenied desc = PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production'",
+			Batch:   []*api.BatchAction{},
+			context: testutil.MakeTestContextDexEnabled(),
+			svc:     &BatchServer{},
+			// expectedSetupError: errMatcher{"error at index 0 of transformer batch: rpc error: code = PermissionDenied desc = PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production'"},
+			expectedSetupError: &repository.TransformerBatchApplyError{
+				Index: 0,
+				TransformerError: auth.PermissionError{
+					User:        "test tester",
+					Role:        "developer",
+					Action:      "CreateLock",
+					Environment: "production",
+				},
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -311,10 +334,20 @@ func TestBatchServiceFails(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			errSetupObserved := false
 			for _, tr := range tc.Setup {
-				if err := repo.Apply(tc.context, tr); err != nil && err.Error() != tc.expectedError {
-					t.Fatalf("error during setup: %v", err)
+				err := repo.Apply(tc.context, tr)
+				if err != nil {
+					if diff := cmp.Diff(tc.expectedSetupError, err, cmpopts.EquateErrors()); diff != "" {
+						t.Fatalf("error during setup mismatch (-want, +got):\n%s", diff)
+					} else {
+						errSetupObserved = true
+					}
 				}
+			}
+			if tc.expectedSetupError != nil && !errSetupObserved {
+				// ensure we fail on unobserved error
+				t.Errorf("did not oberve error during setup: %s", tc.expectedSetupError.Error())
 			}
 
 			tc.svc.Repository = repo
@@ -324,11 +357,8 @@ func TestBatchServiceFails(t *testing.T) {
 					Actions: tc.Batch,
 				},
 			)
-			if err != nil && err.Error() == tc.expectedError {
-				return
-			}
-			if err != nil {
-				t.Fatalf("error during processBatch: %v", err.Error())
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
 			if len(resp.Results) != len(tc.Batch) {
@@ -343,8 +373,8 @@ func TestBatchServiceErrors(t *testing.T) {
 		Name             string
 		Batch            []*api.BatchAction
 		Setup            []repository.Transformer
-		ExpectedResponse string
-		ExpectedError    string
+		ExpectedResponse *api.BatchResponse
+		ExpectedError    error
 	}{
 		{
 			// tests that in ProcessBatch, transformer errors are returned without wrapping them in a
@@ -362,8 +392,11 @@ func TestBatchServiceErrors(t *testing.T) {
 						},
 					},
 				}},
-			ExpectedResponse: "",
-			ExpectedError:    "error at index 0 of transformer batch: deployment failed: could not open manifest for app myapp with release 666 on env dev 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist",
+			ExpectedResponse: nil,
+			ExpectedError: &repository.TransformerBatchApplyError{
+				Index:            0,
+				TransformerError: errMatcher{"deployment failed: could not open manifest for app myapp with release 666 on env dev 'applications/myapp/releases/666/environments/dev/manifests.yaml': file does not exist"},
+			},
 		},
 		{
 			Name:  "create release endpoint fails app validity check",
@@ -383,17 +416,30 @@ func TestBatchServiceErrors(t *testing.T) {
 							SourceRepoUrl:  "4",
 						},
 					},
-				}},
-			ExpectedResponse: `results:{create_release_response:{too_long:{app_name:"myappIsWayTooLongDontYouThink" reg_exp:"\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z"  max_len:39}}}`,
+				},
+			},
+			ExpectedResponse: &api.BatchResponse{
+				Results: []*api.BatchResult{
+					{
+						Result: &api.BatchResult_CreateReleaseResponse{
+							CreateReleaseResponse: &api.CreateReleaseResponse{
+								Response: &api.CreateReleaseResponse_TooLong{
+									TooLong: &api.CreateReleaseResponseAppNameTooLong{
+										AppName: "myappIsWayTooLongDontYouThink",
+										RegExp:  "\\A[a-z0-9]+(?:-[a-z0-9]+)*\\z",
+										MaxLen:  39,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			var expectedResponseObject api.BatchResponse
-			if err := prototext.Unmarshal([]byte(tc.ExpectedResponse), &expectedResponseObject); err != nil {
-				t.Fatalf("failed to unmarshal the expected response object: %v", err)
-			}
 			repo, err := setupRepositoryTest(t)
 			if err != nil {
 				t.Fatal(err)
@@ -412,14 +458,11 @@ func TestBatchServiceErrors(t *testing.T) {
 					Actions: tc.Batch,
 				},
 			)
-			if tc.ExpectedResponse != "" && !proto.Equal(response, &expectedResponseObject) {
-				t.Fatalf("expected:\n%s\ngot:\n%s\n%s", tc.ExpectedResponse, response.String(), processErr)
+			if diff := cmp.Diff(tc.ExpectedError, processErr, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
-			if tc.ExpectedResponse == "" && processErr == nil {
-				t.Fatalf("expected error:\n%s\ngot: nil", tc.ExpectedError)
-			}
-			if tc.ExpectedResponse == "" && tc.ExpectedError != processErr.Error() {
-				t.Fatalf("expected error\n%s\ngot:\n%s\n%s", tc.ExpectedError, response.String(), processErr.Error())
+			if diff := cmp.Diff(tc.ExpectedResponse, response, protocmp.Transform()); diff != "" {
+				t.Fatalf("response mismatch, diff (-want, +got):\n%s", diff)
 			}
 		})
 	}

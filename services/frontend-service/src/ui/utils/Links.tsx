@@ -22,15 +22,20 @@ export const deriveArgoAppLink = (baseUrl: string | undefined, app: string): str
         const baseUrlSlash = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
         return baseUrlSlash + 'applications?search=-' + app;
     }
-    return '';
+    return undefined;
 };
 
-export const deriveArgoAppEnvLink = (baseUrl: string | undefined, app: string, env: string): string | undefined => {
+export const deriveArgoAppEnvLink = (
+    baseUrl: string | undefined,
+    app: string,
+    env: string,
+    namespace: string
+): string | undefined => {
     if (baseUrl) {
         const baseUrlSlash = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
-        return baseUrlSlash + 'applications/tools/' + env + '-' + app;
+        return `${baseUrlSlash}applications/${namespace}/${env}-${app}`;
     }
-    return '';
+    return undefined;
 };
 
 export const deriveArgoTeamLink = (baseUrl: string | undefined, team: string): string | undefined => {
@@ -38,8 +43,9 @@ export const deriveArgoTeamLink = (baseUrl: string | undefined, team: string): s
         const baseUrlSlash = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
         return baseUrlSlash + 'applications?&labels=' + encodeURIComponent('com.freiheit.kuberpult/team=') + team;
     }
-    return '';
+    return undefined;
 };
+
 export const deriveSourceCommitLink = (
     baseUrl: string | undefined,
     branch: string | undefined,
@@ -108,15 +114,19 @@ export const ArgoAppLink: React.FC<{ app: string }> = (props): JSX.Element => {
     );
 };
 
-export const ArgoAppEnvLink: React.FC<{ app: string; env: string }> = (props): JSX.Element => {
-    const { app, env } = props;
+export const ArgoAppEnvLink: React.FC<{ app: string; env: string; namespace: string | undefined }> = (
+    props
+): JSX.Element => {
+    const { app, env, namespace } = props;
     const argoBaseUrl = useArgoCdBaseUrl();
     if (!argoBaseUrl) {
         // just render as text, because we do not have a base url:
         return <span>{env}</span>;
     }
     return (
-        <a title={'Opens the app in ArgoCd for this environment'} href={deriveArgoAppEnvLink(argoBaseUrl, app, env)}>
+        <a
+            title={'Opens the app in ArgoCd for this environment'}
+            href={namespace ? deriveArgoAppEnvLink(argoBaseUrl, app, env, namespace) : undefined}>
             {env}
         </a>
     );
@@ -204,6 +214,17 @@ export const ProductVersionLink: React.FC<{ env: string; groupName: string }> = 
             title={'Opens the release directory in the manifest repository for this release'}
             href={addParam[0] + '/productVersion?' + queryString}>
             Display Version for {env}
+        </a>
+    );
+};
+
+export const KuberpultGitHubLink: React.FC<{ version: string }> = (props): JSX.Element | null => {
+    const { version } = props;
+    return (
+        <a
+            title={'Opens the Kuberpult Readme for the current version ' + version}
+            href={'https://github.com/freiheit-com/kuberpult/blob/' + version + '/README.md'}>
+            {version}
         </a>
     );
 };

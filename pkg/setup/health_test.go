@@ -28,7 +28,21 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
+
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 type mockClock struct {
 	t time.Time
@@ -228,7 +242,7 @@ func TestHealthReporterRetry(t *testing.T) {
 
 		Steps []step
 
-		ExpectError string
+		ExpectError error
 	}{
 		{
 			Name: "reports healthy",
@@ -262,7 +276,7 @@ func TestHealthReporterRetry(t *testing.T) {
 					ExpectBackoffCalled: 0,
 				},
 			},
-			ExpectError: "no",
+			ExpectError: errMatcher{"no"},
 		},
 		{
 			Name: "retries some times and resets once it's healthy",
@@ -341,16 +355,8 @@ func TestHealthReporterRetry(t *testing.T) {
 			}
 			cancel()
 			err := <-errCh
-			if tc.ExpectError == "" {
-				if err != nil {
-					t.Errorf("expected no error but got %q", err)
-				}
-			} else {
-				if err == nil {
-					t.Errorf("expected error %q but got nil", tc.ExpectError)
-				} else if err.Error() != tc.ExpectError {
-					t.Errorf("expected error %q but got %q", tc.ExpectError, err)
-				}
+			if diff := cmp.Diff(tc.ExpectError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			close(stepCh)
 

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"io"
 	"io/fs"
 	"net/http"
@@ -35,6 +36,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 
@@ -44,10 +46,24 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	git "github.com/libgit2/git2go/v34"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 func TestNew(t *testing.T) {
 	tcs := []struct {
@@ -180,8 +196,8 @@ func TestNew(t *testing.T) {
 				}
 				state := repo.State()
 				localRev := state.Commit.Id().String()
-				if localRev != strings.TrimSpace(string(out)) {
-					t.Errorf("mismatched revision. expected %q but got %q", localRev, strings.TrimSpace(string(out)))
+				if diff := cmp.Diff(localRev, strings.TrimSpace(string(out))); diff != "" {
+					t.Errorf("mismatched revision (-want, +got):\n%s", diff)
 				}
 			},
 		},
@@ -254,16 +270,16 @@ func TestNew(t *testing.T) {
 				}
 				state := repo.State()
 				localRev := state.Commit.Id().String()
-				if localRev != strings.TrimSpace(string(out)) {
-					t.Errorf("mismatched revision. expected %q but got %q", localRev, strings.TrimSpace(string(out)))
+				if diff := cmp.Diff(localRev, strings.TrimSpace(string(out))); diff != "" {
+					t.Errorf("mismatched revision (-want, +got):\n%s", diff)
 				}
 
 				content, err := util.ReadFile(state.Filesystem, "hello.txt")
 				if err != nil {
 					t.Fatal(err)
 				}
-				if string(content) != "hello" {
-					t.Errorf("mismatched file content, expected %s, got %s", "hello", content)
+				if diff := cmp.Diff("hello", string(content)); diff != "" {
+					t.Errorf("mismatched file content (-want, +got):\n%s", diff)
 				}
 			},
 		},
@@ -1127,8 +1143,9 @@ func TestApplyQueuePanic(t *testing.T) {
 			repo, processQueue, err := New2(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:  "file://" + remoteDir,
-					Path: localDir,
+					URL:                   "file://" + remoteDir,
+					Path:                  localDir,
+					MaximumCommitsPerPush: 3,
 				},
 			)
 			if err != nil {
@@ -1452,8 +1469,9 @@ func TestApplyQueue(t *testing.T) {
 			repo, err := New(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:  "file://" + remoteDir,
-					Path: localDir,
+					URL:                   "file://" + remoteDir,
+					Path:                  localDir,
+					MaximumCommitsPerPush: 10,
 				},
 			)
 			if err != nil {
@@ -1501,6 +1519,81 @@ func TestApplyQueue(t *testing.T) {
 			releases, _ := repo.State().Releases("foo")
 			if !cmp.Equal(convertToSet(tc.ExpectedReleases), convertToSet(releases)) {
 				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReleases, releases))
+			}
+
+		})
+	}
+}
+
+func TestMaximumCommitsPerPush(t *testing.T) {
+	tcs := []struct {
+		NumberOfCommits       uint
+		MaximumCommitsPerPush uint
+		ExpectedAtLeastPushes uint
+	}{
+		{
+			NumberOfCommits:       7,
+			MaximumCommitsPerPush: 5,
+			ExpectedAtLeastPushes: 2,
+		},
+		{
+			NumberOfCommits:       5,
+			MaximumCommitsPerPush: 0,
+			ExpectedAtLeastPushes: 5,
+		},
+		{
+			NumberOfCommits:       5,
+			MaximumCommitsPerPush: 10,
+			ExpectedAtLeastPushes: 1,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(fmt.Sprintf("with %d commits and %d per push", tc.NumberOfCommits, tc.MaximumCommitsPerPush), func(t *testing.T) {
+			// create a remote
+			dir := t.TempDir()
+			remoteDir := path.Join(dir, "remote")
+			localDir := path.Join(dir, "local")
+			cmd := exec.Command("git", "init", "--bare", remoteDir)
+			cmd.Run()
+			ts := testssh.New(remoteDir)
+			defer ts.Close()
+			repo, processor, err := New2(
+				testutil.MakeTestContext(),
+				RepositoryConfig{
+					URL:  ts.Url,
+					Path: localDir,
+					Certificates: Certificates{
+						KnownHostsFile: ts.KnownHosts,
+					},
+					Credentials: Credentials{
+						SshKey: ts.ClientKey,
+					},
+
+					MaximumCommitsPerPush: tc.MaximumCommitsPerPush,
+				},
+			)
+			if err != nil {
+				t.Fatalf("new: expected no error, got '%e'", err)
+			}
+			var eg errgroup.Group
+			for i := uint(0); i < tc.NumberOfCommits; i++ {
+				eg.Go(func() error {
+					return repo.Apply(testutil.MakeTestContext(), &CreateApplicationVersion{
+						Application: "foo",
+						Manifests:   map[string]string{"development": "foo"},
+					})
+				})
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			go func() {
+				processor(ctx, nil)
+			}()
+			eg.Wait()
+			if ts.Pushes < tc.ExpectedAtLeastPushes {
+				t.Errorf("expected at least %d pushes, but %d happened", tc.ExpectedAtLeastPushes, ts.Pushes)
 			}
 
 		})
@@ -1671,28 +1764,25 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 		Name           string
 		CreateThisDir  string
 		DeleteThisDir  string
-		ExpectedError  string
+		ExpectedError  error
 		ExpectedReason SuccessReason
 	}{
 		{
 			Name:           "Should succeed: dir exists and is empty",
 			CreateThisDir:  "foo/bar",
 			DeleteThisDir:  "foo/bar",
-			ExpectedError:  "",
 			ExpectedReason: NoReason,
 		},
 		{
 			Name:           "Should succeed: dir does not exist",
 			CreateThisDir:  "foo/bar",
 			DeleteThisDir:  "foo/bar/pow",
-			ExpectedError:  "",
 			ExpectedReason: DirDoesNotExist,
 		},
 		{
 			Name:           "Should succeed: dir does not exist",
 			CreateThisDir:  "foo/bar/pow",
 			DeleteThisDir:  "foo/bar",
-			ExpectedError:  "",
 			ExpectedReason: DirNotEmpty,
 		},
 	}
@@ -1708,15 +1798,8 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 				return
 			}
 			successReason, err := state.DeleteDirIfEmpty(tc.DeleteThisDir)
-			errString := ""
-			if err != nil {
-				errString = err.Error()
-			} else {
-				errString = ""
-			}
-
-			if !cmp.Equal(errString, tc.ExpectedError) {
-				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedError, errString))
+			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			if successReason != tc.ExpectedReason {
 				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReason, successReason))
@@ -1760,7 +1843,7 @@ func TestProcessQueueOnce(t *testing.T) {
 				},
 				result: make(chan error, 1),
 			},
-			ExpectedError: errors.New("failed to push - this indicates that branch protection is enabled in 'file://$DIR/remote' on branch 'master'"),
+			ExpectedError: errMatcher{"failed to push - this indicates that branch protection is enabled in 'file://$DIR/remote' on branch 'master'"},
 		},
 		{
 			Name: "failure because error is returned in push (ssh key has read only access)",
@@ -1779,7 +1862,7 @@ func TestProcessQueueOnce(t *testing.T) {
 				},
 				result: make(chan error, 1),
 			},
-			ExpectedError: errors.New("rpc error: code = InvalidArgument desc = error: could not push to manifest repository 'file://$DIR/remote' on branch 'master' - this indicates that the ssh key does not have write access"),
+			ExpectedError: errMatcher{"rpc error: code = InvalidArgument desc = error: could not push to manifest repository 'file://$DIR/remote' on branch 'master' - this indicates that the ssh key does not have write access"},
 		},
 	}
 	for _, tc := range tcs {
@@ -1809,18 +1892,13 @@ func TestProcessQueueOnce(t *testing.T) {
 
 			result := tc.Element.result
 			actualError = <-result
-			if tc.ExpectedError == nil && actualError == nil {
-				return
+
+			var expectedError error
+			if tc.ExpectedError != nil {
+				expectedError = errMatcher{strings.ReplaceAll(tc.ExpectedError.Error(), "$DIR", dir)}
 			}
-			if tc.ExpectedError == nil && actualError != nil {
-				t.Fatalf("result error is not:\n\"%v\"\nbut got:\n\"%v\"", nil, actualError.Error())
-			}
-			if tc.ExpectedError != nil && actualError == nil {
-				t.Fatalf("result error is not:\n\"%v\"\nbut got:\n\"%v\"", tc.ExpectedError, nil)
-			}
-			expectedError := strings.ReplaceAll(tc.ExpectedError.Error(), "$DIR", dir)
-			if actualError.Error() != expectedError {
-				t.Errorf("result error is not:\n\"%v\"\nbut got:\n\"%v\"", expectedError, actualError.Error())
+			if diff := cmp.Diff(expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
@@ -2000,4 +2078,129 @@ func TestSendWebhookToArgoCd(t *testing.T) {
 			}
 		})
 	}
+}
+func TestLimit(t *testing.T) {
+	transformers := []Transformer{
+		&CreateEnvironment{
+			Environment: "production",
+			Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+		},
+		&CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				"production": "manifest",
+			},
+		},
+		&CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				"production": "manifest2",
+			},
+		},
+	}
+	tcs := []struct {
+		Name               string
+		numberBatchActions int
+		ShouldSucceed      bool
+		limit              int
+		Setup              []Transformer
+		ExpectedError      error
+	}{
+		{
+			Name:               "less than maximum number of requests",
+			ShouldSucceed:      true,
+			limit:              5,
+			numberBatchActions: 1,
+			Setup:              transformers,
+			ExpectedError:      nil,
+		},
+		{
+			Name:               "more than the maximum number of requests",
+			numberBatchActions: 10,
+			limit:              5,
+			ShouldSucceed:      false,
+			Setup:              transformers,
+			ExpectedError:      errMatcher{"queue is full. Queue Capacity: 5."},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+
+			repo, err := setupRepositoryTestAux(t, 3)
+			ctx := testutil.MakeTestContext()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, tr := range tc.Setup {
+				errCh := repo.(*repository).applyDeferred(ctx, tr)
+				select {
+				case e := <-repo.(*repository).queue.transformerBatches:
+					dummyPushUpdateFunction := func(string, *bool) git.PushUpdateReferenceCallback { return nil }
+					dummyPushActionFunction := func(options git.PushOptions, r *repository) PushActionFunc {
+						return func() error {
+							return nil
+						}
+					}
+					repo.(*repository).ProcessQueueOnce(ctx, e, dummyPushUpdateFunction, dummyPushActionFunction)
+				default:
+				}
+				select {
+				case err := <-errCh:
+					if err != nil {
+						t.Fatal(err)
+					}
+				default:
+				}
+			}
+
+			expectedErrorNumber := tc.numberBatchActions - tc.limit
+			actualErrorNumber := 0
+			for i := 0; i < tc.numberBatchActions; i++ {
+				errCh := repo.(*repository).applyDeferred(ctx, transformers[0])
+				select {
+				case err := <-errCh:
+					if tc.ShouldSucceed {
+						t.Fatalf("Got an error at iteration %d and was not expecting it %v\n", i, err)
+					}
+					//Should get some errors, check if they are the ones we expect
+					if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+						t.Errorf("error mismatch (-want, +got):\n%s", diff)
+					}
+					actualErrorNumber += 1
+				default:
+					// If there is no error,
+				}
+			}
+			if expectedErrorNumber > 0 && expectedErrorNumber != actualErrorNumber {
+				t.Errorf("error number mismatch expected: %d, got %d", expectedErrorNumber, actualErrorNumber)
+			}
+		})
+	}
+}
+
+func setupRepositoryTestAux(t *testing.T, commits uint) (Repository, error) {
+	t.Parallel()
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	cmd.Start()
+	cmd.Wait()
+	t.Logf("test created dir: %s", localDir)
+	repo, _, err := New2(
+		testutil.MakeTestContext(),
+		RepositoryConfig{
+			URL:                    remoteDir,
+			Path:                   localDir,
+			CommitterEmail:         "kuberpult@freiheit.com",
+			CommitterName:          "kuberpult",
+			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+			MaximumCommitsPerPush:  commits,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo, nil
 }

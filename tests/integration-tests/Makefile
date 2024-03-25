@@ -33,7 +33,7 @@ $(error "$(IMAGENAME) doesn't end with $(VERSION). Please set the correct versio
 endif
 
 build: $(GO_TEST_FILES)
-	$(GO) test ./... -c
+	$(GO) test $(GO_TEST_ARGS) ./... -c
 
 build-pr: build
 
@@ -46,6 +46,6 @@ cleanup-pr:
 cleanup-main:
 
 test: $(ALL_GO_FILES)
-	$(GO) test  ./...
+	$(GO) test $(GO_TEST_ARGS) ./...
 
 all: build test

@@ -52,6 +52,8 @@ message GetCommitInfoResponse {
   string commit_message = 1;
   repeated string touched_apps = 2;
   repeated Event events = 3;
+  string next_commit_hash = 5;
+  string previous_commit_hash = 6;
 }
 
 message Event {
@@ -190,6 +192,8 @@ message CreateReleaseRequest {
   string source_message = 8;
   string source_repo_url = 9;
   string display_version = 10;
+  string previous_commit_id = 11;
+  string next_commit_id = 12;
 }
 
 message CreateReleaseResponseSuccess {
@@ -297,6 +301,7 @@ message GetFrontendConfigRequest {
 message GetFrontendConfigResponse {
   message ArgoCD {
     string base_url = 1;
+    string namespace = 2;
   }
   message Auth {
     message AzureAuthConfig {
@@ -330,6 +335,7 @@ message GetVersionResponse {
 
 service VersionService {
   rpc GetVersion (GetVersionRequest) returns (GetVersionResponse) {}
+  rpc GetManifests (GetManifestsRequest) returns (GetManifestsResponse) {}
 }
 
 service OverviewService {
@@ -609,4 +615,18 @@ message ReleaseTrainEnvironmentPrognosis {
 
 message GetReleaseTrainPrognosisResponse {
   map<string, ReleaseTrainEnvironmentPrognosis> envs_prognoses = 1;
+=======
+message GetManifestsRequest {
+  string application = 1;
+  string release = 2;
+}
+
+message Manifest {
+  string environment = 1;
+  string content = 2;
+}
+
+message GetManifestsResponse {
+  Release release = 1;
+  map<string, Manifest> manifests = 2;
 }

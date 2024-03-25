@@ -28,10 +28,11 @@ import (
 )
 
 type Server struct {
-	BatchClient                 api.BatchServiceClient
+  BatchClient                 api.BatchServiceClient
 	RolloutClient               api.RolloutServiceClient
-	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
-	Config                      config.ServerConfig
+	VersionClient               api.VersionServiceClient
+  ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
+  Config                      config.ServerConfig
 	KeyRing                     openpgp.KeyRing
 	AzureAuth                   bool
 }
@@ -47,5 +48,20 @@ func (s Server) Handle(w http.ResponseWriter, req *http.Request) {
 		s.HandleRelease(w, req, tail)
 	default:
 		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
+	}
+}
+
+func (s Server) HandleAPI(w http.ResponseWriter, req *http.Request) {
+	group, tail := xpath.Shift(req.URL.Path)
+	if group != "api" {
+		http.Error(w, fmt.Sprintf("unknown endpoint '%s'", group), http.StatusNotFound)
+	}
+
+	group, tail = xpath.Shift(tail)
+	switch group {
+	case "application":
+		s.handleApiApplication(w, req, tail)
+	default:
+		http.Error(w, fmt.Sprintf("unknown endpoint 'api/%s'", group), http.StatusNotFound)
 	}
 }

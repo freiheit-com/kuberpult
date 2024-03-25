@@ -33,13 +33,13 @@ import {
 } from '../../utils/store';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { useApi } from '../../utils/GrpcApi';
-import { TextField } from '@material-ui/core';
 import classNames from 'classnames';
 import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 import { Spinner } from '../Spinner/Spinner';
 import { ReleaseVersionWithLinks } from '../ReleaseVersion/ReleaseVersion';
 import { DisplayLockInlineRenderer } from '../EnvironmentLockDisplay/EnvironmentLockDisplay';
 import { ConfirmationDialog } from '../dialog/ConfirmationDialog';
+import { Textfield } from '../textfield/textfield';
 
 export enum ActionTypes {
     Deploy,
@@ -473,14 +473,9 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                     </div>
                 </nav>
                 {newLockExists && (
-                    <TextField
-                        label="Lock Message"
-                        variant="outlined"
-                        placeholder="default-lock"
-                        onChange={updateMessage}
-                        className="actions-cart__lock-message"
-                        value={lockMessage}
-                    />
+                    <div className="mdc-drawer-sidebar mdc-drawer-sidebar-footer-input">
+                        <Textfield placeholder="Lock message" value={lockMessage} onChange={updateMessage} />
+                    </div>
                 )}
                 <div className="mdc-drawer-sidebar mdc-sidebar-sidebar-footer">
                     <Button

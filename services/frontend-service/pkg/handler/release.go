@@ -84,16 +84,18 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 	}
 
 	tf := api.CreateReleaseRequest{
-		Environment:    "",
-		Application:    "",
-		Team:           "",
-		Version:        0,
-		SourceCommitId: "",
-		SourceAuthor:   "",
-		SourceMessage:  "",
-		SourceRepoUrl:  "",
-		DisplayVersion: "",
-		Manifests:      map[string]string{},
+		Environment:      "",
+		Application:      "",
+		Team:             "",
+		Version:          0,
+		SourceCommitId:   "",
+		SourceAuthor:     "",
+		SourceMessage:    "",
+		SourceRepoUrl:    "",
+		PreviousCommitId: "",
+		NextCommitId:     "",
+		DisplayVersion:   "",
+		Manifests:        map[string]string{},
 	}
 	if err := r.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE); err != nil {
 		w.WriteHeader(400)
@@ -164,7 +166,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 				}
 				if !validSignature {
 					w.WriteHeader(400)
-					fmt.Fprintf(w, "signature not found for %s", environmentName)
+					fmt.Fprintf(w, "signature is invalid or it was not found for environment %s", environmentName)
 					return
 				}
 
@@ -191,6 +193,18 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		if len(sourceCommitId) == 1 && isCommitId(sourceCommitId[0]) {
 			tf.SourceCommitId = sourceCommitId[0]
 		}
+	}
+
+	if previousCommitId, ok := form.Value["previous_commit_id"]; ok {
+		if len(previousCommitId) != 1 {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Invalid number of previous commit IDs provided. Expecting 1, got %d", len(previousCommitId))
+		}
+		if !isCommitId(previousCommitId[0]) {
+			w.WriteHeader(400)
+			fmt.Fprintf(w, "Provided commit id (%s) is not valid.", previousCommitId[0])
+		}
+		tf.PreviousCommitId = previousCommitId[0]
 	}
 
 	if sourceAuthor, ok := form.Value["source_author"]; ok {

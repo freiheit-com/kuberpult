@@ -224,6 +224,8 @@ func (d *BatchServer) processAction(
 				SourceAuthor:    in.SourceAuthor,
 				SourceMessage:   in.SourceMessage,
 				SourceRepoUrl:   in.SourceRepoUrl,
+				PreviousCommit:  in.PreviousCommitId,
+				NextCommit:      in.NextCommitId,
 				Team:            in.Team,
 				DisplayVersion:  in.DisplayVersion,
 				Authentication:  repository.Authentication{RBACConfig: d.RBACConfig},
@@ -301,24 +303,28 @@ func (d *BatchServer) ProcessBatch(
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("cannot process batch: too many actions. limit is %d", maxBatchActions))
 	}
 
-	results := make([]*api.BatchResult, len(in.GetActions()))
+	results := make([]*api.BatchResult, 0, len(in.GetActions()))
 	transformers := make([]repository.Transformer, 0, maxBatchActions)
-	for i, batchAction := range in.GetActions() {
+	for _, batchAction := range in.GetActions() {
 		transformer, result, err := d.processAction(batchAction)
 		if err != nil {
 			// Validation error
 			return nil, err
 		}
 		transformers = append(transformers, transformer)
-		results[i] = result
+		results = append(results, result)
 	}
-
 	err = d.Repository.Apply(ctx, transformers...)
 	if err != nil {
 		var applyErr *repository.TransformerBatchApplyError
+		if errors.Is(err, repository.ErrQueueFull) {
+			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
+		}
+
 		if !errors.As(err, &applyErr) {
 			return nil, err
 		}
+
 		switch transformerError := applyErr.TransformerError.(type) {
 		case *repository.CreateReleaseError:
 			{

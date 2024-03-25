@@ -133,6 +133,10 @@ func (m *mockVersionClient) GetVersion(ctx context.Context, in *api.GetVersionRe
 	return res.response, res.err
 }
 
+func (m *mockVersionClient) GetManifests(ctx context.Context, in *api.GetManifestsRequest, opts ...grpc.CallOption) (*api.GetManifestsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "unimplemented")
+}
+
 type mockVersionEventProcessor struct {
 	events []KuberpultEvent
 }

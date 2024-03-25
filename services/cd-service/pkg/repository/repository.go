@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,6 +38,7 @@ import (
 	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1alpha1 "github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd/v1alpha1"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/mapper"
@@ -77,12 +79,30 @@ type TransformerBatchApplyError struct {
 
 func (err *TransformerBatchApplyError) Error() string {
 	if err == nil {
-		return "no transformer error!"
+		return ""
 	}
 	if err.Index < 0 {
 		return fmt.Sprintf("error not specific to one transformer of this batch: %s", err.TransformerError.Error())
 	}
 	return fmt.Sprintf("error at index %d of transformer batch: %s", err.Index, err.TransformerError.Error())
+}
+
+func (err *TransformerBatchApplyError) Is(target error) bool {
+	tgt, ok := target.(*TransformerBatchApplyError)
+	if !ok {
+		return false
+	}
+	if err == nil {
+		return target == nil
+	}
+	if target == nil {
+		return false
+	}
+	// now both target and err are guaranteed to be non-nil
+	if err.Index != tgt.Index {
+		return false
+	}
+	return errors.Is(err.TransformerError, tgt.TransformerError)
 }
 
 func defaultBackOffProvider() backoff.BackOff {
@@ -178,6 +198,10 @@ type RepositoryConfig struct {
 	DogstatsdEvents bool
 	WriteCommitData bool
 	WebhookResolver WebhookResolver
+
+	MaximumCommitsPerPush uint
+
+	MaximumQueueSize uint
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -328,6 +352,14 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	if cfg.NetworkTimeout == 0 {
 		cfg.NetworkTimeout = time.Minute
 	}
+	if cfg.MaximumCommitsPerPush == 0 {
+		cfg.MaximumCommitsPerPush = 1
+
+	}
+	if cfg.MaximumQueueSize == 0 {
+		cfg.MaximumQueueSize = 5
+	}
+
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	var err error
@@ -360,7 +392,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 				credentials:     credentials,
 				certificates:    certificates,
 				repository:      repo2,
-				queue:           makeQueue(),
+				queue:           makeQueueN(cfg.MaximumQueueSize),
 				backOffProvider: defaultBackOffProvider,
 			}
 			result.headLock.Lock()
@@ -432,8 +464,7 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 	defer func() {
 		close(r.queue.transformerBatches)
 		for e := range r.queue.transformerBatches {
-			e.result <- ctx.Err()
-			close(e.result)
+			e.finish(ctx.Err())
 		}
 	}()
 	tick := time.Tick(r.config.NetworkTimeout)
@@ -477,8 +508,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 				}
 				return r.applyTransformerBatches(transformerBatches, false)
 			} else {
-				e.result <- applyErr
-				close(e.result)
+				e.finish(applyErr)
 				// here, we keep all transformerBatches "behind i".
 				// these are the transformerBatches that have not been applied yet
 				transformerBatches = append(transformerBatches[:i], transformerBatches[i+1:]...)
@@ -516,15 +546,18 @@ func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) e
 }
 
 func (r *repository) drainQueue() []transformerBatch {
+	if r.config.MaximumCommitsPerPush < 2 {
+		return nil
+	}
+	limit := r.config.MaximumCommitsPerPush - 1
 	transformerBatches := []transformerBatch{}
-	for {
+	for uint(len(transformerBatches)) < limit {
 		select {
 		case f := <-r.queue.transformerBatches:
 			// Check that the item is not already cancelled
 			select {
 			case <-f.ctx.Done():
-				f.result <- f.ctx.Err()
-				close(f.result)
+				f.finish(f.ctx.Err())
 			default:
 				transformerBatches = append(transformerBatches, f)
 			}
@@ -532,6 +565,7 @@ func (r *repository) drainQueue() []transformerBatch {
 			return transformerBatches
 		}
 	}
+	return transformerBatches
 }
 
 // It returns always nil
@@ -562,19 +596,19 @@ type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
 	logger := logger.FromContext(ctx)
 	var err error = panicError
-	transformerBatches := []transformerBatch{e}
+
 	// Check that the first transformerBatch is not already canceled
 	select {
 	case <-e.ctx.Done():
-		e.result <- e.ctx.Err()
-		close(e.result)
+		e.finish(e.ctx.Err())
 		return
 	default:
 	}
+
+	transformerBatches := []transformerBatch{e}
 	defer func() {
 		for _, el := range transformerBatches {
-			el.result <- err
-			close(el.result)
+			el.finish(err)
 		}
 	}()
 
@@ -1132,10 +1166,14 @@ func (r *repository) afterTransform(ctx context.Context, state State) error {
 }
 
 func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env string, config config.EnvironmentConfig) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
+	defer span.Finish()
 	fs := state.Filesystem
 	if apps, err := state.GetEnvironmentApplications(env); err != nil {
 		return err
 	} else {
+		spanCollectData, _ := tracer.StartSpanFromContext(ctx, "collectData")
+		defer spanCollectData.Finish()
 		appData := []argocd.AppData{}
 		sort.Strings(apps)
 		for _, appName := range apps {
@@ -1164,9 +1202,15 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 				TeamName: team,
 			})
 		}
-		if manifests, err := argocd.Render(r.config.URL, r.config.Branch, config, env, appData); err != nil {
+		spanCollectData.Finish()
+
+		spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
+		defer spanRenderAndWrite.Finish()
+		if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
 			return err
 		} else {
+			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
+			defer spanWrite.Finish()
 			for apiVersion, content := range manifests {
 				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
 					return err
@@ -1719,6 +1763,33 @@ type Release struct {
 	DisplayVersion  string
 }
 
+func (rel *Release) ToProto() *api.Release {
+	if rel == nil {
+		return nil
+	}
+	return &api.Release{
+		PrNumber:        extractPrNumber(rel.SourceMessage),
+		Version:         rel.Version,
+		SourceAuthor:    rel.SourceAuthor,
+		SourceCommitId:  rel.SourceCommitId,
+		SourceMessage:   rel.SourceMessage,
+		UndeployVersion: rel.UndeployVersion,
+		CreatedAt:       timestamppb.New(rel.CreatedAt),
+		DisplayVersion:  rel.DisplayVersion,
+	}
+}
+
+func extractPrNumber(sourceMessage string) string {
+	re := regexp.MustCompile("\\(#(\\d+)\\)")
+	res := re.FindAllStringSubmatch(sourceMessage, -1)
+
+	if len(res) == 0 {
+		return ""
+	} else {
+		return res[len(res)-1][1]
+	}
+}
+
 func (s *State) IsUndeployVersion(application string, version uint64) (bool, error) {
 	base := releasesDirectoryWithVersion(s.Filesystem, application, version)
 	_, err := s.Filesystem.Stat(base)
@@ -1795,6 +1866,36 @@ func (s *State) GetApplicationRelease(application string, version uint64) (*Rele
 		}
 	}
 	return &release, nil
+}
+
+func (s *State) GetApplicationReleaseManifests(application string, version uint64) (map[string]*api.Manifest, error) {
+	dir := manifestDirectoryWithReleasesVersion(s.Filesystem, application, version)
+
+	entries, err := s.Filesystem.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("reading manifest directory: %w", err)
+	}
+	manifests := map[string]*api.Manifest{}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		manifestPath := filepath.Join(dir, entry.Name(), "manifests.yaml")
+		file, err := s.Filesystem.Open(manifestPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open %s: %w", manifestPath, err)
+		}
+		content, err := io.ReadAll(file)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s: %w", manifestPath, err)
+		}
+
+		manifests[entry.Name()] = &api.Manifest{
+			Environment: entry.Name(),
+			Content:     string(content),
+		}
+	}
+	return manifests, nil
 }
 
 func (s *State) GetApplicationTeamOwner(application string) (string, error) {

@@ -27,7 +27,6 @@ import {
     StreamStatusResponse,
     Warning,
     GetGitTagsResponse,
-    GetProductSummaryResponse,
     RolloutStatus,
     GetCommitInfoResponse,
     GetEnvironmentConfigResponse,
@@ -72,10 +71,6 @@ type TagsResponse = {
     response: GetGitTagsResponse;
     tagsReady: boolean;
 };
-type ProductSummaryResponse = {
-    response: GetProductSummaryResponse;
-    summaryReady: boolean;
-};
 
 export enum CommitInfoState {
     LOADING,
@@ -103,24 +98,6 @@ export const refreshTags = (): void => {
         });
 };
 export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
-
-const summaryResponse: GetProductSummaryResponse = { productSummary: [] };
-export const getSummary = (commitHash: string, environment: string, environmentGroup: string): void => {
-    updateSummary.set({ summaryReady: false });
-    const api = useApi;
-    api.gitService()
-        .GetProductSummary({ commitHash: commitHash, environment: environment, environmentGroup: environmentGroup })
-        .then((result: GetProductSummaryResponse) => {
-            updateSummary.set({ response: result, summaryReady: true });
-        })
-        .catch((e) => {
-            showSnackbarError(e.message);
-        });
-};
-export const [useSummary, updateSummary] = createStore<ProductSummaryResponse>({
-    response: summaryResponse,
-    summaryReady: false,
-});
 
 export const getCommitInfo = (commitHash: string): void => {
     const api = useApi;
@@ -151,7 +128,6 @@ export const randomLockId = (): string => 'ui-v2-' + randBase36();
 
 export const useActions = (): BatchAction[] => useAction(({ actions }) => actions);
 export const useTags = (): TagsResponse => useTag((res) => res);
-export const useSummaryDisplay = (): ProductSummaryResponse => useSummary((res) => res);
 
 export const [useSidebar, UpdateSidebar] = createStore({ shown: false });
 
@@ -889,3 +865,5 @@ export const GetEnvironmentConfigPretty = (environmentName: string): Promise<str
             }
             return JSON.stringify(res.config, null, ' ');
         });
+
+export const useArgoCDNamespace = (): string | undefined => useFrontendConfig((c) => c.configs.argoCd?.namespace);

@@ -27,9 +27,11 @@ services:
       - KUBERPULT_GIT_AUTHOR_NAME=user-local-dev-docker-compose
       - KUBERPULT_GIT_AUTHOR_EMAIL=user-local-dev@example.com
       - KUBERPULT_ARGOCD_BASE_URL=https://cd.dev.freiheit.systems/
+      - KUBERPULT_ARGOCD_NAMESPACE=tools
       - KUBERPULT_SOURCE_REPO_URL=https://github.com/freiheit-com/kuberpult/commit/{commit}
       - KUBERPULT_MANIFEST_REPO_URL=https://github.com/freiheit-com/fdc-standard-setup-dev-env-manifest/tree/{branch}/{dir}
       - KUBERPULT_GIT_BRANCH=main
+      - KUBERPULT_API_ENABLED_DESPITE_NO_AUTH=false
     ports:
       - "8081:8081"
     depends_on:

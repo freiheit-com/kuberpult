@@ -91,19 +91,17 @@ integration-test-deps:
     SAVE ARTIFACT /usr/bin/argocd
 
 integration-test:
-    FROM docker:24.0.7-dind-alpine3.18
-    RUN apk add --no-cache curl gpg gpg-agent gettext bash git go
-
-    ARG --required kuberpult_version
-
+# We pick ubuntu here because it seems to have the least amount of issues.
+# With alpine:3.18, we get occasional issues with gpg that says there's a process running already, even though there shouldn't be.
+# Ubuntu:22.04 seems to solve this issue.
+    FROM ubuntu:22.04
+    RUN apt update && apt install -y curl gpg gpg-agent gettext bash git golang netcat-openbsd
+    ARG GO_TEST_ARGS
     # K3S environment variables
     ENV KUBECONFIG=/kp/kubeconfig.yaml
     ENV K3S_TOKEN="Random"
-
     # Kuberpult/ArgoCd environment variables
-    ENV VERSION=$kuberpult_version
     ENV ARGO_NAMESPACE=default
-
     # Git environment variables
     ENV GIT_NAMESPACE=git
     ENV SSH_HOST_PORT=2222
@@ -116,23 +114,31 @@ integration-test:
 
     COPY +integration-test-deps/* /usr/bin/
     COPY tests/integration-tests/cluster-setup/docker-compose-k3s.yml .
+
+    RUN --no-cache echo GPG gen starting...
+    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
+    RUN --no-cache echo GPG export starting...
+    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > /kp/kuberpult-keyring.gpg
+    # Note that multiple commands here are writing to "." which is slightly dangerous, because
+    # if there are files with the same name, old ones will be overridden.
     COPY charts/kuberpult .
     COPY infrastructure/scripts/create-testdata/testdata_template/environments environments
+
     COPY infrastructure/scripts/create-testdata/create-release.sh .
     COPY tests/integration-tests integration-tests
     COPY go.mod go.sum .
     COPY pkg/ptr pkg/ptr
-    
+
+    ARG --required kuberpult_version
+    ENV VERSION=$kuberpult_version
     RUN envsubst < Chart.yaml.tpl > Chart.yaml
 
-    RUN --no-cache gpg --keyring trustedkeys-kuberpult.gpg --no-default-keyring --batch --passphrase '' --quick-gen-key kuberpult-kind@example.com
-    RUN gpg --keyring trustedkeys-kuberpult.gpg --armor --export kuberpult-kind@example.com > kuberpult-keyring.gpg
     WITH DOCKER --compose docker-compose-k3s.yml
         RUN --no-cache \
             echo Waiting for K3s cluster to be ready; \
             sleep 10 && kubectl wait --for=condition=Ready nodes --all --timeout=300s && sleep 3; \
             ./integration-tests/cluster-setup/setup-cluster-ssh.sh; sleep 3; \
             ./integration-tests/cluster-setup/argocd-kuberpult.sh && \
-            cd integration-tests && go test ./... && \
+            cd integration-tests && go test $GO_TEST_ARGS ./... && \
             echo ============ SUCCESS ============
     END
