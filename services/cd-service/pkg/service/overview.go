@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"regexp"
 	"sync"
 	"sync/atomic"
 
@@ -431,15 +430,4 @@ func (o *OverviewServiceServer) update(s *repository.State) {
 	}
 	o.response.Store(r)
 	o.notify.Notify()
-}
-
-func extractPrNumber(sourceMessage string) string {
-	re := regexp.MustCompile(`\(#(\d+)\)`)
-	res := re.FindAllStringSubmatch(sourceMessage, -1)
-
-	if len(res) == 0 {
-		return ""
-	} else {
-		return res[len(res)-1][1]
-	}
 }
