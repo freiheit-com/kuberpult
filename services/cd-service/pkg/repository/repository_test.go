@@ -1159,7 +1159,7 @@ func TestApplyQueuePanic(t *testing.T) {
 				if t == nil {
 					t = &EmptyTransformer{}
 				}
-				results[i] = repo.(*repository).ApplyDeferred(testutil.MakeTestContext(), t)
+				results[i] = repo.(*repository).applyDeferred(testutil.MakeTestContext(), t)
 			}
 			defer func() {
 				r := recover()
@@ -1493,7 +1493,7 @@ func TestApplyQueue(t *testing.T) {
 					cancel()
 				}
 				if action.Transformer != nil {
-					results[i] = repoInternal.ApplyDeferred(ctx, action.Transformer)
+					results[i] = repoInternal.applyDeferred(ctx, action.Transformer)
 				} else {
 					tf := &CreateApplicationVersion{
 						Application: "foo",
@@ -1502,7 +1502,7 @@ func TestApplyQueue(t *testing.T) {
 						},
 						Version: uint64(i + 1),
 					}
-					results[i] = repoInternal.ApplyDeferred(ctx, tf)
+					results[i] = repoInternal.applyDeferred(ctx, tf)
 				}
 				if action.CancelAfterAdd {
 					cancel()
@@ -1695,7 +1695,7 @@ func BenchmarkApplyQueue(t *testing.B) {
 	t.StartTimer()
 	for i := 0; i < t.N; i++ {
 		tf, expectedResult := getTransformer(i)
-		results[i] = repoInternal.ApplyDeferred(testutil.MakeTestContext(), tf)
+		results[i] = repoInternal.applyDeferred(testutil.MakeTestContext(), tf)
 		expectedResults[i] = expectedResult
 		if expectedResult == nil {
 			expectedReleases[i+1] = true
@@ -2133,7 +2133,7 @@ func TestLimit(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tr := range tc.Setup {
-				errCh := repo.(*repository).ApplyDeferred(ctx, tr)
+				errCh := repo.(*repository).applyDeferred(ctx, tr)
 				select {
 				case e := <-repo.(*repository).queue.transformerBatches:
 					dummyPushUpdateFunction := func(string, *bool) git.PushUpdateReferenceCallback { return nil }
@@ -2158,7 +2158,7 @@ func TestLimit(t *testing.T) {
 			expectedErrorNumber := tc.numberBatchActions - tc.limit
 			actualErrorNumber := 0
 			for i := 0; i < tc.numberBatchActions; i++ {
-				errCh := repo.(*repository).ApplyDeferred(ctx, transformers[0])
+				errCh := repo.(*repository).applyDeferred(ctx, transformers[0])
 				select {
 				case err := <-errCh:
 					if tc.ShouldSucceed {

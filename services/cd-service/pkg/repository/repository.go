@@ -1117,7 +1117,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 		r.writesDone = r.writesDone + uint(len(transformers))
 		r.maybeGc(ctx)
 	}()
-	eCh := r.ApplyDeferred(ctx, transformers...)
+	eCh := r.applyDeferred(ctx, transformers...)
 	select {
 	case err := <-eCh:
 		return err
@@ -1126,7 +1126,7 @@ func (r *repository) Apply(ctx context.Context, transformers ...Transformer) err
 	}
 }
 
-func (r *repository) ApplyDeferred(ctx context.Context, transformers ...Transformer) <-chan error {
+func (r *repository) applyDeferred(ctx context.Context, transformers ...Transformer) <-chan error {
 	return r.queue.add(ctx, transformers)
 }
 

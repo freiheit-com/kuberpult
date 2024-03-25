@@ -127,10 +127,6 @@ func (e *CreateBatchError) GetType() int {
 	return e.error_type
 }
 
-func (e *CreateBatchError) Response() error {
-	return nil
-}
-
 type LockedError struct {
 	EnvironmentApplicationLocks map[string]Lock
 	EnvironmentLocks            map[string]Lock

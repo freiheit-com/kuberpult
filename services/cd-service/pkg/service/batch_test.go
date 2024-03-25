@@ -562,11 +562,7 @@ func TestMaxBatchActionsAllowed(t *testing.T) {
 	}
 }
 func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
-	return setupRepositoryTestAux(t, 0)
-}
-
-func setupRepositoryTestAux(t *testing.T, commits uint) (repository.Repository, error) {
-	//t.Parallel()
+	t.Parallel()
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
@@ -582,7 +578,6 @@ func setupRepositoryTestAux(t *testing.T, commits uint) (repository.Repository, 
 			CommitterEmail:         "kuberpult@freiheit.com",
 			CommitterName:          "kuberpult",
 			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
-			MaximumCommitsPerPush:  commits,
 		},
 	)
 	if err != nil {
