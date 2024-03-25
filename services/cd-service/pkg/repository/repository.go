@@ -1777,7 +1777,7 @@ func (rel *Release) ToProto() *api.Release {
 }
 
 func extractPrNumber(sourceMessage string) string {
-	re := regexp.MustCompile("\\(#(\\d+)\\)")
+	re := regexp.MustCompile(`\(#(\d+)\)`)
 	res := re.FindAllStringSubmatch(sourceMessage, -1)
 
 	if len(res) == 0 {
