@@ -27,7 +27,7 @@ This queue does not improve the latency, because each request still waits for th
 
 import (
 	"context"
-	"fmt"
+	"errors"
 )
 
 type queue struct {
@@ -58,7 +58,6 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 
 	select {
 	case q.transformerBatches <- e:
-		fmt.Printf("Length: %d", len(q.transformerBatches))
 		return resultChannel
 	case <-ctx.Done():
 		e.finish(ctx.Err())
@@ -66,8 +65,11 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 	default:
 		//Channel is full, we don't want to put anything else there.
 		e.finish(&TransformerBatchApplyError{
-			Index:            -1,
-			TransformerError: fmt.Errorf("Queue is full"),
+			Index: -1,
+			TransformerError: &CreateBatchError{
+				err:        errors.New("queue is full"),
+				error_type: QUEUE_IS_FULL,
+			},
 		})
 		return resultChannel
 	}

@@ -2107,7 +2107,7 @@ func TestLimit(t *testing.T) {
 		ExpectedError      error
 	}{
 		{
-			Name:               "less than number of requests",
+			Name:               "less than number maximum number of requests",
 			ShouldSucceed:      true,
 			limit:              5,
 			numberBatchActions: 1,
@@ -2120,7 +2120,7 @@ func TestLimit(t *testing.T) {
 			limit:              5,
 			ShouldSucceed:      false,
 			Setup:              transformers,
-			ExpectedError:      errMatcher{"error not specific to one transformer of this batch: Queue is full"},
+			ExpectedError:      errMatcher{"error not specific to one transformer of this batch: queue is full"},
 		},
 	}
 	for _, tc := range tcs {

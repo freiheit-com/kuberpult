@@ -317,6 +317,7 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	return tags, nil
 }
 
+// Does not spawn the background action, namely the queue processing, for testing
 func NewAuxiliary(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	repo, _, err := New2(ctx, cfg)
 	if err != nil {
@@ -361,11 +362,12 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	}
 	if cfg.MaximumCommitsPerPush == 0 {
 		cfg.MaximumCommitsPerPush = 1
-	}
 
+	}
 	if cfg.MaximumQueueSize == 0 {
 		cfg.MaximumQueueSize = 5
 	}
+
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	var err error
@@ -555,7 +557,6 @@ func (r *repository) drainQueue() []transformerBatch {
 	if r.config.MaximumCommitsPerPush < 2 {
 		return nil
 	}
-	fmt.Println("DRAIN QUEUE")
 	limit := r.config.MaximumCommitsPerPush - 1
 	transformerBatches := []transformerBatch{}
 	for uint(len(transformerBatches)) < limit {

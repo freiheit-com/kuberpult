@@ -110,6 +110,27 @@ func GetCreateReleaseAppNameTooLong(appName string, regExp string, maxLen uint32
 	}
 }
 
+const (
+	QUEUE_IS_FULL = 0
+)
+
+type CreateBatchError struct {
+	err        error
+	error_type int
+}
+
+func (e *CreateBatchError) Error() string {
+	return e.err.Error()
+}
+
+func (e *CreateBatchError) GetType() int {
+	return e.error_type
+}
+
+func (e *CreateBatchError) Response() error {
+	return nil
+}
+
 type LockedError struct {
 	EnvironmentApplicationLocks map[string]Lock
 	EnvironmentLocks            map[string]Lock
