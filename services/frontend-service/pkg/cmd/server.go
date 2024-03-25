@@ -317,12 +317,12 @@ func runServer(ctx context.Context) error {
 	httpHandler := handler.Server{
 		BatchClient:                 batchClient,
 		RolloutClient:               rolloutClient,
-    VersionClient: api.NewVersionServiceClient(cdCon),
-    ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
+		VersionClient:               api.NewVersionServiceClient(cdCon),
+		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
 		Config:                      c,
 		KeyRing:                     pgpKeyRing,
 		AzureAuth:                   c.AzureEnableAuth,
-  }
+	}
 	mux := http.NewServeMux()
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)

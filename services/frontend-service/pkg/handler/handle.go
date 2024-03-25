@@ -28,11 +28,11 @@ import (
 )
 
 type Server struct {
-  BatchClient                 api.BatchServiceClient
+	BatchClient                 api.BatchServiceClient
 	RolloutClient               api.RolloutServiceClient
 	VersionClient               api.VersionServiceClient
-  ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
-  Config                      config.ServerConfig
+	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
+	Config                      config.ServerConfig
 	KeyRing                     openpgp.KeyRing
 	AzureAuth                   bool
 }
