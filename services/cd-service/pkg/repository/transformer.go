@@ -2190,7 +2190,7 @@ func (c *envReleaseTrain) prognosis(
 		return ReleaseTrainEnvironmentPrognosis{
 			Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
 			Message:       "",
-			Error:         fmt.Errorf("user permission error, error: %v", err),
+			Error:         err,
 			AppsPrognoses: nil,
 		}
 	}
@@ -2256,7 +2256,7 @@ func (c *envReleaseTrain) prognosis(
 		return ReleaseTrainEnvironmentPrognosis{
 			Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
 			Message:       "",
-			Error:         fmt.Errorf("error getting upstream latest apps, error: %v", err),
+			Error:         err,
 			AppsPrognoses: nil,
 		}
 	}
