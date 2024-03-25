@@ -615,7 +615,8 @@ message ReleaseTrainEnvironmentPrognosis {
 
 message GetReleaseTrainPrognosisResponse {
   map<string, ReleaseTrainEnvironmentPrognosis> envs_prognoses = 1;
-=======
+}
+
 message GetManifestsRequest {
   string application = 1;
   string release = 2;
