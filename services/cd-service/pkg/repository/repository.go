@@ -319,16 +319,6 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	return tags, nil
 }
 
-// Does not spawn the background action, namely the queue processing, for testing
-func NewAuxiliary(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
-	repo, _, err := New2(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-	//go bg(ctx, nil)
-	return repo, err
-}
-
 // Opens a repository. The repository is initialized and updated in the background.
 func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	repo, bg, err := New2(ctx, cfg)

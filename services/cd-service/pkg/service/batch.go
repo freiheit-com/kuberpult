@@ -317,10 +317,14 @@ func (d *BatchServer) ProcessBatch(
 	err = d.Repository.Apply(ctx, transformers...)
 	if err != nil {
 		var applyErr *repository.TransformerBatchApplyError
+		if errors.Is(err, repository.ErrQueueFull) {
+			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
+		}
 
 		if !errors.As(err, &applyErr) {
 			return nil, err
 		}
+
 		switch transformerError := applyErr.TransformerError.(type) {
 		case *repository.CreateReleaseError:
 			{
@@ -332,12 +336,6 @@ func (d *BatchServer) ProcessBatch(
 				}
 				return &api.BatchResponse{Results: errorResults}, nil
 			}
-		case *repository.CreateBatchError:
-			if transformerError.GetType() == repository.QUEUE_IS_FULL {
-				return nil, status.Error(codes.ResourceExhausted, "Could not process ProcessBatch request. Too many pending operations. Queue is full.")
-			}
-			return nil, err
-
 		default:
 			return nil, err
 		}

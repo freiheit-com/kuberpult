@@ -2120,7 +2120,7 @@ func TestLimit(t *testing.T) {
 			limit:              5,
 			ShouldSucceed:      false,
 			Setup:              transformers,
-			ExpectedError:      errMatcher{"error not specific to one transformer of this batch: queue is full"},
+			ExpectedError:      errMatcher{"queue is full. Queue Capacity: 5."},
 		},
 	}
 	for _, tc := range tcs {
@@ -2147,11 +2147,10 @@ func TestLimit(t *testing.T) {
 				}
 				select {
 				case err := <-errCh:
-					t.Log(err)
+					if err != nil {
+						t.Fatal(err)
+					}
 				default:
-				}
-				if err != nil {
-					t.Fatal(err)
 				}
 			}
 
@@ -2189,7 +2188,7 @@ func setupRepositoryTestAux(t *testing.T, commits uint) (Repository, error) {
 	cmd.Start()
 	cmd.Wait()
 	t.Logf("test created dir: %s", localDir)
-	repo, err := NewAuxiliary(
+	repo, _, err := New2(
 		testutil.MakeTestContext(),
 		RepositoryConfig{
 			URL:                    remoteDir,
