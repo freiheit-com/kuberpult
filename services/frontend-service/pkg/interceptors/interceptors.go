@@ -116,6 +116,7 @@ func GoogleIAPInterceptor(
 	_, err := idtoken.Validate(req.Context(), iapJWT, aud)
 	if err != nil {
 		http.Error(w, "iap.jwt could not be validated", http.StatusUnauthorized)
+		return
 	}
 	httpHandler(w, req)
 }
