@@ -37,15 +37,15 @@ docker:
     ARG UID=1000
     ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
     ARG tag="local"
+    ARG use_datadog=false
     COPY gitconfig /etc/gitconfig
-    DO go-build+DOCKER --UID=$UID --image_tag=$registry/kuberpult-$service:$tag --cgo_enabled=$cgo_enabled --entry_point=/main --service=$service
+    DO go-build+DOCKER --UID=$UID --image_tag=$registry/kuberpult-$service:$tag --cgo_enabled=$cgo_enabled --entry_point=/main --service=$service --use_datadog=$use_datadog
 
 release:
     FROM +docker
     ARG registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
     ARG --required tag
     DO go-build+RELEASE --image_tag=$registry/kuberpult-$service:$tag
-
 
 build-pr:
     ARG --required tag
@@ -61,7 +61,7 @@ build-main:
     ARG mirror="false"
     ARG mirror_registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
 
-    DO +BUILD_ALL --tag=$tag --registry=$registry --mirror=$mirror  --mirror_registry=$mirror_registry
+    DO +BUILD_ALL --tag=$tag --registry=$registry --mirror=$mirror  --mirror_registry=$mirror_registry --dd_release=true
 
 BUILD_ALL:
     FUNCTION
@@ -69,6 +69,7 @@ BUILD_ALL:
     ARG --required registry
     ARG mirror_registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
     ARG mirror=""
+    ARG dd_release=false
 
     FROM +deps
     BUILD +lint 
@@ -76,4 +77,7 @@ BUILD_ALL:
     BUILD +release --registry=$registry --tag=$tag
     IF [ "$mirror" = "true" ]
         BUILD +release --registry=$mirror_registry --tag=$tag
+    END
+    IF [ "$dd_release" = "true" ]
+        BUILD +release --registry=$mirror_registry --tag="${tag}-datadog" --use_datadog=true
     END

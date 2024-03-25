@@ -76,10 +76,28 @@ DOCKER:
 
     USER kp
     WORKDIR $workdir
-    ENTRYPOINT "$entry_point"
+
+    ARG use_datadog=false
+    IF [ "$use_datadog" == "true" ]
+        ARG dd_service=$service
+        ARG dd_env="cloudrun"
+
+        ENV DD_SERVICE=$dd_service
+        ENV DD_ENV=$dd_env
+        ENV DD_VERSION=$image_tag
+
+        COPY +datadog-wrapper/datadog-init /app/datadog-init
+        ENTRYPOINT ["/app/datadog-init"]
+    END
+
+    CMD "$entry_point"
     SAVE IMAGE $image_tag
 
 RELEASE:
     FUNCTION
     ARG --required image_tag
     SAVE IMAGE --push $image_tag
+
+datadog-wrapper:
+    FROM datadog/serverless-init:1-alpine
+    SAVE ARTIFACT /datadog-init
