@@ -468,7 +468,7 @@ func TestBatchServiceErrors(t *testing.T) {
 	}
 }
 
-func TestMaxBatchActionsAllowed(t *testing.T) {
+func TestBatchServiceLimit(t *testing.T) {
 	transformers := []repository.Transformer{
 		&repository.CreateEnvironment{
 			Environment: "production",
@@ -561,6 +561,7 @@ func TestMaxBatchActionsAllowed(t *testing.T) {
 		})
 	}
 }
+
 func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 	t.Parallel()
 	dir := t.TempDir()
