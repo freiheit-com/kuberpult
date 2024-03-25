@@ -400,7 +400,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 				credentials:     credentials,
 				certificates:    certificates,
 				repository:      repo2,
-				queue:           makeQueueN(5),
+				queue:           makeQueueN(cfg.MaximumQueueSize),
 				backOffProvider: defaultBackOffProvider,
 			}
 			result.headLock.Lock()

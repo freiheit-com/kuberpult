@@ -81,7 +81,7 @@ func makeQueue() queue {
 	}
 }
 
-func makeQueueN(size int) queue {
+func makeQueueN(size uint) queue {
 	return queue{
 		transformerBatches: make(chan transformerBatch, size),
 	}
