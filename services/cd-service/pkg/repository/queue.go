@@ -69,12 +69,6 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 	}
 }
 
-func makeQueue() queue {
-	return queue{
-		transformerBatches: make(chan transformerBatch, 5),
-	}
-}
-
 func makeQueueN(size uint) queue {
 	return queue{
 		transformerBatches: make(chan transformerBatch, size),
