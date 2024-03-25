@@ -113,7 +113,7 @@ func Run(ctx context.Context, config ServerConfig) {
 	pv, handler, _ := metrics.Init()
 	ctx = metrics.WithProvider(ctx, pv)
 
-	pv.Meter("setup").Int64ObservableGauge("background_job_ready", metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error { //nolint:errcheck
+	_, _ = pv.Meter("setup").Int64ObservableGauge("background_job_ready", metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
 		reports := s.health.reports()
 		for name, report := range reports {
 			var value int64

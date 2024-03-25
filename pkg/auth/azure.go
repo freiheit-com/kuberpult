@@ -111,7 +111,7 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 	}
 	if err != nil {
 		resp.WriteHeader(http.StatusUnauthorized)
-		resp.Write([]byte("Invalid authorization header provided")) //nolint: errcheck
+		_, _ = resp.Write([]byte("Invalid authorization header provided"))
 	}
 	return err
 }
