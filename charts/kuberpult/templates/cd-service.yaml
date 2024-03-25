@@ -191,6 +191,8 @@ spec:
           value: "{{ .Values.git.maximumCommitsPerPush }}"
         - name: KUBERPULT_ENABLE_PROFILING
           value: "{{ .Values.datadogProfiling.enabled }}"
+        - name: KUBERPULT_MAX_QUEUE_SIZE
+          value: "{{ .Values.cd.backendConfig.queueSize }}"
         volumeMounts:
         - name: repository
           mountPath: /repository
