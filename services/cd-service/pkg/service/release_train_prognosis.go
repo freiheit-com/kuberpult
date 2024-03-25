@@ -52,6 +52,7 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 	}
 
 	for envName, envPrognosis := range prognosis.EnvironmentPrognoses {
+		//exhaustruct:ignore
 		retEnvPrognosis := &api.ReleaseTrainEnvironmentPrognosis{}
 
 		if envPrognosis.Outcome == rp.ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED {
@@ -68,6 +69,7 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 				},
 			}
 			for appName, appPrognosis := range envPrognosis.AppsPrognoses {
+				//exhaustruct:ignore
 				retAppPrognosis := &api.ReleaseTrainApplicationPrognosis{}
 				if appPrognosis.Outcome == rp.ReleaseTrainApplicationPrognosisOutcome_SKIPPED {
 					retAppPrognosis.Outcome = &api.ReleaseTrainApplicationPrognosis_SkippedMessage{

@@ -1982,8 +1982,9 @@ func (c *ReleaseTrain) Prognosis(
 	configs, err := state.GetEnvironmentConfigs()
 	if err != nil {
 		return ReleaseTrainPrognosis{
-			Outcome: ReleaseTrainPrognosisOutcome_ERROR,
-			Error:   grpc.InternalError(ctx, err),
+			Outcome:              ReleaseTrainPrognosisOutcome_ERROR,
+			Error:                grpc.InternalError(ctx, err),
+			EnvironmentPrognoses: nil,
 		}
 	}
 
@@ -1991,8 +1992,9 @@ func (c *ReleaseTrain) Prognosis(
 	var envGroupConfigs, isEnvGroup = getEnvironmentGroupsEnvironmentsOrEnvironment(configs, targetGroupName)
 	if len(envGroupConfigs) == 0 {
 		return ReleaseTrainPrognosis{
-			Outcome: ReleaseTrainPrognosisOutcome_ERROR,
-			Error:   grpc.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName)),
+			Outcome:              ReleaseTrainPrognosisOutcome_ERROR,
+			Error:                grpc.PublicError(ctx, fmt.Errorf("could not find environment group or environment configs for '%v'", targetGroupName)),
+			EnvironmentPrognoses: nil,
 		}
 	}
 
@@ -2024,8 +2026,9 @@ func (c *ReleaseTrain) Prognosis(
 
 		if envPrognosis.Outcome == ReleaseTrainEnvironmentPrognosisOutcome_ERROR {
 			return ReleaseTrainPrognosis{
-				Outcome: ReleaseTrainPrognosisOutcome_ERROR,
-				Error:   envPrognosis.Error,
+				Outcome:              ReleaseTrainPrognosisOutcome_ERROR,
+				Error:                envPrognosis.Error,
+				EnvironmentPrognoses: nil,
 			}
 		}
 
@@ -2034,6 +2037,7 @@ func (c *ReleaseTrain) Prognosis(
 
 	return ReleaseTrainPrognosis{
 		Outcome:              ReleaseTrainPrognosisOutcome_OKAY,
+		Error:                nil,
 		EnvironmentPrognoses: envPrognoses,
 	}
 }
@@ -2099,9 +2103,10 @@ func (c *envReleaseTrain) prognosis(
 	envConfig := c.EnvGroupConfigs[c.Env]
 	if envConfig.Upstream == nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			Outcome: ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED,
-			Message: fmt.Sprintf("Environment '%q' does not have upstream configured - skipping.", c.Env),
-			Error:   nil,
+			Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED,
+			Message:       fmt.Sprintf("Environment '%q' does not have upstream configured - skipping.", c.Env),
+			Error:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -2116,9 +2121,10 @@ func (c *envReleaseTrain) prognosis(
 
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			Outcome: ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
-			Message: "",
-			Error:   fmt.Errorf("user permission error, error: %v", err),
+			Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
+			Message:       "",
+			Error:         fmt.Errorf("user permission error, error: %v", err),
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -2126,17 +2132,19 @@ func (c *envReleaseTrain) prognosis(
 	upstreamEnvName := envConfig.Upstream.Environment
 	if !upstreamLatest && upstreamEnvName == "" {
 		return ReleaseTrainEnvironmentPrognosis{
-			Outcome: ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED,
-			Message: fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - skipping.", c.Env),
-			Error:   nil,
+			Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED,
+			Message:       fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - skipping.", c.Env),
+			Error:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
 	if upstreamLatest && upstreamEnvName != "" {
 		return ReleaseTrainEnvironmentPrognosis{
-			Outcome: ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED,
-			Message: fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - skipping.", c.Env),
-			Error:   nil,
+			Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED,
+			Message:       fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - skipping.", c.Env),
+			Error:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -2144,9 +2152,10 @@ func (c *envReleaseTrain) prognosis(
 		_, ok := c.EnvConfigs[upstreamEnvName]
 		if !ok {
 			return ReleaseTrainEnvironmentPrognosis{
-				Outcome: ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED,
-				Message: fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, c.Env),
-				Error:   nil,
+				Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED,
+				Message:       fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, c.Env),
+				Error:         nil,
+				AppsPrognoses: nil,
 			}
 		}
 	}
@@ -2154,17 +2163,19 @@ func (c *envReleaseTrain) prognosis(
 	envLocks, err := state.GetEnvironmentLocks(c.Env)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			Outcome: ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
-			Message: "",
-			Error:   grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)),
+			Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
+			Message:       "",
+			Error:         grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)),
+			AppsPrognoses: nil,
 		}
 	}
 
 	if len(envLocks) > 0 {
 		return ReleaseTrainEnvironmentPrognosis{
-			Outcome: ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED,
-			Message: fmt.Sprintf("Target Environment '%s' is locked - skipping.", c.Env),
-			Error:   nil,
+			Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED,
+			Message:       fmt.Sprintf("Target Environment '%s' is locked - skipping.", c.Env),
+			Error:         nil,
+			AppsPrognoses: nil,
 		}
 	}
 
@@ -2176,9 +2187,10 @@ func (c *envReleaseTrain) prognosis(
 	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(upstreamLatest, state, ctx, upstreamEnvName, source, c.Parent.CommitHash)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			Outcome: ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
-			Message: "",
-			Error:   fmt.Errorf("error getting upstream latest apps, error: %v", err),
+			Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
+			Message:       "",
+			Error:         fmt.Errorf("error getting upstream latest apps, error: %v", err),
+			AppsPrognoses: nil,
 		}
 	}
 	sort.Strings(apps)
@@ -2189,9 +2201,10 @@ func (c *envReleaseTrain) prognosis(
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(appName); err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					Outcome: ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
-					Message: "",
-					Error:   err,
+					Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
+					Message:       "",
+					Error:         err,
+					AppsPrognoses: nil,
 				}
 			} else if c.Parent.Team != team {
 				continue
@@ -2201,9 +2214,10 @@ func (c *envReleaseTrain) prognosis(
 		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(c.Env, appName)
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
-				Outcome: ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
-				Message: "",
-				Error:   grpc.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, c.Env, err)),
+				Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
+				Message:       "",
+				Error:         grpc.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, c.Env, err)),
+				AppsPrognoses: nil,
 			}
 		}
 
@@ -2218,24 +2232,28 @@ func (c *envReleaseTrain) prognosis(
 			versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					Outcome: ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
-					Message: "",
-					Error:   grpc.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err)),
+					Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
+					Message:       "",
+					Error:         grpc.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err)),
+					AppsPrognoses: nil,
 				}
 			}
 		} else {
 			upstreamVersion, err := state.GetEnvironmentApplicationVersion(upstreamEnvName, appName)
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					Outcome: ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
-					Message: "",
-					Error:   grpc.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err)),
+					Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
+					Message:       "",
+					Error:         grpc.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err)),
+					AppsPrognoses: nil,
 				}
 			}
 			if upstreamVersion == nil {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-					Outcome: ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
-					Message: fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName),
+					Outcome:     ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
+					Message:     fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName),
+					Version:     0,
+					Environment: "",
 				}
 				continue
 			}
@@ -2243,8 +2261,10 @@ func (c *envReleaseTrain) prognosis(
 		}
 		if currentlyDeployedVersion != nil && *currentlyDeployedVersion == versionToDeploy {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				Outcome: ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
-				Message: fmt.Sprintf("skipping %q because it is already in the version %d\n", appName, *currentlyDeployedVersion),
+				Outcome:     ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
+				Message:     fmt.Sprintf("skipping %q because it is already in the version %d\n", appName, *currentlyDeployedVersion),
+				Version:     0,
+				Environment: "",
 			}
 			continue
 		}
@@ -2253,16 +2273,19 @@ func (c *envReleaseTrain) prognosis(
 
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
-				Outcome: ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
-				Message: "",
-				Error:   err,
+				Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_ERROR,
+				Message:       "",
+				Error:         err,
+				AppsPrognoses: nil,
 			}
 		}
 
 		if len(appLocks) > 0 {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				Outcome: ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
-				Message: fmt.Sprintf("skipping application %q in environment %q due to application lock", appName, c.Env),
+				Outcome:     ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
+				Message:     fmt.Sprintf("skipping application %q in environment %q due to application lock", appName, c.Env),
+				Version:     0,
+				Environment: "",
 			}
 			continue
 		}
@@ -2274,8 +2297,10 @@ func (c *envReleaseTrain) prognosis(
 
 		if _, err := fs.Stat(manifest); err != nil {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				Outcome: ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
-				Message: fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env),
+				Outcome:     ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
+				Message:     fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env),
+				Version:     0,
+				Environment: "",
 			}
 			continue
 		}
