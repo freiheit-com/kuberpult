@@ -236,6 +236,19 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "release trains must be invoked via either /releasetrain or /releasetrain/prognosis, but it was invoked via /releasetrain/junk\n",
 		},
 		{
+			name: "release train but additional path params",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain/prognosis/junk",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "release trains must be invoked via either /releasetrain or /releasetrain/prognosis, but it was invoked via /releasetrain/prognosis/junk\n",
+		},
+		{
 			name:             "release train - Azure enabled",
 			AzureAuthEnabled: true,
 			KeyRing:          exampleKeyRing,
