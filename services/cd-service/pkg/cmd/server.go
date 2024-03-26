@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 	"net/http"
 	"os"
@@ -165,6 +166,9 @@ func RunServer() {
 				logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
 			}
 			ctx = context.WithValue(ctx, "ddMetrics", ddMetrics)
+			fmt.Println("@@@@@@@ DD METRICS HAS A VALUE @@@@@@@@@")
+		} else {
+			fmt.Println("@@@@@@@ DD METRICS IS DEAD@@@@@@@@@")
 		}
 
 		// If the tracer is not started, calling this function is a no-op.

@@ -30,6 +30,9 @@ services:
       - KUBERPULT_ENABLE_METRICS=true
       - DD_AGENT_HOST=datadog-agent
       - DD_ENV=example-local
+      - KUBERPULT_MAXIMUM_QUEUE_SIZE=2
+      - KUBERPULT_ENABLE_METRICS=true
+      - KUBERPULT_DATAGO_API_KEY_LOCATION=./ddKey
     ports:
       - "8080:8080"
       - "8443:8443"
