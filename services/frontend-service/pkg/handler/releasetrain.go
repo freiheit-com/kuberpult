@@ -90,10 +90,10 @@ func (s Server) handleReleaseTrainApplication(w http.ResponseWriter, req *http.R
 
 func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Request, target string) {
 	if req.Method != http.MethodGet {
-		http.Error(w, fmt.Sprintf("releasetrain only accepts method GET, got: '%s'", req.Method), http.StatusMethodNotAllowed)
+		http.Error(w, fmt.Sprintf("releasetrain only prognosis accepts method GET, got: '%s'", req.Method), http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	queryParams := req.URL.Query()
 	teamParam := queryParams.Get("team")
 
@@ -133,8 +133,6 @@ func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Req
 		CommitHash: "",
 		Team:       teamParam,
 	})
-
-	
 
 	if err != nil {
 		handleGRPCError(req.Context(), w, err)
