@@ -18,34 +18,288 @@ package service
 
 import (
 	"context"
-	"errors"
 
 	"testing"
-	
+
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/ptr"
 	rp "github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 )
 
 func TestReleaseTrainPrognosis(t *testing.T) {
+	environmentSetup := []rp.Transformer{
+		&rp.CreateEnvironment{
+			Environment: "development-1",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "",
+					Latest:      true,
+				},
+				EnvironmentGroup: ptr.FromString("development"),
+			},
+		},
+		&rp.CreateEnvironment{
+			Environment: "development-2",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "",
+					Latest:      true,
+				},
+				EnvironmentGroup: ptr.FromString("development"),
+			},
+		},
+		&rp.CreateEnvironment{
+			Environment: "development-3",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "",
+					Latest:      true,
+				},
+				EnvironmentGroup: ptr.FromString("development"),
+			},
+		},
+		&rp.CreateEnvironment{
+			Environment: "staging-1",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "development-1",
+					Latest:      false,
+				},
+				EnvironmentGroup: ptr.FromString("staging"),
+			},
+		},
+		&rp.CreateEnvironment{
+			Environment: "staging-2",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "development-1", // CAREFUL, downstream from development-1, not development-2
+					Latest:      false,
+				},
+				EnvironmentGroup: ptr.FromString("staging"),
+			},
+		},
+		&rp.CreateEnvironment{
+			Environment: "staging-3",
+			Config: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{
+					Environment: "development-3",
+					Latest:      false,
+				},
+				EnvironmentGroup: ptr.FromString("staging"),
+			},
+		},
+	}
 	type TestCase struct {
 		Name             string
 		Setup            []rp.Transformer
 		Request          *api.ReleaseTrainRequest
 		ExpectedResponse *api.GetReleaseTrainPrognosisResponse
-		ExpectedError    error
+		ExpectedError    codes.Code
 	}
 
 	tcs := []TestCase{
 		{
-			Name:             "First test",
-			Setup:            []rp.Transformer{},
-			Request:          &api.ReleaseTrainRequest{},
-			ExpectedResponse: &api.GetReleaseTrainPrognosisResponse{},
-			ExpectedError:    nil,
+			Name:  "error with release train in general",
+			Setup: []rp.Transformer{},
+			Request: &api.ReleaseTrainRequest{
+				Target: "non-existent environment",
+			},
+			ExpectedResponse: nil,
+			ExpectedError:    codes.InvalidArgument,
 		},
+		{
+			Name: "some environment is skipped",
+			Setup: []rp.Transformer{
+				&rp.CreateEnvironmentLock{
+					Environment: "staging-1",
+					LockId:      "staging-1-lock",
+				},
+			},
+			Request: &api.ReleaseTrainRequest{
+				Target: "staging",
+			},
+			ExpectedResponse: &api.GetReleaseTrainPrognosisResponse{
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvironmentPrognosis{
+					"staging-1": &api.ReleaseTrainEnvironmentPrognosis{
+						Outcome: &api.ReleaseTrainEnvironmentPrognosis_SkippedMessage{
+							SkippedMessage: "Target Environment 'staging-1' is locked - skipping.",
+						},
+					},
+					"staging-2": &api.ReleaseTrainEnvironmentPrognosis{
+						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{},
+							},
+						},
+					},
+					"staging-3": &api.ReleaseTrainEnvironmentPrognosis{
+						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{},
+							},
+						},
+					},
+				},
+			},
+			ExpectedError: codes.OK,
+		},
+		{
+			Name: "some application is skipped",
+			Setup: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application: "potato-app",
+					Manifests: map[string]string{
+						"development-1": "",
+						"staging-1":     "",
+					},
+				},
+				&rp.CreateApplicationVersion{
+					Application: "potato-app",
+					Manifests: map[string]string{
+						"development-1": "",
+						"staging-1":     "",
+					},
+				},
+				&rp.DeployApplicationVersion{
+					Environment: "development-1",
+					Application: "potato-app",
+					Version:     2,
+				},
+				&rp.DeployApplicationVersion{
+					Environment: "staging-1",
+					Application: "potato-app",
+					Version:     1,
+				},
+				&rp.CreateEnvironmentApplicationLock{
+					Environment: "staging-1",
+					Application: "potato-app",
+					LockId:      "staging-1-potato-app-lock",
+				},
+			},
+			Request: &api.ReleaseTrainRequest{
+				Target: "staging",
+			},
+			ExpectedResponse: &api.GetReleaseTrainPrognosisResponse{
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvironmentPrognosis{
+					"staging-1": &api.ReleaseTrainEnvironmentPrognosis{
+						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
+									"potato-app": &api.ReleaseTrainApplicationPrognosis{
+										Outcome: &api.ReleaseTrainApplicationPrognosis_SkippedMessage{
+											SkippedMessage: "skipping application \"potato-app\" in environment \"staging-1\" due to application lock",
+										},
+									},
+								},
+							},
+						},
+					},
+					"staging-2": &api.ReleaseTrainEnvironmentPrognosis{
+						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
+									"potato-app": &api.ReleaseTrainApplicationPrognosis{
+										Outcome: &api.ReleaseTrainApplicationPrognosis_SkippedMessage{
+											SkippedMessage: "skipping application \"potato-app\" in environment \"staging-2\" because it doesn't exist there",
+										},
+									},
+								},
+							},
+						},
+					},
+					"staging-3": &api.ReleaseTrainEnvironmentPrognosis{
+						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
+									
+								},
+							},
+						},
+					},
+				},
+			},
+			ExpectedError: codes.OK,
+		},
+		
+		{
+			Name: "proper release train",
+			Setup: []rp.Transformer{
+				&rp.CreateApplicationVersion{
+					Application: "potato-app",
+					Manifests: map[string]string{
+						"development-1": "",
+						"staging-1":     "",
+					},
+				},
+				&rp.CreateApplicationVersion{
+					Application: "potato-app",
+					Manifests: map[string]string{
+						"development-1": "",
+						"staging-1":     "",
+					},
+				},
+				&rp.DeployApplicationVersion{
+					Environment: "development-1",
+					Application: "potato-app",
+					Version:     2,
+				},
+				&rp.DeployApplicationVersion{
+					Environment: "staging-1",
+					Application: "potato-app",
+					Version:     1,
+				},
+			},
+			Request: &api.ReleaseTrainRequest{
+				Target: "staging",
+			},
+			ExpectedResponse: &api.GetReleaseTrainPrognosisResponse{
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvironmentPrognosis{
+					"staging-1": &api.ReleaseTrainEnvironmentPrognosis{
+						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
+									"potato-app": &api.ReleaseTrainApplicationPrognosis{
+										Outcome: &api.ReleaseTrainApplicationPrognosis_DeployedVersion{
+											DeployedVersion: 2,
+										},
+									},
+								},
+							},
+						},
+					},
+					"staging-2": &api.ReleaseTrainEnvironmentPrognosis{
+						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
+									"potato-app": &api.ReleaseTrainApplicationPrognosis{
+										Outcome: &api.ReleaseTrainApplicationPrognosis_SkippedMessage{
+											SkippedMessage: "skipping application \"potato-app\" in environment \"staging-2\" because it doesn't exist there",
+										},
+									},
+								},
+							},
+						},
+					},
+					"staging-3": &api.ReleaseTrainEnvironmentPrognosis{
+						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
+									
+								},
+							},
+						},
+					},
+				},
+			},
+			ExpectedError: codes.OK,
+		},
+		
 	}
 
 	for _, tc := range tcs {
@@ -56,6 +310,10 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
 
+			err = repo.Apply(testutil.MakeTestContext(), environmentSetup...)
+			if err != nil {
+				t.Fatalf("error during setup, error: %v", err)
+			}
 			err = repo.Apply(testutil.MakeTestContext(), tc.Setup...)
 			if err != nil {
 				t.Fatalf("error during setup, error: %v", err)
@@ -64,8 +322,8 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 			sv := &ReleaseTrainPrognosisServer{Repository: repo}
 			resp, err := sv.GetReleaseTrainPrognosis(context.Background(), tc.Request)
 
-			if !errors.Is(err, tc.ExpectedError) {
-				t.Fatalf("expected error doesn't match actual error, expected %v, got %v", tc.ExpectedError, err)
+			if status.Code(err) != tc.ExpectedError {
+				t.Fatalf("expected error doesn't match actual error, expected %v, got code: %v, error: %v", tc.ExpectedError, status.Code(err), err)
 			}
 			if !proto.Equal(tc.ExpectedResponse, resp) {
 				t.Fatalf("expected respones doesn't match actualy response, expected %v, got %v", tc.ExpectedResponse, resp)
