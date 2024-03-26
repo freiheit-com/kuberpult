@@ -29,7 +29,7 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 )
 
-func (s Server) handleReleaseTrainApplication(w http.ResponseWriter, req *http.Request, target string) {
+func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Request, target string) {
 	if req.Method != http.MethodPut {
 		http.Error(w, fmt.Sprintf("releasetrain only accepts method PUT, got: '%s'", req.Method), http.StatusMethodNotAllowed)
 		return
@@ -97,37 +97,6 @@ func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Req
 	queryParams := req.URL.Query()
 	teamParam := queryParams.Get("team")
 
-	if s.AzureAuth {
-		if req.Body == nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "missing request body")
-			return
-		}
-		signature, err := io.ReadAll(req.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "Can't read request body %s", err)
-			return
-		}
-
-		if len(signature) == 0 {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
-			return
-		}
-
-		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(target), bytes.NewReader(signature), nil); err != nil {
-			if err != pgperrors.ErrUnknownIssuer {
-				w.WriteHeader(500)
-				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
-				return
-			}
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "Invalid signature")
-			return
-		}
-	}
-
 	response, err := s.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(req.Context(), &api.ReleaseTrainRequest{
 		Target:     target,
 		CommitHash: "",
@@ -140,6 +109,7 @@ func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Req
 	}
 	json, err := json.Marshal(response.EnvsPrognoses)
 	if err != nil {
+		w.Write([]byte(fmt.Sprintf("error while serializing response, error: %v", err.Error())))
 		return
 	}
 	w.Write(json) //nolint:errcheck
@@ -148,7 +118,7 @@ func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Req
 func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
 	switch tail {
 	case "/":
-		s.handleReleaseTrainApplication(w, req, target)
+		s.handleReleaseTrainExecution(w, req, target)
 	case "/prognosis":
 		s.handleReleaseTrainPrognosis(w, req, target)
 	default:

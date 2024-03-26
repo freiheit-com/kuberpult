@@ -2003,7 +2003,7 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 type ReleaseTrainEnvironmentPrognosisOutcome uint64
 
 const (
-	ReleaseTrainEnvironmentPrognosisOutcome_OKAY    ReleaseTrainEnvironmentPrognosisOutcome = 0
+	ReleaseTrainEnvironmentPrognosisOutcome_SUCCESS    ReleaseTrainEnvironmentPrognosisOutcome = 0
 	ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED ReleaseTrainEnvironmentPrognosisOutcome = 1
 	ReleaseTrainEnvironmentPrognosisOutcome_ERROR   ReleaseTrainEnvironmentPrognosisOutcome = 2
 )
@@ -2011,7 +2011,7 @@ const (
 type ReleaseTrainApplicationPrognosisOutcome uint64
 
 const (
-	ReleaseTrainApplicationPrognosisOutcome_OKAY    ReleaseTrainApplicationPrognosisOutcome = 0
+	ReleaseTrainApplicationPrognosisOutcome_SUCCESS    ReleaseTrainApplicationPrognosisOutcome = 0
 	ReleaseTrainApplicationPrognosisOutcome_SKIPPED ReleaseTrainApplicationPrognosisOutcome = 1
 )
 
@@ -2368,14 +2368,14 @@ func (c *envReleaseTrain) prognosis(
 		}
 
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-			Outcome: ReleaseTrainApplicationPrognosisOutcome_OKAY,
+			Outcome: ReleaseTrainApplicationPrognosisOutcome_SUCCESS,
 			Message: "",
 			Version: versionToDeploy,
 		}
 	}
 
 	return ReleaseTrainEnvironmentPrognosis{
-		Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_OKAY,
+		Outcome:       ReleaseTrainEnvironmentPrognosisOutcome_SUCCESS,
 		Message:       "",
 		Error:         nil,
 		AppsPrognoses: appsPrognoses,
@@ -2389,7 +2389,7 @@ func (c *envReleaseTrain) Transform(
 ) (string, error) {
 	prognosis := c.prognosis(ctx, state)
 
-	if prognosis.Outcome != ReleaseTrainEnvironmentPrognosisOutcome_OKAY {
+	if prognosis.Outcome != ReleaseTrainEnvironmentPrognosisOutcome_SUCCESS {
 		return prognosis.Message, prognosis.Error
 	}
 

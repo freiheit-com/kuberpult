@@ -647,7 +647,7 @@ func (p *GrpcProxy) GetStatus(ctx context.Context, in *api.GetStatusRequest) (*a
 
 func (p *GrpcProxy) GetReleaseTrainPrognosis(ctx context.Context, in *api.ReleaseTrainRequest) (*api.GetReleaseTrainPrognosisResponse, error) {
 	if p.ReleaseTrainPrognosisClient == nil {
-		return nil, status.Error(codes.Unimplemented, "release train prognosis service not configured")
+		return nil, status.Error(codes.Internal, "release train prognosis service not configured")
 	}
 	return p.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(ctx, in)
 }

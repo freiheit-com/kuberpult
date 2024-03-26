@@ -55,15 +55,15 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 	for envName, envPrognosis := range prognosis.EnvironmentPrognoses {
 		//exhaustruct:ignore
 		retEnvPrognosis := &api.ReleaseTrainEnvironmentPrognosis{}
-
-		if envPrognosis.Outcome == rp.ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED {
+		switch envPrognosis.Outcome {
+		case rp.ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED:
 			retEnvPrognosis.Outcome = &api.ReleaseTrainEnvironmentPrognosis_SkippedMessage{
 				SkippedMessage: envPrognosis.Message,
 			}
-		} else if envPrognosis.Outcome == rp.ReleaseTrainEnvironmentPrognosisOutcome_ERROR {
+		case rp.ReleaseTrainEnvironmentPrognosisOutcome_ERROR:
 			// this case should never be reached since an error in the environment prognosis is propagated to the release train prognosis
 			return nil, fmt.Errorf("error in an environment release train, environment: %s, error: %w", envName, envPrognosis.Error)
-		} else {
+		case rp.ReleaseTrainEnvironmentPrognosisOutcome_SUCCESS:
 			retEnvPrognosis.Outcome = &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
 				AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
 					Prognoses: make(map[string]*api.ReleaseTrainApplicationPrognosis),
