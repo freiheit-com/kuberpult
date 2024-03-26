@@ -2019,7 +2019,6 @@ type ReleaseTrainApplicationPrognosis struct {
 	Outcome     ReleaseTrainApplicationPrognosisOutcome
 	Message     string
 	Version     uint64
-	Environment string
 }
 
 type ReleaseTrainEnvironmentPrognosis struct {
@@ -2320,7 +2319,6 @@ func (c *envReleaseTrain) prognosis(
 					Outcome:     ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
 					Message:     fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName),
 					Version:     0,
-					Environment: "",
 				}
 				continue
 			}
@@ -2331,7 +2329,6 @@ func (c *envReleaseTrain) prognosis(
 				Outcome:     ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
 				Message:     fmt.Sprintf("skipping %q because it is already in the version %d\n", appName, *currentlyDeployedVersion),
 				Version:     0,
-				Environment: "",
 			}
 			continue
 		}
@@ -2352,7 +2349,6 @@ func (c *envReleaseTrain) prognosis(
 				Outcome:     ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
 				Message:     fmt.Sprintf("skipping application %q in environment %q due to application lock", appName, c.Env),
 				Version:     0,
-				Environment: "",
 			}
 			continue
 		}
@@ -2367,7 +2363,6 @@ func (c *envReleaseTrain) prognosis(
 				Outcome:     ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
 				Message:     fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env),
 				Version:     0,
-				Environment: "",
 			}
 			continue
 		}
@@ -2376,7 +2371,6 @@ func (c *envReleaseTrain) prognosis(
 			Outcome:     ReleaseTrainApplicationPrognosisOutcome_OKAY,
 			Message:     "",
 			Version:     versionToDeploy,
-			Environment: c.Env,
 		}
 	}
 
