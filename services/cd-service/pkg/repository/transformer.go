@@ -2395,7 +2395,6 @@ func (c *envReleaseTrain) Transform(
 		}
 		return ret
 	}
-	
 
 	prognosis := c.prognosis(ctx, state)
 
