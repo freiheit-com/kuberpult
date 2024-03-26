@@ -46,7 +46,7 @@ func Test_handleGRPCError(t *testing.T) {
 			expectedBody: "Internal Server Error\n",
 		},
 		{
-			name: "known gRPC status error",
+			name: "known gRPC status error (InvalidArgument)",
 			err:  status.Error(codes.InvalidArgument, "test message"),
 			expectedResp: &http.Response{
 				StatusCode: http.StatusBadRequest,
@@ -54,7 +54,7 @@ func Test_handleGRPCError(t *testing.T) {
 			expectedBody: "test message\n",
 		},
 		{
-			name: "another known gRPC status error",
+			name: "known gRPC status error (DeadlineExceeded)",
 			err:  status.Error(codes.DeadlineExceeded, "test message"),
 			expectedResp: &http.Response{
 				StatusCode: http.StatusRequestTimeout,
