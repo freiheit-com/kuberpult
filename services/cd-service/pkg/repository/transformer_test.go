@@ -1724,7 +1724,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			},
-			expectedError: nil,
 		},
 		{
 			Name: "Create a circle of next and prev",
@@ -1787,7 +1786,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 				},
 			},
-			expectedError: nil,
 		},
 		{
 			Name: "New Release overwrites",
@@ -1838,7 +1836,6 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac",
 				},
 			},
-			expectedError: nil,
 		},
 		{
 			Name: "Invalid commit IDS do not create files",
@@ -1877,16 +1874,14 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 			repo := setupRepositoryTest(t)
 			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			if err != nil {
-
 				t.Fatalf("encountered error but no error is expected here: %v", err)
-
 			}
 			fs := updatedState.Filesystem
 
 			verErr := verifyContent(fs, tc.expectedContent)
+
 			if diff := cmp.Diff(tc.expectedError, verErr, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
-				t.Fatalf("Error while verifying content of : %v. Filesystem content:\n%s", verErr, strings.Join(listFiles(fs), "\n"))
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
@@ -2019,7 +2014,7 @@ func TestReplacedByEvent(t *testing.T) {
 
 			verErr := verifyContent(fs, tc.expectedContent)
 			if diff := cmp.Diff(tc.ExpectedError, verErr, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
