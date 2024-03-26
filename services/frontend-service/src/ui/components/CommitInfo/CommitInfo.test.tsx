@@ -139,7 +139,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
                 head: ['Date:', 'Event Description:', 'Environments:'],
                 body: [
                     ['2024-02-09T09:46:00', 'received data about this commit for the first time', 'dev, staging'],
-                    ['2024-02-10T09:46:00', 'Manual deployment of application app to environment dev', 'dev'],
+                    ['2024-02-10T09:46:00', 'Single deployment of application app to environment dev', 'dev'],
                     [
                         '2024-02-11T09:46:00',
                         'Release train deployment of application app from environment dev to environment staging',
