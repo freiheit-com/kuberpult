@@ -101,8 +101,8 @@ func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application strin
 }
 
 func commitDirectory(fs billy.Filesystem, commit string) string {
-	if !valid.SHA1CommitID(commit) { //Verification should be
-		return fs.Join("commits", "") //Throw error?
+	if !valid.SHA1CommitID(commit) {
+		return fs.Join("commits", "")
 	}
 	return fs.Join("commits", commit[:2], commit[2:])
 }
