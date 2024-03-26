@@ -1886,6 +1886,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 			verErr := verifyContent(fs, tc.expectedContent)
 			if diff := cmp.Diff(tc.expectedError, verErr, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+				t.Fatalf("Error while verifying content of : %v. Filesystem content:\n%s", verErr, strings.Join(listFiles(fs), "\n"))
 			}
 		})
 	}
