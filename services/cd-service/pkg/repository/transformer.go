@@ -2016,9 +2016,9 @@ const (
 )
 
 type ReleaseTrainApplicationPrognosis struct {
-	Outcome     ReleaseTrainApplicationPrognosisOutcome
-	Message     string
-	Version     uint64
+	Outcome ReleaseTrainApplicationPrognosisOutcome
+	Message string
+	Version uint64
 }
 
 type ReleaseTrainEnvironmentPrognosis struct {
@@ -2316,9 +2316,9 @@ func (c *envReleaseTrain) prognosis(
 			}
 			if upstreamVersion == nil {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-					Outcome:     ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
-					Message:     fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName),
-					Version:     0,
+					Outcome: ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
+					Message: fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName),
+					Version: 0,
 				}
 				continue
 			}
@@ -2326,9 +2326,9 @@ func (c *envReleaseTrain) prognosis(
 		}
 		if currentlyDeployedVersion != nil && *currentlyDeployedVersion == versionToDeploy {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				Outcome:     ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
-				Message:     fmt.Sprintf("skipping %q because it is already in the version %d\n", appName, *currentlyDeployedVersion),
-				Version:     0,
+				Outcome: ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
+				Message: fmt.Sprintf("skipping %q because it is already in the version %d\n", appName, *currentlyDeployedVersion),
+				Version: 0,
 			}
 			continue
 		}
@@ -2346,9 +2346,9 @@ func (c *envReleaseTrain) prognosis(
 
 		if len(appLocks) > 0 {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				Outcome:     ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
-				Message:     fmt.Sprintf("skipping application %q in environment %q due to application lock", appName, c.Env),
-				Version:     0,
+				Outcome: ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
+				Message: fmt.Sprintf("skipping application %q in environment %q due to application lock", appName, c.Env),
+				Version: 0,
 			}
 			continue
 		}
@@ -2360,17 +2360,17 @@ func (c *envReleaseTrain) prognosis(
 
 		if _, err := fs.Stat(manifest); err != nil {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				Outcome:     ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
-				Message:     fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env),
-				Version:     0,
+				Outcome: ReleaseTrainApplicationPrognosisOutcome_SKIPPED,
+				Message: fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env),
+				Version: 0,
 			}
 			continue
 		}
 
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-			Outcome:     ReleaseTrainApplicationPrognosisOutcome_OKAY,
-			Message:     "",
-			Version:     versionToDeploy,
+			Outcome: ReleaseTrainApplicationPrognosisOutcome_OKAY,
+			Message: "",
+			Version: versionToDeploy,
 		}
 	}
 

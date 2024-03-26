@@ -216,9 +216,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					"staging-3": &api.ReleaseTrainEnvironmentPrognosis{
 						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
 							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
-									
-								},
+								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{},
 							},
 						},
 					},
@@ -226,7 +224,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 			},
 			ExpectedError: codes.OK,
 		},
-		
+
 		{
 			Name: "proper release train",
 			Setup: []rp.Transformer{
@@ -289,9 +287,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 					"staging-3": &api.ReleaseTrainEnvironmentPrognosis{
 						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
 							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
-									
-								},
+								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{},
 							},
 						},
 					},
@@ -299,7 +295,6 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 			},
 			ExpectedError: codes.OK,
 		},
-		
 	}
 
 	for _, tc := range tcs {
