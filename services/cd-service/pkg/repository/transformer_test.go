@@ -1675,6 +1675,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 		Name            string
 		Transformers    []Transformer
 		expectedContent []FileWithContent
+		expectedError   error
 	}
 
 	tcs := []TestCase{
@@ -1836,6 +1837,29 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Invalid commit IDS do not create files",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+					NextCommit:      "1",
+					PreviousCommit:  "1234",
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/12/34/nextCommit",
+					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+			},
+			expectedError: errMatcher{"Error while opening file commits/12/34/nextCommit, error: file does not exist"},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1856,8 +1880,8 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 
 			verErr := verifyContent(fs, tc.expectedContent)
 
-			if verErr != nil {
-				t.Fatalf("Error while verifying content of : %v. Filesystem content:\n%s", verErr, strings.Join(listFiles(fs), "\n"))
+			if diff := cmp.Diff(tc.expectedError, verErr, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
