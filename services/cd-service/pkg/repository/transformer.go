@@ -101,7 +101,6 @@ func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application strin
 }
 
 func commitDirectory(fs billy.Filesystem, commit string) string {
-	}
 	return fs.Join("commits", commit[:2], commit[2:])
 }
 
