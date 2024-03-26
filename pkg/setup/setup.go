@@ -28,7 +28,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -166,14 +165,10 @@ func (s *setup) listenToShutdownSignal(ctx context.Context, cancelFunc context.C
 	cancelFunc()
 
 	// call shutdown hooks
-	gracefulShutdown(s, 30*time.Second)
+	gracefulShutdown(ctx, s)
 }
 
-func gracefulShutdown(s *setup, timeout time.Duration) {
-	// Instantiate background context
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
+func gracefulShutdown(ctx context.Context, s *setup) {
 	for i := len(s.shutdown) - 1; i >= 0; i-- {
 		sd := s.shutdown[i]
 		if err := sd.fn(ctx); err != nil {
