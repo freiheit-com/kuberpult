@@ -130,7 +130,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
                     },
                 ],
             },
-            expectedTitle: 'Commit tomato',
+            expectedTitle: 'Commit: tomato',
             expectedCommitDescriptionTable: {
                 head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
                 body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google, windows']],
@@ -200,9 +200,9 @@ test('CommitInfo component renders commit info when the response is valid', () =
             </MemoryRouter>
         );
 
-        // first h1 is "Planned Actions", second h1 is "This page is still in beta", and we need the 3rd
-        expect(container.getElementsByTagName('h1').length).toBeGreaterThan(2);
-        expect(container.getElementsByTagName('h1')[2]).toHaveTextContent(testCase.expectedTitle);
+        // first h1 is "Planned Actions", second h1 is actually our CommitInfo component:
+        expect(container.getElementsByTagName('h1').length).toEqual(2);
+        expect(container.getElementsByTagName('h1')[1]).toHaveTextContent(testCase.expectedTitle);
 
         const tables = container.getElementsByTagName('table');
 
@@ -245,7 +245,7 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
                 previousCommitHash: '987654321',
                 events: [],
             },
-            expectedTitle: 'Commit tomato',
+            expectedTitle: 'Commit: tomato',
             expectedCommitDescriptionTable: {
                 head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
                 body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
@@ -265,7 +265,7 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
                 previousCommitHash: '',
                 events: [],
             },
-            expectedTitle: 'Commit tomato',
+            expectedTitle: 'Commit: tomato',
             expectedCommitDescriptionTable: {
                 head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
                 body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
@@ -285,7 +285,7 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
                 previousCommitHash: '987654321',
                 events: [],
             },
-            expectedTitle: 'Commit tomato',
+            expectedTitle: 'Commit: tomato',
             expectedCommitDescriptionTable: {
                 head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
                 body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
@@ -305,7 +305,7 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
                 previousCommitHash: '',
                 events: [],
             },
-            expectedTitle: 'Commit tomato',
+            expectedTitle: 'Commit: tomato',
             expectedCommitDescriptionTable: {
                 head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
                 body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
@@ -325,7 +325,7 @@ describe('CommitInfo component renders next and previous buttons correctly', () 
                 previousCommitHash: '987654321',
                 events: [],
             },
-            expectedTitle: 'Commit tomato',
+            expectedTitle: 'Commit: tomato',
             expectedCommitDescriptionTable: {
                 head: ['Commit Hash:', 'Commit Message:', 'Touched apps:'],
                 body: [['potato', `tomato Commit message body line 1 Commit message body line 2`, 'google']],
