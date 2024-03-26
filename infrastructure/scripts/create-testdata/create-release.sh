@@ -45,7 +45,9 @@ msgs[10]="Allow deleting locks on locks page"
 sizeMsgs=${#msgs[@]}
 index=$(($RANDOM % $sizeMsgs))
 echo $index
-echo "${msgs[$index]}" > "${commit_message_file}"
+echo -e "${msgs[$index]}\n" > "${commit_message_file}"
+echo "1: ${msgs[$index]}" >> "${commit_message_file}"
+echo "2: ${msgs[$index]}" >> "${commit_message_file}"
 
 ls "${commit_message_file}"
 
