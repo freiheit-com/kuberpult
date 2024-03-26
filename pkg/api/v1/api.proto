@@ -596,11 +596,26 @@ service ReleaseTrainPrognosisService {
   rpc GetReleaseTrainPrognosis (ReleaseTrainRequest) returns (GetReleaseTrainPrognosisResponse) {}
 }
 
+enum ReleaseTrainApplicationSkipCause {
+  APP_HAS_NO_VERSION_IN_UPSTREAM_ENV = 0;
+  APP_ALREADY_IN_UPSTREAM_VERSION = 1;
+  APP_IS_LOCKED = 2;
+  APP_DOES_NOT_EXIST_IN_ENV = 3;
+}
+
 message ReleaseTrainApplicationPrognosis {
   oneof outcome {
-    string skipped_message = 1;
+    ReleaseTrainApplicationSkipCause skip_cause = 1;
     uint64 deployed_version = 2;
   }
+}
+
+enum ReleaseTrainEnvironmentSkipCause {
+  ENV_HAS_NO_UPSTREAM = 0;
+  ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV = 1;
+  ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV = 2;
+  UPSTREAM_ENV_CONFIG_NOT_FOUND = 3;
+  ENV_IS_LOCKED = 4;
 }
 
 message ReleaseTrainEnvironmentPrognosis {
@@ -608,7 +623,7 @@ message ReleaseTrainEnvironmentPrognosis {
     map<string, ReleaseTrainApplicationPrognosis> prognoses = 1;
   }
   oneof outcome {
-    string skipped_message = 1;
+    ReleaseTrainEnvironmentSkipCause skip_cause = 1;
     AppsPrognosesWrapper apps_prognoses = 2;
   }
 }
