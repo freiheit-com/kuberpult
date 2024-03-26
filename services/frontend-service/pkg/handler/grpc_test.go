@@ -54,6 +54,14 @@ func Test_handleGRPCError(t *testing.T) {
 			expectedBody: "test message\n",
 		},
 		{
+			name: "another known gRPC status error",
+			err:  status.Error(codes.DeadlineExceeded, "test message"),
+			expectedResp: &http.Response{
+				StatusCode: http.StatusRequestTimeout,
+			},
+			expectedBody: "test message\n",
+		},
+		{
 			name: "unknown gRPC status error",
 			err:  status.Error(codes.Canceled, "test message"),
 			expectedResp: &http.Response{
