@@ -25,7 +25,6 @@ The release train needs to be triggered externally - there is nothing inside `Ku
 The trigger is usually implemented as a GitHub Action, Google Cloud Build, etc.
 See [Release Train Recommendations](./release-train-recommendations.md) on how combine locking, running tests and triggering a release train.
 
-
 ### API
 
 Release trains are accessible via REST API:
@@ -36,4 +35,14 @@ Release trains are accessible via REST API:
 * `team=${myTeam}` is an optional parameter. If set, the release train will only apply for
 [apps](./app.md) that have exactly the give team set in the [`/release` endpoint](./release.md)
 
+### Prognosis
 
+It is possible to get the prognosis, or plan, of a release train without triggering one. A release train prognosis does not alter the manifest repo anyhow.
+
+Prognoses are exposes on the REST API:
+
+`GET https://your.kuberpult.host.example.com/environments/${env}/releasetrain/prognosis?team=${myTeam}`
+
+The response is merely the serialized JSON of the protobuf message `GetReleaseTrainPrognosisResponse` found [here](https://github.com/freiheit-com/kuberpult/blob/main/pkg/api/v1/api.proto).
+
+Prognoses are currently also exposed on the gRPC interface.
