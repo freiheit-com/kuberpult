@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -61,7 +62,7 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 			}
 		} else if envPrognosis.Outcome == rp.ReleaseTrainEnvironmentPrognosisOutcome_ERROR {
 			// this case should never be reached since an error in the environment prognosis is propagated to the release train prognosis
-			return nil, envPrognosis.Error
+			return nil, fmt.Errorf("error in an environment release train, environment: %s, error: %w", envName, envPrognosis.Error)
 		} else {
 			retEnvPrognosis.Outcome = &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
 				AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
