@@ -39,6 +39,16 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
+type mockReleaseTrainPrognosisServiceClient struct {
+	request  *api.ReleaseTrainRequest
+	response *api.GetReleaseTrainPrognosisResponse
+}
+
+func (c *mockReleaseTrainPrognosisServiceClient) GetReleaseTrainPrognosis(_ context.Context, in *api.ReleaseTrainRequest, _ ...grpc.CallOption) (*api.GetReleaseTrainPrognosisResponse, error) {
+	c.request = in
+	return c.response, nil
+}
+
 func TestServer_Handle(t *testing.T) {
 	exampleKey, err := openpgp.NewEntity("Test", "", "test@example.com", nil)
 	if err != nil {
@@ -80,15 +90,17 @@ func TestServer_Handle(t *testing.T) {
 	})
 
 	tests := []struct {
-		name                 string
-		req                  *http.Request
-		KeyRing              openpgp.KeyRing
-		signature            string
-		AzureAuthEnabled     bool
-		batchResponse        *api.BatchResponse
-		expectedResp         *http.Response
-		expectedBody         string
-		expectedBatchRequest *api.BatchRequest
+		name                                 string
+		req                                  *http.Request
+		KeyRing                              openpgp.KeyRing
+		signature                            string
+		AzureAuthEnabled                     bool
+		batchResponse                        *api.BatchResponse
+		releaseTrainPrognosisResponse        *api.GetReleaseTrainPrognosisResponse
+		expectedResp                         *http.Response
+		expectedBody                         string
+		expectedBatchRequest                 *api.BatchRequest
+		expectedReleaseTrainPrognosisRequest *api.ReleaseTrainRequest
 	}{
 		{
 			name: "wrongly routed",
@@ -150,6 +162,41 @@ func TestServer_Handle(t *testing.T) {
 			},
 		},
 		{
+			name: "release train prognosis",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain/prognosis",
+				},
+			},
+			releaseTrainPrognosisResponse: &api.GetReleaseTrainPrognosisResponse{
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvironmentPrognosis{
+					"development": &api.ReleaseTrainEnvironmentPrognosis{
+						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
+									"foo_app": &api.ReleaseTrainApplicationPrognosis{
+										Outcome: &api.ReleaseTrainApplicationPrognosis_DeployedVersion{
+											DeployedVersion: 99,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "{\"development\":{\"Outcome\":{\"AppsPrognoses\":{\"prognoses\":{\"foo_app\":{\"Outcome\":{\"DeployedVersion\":99}}}}}}}",
+			expectedReleaseTrainPrognosisRequest: &api.ReleaseTrainRequest{
+				Target:     "development",
+				Team:       "",
+				CommitHash: "",
+			},
+		},
+		{
 			name: "release train but wrong method",
 			req: &http.Request{
 				Method: http.MethodGet,
@@ -161,6 +208,19 @@ func TestServer_Handle(t *testing.T) {
 				StatusCode: http.StatusMethodNotAllowed,
 			},
 			expectedBody: "releasetrain only accepts method PUT, got: 'GET'\n",
+		},
+		{
+			name: "release train prognosis with wrong method",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain/prognosis",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusMethodNotAllowed,
+			},
+			expectedBody: "releasetrain prognosis only accepts method GET, got: 'PUT'\n",
 		},
 		{
 			name: "release train but additional path params",
@@ -234,6 +294,75 @@ func TestServer_Handle(t *testing.T) {
 				Method: http.MethodPut,
 				URL: &url.URL{
 					Path: "/environments/development/releasetrain",
+				},
+				Body: io.NopCloser(strings.NewReader("uncool")),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+			},
+			expectedBody: "Internal: Invalid Signature: EOF",
+		},
+		{
+			name:             "release train prognosis - Azure enabled",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain/prognosis",
+				},
+				Body: io.NopCloser(strings.NewReader(exampleSignature)),
+			},
+			releaseTrainPrognosisResponse: &api.GetReleaseTrainPrognosisResponse{
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvironmentPrognosis{
+					"development": &api.ReleaseTrainEnvironmentPrognosis{
+						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
+									"foo_app": &api.ReleaseTrainApplicationPrognosis{
+										Outcome: &api.ReleaseTrainApplicationPrognosis_DeployedVersion{
+											DeployedVersion: 99,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "{\"development\":{\"Outcome\":{\"AppsPrognoses\":{\"prognoses\":{\"foo_app\":{\"Outcome\":{\"DeployedVersion\":99}}}}}}}",
+			expectedReleaseTrainPrognosisRequest: &api.ReleaseTrainRequest{
+				Target:     "development",
+				Team:       "",
+				CommitHash: "",
+			},
+		},
+		{
+			name:             "release train prognosis - Azure enabled - missing signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain/prognosis",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+			},
+			expectedBody: "missing request body",
+		},
+		{
+			name:             "release train prognosis - Azure enabled - invalid signature",
+			AzureAuthEnabled: true,
+			KeyRing:          exampleKeyRing,
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/environments/development/releasetrain/prognosis",
 				},
 				Body: io.NopCloser(strings.NewReader("uncool")),
 			},
@@ -925,10 +1054,14 @@ func TestServer_Handle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			batchClient := &mockBatchClient{batchResponse: tt.batchResponse}
+			releaseTrainPrognosisClient := &mockReleaseTrainPrognosisServiceClient{
+				response: tt.releaseTrainPrognosisResponse,
+			}
 			s := Server{
-				BatchClient: batchClient,
-				KeyRing:     tt.KeyRing,
-				AzureAuth:   tt.AzureAuthEnabled,
+				BatchClient:                 batchClient,
+				ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
+				KeyRing:                     tt.KeyRing,
+				AzureAuth:                   tt.AzureAuthEnabled,
 			}
 
 			w := httptest.NewRecorder()
