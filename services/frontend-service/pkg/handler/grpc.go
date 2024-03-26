@@ -37,7 +37,7 @@ func handleGRPCError(ctx context.Context, w http.ResponseWriter, err error) {
 		// We probably do not want to return NotFound for any failed precondition.
 		// For now, this is only used when deleting locks that are non-existent.
 		http.Error(w, s.Message(), http.StatusNotFound)
-	case codes.DeadlineExceeded:
+	case codes.ResourceExhausted:
 		http.Error(w, s.Message(), http.StatusServiceUnavailable)
 	default:
 		logger.FromContext(ctx).Error(s.Message())
