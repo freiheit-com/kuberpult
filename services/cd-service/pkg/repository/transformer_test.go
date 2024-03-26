@@ -2014,7 +2014,7 @@ func TestReplacedByEvent(t *testing.T) {
 
 			verErr := verifyContent(fs, tc.expectedContent)
 			if diff := cmp.Diff(tc.ExpectedError, verErr, cmpopts.EquateErrors()); diff != "" {
-				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
