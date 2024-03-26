@@ -539,6 +539,7 @@ func (r *repository) drainQueue() []transformerBatch {
 		select {
 		case f := <-r.queue.transformerBatches:
 			// Check that the item is not already cancelled
+			//GaugeQueueSize(f.ctx, len(r.queue.transformerBatches))
 			select {
 			case <-f.ctx.Done():
 				f.result <- f.ctx.Err()
