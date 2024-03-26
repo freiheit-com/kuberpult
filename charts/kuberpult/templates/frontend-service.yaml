@@ -118,6 +118,10 @@ spec:
           value: "https://{{ .Values.ingress.domainName }}"
         - name: KUBERPULT_GIT_BRANCH
           value: {{ .Values.git.branch | quote }}
+        - name: KUBERPULT_IAP_ENABLED
+          value: {{ .Values.ingress.iap.enabled | quote }}
+        - name: KUBERPULT_API_ENABLE_DESPITE_NO_AUTH
+          value: {{ .Values.auth.api.enableDespiteNoAuth | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:

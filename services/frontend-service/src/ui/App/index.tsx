@@ -38,6 +38,7 @@ import { GetFrontendConfigResponse } from '../../api/api';
 import { EnvironmentConfigDialog } from '../components/EnvironmentConfigDialog/EnvironmentConfigDialog';
 import { getOpenEnvironmentConfigDialog } from '../utils/Links';
 import { useSearchParams } from 'react-router-dom';
+import { TooltipProvider } from '../components/tooltip/tooltip';
 
 // retry strategy: retries the observable subscription with randomized exponential backoff
 // source: https://www.learnrxjs.io/learn-rxjs/operators/error_handling/retrywhen#examples
@@ -147,6 +148,7 @@ export const App: React.FC = () => {
                     <PageRoutes />
                     <Snackbar />
                 </div>
+                <TooltipProvider />
             </div>
         </AzureAuthProvider>
     );

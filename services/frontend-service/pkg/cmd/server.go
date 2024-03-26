@@ -313,32 +313,50 @@ func runServer(ctx context.Context) error {
 	httpHandler := handler.Server{
 		BatchClient:   batchClient,
 		RolloutClient: rolloutClient,
+		VersionClient: api.NewVersionServiceClient(cdCon),
 		Config:        c,
 		KeyRing:       pgpKeyRing,
 		AzureAuth:     c.AzureEnableAuth,
 	}
 	mux := http.NewServeMux()
-	mux.Handle("/environments/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {
-			interceptors.DexLoginInterceptor(w, req, httpHandler, c.DexClientId, c.DexClientSecret)
+			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexClientSecret)
+			return
 		}
 		httpHandler.Handle(w, req)
-	}))
-	mux.Handle("/environment-groups/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	})
+	for _, endpoint := range []string{
+		"/environments",
+		"/environments/",
+		"/environment-groups",
+		"/environment-groups/",
+		"/release",
+	} {
+		mux.Handle(endpoint, restHandler)
+	}
+
+	// api is only accessible via IAP for now unless explicitly disabled
+	restApiHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
-		if c.DexEnabled {
-			interceptors.DexLoginInterceptor(w, req, httpHandler, c.DexClientId, c.DexClientSecret)
+		if c.ApiEnableDespiteNoAuth {
+			httpHandler.HandleAPI(w, req)
+			return
 		}
-		httpHandler.Handle(w, req)
-	}))
-	mux.Handle("/release", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		defer readAllAndClose(req.Body, 1024)
-		if c.DexEnabled {
-			interceptors.DexLoginInterceptor(w, req, httpHandler, c.DexClientId, c.DexClientSecret)
+
+		if !c.IapEnabled {
+			http.Error(w, "IAP not enabled, /api unavailable.", http.StatusUnauthorized)
+			return
 		}
-		httpHandler.Handle(w, req)
-	}))
+		interceptors.GoogleIAPInterceptor(w, req, httpHandler.HandleAPI, backendServiceId, c.GKEProjectNumber)
+	})
+	for _, endpoint := range []string{
+		"/api",
+		"/api/",
+	} {
+		mux.Handle(endpoint, restApiHandler)
+	}
 
 	mux.Handle("/", http.FileServer(http.Dir("build")))
 	// Split HTTP REST from gRPC Web requests, as suggested in the documentation:
@@ -520,6 +538,8 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // GrpcProxy passes through gRPC messages to another server.
+// This is needed for the UI to communicate with other services via gRPC over web.
+// The UI _only_ communicates via gRPC over web (+ static files), while the REST API is only intended for automated processes like build pipelines.
 // An alternative to the more generic methods proposed in
 // https://github.com/grpc/grpc-go/issues/2297
 type GrpcProxy struct {

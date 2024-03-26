@@ -100,3 +100,35 @@ The `"environmentGroup"` field is a string that defines which environment group 
 EnvironmentGroups are still in development. We'll update this section once they are ready.
 The goal of EnvironmentGroups is to make handling of many similar clusters easier. They will also work with Release Trains.
 
+#### Environment Creation
+
+Kuberpult offers an API endpoint for environment creation. This endpoint is expecting the following information:
+* **IAP Token**:
+  * If IAP is enabled ( in helm: `ingress.iap.enabled: false`) You need to provide kuberpult with your own IAP access token. We use google cloud authentication in order generate it. For more information on programmatic authentication, please refere to [this resource](https://cloud.google.com/iap/docs/authentication-howto).
+* **Environment Name**
+  * The name of the environment you are trying to create.
+* **Configuration Data**:
+  * You need to provide some configuration specifications to your environment. The provided data must be in JSON format. [This previous section](#environment-config) goes into detail regarding the information that must be contained within your configuration file. You can find an example file [here](../infrastructure/scripts/create-testdata/testdata_template/environments/staging/config.json).
+
+```shell
+curl -f -X POST -H "Authorization: Bearer $IAPToken" \
+                -H "multipart/form-data" --form-string "config=$DATA" \
+                $KUBERPULT_API_URL/environments/$ENVIRONMENT_NAME
+```
+
+**Example:**
+
+Below you can find an example of the curl request needed to create an environment named `staging`, accessing a kuberpult instance running locally hearing on port `8081`, reading some `config.json` file from the local filesystem that contains the configuration data.
+For local development, the IAPToken can be omitted.
+
+```shell
+DATA=$(cat config.json)
+curl -f -X POST -H "multipart/form-data" --form-string "config=$DATA" \
+                http://localhost:8081/environments/staging
+```
+
+**IMPORTANT**
+
+In the past, the common way to change the environment configuration (`config.json` files) was to directly edit the files in the manifest repo and push.
+This is no longer recommended and now *highly discouraged*.
+Kuberpult should be the only one writing to the manifest repository. **Direct manipulation of the manifest repository should be avoided.**

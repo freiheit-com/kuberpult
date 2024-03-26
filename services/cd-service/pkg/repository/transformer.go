@@ -96,6 +96,10 @@ func releasesDirectoryWithVersion(fs billy.Filesystem, application string, versi
 	return fs.Join(releasesDirectory(fs, application), versionToString(version))
 }
 
+func manifestDirectoryWithReleasesVersion(fs billy.Filesystem, application string, version uint64) string {
+	return fs.Join(releasesDirectoryWithVersion(fs, application, version), "environments")
+}
+
 func commitDirectory(fs billy.Filesystem, commit string) string {
 	return fs.Join("commits", commit[:2], commit[2:])
 }
@@ -558,13 +562,13 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 		return GetCreateReleaseGeneralFailure(err)
 	}
 
-	if previousCommitId != "" {
-		if err := writeNextPrevInfo(sourceCommitId, strings.ToLower(previousCommitId), fieldPreviousCommitId, fs); err != nil {
+	if previousCommitId != "" && valid.SHA1CommitID(previousCommitId) {
+		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(previousCommitId), fieldPreviousCommitId, app, fs); err != nil {
 			return GetCreateReleaseGeneralFailure(err)
 		}
 	}
-	if nextCommitId != "" {
-		if err := writeNextPrevInfo(sourceCommitId, strings.ToLower(nextCommitId), fieldNextCommidId, fs); err != nil {
+	if nextCommitId != "" && valid.SHA1CommitID(nextCommitId) {
+		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(nextCommitId), fieldNextCommidId, app, fs); err != nil {
 			return GetCreateReleaseGeneralFailure(err)
 		}
 	}
@@ -596,7 +600,7 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 	return nil
 }
 
-func writeNextPrevInfo(sourceCommitId string, otherCommitId string, fieldSource string, fs billy.Filesystem) error {
+func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId string, fieldSource string, application string, fs billy.Filesystem) error {
 
 	otherCommitId = strings.ToLower(otherCommitId)
 	sourceCommitDir := commitDirectory(fs, sourceCommitId)
@@ -604,7 +608,9 @@ func writeNextPrevInfo(sourceCommitId string, otherCommitId string, fieldSource 
 	otherCommitDir := commitDirectory(fs, otherCommitId)
 
 	if _, err := fs.Stat(otherCommitDir); err != nil {
-		return err
+		logger.FromContext(ctx).Sugar().Warnf(
+			"Could not find the previous commit while trying to create a new release for commit %s and application %s. This is expected when `git.enableWritingCommitData` was just turned on, however it should not happen multiple times.", otherCommitId, application, otherCommitDir)
+		return nil
 	}
 
 	if err := util.WriteFile(fs, fs.Join(sourceCommitDir, fieldSource), []byte(otherCommitId), 0666); err != nil {

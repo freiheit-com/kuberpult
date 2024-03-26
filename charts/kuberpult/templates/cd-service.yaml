@@ -187,6 +187,12 @@ spec:
           value: "{{ .Values.git.networkTimeout }}"
         - name: KUBERPULT_GIT_WRITE_COMMIT_DATA
           value: "{{ .Values.git.enableWritingCommitData }}"
+        - name: KUBERPULT_GIT_MAXIMUM_COMMITS_PER_PUSH
+          value: "{{ .Values.git.maximumCommitsPerPush }}"
+        - name: KUBERPULT_ENABLE_PROFILING
+          value: "{{ .Values.datadogProfiling.enabled }}"
+        - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
+          value: "{{ .Values.cd.backendConfig.queueSize }}"
         volumeMounts:
         - name: repository
           mountPath: /repository

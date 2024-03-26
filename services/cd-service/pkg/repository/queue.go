@@ -27,6 +27,7 @@ This queue does not improve the latency, because each request still waits for th
 
 import (
 	"context"
+	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"go.uber.org/zap"
 )
@@ -35,10 +36,20 @@ type queue struct {
 	transformerBatches chan transformerBatch
 }
 
+var ErrQueueFull error
+
 type transformerBatch struct {
 	ctx          context.Context
 	transformers []Transformer
 	result       chan error
+}
+
+func (t *transformerBatch) finish(err error) {
+	select {
+	case t.result <- err:
+		close(t.result)
+	default:
+	}
 }
 
 func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan error {
@@ -48,19 +59,22 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 		transformers: transformers,
 		result:       resultChannel,
 	}
+
 	select {
 	case q.transformerBatches <- e:
 		GaugeQueueSize(ctx, len(q.transformerBatches))
 		return resultChannel
-	case <-ctx.Done():
-		resultChannel <- ctx.Err()
+	default:
+		//Channel is full, we don't want to put anything else there.
+		ErrQueueFull = fmt.Errorf("queue is full. Queue Capacity: %d.", cap(q.transformerBatches))
+		e.finish(ErrQueueFull)
 		return resultChannel
 	}
 }
 
-func makeQueue() queue {
+func makeQueueN(size uint) queue {
 	return queue{
-		transformerBatches: make(chan transformerBatch, 5),
+		transformerBatches: make(chan transformerBatch, size),
 	}
 }
 

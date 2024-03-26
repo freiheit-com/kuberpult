@@ -17,7 +17,9 @@ Copyright 2023 freiheit.com*/
 package argocd
 
 import (
+	"context"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path/filepath"
 	"strings"
 
@@ -36,9 +38,10 @@ type AppData struct {
 	TeamName string
 }
 
-var ApiVersions []ApiVersion = []ApiVersion{V1Alpha1}
+func Render(ctx context.Context, gitUrl string, gitBranch string, config config.EnvironmentConfig, env string, appsData []AppData) (map[ApiVersion][]byte, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "Render")
+	defer span.Finish()
 
-func Render(gitUrl string, gitBranch string, config config.EnvironmentConfig, env string, appsData []AppData) (map[ApiVersion][]byte, error) {
 	if config.ArgoCd == nil {
 		return nil, fmt.Errorf("no ArgoCd configured for environment %s", env)
 	}
