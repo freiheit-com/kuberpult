@@ -39,6 +39,8 @@ func handleGRPCError(ctx context.Context, w http.ResponseWriter, err error) {
 		http.Error(w, s.Message(), http.StatusNotFound)
 	case codes.DeadlineExceeded:
 		http.Error(w, s.Message(), http.StatusRequestTimeout)
+	case codes.ResourceExhausted:
+		http.Error(w, s.Message(), http.StatusServiceUnavailable)
 	default:
 		logger.FromContext(ctx).Error(s.Message())
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
