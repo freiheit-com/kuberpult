@@ -127,8 +127,8 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 			ExpectedResponse: &api.GetReleaseTrainPrognosisResponse{
 				EnvsPrognoses: map[string]*api.ReleaseTrainEnvironmentPrognosis{
 					"staging-1": &api.ReleaseTrainEnvironmentPrognosis{
-						Outcome: &api.ReleaseTrainEnvironmentPrognosis_SkippedMessage{
-							SkippedMessage: "Target Environment 'staging-1' is locked - skipping.",
+						Outcome: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_IS_LOCKED,
 						},
 					},
 					"staging-2": &api.ReleaseTrainEnvironmentPrognosis{
@@ -192,8 +192,8 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
 								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
 									"potato-app": &api.ReleaseTrainApplicationPrognosis{
-										Outcome: &api.ReleaseTrainApplicationPrognosis_SkippedMessage{
-											SkippedMessage: "skipping application \"potato-app\" in environment \"staging-1\" due to application lock",
+										Outcome: &api.ReleaseTrainApplicationPrognosis_SkipCause{
+											SkipCause: api.ReleaseTrainApplicationSkipCause_APP_IS_LOCKED,
 										},
 									},
 								},
@@ -205,8 +205,8 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
 								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
 									"potato-app": &api.ReleaseTrainApplicationPrognosis{
-										Outcome: &api.ReleaseTrainApplicationPrognosis_SkippedMessage{
-											SkippedMessage: "skipping application \"potato-app\" in environment \"staging-2\" because it doesn't exist there",
+										Outcome: &api.ReleaseTrainApplicationPrognosis_SkipCause{
+											SkipCause: api.ReleaseTrainApplicationSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
 										},
 									},
 								},
@@ -276,8 +276,8 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
 								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
 									"potato-app": &api.ReleaseTrainApplicationPrognosis{
-										Outcome: &api.ReleaseTrainApplicationPrognosis_SkippedMessage{
-											SkippedMessage: "skipping application \"potato-app\" in environment \"staging-2\" because it doesn't exist there",
+										Outcome: &api.ReleaseTrainApplicationPrognosis_SkipCause{
+											SkipCause: api.ReleaseTrainApplicationSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
 										},
 									},
 								},

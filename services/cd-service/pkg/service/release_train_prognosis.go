@@ -44,7 +44,7 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 
 	prognosis := t.Prognosis(ctx, s.Repository.State())
 
-	if prognosis.Outcome == rp.ReleaseTrainPrognosisOutcome_ERROR {
+	if prognosis.Error != nil {
 		return nil, prognosis.Error
 	}
 
@@ -55,15 +55,13 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 	for envName, envPrognosis := range prognosis.EnvironmentPrognoses {
 		//exhaustruct:ignore
 		retEnvPrognosis := &api.ReleaseTrainEnvironmentPrognosis{}
-		switch envPrognosis.Outcome {
-		case rp.ReleaseTrainEnvironmentPrognosisOutcome_SKIPPED:
-			retEnvPrognosis.Outcome = &api.ReleaseTrainEnvironmentPrognosis_SkippedMessage{
-				SkippedMessage: envPrognosis.Message,
-			}
-		case rp.ReleaseTrainEnvironmentPrognosisOutcome_ERROR:
+		switch {
+		case envPrognosis.SkipCause != nil:
+			retEnvPrognosis.Outcome = envPrognosis.SkipCause
+		case envPrognosis.Error != nil:
 			// this case should never be reached since an error in the environment prognosis is propagated to the release train prognosis
 			return nil, fmt.Errorf("error in an environment release train, environment: %s, error: %w", envName, envPrognosis.Error)
-		case rp.ReleaseTrainEnvironmentPrognosisOutcome_SUCCESS:
+		case envPrognosis.AppsPrognoses != nil:
 			retEnvPrognosis.Outcome = &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
 				AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
 					Prognoses: make(map[string]*api.ReleaseTrainApplicationPrognosis),
@@ -72,10 +70,8 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 			for appName, appPrognosis := range envPrognosis.AppsPrognoses {
 				//exhaustruct:ignore
 				retAppPrognosis := &api.ReleaseTrainApplicationPrognosis{}
-				if appPrognosis.Outcome == rp.ReleaseTrainApplicationPrognosisOutcome_SKIPPED {
-					retAppPrognosis.Outcome = &api.ReleaseTrainApplicationPrognosis_SkippedMessage{
-						SkippedMessage: appPrognosis.Message,
-					}
+				if appPrognosis.SkipCause != nil {
+					retAppPrognosis.Outcome = appPrognosis.SkipCause
 				} else {
 					retAppPrognosis.Outcome = &api.ReleaseTrainApplicationPrognosis_DeployedVersion{
 						DeployedVersion: appPrognosis.Version,
