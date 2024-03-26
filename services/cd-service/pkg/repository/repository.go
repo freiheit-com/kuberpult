@@ -200,6 +200,8 @@ type RepositoryConfig struct {
 	WebhookResolver WebhookResolver
 
 	MaximumCommitsPerPush uint
+
+	MaximumQueueSize uint
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -352,7 +354,12 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 	}
 	if cfg.MaximumCommitsPerPush == 0 {
 		cfg.MaximumCommitsPerPush = 1
+
 	}
+	if cfg.MaximumQueueSize == 0 {
+		cfg.MaximumQueueSize = 5
+	}
+
 	var credentials *credentialsStore
 	var certificates *certificateStore
 	var err error
@@ -385,7 +392,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 				credentials:     credentials,
 				certificates:    certificates,
 				repository:      repo2,
-				queue:           makeQueue(),
+				queue:           makeQueueN(cfg.MaximumQueueSize),
 				backOffProvider: defaultBackOffProvider,
 			}
 			result.headLock.Lock()
