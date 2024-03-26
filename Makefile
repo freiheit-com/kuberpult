@@ -22,6 +22,7 @@ SCRIPTS_BASE:=infrastructure/scripts/make
 
 
 MAKEDIRS := services/cd-service services/rollout-service services/frontend-service charts/kuberpult pkg
+ARTIFACT_REGISTRY_URI := europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 
 export USER_UID := $(shell id -u)
 .install:
@@ -90,12 +91,17 @@ integration-test:
 
 pull-service-image/%:
 	docker pull $(DOCKER_REGISTRY_URI)/$*:$(VERSION)
+	docker pull $(ARTIFACT_REGISTRY_URI)/$*:$(VERSION)-datadog
 
 tag-service-image/%: pull-service-image/%
 	docker tag $(DOCKER_REGISTRY_URI)/$*:$(VERSION) $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)
+	docker tag $(ARTIFACT_REGISTRY_URI)/$*:$(VERSION)-datadog $(ARTIFACT_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
+	docker tag $(ARTIFACT_REGISTRY_URI)/$*:$(VERSION)-datadog $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
 
 push-service-image/%: tag-service-image/%
 	docker push $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)
+	docker push $(ARTIFACT_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
+	docker push $(DOCKER_REGISTRY_URI)/$*:$(RELEASE_IMAGE_TAG)-datadog
 
 .PHONY: tag-release-images
 tag-release-images: $(foreach i,$(SERVICE_IMAGES),push-service-image/$i)
