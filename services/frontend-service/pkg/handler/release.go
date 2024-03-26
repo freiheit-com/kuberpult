@@ -31,8 +31,6 @@ import (
 	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var (
@@ -252,12 +250,7 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		}},
 	})
 	if err != nil {
-		s, ok := status.FromError(err)
-		if ok && s.Code() == codes.InvalidArgument {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		handleGRPCError(ctx, w, err)
 		return
 	}
 	if len(response.Results) != 1 {
