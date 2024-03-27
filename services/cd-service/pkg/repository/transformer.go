@@ -2006,9 +2006,9 @@ type ReleaseTrainApplicationPrognosis struct {
 }
 
 type ReleaseTrainEnvironmentPrognosis struct {
-	SkipCause     *api.ReleaseTrainEnvPrognosis_SkipCause
-	Error         error
-    // map key is the name of the app
+	SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause
+	Error     error
+	// map key is the name of the app
 	AppsPrognoses map[string]ReleaseTrainApplicationPrognosis
 }
 
