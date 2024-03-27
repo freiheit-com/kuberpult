@@ -2001,12 +2001,12 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 }
 
 type ReleaseTrainApplicationPrognosis struct {
-	SkipCause *api.ReleaseTrainApplicationPrognosis_SkipCause
+	SkipCause *api.ReleaseTrainAppPrognosis_SkipCause
 	Version   uint64
 }
 
 type ReleaseTrainEnvironmentPrognosis struct {
-	SkipCause     *api.ReleaseTrainEnvironmentPrognosis_SkipCause
+	SkipCause     *api.ReleaseTrainEnvPrognosis_SkipCause
 	Error         error
         // map key is the name of the app
 	AppsPrognoses map[string]ReleaseTrainApplicationPrognosis
@@ -2143,8 +2143,8 @@ func (c *envReleaseTrain) prognosis(
 	envConfig := c.EnvGroupConfigs[c.Env]
 	if envConfig.Upstream == nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-				SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_HAS_NO_UPSTREAM,
+			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 			},
 			Error:         nil,
 			AppsPrognoses: nil,
@@ -2172,8 +2172,8 @@ func (c *envReleaseTrain) prognosis(
 	upstreamEnvName := envConfig.Upstream.Environment
 	if !upstreamLatest && upstreamEnvName == "" {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-				SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
+			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 			},
 			Error:         nil,
 			AppsPrognoses: nil,
@@ -2182,8 +2182,8 @@ func (c *envReleaseTrain) prognosis(
 
 	if upstreamLatest && upstreamEnvName != "" {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-				SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
+			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 			},
 			Error:         nil,
 			AppsPrognoses: nil,
@@ -2194,8 +2194,8 @@ func (c *envReleaseTrain) prognosis(
 		_, ok := c.EnvConfigs[upstreamEnvName]
 		if !ok {
 			return ReleaseTrainEnvironmentPrognosis{
-				SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-					SkipCause: api.ReleaseTrainEnvironmentSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND,
+				SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+					SkipCause: api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND,
 				},
 				Error:         nil,
 				AppsPrognoses: nil,
@@ -2214,8 +2214,8 @@ func (c *envReleaseTrain) prognosis(
 
 	if len(envLocks) > 0 {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-				SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_IS_LOCKED,
+			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 			},
 			Error:         nil,
 			AppsPrognoses: nil,
@@ -2288,8 +2288,8 @@ func (c *envReleaseTrain) prognosis(
 			}
 			if upstreamVersion == nil {
 				appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-					SkipCause: &api.ReleaseTrainApplicationPrognosis_SkipCause{
-						SkipCause: api.ReleaseTrainApplicationSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV,
+					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+						SkipCause: api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV,
 					},
 					Version: 0,
 				}
@@ -2299,8 +2299,8 @@ func (c *envReleaseTrain) prognosis(
 		}
 		if currentlyDeployedVersion != nil && *currentlyDeployedVersion == versionToDeploy {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				SkipCause: &api.ReleaseTrainApplicationPrognosis_SkipCause{
-					SkipCause: api.ReleaseTrainApplicationSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION,
+				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+					SkipCause: api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION,
 				},
 				Version: 0,
 			}
@@ -2319,8 +2319,8 @@ func (c *envReleaseTrain) prognosis(
 
 		if len(appLocks) > 0 {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				SkipCause: &api.ReleaseTrainApplicationPrognosis_SkipCause{
-					SkipCause: api.ReleaseTrainApplicationSkipCause_APP_IS_LOCKED,
+				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+					SkipCause: api.ReleaseTrainAppSkipCause_APP_IS_LOCKED,
 				},
 				Version: 0,
 			}
@@ -2334,8 +2334,8 @@ func (c *envReleaseTrain) prognosis(
 
 		if _, err := fs.Stat(manifest); err != nil {
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-				SkipCause: &api.ReleaseTrainApplicationPrognosis_SkipCause{
-					SkipCause: api.ReleaseTrainApplicationSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
+				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
+					SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
 				},
 				Version: 0,
 			}
@@ -2360,38 +2360,38 @@ func (c *envReleaseTrain) Transform(
 	state *State,
 	t TransformerContext,
 ) (string, error) {
-	renderEnvironmentSkipCause := func(SkipCause *api.ReleaseTrainEnvironmentPrognosis_SkipCause) string {
+	renderEnvironmentSkipCause := func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
 		ret := ""
 		switch SkipCause.SkipCause {
-		case api.ReleaseTrainEnvironmentSkipCause_ENV_HAS_NO_UPSTREAM:
+		case api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM:
 			ret = fmt.Sprintf("Environment '%q' does not have upstream configured - skipping.", c.Env)
-		case api.ReleaseTrainEnvironmentSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV:
+		case api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV:
 			ret = fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - skipping.", c.Env)
-		case api.ReleaseTrainEnvironmentSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV:
+		case api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV:
 			ret = fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - skipping.", c.Env)
-		case api.ReleaseTrainEnvironmentSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND:
+		case api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND:
 			ret = fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, c.Env)
-		case api.ReleaseTrainEnvironmentSkipCause_ENV_IS_LOCKED:
+		case api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED:
 			ret = fmt.Sprintf("Target Environment '%s' is locked - skipping.", c.Env)
 		}
 		return ret
 	}
 
-	renderApplicationSkipCause := func(SkipCause *api.ReleaseTrainApplicationPrognosis_SkipCause, appName string) string {
+	renderApplicationSkipCause := func(SkipCause *api.ReleaseTrainAppPrognosis_SkipCause, appName string) string {
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
 		currentlyDeployedVersion, _ := state.GetEnvironmentApplicationVersion(c.Env, appName)
 		ret := ""
 		switch SkipCause.SkipCause {
-		case api.ReleaseTrainApplicationSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
+		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
 			ret = fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)
-		case api.ReleaseTrainApplicationSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION:
+		case api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION:
 			ret = fmt.Sprintf("skipping %q because it is already in the version %d\n", appName, currentlyDeployedVersion)
-		case api.ReleaseTrainApplicationSkipCause_APP_IS_LOCKED:
+		case api.ReleaseTrainAppSkipCause_APP_IS_LOCKED:
 			ret = fmt.Sprintf("skipping application %q in environment %q due to application lock", appName, c.Env)
-		case api.ReleaseTrainApplicationSkipCause_APP_DOES_NOT_EXIST_IN_ENV:
+		case api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV:
 			ret = fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env)
 		}
 		return ret

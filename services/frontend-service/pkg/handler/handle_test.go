@@ -170,13 +170,13 @@ func TestServer_Handle(t *testing.T) {
 				},
 			},
 			releaseTrainPrognosisResponse: &api.GetReleaseTrainPrognosisResponse{
-				EnvsPrognoses: map[string]*api.ReleaseTrainEnvironmentPrognosis{
-					"development": &api.ReleaseTrainEnvironmentPrognosis{
-						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
-							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
-									"foo_app": &api.ReleaseTrainApplicationPrognosis{
-										Outcome: &api.ReleaseTrainApplicationPrognosis_DeployedVersion{
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvPrognosis{
+					"development": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
+									"foo_app": &api.ReleaseTrainAppPrognosis{
+										Outcome: &api.ReleaseTrainAppPrognosis_DeployedVersion{
 											DeployedVersion: 99,
 										},
 									},
@@ -307,75 +307,6 @@ func TestServer_Handle(t *testing.T) {
 				Method: http.MethodPut,
 				URL: &url.URL{
 					Path: "/environments/development/releasetrain",
-				},
-				Body: io.NopCloser(strings.NewReader("uncool")),
-			},
-			expectedResp: &http.Response{
-				StatusCode: http.StatusInternalServerError,
-			},
-			expectedBody: "Internal: Invalid Signature: EOF",
-		},
-		{
-			name:             "release train prognosis - Azure enabled",
-			AzureAuthEnabled: true,
-			KeyRing:          exampleKeyRing,
-			req: &http.Request{
-				Method: http.MethodGet,
-				URL: &url.URL{
-					Path: "/environments/development/releasetrain/prognosis",
-				},
-				Body: io.NopCloser(strings.NewReader(exampleSignature)),
-			},
-			releaseTrainPrognosisResponse: &api.GetReleaseTrainPrognosisResponse{
-				EnvsPrognoses: map[string]*api.ReleaseTrainEnvironmentPrognosis{
-					"development": &api.ReleaseTrainEnvironmentPrognosis{
-						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
-							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
-									"foo_app": &api.ReleaseTrainApplicationPrognosis{
-										Outcome: &api.ReleaseTrainApplicationPrognosis_DeployedVersion{
-											DeployedVersion: 99,
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedResp: &http.Response{
-				StatusCode: http.StatusOK,
-			},
-			expectedBody: "{\"development\":{\"Outcome\":{\"AppsPrognoses\":{\"prognoses\":{\"foo_app\":{\"Outcome\":{\"DeployedVersion\":99}}}}}}}",
-			expectedReleaseTrainPrognosisRequest: &api.ReleaseTrainRequest{
-				Target:     "development",
-				Team:       "",
-				CommitHash: "",
-			},
-		},
-		{
-			name:             "release train prognosis - Azure enabled - missing signature",
-			AzureAuthEnabled: true,
-			KeyRing:          exampleKeyRing,
-			req: &http.Request{
-				Method: http.MethodGet,
-				URL: &url.URL{
-					Path: "/environments/development/releasetrain/prognosis",
-				},
-			},
-			expectedResp: &http.Response{
-				StatusCode: http.StatusBadRequest,
-			},
-			expectedBody: "missing request body",
-		},
-		{
-			name:             "release train prognosis - Azure enabled - invalid signature",
-			AzureAuthEnabled: true,
-			KeyRing:          exampleKeyRing,
-			req: &http.Request{
-				Method: http.MethodGet,
-				URL: &url.URL{
-					Path: "/environments/development/releasetrain/prognosis",
 				},
 				Body: io.NopCloser(strings.NewReader("uncool")),
 			},

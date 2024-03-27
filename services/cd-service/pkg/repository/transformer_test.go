@@ -2554,15 +2554,15 @@ func TestReleaseTrainErrors(t *testing.T) {
 				Error: nil,
 				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
 					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
-						SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-							SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_IS_LOCKED,
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
 						Error:         nil,
 						AppsPrognoses: nil,
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
-						SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-							SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_IS_LOCKED,
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
 						Error:         nil,
 						AppsPrognoses: nil,
@@ -2599,15 +2599,15 @@ Target Environment 'acceptance-de' is locked - skipping.`,
 				Error: nil,
 				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
 					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
-						SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-							SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_HAS_NO_UPSTREAM,
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 						},
 						Error:         nil,
 						AppsPrognoses: nil,
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
-						SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-							SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_HAS_NO_UPSTREAM,
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 						},
 						Error:         nil,
 						AppsPrognoses: nil,
@@ -2650,15 +2650,15 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 				Error: nil,
 				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
 					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
-						SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-							SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 						},
 						Error:         nil,
 						AppsPrognoses: nil,
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
-						SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-							SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 						},
 						Error:         nil,
 						AppsPrognoses: nil,
@@ -2698,15 +2698,15 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 				Error: nil,
 				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
 					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
-						SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-							SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
 						Error:         nil,
 						AppsPrognoses: nil,
 					},
 					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
-						SkipCause: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-							SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
 						Error:         nil,
 						AppsPrognoses: nil,

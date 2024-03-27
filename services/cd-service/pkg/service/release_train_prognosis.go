@@ -49,12 +49,12 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 	}
 
 	ret := &api.GetReleaseTrainPrognosisResponse{
-		EnvsPrognoses: make(map[string]*api.ReleaseTrainEnvironmentPrognosis),
+		EnvsPrognoses: make(map[string]*api.ReleaseTrainEnvPrognosis),
 	}
 
 	for envName, envPrognosis := range prognosis.EnvironmentPrognoses {
 		//exhaustruct:ignore
-		retEnvPrognosis := &api.ReleaseTrainEnvironmentPrognosis{}
+		retEnvPrognosis := &api.ReleaseTrainEnvPrognosis{}
 		switch {
 		case envPrognosis.SkipCause != nil:
 			retEnvPrognosis.Outcome = envPrognosis.SkipCause
@@ -62,18 +62,18 @@ func (s *ReleaseTrainPrognosisServer) GetReleaseTrainPrognosis(ctx context.Conte
 			// this case should never be reached since an error in the environment prognosis is propagated to the release train prognosis
 			return nil, fmt.Errorf("error in an environment release train, environment: %s, error: %w", envName, envPrognosis.Error)
 		case envPrognosis.AppsPrognoses != nil:
-			retEnvPrognosis.Outcome = &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
-				AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-					Prognoses: make(map[string]*api.ReleaseTrainApplicationPrognosis),
+			retEnvPrognosis.Outcome = &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+				AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+					Prognoses: make(map[string]*api.ReleaseTrainAppPrognosis),
 				},
 			}
 			for appName, appPrognosis := range envPrognosis.AppsPrognoses {
 				//exhaustruct:ignore
-				retAppPrognosis := &api.ReleaseTrainApplicationPrognosis{}
+				retAppPrognosis := &api.ReleaseTrainAppPrognosis{}
 				if appPrognosis.SkipCause != nil {
 					retAppPrognosis.Outcome = appPrognosis.SkipCause
 				} else {
-					retAppPrognosis.Outcome = &api.ReleaseTrainApplicationPrognosis_DeployedVersion{
+					retAppPrognosis.Outcome = &api.ReleaseTrainAppPrognosis_DeployedVersion{
 						DeployedVersion: appPrognosis.Version,
 					}
 				}

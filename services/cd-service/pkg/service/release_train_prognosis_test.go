@@ -125,23 +125,23 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 				Target: "staging",
 			},
 			ExpectedResponse: &api.GetReleaseTrainPrognosisResponse{
-				EnvsPrognoses: map[string]*api.ReleaseTrainEnvironmentPrognosis{
-					"staging-1": &api.ReleaseTrainEnvironmentPrognosis{
-						Outcome: &api.ReleaseTrainEnvironmentPrognosis_SkipCause{
-							SkipCause: api.ReleaseTrainEnvironmentSkipCause_ENV_IS_LOCKED,
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvPrognosis{
+					"staging-1": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
 					},
-					"staging-2": &api.ReleaseTrainEnvironmentPrognosis{
-						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
-							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{},
+					"staging-2": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{},
 							},
 						},
 					},
-					"staging-3": &api.ReleaseTrainEnvironmentPrognosis{
-						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
-							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{},
+					"staging-3": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{},
 							},
 						},
 					},
@@ -186,37 +186,37 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 				Target: "staging",
 			},
 			ExpectedResponse: &api.GetReleaseTrainPrognosisResponse{
-				EnvsPrognoses: map[string]*api.ReleaseTrainEnvironmentPrognosis{
-					"staging-1": &api.ReleaseTrainEnvironmentPrognosis{
-						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
-							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
-									"potato-app": &api.ReleaseTrainApplicationPrognosis{
-										Outcome: &api.ReleaseTrainApplicationPrognosis_SkipCause{
-											SkipCause: api.ReleaseTrainApplicationSkipCause_APP_IS_LOCKED,
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvPrognosis{
+					"staging-1": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
+									"potato-app": &api.ReleaseTrainAppPrognosis{
+										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
+											SkipCause: api.ReleaseTrainAppSkipCause_APP_IS_LOCKED,
 										},
 									},
 								},
 							},
 						},
 					},
-					"staging-2": &api.ReleaseTrainEnvironmentPrognosis{
-						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
-							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
-									"potato-app": &api.ReleaseTrainApplicationPrognosis{
-										Outcome: &api.ReleaseTrainApplicationPrognosis_SkipCause{
-											SkipCause: api.ReleaseTrainApplicationSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
+					"staging-2": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
+									"potato-app": &api.ReleaseTrainAppPrognosis{
+										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
+											SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
 										},
 									},
 								},
 							},
 						},
 					},
-					"staging-3": &api.ReleaseTrainEnvironmentPrognosis{
-						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
-							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{},
+					"staging-3": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{},
 							},
 						},
 					},
@@ -257,13 +257,13 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 				Target: "staging",
 			},
 			ExpectedResponse: &api.GetReleaseTrainPrognosisResponse{
-				EnvsPrognoses: map[string]*api.ReleaseTrainEnvironmentPrognosis{
-					"staging-1": &api.ReleaseTrainEnvironmentPrognosis{
-						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
-							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
-									"potato-app": &api.ReleaseTrainApplicationPrognosis{
-										Outcome: &api.ReleaseTrainApplicationPrognosis_DeployedVersion{
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvPrognosis{
+					"staging-1": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
+									"potato-app": &api.ReleaseTrainAppPrognosis{
+										Outcome: &api.ReleaseTrainAppPrognosis_DeployedVersion{
 											DeployedVersion: 2,
 										},
 									},
@@ -271,23 +271,23 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 							},
 						},
 					},
-					"staging-2": &api.ReleaseTrainEnvironmentPrognosis{
-						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
-							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{
-									"potato-app": &api.ReleaseTrainApplicationPrognosis{
-										Outcome: &api.ReleaseTrainApplicationPrognosis_SkipCause{
-											SkipCause: api.ReleaseTrainApplicationSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
+					"staging-2": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
+									"potato-app": &api.ReleaseTrainAppPrognosis{
+										Outcome: &api.ReleaseTrainAppPrognosis_SkipCause{
+											SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
 										},
 									},
 								},
 							},
 						},
 					},
-					"staging-3": &api.ReleaseTrainEnvironmentPrognosis{
-						Outcome: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognoses{
-							AppsPrognoses: &api.ReleaseTrainEnvironmentPrognosis_AppsPrognosesWrapper{
-								Prognoses: map[string]*api.ReleaseTrainApplicationPrognosis{},
+					"staging-3": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{},
 							},
 						},
 					},
