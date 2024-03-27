@@ -80,7 +80,7 @@ func makeQueueN(size uint) queue {
 
 func GaugeQueueSize(ctx context.Context, queueSize int) {
 	if ddMetrics != nil {
-		err := ddMetrics.Gauge("queue_size", float64(queueSize), []string{}, 1)
+		err := ddMetrics.Gauge("request_queue_size", float64(queueSize), []string{}, 1)
 
 		if err != nil {
 			logger.FromContext(ctx).Error("Error gauging queue size metric: ", zap.Error(err))
