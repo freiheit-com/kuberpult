@@ -136,7 +136,10 @@ func (b *treeBuilderBlob) Write(p []byte) (int, error) {
 }
 
 func (b *treeBuilderBlob) Read(p []byte) (int, error) {
-	b.load() //nolint: errcheck
+	err := b.load()
+	if err != nil {
+		return 0, err
+	}
 	n := copy(p, b.content[b.pos:])
 	b.pos += n
 	if n == 0 {
