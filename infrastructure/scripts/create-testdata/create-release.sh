@@ -83,7 +83,7 @@ data:
 EOF
   echo "wrote file ${file}"
   manifests+=("--form" "manifests[${env}]=@${file}")
-  #gpg  --keyring trustedkeys-kuberpult.gpg --local-user kuberpult-kind@example.com --detach --sign --armor < "${file}" > "${signatureFile}"
+  gpg  --keyring trustedkeys-kuberpult.gpg --local-user kuberpult-kind@example.com --detach --sign --armor < "${file}" > "${signatureFile}"
   manifests+=("--form" "signatures[${env}]=@${signatureFile}")
 done
 echo commit id: "${commit_id}"
