@@ -157,22 +157,6 @@ func transformIgnoreDifferencesToConfig(ignoreDifferences []*api.EnvironmentConf
 	return transformedIgnoreDifferences
 }
 
-func transformIgnoreDifferencesToApi(in []*config.ArgoCdIgnoreDifference) []api.EnvironmentConfig_ArgoCD_IgnoreDifferences {
-	var out []api.EnvironmentConfig_ArgoCD_IgnoreDifferences
-	for _, ignoreDifference := range in {
-		out = append(out, api.EnvironmentConfig_ArgoCD_IgnoreDifferences{
-			Group:                 ignoreDifference.Group,
-			Kind:                  ignoreDifference.Kind,
-			Name:                  ignoreDifference.Name,
-			Namespace:             ignoreDifference.Namespace,
-			JsonPointers:          ignoreDifference.JSONPointers,
-			JqPathExpressions:     ignoreDifference.JqPathExpressions,
-			ManagedFieldsManagers: ignoreDifference.ManagedFieldsManagers,
-		})
-	}
-	return out
-}
-
 func transformDestinationToConfig(in *api.EnvironmentConfig_ArgoCD_Destination) config.ArgoCdDestination {
 	if in == nil {
 		//exhaustruct:ignore

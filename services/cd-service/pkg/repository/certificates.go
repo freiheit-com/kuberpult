@@ -30,8 +30,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var defaultKnownHostFiles = []string{"/etc/ssh/ssh_known_hosts"}
-
 type Certificates struct {
 	KnownHostsFile string
 }
@@ -78,7 +76,7 @@ func (store *certificateStore) CertificateCheckCallback(ctx context.Context) fun
 	return func(cert *git.Certificate, valid bool, hostname string) error {
 		if cert.Kind == git.CertificateHostkey {
 			if hsh, ok := store.sha256Hashes[hostname]; ok {
-				if bytes.Compare(hsh, cert.Hostkey.HashSHA256[:]) == 0 {
+				if bytes.Equal(hsh, cert.Hostkey.HashSHA256[:]) {
 					return nil
 				} else {
 					logger.Error("git.ssh.hostkeyMismatch",

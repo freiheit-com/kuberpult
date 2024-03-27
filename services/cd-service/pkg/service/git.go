@@ -126,7 +126,7 @@ func (s *GitServer) GetProductSummary(ctx context.Context, in *api.GetProductSum
 	}
 
 	var productVersion []*api.ProductSummary
-	for _, row := range summaryFromEnv {
+	for _, row := range summaryFromEnv { //nolint: govet
 		for _, app := range response.Applications {
 			if row.App == app.Name {
 				for _, release := range app.Releases {
