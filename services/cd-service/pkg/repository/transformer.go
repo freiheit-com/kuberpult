@@ -2363,38 +2363,38 @@ func (c *envReleaseTrain) Transform(
 	renderEnvironmentSkipCause := func(SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause) string {
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
-		ret := ""
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM:
-			ret = fmt.Sprintf("Environment '%q' does not have upstream configured - skipping.", c.Env)
+			return fmt.Sprintf("Environment '%q' does not have upstream configured - skipping.", c.Env)
 		case api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV:
-			ret = fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - skipping.", c.Env)
+			return fmt.Sprintf("Environment %q does not have upstream.latest or upstream.environment configured - skipping.", c.Env)
 		case api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV:
-			ret = fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - skipping.", c.Env)
+			return fmt.Sprintf("Environment %q has both upstream.latest and upstream.environment configured - skipping.", c.Env)
 		case api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND:
-			ret = fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, c.Env)
+			return fmt.Sprintf("Could not find environment config for upstream env %q. Target env was %q", upstreamEnvName, c.Env)
 		case api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED:
-			ret = fmt.Sprintf("Target Environment '%s' is locked - skipping.", c.Env)
+			return fmt.Sprintf("Target Environment '%s' is locked - skipping.", c.Env)
+		default:
+			return fmt.Sprintf("Environment '%s' is skipped for an unrecognized reason", c.Env)
 		}
-		return ret
 	}
 
 	renderApplicationSkipCause := func(SkipCause *api.ReleaseTrainAppPrognosis_SkipCause, appName string) string {
 		envConfig := c.EnvGroupConfigs[c.Env]
 		upstreamEnvName := envConfig.Upstream.Environment
 		currentlyDeployedVersion, _ := state.GetEnvironmentApplicationVersion(c.Env, appName)
-		ret := ""
 		switch SkipCause.SkipCause {
 		case api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV:
-			ret = fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)
+			return fmt.Sprintf("skipping because there is no version for application %q in env %q \n", appName, upstreamEnvName)
 		case api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION:
-			ret = fmt.Sprintf("skipping %q because it is already in the version %d\n", appName, currentlyDeployedVersion)
+			return fmt.Sprintf("skipping %q because it is already in the version %d\n", appName, currentlyDeployedVersion)
 		case api.ReleaseTrainAppSkipCause_APP_IS_LOCKED:
-			ret = fmt.Sprintf("skipping application %q in environment %q due to application lock", appName, c.Env)
+			return fmt.Sprintf("skipping application %q in environment %q due to application lock", appName, c.Env)
 		case api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV:
-			ret = fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env)
+			return fmt.Sprintf("skipping application %q in environment %q because it doesn't exist there", appName, c.Env)
+		default:
+			return fmt.Sprintf("skipping application %q in environment %q for an unrecognized reason", appName, c.Env)
 		}
-		return ret
 	}
 
 	prognosis := c.prognosis(ctx, state)
