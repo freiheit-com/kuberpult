@@ -559,12 +559,12 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 		return GetCreateReleaseGeneralFailure(err)
 	}
 
-	if previousCommitId != "" {
+	if previousCommitId != "" && valid.SHA1CommitID(previousCommitId) {
 		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(previousCommitId), fieldPreviousCommitId, app, fs); err != nil {
 			return GetCreateReleaseGeneralFailure(err)
 		}
 	}
-	if nextCommitId != "" {
+	if nextCommitId != "" && valid.SHA1CommitID(nextCommitId) {
 		if err := writeNextPrevInfo(ctx, sourceCommitId, strings.ToLower(nextCommitId), fieldNextCommidId, app, fs); err != nil {
 			return GetCreateReleaseGeneralFailure(err)
 		}

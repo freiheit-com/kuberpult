@@ -314,13 +314,17 @@ func (d *BatchServer) ProcessBatch(
 		transformers = append(transformers, transformer)
 		results = append(results, result)
 	}
-
 	err = d.Repository.Apply(ctx, transformers...)
 	if err != nil {
 		var applyErr *repository.TransformerBatchApplyError
+		if errors.Is(err, repository.ErrQueueFull) {
+			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
+		}
+
 		if !errors.As(err, &applyErr) {
 			return nil, err
 		}
+
 		switch transformerError := applyErr.TransformerError.(type) {
 		case *repository.CreateReleaseError:
 			{

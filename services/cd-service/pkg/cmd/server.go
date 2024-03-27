@@ -77,6 +77,7 @@ type Config struct {
 	ArgoCdInsecure           bool          `default:"false" split_words:"true"`
 	GitWebUrl                string        `default:"" split_words:"true"`
 	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
+	MaximumQueueSize         uint          `default:"5" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -183,6 +184,11 @@ func RunServer() {
 				zap.String("details", "the maximum number of commits per push must be at least 1"),
 			)
 		}
+		if c.MaximumQueueSize < 2 || c.MaximumQueueSize > 100 {
+			logger.FromContext(ctx).Fatal("cd.config",
+				zap.String("details", "the size of the queue must be between 2 and 100"),
+			)
+		}
 		cfg := repository.RepositoryConfig{
 			WebhookResolver: nil,
 			URL:             c.GitUrl,
@@ -207,6 +213,7 @@ func RunServer() {
 			DogstatsdEvents:        c.EnableMetrics,
 			WriteCommitData:        c.GitWriteCommitData,
 			MaximumCommitsPerPush:  c.GitMaximumCommitsPerPush,
+			MaximumQueueSize:       c.MaximumQueueSize,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {
