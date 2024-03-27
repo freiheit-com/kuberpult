@@ -20,11 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	xpath "github.com/freiheit-com/kuberpult/pkg/path"
 
 	"github.com/MicahParks/keyfunc/v2"
 	jwt "github.com/golang-jwt/jwt/v5"
@@ -110,7 +111,7 @@ func HttpAuthMiddleWare(resp http.ResponseWriter, req *http.Request, jwks *keyfu
 	}
 	if err != nil {
 		resp.WriteHeader(http.StatusUnauthorized)
-		resp.Write([]byte("Invalid authorization header provided"))
+		_, _ = resp.Write([]byte("Invalid authorization header provided"))
 	}
 	return err
 }
