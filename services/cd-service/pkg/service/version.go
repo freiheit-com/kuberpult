@@ -51,7 +51,7 @@ func (o *VersionServiceServer) GetVersion(
 	if err != nil {
 		var gerr *git.GitError
 		if errors.As(err, &gerr) {
-			if gerr.Code == git.ErrNotFound {
+			if gerr.Code == git.ErrorCodeNotFound {
 				return nil, status.Error(codes.NotFound, "not found")
 			}
 		}
@@ -60,6 +60,9 @@ func (o *VersionServiceServer) GetVersion(
 	//exhaustruct:ignore
 	res := api.GetVersionResponse{}
 	version, err := state.GetEnvironmentApplicationVersion(in.Environment, in.Application)
+	if err != nil {
+		return nil, err
+	}
 	if version != nil {
 		res.Version = *version
 		_, deployedAt, err := state.GetDeploymentMetaData(in.Environment, in.Application)

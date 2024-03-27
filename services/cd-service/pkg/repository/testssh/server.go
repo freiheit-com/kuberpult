@@ -14,6 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
+// nolint: errcheck
 package testssh
 
 import (
@@ -67,7 +68,7 @@ func New(workdir string) *TestServer {
 	// Setup a private key for the server and write a known hosts file
 	_, servPriv, _ := ed25519.GenerateKey(nil)
 	ps, _ := ssh.NewSignerFromSigner(servPriv)
-	kh := knownhosts.Line([]string{fmt.Sprintf("127.0.0.1")}, ps.PublicKey())
+	kh := knownhosts.Line([]string{"127.0.0.1"}, ps.PublicKey())
 	ts.KnownHosts = filepath.Join(workdir, "known_hosts")
 	os.WriteFile(ts.KnownHosts, []byte(kh), 0644)
 	//exhaustruct:ignore
@@ -143,7 +144,7 @@ func (ts *TestServer) handleConn(con net.Conn, workdir string, sc *ssh.ServerCon
 					ts.Pushes = ts.Pushes + 1
 				}
 				args[1] = filepath.Join(workdir, args[1])
-				cmd := exec.Command(args[0], args[1:len(args)]...)
+				cmd := exec.Command(args[0], args[1:]...)
 				cmd.Env = env
 				stdin, _ := cmd.StdinPipe()
 				stdout, _ := cmd.StdoutPipe()

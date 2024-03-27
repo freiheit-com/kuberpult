@@ -19,9 +19,10 @@ package argocd
 import (
 	"context"
 	"fmt"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"sigs.k8s.io/yaml"
 
@@ -39,7 +40,7 @@ type AppData struct {
 }
 
 func Render(ctx context.Context, gitUrl string, gitBranch string, config config.EnvironmentConfig, env string, appsData []AppData) (map[ApiVersion][]byte, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "Render")
+	span, _ := tracer.StartSpanFromContext(ctx, "Render")
 	defer span.Finish()
 
 	if config.ArgoCd == nil {
