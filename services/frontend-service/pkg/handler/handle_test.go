@@ -166,7 +166,7 @@ func TestServer_Handle(t *testing.T) {
 			req: &http.Request{
 				Method: http.MethodGet,
 				URL: &url.URL{
-					Path: "/environments/development/releasetrain/prognosis",
+					Path: "/api/environments/development/releasetrain/prognosis",
 				},
 			},
 			releaseTrainPrognosisResponse: &api.GetReleaseTrainPrognosisResponse{
@@ -214,7 +214,7 @@ func TestServer_Handle(t *testing.T) {
 			req: &http.Request{
 				Method: http.MethodPut,
 				URL: &url.URL{
-					Path: "/environments/development/releasetrain/prognosis",
+					Path: "/api/environments/development/releasetrain/prognosis",
 				},
 			},
 			expectedResp: &http.Response{
@@ -233,20 +233,20 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
-			expectedBody: "release trains must be invoked via either /releasetrain or /releasetrain/prognosis, but it was invoked via /releasetrain/junk\n",
+			expectedBody: "release trains must be invoked via /releasetrain, but it was invoked via /releasetrain/junk\n",
 		},
 		{
-			name: "release train but additional path params",
+			name: "release train prognosis but additional path params",
 			req: &http.Request{
 				Method: http.MethodGet,
 				URL: &url.URL{
-					Path: "/environments/development/releasetrain/prognosis/junk",
+					Path: "/api/environments/development/releasetrain/prognosis/junk",
 				},
 			},
 			expectedResp: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
-			expectedBody: "release trains must be invoked via either /releasetrain or /releasetrain/prognosis, but it was invoked via /releasetrain/prognosis/junk\n",
+			expectedBody: "release trains must be invoked via /releasetrain/prognosis, but it was invoked via /releasetrain/prognosis/junk\n",
 		},
 		{
 			name:             "release train - Azure enabled",
@@ -1009,7 +1009,11 @@ func TestServer_Handle(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			s.Handle(w, tt.req)
+			if len(tt.req.URL.Path) >= 4 && tt.req.URL.Path[:4] == "/api" {
+				s.HandleAPI(w, tt.req)
+			} else {
+				s.Handle(w, tt.req)
+			}
 			resp := w.Result()
 
 			if d := cmp.Diff(tt.expectedResp, resp, cmpopts.IgnoreFields(http.Response{}, "Status", "Proto", "ProtoMajor", "ProtoMinor", "Header", "Body", "ContentLength")); d != "" {
@@ -1183,7 +1187,11 @@ func TestServer_Rollout(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			s.Handle(w, tt.req)
+			if tt.req.URL.Path[:3] == "api" {
+				s.HandleAPI(w, tt.req)
+			} else {
+				s.Handle(w, tt.req)
+			}
 			resp := w.Result()
 
 			if d := cmp.Diff(tt.expectedResp, resp, cmpopts.IgnoreFields(http.Response{}, "Status", "Proto", "ProtoMajor", "ProtoMinor", "Header", "Body", "ContentLength")); d != "" {

@@ -119,10 +119,18 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, tar
 	switch tail {
 	case "/":
 		s.handleReleaseTrainExecution(w, req, target)
+	default:
+		http.Error(w, fmt.Sprintf("release trains must be invoked via /releasetrain, but it was invoked via /releasetrain%s", tail), http.StatusNotFound)
+		return
+	}
+}
+
+func (s Server) handleApiReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
+	switch tail {
 	case "/prognosis":
 		s.handleReleaseTrainPrognosis(w, req, target)
 	default:
-		http.Error(w, fmt.Sprintf("release trains must be invoked via either /releasetrain or /releasetrain/prognosis, but it was invoked via /releasetrain%s", tail), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("release trains must be invoked via /releasetrain/prognosis, but it was invoked via /releasetrain%s", tail), http.StatusNotFound)
 		return
 	}
 }
