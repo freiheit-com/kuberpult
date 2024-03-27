@@ -303,6 +303,6 @@ func RunServer() {
 		return nil
 	})
 	if err != nil {
-		fmt.Printf("error: %v %#v", err, err)
+		fmt.Printf("error in logger.wrap: %v %#v", err, err)
 	}
 }
