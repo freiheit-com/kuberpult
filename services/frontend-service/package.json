@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@azure/msal-browser": "2.38.3",
-    "@azure/msal-react": "1.5.12",
+    "@azure/msal-browser": "2.38.4",
+    "@azure/msal-react": "1.5.13",
     "@emotion/react": "11.11.3",
     "@emotion/styled": "^11.1.5",
     "@improbable-eng/grpc-web": "^0.15.0",
@@ -59,7 +59,7 @@
     "react-refresh": "^0.14.0",
     "sass": "^1.70.0",
     "spy4js": "^3.1.0",
-    "ts-proto": "^1.169.1",
+    "ts-proto": "^1.170.0",
     "typescript": "5.4.3"
   },
   "jest": {
