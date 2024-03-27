@@ -154,7 +154,7 @@ func GaugeDeploymentMetric(_ context.Context, env, app string, timeInMinutes flo
 			1)
 		return err
 	}
-	return nil //e9d8f9ce4b7c60bba4b1192ce5d09022348749f2
+	return nil
 }
 
 func sortFiles(gs []os.FileInfo) func(i int, j int) bool {

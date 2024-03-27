@@ -6118,7 +6118,6 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envB"}, 1),
 				makeGauge("app_lock_count", 0, []string{"app:app2", "env:envB"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app2", "kuberpult_environment:envB"}, 1),
-				makeGauge("queueSize", 0, []string{}, 1),
 			},
 		},
 	}

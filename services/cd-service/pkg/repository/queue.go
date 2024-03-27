@@ -83,10 +83,7 @@ func GaugeQueueSize(ctx context.Context, queueSize int) {
 		err := ddMetrics.Gauge("queue_size", float64(queueSize), []string{}, 1)
 
 		if err != nil {
-			logger.FromContext(ctx).Error("ERROR ON GUAGE: ", zap.Error(err))
-		} else {
+			logger.FromContext(ctx).Error("Error gauging queue size metric: ", zap.Error(err))
 		}
-	} else {
-		fmt.Println("@@@@@@@@ DATADOG IS NIL @@@@@@@@@")
 	}
 }
