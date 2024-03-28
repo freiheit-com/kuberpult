@@ -91,11 +91,7 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 				for _, env := range envGroup.Environments {
 					if ok := appsKnownToArgo[env.Name]; ok != nil {
 						envAppsKnownToArgo = appsKnownToArgo[env.Name]
-						err := a.DeleteArgoApps(ctx, envAppsKnownToArgo, env.Applications)
-						if err != nil {
-							l.Error("deleting applications", zap.Error(err))
-							continue
-						}
+						a.DeleteArgoApps(ctx, envAppsKnownToArgo, env.Applications)
 					}
 
 					for _, app := range env.Applications {
@@ -233,8 +229,10 @@ func calculateFinalizers() []string {
 	}
 }
 
-func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, apps map[string]*api.Environment_Application) error {
+func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[string]*v1alpha1.Application, apps map[string]*api.Environment_Application) {
 	toDelete := make([]*v1alpha1.Application, 0)
+	deleteSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplications")
+	defer deleteSpan.Finish()
 	for _, argoApp := range argoApps {
 		if apps[argoApp.Annotations["com.freiheit.kuberpult/application"]] == nil {
 			toDelete = append(toDelete, argoApp)
@@ -242,6 +240,10 @@ func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[strin
 	}
 
 	for i := range toDelete {
+		deleteAppSpan, ctx := tracer.StartSpanFromContext(ctx, "DeleteApplication")
+		deleteAppSpan.SetTag("application", toDelete[i].Name)
+		deleteAppSpan.SetTag("namespace", toDelete[i].Namespace)
+		deleteAppSpan.SetTag("operation", "delete")
 		_, err := a.ApplicationClient.Delete(ctx, &application.ApplicationDeleteRequest{
 			Cascade:              nil,
 			PropagationPolicy:    nil,
@@ -254,11 +256,10 @@ func (a ArgoAppProcessor) DeleteArgoApps(ctx context.Context, argoApps map[strin
 		})
 
 		if err != nil {
-			return err
+			logger.FromContext(ctx).Error("deleting application: "+toDelete[i].Name, zap.Error(err))
 		}
+		deleteAppSpan.Finish()
 	}
-
-	return nil
 }
 
 func CreateArgoApplication(overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment) *v1alpha1.Application {
