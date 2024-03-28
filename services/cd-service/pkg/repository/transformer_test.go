@@ -1390,9 +1390,9 @@ type FileWithContent struct {
 func verifyContent(fs billy.Filesystem, required []FileWithContent) error {
 	for _, contentRequirement := range required {
 		if data, err := util.ReadFile(fs, contentRequirement.Path); err != nil {
-			return fmt.Errorf("Error while opening file %s, error: %w", contentRequirement.Path, err)
+			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.Path, err)
 		} else if string(data) != contentRequirement.Content {
-			return fmt.Errorf("Actual file content is not equal to required content. Expected: %s, actual: %s", contentRequirement.Content, string(data))
+			return fmt.Errorf("actual file content of file '%s' is not equal to required content. Expected: '%s', actual: '%s'", contentRequirement.Path, contentRequirement.Content, string(data))
 		}
 	}
 	return nil
@@ -1565,7 +1565,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			},
 		},
 		{
-			Name: "Block deployments using locks",
+			Name: "Block deployments using env lock",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "dev",
@@ -1588,12 +1588,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					LockId:      "lock1",
 					Message:     "lock staging",
 				},
-				&CreateEnvironmentApplicationLock{
-					Environment: "dev",
-					Application: "myapp",
-					LockId:      "lock2",
-					Message:     "lock myapp",
-				},
 				&CreateApplicationVersion{
 					Application:    "myapp",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
@@ -1607,7 +1601,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			expectedContent: []FileWithContent{
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "lock-prevented-deployment",
+					Content: "deployment",
 				},
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
@@ -1616,14 +1610,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
 					Content: "dev",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/lock_message",
-					Content: "lock myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/lock_type",
-					Content: "application",
 				},
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
@@ -1644,6 +1630,81 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_type",
 					Content: "environment",
+				},
+			},
+		},
+		{
+			Name: "Block deployments using app lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				//&CreateEnvironmentLock{
+				//	Environment: "staging",
+				//	LockId:      "lock1",
+				//	Message:     "lock staging",
+				//},
+				&CreateEnvironmentApplicationLock{
+					Environment: "staging",
+					Application: "myapp",
+					LockId:      "lock2",
+					Message:     "lock myapp",
+				},
+				&CreateApplicationVersion{
+					Application:    "myapp",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"dev":     "some dev manifest",
+						"staging": "some staging manifest",
+					},
+					WriteCommitData: true,
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
+					Content: "deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
+					Content: "myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
+					Content: "dev",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
+					Content: "lock-prevented-deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/application",
+					Content: "myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/environment",
+					Content: "staging",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_message",
+					Content: "lock myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_type",
+					Content: "application",
 				},
 			},
 		},
@@ -1858,7 +1919,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			},
-			expectedError: errMatcher{"Error while opening file commits/12/34/nextCommit, error: file does not exist"},
+			expectedError: errMatcher{"error while opening file commits/12/34/nextCommit, error: file does not exist"},
 		},
 	}
 
@@ -1921,7 +1982,7 @@ func TestReplacedByEvent(t *testing.T) {
 					Content: "does-not-matter",
 				},
 			},
-			ExpectedError: errMatcher{"Error while opening file commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/commit, error: file does not exist"},
+			ExpectedError: errMatcher{"error while opening file commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/commit, error: file does not exist"},
 		},
 		{
 			Name: "Replace an already existing version on some environment",
