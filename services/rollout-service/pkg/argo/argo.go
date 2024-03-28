@@ -130,8 +130,6 @@ func (a *ArgoAppProcessor) Consume(ctx context.Context, hlth *setup.HealthReport
 
 func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.GetOverviewResponse, app *api.Environment_Application, env *api.Environment, appsKnownToArgo map[string]*v1alpha1.Application) {
 	t := team(overview, app.Name)
-	span, ctx := tracer.StartSpanFromContext(ctx, "Create or Update Applications")
-	defer span.Finish()
 
 	var existingApp *v1alpha1.Application
 	if a.ManageArgoAppsEnabled && len(a.ManageArgoAppsFilter) > 0 && slices.Contains(a.ManageArgoAppsFilter, t) {
@@ -144,6 +142,10 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 		}
 
 		if existingApp == nil {
+			createSpan, ctx := tracer.StartSpanFromContext(ctx, "CreateApplication")
+			createSpan.SetTag("application", app.Name)
+			createSpan.SetTag("environment", env.Name)
+			createSpan.SetTag("operation", "create")
 			appToCreate := CreateArgoApplication(overview, app, env)
 			appToCreate.ResourceVersion = ""
 			upsert := false
@@ -163,6 +165,7 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 					logger.FromContext(ctx).Error("creating "+appToCreate.Name+",env "+env.Name, zap.Error(err))
 				}
 			}
+			createSpan.Finish()
 		} else {
 			appToUpdate := CreateArgoApplication(overview, app, env)
 			appUpdateRequest := &application.ApplicationUpdateRequest{
@@ -179,11 +182,16 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			emptyAppSpec := v1alpha1.ApplicationSpec{}
 			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(emptyAppSpec.Destination))
 			if diff != "" {
+				updateSpan, ctx := tracer.StartSpanFromContext(ctx, "UpdateApplications")
+				updateSpan.SetTag("application", app.Name)
+				updateSpan.SetTag("environment", env.Name)
+				updateSpan.SetTag("operation", "update")
+				updateSpan.SetTag("argoDiff", diff)
 				_, err := a.ApplicationClient.Update(ctx, appUpdateRequest)
 				if err != nil {
-					span.SetTag("argoDiff", diff)
 					logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+env.Name, zap.Error(err))
 				}
+				updateSpan.Finish()
 			}
 		}
 	}
