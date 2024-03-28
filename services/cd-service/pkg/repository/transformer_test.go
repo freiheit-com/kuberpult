@@ -1919,7 +1919,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			},
-			expectedError: errMatcher{"Error while opening file commits/12/34/nextCommit, error: file does not exist"},
+			expectedError: errMatcher{"error while opening file commits/12/34/nextCommit, error: file does not exist"},
 		},
 	}
 
@@ -1982,7 +1982,7 @@ func TestReplacedByEvent(t *testing.T) {
 					Content: "does-not-matter",
 				},
 			},
-			ExpectedError: errMatcher{"Error while opening file commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/commit, error: file does not exist"},
+			ExpectedError: errMatcher{"error while opening file commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/commit, error: file does not exist"},
 		},
 		{
 			Name: "Replace an already existing version on some environment",
