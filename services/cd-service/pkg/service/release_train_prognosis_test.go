@@ -105,7 +105,7 @@ func TestReleaseTrainPrognosis(t *testing.T) {
 
 	tcs := []TestCase{
 		{
-			Name:  "error with release train in general",
+			Name:  "error with release train missing environment",
 			Setup: []rp.Transformer{},
 			Request: &api.ReleaseTrainRequest{
 				Target: "non-existent environment",
