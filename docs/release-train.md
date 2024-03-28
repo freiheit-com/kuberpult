@@ -40,7 +40,7 @@ Release trains are accessible via REST API:
 ### Prognosis
 
 
-It is possible to get the prognosis, or plan, of a release train without triggering one. A release train prognosis does not alter the manifest repo anyhow.
+It is possible to get the prognosis, or plan, of a release train without triggering one. A release train prognosis does not alter the manifest repo in any way.
 
 
 Prognoses are exposes on the REST API:
