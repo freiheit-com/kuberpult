@@ -15,6 +15,7 @@ services:
       - KUBERPULT_DEX_ENABLED=false
       - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
       - KUBERPULT_GIT_WRITE_COMMIT_DATA=true
+      - KUBERPULT_ALLOW_LONG_APP_NAMES=true
     ports:
       - "8080:8080"
       - "8443:8443"
