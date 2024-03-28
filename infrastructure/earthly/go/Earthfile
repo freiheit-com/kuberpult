@@ -16,7 +16,7 @@ COMPILE:
     ARG USERARCH
     ARG main_path="cmd/server"
     ARG cgo_enabled=0
-    
+    CACHE --sharing shared --id go-cache $(go env GOCACHE)
     RUN cd $main_path && \
         CGO_ENABLED=$cgo_enabled \
         GOARCH=$USERARCH \
@@ -36,11 +36,14 @@ COMPILE:
 UNIT_TEST:
     FUNCTION
     ARG GO_TEST_ARGS
+    CACHE --sharing shared --id go-cache $(go env GOCACHE)
     COPY pkg pkg
     RUN go test $GO_TEST_ARGS ./...
 
 LINT:
     FUNCTION
+    CACHE --sharing shared --id go-cache $(go env GOCACHE)
+    CACHE --sharing shared --id lint-cache /root/.cache/golangci-lint
     ARG FILES_TO_FORMAT=$(gofmt -l ./)
     ARG skip_lint_errors="false"
     IF [ ! -z "$FILES_TO_FORMAT" ]
