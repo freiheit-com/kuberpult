@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cmd"
 	"io"
 	"net/http"
 	"os"
@@ -334,9 +335,11 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.BackgroundFunc, error) {
 	logger := logger.FromContext(ctx)
 
-	ddMetricsFromCtx := ctx.Value("ddMetrics")
+	ddMetricsFromCtx := ctx.Value(cmd.DdMetricsKey)
 	if ddMetricsFromCtx != nil {
 		ddMetrics = ddMetricsFromCtx.(statsd.ClientInterface)
+	} else {
+		logger.Sugar().Warnf("could not load ddmetrics from context - running without datadog metrics")
 	}
 
 	if cfg.Branch == "" {

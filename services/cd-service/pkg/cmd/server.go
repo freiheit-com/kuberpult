@@ -51,7 +51,7 @@ const datadogNameCd = "kuberpult-cd-service"
 
 type contextKey string
 
-const ddMetricsKey contextKey = "ddMetrics"
+const DdMetricsKey contextKey = "ddMetrics"
 
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
@@ -172,7 +172,7 @@ func RunServer() {
 			if err != nil {
 				logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
 			}
-			ctx = context.WithValue(ctx, ddMetricsKey, ddMetrics)
+			ctx = context.WithValue(ctx, DdMetricsKey, ddMetrics)
 		}
 
 		// If the tracer is not started, calling this function is a no-op.
