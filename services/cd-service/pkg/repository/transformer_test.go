@@ -5653,11 +5653,12 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	repo, err := New(
 		testutil.MakeTestContext(),
 		RepositoryConfig{
-			URL:             remoteDir,
-			Path:            localDir,
-			CommitterEmail:  "kuberpult@freiheit.com",
-			CommitterName:   "kuberpult",
-			WriteCommitData: true,
+			URL:                   remoteDir,
+			Path:                  localDir,
+			CommitterEmail:        "kuberpult@freiheit.com",
+			CommitterName:         "kuberpult",
+			WriteCommitData:       true,
+			MaximumCommitsPerPush: 5,
 		},
 	)
 	if err != nil {
@@ -6137,6 +6138,90 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 			}
 
 			err := UpdateDatadogMetrics(ctx, state, nil, time.UnixMilli(0))
+			if err != nil {
+				t.Fatalf("Expected no error: %v", err)
+			}
+
+			if len(tc.expectedGauges) != len(mockClient.gauges) {
+				gaugesString := ""
+				for i := range mockClient.gauges {
+					gauge := mockClient.gauges[i]
+					gaugesString += fmt.Sprintf("%v\n", gauge)
+				}
+				msg := fmt.Sprintf("expected %d gauges but got %d\nActual:\n%v\n",
+					len(tc.expectedGauges), len(mockClient.gauges), gaugesString)
+				t.Fatalf(msg)
+			}
+			for i := range tc.expectedGauges {
+				var expectedGauge Gauge = tc.expectedGauges[i]
+				sort.Strings(expectedGauge.Tags)
+				var actualGauge Gauge = mockClient.gauges[i]
+				sort.Strings(actualGauge.Tags)
+				t.Logf("actualGauges: %v", actualGauge.Tags)
+
+				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
+					t.Errorf("[%d] got %v, want %v, diff (-want +got) %s", i, actualGauge, expectedGauge, diff)
+				}
+			}
+		})
+	}
+}
+
+func TestDatadogQueueMetric(t *testing.T) {
+	makeGauge := func(name string, val float64, tags []string, rate float64) Gauge {
+		return Gauge{
+			Name:  name,
+			Value: val,
+			Tags:  tags,
+			Rate:  rate,
+		}
+	}
+	tcs := []struct {
+		Name           string
+		changes        *TransformerResult
+		transformers   []Transformer
+		expectedGauges []Gauge
+	}{
+		{
+			Name: "Changes are sent as one event",
+			transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "envA",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						"envA": "envA-manifest-1",
+					},
+					WriteCommitData: false,
+				},
+				&CreateApplicationVersion{
+					Application: "app2",
+					Manifests: map[string]string{
+						"envA": "envA-manifest-2",
+					},
+					WriteCommitData: false,
+				},
+			},
+			expectedGauges: []Gauge{
+				makeGauge("request_queue_size", 1, []string{}, 1),
+				makeGauge("request_queue_size", 0, []string{}, 1),
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
+			ctx := WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
+			var mockClient = &MockClient{}
+			var client statsd.ClientInterface = mockClient
+			ddMetrics = client
+			repo := setupRepositoryTest(t)
+
+			err := repo.Apply(ctx, tc.transformers...)
+
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}

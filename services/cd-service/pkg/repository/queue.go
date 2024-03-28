@@ -60,9 +60,9 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 		result:       resultChannel,
 	}
 
+	defer GaugeQueueSize(ctx, q)
 	select {
 	case q.transformerBatches <- e:
-		GaugeQueueSize(ctx, len(q.transformerBatches))
 		return resultChannel
 	default:
 		//Channel is full, we don't want to put anything else there.
@@ -78,8 +78,9 @@ func makeQueueN(size uint) queue {
 	}
 }
 
-func GaugeQueueSize(ctx context.Context, queueSize int) {
+func GaugeQueueSize(ctx context.Context, q *queue) {
 	if ddMetrics != nil {
+		queueSize := len(q.transformerBatches)
 		err := ddMetrics.Gauge("request_queue_size", float64(queueSize), []string{}, 1)
 
 		if err != nil {
