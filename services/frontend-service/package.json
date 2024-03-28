@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@azure/msal-browser": "2.38.3",
-    "@azure/msal-react": "1.5.12",
+    "@azure/msal-browser": "3.11.1",
+    "@azure/msal-react": "2.0.14",
     "@emotion/react": "11.11.3",
     "@emotion/styled": "^11.1.5",
     "@improbable-eng/grpc-web": "^0.15.0",
