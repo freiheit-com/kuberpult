@@ -201,6 +201,8 @@ type RepositoryConfig struct {
 	MaximumCommitsPerPush uint
 
 	MaximumQueueSize uint
+
+	ArgoCdGenerateFiles bool
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -1209,20 +1211,22 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 		}
 		spanCollectData.Finish()
 
-		spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
-		defer spanRenderAndWrite.Finish()
-		if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
-			return err
-		} else {
-			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
-			defer spanWrite.Finish()
-			for apiVersion, content := range manifests {
-				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
-					return err
-				}
-				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
-				if err := util.WriteFile(fs, target, content, 0666); err != nil {
-					return err
+		if r.config.ArgoCdGenerateFiles {
+			spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
+			defer spanRenderAndWrite.Finish()
+			if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
+				return err
+			} else {
+				spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
+				defer spanWrite.Finish()
+				for apiVersion, content := range manifests {
+					if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
+						return err
+					}
+					target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
+					if err := util.WriteFile(fs, target, content, 0666); err != nil {
+						return err
+					}
 				}
 			}
 		}
