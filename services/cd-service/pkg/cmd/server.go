@@ -82,6 +82,7 @@ type Config struct {
 	GitWebUrl                string        `default:"" split_words:"true"`
 	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
+	AllowLongAppNames        bool          `default:"false" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -218,6 +219,7 @@ func RunServer() {
 			WriteCommitData:        c.GitWriteCommitData,
 			MaximumCommitsPerPush:  c.GitMaximumCommitsPerPush,
 			MaximumQueueSize:       c.MaximumQueueSize,
+			AllowLongAppNames:      c.AllowLongAppNames,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {

@@ -17,17 +17,20 @@ Copyright 2023 freiheit.com*/
 package valid
 
 import (
+	"os"
 	"regexp"
 	"strings"
 )
 
 const (
-	MaxAppNameLen        = 39
-	AppNameRegExp        = `\A[a-z0-9]+(?:-[a-z0-9]+)*\z`
-	TeamNameRegExp       = AppNameRegExp
-	EnvNameRegExp        = AppNameRegExp
-	SHA1CommitIDLength   = 40
-	commitIDPrefixRegExp = `^[0-9a-fA-F]*$`
+	FallbackMaxAppNameLength       = 39
+	LongAppNameLength              = 70
+	KUBERPULT_ALLOW_LONG_APP_NAMES = "KUBERPULT_ALLOW_LONG_APP_NAMES"
+	AppNameRegExp                  = `\A[a-z0-9]+(?:-[a-z0-9]+)*\z`
+	TeamNameRegExp                 = AppNameRegExp
+	EnvNameRegExp                  = AppNameRegExp
+	SHA1CommitIDLength             = 40
+	commitIDPrefixRegExp           = `^[0-9a-fA-F]*$`
 )
 
 var (
@@ -35,7 +38,17 @@ var (
 	teamNameRx        = regexp.MustCompile(TeamNameRegExp)
 	envNameRx         = regexp.MustCompile(EnvNameRegExp)
 	commitIDPrefixRx  = regexp.MustCompile(commitIDPrefixRegExp)
+	MaxAppNameLen     = setupMaxAppNameLen()
 )
+
+func setupMaxAppNameLen() int {
+	maxAppNameLength := FallbackMaxAppNameLength
+	res, ok := os.LookupEnv(KUBERPULT_ALLOW_LONG_APP_NAMES)
+	if ok && res == "true" {
+		maxAppNameLength = LongAppNameLength
+	}
+	return maxAppNameLength
+}
 
 // {application}-{environment} should be a valid dns name
 func EnvironmentName(env string) bool {
