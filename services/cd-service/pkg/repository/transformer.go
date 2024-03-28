@@ -134,13 +134,13 @@ func GetEnvironmentApplicationLocksCount(fs billy.Filesystem, environment, appli
 
 func GaugeEnvLockMetric(fs billy.Filesystem, env string) {
 	if ddMetrics != nil {
-		ddMetrics.Gauge("env_lock_count", GetEnvironmentLocksCount(fs, env), []string{"env:" + env}, 1)
+		ddMetrics.Gauge("env_lock_count", GetEnvironmentLocksCount(fs, env), []string{"env:" + env}, 1) //nolint: errcheck
 	}
 }
 
 func GaugeEnvAppLockMetric(fs billy.Filesystem, env, app string) {
 	if ddMetrics != nil {
-		ddMetrics.Gauge("app_lock_count", GetEnvironmentApplicationLocksCount(fs, env, app), []string{"app:" + app, "env:" + env}, 1)
+		ddMetrics.Gauge("app_lock_count", GetEnvironmentApplicationLocksCount(fs, env, app), []string{"app:" + app, "env:" + env}, 1) //nolint: errcheck
 	}
 }
 
@@ -237,11 +237,8 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, changes *Transforme
 
 func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBack func(repository Repository)) {
 	metricEventTimer := time.NewTicker(interval * time.Second)
-	for {
-		select {
-		case <-metricEventTimer.C:
-			callBack(repo)
-		}
+	for range metricEventTimer.C {
+		callBack(repo)
 	}
 }
 
@@ -478,7 +475,7 @@ func (c *CreateApplicationVersion) Transform(
 
 	var allEnvsOfThisApp []string = nil
 
-	for env, _ := range c.Manifests {
+	for env := range c.Manifests {
 		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
 	}
 	gen := getGenerator(ctx)
@@ -968,6 +965,9 @@ func (u *UndeployApplication) Transform(
 	}
 	appDir := applicationDirectory(fs, u.Application)
 	configs, err := state.GetEnvironmentConfigs()
+	if err != nil {
+		return "", err
+	}
 	for env := range configs {
 		err := state.checkUserPermissions(ctx, env, u.Application, auth.PermissionDeployUndeploy, "", u.RBACConfig)
 		if err != nil {
@@ -1223,17 +1223,6 @@ func (s *State) checkUserPermissions(ctx context.Context, env, application, acti
 		return fmt.Errorf("group not found for environment: %s", env)
 	}
 	return auth.CheckUserPermissions(RBACConfig, user, env, team, group, application, action)
-}
-
-func (s *State) checkUserPermissionsEnvGroup(ctx context.Context, envGroup, application, action, team string, RBACConfig auth.RBACConfig) error {
-	if !RBACConfig.DexEnabled {
-		return nil
-	}
-	user, err := auth.ReadUserFromContext(ctx)
-	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("checkUserPermissions: user not found: %v", err))
-	}
-	return auth.CheckUserPermissions(RBACConfig, user, "*", team, envGroup, application, action)
 }
 
 // checkUserPermissionsCreateEnvironment check the permission for the environment creation action.
@@ -1627,7 +1616,7 @@ func (c *DeployApplicationVersion) Transform(
 	// Check that the release exist and fetch manifest
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
 	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
-	manifestContent := []byte{}
+	var manifestContent []byte
 	if file, err := fs.Open(manifest); err != nil {
 		return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
 	} else {
@@ -1902,7 +1891,7 @@ func getOverrideVersions(commitHash, upstreamEnvName string, repo Repository) (r
 	if err != nil {
 		var gerr *git.GitError
 		if errors.As(err, &gerr) {
-			if gerr.Code == git.ErrNotFound {
+			if gerr.Code == git.ErrorCodeNotFound {
 				return nil, fmt.Errorf("ErrNotFound: %w", err)
 			}
 		}

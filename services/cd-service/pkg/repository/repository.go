@@ -25,7 +25,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -209,8 +208,11 @@ func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, 
 	if err != nil {
 		var gerr *git.GitError
 		if errors.As(err, &gerr) {
-			if gerr.Code == git.ErrNotFound {
-				os.MkdirAll(path, 0777)
+			if gerr.Code == git.ErrorCodeNotFound {
+				err = os.MkdirAll(path, 0777)
+				if err != nil {
+					return nil, err
+				}
 				repo2, err = git.InitRepository(path, true)
 				if err != nil {
 					return nil, err
@@ -325,7 +327,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	go bg(ctx, nil)
+	go bg(ctx, nil) //nolint: errcheck
 	return repo, err
 }
 
@@ -426,11 +428,10 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			if err != nil {
 				return nil, nil, err
 			}
-			var zero git.Oid
-			var rev *git.Oid = &zero
+			var rev *git.Oid
 			if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
 				var gerr *git.GitError
-				if errors.As(err, &gerr) && gerr.Code == git.ErrNotFound {
+				if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
 					// not found
 					// nothing to do
 				} else {
@@ -467,7 +468,7 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 			e.finish(ctx.Err())
 		}
 	}()
-	tick := time.Tick(r.config.NetworkTimeout)
+	tick := time.Tick(r.config.NetworkTimeout) //nolint: staticcheck
 	ttl := r.config.NetworkTimeout * 3
 	for {
 		/*
@@ -522,7 +523,7 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 
 var panicError = errors.New("Panic")
 
-func (r *repository) useRemote(ctx context.Context, callback func(*git.Remote) error) error {
+func (r *repository) useRemote(callback func(*git.Remote) error) error {
 	remote, err := r.repository.Remotes.CreateAnonymous(r.config.URL)
 	if err != nil {
 		return fmt.Errorf("opening remote %q: %w", r.config.URL, err)
@@ -555,6 +556,7 @@ func (r *repository) drainQueue() []transformerBatch {
 		select {
 		case f := <-r.queue.transformerBatches:
 			// Check that the item is not already cancelled
+			GaugeQueueSize(f.ctx, len(r.queue.transformerBatches))
 			select {
 			case <-f.ctx.Done():
 				f.finish(f.ctx.Err())
@@ -585,7 +587,7 @@ type PushActionCallbackFunc func(git.PushOptions, *repository) PushActionFunc
 // DefaultPushActionCallback is public for testing reasons only.
 func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushActionFunc {
 	return func() error {
-		return r.useRemote(context.Background(), func(remote *git.Remote) error {
+		return r.useRemote(func(remote *git.Remote) error {
 			return remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
 		})
 	}
@@ -665,7 +667,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 			err = grpc.CanceledError(ctx, err)
 		} else {
 			logger.Error(fmt.Sprintf("error while pushing: %s", err))
-			err = grpc.PublicError(ctx, errors.New(fmt.Sprintf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch)))
+			err = grpc.PublicError(ctx, fmt.Errorf("could not push to manifest repository '%s' on branch '%s' - this indicates that the ssh key does not have write access", r.config.URL, r.config.Branch))
 		}
 	} else {
 		if !pushSuccess {
@@ -794,6 +796,9 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	}
 	l.Info(fmt.Sprintf("doWebhookPostRequest argo format: %s", string(jsonBytes)))
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		return fmt.Errorf("Could not create new request: %s", err.Error()), false
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	// now pretend that we are GitHub by adding this header, otherwise argo will ignore our request:
@@ -805,7 +810,7 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	}
 	resp, err := webhookResolver.Resolve(repoConfig.ArgoInsecure, req)
 	if err != nil {
-		return errors.New(fmt.Sprintf("doWebhookPostRequest: could not send request to '%s': %s", url, err.Error())), false
+		return fmt.Errorf("doWebhookPostRequest: could not send request to '%s': %s", url, err.Error()), false
 	}
 	defer resp.Body.Close()
 
@@ -818,7 +823,7 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	}
 	validResponseCodes := []int{200}
 	if resp.StatusCode >= 500 {
-		return errors.New(fmt.Sprintf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode)), true
+		return fmt.Errorf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode), true
 	}
 
 	if contains(validResponseCodes, resp.StatusCode) {
@@ -827,7 +832,7 @@ func doWebhookPostRequest(ctx context.Context, data ArgoWebhookData, repoConfig 
 	}
 	// in any other case we should not do a retry (e.g. status 4xx):
 	l.Warn(fmt.Sprintf("doWebhookPostRequest: response Body: %s", string(body)))
-	return errors.New(fmt.Sprintf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode)), false
+	return fmt.Errorf("doWebhookPostRequest: invalid status code from argo: %d", resp.StatusCode), false
 }
 
 func toArgoCommits(commits []commit) []v1alpha1.Commit {
@@ -1066,7 +1071,7 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 		},
 		RemoteCallbacks: RemoteCallbacks,
 	}
-	err := r.useRemote(ctx, func(remote *git.Remote) error {
+	err := r.useRemote(func(remote *git.Remote) error {
 		return remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
 	})
 	if err != nil {
@@ -1076,7 +1081,7 @@ func (r *repository) FetchAndReset(ctx context.Context) error {
 	var rev *git.Oid = &zero
 	if remoteRef, err := r.repository.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", r.config.Branch)); err != nil {
 		var gerr *git.GitError
-		if errors.As(err, &gerr) && gerr.Code == git.ErrNotFound {
+		if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
 			// not found
 			// nothing to do
 		} else {
@@ -1239,7 +1244,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
 			var gerr *git.GitError
 			if errors.As(err, &gerr) {
-				if gerr.Code == git.ErrNotFound {
+				if gerr.Code == git.ErrorCodeNotFound {
 					return &State{
 						Commit:                 nil,
 						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
@@ -1348,7 +1353,7 @@ func (r *repository) maybeGc(ctx context.Context) {
 		return
 	}
 	statsAfter, _ := r.countObjects(ctx)
-	log.Info("git.repack", zap.Duration("duration", time.Now().Sub(timeBefore)), zap.Uint64("collected", statsBefore.Count-statsAfter.Count))
+	log.Info("git.repack", zap.Duration("duration", time.Since(timeBefore)), zap.Uint64("collected", statsBefore.Count-statsAfter.Count))
 }
 
 type State struct {
@@ -1662,7 +1667,7 @@ func (s *State) GetEnvironmentConfigsAndValidate(ctx context.Context) (map[strin
 func (s *State) GetEnvironmentConfigs() (map[string]config.EnvironmentConfig, error) {
 	if s.BootstrapMode {
 		result := map[string]config.EnvironmentConfig{}
-		buf, err := ioutil.ReadFile(s.EnvironmentConfigsPath)
+		buf, err := os.ReadFile(s.EnvironmentConfigsPath)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return result, nil
@@ -1717,7 +1722,7 @@ func (s *State) GetEnvironmentConfigsForGroup(envGroup string) ([]string, error)
 		}
 	}
 	if len(groupEnvNames) == 0 {
-		return nil, errors.New(fmt.Sprintf("No environment found with given group '%s'", envGroup))
+		return nil, fmt.Errorf("No environment found with given group '%s'", envGroup)
 	}
 	sort.Strings(groupEnvNames)
 	return groupEnvNames, nil
@@ -1780,7 +1785,7 @@ func (rel *Release) ToProto() *api.Release {
 }
 
 func extractPrNumber(sourceMessage string) string {
-	re := regexp.MustCompile("\\(#(\\d+)\\)")
+	re := regexp.MustCompile(`\(#(\d+)\)`)
 	res := re.FindAllStringSubmatch(sourceMessage, -1)
 
 	if len(res) == 0 {

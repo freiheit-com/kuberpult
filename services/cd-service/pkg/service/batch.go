@@ -172,7 +172,7 @@ func (d *BatchServer) processAction(
 			return nil, nil, err
 		}
 		b := act.LockBehavior
-		if act.IgnoreAllLocks {
+		if act.IgnoreAllLocks { //nolint: staticcheck
 			// the UI currently sets this to true,
 			// in that case, we still want to ignore locks (for emergency deployments)
 			b = api.LockBehavior_IGNORE
@@ -296,7 +296,7 @@ func (d *BatchServer) ProcessBatch(
 ) (*api.BatchResponse, error) {
 	user, err := auth.ReadUserFromContext(ctx)
 	if err != nil {
-		return nil, grpc.AuthError(ctx, errors.New(fmt.Sprintf("batch requires user to be provided %v", err)))
+		return nil, grpc.AuthError(ctx, fmt.Errorf("batch requires user to be provided %v", err))
 	}
 	ctx = auth.WriteUserToContext(ctx, *user)
 	if len(in.GetActions()) > maxBatchActions {

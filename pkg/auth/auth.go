@@ -21,10 +21,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
+
 	"github.com/freiheit-com/kuberpult/pkg/grpc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"google.golang.org/grpc/metadata"
-	"net/http"
 )
 
 type ctxMarker struct{}
@@ -113,7 +114,7 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 	}
 	originalEmailArr := md.Get(HeaderUserEmail)
 	if len(originalEmailArr) != 1 {
-		return nil, grpc.AuthError(ctx, errors.New(fmt.Sprintf("did not find exactly 1 author-email in grpc context: %+v", originalEmailArr)))
+		return nil, grpc.AuthError(ctx, fmt.Errorf("did not find exactly 1 author-email in grpc context: %+v", originalEmailArr))
 	}
 	originalEmail := originalEmailArr[0]
 	userMail, err := Decode64(originalEmail)

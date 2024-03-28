@@ -17,8 +17,6 @@ Copyright 2023 freiheit.com*/
 package repository
 
 import (
-	"fmt"
-
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"google.golang.org/protobuf/proto"
 )
@@ -116,7 +114,7 @@ type LockedError struct {
 }
 
 func (l *LockedError) String() string {
-	return fmt.Sprintf("locked")
+	return "locked"
 }
 
 func (l *LockedError) Error() string {
