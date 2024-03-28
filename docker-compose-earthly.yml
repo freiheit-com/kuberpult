@@ -10,7 +10,7 @@ services:
       - KUBERPULT_DEX_ENABLED=false
       - KUBERPULT_GIT_WRITE_COMMIT_DATA=true
       - KUBERPULT_MAXIMUM_QUEUE_SIZE=2
-      - KUBERPULT_ARCO_CD_GENERATE_FILES=false
+      - KUBERPULT_ARGO_CD_GENERATE_FILES=false
     ports:
       - "8080:8080"
       - "8443:8443"
