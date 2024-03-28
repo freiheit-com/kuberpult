@@ -29,13 +29,9 @@ import (
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 )
 
-func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
+func (s Server) handleReleaseTrainExecution(w http.ResponseWriter, req *http.Request, target string) {
 	if req.Method != http.MethodPut {
 		http.Error(w, fmt.Sprintf("releasetrain only accepts method PUT, got: '%s'", req.Method), http.StatusMethodNotAllowed)
-		return
-	}
-	if tail != "/" {
-		http.Error(w, fmt.Sprintf("releasetrain does not accept additional path arguments, got: '%s'", tail), http.StatusNotFound)
 		return
 	}
 	queryParams := req.URL.Query()
@@ -90,4 +86,51 @@ func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, tar
 		return
 	}
 	w.Write(json) //nolint:errcheck
+}
+
+func (s Server) handleReleaseTrainPrognosis(w http.ResponseWriter, req *http.Request, target string) {
+	if req.Method != http.MethodGet {
+		http.Error(w, fmt.Sprintf("releasetrain prognosis only accepts method GET, got: '%s'", req.Method), http.StatusMethodNotAllowed)
+		return
+	}
+
+	queryParams := req.URL.Query()
+	teamParam := queryParams.Get("team")
+
+	response, err := s.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(req.Context(), &api.ReleaseTrainRequest{
+		Target:     target,
+		CommitHash: "",
+		Team:       teamParam,
+	})
+
+	if err != nil {
+		handleGRPCError(req.Context(), w, err)
+		return
+	}
+	json, err := json.Marshal(response.EnvsPrognoses)
+	if err != nil {
+		w.Write([]byte(fmt.Sprintf("error while serializing response, error: %v", err.Error()))) //nolint:errcheck
+		return
+	}
+	w.Write(json) //nolint:errcheck
+}
+
+func (s Server) handleReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
+	switch tail {
+	case "/":
+		s.handleReleaseTrainExecution(w, req, target)
+	default:
+		http.Error(w, fmt.Sprintf("release trains must be invoked via /releasetrain, but it was invoked via /releasetrain%s", tail), http.StatusNotFound)
+		return
+	}
+}
+
+func (s Server) handleApiReleaseTrain(w http.ResponseWriter, req *http.Request, target, tail string) {
+	switch tail {
+	case "/prognosis":
+		s.handleReleaseTrainPrognosis(w, req, target)
+	default:
+		http.Error(w, fmt.Sprintf("release trains must be invoked via /releasetrain/prognosis, but it was invoked via /releasetrain%s", tail), http.StatusNotFound)
+		return
+	}
 }

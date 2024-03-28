@@ -592,6 +592,46 @@ message GetStatusResponse {
   repeated ApplicationStatus applications = 2;
 }
 
+service ReleaseTrainPrognosisService {
+  rpc GetReleaseTrainPrognosis (ReleaseTrainRequest) returns (GetReleaseTrainPrognosisResponse) {}
+}
+
+enum ReleaseTrainAppSkipCause {
+  APP_HAS_NO_VERSION_IN_UPSTREAM_ENV = 0;
+  APP_ALREADY_IN_UPSTREAM_VERSION = 1;
+  APP_IS_LOCKED = 2;
+  APP_DOES_NOT_EXIST_IN_ENV = 3;
+}
+
+message ReleaseTrainAppPrognosis {
+  oneof outcome {
+    ReleaseTrainAppSkipCause skip_cause = 1;
+    uint64 deployed_version = 2;
+  }
+}
+
+enum ReleaseTrainEnvSkipCause {
+  ENV_HAS_NO_UPSTREAM = 0;
+  ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV = 1;
+  ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV = 2;
+  UPSTREAM_ENV_CONFIG_NOT_FOUND = 3;
+  ENV_IS_LOCKED = 4;
+}
+
+message ReleaseTrainEnvPrognosis {
+  message AppsPrognosesWrapper {
+    map<string, ReleaseTrainAppPrognosis> prognoses = 1;
+  }
+  oneof outcome {
+    ReleaseTrainEnvSkipCause skip_cause = 1;
+    AppsPrognosesWrapper apps_prognoses = 2;
+  }
+}
+
+message GetReleaseTrainPrognosisResponse {
+  map<string, ReleaseTrainEnvPrognosis> envs_prognoses = 1;
+}
+
 message GetManifestsRequest {
   string application = 1;
   string release = 2;
