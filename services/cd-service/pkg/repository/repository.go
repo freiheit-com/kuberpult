@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/cmd"
 	"io"
 	"net/http"
 	"os"
@@ -61,6 +60,10 @@ import (
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/libgit2/git2go/v34"
 )
+
+type contextKey string
+
+const DdMetricsKey contextKey = "ddMetrics"
 
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
@@ -335,7 +338,7 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.BackgroundFunc, error) {
 	logger := logger.FromContext(ctx)
 
-	ddMetricsFromCtx := ctx.Value(cmd.DdMetricsKey)
+	ddMetricsFromCtx := ctx.Value(DdMetricsKey)
 	if ddMetricsFromCtx != nil {
 		ddMetrics = ddMetricsFromCtx.(statsd.ClientInterface)
 	} else {
