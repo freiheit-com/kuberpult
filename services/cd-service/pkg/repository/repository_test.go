@@ -2229,7 +2229,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 		shouldGenerateFiles bool
 	}{
 		{
-			Name:                "Argo CD files NOT should be generated",
+			Name:                "ArgoCD files should NOT be generated",
 			shouldGenerateFiles: false,
 		},
 		{
