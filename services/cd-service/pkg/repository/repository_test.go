@@ -2261,7 +2261,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 
 			if _, err := state.Filesystem.Stat("argocd"); errors.Is(err, os.ErrNotExist) {
 				if tc.shouldGenerateFiles {
-					t.Fatalf("Expected ARGO cd directory, but none was found. %v\n", err)
+					t.Fatalf("Expected ArgoCD directory, but none was found. %v\n", err)
 				}
 			} else { //Argo CD dir exists
 				if !tc.shouldGenerateFiles {
