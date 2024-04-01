@@ -74,6 +74,37 @@ func (s Server) handleEnvironmentLocks(w http.ResponseWriter, req *http.Request,
 	}
 }
 
+func (s Server) handleApiTeamLocks(w http.ResponseWriter, req *http.Request, environment, tail string) {
+	fmt.Println(tail)
+
+	function, tail := xpath.Shift(tail)
+
+	if function != "team" {
+		http.Error(w, "Missing team text", http.StatusNotFound)
+		return
+	}
+
+	team, tail := xpath.Shift(tail)
+
+	if team == "" {
+		http.Error(w, "Missing team name", http.StatusNotFound)
+	}
+	lockID, tail := xpath.Shift(tail)
+
+	if lockID == "" {
+		http.Error(w, "Missing LockID", http.StatusNotFound)
+	}
+
+	switch req.Method {
+	case http.MethodPut:
+		s.handlePutTeamLock(w, req, environment, team, lockID)
+	case http.MethodDelete:
+		s.handleDeleteTeamLock(w, req, environment, team, lockID)
+	default:
+		http.Error(w, fmt.Sprintf("unsupported method '%s'", req.Method), http.StatusMethodNotAllowed)
+	}
+}
+
 func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Request, environment, lockID string) {
 	if s.checkContentType(w, req) {
 		return
@@ -328,4 +359,126 @@ func (s Server) handleDeleteEnvironmentGroupLock(w http.ResponseWriter, req *htt
 	if err != nil {
 		logger.FromContext(req.Context()).Error("Failed while sending the response: " + err.Error())
 	}
+}
+
+func (s Server) handlePutTeamLock(w http.ResponseWriter, req *http.Request, environment, team, lockID string) {
+	fmt.Printf("handlePutTeamLock: %s %s %s\n", environment, team, lockID)
+
+	if s.checkContentType(w, req) {
+		return
+	}
+
+	var body putLockRequest
+	invalidMessage := "Please provide lock message in body"
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		decodeError := err.Error()
+		if errors.Is(err, io.EOF) {
+			decodeError = invalidMessage
+		}
+		http.Error(w, decodeError, http.StatusBadRequest)
+		return
+	}
+
+	if len(body.Message) == 0 {
+		http.Error(w, invalidMessage, http.StatusBadRequest)
+		return
+	}
+
+	if s.AzureAuth {
+		signature := body.Signature
+		if len(signature) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
+			return
+		}
+
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), strings.NewReader(signature), nil); err != nil {
+			if err != pgperrors.ErrUnknownIssuer {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				return
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "Invalid signature")
+			return
+		}
+	}
+
+	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
+		{Action: &api.BatchAction_CreateEnvironmentTeamLock{
+			CreateEnvironmentTeamLock: &api.CreateEnvironmentTeamLockRequest{
+				Environment: environment,
+				Team:        team,
+				LockId:      lockID,
+				Message:     body.Message,
+			},
+		}},
+	}})
+	if err != nil {
+		handleGRPCError(req.Context(), w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s Server) handleDeleteTeamLock(w http.ResponseWriter, req *http.Request, environment, team, lockID string) {
+	fmt.Printf("handleDeleteTeamLock: %s %s %s\n", environment, team, lockID)
+
+	if s.checkContentType(w, req) {
+		return
+	}
+
+	var body putLockRequest
+	invalidMessage := "Please provide lock message in body"
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		decodeError := err.Error()
+		if errors.Is(err, io.EOF) {
+			decodeError = invalidMessage
+		}
+		http.Error(w, decodeError, http.StatusBadRequest)
+		return
+	}
+
+	if len(body.Message) == 0 {
+		http.Error(w, invalidMessage, http.StatusBadRequest)
+		return
+	}
+
+	if s.AzureAuth {
+		signature := body.Signature
+		if len(signature) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
+			return
+		}
+
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), strings.NewReader(signature), nil); err != nil {
+			if err != pgperrors.ErrUnknownIssuer {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
+				return
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "Invalid signature")
+			return
+		}
+	}
+
+	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
+		{Action: &api.BatchAction_DeleteEnvironmentTeamLock{
+			DeleteEnvironmentTeamLock: &api.DeleteEnvironmentTeamLockRequest{
+				Environment: environment,
+				Team:        team,
+				LockId:      lockID,
+			},
+		}},
+	}})
+
+	if err != nil {
+		handleGRPCError(req.Context(), w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
