@@ -1473,7 +1473,9 @@ func (s *State) GetEnvLockDir(environment string, lockId string) string {
 func (s *State) GetAppLocksDir(environment string, application string) string {
 	return s.Filesystem.Join("environments", environment, "applications", application, "locks")
 }
-
+func (s *State) GetTeamLocksDir(environment string, team string) string {
+	return s.Filesystem.Join("environments", environment, "teams", team, "locks")
+}
 func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) {
 	base := s.GetEnvLocksDir(environment)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
@@ -1513,7 +1515,25 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 		return result, nil
 	}
 }
-
+func (s *State) GetEnvironmentTeamLocks(environment, team string) (map[string]Lock, error) {
+	base := s.GetTeamLocksDir(environment, team)
+	if entries, err := s.Filesystem.ReadDir(base); err != nil {
+		return nil, err
+	} else {
+		result := make(map[string]Lock, len(entries))
+		for _, e := range entries {
+			if !e.IsDir() {
+				return nil, fmt.Errorf("error getting application locks: found file in the locks directory. run migration script to generate correct metadata")
+			}
+			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
+				return nil, err
+			} else {
+				result[e.Name()] = *lock
+			}
+		}
+		return result, nil
+	}
+}
 func (s *State) GetDeploymentMetaData(environment, application string) (string, time.Time, error) {
 	base := s.Filesystem.Join("environments", environment, "applications", application)
 	author, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_by"))
@@ -1541,6 +1561,12 @@ func (s *State) GetDeploymentMetaData(environment, application string) (string, 
 	}
 
 	return string(author), deployedAt, nil
+}
+
+func (s *State) DeleteTeamLockIfEmpty(ctx context.Context, environment string, team string) error {
+	dir := s.GetTeamLocksDir(environment, team)
+	_, err := s.DeleteDirIfEmpty(dir)
+	return err
 }
 
 func (s *State) DeleteAppLockIfEmpty(ctx context.Context, environment string, application string) error {

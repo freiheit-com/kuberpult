@@ -1517,6 +1517,87 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	return fmt.Sprintf("Deleted lock %q on environment %q for application %q%s", c.LockId, c.Environment, c.Application, queueMessage), nil
 }
 
+type CreateEnvironmentTeamLock struct {
+	Authentication
+	Environment string
+	Team        string
+	LockId      string
+	Message     string
+}
+
+func (c *CreateEnvironmentTeamLock) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+) (string, error) {
+	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
+	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, c.Team, c.RBACConfig)
+	if err != nil {
+		return "", err
+	}
+	fs := state.Filesystem
+	envDir := fs.Join("environments", c.Environment)
+	if _, err := fs.Stat(envDir); err != nil {
+		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+	}
+
+	teamDir := fs.Join(envDir, "teams", c.Team)
+	if err := fs.MkdirAll(teamDir, 0777); err != nil {
+		return "", err
+	}
+	chroot, err := fs.Chroot(teamDir)
+	if err != nil {
+		return "", err
+	}
+	if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
+		return "", err
+	}
+	//GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
+	// locks are invisible to argoCd, so no changes here
+	return fmt.Sprintf("Created lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
+}
+
+type DeleteEnvironmentTeamLock struct {
+	Authentication
+	Environment string
+	Team        string
+	LockId      string
+}
+
+func (c *DeleteEnvironmentTeamLock) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+) (string, error) {
+	err := state.checkUserPermissions(ctx, c.Environment, "", auth.PermissionDeleteLock, c.Team, c.RBACConfig)
+	if err != nil {
+		return "", err
+	}
+	fs := state.Filesystem
+	lockDir := fs.Join("environments", c.Environment, "teams", c.Team, "locks", c.LockId)
+	_, err = fs.Stat(lockDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
+		}
+		return "", err
+	}
+	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+	}
+	s := State{
+		Commit:                 nil,
+		BootstrapMode:          false,
+		EnvironmentConfigsPath: "",
+		Filesystem:             fs,
+	}
+	if err := s.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
+}
+
 type CreateEnvironment struct {
 	Authentication
 	Environment string
@@ -1614,6 +1695,7 @@ func (c *DeployApplicationVersion) Transform(
 	}
 	fs := state.Filesystem
 	// Check that the release exist and fetch manifest
+
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
 	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
 	var manifestContent []byte
@@ -1627,12 +1709,13 @@ func (c *DeployApplicationVersion) Transform(
 		}
 		file.Close()
 	}
+
 	lockPreventedDeployment := false
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
-			envLocks, appLocks map[string]Lock
-			err                error
+			envLocks, appLocks, teamLocks map[string]Lock
+			err                           error
 		)
 		envLocks, err = state.GetEnvironmentLocks(c.Environment)
 		if err != nil {
@@ -1642,7 +1725,21 @@ func (c *DeployApplicationVersion) Transform(
 		if err != nil {
 			return "", err
 		}
-		if len(envLocks) > 0 || len(appLocks) > 0 {
+
+		appDir := applicationDirectory(fs, c.Application)
+
+		team, err := util.ReadFile(fs, fs.Join(appDir, "team"))
+
+		if errors.Is(err, os.ErrNotExist) {
+			teamLocks = map[string]Lock{} //This is a workaround. This transformer now needs a team file to be created on the application folder in order for the team locks to be loaded correctly. It turns out almost no other test that uses the create release transformer (that uses this one) sets the team, so the file wont exist and the tests will fail. IF we can't find the file, simply create an empty map and move on.
+		} else {
+			teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, string(team))
+			if err != nil {
+				return "", err
+			}
+		}
+
+		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
 			if c.WriteCommitData {
 				var lockType, lockMsg string
 				if len(envLocks) > 0 {
@@ -1652,11 +1749,20 @@ func (c *DeployApplicationVersion) Transform(
 						break
 					}
 				} else {
-					lockType = "application"
-					for _, lock := range appLocks {
-						lockMsg = lock.Message
-						break
+					if len(appLocks) > 0 {
+						lockType = "application"
+						for _, lock := range appLocks {
+							lockMsg = lock.Message
+							break
+						}
+					} else {
+						lockType = "team"
+						for _, lock := range teamLocks {
+							lockMsg = lock.Message
+							break
+						}
 					}
+
 				}
 				if err := addEventForRelease(ctx, fs, releaseDir, &event.LockPreventedDeployment{
 					Application: c.Application,

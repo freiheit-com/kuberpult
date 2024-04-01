@@ -19,9 +19,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/go-git/go-billy/v5"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
@@ -88,12 +91,29 @@ func getBatchActions() []*api.BatchAction {
 			LockId:      "5678",
 		},
 	}
+	opCreateTeamLock := &api.BatchAction_CreateEnvironmentTeamLock{ // this deletes the existing lock in the transformers
+		CreateEnvironmentTeamLock: &api.CreateEnvironmentTeamLockRequest{
+			Environment: "production",
+			Team:        "test-team",
+			LockId:      "teamlock",
+			Message:     "Test Create a Team lock",
+		},
+	}
+	opDeleteTeamLock := &api.BatchAction_DeleteEnvironmentTeamLock{ // this deletes the existing lock in the transformers
+		DeleteEnvironmentTeamLock: &api.DeleteEnvironmentTeamLockRequest{
+			Environment: "production",
+			Team:        "test-team",
+			LockId:      "91011",
+		},
+	}
 	ops := []*api.BatchAction{ // it works through the batch in order
 		{Action: opDeleteEnvLock},
 		{Action: opDeleteAppLock},
 		{Action: opDeploy},
 		{Action: opCreateEnvLock},
 		{Action: opCreateAppLock},
+		{Action: opCreateTeamLock},
+		{Action: opDeleteTeamLock},
 	}
 	return ops
 }
@@ -153,7 +173,14 @@ func TestBatchServiceWorks(t *testing.T) {
 					LockId:      "5678",
 					Message:     "AppLock",
 				},
+				&repository.CreateEnvironmentTeamLock{ // will be deleted by the batch actions
+					Environment: prod,
+					Team:        "test-team",
+					LockId:      "91011",
+					Message:     "TeamLock",
+				},
 			},
+
 			Batch:   getBatchActions(),
 			context: testutil.MakeTestContext(),
 			svc:     &BatchServer{},
@@ -181,6 +208,12 @@ func TestBatchServiceWorks(t *testing.T) {
 					Application: "test",
 					LockId:      "5678",
 					Message:     "no message",
+				},
+				&repository.CreateEnvironmentTeamLock{ // will be deleted by the batch actions
+					Environment: prod,
+					Team:        "test-team",
+					LockId:      "91011",
+					Message:     "TeamLock",
 				},
 			},
 			Batch:   getBatchActions(),
@@ -219,6 +252,7 @@ func TestBatchServiceWorks(t *testing.T) {
 				},
 			)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				fmt.Println(strings.Join(listFiles(tc.svc.Repository.State().Filesystem), "\n"))
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 			if tc.expectedError != nil {
@@ -277,11 +311,47 @@ func TestBatchServiceWorks(t *testing.T) {
 					t.Error("lock was not deleted")
 				}
 			}
+			//Check that Team lock was created
+			{
+				teamLocks, err := tc.svc.Repository.State().GetEnvironmentTeamLocks("production", "test-team")
+				if err != nil {
+					t.Fatal(err)
+				}
+				lock, exists := teamLocks["teamlock"]
+				if !exists {
+					t.Error("Team lock was not created")
+				}
+				if lock.Message != "Test Create a Team lock" {
+					t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
+				}
+				_, exists = teamLocks["91011"]
+				if exists {
+					t.Error("lock was not deleted")
+				}
+			}
 
 		})
 	}
 }
+func listFilesHelper(fs billy.Filesystem, path string) []string {
+	ret := make([]string, 0)
 
+	files, err := fs.ReadDir(path)
+	if err == nil {
+		for _, file := range files {
+			ret = append(ret, listFilesHelper(fs, fs.Join(path, file.Name()))...)
+		}
+	} else {
+		ret = append(ret, path)
+	}
+
+	return ret
+}
+func listFiles(fs billy.Filesystem) []string {
+	paths := listFilesHelper(fs, ".")
+	sort.Slice(paths, func(i, j int) bool { return paths[i] < paths[j] })
+	return paths
+}
 func TestBatchServiceFails(t *testing.T) {
 	tcs := []struct {
 		Name               string
