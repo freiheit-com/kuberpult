@@ -3318,14 +3318,20 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
-					Team:            "sre-team",
+					Team:            "another-team",
 				},
 				&ReleaseTrain{
 					Target: envProduction,
 				},
 			},
 			expectedChanges: &TransformerResult{
-				ChangedApps: nil,
+				ChangedApps: []AppEnv{
+					{
+						App:  "bar",
+						Env:  envProduction,
+						Team: "another-team",
+					},
+				},
 			},
 		},
 		{
