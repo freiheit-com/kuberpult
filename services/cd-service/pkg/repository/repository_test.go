@@ -2264,7 +2264,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 					t.Fatalf("Expected ARGO cd directory, but none was found. %v\n", err)
 				}
 			} else { //Argo CD dir exists
-				if err == nil && tc.shouldGenerateFiles == false {
+				if !tc.shouldGenerateFiles {
 					t.Fatalf("ArgoCD files should not have been generated. Found ArgoCD directory.")
 				}
 			}
