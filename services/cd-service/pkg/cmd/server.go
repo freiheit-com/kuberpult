@@ -49,10 +49,6 @@ import (
 
 const datadogNameCd = "kuberpult-cd-service"
 
-type contextKey string
-
-const ddMetricsKey contextKey = "ddMetrics"
-
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
 	GitUrl                   string        `required:"true" split_words:"true"`
@@ -173,7 +169,7 @@ func RunServer() {
 			if err != nil {
 				logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
 			}
-			ctx = context.WithValue(ctx, ddMetricsKey, ddMetrics)
+			ctx = context.WithValue(ctx, repository.DdMetricsKey, ddMetrics)
 		}
 
 		// If the tracer is not started, calling this function is a no-op.
@@ -277,6 +273,13 @@ func RunServer() {
 					api.RegisterGitServiceServer(srv, &service.GitServer{Config: cfg, OverviewService: overviewSrv})
 					api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 					api.RegisterEnvironmentServiceServer(srv, &service.EnvironmentServiceServer{Repository: repo})
+					api.RegisterReleaseTrainPrognosisServiceServer(srv, &service.ReleaseTrainPrognosisServer{
+						Repository: repo,
+						RBACConfig: auth.RBACConfig{
+							DexEnabled: c.DexEnabled,
+							Policy:     dexRbacPolicy,
+						},
+					})
 					reflection.Register(srv)
 					reposerver.Register(srv, repo, cfg)
 

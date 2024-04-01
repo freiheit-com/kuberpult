@@ -61,6 +61,10 @@ import (
 	git "github.com/libgit2/git2go/v34"
 )
 
+type contextKey string
+
+const DdMetricsKey contextKey = "ddMetrics"
+
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
@@ -336,9 +340,11 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.BackgroundFunc, error) {
 	logger := logger.FromContext(ctx)
 
-	ddMetricsFromCtx := ctx.Value("ddMetrics")
+	ddMetricsFromCtx := ctx.Value(DdMetricsKey)
 	if ddMetricsFromCtx != nil {
 		ddMetrics = ddMetricsFromCtx.(statsd.ClientInterface)
+	} else {
+		logger.Sugar().Warnf("could not load ddmetrics from context - running without datadog metrics")
 	}
 
 	if cfg.Branch == "" {

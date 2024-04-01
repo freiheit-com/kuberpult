@@ -1390,9 +1390,9 @@ type FileWithContent struct {
 func verifyContent(fs billy.Filesystem, required []FileWithContent) error {
 	for _, contentRequirement := range required {
 		if data, err := util.ReadFile(fs, contentRequirement.Path); err != nil {
-			return fmt.Errorf("Error while opening file %s, error: %w", contentRequirement.Path, err)
+			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.Path, err)
 		} else if string(data) != contentRequirement.Content {
-			return fmt.Errorf("Actual file content is not equal to required content. Expected: %s, actual: %s", contentRequirement.Content, string(data))
+			return fmt.Errorf("actual file content of file '%s' is not equal to required content. Expected: '%s', actual: '%s'", contentRequirement.Path, contentRequirement.Content, string(data))
 		}
 	}
 	return nil
@@ -1565,7 +1565,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			},
 		},
 		{
-			Name: "Block deployments using locks",
+			Name: "Block deployments using env lock",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "dev",
@@ -1588,12 +1588,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					LockId:      "lock1",
 					Message:     "lock staging",
 				},
-				&CreateEnvironmentApplicationLock{
-					Environment: "dev",
-					Application: "myapp",
-					LockId:      "lock2",
-					Message:     "lock myapp",
-				},
 				&CreateApplicationVersion{
 					Application:    "myapp",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
@@ -1607,7 +1601,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			expectedContent: []FileWithContent{
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "lock-prevented-deployment",
+					Content: "deployment",
 				},
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
@@ -1616,14 +1610,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
 					Content: "dev",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/lock_message",
-					Content: "lock myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/lock_type",
-					Content: "application",
 				},
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
@@ -1644,6 +1630,81 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_type",
 					Content: "environment",
+				},
+			},
+		},
+		{
+			Name: "Block deployments using app lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				//&CreateEnvironmentLock{
+				//	Environment: "staging",
+				//	LockId:      "lock1",
+				//	Message:     "lock staging",
+				//},
+				&CreateEnvironmentApplicationLock{
+					Environment: "staging",
+					Application: "myapp",
+					LockId:      "lock2",
+					Message:     "lock myapp",
+				},
+				&CreateApplicationVersion{
+					Application:    "myapp",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"dev":     "some dev manifest",
+						"staging": "some staging manifest",
+					},
+					WriteCommitData: true,
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
+					Content: "deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
+					Content: "myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
+					Content: "dev",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
+					Content: "lock-prevented-deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/application",
+					Content: "myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/environment",
+					Content: "staging",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_message",
+					Content: "lock myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_type",
+					Content: "application",
 				},
 			},
 		},
@@ -1858,7 +1919,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			},
-			expectedError: errMatcher{"Error while opening file commits/12/34/nextCommit, error: file does not exist"},
+			expectedError: errMatcher{"error while opening file commits/12/34/nextCommit, error: file does not exist"},
 		},
 	}
 
@@ -1921,7 +1982,7 @@ func TestReplacedByEvent(t *testing.T) {
 					Content: "does-not-matter",
 				},
 			},
-			ExpectedError: errMatcher{"Error while opening file commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/commit, error: file does not exist"},
+			ExpectedError: errMatcher{"error while opening file commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/commit, error: file does not exist"},
 		},
 		{
 			Name: "Replace an already existing version on some environment",
@@ -2487,16 +2548,17 @@ func TestUndeployErrors(t *testing.T) {
 func TestReleaseTrainErrors(t *testing.T) {
 	tcs := []struct {
 		Name              string
-		Transformers      []Transformer
+		Setup             []Transformer
+		ReleaseTrain      ReleaseTrain
 		expectedError     *TransformerBatchApplyError
+		expectedPrognosis ReleaseTrainPrognosis
 		expectedCommitMsg string
 	}{
 		{
-			Name: "Access non-existent environment",
-			Transformers: []Transformer{
-				&ReleaseTrain{
-					Target: "doesnotexistenvironment",
-				},
+			Name:  "Access non-existent environment",
+			Setup: []Transformer{},
+			ReleaseTrain: ReleaseTrain{
+				Target: "doesnotexistenvironment",
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index: 0,
@@ -2505,11 +2567,18 @@ func TestReleaseTrainErrors(t *testing.T) {
 					"error: could not find environment group or environment configs for 'doesnotexistenvironment'",
 				),
 			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: status.Error(
+					codes.InvalidArgument,
+					"error: could not find environment group or environment configs for 'doesnotexistenvironment'",
+				),
+				EnvironmentPrognoses: nil,
+			},
 			expectedCommitMsg: "",
 		},
 		{
 			Name: "Environment is locked - but train continues in other env",
-			Transformers: []Transformer{
+			Setup: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance + "-de",
 					Config: config.EnvironmentConfig{
@@ -2538,8 +2607,27 @@ func TestReleaseTrainErrors(t *testing.T) {
 					Message:     "do not",
 					LockId:      "care either",
 				},
-				&ReleaseTrain{
-					Target: envAcceptance,
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target: envAcceptance,
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
+						},
+						Error:         nil,
+						AppsPrognoses: nil,
+					},
+					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
+						},
+						Error:         nil,
+						AppsPrognoses: nil,
+					},
 				},
 			},
 			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
@@ -2549,7 +2637,7 @@ Target Environment 'acceptance-de' is locked - skipping.`,
 		},
 		{
 			Name: "Environment has no upstream - but train continues in other env",
-			Transformers: []Transformer{
+			Setup: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance + "-ca",
 					Config: config.EnvironmentConfig{
@@ -2564,8 +2652,27 @@ Target Environment 'acceptance-de' is locked - skipping.`,
 						EnvironmentGroup: ptr.FromString(envAcceptance),
 					},
 				},
-				&ReleaseTrain{
-					Target: envAcceptance,
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target: envAcceptance,
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
+						},
+						Error:         nil,
+						AppsPrognoses: nil,
+					},
+					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
+						},
+						Error:         nil,
+						AppsPrognoses: nil,
+					},
 				},
 			},
 			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
@@ -2575,7 +2682,7 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 		},
 		{
 			Name: "Environment has no upstream.latest or env - but train continues in other env",
-			Transformers: []Transformer{
+			Setup: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance + "-ca",
 					Config: config.EnvironmentConfig{
@@ -2596,8 +2703,27 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 						EnvironmentGroup: ptr.FromString(envAcceptance),
 					},
 				},
-				&ReleaseTrain{
-					Target: envAcceptance,
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target: envAcceptance,
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
+						},
+						Error:         nil,
+						AppsPrognoses: nil,
+					},
+					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
+						},
+						Error:         nil,
+						AppsPrognoses: nil,
+					},
 				},
 			},
 			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
@@ -2607,7 +2733,7 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 		},
 		{
 			Name: "Environment has both upstream.latest and env - but train continues in other env",
-			Transformers: []Transformer{
+			Setup: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance + "-ca",
 					Config: config.EnvironmentConfig{
@@ -2628,9 +2754,28 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 						EnvironmentGroup: ptr.FromString(envAcceptance),
 					},
 				},
-				&ReleaseTrain{
-					Target: envAcceptance,
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
+						},
+						Error:         nil,
+						AppsPrognoses: nil,
+					},
+					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
+						},
+						Error:         nil,
+						AppsPrognoses: nil,
+					},
 				},
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target: envAcceptance,
 			},
 			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
 
@@ -2643,7 +2788,20 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			ctx := testutil.MakeTestContext()
+
+			err := repo.Apply(ctx, tc.Setup...)
+			if err != nil {
+				t.Fatalf("error encountered during setup, but none was expected here, error: %v", err)
+			}
+
+			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State())
+
+			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses) || !cmp.Equal(prognosis.Error, tc.expectedPrognosis.Error, cmpopts.EquateErrors()) {
+				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.expectedPrognosis, prognosis)
+			}
+
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), []Transformer{&tc.ReleaseTrain}...)
 
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
@@ -2668,6 +2826,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 		expectedError      *TransformerBatchApplyError
 		expectedCommitMsg  string
 		overrideCommitHash string
+		ExpectedPrognosis  ReleaseTrainPrognosis
 	}{
 		{
 			Name: "Release train done without commit Hash",
@@ -2697,6 +2856,21 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 			ReleaseTrainEnv:    "staging",
 			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 1 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"",
 			overrideCommitHash: "",
+			ExpectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"staging": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: nil,
+						Error:     nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{
+							"test": ReleaseTrainApplicationPrognosis{
+								SkipCause: nil,
+								Version:   1,
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			Name: "Release train done with commit Hash",
@@ -2736,6 +2910,21 @@ Release Train to 'staging' environment:
 
 The release train deployed 1 services from 'dev' to 'staging'
 deployed version 1 of "test" to "staging"`,
+			ExpectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"staging": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: nil,
+						Error:     nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{
+							"test": ReleaseTrainApplicationPrognosis{
+								SkipCause: nil,
+								Version:   1,
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			Name: "Release train done with commit but nothing to deploy",
@@ -2764,6 +2953,16 @@ deployed version 1 of "test" to "staging"`,
 Release Train to 'dev' environment:
 
 The release train deployed 0 services from 'latest' to 'dev'`,
+			ExpectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"dev": ReleaseTrainEnvironmentPrognosis{
+						SkipCause:     nil,
+						Error:         nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
+					},
+				},
+			},
 		},
 		{
 			Name: "Release train with invalid commitHash",
@@ -2794,6 +2993,13 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 				),
 			},
 			overrideCommitHash: "3f1debc97f5880c59caab9b36ad31f52604ce4dd",
+			ExpectedPrognosis: ReleaseTrainPrognosis{
+				Error: status.Error(
+					codes.InvalidArgument,
+					"error: could not get app version for commitHash 3f1debc97f5880c59caab9b36ad31f52604ce4dd for dev: ErrNotFound: object not found - no match for id (3f1debc97f5880c59caab9b36ad31f52604ce4dd)",
+				),
+				EnvironmentPrognoses: nil,
+			},
 		},
 		{
 			Name: "Release train with invalid oid value",
@@ -2822,6 +3028,13 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 					codes.InvalidArgument,
 					"error: could not get app version for commitHash aa for dev: Error creating new oid for commitHash aa: invalid oid",
 				),
+			},
+			ExpectedPrognosis: ReleaseTrainPrognosis{
+				Error: status.Error(
+					codes.InvalidArgument,
+					"error: could not get app version for commitHash aa for dev: Error creating new oid for commitHash aa: invalid oid",
+				),
+				EnvironmentPrognoses: nil,
 			},
 			overrideCommitHash: "aa",
 		},
@@ -2879,6 +3092,13 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 				Target:     tc.ReleaseTrainEnv,
 				Repo:       repo,
 			}
+
+			prognosis := releaseTrain.Prognosis(ctx, repo.State())
+
+			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.ExpectedPrognosis.EnvironmentPrognoses) || !cmp.Equal(prognosis.Error, tc.ExpectedPrognosis.Error, cmpopts.EquateErrors()) {
+				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.ExpectedPrognosis, prognosis)
+			}
+
 			commitMsg, _, _, applyErr := repo.ApplyTransformersInternal(testutil.MakeTestContext(), releaseTrain)
 
 			if diff := cmp.Diff(tc.expectedError, applyErr, cmpopts.EquateErrors()); diff != "" {
