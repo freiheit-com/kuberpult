@@ -58,7 +58,8 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 		result:       resultChannel,
 	}
 
-	q.GaugeQueueSize()
+	defer q.GaugeQueueSize()
+
 	select {
 	case q.transformerBatches <- e:
 		return resultChannel
@@ -79,6 +80,8 @@ func makeQueueN(size uint) queue {
 func (q *queue) GaugeQueueSize() {
 	if ddMetrics != nil {
 		queueSize := len(q.transformerBatches)
-		ddMetrics.Gauge("request_queue_size", float64(queueSize), []string{}, 1) //
+		ddMetrics.Gauge("request_queue_size", float64(queueSize), []string{}, 1) //nolint: errcheck
+		//We would just log the returned error here. For us to add a context and log the error here, we would need
+		//to provide on to repository.drainQueue, which would make some test cases fail (?).
 	}
 }
