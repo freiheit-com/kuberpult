@@ -82,7 +82,7 @@ type Config struct {
 	GitWebUrl                string        `default:"" split_words:"true"`
 	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
-	ArgoCdGenerateFiles      bool          `default:"false" split_words:"true"`
+	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {

@@ -2846,11 +2846,12 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 			repo, err := New(
 				ctx,
 				RepositoryConfig{
-					URL:            "file://" + remoteDir,
-					Path:           localDir,
-					CommitterEmail: "kuberpult@freiheit.com",
-					CommitterName:  "kuberpult",
-					Branch:         "main",
+					URL:                 "file://" + remoteDir,
+					Path:                localDir,
+					CommitterEmail:      "kuberpult@freiheit.com",
+					CommitterName:       "kuberpult",
+					Branch:              "main",
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -3839,11 +3840,12 @@ func TestRbacTransformerTest(t *testing.T) {
 			repo, err := New(
 				ctx,
 				RepositoryConfig{
-					URL:            remoteDir,
-					Path:           localDir,
-					CommitterEmail: "kuberpult@freiheit.com",
-					CommitterName:  "kuberpult",
-					BootstrapMode:  false,
+					URL:                 remoteDir,
+					Path:                localDir,
+					CommitterEmail:      "kuberpult@freiheit.com",
+					CommitterName:       "kuberpult",
+					BootstrapMode:       false,
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -5447,11 +5449,12 @@ spec:
 			repo, err := New(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:            remoteDir,
-					Path:           localDir,
-					CommitterEmail: "kuberpult@freiheit.com",
-					CommitterName:  "kuberpult",
-					BootstrapMode:  tc.BootstrapMode,
+					URL:                 remoteDir,
+					Path:                localDir,
+					CommitterEmail:      "kuberpult@freiheit.com",
+					CommitterName:       "kuberpult",
+					BootstrapMode:       tc.BootstrapMode,
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -5653,11 +5656,12 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	repo, err := New(
 		testutil.MakeTestContext(),
 		RepositoryConfig{
-			URL:             remoteDir,
-			Path:            localDir,
-			CommitterEmail:  "kuberpult@freiheit.com",
-			CommitterName:   "kuberpult",
-			WriteCommitData: true,
+			URL:                 remoteDir,
+			Path:                localDir,
+			CommitterEmail:      "kuberpult@freiheit.com",
+			CommitterName:       "kuberpult",
+			WriteCommitData:     true,
+			ArgoCdGenerateFiles: true,
 		},
 	)
 	if err != nil {
