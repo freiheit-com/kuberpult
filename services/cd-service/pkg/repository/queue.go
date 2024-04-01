@@ -81,6 +81,7 @@ func makeQueueN(size uint) queue {
 func GaugeQueueSize(ctx context.Context, q *queue) {
 	if ddMetrics != nil {
 		queueSize := len(q.transformerBatches)
+
 		err := ddMetrics.Gauge("request_queue_size", float64(queueSize), []string{}, 1)
 
 		if err != nil {

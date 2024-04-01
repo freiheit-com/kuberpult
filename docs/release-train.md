@@ -37,3 +37,17 @@ Release trains are accessible via REST API:
 [apps](./app.md) that have exactly the give team set in the [`/release` endpoint](./release.md)
 
 
+### Prognosis
+
+
+It is possible to get the prognosis, or plan, of a release train without triggering one. A release train prognosis does not alter the manifest repo in any way.
+
+
+Prognoses are exposes on the REST API:
+
+
+`GET https://your.kuberpult.host.example.com/api/environments/${env}/releasetrain/prognosis?team=${myTeam}`
+
+
+The response is merely the serialized JSON of the protobuf message `GetReleaseTrainPrognosisResponse` found [here](https://github.com/freiheit-com/kuberpult/blob/main/pkg/api/v1/api.proto).
+
