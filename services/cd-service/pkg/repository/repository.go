@@ -558,7 +558,7 @@ func (r *repository) drainQueue() []transformerBatch {
 	}
 	limit := r.config.MaximumCommitsPerPush - 1
 	transformerBatches := []transformerBatch{}
-	defer GaugeQueueSize(nil, &r.queue)
+	defer r.queue.GaugeQueueSize()
 	for uint(len(transformerBatches)) < limit {
 		select {
 		case f := <-r.queue.transformerBatches:

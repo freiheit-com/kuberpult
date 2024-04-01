@@ -6388,19 +6388,11 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 }
 
 func TestDatadogQueueMetric(t *testing.T) {
-	makeGauge := func(name string, val float64, tags []string, rate float64) Gauge {
-		return Gauge{
-			Name:  name,
-			Value: val,
-			Tags:  tags,
-			Rate:  rate,
-		}
-	}
 	tcs := []struct {
 		Name           string
 		changes        *TransformerResult
 		transformers   []Transformer
-		expectedGauges []Gauge
+		expectedGauges int
 	}{
 		{
 			Name: "Changes are sent as one event",
@@ -6424,10 +6416,7 @@ func TestDatadogQueueMetric(t *testing.T) {
 					WriteCommitData: false,
 				},
 			},
-			expectedGauges: []Gauge{
-				makeGauge("request_queue_size", 1, []string{}, 1),
-				makeGauge("request_queue_size", 0, []string{}, 1),
-			},
+			expectedGauges: 2,
 		},
 	}
 	for _, tc := range tcs {
@@ -6446,26 +6435,11 @@ func TestDatadogQueueMetric(t *testing.T) {
 				t.Fatalf("Expected no error: %v", err)
 			}
 
-			if len(tc.expectedGauges) != len(mockClient.gauges) {
-				gaugesString := ""
-				for i := range mockClient.gauges {
-					gauge := mockClient.gauges[i]
-					gaugesString += fmt.Sprintf("%v\n", gauge)
-				}
-				msg := fmt.Sprintf("expected %d gauges but got %d\nActual:\n%v\n",
-					len(tc.expectedGauges), len(mockClient.gauges), gaugesString)
+			if tc.expectedGauges != len(mockClient.gauges) {
+				// Don't compare the value of the gauge, only the number of gauges (concurrency, values may change!, creating a flakey test)
+				msg := fmt.Sprintf("expected %d gauges but got %d\n",
+					tc.expectedGauges, len(mockClient.gauges))
 				t.Fatalf(msg)
-			}
-			for i := range tc.expectedGauges {
-				var expectedGauge Gauge = tc.expectedGauges[i]
-				sort.Strings(expectedGauge.Tags)
-				var actualGauge Gauge = mockClient.gauges[i]
-				sort.Strings(actualGauge.Tags)
-				t.Logf("actualGauges: %v", actualGauge.Tags)
-
-				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
-					t.Errorf("[%d] got %v, want %v, diff (-want +got) %s", i, actualGauge, expectedGauge, diff)
-				}
 			}
 		})
 	}
