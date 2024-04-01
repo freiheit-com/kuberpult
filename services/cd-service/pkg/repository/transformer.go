@@ -1552,7 +1552,6 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
 		return "", err
 	}
-	//GaugeEnvAppLockMetric(fs, c.Environment, c.Application)
 	// locks are invisible to argoCd, so no changes here
 	return fmt.Sprintf("Created lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
 }
@@ -1578,7 +1577,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	_, err = fs.Stat(lockDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for team lock does not exist", lockDir))
 		}
 		return "", err
 	}
@@ -1695,7 +1694,6 @@ func (c *DeployApplicationVersion) Transform(
 	}
 	fs := state.Filesystem
 	// Check that the release exist and fetch manifest
-
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
 	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
 	var manifestContent []byte
@@ -1709,7 +1707,6 @@ func (c *DeployApplicationVersion) Transform(
 		}
 		file.Close()
 	}
-
 	lockPreventedDeployment := false
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
@@ -1731,7 +1728,7 @@ func (c *DeployApplicationVersion) Transform(
 		team, err := util.ReadFile(fs, fs.Join(appDir, "team"))
 
 		if errors.Is(err, os.ErrNotExist) {
-			teamLocks = map[string]Lock{} //This is a workaround. This transformer now needs a team file to be created on the application folder in order for the team locks to be loaded correctly. It turns out almost no other test that uses the create release transformer (that uses this one) sets the team, so the file wont exist and the tests will fail. IF we can't find the file, simply create an empty map and move on.
+			teamLocks = map[string]Lock{} //This is a workaround. This transformer now needs a team file to be created on the application folder in order for the team locks to be loaded correctly. It turns out almost no other test that uses the CreateApplicationVersion transformer (that uses this one) sets a value for the team parameter, so the file wont exist and the tests will fail. IF we can't find the file, simply create an empty map and move on.
 		} else {
 			teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, string(team))
 			if err != nil {
@@ -1786,6 +1783,7 @@ func (c *DeployApplicationVersion) Transform(
 				return "", &LockedError{
 					EnvironmentApplicationLocks: appLocks,
 					EnvironmentLocks:            envLocks,
+					TeamLocks:                   teamLocks,
 				}
 			}
 		}

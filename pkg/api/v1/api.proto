@@ -304,6 +304,7 @@ message Lock {
 message LockedError {
   map<string, Lock> environment_locks = 1;
   map<string, Lock> environment_application_locks = 2;
+  map<string, Lock> environment_team_locks = 3;
 }
 
 service FrontendConfigService {
