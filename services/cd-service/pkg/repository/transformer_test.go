@@ -1727,8 +1727,18 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						},
 					},
 				},
+				&CreateApplicationVersion{ //Create the team
+					Application:    "someapp",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaf",
+					Manifests: map[string]string{
+						"dev":     "some dev manifest",
+						"staging": "some staging manifest",
+					},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
 				&CreateEnvironmentTeamLock{
-					Environment: "staging",
+					Environment: "dev",
 					Team:        "sre-team",
 					LockId:      "lock2",
 					Message:     "lock sreteam",
@@ -1738,7 +1748,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 					Manifests: map[string]string{
 						"dev":     "some dev manifest",
-						"staging": "some staging manifest",
+						"staging": "some staging manigest",
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
@@ -1746,35 +1756,23 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			},
 			expectedContent: []FileWithContent{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "deployment",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
-					Content: "myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
-					Content: "dev",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
 					Content: "lock-prevented-deployment",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/application",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/application",
 					Content: "myapp",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/environment",
-					Content: "staging",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/environment",
+					Content: "dev",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_message",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/lock_message",
 					Content: "lock sreteam",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_type",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/lock_type",
 					Content: "team",
 				},
 			},
@@ -3291,12 +3289,6 @@ func TestTransformerChanges(t *testing.T) {
 					Environment: envAcceptance,
 					Config:      testutil.MakeEnvConfigLatest(nil),
 				},
-				&CreateEnvironmentTeamLock{
-					Environment: envProduction,
-					Team:        "sre-team",
-					LockId:      "foo-id",
-					Message:     "foo",
-				},
 				&CreateApplicationVersion{
 					Application: "foo",
 					Manifests: map[string]string{
@@ -3306,6 +3298,12 @@ func TestTransformerChanges(t *testing.T) {
 					WriteCommitData: true,
 					Team:            "sre-team",
 				},
+				&CreateEnvironmentTeamLock{ //team lock always needs to come after some release creation
+					Environment: envProduction,
+					Team:        "sre-team",
+					LockId:      "foo-id",
+					Message:     "foo",
+				},
 				&CreateApplicationVersion{
 					Application: "bar",
 					Manifests: map[string]string{
@@ -3313,20 +3311,14 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
-					Team:            "another-team",
+					Team:            "sre-team",
 				},
 				&ReleaseTrain{
 					Target: envProduction,
 				},
 			},
 			expectedChanges: &TransformerResult{
-				ChangedApps: []AppEnv{
-					{
-						App:  "bar",
-						Env:  envProduction,
-						Team: "another-team",
-					},
-				},
+				ChangedApps: nil,
 			},
 		},
 		{
@@ -4204,6 +4196,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					},
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
+					Team:            "sre-team",
 				},
 				&CreateEnvironmentTeamLock{
 					Environment: "production",

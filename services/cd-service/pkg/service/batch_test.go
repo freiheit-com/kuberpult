@@ -109,11 +109,11 @@ func getBatchActions() []*api.BatchAction {
 	ops := []*api.BatchAction{ // it works through the batch in order
 		{Action: opDeleteEnvLock},
 		{Action: opDeleteAppLock},
+		{Action: opDeleteTeamLock},
 		{Action: opDeploy},
 		{Action: opCreateEnvLock},
 		{Action: opCreateAppLock},
 		{Action: opCreateTeamLock},
-		{Action: opDeleteTeamLock},
 	}
 	return ops
 }
@@ -161,6 +161,7 @@ func TestBatchServiceWorks(t *testing.T) {
 					Manifests: map[string]string{
 						prod: "manifest",
 					},
+					Team: "test-team",
 				},
 				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
 					Environment: prod,
@@ -197,6 +198,7 @@ func TestBatchServiceWorks(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "manifest",
 					},
+					Team: "test-team",
 				},
 				&repository.CreateEnvironmentLock{
 					Environment: "production",

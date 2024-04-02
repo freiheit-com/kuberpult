@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"sync"
 	"testing"
@@ -722,6 +723,14 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 						Message:     "no",
 					},
 				},
+				{
+					Transformer: &repository.CreateEnvironmentTeamLock{
+						Environment: "production",
+						Team:        "test-team",
+						LockId:      "manual",
+						Message:     "no",
+					},
+				},
 			},
 		},
 	}
@@ -746,8 +755,9 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 				t.Errorf("expected git revision to be empty, got %q", ov.GitRevision)
 			}
 			revisions := map[string]*api.GetOverviewResponse{}
-			for _, tr := range tc.Steps {
+			for idx, tr := range tc.Steps {
 				if err := repo.Apply(testutil.MakeTestContext(), tr.Transformer); err != nil {
+					fmt.Printf("Step: %d\n", idx)
 					t.Fatal(err)
 				}
 				ov, err = svc.GetOverview(testutil.MakeTestContext(), &api.GetOverviewRequest{})

@@ -1540,22 +1540,22 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	fs := state.Filesystem
 
 	foundTeam := false
-	if apps, err := state.GetApplications(); err != nil {
+	if apps, err := state.GetApplications(); err == nil {
 		for _, currentApp := range apps {
 			currentTeamFile := fs.Join("applications", currentApp, "team")
-			if currentTeamName, err := util.ReadFile(fs, currentTeamFile); err != nil {
+			if currentTeamName, err := util.ReadFile(fs, currentTeamFile); err == nil {
 				if c.Team == string(currentTeamName) {
 					foundTeam = true
 					break
 				}
+			} else {
+				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
 			}
-
 		}
-
-		if !foundTeam {
-			ErrTeamNotFound = fmt.Errorf("Team %s does not exist.", c.Team)
-			return "", ErrTeamNotFound
-		}
+	}
+	if err != nil || !foundTeam { //Not found team or apps dir doesn't exist
+		ErrTeamNotFound = fmt.Errorf("Team %s does not exist.", c.Team)
+		return "", ErrTeamNotFound
 	}
 
 	envDir := fs.Join("environments", c.Environment)
@@ -1757,7 +1757,6 @@ func (c *DeployApplicationVersion) Transform(
 				return "", err
 			}
 		}
-
 		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
 			if c.WriteCommitData {
 				var lockType, lockMsg string
