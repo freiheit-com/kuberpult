@@ -296,6 +296,12 @@ func TestOverviewService(t *testing.T) {
 					LockId:      "manual",
 					Message:     "no",
 				},
+				//&repository.CreateEnvironmentTeamLock{
+				//	Environment: "development",
+				//	Team:        "test-team",
+				//	LockId:      "manual",
+				//	Message:     "no",
+				//},
 			},
 			Test: func(t *testing.T, svc *OverviewServiceServer) {
 				var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{

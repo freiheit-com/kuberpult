@@ -94,6 +94,7 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, grpc.InternalError(ctx, err)
 	} else {
 		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
+		teamSet := map[string]bool{}
 		for envName, config := range envs {
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
@@ -135,7 +136,7 @@ func (o *OverviewServiceServer) getOverview(
 			if apps, err := s.GetEnvironmentApplications(envName); err != nil {
 				return nil, err
 			} else {
-				teamSet := map[string]bool{}
+
 				for _, appName := range apps {
 					app := api.Environment_Application{
 						Version:         0,
@@ -150,11 +151,13 @@ func (o *OverviewServiceServer) getOverview(
 						},
 					}
 					//we don't want to insert the locks for a team twice, so init a set of checked teams and filter the ones we already processed.
-					if teamName, err := s.GetTeamName(appName); err == nil && !teamSet[teamName] {
-						teamSet[teamName] = true //add to set
+					teamName, err := s.GetTeamName(appName)
+					_, exists := teamSet[teamName]
+					if err == nil && !exists {
+						teamSet[teamName] = true
 						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr == nil {
 							for lockId, lock := range teamLocks {
-								app.Locks[lockId] = &api.Lock{
+								env.Locks[lockId] = &api.Lock{
 									Message:   lock.Message,
 									LockId:    lockId,
 									CreatedAt: timestamppb.New(lock.CreatedAt),
@@ -164,6 +167,7 @@ func (o *OverviewServiceServer) getOverview(
 									},
 								}
 							}
+							envInGroup.Locks = env.Locks
 						}
 					}
 
