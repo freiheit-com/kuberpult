@@ -554,17 +554,17 @@ func (r *repository) useRemote(callback func(*git.Remote) error) error {
 	}
 }
 
-func (r *repository) drainQueue() []transformerBatch {
+func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
 	if r.config.MaximumCommitsPerPush < 2 {
 		return nil
 	}
 	limit := r.config.MaximumCommitsPerPush - 1
 	transformerBatches := []transformerBatch{}
+	defer r.queue.GaugeQueueSize(ctx)
 	for uint(len(transformerBatches)) < limit {
 		select {
 		case f := <-r.queue.transformerBatches:
 			// Check that the item is not already cancelled
-			GaugeQueueSize(f.ctx, len(r.queue.transformerBatches))
 			select {
 			case <-f.ctx.Done():
 				f.finish(f.ctx.Err())
@@ -623,7 +623,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	}()
 
 	// Try to fetch more items from the queue in order to push more things together
-	transformerBatches = append(transformerBatches, r.drainQueue()...)
+	transformerBatches = append(transformerBatches, r.drainQueue(ctx)...)
 
 	var pushSuccess = true
 
