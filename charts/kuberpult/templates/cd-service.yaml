@@ -127,7 +127,7 @@ spec:
         - name: KUBERPULT_ARGO_CD_INSECURE
           value: {{ .Values.argocd.insecure | quote }}
         - name: KUBERPULT_ARGO_CD_GENERATE_FILES
-          value: { { .Values.argocd.generateFiles | quote } }
+          value: {{ .Values.argocd.generateFiles | quote }}
         - name: KUBERPULT_GIT_WEB_URL
           value: {{ .Values.git.webUrl | quote }}
 {{- if .Values.datadogTracing.enabled }}
