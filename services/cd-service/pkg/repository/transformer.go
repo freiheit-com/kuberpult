@@ -1525,6 +1525,8 @@ type CreateEnvironmentTeamLock struct {
 	Message     string
 }
 
+var ErrTeamNotFound error
+
 func (c *CreateEnvironmentTeamLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -1536,6 +1538,26 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		return "", err
 	}
 	fs := state.Filesystem
+
+	foundTeam := false
+	if apps, err := state.GetApplications(); err != nil {
+		for _, currentApp := range apps {
+			currentTeamFile := fs.Join("applications", currentApp, "team")
+			if currentTeamName, err := util.ReadFile(fs, currentTeamFile); err != nil {
+				if c.Team == string(currentTeamName) {
+					foundTeam = true
+					break
+				}
+			}
+
+		}
+
+		if !foundTeam {
+			ErrTeamNotFound = fmt.Errorf("Team %s does not exist.", c.Team)
+			return "", ErrTeamNotFound
+		}
+	}
+
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
 		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)

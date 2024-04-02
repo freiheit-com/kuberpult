@@ -362,6 +362,9 @@ func (d *BatchServer) ProcessBatch(
 		if errors.Is(err, repository.ErrQueueFull) {
 			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
 		}
+		if errors.Is(err, repository.ErrTeamNotFound) {
+			return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
+		}
 
 		if !errors.As(err, &applyErr) {
 			return nil, err
