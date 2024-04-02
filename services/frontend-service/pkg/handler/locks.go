@@ -95,6 +95,10 @@ func (s Server) handleApiTeamLocks(w http.ResponseWriter, req *http.Request, env
 		http.Error(w, "Missing LockID", http.StatusNotFound)
 	}
 
+	if tail != "/" {
+		http.Error(w, fmt.Sprintf("team locks does not accept additional path arguments after the lock ID, got: '%s'", tail), http.StatusNotFound)
+		return
+	}
 	switch req.Method {
 	case http.MethodPut:
 		s.handlePutTeamLock(w, req, environment, team, lockID)
