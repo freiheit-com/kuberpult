@@ -6440,7 +6440,8 @@ func TestDatadogQueueMetric(t *testing.T) {
 			}
 
 			if tc.expectedGauges != len(mockClient.gauges) {
-				// Don't compare the value of the gauge, only the number of gauges (concurrency, values may change!, creating a flakey test)
+				// Don't compare the value of the gauge, only the number of gauges,
+				// because we cannot be sure at this point what the size of the queue was during measurement
 				msg := fmt.Sprintf("expected %d gauges but got %d\n",
 					tc.expectedGauges, len(mockClient.gauges))
 				t.Fatalf(msg)
