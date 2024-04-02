@@ -61,6 +61,10 @@ import (
 	git "github.com/libgit2/git2go/v34"
 )
 
+type contextKey string
+
+const DdMetricsKey contextKey = "ddMetrics"
+
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
@@ -201,6 +205,8 @@ type RepositoryConfig struct {
 	MaximumCommitsPerPush uint
 
 	MaximumQueueSize uint
+
+	ArgoCdGenerateFiles bool
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -334,9 +340,11 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.BackgroundFunc, error) {
 	logger := logger.FromContext(ctx)
 
-	ddMetricsFromCtx := ctx.Value("ddMetrics")
+	ddMetricsFromCtx := ctx.Value(DdMetricsKey)
 	if ddMetricsFromCtx != nil {
 		ddMetrics = ddMetricsFromCtx.(statsd.ClientInterface)
+	} else {
+		logger.Sugar().Warnf("could not load ddmetrics from context - running without datadog metrics")
 	}
 
 	if cfg.Branch == "" {
@@ -546,17 +554,17 @@ func (r *repository) useRemote(callback func(*git.Remote) error) error {
 	}
 }
 
-func (r *repository) drainQueue() []transformerBatch {
+func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
 	if r.config.MaximumCommitsPerPush < 2 {
 		return nil
 	}
 	limit := r.config.MaximumCommitsPerPush - 1
 	transformerBatches := []transformerBatch{}
+	defer r.queue.GaugeQueueSize(ctx)
 	for uint(len(transformerBatches)) < limit {
 		select {
 		case f := <-r.queue.transformerBatches:
 			// Check that the item is not already cancelled
-			GaugeQueueSize(f.ctx, len(r.queue.transformerBatches))
 			select {
 			case <-f.ctx.Done():
 				f.finish(f.ctx.Err())
@@ -615,7 +623,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	}()
 
 	// Try to fetch more items from the queue in order to push more things together
-	transformerBatches = append(transformerBatches, r.drainQueue()...)
+	transformerBatches = append(transformerBatches, r.drainQueue(ctx)...)
 
 	var pushSuccess = true
 
@@ -1209,20 +1217,22 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 		}
 		spanCollectData.Finish()
 
-		spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
-		defer spanRenderAndWrite.Finish()
-		if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
-			return err
-		} else {
-			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
-			defer spanWrite.Finish()
-			for apiVersion, content := range manifests {
-				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
-					return err
-				}
-				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
-				if err := util.WriteFile(fs, target, content, 0666); err != nil {
-					return err
+		if r.config.ArgoCdGenerateFiles {
+			spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
+			defer spanRenderAndWrite.Finish()
+			if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
+				return err
+			} else {
+				spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
+				defer spanWrite.Finish()
+				for apiVersion, content := range manifests {
+					if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
+						return err
+					}
+					target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
+					if err := util.WriteFile(fs, target, content, 0666); err != nil {
+						return err
+					}
 				}
 			}
 		}

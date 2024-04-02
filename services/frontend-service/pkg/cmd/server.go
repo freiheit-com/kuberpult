@@ -272,12 +272,16 @@ func runServer(ctx context.Context) error {
 		Inner:          api.NewBatchServiceClient(cdCon),
 		DefaultTimeout: c.BatchClientTimeout,
 	}
+
+	releaseTrainPrognosisClient := api.NewReleaseTrainPrognosisServiceClient(cdCon)
+
 	gproxy := &GrpcProxy{
-		OverviewClient:           api.NewOverviewServiceClient(cdCon),
-		BatchClient:              batchClient,
-		RolloutServiceClient:     rolloutClient,
-		GitClient:                api.NewGitServiceClient(cdCon),
-		EnvironmentServiceClient: api.NewEnvironmentServiceClient(cdCon),
+		OverviewClient:              api.NewOverviewServiceClient(cdCon),
+		BatchClient:                 batchClient,
+		RolloutServiceClient:        rolloutClient,
+		GitClient:                   api.NewGitServiceClient(cdCon),
+		EnvironmentServiceClient:    api.NewEnvironmentServiceClient(cdCon),
+		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
 	}
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
@@ -311,12 +315,13 @@ func runServer(ctx context.Context) error {
 
 	grpcWebServer := grpcweb.WrapServer(gsrv)
 	httpHandler := handler.Server{
-		BatchClient:   batchClient,
-		RolloutClient: rolloutClient,
-		VersionClient: api.NewVersionServiceClient(cdCon),
-		Config:        c,
-		KeyRing:       pgpKeyRing,
-		AzureAuth:     c.AzureEnableAuth,
+		BatchClient:                 batchClient,
+		RolloutClient:               rolloutClient,
+		VersionClient:               api.NewVersionServiceClient(cdCon),
+		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
+		Config:                      c,
+		KeyRing:                     pgpKeyRing,
+		AzureAuth:                   c.AzureEnableAuth,
 	}
 	mux := http.NewServeMux()
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -543,11 +548,12 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // An alternative to the more generic methods proposed in
 // https://github.com/grpc/grpc-go/issues/2297
 type GrpcProxy struct {
-	OverviewClient           api.OverviewServiceClient
-	BatchClient              api.BatchServiceClient
-	RolloutServiceClient     api.RolloutServiceClient
-	GitClient                api.GitServiceClient
-	EnvironmentServiceClient api.EnvironmentServiceClient
+	OverviewClient              api.OverviewServiceClient
+	BatchClient                 api.BatchServiceClient
+	RolloutServiceClient        api.RolloutServiceClient
+	GitClient                   api.GitServiceClient
+	EnvironmentServiceClient    api.EnvironmentServiceClient
+	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
 }
 
 func (p *GrpcProxy) ProcessBatch(
@@ -637,4 +643,12 @@ func (p *GrpcProxy) GetStatus(ctx context.Context, in *api.GetStatusRequest) (*a
 		return nil, status.Error(codes.Unimplemented, "rollout service not configured")
 	}
 	return p.RolloutServiceClient.GetStatus(ctx, in)
+}
+
+func (p *GrpcProxy) GetReleaseTrainPrognosis(ctx context.Context, in *api.ReleaseTrainRequest) (*api.GetReleaseTrainPrognosisResponse, error) {
+	if p.ReleaseTrainPrognosisClient == nil {
+		logger.FromContext(ctx).Error("release train prognosis service received a request when it is not configured")
+		return nil, status.Error(codes.Internal, "release train prognosis service not configured")
+	}
+	return p.ReleaseTrainPrognosisClient.GetReleaseTrainPrognosis(ctx, in)
 }

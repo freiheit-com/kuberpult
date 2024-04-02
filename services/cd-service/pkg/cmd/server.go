@@ -49,10 +49,6 @@ import (
 
 const datadogNameCd = "kuberpult-cd-service"
 
-type contextKey string
-
-const ddMetricsKey contextKey = "ddMetrics"
-
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
 	GitUrl                   string        `required:"true" split_words:"true"`
@@ -82,6 +78,7 @@ type Config struct {
 	GitWebUrl                string        `default:"" split_words:"true"`
 	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
+	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -172,7 +169,7 @@ func RunServer() {
 			if err != nil {
 				logger.FromContext(ctx).Fatal("datadog.metrics.error", zap.Error(err))
 			}
-			ctx = context.WithValue(ctx, ddMetricsKey, ddMetrics)
+			ctx = context.WithValue(ctx, repository.DdMetricsKey, ddMetrics)
 		}
 
 		// If the tracer is not started, calling this function is a no-op.
@@ -218,6 +215,7 @@ func RunServer() {
 			WriteCommitData:        c.GitWriteCommitData,
 			MaximumCommitsPerPush:  c.GitMaximumCommitsPerPush,
 			MaximumQueueSize:       c.MaximumQueueSize,
+			ArgoCdGenerateFiles:    c.ArgoCdGenerateFiles,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {
@@ -275,6 +273,13 @@ func RunServer() {
 					api.RegisterGitServiceServer(srv, &service.GitServer{Config: cfg, OverviewService: overviewSrv})
 					api.RegisterVersionServiceServer(srv, &service.VersionServiceServer{Repository: repo})
 					api.RegisterEnvironmentServiceServer(srv, &service.EnvironmentServiceServer{Repository: repo})
+					api.RegisterReleaseTrainPrognosisServiceServer(srv, &service.ReleaseTrainPrognosisServer{
+						Repository: repo,
+						RBACConfig: auth.RBACConfig{
+							DexEnabled: c.DexEnabled,
+							Policy:     dexRbacPolicy,
+						},
+					})
 					reflection.Register(srv)
 					reposerver.Register(srv, repo, cfg)
 

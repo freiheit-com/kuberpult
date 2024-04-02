@@ -39,6 +39,16 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
+type mockReleaseTrainPrognosisServiceClient struct {
+	request  *api.ReleaseTrainRequest
+	response *api.GetReleaseTrainPrognosisResponse
+}
+
+func (c *mockReleaseTrainPrognosisServiceClient) GetReleaseTrainPrognosis(_ context.Context, in *api.ReleaseTrainRequest, _ ...grpc.CallOption) (*api.GetReleaseTrainPrognosisResponse, error) {
+	c.request = in
+	return c.response, nil
+}
+
 func TestServer_Handle(t *testing.T) {
 	exampleKey, err := openpgp.NewEntity("Test", "", "test@example.com", nil)
 	if err != nil {
@@ -80,15 +90,17 @@ func TestServer_Handle(t *testing.T) {
 	})
 
 	tests := []struct {
-		name                 string
-		req                  *http.Request
-		KeyRing              openpgp.KeyRing
-		signature            string
-		AzureAuthEnabled     bool
-		batchResponse        *api.BatchResponse
-		expectedResp         *http.Response
-		expectedBody         string
-		expectedBatchRequest *api.BatchRequest
+		name                                 string
+		req                                  *http.Request
+		KeyRing                              openpgp.KeyRing
+		signature                            string
+		AzureAuthEnabled                     bool
+		batchResponse                        *api.BatchResponse
+		releaseTrainPrognosisResponse        *api.GetReleaseTrainPrognosisResponse
+		expectedResp                         *http.Response
+		expectedBody                         string
+		expectedBatchRequest                 *api.BatchRequest
+		expectedReleaseTrainPrognosisRequest *api.ReleaseTrainRequest
 	}{
 		{
 			name: "wrongly routed",
@@ -150,6 +162,41 @@ func TestServer_Handle(t *testing.T) {
 			},
 		},
 		{
+			name: "release train prognosis",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/api/environments/development/releasetrain/prognosis",
+				},
+			},
+			releaseTrainPrognosisResponse: &api.GetReleaseTrainPrognosisResponse{
+				EnvsPrognoses: map[string]*api.ReleaseTrainEnvPrognosis{
+					"development": &api.ReleaseTrainEnvPrognosis{
+						Outcome: &api.ReleaseTrainEnvPrognosis_AppsPrognoses{
+							AppsPrognoses: &api.ReleaseTrainEnvPrognosis_AppsPrognosesWrapper{
+								Prognoses: map[string]*api.ReleaseTrainAppPrognosis{
+									"foo_app": &api.ReleaseTrainAppPrognosis{
+										Outcome: &api.ReleaseTrainAppPrognosis_DeployedVersion{
+											DeployedVersion: 99,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "{\"development\":{\"Outcome\":{\"AppsPrognoses\":{\"prognoses\":{\"foo_app\":{\"Outcome\":{\"DeployedVersion\":99}}}}}}}",
+			expectedReleaseTrainPrognosisRequest: &api.ReleaseTrainRequest{
+				Target:     "development",
+				Team:       "",
+				CommitHash: "",
+			},
+		},
+		{
 			name: "release train but wrong method",
 			req: &http.Request{
 				Method: http.MethodGet,
@@ -163,6 +210,19 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "releasetrain only accepts method PUT, got: 'GET'\n",
 		},
 		{
+			name: "release train prognosis with wrong method",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/environments/development/releasetrain/prognosis",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusMethodNotAllowed,
+			},
+			expectedBody: "releasetrain prognosis only accepts method GET, got: 'PUT'\n",
+		},
+		{
 			name: "release train but additional path params",
 			req: &http.Request{
 				Method: http.MethodPut,
@@ -173,7 +233,20 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
-			expectedBody: "releasetrain does not accept additional path arguments, got: '/junk'\n",
+			expectedBody: "release trains must be invoked via /releasetrain, but it was invoked via /releasetrain/junk\n",
+		},
+		{
+			name: "release train prognosis but additional path params",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/api/environments/development/releasetrain/prognosis/junk",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "release trains must be invoked via /releasetrain/prognosis, but it was invoked via /releasetrain/prognosis/junk\n",
 		},
 		{
 			name:             "release train - Azure enabled",
@@ -925,14 +998,22 @@ func TestServer_Handle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			batchClient := &mockBatchClient{batchResponse: tt.batchResponse}
+			releaseTrainPrognosisClient := &mockReleaseTrainPrognosisServiceClient{
+				response: tt.releaseTrainPrognosisResponse,
+			}
 			s := Server{
-				BatchClient: batchClient,
-				KeyRing:     tt.KeyRing,
-				AzureAuth:   tt.AzureAuthEnabled,
+				BatchClient:                 batchClient,
+				ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
+				KeyRing:                     tt.KeyRing,
+				AzureAuth:                   tt.AzureAuthEnabled,
 			}
 
 			w := httptest.NewRecorder()
-			s.Handle(w, tt.req)
+			if len(tt.req.URL.Path) >= 4 && tt.req.URL.Path[:4] == "/api" {
+				s.HandleAPI(w, tt.req)
+			} else {
+				s.Handle(w, tt.req)
+			}
 			resp := w.Result()
 
 			if d := cmp.Diff(tt.expectedResp, resp, cmpopts.IgnoreFields(http.Response{}, "Status", "Proto", "ProtoMajor", "ProtoMinor", "Header", "Body", "ContentLength")); d != "" {
@@ -1106,7 +1187,11 @@ func TestServer_Rollout(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			s.Handle(w, tt.req)
+			if tt.req.URL.Path[:3] == "api" {
+				s.HandleAPI(w, tt.req)
+			} else {
+				s.Handle(w, tt.req)
+			}
 			resp := w.Result()
 
 			if d := cmp.Diff(tt.expectedResp, resp, cmpopts.IgnoreFields(http.Response{}, "Status", "Proto", "ProtoMajor", "ProtoMinor", "Header", "Body", "ContentLength")); d != "" {
