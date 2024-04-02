@@ -296,12 +296,12 @@ func TestOverviewService(t *testing.T) {
 					LockId:      "manual",
 					Message:     "no",
 				},
-				//&repository.CreateEnvironmentTeamLock{
-				//	Environment: "development",
-				//	Team:        "test-team",
-				//	LockId:      "manual",
-				//	Message:     "no",
-				//},
+				&repository.CreateEnvironmentTeamLock{
+					Environment: "development",
+					Team:        "test-team",
+					LockId:      "manual-team-lock",
+					Message:     "team lock message",
+				},
 			},
 			Test: func(t *testing.T, svc *OverviewServiceServer) {
 				var ctx = auth.WriteUserToContext(testutil.MakeTestContext(), auth.User{
@@ -377,13 +377,20 @@ func TestOverviewService(t *testing.T) {
 					}
 				}
 
-				if len(dev.Locks) != 1 {
+				if len(dev.Locks) != 2 {
 					t.Errorf("development environment has wrong locks: %#v", dev.Locks)
 				}
 				if lck, ok := dev.Locks["manual"]; !ok {
 					t.Errorf("development environment doesn't contain manual lock: %#v", dev.Locks)
 				} else {
 					if lck.Message != "please" {
+						t.Errorf("development environment manual lock has wrong message: %q", lck.Message)
+					}
+				}
+				if lck, ok := dev.Locks["manual-team-lock"]; !ok {
+					t.Errorf("development environment doesn't contain manual-team lock: %#v", dev.Locks)
+				} else {
+					if lck.Message != "team lock message" {
 						t.Errorf("development environment manual lock has wrong message: %q", lck.Message)
 					}
 				}
