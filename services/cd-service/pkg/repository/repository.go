@@ -1657,6 +1657,18 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 	}
 }
 
+func (s *State) GetTeamName(application string) (string, error) {
+	fs := s.Filesystem
+
+	teamFilePath := fs.Join("applications", application, "team")
+
+	if teamName, err := util.ReadFile(fs, teamFilePath); err != nil {
+		return "", err
+	} else {
+		return string(teamName), nil
+	}
+}
+
 var InvalidJson = errors.New("JSON file is not valid")
 
 func envExists(envConfigs map[string]config.EnvironmentConfig, envNameToSearchFor string) bool {

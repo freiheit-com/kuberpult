@@ -131,9 +131,11 @@ func (o *OverviewServiceServer) getOverview(
 				}
 				envInGroup.Locks = env.Locks
 			}
+
 			if apps, err := s.GetEnvironmentApplications(envName); err != nil {
 				return nil, err
 			} else {
+				teamSet := map[string]bool{}
 				for _, appName := range apps {
 					app := api.Environment_Application{
 						Version:         0,
@@ -147,6 +149,24 @@ func (o *OverviewServiceServer) getOverview(
 							DeployTime:   "",
 						},
 					}
+					//we don't want to insert the locks for a team twice, so init a set of checked teams and filter the ones we already processed.
+					if teamName, err := s.GetTeamName(appName); err == nil && !teamSet[teamName] {
+						teamSet[teamName] = true //add to set
+						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr == nil {
+							for lockId, lock := range teamLocks {
+								app.Locks[lockId] = &api.Lock{
+									Message:   lock.Message,
+									LockId:    lockId,
+									CreatedAt: timestamppb.New(lock.CreatedAt),
+									CreatedBy: &api.Actor{
+										Name:  lock.CreatedBy.Name,
+										Email: lock.CreatedBy.Email,
+									},
+								}
+							}
+						}
+					}
+
 					var version *uint64
 					if version, err = s.GetEnvironmentApplicationVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
 						return nil, err
@@ -174,6 +194,7 @@ func (o *OverviewServiceServer) getOverview(
 							app.UndeployVersion = release.UndeployVersion
 						}
 					}
+
 					if appLocks, err := s.GetEnvironmentApplicationLocks(envName, appName); err != nil {
 						return nil, err
 					} else {
