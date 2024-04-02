@@ -1727,11 +1727,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						},
 					},
 				},
-				//&CreateEnvironmentLock{
-				//	Environment: "staging",
-				//	LockId:      "lock1",
-				//	Message:     "lock staging",
-				//},
 				&CreateEnvironmentTeamLock{
 					Environment: "staging",
 					Team:        "sre-team",
@@ -7204,6 +7199,165 @@ func TestDeleteLocks(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			repo := setupRepositoryTest(t)
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			actualMsg := ""
+			// note that we only check the LAST error here:
+			if len(commitMsg) > 0 {
+				actualMsg = commitMsg[len(commitMsg)-1]
+			}
+			if diff := cmp.Diff(tc.expectedCommitMsg, actualMsg); diff != "" {
+				t.Errorf("commit message mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestEnvironmentGroupLocks(t *testing.T) {
+	group := ptr.FromString("prod")
+	tcs := []struct {
+		Name              string
+		Transformers      []Transformer
+		expectedError     *TransformerBatchApplyError
+		expectedCommitMsg string
+		shouldSucceed     bool
+	}{
+		{
+			Name: "Success create env group lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "prod-ca",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, group),
+				},
+				&CreateEnvironment{
+					Environment: "prod-de",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, group),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, ptr.FromString("another-group")),
+				},
+				&CreateEnvironmentGroupLock{
+					Authentication:   Authentication{},
+					EnvironmentGroup: *group,
+					LockId:           "my-lock",
+					Message:          "my-message",
+				},
+			},
+			expectedCommitMsg: "Creating locks 'my-lock' for environment group 'prod':\nCreated lock \"my-lock\" on environment \"prod-ca\"\nCreated lock \"my-lock\" on environment \"prod-de\"",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "Success delete env group lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "prod-ca",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, group),
+				},
+				&CreateEnvironment{
+					Environment: "prod-de",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, group),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, ptr.FromString("another-group")),
+				},
+				&CreateEnvironmentGroupLock{
+					Authentication:   Authentication{},
+					EnvironmentGroup: *group,
+					LockId:           "my-lock",
+					Message:          "my-message",
+				},
+				&DeleteEnvironmentGroupLock{
+					Authentication:   Authentication{},
+					EnvironmentGroup: *group,
+					LockId:           "my-lock",
+				},
+			},
+			expectedCommitMsg: "Deleting locks 'my-lock' for environment group 'prod':\nDeleted lock \"my-lock\" on environment \"prod-ca\"\nDeleted lock \"my-lock\" on environment \"prod-de\"",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "Success delete env group that was created as env lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "prod-ca",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, group),
+				},
+				&CreateEnvironmentLock{
+					Authentication: Authentication{},
+					Environment:    "prod-ca",
+					LockId:         "my-lock",
+					Message:        "my-message",
+				},
+				&DeleteEnvironmentGroupLock{
+					Authentication:   Authentication{},
+					EnvironmentGroup: *group,
+					LockId:           "my-lock",
+				},
+			},
+			expectedCommitMsg: "Deleting locks 'my-lock' for environment group 'prod':\nDeleted lock \"my-lock\" on environment \"prod-ca\"",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "Success delete env lock that was created as env group lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "prod-ca",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, group),
+				},
+				&CreateEnvironmentGroupLock{
+					Authentication:   Authentication{},
+					EnvironmentGroup: *group,
+					LockId:           "my-lock",
+					Message:          "my-message",
+				},
+				&DeleteEnvironmentLock{
+					Authentication: Authentication{},
+					Environment:    "prod-ca",
+					LockId:         "my-lock",
+				},
+			},
+			expectedCommitMsg: "Deleted lock \"my-lock\" on environment \"prod-ca\"",
+			shouldSucceed:     true,
+		},
+		{
+			Name: "Failure create env group lock - no envs found",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "prod-ca",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, group),
+				},
+				&CreateEnvironment{
+					Environment: "prod-de",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, group),
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config:      testutil.MakeEnvConfigLatestWithGroup(nil, ptr.FromString("another-group")),
+				},
+				&CreateEnvironmentGroupLock{
+					Authentication:   Authentication{},
+					EnvironmentGroup: "dev",
+					LockId:           "my-lock",
+					Message:          "my-message",
+				},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            3,
+				TransformerError: status.Error(codes.InvalidArgument, "error: No environment found with given group 'dev'"),
+			},
+			expectedCommitMsg: "",
+			shouldSucceed:     false,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
 			repo := setupRepositoryTest(t)
 			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
