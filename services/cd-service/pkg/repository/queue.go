@@ -28,6 +28,7 @@ This queue does not improve the latency, because each request still waits for th
 import (
 	"context"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 )
 
 type queue struct {
@@ -58,7 +59,7 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 		result:       resultChannel,
 	}
 
-	defer q.GaugeQueueSize()
+	defer q.GaugeQueueSize(ctx)
 
 	select {
 	case q.transformerBatches <- e:
@@ -77,11 +78,11 @@ func makeQueueN(size uint) queue {
 	}
 }
 
-func (q *queue) GaugeQueueSize() {
+func (q *queue) GaugeQueueSize(ctx context.Context) {
 	if ddMetrics != nil {
 		queueSize := len(q.transformerBatches)
-		ddMetrics.Gauge("request_queue_size", float64(queueSize), []string{}, 1) //nolint: errcheck
-		//We would just log the returned error here. For us to add a context and log the error here, we would need
-		//to provide on to repository.drainQueue, which would make some test cases fail (?).
+		if err := ddMetrics.Gauge("request_queue_size", float64(queueSize), []string{}, 1); err != nil {
+			logger.FromContext(ctx).Warn("Error gauging queue size datadog metric.")
+		}
 	}
 }
