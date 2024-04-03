@@ -389,7 +389,6 @@ func (s Server) handlePutTeamLock(w http.ResponseWriter, req *http.Request, envi
 		return
 	}
 
-
 	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
 		{Action: &api.BatchAction_CreateEnvironmentTeamLock{
 			CreateEnvironmentTeamLock: &api.CreateEnvironmentTeamLockRequest{
@@ -409,7 +408,6 @@ func (s Server) handlePutTeamLock(w http.ResponseWriter, req *http.Request, envi
 }
 
 func (s Server) handleDeleteTeamLock(w http.ResponseWriter, req *http.Request, environment, team, lockID string) {
-
 	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
 		{Action: &api.BatchAction_DeleteEnvironmentTeamLock{
 			DeleteEnvironmentTeamLock: &api.DeleteEnvironmentTeamLockRequest{
