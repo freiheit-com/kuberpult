@@ -2726,13 +2726,13 @@ func TestReleaseTrainErrors(t *testing.T) {
 				},
 				&CreateEnvironmentLock{
 					Environment: envAcceptance + "-ca",
-					Message:     "don't",
-					LockId:      "care",
+					Message:     "mA",
+					LockId:      "IdA",
 				},
 				&CreateEnvironmentLock{
 					Environment: envAcceptance + "-de",
-					Message:     "do not",
-					LockId:      "care either",
+					Message:     "mB",
+					LockId:      "IdB",
 				},
 			},
 			ReleaseTrain: ReleaseTrain{
@@ -2741,19 +2741,21 @@ func TestReleaseTrainErrors(t *testing.T) {
 			expectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
 				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
-					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
 						Error:         nil,
-						AppsPrognoses: nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
+						LockMessage:   "mA",
 					},
-					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
+					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
 						Error:         nil,
-						AppsPrognoses: nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
+						LockMessage:   "mB",
 					},
 				},
 			},
@@ -2885,18 +2887,20 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 			expectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
 				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
-					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
 						Error:         nil,
+						LockMessage:   "",
 						AppsPrognoses: nil,
 					},
-					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
+					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
 						Error:         nil,
+						LockMessage:   "",
 						AppsPrognoses: nil,
 					},
 				},
@@ -2924,8 +2928,11 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 
 			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State())
 
-			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses) || !cmp.Equal(prognosis.Error, tc.expectedPrognosis.Error, cmpopts.EquateErrors()) {
-				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.expectedPrognosis, prognosis)
+			if diff := cmp.Diff(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses); diff != "" {
+				t.Fatalf("release train prognosis is wrong, wanted the result \n%v\n got\n%v\ndiff:\n%s", tc.expectedPrognosis.EnvironmentPrognoses, prognosis.EnvironmentPrognoses, diff)
+			}
+			if !cmp.Equal(prognosis.Error, tc.expectedPrognosis.Error, cmpopts.EquateErrors()) {
+				t.Fatalf("release train prognosis is wrong, wanted the error %v, got %v", tc.expectedPrognosis.Error, prognosis.Error)
 			}
 
 			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), []Transformer{&tc.ReleaseTrain}...)
