@@ -651,6 +651,7 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 			CommitterEmail:         "kuberpult@freiheit.com",
 			CommitterName:          "kuberpult",
 			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+			ArgoCdGenerateFiles:    true,
 		},
 	)
 	if err != nil {

@@ -3128,11 +3128,12 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 			repo, err := New(
 				ctx,
 				RepositoryConfig{
-					URL:            "file://" + remoteDir,
-					Path:           localDir,
-					CommitterEmail: "kuberpult@freiheit.com",
-					CommitterName:  "kuberpult",
-					Branch:         "main",
+					URL:                 "file://" + remoteDir,
+					Path:                localDir,
+					CommitterEmail:      "kuberpult@freiheit.com",
+					CommitterName:       "kuberpult",
+					Branch:              "main",
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -4303,11 +4304,12 @@ func TestRbacTransformerTest(t *testing.T) {
 			repo, err := New(
 				ctx,
 				RepositoryConfig{
-					URL:            remoteDir,
-					Path:           localDir,
-					CommitterEmail: "kuberpult@freiheit.com",
-					CommitterName:  "kuberpult",
-					BootstrapMode:  false,
+					URL:                 remoteDir,
+					Path:                localDir,
+					CommitterEmail:      "kuberpult@freiheit.com",
+					CommitterName:       "kuberpult",
+					BootstrapMode:       false,
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -5950,11 +5952,12 @@ spec:
 			repo, err := New(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:            remoteDir,
-					Path:           localDir,
-					CommitterEmail: "kuberpult@freiheit.com",
-					CommitterName:  "kuberpult",
-					BootstrapMode:  tc.BootstrapMode,
+					URL:                 remoteDir,
+					Path:                localDir,
+					CommitterEmail:      "kuberpult@freiheit.com",
+					CommitterName:       "kuberpult",
+					BootstrapMode:       tc.BootstrapMode,
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -6156,11 +6159,13 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	repo, err := New(
 		testutil.MakeTestContext(),
 		RepositoryConfig{
-			URL:             remoteDir,
-			Path:            localDir,
-			CommitterEmail:  "kuberpult@freiheit.com",
-			CommitterName:   "kuberpult",
-			WriteCommitData: true,
+			URL:                   remoteDir,
+			Path:                  localDir,
+			CommitterEmail:        "kuberpult@freiheit.com",
+			CommitterName:         "kuberpult",
+			WriteCommitData:       true,
+			MaximumCommitsPerPush: 5,
+			ArgoCdGenerateFiles:   true,
 		},
 	)
 	if err != nil {
@@ -6779,6 +6784,65 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
 					t.Errorf("[%d] got %v, want %v, diff (-want +got) %s", i, actualGauge, expectedGauge, diff)
 				}
+			}
+		})
+	}
+}
+
+func TestDatadogQueueMetric(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		changes        *TransformerResult
+		transformers   []Transformer
+		expectedGauges int
+	}{
+		{
+			Name: "Changes are sent as one event",
+			transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "envA",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						"envA": "envA-manifest-1",
+					},
+					WriteCommitData: false,
+				},
+				&CreateApplicationVersion{
+					Application: "app2",
+					Manifests: map[string]string{
+						"envA": "envA-manifest-2",
+					},
+					WriteCommitData: false,
+				},
+			},
+			expectedGauges: 2,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
+			ctx := WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
+			var mockClient = &MockClient{}
+			var client statsd.ClientInterface = mockClient
+			ddMetrics = client
+			repo := setupRepositoryTest(t)
+
+			err := repo.Apply(ctx, tc.transformers...)
+
+			if err != nil {
+				t.Fatalf("Expected no error: %v", err)
+			}
+
+			if tc.expectedGauges != len(mockClient.gauges) {
+				// Don't compare the value of the gauge, only the number of gauges,
+				// because we cannot be sure at this point what the size of the queue was during measurement
+				msg := fmt.Sprintf("expected %d gauges but got %d\n",
+					tc.expectedGauges, len(mockClient.gauges))
+				t.Fatalf(msg)
 			}
 		})
 	}

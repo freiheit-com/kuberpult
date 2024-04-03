@@ -21,10 +21,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	"io"
 	"io/fs"
 	"os"
 	"path"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -478,6 +480,8 @@ func (c *CreateApplicationVersion) Transform(
 	for env := range c.Manifests {
 		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
 	}
+	slices.Sort(allEnvsOfThisApp)
+
 	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
@@ -486,8 +490,11 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
+	sortedKeys := sorting.SortKeys(c.Manifests)
+	for i := range sortedKeys {
+		env := sortedKeys[i]
+		man := c.Manifests[env]
 
-	for env, man := range c.Manifests {
 		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
