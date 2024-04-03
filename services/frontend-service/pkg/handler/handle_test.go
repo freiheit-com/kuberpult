@@ -928,6 +928,141 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "unsupported method 'GET'\n",
 		},
 		{
+			name: "lock team",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/environments/development/lock/team/sre-team/test",
+				},
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{"message":"test message"}`)),
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_CreateEnvironmentTeamLock{
+							CreateEnvironmentTeamLock: &api.CreateEnvironmentTeamLockRequest{
+								Environment: "development",
+								Team:        "sre-team",
+								LockId:      "test",
+								Message:     "test message",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "lock team but missing lock ID",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/environments/development/lock/team/sre-team/",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "Missing LockID\n",
+		},
+		{
+			name: "lock team but additional path params",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/environments/development/lock/team/sre-team/test/junk",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "locks does not accept additional path arguments after the lock ID, got: /junk\n",
+		},
+		{
+			name: "lock team but wrong content type",
+			req: &http.Request{
+				Method: http.MethodPut,
+				URL: &url.URL{
+					Path: "/api/environments/development/lock/team/sre-team/test",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusUnsupportedMediaType,
+			},
+			expectedBody: "body must be application/json, got: ''\n",
+		},
+		{
+			name: "unlock team",
+			req: &http.Request{
+				Method: http.MethodDelete,
+				URL: &url.URL{
+					Path: "/api/environments/development/lock/team/sre-team/test",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			expectedBody: "",
+			expectedBatchRequest: &api.BatchRequest{
+				Actions: []*api.BatchAction{
+					{
+						Action: &api.BatchAction_DeleteEnvironmentTeamLock{
+							DeleteEnvironmentTeamLock: &api.DeleteEnvironmentTeamLockRequest{
+								Environment: "development",
+								Team:        "sre-team",
+								LockId:      "test",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "unlock team but missing lock ID",
+			req: &http.Request{
+				Method: http.MethodDelete,
+				URL: &url.URL{
+					Path: "/api/environments/development/lock/team/sre-team/",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "Missing LockID\n",
+		},
+		{
+			name: "unlock team but additional path params",
+			req: &http.Request{
+				Method: http.MethodDelete,
+				URL: &url.URL{
+					Path: "/api/environments/development/lock/team/sre-team/test/junk",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedBody: "locks does not accept additional path arguments after the lock ID, got: /junk\n",
+		},
+		{
+			name: "lock team but wrong method",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Path: "/api/environments/development/lock/team/sre-team/test",
+				},
+			},
+			expectedResp: &http.Response{
+				StatusCode: http.StatusMethodNotAllowed,
+			},
+			expectedBody: "unsupported method 'GET'\n",
+		},
+		{
 			name: "unlock env group",
 			req: &http.Request{
 				Method: http.MethodDelete,

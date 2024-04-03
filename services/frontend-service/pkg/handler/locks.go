@@ -75,7 +75,6 @@ func (s Server) handleEnvironmentLocks(w http.ResponseWriter, req *http.Request,
 }
 
 func (s Server) handleApiTeamLocks(w http.ResponseWriter, req *http.Request, environment, tail string) {
-	fmt.Println(tail)
 
 	function, tail := xpath.Shift(tail)
 
@@ -88,15 +87,18 @@ func (s Server) handleApiTeamLocks(w http.ResponseWriter, req *http.Request, env
 
 	if team == "" {
 		http.Error(w, "Missing team name", http.StatusNotFound)
+		return
 	}
 	lockID, tail := xpath.Shift(tail)
 
 	if lockID == "" {
 		http.Error(w, "Missing LockID", http.StatusNotFound)
+		return
 	}
 
 	if tail != "/" {
-		http.Error(w, fmt.Sprintf("team locks does not accept additional path arguments after the lock ID, got: '%s'", tail), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf(""+
+			"locks does not accept additional path arguments after the lock ID, got: %s", tail), http.StatusNotFound)
 		return
 	}
 	switch req.Method {
@@ -366,7 +368,6 @@ func (s Server) handleDeleteEnvironmentGroupLock(w http.ResponseWriter, req *htt
 }
 
 func (s Server) handlePutTeamLock(w http.ResponseWriter, req *http.Request, environment, team, lockID string) {
-	fmt.Printf("handlePutTeamLock: %s %s %s\n", environment, team, lockID)
 
 	if s.checkContentType(w, req) {
 		return
@@ -427,23 +428,26 @@ func (s Server) handlePutTeamLock(w http.ResponseWriter, req *http.Request, envi
 }
 
 func (s Server) handleDeleteTeamLock(w http.ResponseWriter, req *http.Request, environment, team, lockID string) {
-	fmt.Printf("handleDeleteTeamLock: %s %s %s\n", environment, team, lockID)
-
-	if s.checkContentType(w, req) {
-		return
-	}
-
-	var body putLockRequest
-
 	if s.AzureAuth {
-		signature := body.Signature
+		if req.Body == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "missing request body")
+			return
+		}
+		signature, err := io.ReadAll(req.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Can't read request body %s", err)
+			return
+		}
+
 		if len(signature) == 0 {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
 			return
 		}
 
-		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), strings.NewReader(signature), nil); err != nil {
+		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), bytes.NewReader(signature), nil); err != nil {
 			if err != pgperrors.ErrUnknownIssuer {
 				w.WriteHeader(500)
 				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
