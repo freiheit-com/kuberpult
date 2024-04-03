@@ -1554,8 +1554,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		}
 	}
 	if err != nil || !foundTeam { //Not found team or apps dir doesn't exist
-		ErrTeamNotFound = fmt.Errorf("Team %s does not exist.", c.Team)
-		return "", ErrTeamNotFound
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Team %s does not exist.", c.Team))
 	}
 
 	envDir := fs.Join("environments", c.Environment)
