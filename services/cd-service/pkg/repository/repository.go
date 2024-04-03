@@ -578,6 +578,10 @@ func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
 	return transformerBatches
 }
 
+func (r *repository) GaugeQueueSize(ctx context.Context) {
+	r.queue.GaugeQueueSize(ctx)
+}
+
 // It returns always nil
 // success is set to true if the push was successful
 func defaultPushUpdate(branch string, success *bool) git.PushUpdateReferenceCallback {
@@ -687,7 +691,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
 	if r.config.DogstatsdEvents {
-		ddError := UpdateDatadogMetrics(ctx, r.State(), changes, time.Now())
+		ddError := UpdateDatadogMetrics(ctx, r.State(), r, changes, time.Now())
 		if ddError != nil {
 			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
 		}

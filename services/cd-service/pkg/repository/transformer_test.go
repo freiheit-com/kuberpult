@@ -6297,6 +6297,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				},
 			},
 			expectedGauges: []Gauge{
+				makeGauge("request_queue_size", 0, []string{}, 1),
 				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
 				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
@@ -6333,6 +6334,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				},
 			},
 			expectedGauges: []Gauge{
+				makeGauge("request_queue_size", 0, []string{}, 1),
 				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
 				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
@@ -6361,7 +6363,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				t.Fatalf("Expected no error: %v", applyErr)
 			}
 
-			err := UpdateDatadogMetrics(ctx, state, nil, time.UnixMilli(0))
+			err := UpdateDatadogMetrics(ctx, state, repo, nil, time.UnixMilli(0))
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}
@@ -6601,7 +6603,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 				t.Fatalf("Expected no error: %v", applyErr)
 			}
 
-			err := UpdateDatadogMetrics(ctx, state, tc.changes, time.UnixMilli(0))
+			err := UpdateDatadogMetrics(ctx, state, repo, tc.changes, time.UnixMilli(0))
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}
