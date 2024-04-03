@@ -389,25 +389,6 @@ func (s Server) handlePutTeamLock(w http.ResponseWriter, req *http.Request, envi
 		return
 	}
 
-	if s.AzureAuth {
-		signature := body.Signature
-		if len(signature) == 0 {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Missing signature in request body")) //nolint:errcheck
-			return
-		}
-
-		if _, err := openpgp.CheckArmoredDetachedSignature(s.KeyRing, strings.NewReader(environment+lockID), strings.NewReader(signature), nil); err != nil {
-			if err != pgperrors.ErrUnknownIssuer {
-				w.WriteHeader(500)
-				fmt.Fprintf(w, "Internal: Invalid Signature: %s", err)
-				return
-			}
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "Invalid signature")
-			return
-		}
-	}
 
 	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
 		{Action: &api.BatchAction_CreateEnvironmentTeamLock{
