@@ -83,15 +83,7 @@ func ValidateEnvironmentTeamLock(
 	team string,
 	id string,
 ) error {
-	if !valid.EnvironmentName(env) {
-		return status.Error(codes.InvalidArgument, fmt.Sprintf("cannot %s environment team lock: invalid environment: '%s'", actionType, env))
-	}
-	if !valid.TeamName(team) {
-		return status.Error(codes.InvalidArgument, fmt.Sprintf("cannot %s environment team lock: invalid team: '%s'", actionType, team))
-	}
-	if !valid.LockId(id) {
-		return status.Error(codes.InvalidArgument, fmt.Sprintf("cannot %s environment team lock: invalid lock id: '%s'", actionType, id))
-	}
+
 	return nil
 }
 
@@ -167,7 +159,6 @@ func (d *BatchServer) processAction(
 		}, nil, nil
 	case *api.BatchAction_CreateEnvironmentTeamLock:
 		act := action.CreateEnvironmentTeamLock
-
 		if err := ValidateEnvironmentTeamLock("create", act.Environment, act.Team, act.LockId); err != nil {
 			return nil, nil, err
 		}

@@ -155,7 +155,9 @@ func (o *OverviewServiceServer) getOverview(
 					_, exists := teamSet[teamName]
 					if err == nil && !exists {
 						teamSet[teamName] = true
-						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr == nil {
+						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr != nil {
+							return nil, teamErr
+						} else {
 							for lockId, lock := range teamLocks {
 								env.Locks[lockId] = &api.Lock{
 									Message:   lock.Message,

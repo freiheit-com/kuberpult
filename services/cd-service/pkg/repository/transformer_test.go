@@ -1719,20 +1719,11 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 						},
 					},
 				},
-				&CreateEnvironment{
-					Environment: "staging",
-					Config: config.EnvironmentConfig{
-						Upstream: &config.EnvironmentConfigUpstream{
-							Latest: true,
-						},
-					},
-				},
 				&CreateApplicationVersion{ //Create the team
 					Application:    "someapp",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaf",
 					Manifests: map[string]string{
-						"dev":     "some dev manifest",
-						"staging": "some staging manifest",
+						"dev": "some dev manifest",
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
@@ -1747,8 +1738,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					Application:    "myapp",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
 					Manifests: map[string]string{
-						"dev":     "some dev manifest",
-						"staging": "some staging manigest",
+						"dev": "some dev manifest",
 					},
 					WriteCommitData: true,
 					Team:            "sre-team",
@@ -1756,23 +1746,23 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			},
 			expectedContent: []FileWithContent{
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
 					Content: "lock-prevented-deployment",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/application",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/application",
 					Content: "myapp",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/environment",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/environment",
 					Content: "dev",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/lock_message",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/lock_message",
 					Content: "lock sreteam",
 				},
 				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/lock_type",
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/lock_type",
 					Content: "team",
 				},
 			},
@@ -4120,6 +4110,33 @@ func TestRbacTransformerTest(t *testing.T) {
 		},
 		{
 			Name: "able to create environment team lock with correct permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: "production",
+					Team:        "sre-team",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
+						"developer,CreateLock,production:production,*,allow": {Role: "Developer"},
+					}}},
+				},
+			},
+		},
+		{
+			Name: "able to create environment team lock with correct permissions policy - sre-team",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment:    "production",

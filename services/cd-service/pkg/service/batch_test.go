@@ -19,11 +19,9 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/go-git/go-billy/v5"
 	"os/exec"
 	"path"
 	"path/filepath"
-	"sort"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
@@ -333,25 +331,7 @@ func TestBatchServiceWorks(t *testing.T) {
 		})
 	}
 }
-func listFilesHelper(fs billy.Filesystem, path string) []string {
-	ret := make([]string, 0)
 
-	files, err := fs.ReadDir(path)
-	if err == nil {
-		for _, file := range files {
-			ret = append(ret, listFilesHelper(fs, fs.Join(path, file.Name()))...)
-		}
-	} else {
-		ret = append(ret, path)
-	}
-
-	return ret
-}
-func listFiles(fs billy.Filesystem) []string {
-	paths := listFilesHelper(fs, ".")
-	sort.Slice(paths, func(i, j int) bool { return paths[i] < paths[j] })
-	return paths
-}
 func TestBatchServiceFails(t *testing.T) {
 	tcs := []struct {
 		Name               string

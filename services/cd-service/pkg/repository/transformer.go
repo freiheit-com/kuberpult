@@ -22,6 +22,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io"
 	"io/fs"
 	"os"
@@ -1544,6 +1546,17 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	if err != nil {
 		return "", err
 	}
+
+	if !valid.EnvironmentName(c.Environment) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid environment: '%s'", c.Environment))
+	}
+	if !valid.TeamName(c.Team) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid team: '%s'", c.Team))
+	}
+	if !valid.LockId(c.LockId) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid lock id: '%s'", c.LockId))
+	}
+
 	fs := state.Filesystem
 
 	foundTeam := false
@@ -1561,26 +1574,26 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		}
 	}
 	if err != nil || !foundTeam { //Not found team or apps dir doesn't exist
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Team %s does not exist.", c.Team))
+		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Team '%s' does not exist.", c.Team))
 	}
 
 	envDir := fs.Join("environments", c.Environment)
 	if _, err := fs.Stat(envDir); err != nil {
-		return "", fmt.Errorf("error accessing dir %q: %w", envDir, err)
+		return "", fmt.Errorf("error environment not found dir %q: %w", envDir, err)
 	}
 
 	teamDir := fs.Join(envDir, "teams", c.Team)
 	if err := fs.MkdirAll(teamDir, 0777); err != nil {
-		return "", err
+		return "", fmt.Errorf("error could not create teams directory %q: %w", envDir, err)
 	}
 	chroot, err := fs.Chroot(teamDir)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error changing root of fs to  %s: %w", teamDir, err)
 	}
 	if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
-		return "", err
+		return "", fmt.Errorf("error creating lock. ID: %s Lock Message: %s. %w", c.LockId, c.Message, err)
 	}
-	// locks are invisible to argoCd, so no changes here
+
 	return fmt.Sprintf("Created lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
 }
 
@@ -1600,6 +1613,17 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 	if err != nil {
 		return "", err
 	}
+
+	if !valid.EnvironmentName(c.Environment) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid environment: '%s'", c.Environment))
+	}
+	if !valid.TeamName(c.Team) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid team: '%s'", c.Team))
+	}
+	if !valid.LockId(c.LockId) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid lock id: '%s'", c.LockId))
+	}
+
 	fs := state.Filesystem
 	lockDir := fs.Join("environments", c.Environment, "teams", c.Team, "locks", c.LockId)
 	_, err = fs.Stat(lockDir)
@@ -1756,7 +1780,7 @@ func (c *DeployApplicationVersion) Transform(
 		team, err := util.ReadFile(fs, fs.Join(appDir, "team"))
 
 		if errors.Is(err, os.ErrNotExist) {
-			teamLocks = map[string]Lock{} //This is a workaround. This transformer now needs a team file to be created on the application folder in order for the team locks to be loaded correctly. It turns out almost no other test that uses the CreateApplicationVersion transformer (that uses this one) sets a value for the team parameter, so the file wont exist and the tests will fail. IF we can't find the file, simply create an empty map and move on.
+			teamLocks = map[string]Lock{} //If we dont find the team file, there is no team for application, meaning there can't be any team locks
 		} else {
 			teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, string(team))
 			if err != nil {

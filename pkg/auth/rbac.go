@@ -238,12 +238,14 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup
 	for _, pEnvGroup := range []string{envGroup, "*"} {
 		for _, pEnv := range []string{env, "*"} {
 			for _, pApplication := range []string{application, "*"} {
+
 				// Check if the permission exists on the policy.
 				permissionsWanted := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, pEnvGroup, pEnv, pApplication)
 				_, permissionsExist := rbacConfig.Policy[permissionsWanted]
 				if permissionsExist {
 					return nil
 				}
+
 			}
 		}
 	}
