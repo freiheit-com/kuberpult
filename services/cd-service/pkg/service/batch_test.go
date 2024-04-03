@@ -88,12 +88,29 @@ func getBatchActions() []*api.BatchAction {
 			LockId:      "5678",
 		},
 	}
+	opCreateTeamLock := &api.BatchAction_CreateEnvironmentTeamLock{ // this deletes the existing lock in the transformers
+		CreateEnvironmentTeamLock: &api.CreateEnvironmentTeamLockRequest{
+			Environment: "production",
+			Team:        "test-team",
+			LockId:      "teamlock",
+			Message:     "Test Create a Team lock",
+		},
+	}
+	opDeleteTeamLock := &api.BatchAction_DeleteEnvironmentTeamLock{ // this deletes the existing lock in the transformers
+		DeleteEnvironmentTeamLock: &api.DeleteEnvironmentTeamLockRequest{
+			Environment: "production",
+			Team:        "test-team",
+			LockId:      "91011",
+		},
+	}
 	ops := []*api.BatchAction{ // it works through the batch in order
 		{Action: opDeleteEnvLock},
 		{Action: opDeleteAppLock},
+		{Action: opDeleteTeamLock},
 		{Action: opDeploy},
 		{Action: opCreateEnvLock},
 		{Action: opCreateAppLock},
+		{Action: opCreateTeamLock},
 	}
 	return ops
 }
@@ -141,6 +158,7 @@ func TestBatchServiceWorks(t *testing.T) {
 					Manifests: map[string]string{
 						prod: "manifest",
 					},
+					Team: "test-team",
 				},
 				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
 					Environment: prod,
@@ -153,7 +171,14 @@ func TestBatchServiceWorks(t *testing.T) {
 					LockId:      "5678",
 					Message:     "AppLock",
 				},
+				&repository.CreateEnvironmentTeamLock{ // will be deleted by the batch actions
+					Environment: prod,
+					Team:        "test-team",
+					LockId:      "91011",
+					Message:     "TeamLock",
+				},
 			},
+
 			Batch:   getBatchActions(),
 			context: testutil.MakeTestContext(),
 			svc:     &BatchServer{},
@@ -170,6 +195,7 @@ func TestBatchServiceWorks(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "manifest",
 					},
+					Team: "test-team",
 				},
 				&repository.CreateEnvironmentLock{
 					Environment: "production",
@@ -181,6 +207,12 @@ func TestBatchServiceWorks(t *testing.T) {
 					Application: "test",
 					LockId:      "5678",
 					Message:     "no message",
+				},
+				&repository.CreateEnvironmentTeamLock{ // will be deleted by the batch actions
+					Environment: prod,
+					Team:        "test-team",
+					LockId:      "91011",
+					Message:     "TeamLock",
 				},
 			},
 			Batch:   getBatchActions(),
@@ -273,6 +305,24 @@ func TestBatchServiceWorks(t *testing.T) {
 					t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
 				}
 				_, exists = appLocks["5678"]
+				if exists {
+					t.Error("lock was not deleted")
+				}
+			}
+			//Check that Team lock was created
+			{
+				teamLocks, err := tc.svc.Repository.State().GetEnvironmentTeamLocks("production", "test-team")
+				if err != nil {
+					t.Fatal(err)
+				}
+				lock, exists := teamLocks["teamlock"]
+				if !exists {
+					t.Error("Team lock was not created")
+				}
+				if lock.Message != "Test Create a Team lock" {
+					t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
+				}
+				_, exists = teamLocks["91011"]
 				if exists {
 					t.Error("lock was not deleted")
 				}

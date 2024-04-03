@@ -77,6 +77,16 @@ func ValidateEnvironmentApplicationLock(
 	return nil
 }
 
+func ValidateEnvironmentTeamLock(
+	actionType string, // "create" | "delete"
+	env string,
+	team string,
+	id string,
+) error {
+
+	return nil
+}
+
 func ValidateDeployment(
 	env string,
 	app string,
@@ -144,6 +154,29 @@ func (d *BatchServer) processAction(
 		return &repository.DeleteEnvironmentApplicationLock{
 			Environment:    act.Environment,
 			Application:    act.Application,
+			LockId:         act.LockId,
+			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+		}, nil, nil
+	case *api.BatchAction_CreateEnvironmentTeamLock:
+		act := action.CreateEnvironmentTeamLock
+		if err := ValidateEnvironmentTeamLock("create", act.Environment, act.Team, act.LockId); err != nil {
+			return nil, nil, err
+		}
+		return &repository.CreateEnvironmentTeamLock{
+			Environment:    act.Environment,
+			Team:           act.Team,
+			LockId:         act.LockId,
+			Message:        act.Message,
+			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
+		}, nil, nil
+	case *api.BatchAction_DeleteEnvironmentTeamLock:
+		act := action.DeleteEnvironmentTeamLock
+		if err := ValidateEnvironmentTeamLock("delete", act.Environment, act.Team, act.LockId); err != nil {
+			return nil, nil, err
+		}
+		return &repository.DeleteEnvironmentTeamLock{
+			Environment:    act.Environment,
+			Team:           act.Team,
 			LockId:         act.LockId,
 			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 		}, nil, nil
@@ -319,6 +352,9 @@ func (d *BatchServer) ProcessBatch(
 		var applyErr *repository.TransformerBatchApplyError
 		if errors.Is(err, repository.ErrQueueFull) {
 			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
+		}
+		if errors.Is(err, repository.ErrTeamNotFound) {
+			return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
 		}
 
 		if !errors.As(err, &applyErr) {

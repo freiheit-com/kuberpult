@@ -111,6 +111,7 @@ func GetCreateReleaseAppNameTooLong(appName string, regExp string, maxLen uint32
 type LockedError struct {
 	EnvironmentApplicationLocks map[string]Lock
 	EnvironmentLocks            map[string]Lock
+	TeamLocks                   map[string]Lock
 }
 
 func (l *LockedError) String() string {
