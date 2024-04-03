@@ -434,20 +434,6 @@ func (s Server) handleDeleteTeamLock(w http.ResponseWriter, req *http.Request, e
 	}
 
 	var body putLockRequest
-	invalidMessage := "Please provide lock message in body"
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		decodeError := err.Error()
-		if errors.Is(err, io.EOF) {
-			decodeError = invalidMessage
-		}
-		http.Error(w, decodeError, http.StatusBadRequest)
-		return
-	}
-
-	if len(body.Message) == 0 {
-		http.Error(w, invalidMessage, http.StatusBadRequest)
-		return
-	}
 
 	if s.AzureAuth {
 		signature := body.Signature
