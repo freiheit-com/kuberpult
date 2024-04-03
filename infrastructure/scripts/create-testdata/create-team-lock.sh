@@ -3,12 +3,16 @@ set -eu
 set -o pipefail
 set -x
 
-env=development
+
 team=${1}
-lockId=${2}
+env=development
+lockId=test${RANDOM}
 
 url="http://localhost:8081/api/environments/${env}/lock/team/${team}/${lockId}"
 
-curl -X DELETE "$url" -H 'Content-Type: application/json'
+curl -X PUT "$url" -d '{"message": "test team lock"}' -H 'Content-Type: application/json'
 
 echo
+
+
+
