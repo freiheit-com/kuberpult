@@ -167,7 +167,7 @@ func sortFiles(gs []os.FileInfo) func(i int, j int) bool {
 	}
 }
 
-func UpdateDatadogMetrics(ctx context.Context, state *State, changes *TransformerResult, now time.Time) error {
+func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, changes *TransformerResult, now time.Time) error {
 	filesystem := state.Filesystem
 	if ddMetrics == nil {
 		return nil
@@ -181,6 +181,7 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, changes *Transforme
 	for k := range configs {
 		configKeys = append(configKeys, k)
 	}
+	repo.(*repository).GaugeQueueSize(ctx)
 	sort.Strings(configKeys)
 	for i := range configKeys {
 		env := configKeys[i]
@@ -204,6 +205,7 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, changes *Transforme
 			}
 		}
 	}
+
 	if changes != nil && ddMetrics != nil {
 		for i := range changes.ChangedApps {
 			oneChange := changes.ChangedApps[i]
@@ -245,8 +247,7 @@ func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBa
 }
 
 func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
-	repoState := repo.State()
-	if err := UpdateDatadogMetrics(ctx, repoState, nil, time.Now()); err != nil {
+	if err := UpdateDatadogMetrics(ctx, repo.State(), repo, nil, time.Now()); err != nil {
 		panic(err.Error())
 	}
 }
