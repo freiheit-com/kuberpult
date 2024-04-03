@@ -79,7 +79,7 @@ func (s Server) handleApiTeamLocks(w http.ResponseWriter, req *http.Request, env
 	function, tail := xpath.Shift(tail)
 
 	if function != "team" {
-		http.Error(w, "Missing team text", http.StatusNotFound)
+		http.Error(w, "Missing team path", http.StatusNotFound)
 		return
 	}
 
