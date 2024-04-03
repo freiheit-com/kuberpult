@@ -466,9 +466,10 @@ func testRepository(t *testing.T) (repository.Repository, repository.RepositoryC
 	cmd := exec.Command("git", "init", "--bare", remoteDir)
 	cmd.Run()
 	cfg := repository.RepositoryConfig{
-		URL:    "file://" + remoteDir,
-		Path:   localDir,
-		Branch: "master",
+		URL:                 "file://" + remoteDir,
+		Path:                localDir,
+		Branch:              "master",
+		ArgoCdGenerateFiles: true,
 	}
 	repo, err := repository.New(
 		testutil.MakeTestContext(),

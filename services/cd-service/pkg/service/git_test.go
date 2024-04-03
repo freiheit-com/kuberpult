@@ -751,7 +751,8 @@ func TestGetCommitInfo(t *testing.T) {
 			}
 
 			config := rp.RepositoryConfig{
-				WriteCommitData: tc.allowReadingCommitData,
+				WriteCommitData:     tc.allowReadingCommitData,
+				ArgoCdGenerateFiles: true,
 			}
 			sv := &GitServer{
 				OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown},
