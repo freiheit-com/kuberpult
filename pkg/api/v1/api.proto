@@ -129,6 +129,8 @@ message BatchAction {
     CreateReleaseRequest create_release = 11;
     CreateEnvironmentGroupLockRequest create_environment_group_lock = 12;
     DeleteEnvironmentGroupLockRequest delete_environment_group_lock = 13;
+    CreateEnvironmentTeamLockRequest create_environment_team_lock = 14;
+    DeleteEnvironmentTeamLockRequest delete_environment_team_lock = 15;
   }
 }
 
@@ -176,6 +178,19 @@ message CreateEnvironmentApplicationLockRequest {
 message DeleteEnvironmentApplicationLockRequest {
   string environment = 1;
   string application = 2;
+  string lock_id = 3;
+}
+
+message CreateEnvironmentTeamLockRequest {
+  string environment = 1;
+  string team = 2;
+  string lock_id = 3;
+  string message = 4;
+}
+
+message DeleteEnvironmentTeamLockRequest {
+  string environment = 1;
+  string team = 2;
   string lock_id = 3;
 }
 

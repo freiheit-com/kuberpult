@@ -81,6 +81,8 @@ func (s Server) handleApiEnvironments(w http.ResponseWriter, req *http.Request, 
 	switch function {
 	case "releasetrain":
 		s.handleApiReleaseTrain(w, req, environment, tail)
+	case "lock":
+		s.handleApiTeamLocks(w, req, environment, tail)
 	default:
 		http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
 	}
