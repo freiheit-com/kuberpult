@@ -24,7 +24,6 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
@@ -254,7 +253,6 @@ func TestBatchServiceWorks(t *testing.T) {
 				},
 			)
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-				fmt.Println(strings.Join(listFiles(tc.svc.Repository.State().Filesystem), "\n"))
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 			if tc.expectedError != nil {
