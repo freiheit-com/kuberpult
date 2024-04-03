@@ -346,7 +346,6 @@ func runServer(ctx context.Context) error {
 	restApiHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.ApiEnableDespiteNoAuth {
-
 			httpHandler.HandleAPI(w, req)
 			return
 		}
