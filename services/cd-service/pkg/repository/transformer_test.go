@@ -1392,7 +1392,7 @@ func verifyContent(fs billy.Filesystem, required []FileWithContent) error {
 		if data, err := util.ReadFile(fs, contentRequirement.Path); err != nil {
 			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.Path, err)
 		} else if string(data) != contentRequirement.Content {
-			return fmt.Errorf("actual file content of file '%s' is not equal to required content. Expected: '%s', actual: '%s'", contentRequirement.Path, contentRequirement.Content, string(data))
+			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.Path, contentRequirement.Content, string(data))
 		}
 	}
 	return nil
@@ -1499,9 +1499,8 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				},
 			},
 		},
-
 		{
-			Name: "Trigger a deployment via a relase train with environment group target",
+			Name: "Trigger a deployment via a release train with environment group target without lock",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "production",
@@ -1561,6 +1560,75 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/source_train_environment_group",
 					Content: "production-group",
+				},
+			},
+		},
+		{
+			Name: "Trigger a deployment via a release train with environment group target with lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+						},
+						EnvironmentGroup: ptr.FromString("production-group"),
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+							Latest:      true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"production": "some production manifest 2",
+						"staging":    "some staging manifest 2",
+					},
+					WriteCommitData: true,
+				},
+				&DeployApplicationVersion{
+					Environment:     "staging",
+					Application:     "app",
+					Version:         1,
+					WriteCommitData: true,
+				},
+				&CreateEnvironmentLock{
+					Environment: "production",
+					LockId:      "lock id 1",
+					Message:     "lock msg 1",
+				},
+				&ReleaseTrain{
+					Target:          "production-group",
+					WriteCommitData: true,
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
+					Content: "deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
+					Content: "deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
+					Content: "replaced-by",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
+					Content: "lock-prevented-deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/lock_message",
+					Content: "lock msg 1",
 				},
 			},
 		},
@@ -1785,7 +1853,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			}
 			fs := updatedState.Filesystem
 			if err := verifyContent(fs, tc.expectedContent); err != nil {
-				t.Fatalf("Error while verifying content: %v. Filesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
 			}
 		})
 	}
@@ -2658,13 +2726,13 @@ func TestReleaseTrainErrors(t *testing.T) {
 				},
 				&CreateEnvironmentLock{
 					Environment: envAcceptance + "-ca",
-					Message:     "don't",
-					LockId:      "care",
+					Message:     "mA",
+					LockId:      "IdA",
 				},
 				&CreateEnvironmentLock{
 					Environment: envAcceptance + "-de",
-					Message:     "do not",
-					LockId:      "care either",
+					Message:     "mB",
+					LockId:      "IdB",
 				},
 			},
 			ReleaseTrain: ReleaseTrain{
@@ -2673,19 +2741,21 @@ func TestReleaseTrainErrors(t *testing.T) {
 			expectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
 				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
-					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:            nil,
+						AppsPrognoses:    map[string]ReleaseTrainApplicationPrognosis{},
+						FirstLockMessage: "mA",
 					},
-					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
+					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:            nil,
+						AppsPrognoses:    map[string]ReleaseTrainApplicationPrognosis{},
+						FirstLockMessage: "mB",
 					},
 				},
 			},
@@ -2817,19 +2887,21 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 			expectedPrognosis: ReleaseTrainPrognosis{
 				Error: nil,
 				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
-					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:            nil,
+						FirstLockMessage: "",
+						AppsPrognoses:    nil,
 					},
-					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
+					"acceptance-de": {
 						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 						},
-						Error:         nil,
-						AppsPrognoses: nil,
+						Error:            nil,
+						FirstLockMessage: "",
+						AppsPrognoses:    nil,
 					},
 				},
 			},
@@ -2856,8 +2928,11 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 
 			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State())
 
-			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses) || !cmp.Equal(prognosis.Error, tc.expectedPrognosis.Error, cmpopts.EquateErrors()) {
-				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.expectedPrognosis, prognosis)
+			if diff := cmp.Diff(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses); diff != "" {
+				t.Fatalf("release train prognosis is wrong, wanted the result \n%v\n got\n%v\ndiff:\n%s", tc.expectedPrognosis.EnvironmentPrognoses, prognosis.EnvironmentPrognoses, diff)
+			}
+			if !cmp.Equal(prognosis.Error, tc.expectedPrognosis.Error, cmpopts.EquateErrors()) {
+				t.Fatalf("release train prognosis is wrong, wanted the error %v, got %v", tc.expectedPrognosis.Error, prognosis.Error)
 			}
 
 			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), []Transformer{&tc.ReleaseTrain}...)

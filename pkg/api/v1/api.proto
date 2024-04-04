@@ -617,6 +617,7 @@ enum ReleaseTrainAppSkipCause {
   APP_ALREADY_IN_UPSTREAM_VERSION = 1;
   APP_IS_LOCKED = 2;
   APP_DOES_NOT_EXIST_IN_ENV = 3;
+  APP_IS_LOCKED_BY_ENV = 4; // there is an env lock that prevents deployment for this app
 }
 
 message ReleaseTrainAppPrognosis {
