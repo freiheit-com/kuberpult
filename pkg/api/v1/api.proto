@@ -88,6 +88,7 @@ message LockPreventedDeploymentEvent {
     LOCK_TYPE_UNKNOWN = 0;
     LOCK_TYPE_ENV = 1;
     LOCK_TYPE_APP = 2;
+    LOCK_TYPE_TEAM = 3;
   }
   string application = 1;
   string environment = 2;
