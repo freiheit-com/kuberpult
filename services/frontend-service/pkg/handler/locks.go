@@ -400,7 +400,6 @@ func (s Server) handlePutTeamLock(w http.ResponseWriter, req *http.Request, envi
 		}},
 	}})
 	if err != nil {
-
 		handleGRPCError(req.Context(), w, err)
 		return
 	}
