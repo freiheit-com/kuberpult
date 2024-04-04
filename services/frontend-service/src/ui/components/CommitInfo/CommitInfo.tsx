@@ -110,7 +110,7 @@ const CommitInfoEvents: React.FC<{ events: Event[] }> = (props) => (
                 <th className={'date'}>Date:</th>
                 <th className={'description'}>Event Description:</th>
                 <th className={'environments'}>Environments:</th>
-            </tr>x
+            </tr>
         </thead>
         <tbody>
             {props.events.map((event, _) => {

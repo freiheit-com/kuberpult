@@ -911,6 +911,8 @@ func (r *repository) ApplyTransformersInternal(ctx context.Context, transformers
 		ctxWithTime := WithTimeNow(ctx, time.Now())
 		for i, t := range transformers {
 			if msg, subChanges, err := RunTransformer(ctxWithTime, t, state); err != nil {
+				fmt.Print("ERROR: ")
+				fmt.Println(err)
 				applyErr := TransformerBatchApplyError{
 					TransformerError: err,
 					Index:            i,

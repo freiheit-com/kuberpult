@@ -1534,8 +1534,6 @@ type CreateEnvironmentTeamLock struct {
 	Message     string
 }
 
-var ErrTeamNotFound error
-
 func (c *CreateEnvironmentTeamLock) Transform(
 	ctx context.Context,
 	state *State,
@@ -1574,7 +1572,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 		}
 	}
 	if err != nil || !foundTeam { //Not found team or apps dir doesn't exist
-		return "", grpc.FailedPrecondition(ctx, fmt.Errorf("Team '%s' does not exist.", c.Team))
+		return "", &TeamNotFoundErr{err: fmt.Errorf("Team '%s' does not exist.", c.Team)}
 	}
 
 	envDir := fs.Join("environments", c.Environment)

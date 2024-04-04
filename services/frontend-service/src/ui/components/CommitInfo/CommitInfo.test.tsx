@@ -116,6 +116,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
                             },
                         },
                     },
+
                     {
                         uuid: '00000000-0000-0000-0000-000000000005',
                         createdAt: new Date('2024-02-13T09:46:00Z'),
@@ -125,6 +126,19 @@ test('CommitInfo component renders commit info when the response is valid', () =
                                 application: 'app',
                                 environment: 'dev',
                                 replacedByCommitId: '1234567891011121314ABCD',
+                            },
+                        },
+                    },
+                    {
+                        uuid: '00000000-0000-0000-0000-000000000006',
+                        createdAt: new Date('2024-02-13T09:46:00Z'),
+                        eventType: {
+                            $case: 'lockPreventedDeploymentEvent',
+                            lockPreventedDeploymentEvent: {
+                                application: 'app',
+                                environment: 'dev',
+                                lockMessage: 'locked',
+                                lockType: LockPreventedDeploymentEvent_LockType.LOCK_TYPE_TEAM,
                             },
                         },
                     },
@@ -156,6 +170,11 @@ test('CommitInfo component renders commit info when the response is valid', () =
                         'dev',
                     ],
                     ['2024-02-13T09:46:00', 'This commit was replaced by 12345678 on dev.', 'dev'],
+                    [
+                        '2024-02-13T09:46:00',
+                        'Application app was blocked from deploying due to an team lock with message "locked"',
+                        'dev',
+                    ],
                 ],
             },
         },

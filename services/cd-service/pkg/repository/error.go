@@ -123,3 +123,16 @@ func (l *LockedError) Error() string {
 }
 
 var _ error = (*LockedError)(nil)
+
+type TeamNotFoundErr struct {
+	err error
+}
+
+func (e *TeamNotFoundErr) Error() string {
+	return e.err.Error()
+}
+
+func (e *TeamNotFoundErr) Is(target error) bool {
+	_, ok := target.(*TeamNotFoundErr)
+	return ok
+}
