@@ -172,7 +172,7 @@ test('CommitInfo component renders commit info when the response is valid', () =
                     ['2024-02-13T09:46:00', 'This commit was replaced by 12345678 on dev.', 'dev'],
                     [
                         '2024-02-13T09:46:00',
-                        'Application app was blocked from deploying due to an team lock with message "locked"',
+                        'Application app was blocked from deploying due to a team lock with message "locked"',
                         'dev',
                     ],
                 ],
