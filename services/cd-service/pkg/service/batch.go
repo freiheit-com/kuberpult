@@ -353,14 +353,9 @@ func (d *BatchServer) ProcessBatch(
 		if errors.Is(err, repository.ErrQueueFull) {
 			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
 		}
-		if errors.Is(err, repository.ErrTeamNotFound) {
-			return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", err.Error()))
-		}
-
 		if !errors.As(err, &applyErr) {
 			return nil, err
 		}
-
 		switch transformerError := applyErr.TransformerError.(type) {
 		case *repository.CreateReleaseError:
 			{
@@ -372,6 +367,8 @@ func (d *BatchServer) ProcessBatch(
 				}
 				return &api.BatchResponse{Results: errorResults}, nil
 			}
+		case *repository.TeamNotFoundErr:
+			return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", applyErr.TransformerError.Error()))
 		default:
 			return nil, err
 		}
