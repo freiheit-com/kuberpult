@@ -1,0 +1,1 @@
+module github.com/freiheit-com/kuberpult/cli
