@@ -1,5 +1,5 @@
-ARG PARENT_CONTAINER
-FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:${PARENT_CONTAINER} as builder
+ARG BUILDER_TAG
+FROM europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder:${BUILDER_TAG} as builder
 
 WORKDIR /kp/
 
