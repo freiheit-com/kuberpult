@@ -13,9 +13,9 @@
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 # Copyright 2023 freiheit.com
-VERSION    ?= $(shell git describe --always --long --tags || echo 0.0.1)
-IMAGE_NAME ?= kuberpult-client:$(VERSION)
+
+include ../Makefile.variables
 
 build-pr:
-	docker build . --tag=$(IMAGE_NAME) --build-arg BUILDER_TAG=$(VERSION)
-	docker push $(IMAGE_NAME)
+	@echo $(VERSION)
+	earthly --push +build-pr --VERSION=$(VERSION)
