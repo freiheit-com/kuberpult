@@ -109,6 +109,8 @@ func (ev *LockPreventedDeployment) toProto(trg *api.Event) {
 		lockType = api.LockPreventedDeploymentEvent_LOCK_TYPE_APP
 	case "environment":
 		lockType = api.LockPreventedDeploymentEvent_LOCK_TYPE_ENV
+	case "team":
+		lockType = api.LockPreventedDeploymentEvent_LOCK_TYPE_TEAM
 	default:
 		lockType = api.LockPreventedDeploymentEvent_LOCK_TYPE_UNKNOWN
 	}

@@ -143,9 +143,12 @@ const eventDescription = (event: Event): [JSX.Element, string] => {
             const de = tp.deploymentEvent;
             let description: JSX.Element;
             if (de.releaseTrainSource === undefined)
+                // if the releaseTrainSource is undefined, it could be either a
+                // manual deployment by the user or
+                // an automatic deployment because of the "upstream.latest" configuration of this environment
                 description = (
                     <span>
-                        Manual deployment of application <b>{de.application}</b> to environment{' '}
+                        Single deployment of application <b>{de.application}</b> to environment{' '}
                         <b>{de.targetEnvironment}</b>
                     </span>
                 );
@@ -198,6 +201,8 @@ const lockTypeName = (tp: LockPreventedDeploymentEvent_LockType): string => {
             return 'an application lock';
         case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_ENV:
             return 'an environment lock';
+        case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_TEAM:
+            return 'a team lock';
         case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_UNKNOWN:
         case LockPreventedDeploymentEvent_LockType.UNRECOGNIZED:
             return 'an unknown lock';
