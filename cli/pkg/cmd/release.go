@@ -18,25 +18,19 @@ Copyright 2023 freiheit.com
 package cmd
 
 import (
-	// "flag"
+	"flag"
 	"fmt"
-	"log"
 	"os"
 )
 
-func RunCLI() {
-	if len(os.Args) < 2 {
-		log.Fatalf("a subcommand must be specified, run \"kuberpult-client help\" for more information")
-		os.Exit(1)
-	}
+func release() {
+	flagSet := flag.NewFlagSet("release", flag.ExitOnError)
 
-	subcommand := os.Args[1]
-	switch subcommand {
-	case "help":
-		fmt.Println(helpMessage)
-	case "release":
-		release()
-	default:
-		log.Fatalf("unknown subcommand %s", subcommand)
+	app := flagSet.String("app", "", "the name of the application to release")
+
+	flagSet.Parse(os.Args[2:])
+
+	if app != nil {
+		fmt.Println(*app)
 	}
 }

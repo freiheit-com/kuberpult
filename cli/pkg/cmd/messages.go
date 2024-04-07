@@ -1,4 +1,5 @@
-/*This file is part of kuberpult.
+/*
+This file is part of kuberpult.
 
 Kuberpult is free software: you can redistribute it and/or modify
 it under the terms of the Expat(MIT) License as published by
@@ -12,11 +13,13 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
-package hello
+Copyright 2023 freiheit.com
+*/
 
-import "fmt"
+package cmd
 
-func SayHello() {
-	fmt.Println("Hello, World!")
-}
+var helpMessage = `kuberpult-client is a command line client for controling a Kuberpult instance.
+
+Subcommands
+  help		display this help message
+  release	create a new release of an application`
