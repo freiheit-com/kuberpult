@@ -22,8 +22,20 @@ import (
 	"log"
 	"os"
 
-	"github.com/freiheit-com/kuberpult/cli/pkg/release"
+	rl "github.com/freiheit-com/kuberpult/cli/pkg/release"
 )
+
+func handleRelease(args []string) {
+	parsedArgs, err := rl.ParseArgs(args)
+
+	if err != nil {
+		log.Fatalf("error while parsing command line args, error: %v", err)
+	}
+
+	if err = rl.Release(parsedArgs); err != nil {
+		log.Fatalf("error on release, error: %v", err)
+	}
+}
 
 func RunCLI() {
 	if len(os.Args) < 2 {
@@ -38,7 +50,7 @@ func RunCLI() {
 	case "help":
 		fmt.Println(helpMessage)
 	case "release":
-		release.Handle(flags)
+		handleRelease(flags)
 	default:
 		log.Fatalf("unknown subcommand %s", subcommand)
 	}

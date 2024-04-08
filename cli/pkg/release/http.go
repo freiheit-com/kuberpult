@@ -27,12 +27,12 @@ import (
 	"os"
 )
 
-func prepareHttpRequest(parsedArgs *releaseParameters) (*http.Request, error) {
+func prepareHttpRequest(parsedArgs *ReleaseParameters) (*http.Request, error) {
 	url := "http://localhost:3000/release"
 
 	form := bytes.NewBuffer(nil)
 	writer := multipart.NewWriter(form)
-	
+
 	if err := writer.WriteField("application", parsedArgs.Application); err != nil {
 		return nil, fmt.Errorf("error writing application field, error: %w", err)
 	}
@@ -67,7 +67,7 @@ func prepareHttpRequest(parsedArgs *releaseParameters) (*http.Request, error) {
 	return req, nil
 }
 
-func issueHttpRequest(parsedArgs *releaseParameters) error {
+func issueHttpRequest(parsedArgs *ReleaseParameters) error {
 	req, err := prepareHttpRequest(parsedArgs)
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)

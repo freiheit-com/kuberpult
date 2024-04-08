@@ -26,6 +26,8 @@ import (
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 )
 
+// a simple container for the command line args, not meant for anything except the use of flag.Parse
+// unless you're working on the readArgs and parseArgs functions, you probably don't need this type, see releaseParameters instead
 type cmdArguments struct {
 	application   cli_utils.RepeatedString
 	environments  cli_utils.RepeatedString
@@ -74,18 +76,13 @@ func readArgs(args []string) (*cmdArguments, error) {
 	return &cmdArgs, nil
 }
 
-type releaseParameters struct {
-	Application string
-	ManifestFiles   map[string]string
-}
-
-func parseArgs(args []string) (*releaseParameters, error) {
+func ParseArgs(args []string) (*ReleaseParameters, error) {
 	cmdArgs, err := readArgs(args)
 	if err != nil {
 		return nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
 	}
 
-	rp := releaseParameters{}
+	rp := ReleaseParameters{}
 	rp.Application = cmdArgs.application.Values[0]
 	rp.ManifestFiles = make(map[string]string)
 	for i := range cmdArgs.environments.Values {
