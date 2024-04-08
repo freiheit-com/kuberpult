@@ -501,6 +501,22 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 			ExpectedMissing: []core.EnvVar{},
 			checkValues:     true,
 		},
+		{
+			Name: "Two variables involved web hook enabled",
+			Setup: func(t *testing.T, values *ValuesDoc) {
+				values.Git.URL = "testURL"
+				values.Argocd.SendWebhooks = true
+				values.Argocd.Server = "testServer"
+			},
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ARGO_CD_SERVER",
+					Value: "testServer",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+			checkValues:     true,
+		},
 	}
 
 	for _, tc := range tcs {
