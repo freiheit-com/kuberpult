@@ -249,12 +249,12 @@ func runHelm(t *testing.T, valuesData []byte, dirName string) string {
 	outputFile := "tmp_" + testId + ".tmpl"
 	outputFile = dirName + "/" + outputFile
 
-	//execOutput, err := exec.Command("sh", "-c", "helm version").CombinedOutput()
-
 	execOutput, err := exec.Command("sh", "-c", "helm template ./.. --values "+tempValuesFile+" > "+outputFile).CombinedOutput()
+
 	if err != nil {
 		t.Fatalf("Error executing helm: Helm output: '%s'\nError: %v\n", string(execOutput), err)
 	}
+
 	return outputFile
 }
 func CheckForEnvVariable(t *testing.T, target core.EnvVar, strict bool, deployment *apps.Deployment) bool {
