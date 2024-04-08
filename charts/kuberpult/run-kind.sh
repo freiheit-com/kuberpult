@@ -3,6 +3,12 @@
 set -eu
 set -o pipefail
 
+sourcedir="$(dirname "$(readlink -m "${BASH_SOURCE[0]}")")"
+standard_setup="${FDC_STANDARD_SETUP:-${sourcedir}/../../../../fdc-standard-setup}"
+secrets_file="${standard_setup}/secrets/fdc-standard-setup-dev-env-925fe612820f.json"
+iap_clientId=$(sops exec-file "${secrets_file}" "jq -r '.client_id' {}")
+iap_clientSecret=$(sops exec-file "${secrets_file}" "jq -r '.private_key' {}")
+
 # This script assumes that the docker images have already been built.
 # To run/debug/develop this locally, you probably want to run like this:
 # rm -rf ./manifests/; make clean; LOCAL_EXECUTION=true ./run-kind.sh
@@ -12,7 +18,7 @@ cd "$(dirname "$0")"
 
 # prefix every call to "echo" with the name of the script:
 function print() {
-  /bin/echo "$0:" "$@"
+  /usr/bin/env echo "$0:" "$@"
 }
 
 cleanup() {
@@ -316,12 +322,35 @@ datadogProfiling:
 pgp:
   keyRing: |
 $(sed -e "s/^/    /" <./kuberpult-keyring.gpg)
+auth:
+  dexAuth:
+    enabled: true
+    installDex: true
+    policy_csv: |
+$(for action in CreateLock DeleteLock CreateRelease DeployRelease CreateUndeploy DeployUndeploy CreateEnvironment CreateEnvironmentApplication DeployReleaseTrain; do
+        echo "      Developer, $action, development:*, *, allow"
+      done)
+    clientId: "${iap_clientId}"
+    clientSecret: |
+$(sed -e "s/^/      /" <<<"${iap_clientSecret}")
+    baseURL: "chart-example.local:5556"
+dex:
+  connectors:
+    - type: google
+      id: google
+      name: Google
+      config:
+        clientID: "${iap_clientId}"
+        clientSecret: |
+$(sed -e "s/^/          /" <<<"${iap_clientSecret}")
 VALUES
 
 # Get helm dependency charts and unzip them
 (rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
 
+echo "Creating tmp.mpl"
 helm template ./ --values vals.yaml > tmp.tmpl
+echo "helm install"
 helm install --values vals.yaml kuberpult-local ./
 print 'checking for pods and waiting for portforwarding to be ready...'
 
