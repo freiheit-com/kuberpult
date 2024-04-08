@@ -19,17 +19,12 @@ Copyright 2023 freiheit.com
 package release
 
 import (
-	"log"
+	"fmt"
 )
 
-func Handle(args []string) {
-	parsedArgs, err := parseArgs(args)
-
-	if err != nil {
-		log.Fatalf("error while parsing command line args, error: %v", err)
+func release(params *releaseParameters) error {
+	if err := issueHttpRequest(params); err != nil {
+		return fmt.Errorf("error while issuing HTTP request, error: %v", err)
 	}
-
-	if err = release(parsedArgs); err != nil {
-		log.Fatalf("error on release, error: %v", err)
-	}
+	return nil
 }
