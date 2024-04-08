@@ -104,7 +104,7 @@ func parseArgs(args []string) (*releaseParameters, error) {
 }
 
 func issueHttpRequest(parsedArgs *releaseParameters) error {
-	url := "http://localhost:8080/release"
+	url := "http://localhost:3000/release"
 
 	form := bytes.NewBuffer(nil)
 	writer := multipart.NewWriter(form)
@@ -143,11 +143,11 @@ func issueHttpRequest(parsedArgs *releaseParameters) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("error issuing the HTTP request, error: %w")
+		return fmt.Errorf("error issuing the HTTP request, error: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("response was not OK or Accepted, response: %v", resp)
 	}
 
