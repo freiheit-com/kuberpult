@@ -457,7 +457,7 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 			checkValues:     false,
 		},
 		{
-			Name: "Two variables involved (web hook disabled)",
+			Name: "Two variables involved web hook disabled",
 			Setup: func(t *testing.T, values *ValuesDoc) {
 				values.Git.URL = "testURL"
 				values.Argocd.SendWebhooks = false
@@ -472,7 +472,7 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 			checkValues:     true,
 		},
 		{
-			Name: "Two variables involved (web hook enabled)",
+			Name: "Two variables involved web hook enabled",
 			Setup: func(t *testing.T, values *ValuesDoc) {
 				values.Git.URL = "testURL"
 				values.Argocd.SendWebhooks = true
@@ -488,15 +488,11 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 			checkValues:     true,
 		},
 	}
-	testDirName := "testfiles"
-	defer os.RemoveAll("testfiles")
-	if err := os.Mkdir(testDirName, os.ModePerm); err != nil {
-		t.Fatalf("Could not create test file dir! %v", err)
-	}
 
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
 			values, err := readValuesFile()
 			if err != nil {
 				t.Fatalf(fmt.Sprintf("Error reading values file. Err: %v", err))
@@ -524,7 +520,6 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 				}
 
 			}
-
 		})
 	}
 }
