@@ -316,18 +316,31 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 		checkValues     bool //some values might be more complex than others. For now each test can decide if it wants to check for the values
 	}{
 		{
-			Name: "Initial Test",
+			Name: "Basic Parsing works",
 			Setup: func(t *testing.T, values *ValuesDoc) {
 				values.Git.URL = "testURL"
+				values.Pgp.KeyRing = ""
+				values.Ingress.DomainName = "kuberpult-example.com"
+				values.EnvironmentConfigs.BootstrapMode = true //makes values.EnvironmentConfigs.EnvironmentConfigsJSON needed
+				values.EnvironmentConfigs.EnvironmentConfigsJSON = "{}"
 			},
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_GIT_URL",
 					Value: "testURL",
 				},
+				{
+					Name:  "KUBERPULT_BOOTSTRAP_MODE",
+					Value: "true",
+				},
 			},
-			ExpectedMissing: []core.EnvVar{},
-			checkValues:     true,
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_PGP_KEY_RING_PATH",
+					Value: "",
+				},
+			},
+			checkValues: true,
 		},
 		{
 			Name: "Change Git URL",
@@ -419,7 +432,7 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 					Value: "",
 				},
 			},
-			checkValues: false, //Don't check the actual values of the flags
+			checkValues: false, //Don't check the actual values of the env variables
 		},
 		{
 			Name: "DD Tracing enabled",
