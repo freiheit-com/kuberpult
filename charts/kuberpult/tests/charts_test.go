@@ -240,7 +240,7 @@ func runHelm(t *testing.T, valuesData []byte, dirName string) string {
 	}
 	return outputFile
 }
-func CheckForEnv(t *testing.T, target core.EnvVar, strict bool, deployment *apps.Deployment) bool {
+func CheckForEnvVariable(t *testing.T, target core.EnvVar, strict bool, deployment *apps.Deployment) bool {
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		for _, env := range container.Env {
 			if env.Name == target.Name {
@@ -509,12 +509,12 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 			} else {
 				targetDocument := out["kuberpult-cd-service"]
 				for _, env := range tc.ExpectedEnvs {
-					if !CheckForEnv(t, env, tc.checkValues, &targetDocument) {
+					if !CheckForEnvVariable(t, env, tc.checkValues, &targetDocument) {
 						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
 					}
 				}
 				for _, env := range tc.ExpectedMissing {
-					if CheckForEnv(t, env, tc.checkValues, &targetDocument) {
+					if CheckForEnvVariable(t, env, tc.checkValues, &targetDocument) {
 						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
 					}
 				}
