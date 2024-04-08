@@ -201,6 +201,8 @@ const lockTypeName = (tp: LockPreventedDeploymentEvent_LockType): string => {
             return 'an application lock';
         case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_ENV:
             return 'an environment lock';
+        case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_TEAM:
+            return 'a team lock';
         case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_UNKNOWN:
         case LockPreventedDeploymentEvent_LockType.UNRECOGNIZED:
             return 'an unknown lock';
