@@ -2,10 +2,10 @@ VERSION 0.7
 
 
 
-deps2:
-    FROM golang:1.21-bookworm
+godeps:
+    FROM golang:1.21-alpine
 
-    RUN apt-get install curl
+    RUN apk add curl
 
     RUN curl --fail --silent --show-error --location --remote-name "https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz"
     RUN echo 0885a501d586c1e949e9b113bf3fb3290b0bbf74db9444a1d8c2723a143006a5 helm-v3.14.2-linux-amd64.tar.gz | sha256sum -c
@@ -16,7 +16,6 @@ deps2:
 deps:
     FROM python:3.12-alpine
     WORKDIR /deps
-
 
     RUN apk add envsubst curl git
     
@@ -102,7 +101,7 @@ test-helm:
     LOCALLY
     ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
 
-    FROM +deps2
+    FROM +godeps
     WORKDIR /kp
 
     COPY (+chart-tarball/kuberpult-*.tgz --VERSION=$VERSION) . 
@@ -115,7 +114,7 @@ test-helm:
     COPY templates templates
     COPY Chart.yaml .
 
-    RUN helm dependency build  && cd tests && go mod init example.com/test-helm && go mod tidy && go test
+    RUN helm dependency build && cd tests && go mod init example.com/test-helm && go mod tidy && go test
 
 test:
     LOCALLY

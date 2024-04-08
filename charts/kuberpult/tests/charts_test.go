@@ -330,7 +330,7 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 		Setup           func(t *testing.T, values *ValuesDoc) //Runs before each test case. Edit the values you want to test here.
 		ExpectedEnvs    []core.EnvVar
 		ExpectedMissing []core.EnvVar
-		checkValues     bool //some values might be more complex than others. For now each test can decide if it wants to check for the values
+		checkValues     bool //some test case values might be more complex than others. For now each test can decide if it wants to check for the values of the env variables or not.
 	}{
 		{
 			Name: "Basic Parsing works",
