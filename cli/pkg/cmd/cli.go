@@ -18,10 +18,11 @@ Copyright 2023 freiheit.com
 package cmd
 
 import (
-	// "flag"
 	"fmt"
 	"log"
 	"os"
+
+	"github.com/freiheit-com/kuberpult/cli/pkg/release"
 )
 
 func RunCLI() {
@@ -31,11 +32,13 @@ func RunCLI() {
 	}
 
 	subcommand := os.Args[1]
+	flags := os.Args[2:]
+
 	switch subcommand {
 	case "help":
 		fmt.Println(helpMessage)
 	case "release":
-		release()
+		release.Handle(flags)
 	default:
 		log.Fatalf("unknown subcommand %s", subcommand)
 	}
