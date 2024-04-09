@@ -1,18 +1,3 @@
-/*This file is part of kuberpult.
-
-Kuberpult is free software: you can redistribute it and/or modify
-it under the terms of the Expat(MIT) License as published by
-the Free Software Foundation.
-
-Kuberpult is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-MIT License for more details.
-
-You should have received a copy of the MIT License
-along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
-
-Copyright 2023 freiheit.com*/
 /*
 This file is part of kuberpult.
 
@@ -323,6 +308,221 @@ func getDeployments(fileName string) (map[string]apps.Deployment, error) {
 	return output, nil
 }
 
+func Test2(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		Values          string //Runs before each test case. Edit the values you want to test here.
+		ExpectedEnvs    []core.EnvVar
+		ExpectedMissing []core.EnvVar
+		checkValues     bool //some test case values might be more complex than others. For now each test can decide if it wants to check for the values of the env variables or not.
+	}{
+		{
+			Name: "Basic Parsing works",
+			Values: `
+git:
+  url:  "testURL"
+  webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
+
+  branch: "master"
+  manifestRepoUrl: ""
+  sourceRepoUrl: ""
+
+  author:
+    name: local.user@example.com
+    email: defaultUser
+
+  networkTimeout: 1m
+
+  enableWritingCommitData: false
+
+  maximumCommitsPerPush: 5
+
+hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
+
+log:
+  format: ""
+  level: "WARN"
+cd:
+  image: kuberpult-cd-service
+  backendConfig:
+    create: false   # Add backend config for health checks on GKE only
+    timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
+    queueSize: 5
+  resources:
+    limits:
+      cpu: 2
+      memory: 3Gi
+    requests:
+      cpu: 2
+      memory: 3Gi
+  enableSqlite: true
+  probes:
+    liveness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
+      initialDelaySeconds: 5
+    readiness:
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      failureThreshold: 10
+      initialDelaySeconds: 5
+frontend:
+  image: kuberpult-frontend-service
+  service:
+    annotations: {}
+  resources:
+    limits:
+      cpu: 500m
+      memory: 250Mi
+    requests:
+      cpu: 500m
+      memory: 250Mi
+  maxWaitDuration: 10m
+  batchClient:
+    timeout: 2m
+rollout:
+  enabled: false
+  image: kuberpult-rollout-service
+  resources:
+    limits:
+      cpu: 500m
+      memory: 250Mi
+    requests:
+      cpu: 500m
+      memory: 250Mi
+  podAnnotations: {}
+
+ingress:
+  create: true
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: 300
+  domainName: "sdfkd"
+  iap:
+    enabled: false
+    secretName: null
+  tls:
+    host: null
+    secretName: kuberpult-tls-secret
+ssh:
+  # This section is necessary to checkout the manifest repo from git. Only ssh is supported (no https).
+  identity: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    -----END OPENSSH PRIVATE KEY-----
+  known_hosts: |
+    github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
+pgp:
+  keyRing: null
+
+argocd:
+  token: ""
+  server: ""
+  insecure: false
+  sendWebhooks: false
+
+  refresh:
+    enabled: false
+    concurrency: 50
+
+  generateFiles: true
+
+datadogTracing:
+  enabled: false
+  debugging: false
+  environment: "shared"
+
+datadogProfiling:
+  enabled: false
+  apiKey: ""
+
+dogstatsdMetrics:
+  enabled: false
+  eventsEnabled: false
+  address: unix:///var/run/datadog/dsd.socket
+  hostSocketPath: /var/run/datadog
+
+imagePullSecrets: []
+
+gke:
+  project_number: ""
+
+environment_configs:
+  bootstrap_mode: false
+  environment_configs_json: null
+
+auth:
+  azureAuth:
+    enabled: false
+    cloudInstance: "https://login.microsoftonline.com/"
+    clientId: ""
+    tenantId: ""
+  dexAuth:
+    enabled: false
+    policy_csv: ""
+    clientId: ""
+    clientSecret: ""
+    baseURL: ""
+    scopes: ""
+  api:
+    enableDespiteNoAuth: false
+
+dex:
+ envVars: []
+ config: {}
+
+revolution:
+  dora:
+    enabled: false
+    url: ""
+    token: ""
+    concurrency: 20
+
+manageArgoApplications:
+  enabled: false
+  filter: []
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "testURL",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_PGP_KEY_RING_PATH",
+					Value: "",
+				},
+			},
+			checkValues: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile := runHelm(t, []byte(tc.Values), testDirName)
+			if out, err := getDeployments(outputFile); err != nil {
+				t.Fatalf(fmt.Sprintf("%v", err))
+			} else {
+				targetDocument := out["kuberpult-cd-service"]
+				for _, env := range tc.ExpectedEnvs {
+					if !CheckForEnvVariable(t, env, tc.checkValues, &targetDocument) {
+						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
+					}
+				}
+				for _, env := range tc.ExpectedMissing {
+					if CheckForEnvVariable(t, env, tc.checkValues, &targetDocument) {
+						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
+					}
+				}
+
+			}
+		})
+	}
+}
 func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 
 	tcs := []struct {
@@ -484,7 +684,7 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
-			checkValues:     false,
+			checkValues:     true,
 		},
 		{
 			Name: "Two variables involved web hook disabled",

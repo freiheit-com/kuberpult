@@ -114,7 +114,7 @@ test-helm:
     COPY templates templates
     COPY Chart.yaml .
 
-    RUN helm dependency build && cd tests && go mod init example.com/test-helm && go mod tidy && go test
+    RUN helm dependency build && cd tests && go mod init test-helm && go mod tidy && go test
 
 test:
     LOCALLY
