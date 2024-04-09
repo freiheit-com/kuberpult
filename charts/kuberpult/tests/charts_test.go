@@ -284,9 +284,13 @@ git:
 ingress:
   domainName: "kuberpult-example.com"
 argocd:
-  sendWebHooks: true
+  sendWebHooks: false
 `,
 			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "testURL",
+				},
 				{
 					Name:  "KUBERPULT_ARGO_CD_SERVER",
 					Value: "",
