@@ -57,7 +57,7 @@ function waitForDeployment() {
   sleep 10
   until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
   do
-    sleep 4s
+    sleep 4
     print "logs:"
     kubectl -n "$ns" logs -l "$label" || echo "could not get logs for $label"
     print "describe pod:"
@@ -80,7 +80,7 @@ function portForwardAndWait() {
   sleep 10
   until nc -vz localhost "$portHere"
   do
-    sleep 3s
+    sleep 3
     print "logs:"
     kubectl -n "$ns" logs "$deployment"
     print "describe deployment:"
@@ -175,6 +175,10 @@ fi
 print 'loading docker images into kind...'
 print "$cd_imagename"
 print "$frontend_imagename"
+
+kind load docker-image quay.io/argoproj/argocd:v2.7.4
+kind load docker-image ghcr.io/dexidp/dex:v2.36.0
+kind load docker-image public.ecr.aws/docker/library/redis:7.0.11-alpine
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
 kind load docker-image "$rollout_imagename"
@@ -192,7 +196,7 @@ cat <<YAML > argocd-values.yml
 configs:
   ssh:
     knownHosts: |
-$(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
+$(gsed -e "s/^/        /" <../../services/cd-service/known_hosts)
   cm:
     accounts.kuberpult: apiKey
     timeout.reconciliation: 0s
@@ -304,9 +308,9 @@ git:
   networkTimeout: 1s
 ssh:
   identity: |
-$(sed -e "s/^/    /" <../../services/cd-service/client)
+$(gsed -e "s/^/    /" <../../services/cd-service/client)
   known_hosts: |
-$(sed -e "s/^/    /" <../../services/cd-service/known_hosts)
+$(gsed -e "s/^/    /" <../../services/cd-service/known_hosts)
 argocd:
   token: "$token"
   server: "https://argocd-server.${ARGO_NAMESPACE}.svc.cluster.local:443"
@@ -321,19 +325,19 @@ datadogProfiling:
   apiKey: invalid-3
 pgp:
   keyRing: |
-$(sed -e "s/^/    /" <./kuberpult-keyring.gpg)
+$(gsed -e "s/^/    /" <./kuberpult-keyring.gpg)
 auth:
   dexAuth:
     enabled: true
     installDex: true
     policy_csv: |
-$(for action in CreateLock DeleteLock CreateRelease DeployRelease CreateUndeploy DeployUndeploy CreateEnvironment CreateEnvironmentApplication DeployReleaseTrain; do
+$(for action in CreateLock DeleteLock CreateRelease DeployRelease CreateUndeploy DeployUndeploy CreateEnvironment DeployReleaseTrain; do
         echo "      Developer, $action, development:*, *, allow"
       done)
     clientId: "${iap_clientId}"
     clientSecret: |
-$(sed -e "s/^/      /" <<<"${iap_clientSecret}")
-    baseURL: "chart-example.local:5556"
+$(gsed -e "s/^/      /" <<<"${iap_clientSecret}")
+    baseURL: "http://kuberpult-dex-service:5556"
 dex:
   connectors:
     - type: google
@@ -342,7 +346,18 @@ dex:
       config:
         clientID: "${iap_clientId}"
         clientSecret: |
-$(sed -e "s/^/          /" <<<"${iap_clientSecret}")
+$(gsed -e "s/^/          /" <<<"${iap_clientSecret}")
+  config:
+    # Set it to a valid URL
+    issuer: "http://kuberpult-dex-service:5556"
+
+    # See https://dexidp.io/docs/storage/ for more options
+    storage:
+      type: memory
+
+    # Enable at least one connector
+    # See https://dexidp.io/docs/connectors/ for more options
+    enablePasswordDB: true
 VALUES
 
 # Get helm dependency charts and unzip them
