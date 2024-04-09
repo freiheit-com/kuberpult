@@ -46,11 +46,11 @@ const MAXIMUM_MULTIPART_SIZE = 12 * 1024 * 1024 // = 12Mi, taken from environmen
 
 func TestRequestCreation(t *testing.T) {
 	type testCase struct {
-		name                  string
-		params                *ReleaseParameters
-		expectedMultipartForm *multipart.Form
-		expectedErrorMsg      string
-		responseCode          int
+		name                        string
+		params                      *ReleaseParameters
+		expectedMultipartFormValues map[string][]string
+		expectedErrorMsg            string
+		responseCode                int
 	}
 
 	tcs := []testCase{
@@ -59,10 +59,8 @@ func TestRequestCreation(t *testing.T) {
 			params: &ReleaseParameters{
 				Application: "potato",
 			},
-			expectedMultipartForm: &multipart.Form{
-				Value: map[string][]string{
-					"application": {"potato"},
-				},
+			expectedMultipartFormValues: map[string][]string{
+				"application": {"potato"},
 			},
 			responseCode: http.StatusOK,
 		},
@@ -74,12 +72,11 @@ func TestRequestCreation(t *testing.T) {
 					"development": "some development manifest",
 				},
 			},
-			expectedMultipartForm: &multipart.Form{
-				Value: map[string][]string{
-					"application":            {"potato"},
-					"manifests[development]": {"some development manifest"},
-				},
+			expectedMultipartFormValues: map[string][]string{
+				"application":            {"potato"},
+				"manifests[development]": {"some development manifest"},
 			},
+
 			responseCode: http.StatusOK,
 		},
 		{
@@ -91,13 +88,12 @@ func TestRequestCreation(t *testing.T) {
 					"production":  "some production manifest",
 				},
 			},
-			expectedMultipartForm: &multipart.Form{
-				Value: map[string][]string{
-					"application":            {"potato"},
-					"manifests[development]": {"some development manifest"},
-					"manifests[production]":  {"some production manifest"},
-				},
+			expectedMultipartFormValues: map[string][]string{
+				"application":            {"potato"},
+				"manifests[development]": {"some development manifest"},
+				"manifests[production]":  {"some production manifest"},
 			},
+
 			responseCode: http.StatusOK,
 		},
 		{
@@ -109,12 +105,10 @@ func TestRequestCreation(t *testing.T) {
 					"production":  "some production manifest",
 				},
 			},
-			expectedMultipartForm: &multipart.Form{
-				Value: map[string][]string{
-					"application":            {"potato"},
-					"manifests[development]": {"some development manifest"},
-					"manifests[production]":  {"some production manifest"},
-				},
+			expectedMultipartFormValues: map[string][]string{
+				"application":            {"potato"},
+				"manifests[development]": {"some development manifest"},
+				"manifests[production]":  {"some production manifest"},
 			},
 			responseCode: http.StatusCreated,
 		},
@@ -127,8 +121,13 @@ func TestRequestCreation(t *testing.T) {
 					"production":  "some production manifest",
 				},
 			},
+			expectedMultipartFormValues: map[string][]string{
+				"application":            {"potato"},
+				"manifests[development]": {"some development manifest"},
+				"manifests[production]":  {"some production manifest"},
+			},
 			expectedErrorMsg: "error while issuing HTTP request, error: response was not OK or Accepted, response code: 400",
-			responseCode: http.StatusBadRequest,
+			responseCode:     http.StatusBadRequest,
 		},
 	}
 
@@ -148,8 +147,8 @@ func TestRequestCreation(t *testing.T) {
 				t.Fatalf("expected error %v, but no error was raised", tc.expectedErrorMsg)
 			}
 
-			if !cmp.Equal(mockServer.multipartForm.Value, tc.expectedMultipartForm.Value, cmp.AllowUnexported()) {
-				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultipartForm, mockServer.multipartForm)
+			if !cmp.Equal(mockServer.multipartForm.Value, tc.expectedMultipartFormValues, cmp.AllowUnexported()) {
+				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultipartFormValues, mockServer.multipartForm)
 			}
 		})
 	}

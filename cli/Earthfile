@@ -1,5 +1,16 @@
 VERSION 0.8
 
+test:
+    FROM golang:1.21.4-alpine3.17
+
+    WORKDIR /kp
+
+    COPY go.mod go.mod
+    COPY go.sum go.sum
+    COPY pkg pkg
+    COPY cmd cmd
+
+    RUN go test ./...
 
 executable:
     FROM golang:1.21.4-alpine3.17
@@ -7,6 +18,7 @@ executable:
     WORKDIR /kp
 
     COPY go.mod go.mod
+    COPY go.sum go.sum
     COPY pkg pkg
     COPY cmd cmd
 
@@ -17,6 +29,21 @@ executable:
     SAVE ARTIFACT bin/kuberpult-client
 
 build-pr:
+    BUILD +test
+
+    ARG  --required VERSION
+
+    FROM scratch
+
+    COPY +executable/kuberpult-client .
+
+    ENTRYPOINT ["./kuberpult-client"]
+
+    SAVE IMAGE --push europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-client:${VERSION}
+
+build-main:
+    BUILD +test
+
     ARG  --required VERSION
 
     FROM scratch
