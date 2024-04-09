@@ -339,6 +339,10 @@ $(for action in CreateLock DeleteLock CreateRelease DeployRelease CreateUndeploy
 $(gsed -e "s/^/      /" <<<"${iap_clientSecret}")
     baseURL: "http://kuberpult-dex-service:5556"
 dex:
+  outh2:
+    grantTypes:
+      # ensure grantTypes includes the token-exchange grant (default)
+      - "urn:ietf:params:oauth:grant-type:token-exchange"
   connectors:
     - type: google
       id: google
