@@ -19,8 +19,9 @@ Copyright 2023 freiheit.com
 package release
 
 import (
-	"github.com/google/go-cmp/cmp"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 )
@@ -48,8 +49,8 @@ func TestReadArgs(t *testing.T) {
 						"potato",
 					},
 				},
-				environments:  cli_utils.RepeatedString{},
-				manifestFiles: cli_utils.RepeatedString{},
+				environments: cli_utils.RepeatedString{},
+				manifests:    cli_utils.RepeatedString{},
 			},
 		},
 		{
@@ -76,7 +77,7 @@ func TestReadArgs(t *testing.T) {
 						"production",
 					},
 				},
-				manifestFiles: cli_utils.RepeatedString{
+				manifests: cli_utils.RepeatedString{
 					Values: []string{
 						"manifest-file.yaml",
 					},
@@ -110,48 +111,47 @@ func TestReadArgs(t *testing.T) {
 
 func TestParseArgs(t *testing.T) {
 	type testCase struct {
-		name           string
-		cmdArgs        []string
-		expectedParams *ReleaseParameters
+		name             string
+		cmdArgs          []string
+		expectedParams   *ReleaseParameters
 		expectedErrorMsg string
 	}
 
 	tcs := []testCase{
 		{
-			name: "no enviornments and manifests",
+			name:    "no enviornments and manifests",
 			cmdArgs: []string{"--application", "potato"},
 			expectedParams: &ReleaseParameters{
-				Application:   "potato",
-				ManifestFiles: map[string]string{},
+				Application: "potato",
+				Manifests:   map[string]string{},
 			},
 		},
 		{
-			name: "with environment and manifest",
+			name:    "with environment and manifest",
 			cmdArgs: []string{"--application", "potato", "--environment", "production", "--manifest", "production-manifest.yaml"},
 			expectedParams: &ReleaseParameters{
 				Application: "potato",
-				ManifestFiles: map[string]string{
+				Manifests: map[string]string{
 					"production": "production-manifest.yaml",
 				},
 			},
 		},
 		{
-			name: "with environment and manifest multiple times",
+			name:    "with environment and manifest multiple times",
 			cmdArgs: []string{"--application", "potato", "--environment", "production", "--manifest", "production-manifest.yaml"},
 			expectedParams: &ReleaseParameters{
 				Application: "potato",
-				ManifestFiles: map[string]string{
+				Manifests: map[string]string{
 					"production": "production-manifest.yaml",
 				},
 			},
 		},
 		{
-			name: "some error occurs in argument parsing",
-			cmdArgs: []string{"--application"},
-			expectedParams: nil,
+			name:             "some error occurs in argument parsing",
+			cmdArgs:          []string{"--application"},
+			expectedParams:   nil,
 			expectedErrorMsg: "error while reading command line arguments, error: error while parsing command line arguments, error: flag needs an argument: -application",
 		},
-		
 	}
 
 	for _, tc := range tcs {

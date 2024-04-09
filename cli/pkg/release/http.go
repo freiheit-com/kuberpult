@@ -21,15 +21,11 @@ package release
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 )
 
-func prepareHttpRequest(parsedArgs *ReleaseParameters) (*http.Request, error) {
-	url := "http://localhost:3000/release"
-
+func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Request, error) {
 	form := bytes.NewBuffer(nil)
 	writer := multipart.NewWriter(form)
 
@@ -37,21 +33,12 @@ func prepareHttpRequest(parsedArgs *ReleaseParameters) (*http.Request, error) {
 		return nil, fmt.Errorf("error writing application field, error: %w", err)
 	}
 
-	for environment, manifestPath := range parsedArgs.ManifestFiles {
-		part, err := writer.CreateFormFile(fmt.Sprintf("manifests[%s]", environment), manifestPath)
+	for environment, manifest := range parsedArgs.Manifests {
+		part, err := writer.CreateFormField(fmt.Sprintf("manifests[%s]", environment))
 		if err != nil {
-			return nil, fmt.Errorf("error creating the form entry for environment %s with manifest file %s, error: %w", environment, manifestPath, err)
+			return nil, fmt.Errorf("error creating the form entry for environment %s with manifest file %s, error: %w", environment, manifest, err)
 		}
-		manifestFile, err := os.Open(manifestPath)
-		if err != nil {
-			return nil, fmt.Errorf("error opening the manifest file %s for environment %s, error: %w", manifestPath, environment, err)
-		}
-		defer manifestFile.Close()
-
-		_, err = io.Copy(part, manifestFile)
-		if err != nil {
-			return nil, fmt.Errorf("error writing the manifest file %s for environment %s into the form field, error: %w", manifestPath, environment, err)
-		}
+		part.Write([]byte(manifest))
 	}
 
 	if err := writer.Close(); err != nil {
@@ -67,8 +54,8 @@ func prepareHttpRequest(parsedArgs *ReleaseParameters) (*http.Request, error) {
 	return req, nil
 }
 
-func issueHttpRequest(parsedArgs *ReleaseParameters) error {
-	req, err := prepareHttpRequest(parsedArgs)
+func issueHttpRequest(url string, parsedArgs *ReleaseParameters) error {
+	req, err := prepareHttpRequest(url, parsedArgs)
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
 	}
@@ -81,7 +68,7 @@ func issueHttpRequest(parsedArgs *ReleaseParameters) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("response was not OK or Accepted, response: %v", resp)
+		return fmt.Errorf("response was not OK or Accepted, response code: %v", resp.StatusCode)
 	}
 
 	return nil

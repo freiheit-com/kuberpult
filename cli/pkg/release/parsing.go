@@ -28,9 +28,9 @@ import (
 // a simple container for the command line args, not meant for anything except the use of flag.Parse
 // unless you're working on the readArgs and parseArgs functions, you probably don't need this type, see releaseParameters instead
 type cmdArguments struct {
-	application   cli_utils.RepeatedString // code-simplifying hack: we use RepeatingString for application even though it's not meant to be repeated so that we can raise and error when it's repeated more or less than once
-	environments  cli_utils.RepeatedString
-	manifestFiles cli_utils.RepeatedString
+	application  cli_utils.RepeatedString // code-simplifying hack: we use RepeatingString for application even though it's not meant to be repeated so that we can raise and error when it's repeated more or less than once
+	environments cli_utils.RepeatedString
+	manifests    cli_utils.RepeatedString
 }
 
 func readArgs(args []string) (*cmdArguments, error) {
@@ -40,7 +40,7 @@ func readArgs(args []string) (*cmdArguments, error) {
 
 	fs.Var(&cmdArgs.application, "application", "the name of the application to deploy (must be set exactly once)")
 	fs.Var(&cmdArgs.environments, "environment", "an environment to deploy to (must have --manifest set immediately afterwards)")
-	fs.Var(&cmdArgs.manifestFiles, "manifest", "the name of the file containing manifests to be deployed (must be set immediately after --environment)")
+	fs.Var(&cmdArgs.manifests, "manifest", "the name of the file containing manifests to be deployed (must be set immediately after --environment)")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -63,7 +63,7 @@ func readArgs(args []string) (*cmdArguments, error) {
 		}
 	}
 
-	if len(cmdArgs.environments.Values) != len(cmdArgs.manifestFiles.Values) { // this condition never holds since we make sure every --environment is matched with a --manifest
+	if len(cmdArgs.environments.Values) != len(cmdArgs.manifests.Values) { // this condition never holds since we make sure every --environment is matched with a --manifest
 		return nil, fmt.Errorf("the args --environment and --manifest must be set an equal number of times")
 	}
 
@@ -78,12 +78,12 @@ func ParseArgs(args []string) (*ReleaseParameters, error) {
 
 	rp := ReleaseParameters{}
 	rp.Application = cmdArgs.application.Values[0]
-	rp.ManifestFiles = make(map[string]string)
+	rp.Manifests = make(map[string]string)
 	for i := range cmdArgs.environments.Values {
-		manifestFile := cmdArgs.manifestFiles.Values[i]
+		manifestFile := cmdArgs.manifests.Values[i]
 		environemnt := cmdArgs.environments.Values[i]
 
-		rp.ManifestFiles[environemnt] = manifestFile
+		rp.Manifests[environemnt] = manifestFile
 	}
 
 	return &rp, nil

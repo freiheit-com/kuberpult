@@ -24,14 +24,14 @@ import (
 
 // a representation of the parameters of the /release endpoint
 type ReleaseParameters struct {
-	Application   string
-	ManifestFiles map[string]string
+	Application string
+	Manifests   map[string]string
 }
 
 // calls the Release endpoint with the specified parameters
 // this function might be used in the future for programmatic interaction with Kuberpult, hence its separation
-func Release(params *ReleaseParameters) error {
-	if err := issueHttpRequest(params); err != nil {
+func Release(url string, params *ReleaseParameters) error {
+	if err := issueHttpRequest(url, params); err != nil {
 		return fmt.Errorf("error while issuing HTTP request, error: %v", err)
 	}
 	return nil
