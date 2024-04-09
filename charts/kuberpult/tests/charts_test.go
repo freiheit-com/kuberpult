@@ -242,11 +242,11 @@ func runHelm(t *testing.T, valuesData []byte, dirName string) string {
 
 	return outputFile
 }
-func CheckForEnvVariable(t *testing.T, target core.EnvVar, strict bool, deployment *apps.Deployment) bool {
+func CheckForEnvVariable(t *testing.T, target core.EnvVar, deployment *apps.Deployment) bool {
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		for _, env := range container.Env {
 			if env.Name == target.Name {
-				if !strict || env.Value == target.Value {
+				if env.Value == target.Value {
 					return true
 				} else {
 					t.Logf("Found '%s' env variable. Value mismatch: wanted: '%s', got: '%s'.\n", target.Name, target.Value, env.Value)
@@ -307,181 +307,27 @@ func getDeployments(fileName string) (map[string]apps.Deployment, error) {
 	}
 	return output, nil
 }
+func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 
-func Test2(t *testing.T) {
 	tcs := []struct {
 		Name            string
-		Values          string //Runs before each test case. Edit the values you want to test here.
+		Values          string
 		ExpectedEnvs    []core.EnvVar
 		ExpectedMissing []core.EnvVar
-		checkValues     bool //some test case values might be more complex than others. For now each test can decide if it wants to check for the values of the env variables or not.
 	}{
 		{
 			Name: "Basic Parsing works",
 			Values: `
 git:
   url:  "testURL"
-  webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
-
-  branch: "master"
-  manifestRepoUrl: ""
-  sourceRepoUrl: ""
-
-  author:
-    name: local.user@example.com
-    email: defaultUser
-
-  networkTimeout: 1m
-
-  enableWritingCommitData: false
-
-  maximumCommitsPerPush: 5
-
-hub: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
-
-log:
-  format: ""
-  level: "WARN"
-cd:
-  image: kuberpult-cd-service
-  backendConfig:
-    create: false   # Add backend config for health checks on GKE only
-    timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
-    queueSize: 5
-  resources:
-    limits:
-      cpu: 2
-      memory: 3Gi
-    requests:
-      cpu: 2
-      memory: 3Gi
-  enableSqlite: true
-  probes:
-    liveness:
-      periodSeconds: 10
-      successThreshold: 1
-      timeoutSeconds: 5
-      failureThreshold: 10
-      initialDelaySeconds: 5
-    readiness:
-      periodSeconds: 10
-      successThreshold: 1
-      timeoutSeconds: 5
-      failureThreshold: 10
-      initialDelaySeconds: 5
-frontend:
-  image: kuberpult-frontend-service
-  service:
-    annotations: {}
-  resources:
-    limits:
-      cpu: 500m
-      memory: 250Mi
-    requests:
-      cpu: 500m
-      memory: 250Mi
-  maxWaitDuration: 10m
-  batchClient:
-    timeout: 2m
-rollout:
-  enabled: false
-  image: kuberpult-rollout-service
-  resources:
-    limits:
-      cpu: 500m
-      memory: 250Mi
-    requests:
-      cpu: 500m
-      memory: 250Mi
-  podAnnotations: {}
-
-ingress:
-  create: true
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-read-timeout: 300
-  domainName: "sdfkd"
-  iap:
-    enabled: false
-    secretName: null
-  tls:
-    host: null
-    secretName: kuberpult-tls-secret
-ssh:
-  # This section is necessary to checkout the manifest repo from git. Only ssh is supported (no https).
-  identity: |
-    -----BEGIN OPENSSH PRIVATE KEY-----
-    -----END OPENSSH PRIVATE KEY-----
-  known_hosts: |
-    github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
 pgp:
-  keyRing: null
+  keyRing: ""
+ingress:
+  domainName: "kuberpult-example.com"
 
-argocd:
-  token: ""
-  server: ""
-  insecure: false
-  sendWebhooks: false
-
-  refresh:
-    enabled: false
-    concurrency: 50
-
-  generateFiles: true
-
-datadogTracing:
-  enabled: false
-  debugging: false
-  environment: "shared"
-
-datadogProfiling:
-  enabled: false
-  apiKey: ""
-
-dogstatsdMetrics:
-  enabled: false
-  eventsEnabled: false
-  address: unix:///var/run/datadog/dsd.socket
-  hostSocketPath: /var/run/datadog
-
-imagePullSecrets: []
-
-gke:
-  project_number: ""
-
-environment_configs:
-  bootstrap_mode: false
-  environment_configs_json: null
-
-auth:
-  azureAuth:
-    enabled: false
-    cloudInstance: "https://login.microsoftonline.com/"
-    clientId: ""
-    tenantId: ""
-  dexAuth:
-    enabled: false
-    policy_csv: ""
-    clientId: ""
-    clientSecret: ""
-    baseURL: ""
-    scopes: ""
-  api:
-    enableDespiteNoAuth: false
-
-dex:
- envVars: []
- config: {}
-
-revolution:
-  dora:
-    enabled: false
-    url: ""
-    token: ""
-    concurrency: 20
-
-manageArgoApplications:
-  enabled: false
-  filter: []
+environmentConfigs:
+  bootstrapMode: true
+  environment_configs_json: "{}"
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -495,7 +341,165 @@ manageArgoApplications:
 					Value: "",
 				},
 			},
-			checkValues: true,
+		},
+		{
+			Name: "Change Git URL",
+			Values: `
+git:
+  url:  "checkThisValue"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "checkThisValue",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Argo CD disabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+argocd:
+  generateFiles: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ARGO_CD_GENERATE_FILES",
+					Value: "false",
+				},
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "testURL",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Argo CD enabled simple test",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+argocd:
+  generateFiles: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ARGO_CD_GENERATE_FILES",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "testURL",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "DD Metrics disabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+dataDogTracing:
+  enabled: false
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "testURL",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "DD_AGENT_HOST",
+					Value: "",
+				},
+				{
+					Name:  "DD_ENV",
+					Value: "",
+				},
+				{
+					Name:  "DD_SERVICE",
+					Value: "",
+				},
+				{
+					Name:  "DD_VERSION",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_ENABLE_TRACING",
+					Value: "",
+				},
+				{
+					Name:  "DD_TRACE_DEBUG",
+					Value: "",
+				},
+			},
+		},
+		{
+			Name: "DD Tracing enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+datadogTracing:
+  enabled: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "DD_AGENT_HOST",
+					Value: "",
+				},
+				{
+					Name:  "DD_ENV",
+					Value: "",
+				},
+				{
+					Name:  "DD_SERVICE",
+					Value: "",
+				},
+				{
+					Name:  "DD_VERSION",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_ENABLE_TRACING",
+					Value: "true",
+				},
+				{
+					Name:  "DD_TRACE_DEBUG",
+					Value: "false",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Two variables involved web hook disabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+argocd:
+  sendWebHooks: true
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ARGO_CD_SERVER",
+					Value: "",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
 		},
 	}
 
@@ -509,226 +513,12 @@ manageArgoApplications:
 			} else {
 				targetDocument := out["kuberpult-cd-service"]
 				for _, env := range tc.ExpectedEnvs {
-					if !CheckForEnvVariable(t, env, tc.checkValues, &targetDocument) {
+					if !CheckForEnvVariable(t, env, &targetDocument) {
 						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
 					}
 				}
 				for _, env := range tc.ExpectedMissing {
-					if CheckForEnvVariable(t, env, tc.checkValues, &targetDocument) {
-						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
-					}
-				}
-
-			}
-		})
-	}
-}
-func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
-
-	tcs := []struct {
-		Name            string
-		Setup           func(t *testing.T, values *ValuesDoc) //Runs before each test case. Edit the values you want to test here.
-		ExpectedEnvs    []core.EnvVar
-		ExpectedMissing []core.EnvVar
-		checkValues     bool //some test case values might be more complex than others. For now each test can decide if it wants to check for the values of the env variables or not.
-	}{
-		{
-			Name: "Basic Parsing works",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.Pgp.KeyRing = ""
-				values.Ingress.DomainName = "kuberpult-example.com"
-				values.EnvironmentConfigs.BootstrapMode = true //makes values.EnvironmentConfigs.EnvironmentConfigsJSON needed
-				values.EnvironmentConfigs.EnvironmentConfigsJSON = "{}"
-			},
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_GIT_URL",
-					Value: "testURL",
-				},
-				{
-					Name:  "KUBERPULT_BOOTSTRAP_MODE",
-					Value: "true",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_PGP_KEY_RING_PATH",
-					Value: "",
-				},
-			},
-			checkValues: true,
-		},
-		{
-			Name: "Change Git URL",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "checkThisValue"
-			},
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_GIT_URL",
-					Value: "checkThisValue",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-			checkValues:     true,
-		},
-		{
-			Name: "Argo CD disabled",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.Argocd.GenerateFiles = false
-			},
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_ARGO_CD_GENERATE_FILES",
-					Value: "false",
-				},
-				{
-					Name:  "KUBERPULT_GIT_URL",
-					Value: "testURL",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-			checkValues:     true,
-		},
-		{
-			Name: "Argo CD enabled simple test",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.Argocd.GenerateFiles = true
-			},
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_ARGO_CD_GENERATE_FILES",
-					Value: "true",
-				},
-				{
-					Name:  "KUBERPULT_GIT_URL",
-					Value: "testURL",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-			checkValues:     true,
-		},
-		{
-			Name: "DD Metrics disabled",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.DatadogTracing.Enabled = false
-			},
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_GIT_URL",
-					Value: "testURL",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{
-				{
-					Name:  "DD_AGENT_HOST",
-					Value: "",
-				},
-				{
-					Name:  "DD_ENV",
-					Value: "",
-				},
-				{
-					Name:  "DD_SERVICE",
-					Value: "",
-				},
-				{
-					Name:  "DD_VERSION",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_ENABLE_TRACING",
-					Value: "",
-				},
-				{
-					Name:  "DD_TRACE_DEBUG",
-					Value: "",
-				},
-			},
-			checkValues: false, //Don't check the actual values of the env variables
-		},
-		{
-			Name: "DD Tracing enabled",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.DatadogTracing.Enabled = true
-			},
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "DD_AGENT_HOST",
-					Value: "",
-				},
-				{
-					Name:  "DD_ENV",
-					Value: "",
-				},
-				{
-					Name:  "DD_SERVICE",
-					Value: "",
-				},
-				{
-					Name:  "DD_VERSION",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_ENABLE_TRACING",
-					Value: "",
-				},
-				{
-					Name:  "DD_TRACE_DEBUG",
-					Value: "",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-			checkValues:     true,
-		},
-		{
-			Name: "Two variables involved web hook disabled",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.Argocd.SendWebhooks = false
-			},
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_ARGO_CD_SERVER",
-					Value: "",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-			checkValues:     true,
-		},
-	}
-
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			testDirName := t.TempDir()
-			values, err := readValuesFile()
-			if err != nil {
-				t.Fatalf(fmt.Sprintf("Error reading values file. Err: %v", err))
-			}
-			values.Ingress.DomainName = "kuberpult.example.com"
-			tc.Setup(t, values)
-			yamlValuesData, err := yaml.Marshal(values)
-			if err != nil {
-				t.Fatalf("Error Marshaling values file. err: %v\n", err)
-			}
-			outputFile := runHelm(t, yamlValuesData, testDirName)
-			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf(fmt.Sprintf("%v", err))
-			} else {
-				targetDocument := out["kuberpult-cd-service"]
-				for _, env := range tc.ExpectedEnvs {
-					if !CheckForEnvVariable(t, env, tc.checkValues, &targetDocument) {
-						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
-					}
-				}
-				for _, env := range tc.ExpectedMissing {
-					if CheckForEnvVariable(t, env, tc.checkValues, &targetDocument) {
+					if CheckForEnvVariable(t, env, &targetDocument) {
 						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
 					}
 				}
