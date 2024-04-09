@@ -118,14 +118,18 @@ pgp:
 ingress:
   domainName: "kuberpult-example.com"
 
-environmentConfigs:
-  bootstrapMode: true
+environment_configs:
+  bootstrap_mode: true
   environment_configs_json: "{}"
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_GIT_URL",
 					Value: "testURL",
+				},
+				{
+					Name:  "KUBERPULT_BOOTSTRAP_MODE",
+					Value: "true",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{
