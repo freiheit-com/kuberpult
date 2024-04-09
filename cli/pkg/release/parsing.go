@@ -37,7 +37,7 @@ type cmdArguments struct {
 func readArgs(args []string) (*cmdArguments, error) {
 	cmdArgs := cmdArguments{}
 
-	fs := flag.NewFlagSet("flag set", flag.ExitOnError)
+	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
 
 	fs.Var(&cmdArgs.application, "application", "the name of the application to deploy (must be set exactly once)")
 	fs.Var(&cmdArgs.environments, "environment", "an environment to deploy to (must have --manifest set immediately afterwards)")
