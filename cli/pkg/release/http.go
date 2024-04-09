@@ -34,11 +34,14 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 	}
 
 	for environment, manifest := range parsedArgs.Manifests {
-		part, err := writer.CreateFormField(fmt.Sprintf("manifests[%s]", environment))
+		part, err := writer.CreateFormFile(fmt.Sprintf("manifests[%s]", environment), fmt.Sprintf("%s-manifest", environment))
 		if err != nil {
 			return nil, fmt.Errorf("error creating the form entry for environment %s with manifest file %s, error: %w", environment, manifest, err)
 		}
-		part.Write([]byte(manifest))
+		_, err = part.Write([]byte(manifest))
+		if err != nil {
+			return nil, fmt.Errorf("error writing the form entry for environment %s with manifest file %s, error: %w", environment, manifest, err)
+		}
 	}
 
 	if err := writer.Close(); err != nil {
@@ -68,7 +71,7 @@ func issueHttpRequest(url string, parsedArgs *ReleaseParameters) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("response was not OK or Accepted, response code: %v", resp.StatusCode)
+		return fmt.Errorf("response was not OK or Accepted, response code: %v", resp)
 	}
 
 	return nil
