@@ -21,7 +21,6 @@ package release
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 )
@@ -29,7 +28,7 @@ import (
 // a simple container for the command line args, not meant for anything except the use of flag.Parse
 // unless you're working on the readArgs and parseArgs functions, you probably don't need this type, see releaseParameters instead
 type cmdArguments struct {
-	application   cli_utils.RepeatedString
+	application   cli_utils.RepeatedString // code-simplifying hack: we use RepeatingString for application even though it's not meant to be repeated so that we can raise and error when it's repeated more or less than once
 	environments  cli_utils.RepeatedString
 	manifestFiles cli_utils.RepeatedString
 }
@@ -64,15 +63,10 @@ func readArgs(args []string) (*cmdArguments, error) {
 		}
 	}
 
-	if len(cmdArgs.environments.Values) != len(cmdArgs.manifestFiles.Values) {
+	if len(cmdArgs.environments.Values) != len(cmdArgs.manifestFiles.Values) { // this condition never holds since we make sure every --environment is matched with a --manifest
 		return nil, fmt.Errorf("the args --environment and --manifest must be set an equal number of times")
 	}
 
-	for _, manifestFile := range cmdArgs.manifestFiles.Values {
-		if _, err := os.Stat(manifestFile); err != nil {
-			return nil, fmt.Errorf("error while running stat on file %s, error: %w", manifestFile, err)
-		}
-	}
 	return &cmdArgs, nil
 }
 

@@ -25,13 +25,13 @@ import (
 )
 
 func TestIsWellBehaved(t *testing.T) {
-	type TestCase struct {
+	type testCase struct {
 		name string
 		str  string
 		res  bool
 	}
 
-	tcs := []TestCase{
+	tcs := []testCase{
 		{
 			name: "okay string",
 			str:  "totally-okay",
@@ -71,15 +71,15 @@ func TestIsWellBehaved(t *testing.T) {
 }
 
 func TestParseCommandLineArgs(t *testing.T) {
-	type TestCase struct {
-		name           string
-		argNames       []string
-		cmdArgs        []string
-		expectedValues map[string]string
-		expectedErrorMsg  string // should not be flakey
+	type testCase struct {
+		name             string
+		argNames         []string
+		cmdArgs          []string
+		expectedValues   map[string]string
+		expectedErrorMsg string // should not be flakey
 	}
 
-	tcs := []TestCase{
+	tcs := []testCase{
 		{
 			name: "one arg set",
 			argNames: []string{
@@ -105,8 +105,8 @@ func TestParseCommandLineArgs(t *testing.T) {
 			argNames: []string{
 				"arg",
 			},
-			cmdArgs: []string{"--arg"},
-			expectedValues: map[string]string{},
+			cmdArgs:          []string{"--arg"},
+			expectedValues:   map[string]string{},
 			expectedErrorMsg: "flag needs an argument: -arg",
 		},
 	}
@@ -125,6 +125,9 @@ func TestParseCommandLineArgs(t *testing.T) {
 			err := fs.Parse(tc.cmdArgs)
 			if err != nil && err.Error() != tc.expectedErrorMsg {
 				t.Fatalf("error messages mismatched, expected %s, received %s", tc.expectedErrorMsg, err.Error())
+			}
+			if err == nil && tc.expectedErrorMsg != "" {
+				t.Fatalf("expected error %v, but no error was raised", tc.expectedErrorMsg)
 			}
 
 			for argName, expectedValue := range tc.expectedValues {
