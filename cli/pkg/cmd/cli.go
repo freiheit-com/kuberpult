@@ -32,7 +32,7 @@ func handleRelease(args []string) {
 		log.Fatalf("error while parsing command line args, error: %v", err)
 	}
 
-	if err = rl.Release(parsedArgs); err != nil {
+	if err = rl.Release("http://localhost:3000/release", parsedArgs); err != nil {
 		log.Fatalf("error on release, error: %v", err)
 	}
 }
