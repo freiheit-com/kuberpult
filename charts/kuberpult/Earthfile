@@ -109,7 +109,6 @@ test-helm:
     COPY (+chart.yaml/Chart.yaml --VERSION=$VERSION) .
 
     RUN helm lint kuberpult-*.tgz --set git.url=test --set ingress.domainName=kuberpult.example.com
-    RUN pwd
     COPY tests ./tests
     COPY values.yaml .
     COPY templates templates
