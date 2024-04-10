@@ -89,7 +89,7 @@ Copyright 2023 freiheit.com*/
         button {
             padding: 8px 19px;
         }
-
+        
         .env-card {
             background-color: var(--mdc-theme-background);
             display: flex;
@@ -101,6 +101,9 @@ Copyright 2023 freiheit.com*/
             gap: 0;
 
             .env-card-header {
+                button {
+                    padding: 0px 0px; 
+                }
                 display: flex;
                 flex-direction: row;
                 justify-content: space-between;
