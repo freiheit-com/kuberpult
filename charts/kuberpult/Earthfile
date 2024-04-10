@@ -113,7 +113,7 @@ test-helm:
     COPY tests ./tests
     COPY values.yaml .
     COPY templates templates
-    
+
 
     RUN helm dependency build && cd tests && go mod init test-helm && go mod tidy && go test
 
