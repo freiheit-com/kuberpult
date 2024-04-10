@@ -104,8 +104,9 @@ test-helm:
     FROM +godeps
     WORKDIR /kp
 
-    COPY (+chart-tarball/kuberpult-*.tgz --VERSION=$VERSION) . 
-    
+    COPY (+chart-tarball/kuberpult-*.tgz --VERSION=$VERSION) .
+
+    COPY (+chart.yaml/Chart.yaml --VERSION=$VERSION) .
 
     RUN helm lint kuberpult-*.tgz --set git.url=test --set ingress.domainName=kuberpult.example.com
     RUN pwd
