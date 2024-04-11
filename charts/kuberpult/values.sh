@@ -307,42 +307,95 @@ config:
       type: sqlite3
       config:
           file: /var/dex/dex.db
+  web:
+      http: 0.0.0.0:8001
+  outh2:
+    grantTypes:
+      # ensure grantTypes includes the token-exchange grant (default)
+      - "urn:ietf:params:oauth:grant-type:token-exchange"
+  åconnectors:
+   - type: oidc
+     id: google
+     name: Google
+     config:
+        issuer: https://accounts.google.com
+        clientID: "${iap_clientId}"
+        clientSecret: |
+$(gsed -e "s/^/          /" <<<"${iap_clientSecret}")
+#  connectors:
+#    - type: mockCallback
+#      id: mock
+#      name: Example
+
+
+VALUES
+
+
+cat << VALUES > dexValues4.yaml
+config:
+  issuer: https://dex.example.com
+  storage:
+      type: sqlite3
+      config:
+          file: /var/dex/dex.db
+  connectors:
+    - type: google
+      id: google
+      name: Google
+      config:
+        clientID: "${iap_clientId}"
+        clientSecret: |
+$(gsed -e "s/^/          /" <<<"${iap_clientSecret}")
 web:
     http: 0.0.0.0:8001
 
-outh2:
-  grantTypes:
-    # ensure grantTypes includes the token-exchange grant (default)
-    - "urn:ietf:params:oauth:grant-type:token-exchange"
+  outh2:
+    grantTypes:
+      # ensure grantTypes includes the token-exchange grant (default)
+      - "urn:ietf:params:oauth:grant-type:token-exchange"
+VALUES
 
-connectors:
-  - name: My Upstream
-    type: oidc
-    id: my-upstream
-    config:
-      # The client submitted subject token will be verified against the issuer given here.
-      issuer: https://token.example.com
-      # Additional scopes in token response, supported list at:
-      # https://dexidp.io/docs/custom-scopes-claims-clients/#scopes
-      scopes:
-        - groups
-        - federated:id
-      # mapping of fields from the submitted token
-      userNameKey: sub
-      # Access tokens are generally considered opaque.
-      # We check their validity by calling the user info endpoint if it's supported.
-      # getUserInfo: true
+cat << VALUES > dexValues5.yaml
+config:
+  issuer: https://dex.example.com
+  storage:
+      type: memory
+  web:
+      http: 0.0.0.0:8001
 
-staticClients:
-  # dex issued tokens are bound to clients.
-  # For the token exchange flow, the client id and secret pair must be submitted as the username:password
-  # via Basic Authentication.
-  - name: My App
-    id: my-app
-    secret: my-secret
-    # We set public to indicate we don't intend to keep the client secret actually secret.
-    # https://dexidp.io/docs/custom-scopes-claims-clients/#public-clients
-    public: true
+  outh2:
+    grantTypes:
+      # ensure grantTypes includes the token-exchange grant (default)
+      - "urn:ietf:params:oauth:grant-type:token-exchange"
+
+  connectors:
+    - name: My Upstream
+      type: oidc
+      id: my-upstream
+      config:
+        # The client submitted subject token will be verified against the issuer given here.
+        issuer: https://token.example.com
+        # Additional scopes in token response, supported list at:
+        # https://dexidp.io/docs/custom-scopes-claims-clients/#scopes
+        scopes:
+          - groups
+          - federated:id
+        # mapping of fields from the submitted token
+        userNameKey: sub
+        # Access tokens are generally considered opaque.
+        # We check their validity by calling the user info endpoint if it's supported.
+        # getUserInfo: true
+
+  staticClients:
+    # dex issued tokens are bound to clients.
+    # For the token exchange flow, the client id and secret pair must be submitted as the username:password
+    # via Basic Authentication.
+    - name: My App
+      id: my-app
+      secret: my-secret
+      # We set public to indicate we don't intend to keep the client secret actually secret.
+      # https://dexidp.io/docs/custom-scopes-claims-clients/#public-clients
+      public: true
 VALUES
 # Get helm dependency charts and unzip them
 (rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
