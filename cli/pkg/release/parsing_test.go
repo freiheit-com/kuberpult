@@ -18,12 +18,27 @@ package release
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 )
+
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 func TestReadArgs(t *testing.T) {
 	type testCase struct {
@@ -40,8 +55,8 @@ func TestReadArgs(t *testing.T) {
 			expectedErrorMsg: "the --application arg must be set exactly once",
 		},
 		{
-			name: "only --application is properly provided but without --environment and --manifest",
-			args: []string{"--application", "potato"},
+			name:             "only --application is properly provided but without --environment and --manifest",
+			args:             []string{"--application", "potato"},
 			expectedErrorMsg: "the args --enviornment and --manifest must be set at least once",
 		},
 		{
@@ -86,11 +101,9 @@ func TestReadArgs(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			cmdArgs, err := readArgs(tc.args)
-			if err != nil && err.Error() != tc.expectedErrorMsg {
-				t.Fatalf("error messages mismatched, expected %s, received %s", tc.expectedErrorMsg, err.Error())
-			}
-			if err == nil && tc.expectedErrorMsg != "" {
-				t.Fatalf("expected error %v, but no error was raised", tc.expectedErrorMsg)
+			// check errors
+			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
 			if !cmp.Equal(cmdArgs, tc.expectedCmdArgs, cmp.AllowUnexported(cmdArguments{})) {
@@ -115,16 +128,16 @@ func TestParseArgs(t *testing.T) {
 
 	tcs := []testCase{
 		{
-			setup:   []fileCreation{},
-			name:    "no enviornments and manifests",
-			cmdArgs: []string{"--application", "potato"},
+			setup:            []fileCreation{},
+			name:             "no enviornments and manifests",
+			cmdArgs:          []string{"--application", "potato"},
 			expectedErrorMsg: "error while reading command line arguments, error: the args --enviornment and --manifest must be set at least once",
 		},
 		{
 			setup: []fileCreation{
 				{
 					filename: "production-manifest.yaml",
-					content: "some production manifest",
+					content:  "some production manifest",
 				},
 			},
 			name:    "with environment and manifest",
@@ -140,11 +153,11 @@ func TestParseArgs(t *testing.T) {
 			setup: []fileCreation{
 				{
 					filename: "development-manifest.yaml",
-					content: "some development manifest",
+					content:  "some development manifest",
 				},
 				{
 					filename: "production-manifest.yaml",
-					content: "some production manifest",
+					content:  "some production manifest",
 				},
 			},
 			name:    "with environment and manifest multiple times",
@@ -153,7 +166,7 @@ func TestParseArgs(t *testing.T) {
 				Application: "potato",
 				Manifests: map[string]string{
 					"development": "some development manifest",
-					"production": "some production manifest",
+					"production":  "some production manifest",
 				},
 			},
 		},
@@ -176,11 +189,17 @@ func TestParseArgs(t *testing.T) {
 			t.Cleanup(func() {
 				os.RemoveAll(dir)
 			})
-			err = os.Chdir(dir)
-			if err != nil {
-				t.Fatalf("error encountered while changing working directory to %s, error: %v", dir, err)
-			}
 			
+			for i, _ := range tc.setup {
+				tc.setup[i].filename = filepath.Join(dir, tc.setup[i].filename)
+
+			}
+			for i, arg := range tc.cmdArgs {
+				if arg == "--manifest" {
+					tc.cmdArgs[i + 1] = filepath.Join(dir, tc.cmdArgs[i + 1])
+				}
+			}
+
 			for _, fc := range tc.setup {
 				err = os.WriteFile(fc.filename, []byte(fc.content), 0664)
 				if err != nil {
@@ -190,11 +209,8 @@ func TestParseArgs(t *testing.T) {
 
 			params, err := ParseArgs(tc.cmdArgs)
 			// check errors
-			if err != nil && err.Error() != tc.expectedErrorMsg {
-				t.Fatalf("error messages mismatched, expected %s, received %s", tc.expectedErrorMsg, err.Error())
-			}
-			if err == nil && tc.expectedErrorMsg != "" {
-				t.Fatalf("expected error %v, but no error was raised", tc.expectedErrorMsg)
+			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
 			// check result
