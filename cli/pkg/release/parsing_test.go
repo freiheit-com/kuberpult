@@ -118,10 +118,7 @@ func TestParseArgs(t *testing.T) {
 			setup:   []fileCreation{},
 			name:    "no enviornments and manifests",
 			cmdArgs: []string{"--application", "potato"},
-			expectedParams: &ReleaseParameters{
-				Application: "potato",
-				Manifests:   map[string]string{},
-			},
+			expectedErrorMsg: "error while reading command line arguments, error: the args --enviornment and --manifest must be set at least once",
 		},
 		{
 			setup: []fileCreation{
