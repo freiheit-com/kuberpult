@@ -104,17 +104,17 @@ test-helm:
     FROM +godeps
     WORKDIR /kp
 
-    COPY (+chart-tarball/kuberpult-*.tgz --VERSION=$VERSION) . 
-    
+    COPY (+chart-tarball/kuberpult-*.tgz --VERSION=$VERSION) .
+
+    COPY (+chart.yaml/Chart.yaml --VERSION=$VERSION) .
 
     RUN helm lint kuberpult-*.tgz --set git.url=test --set ingress.domainName=kuberpult.example.com
-    RUN pwd
     COPY tests ./tests
     COPY values.yaml .
     COPY templates templates
-    COPY Chart.yaml .
 
-    RUN helm dependency build && cd tests && go mod init example.com/test-helm && go mod tidy && go test
+
+    RUN helm dependency build && cd tests && go mod init test-helm && go mod tidy && go test
 
 test:
     LOCALLY

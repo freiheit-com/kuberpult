@@ -13,29 +13,11 @@ You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 Copyright 2023 freiheit.com*/
-/*
-This file is part of kuberpult.
 
-Kuberpult is free software: you can redistribute it and/or modify
-it under the terms of the Expat(MIT) License as published by
-the Free Software Foundation.
-
-Kuberpult is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-MIT License for more details.
-
-You should have received a copy of the MIT License
-along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
-
-Copyright 2023 freiheit.com
-*/
 package main_test
 
 import (
-	"bytes"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"math/rand"
@@ -46,196 +28,6 @@ import (
 	"strings"
 	"testing"
 )
-
-type ValuesDoc struct { //Auto generated using https://zhwt.github.io/yaml-to-go/. In case you made any changes, post the content of values.yaml there and replace this struct
-	Git struct {
-		URL             interface{} `yaml:"url"`
-		WebURL          interface{} `yaml:"webUrl"`
-		Branch          string      `yaml:"branch"`
-		ManifestRepoURL string      `yaml:"manifestRepoUrl"`
-		SourceRepoURL   string      `yaml:"sourceRepoUrl"`
-		Author          struct {
-			Name  string `yaml:"name"`
-			Email string `yaml:"email"`
-		} `yaml:"author"`
-		NetworkTimeout          string `yaml:"networkTimeout"`
-		EnableWritingCommitData bool   `yaml:"enableWritingCommitData"`
-		MaximumCommitsPerPush   int    `yaml:"maximumCommitsPerPush"`
-	} `yaml:"git"`
-	Hub string `yaml:"hub"`
-	Log struct {
-		Format string `yaml:"format"`
-		Level  string `yaml:"level"`
-	} `yaml:"log"`
-	Cd struct {
-		Image         string `yaml:"image"`
-		BackendConfig struct {
-			Create     bool `yaml:"create"`
-			TimeoutSec int  `yaml:"timeoutSec"`
-			QueueSize  int  `yaml:"queueSize"`
-		} `yaml:"backendConfig"`
-		Resources struct {
-			Limits struct {
-				CPU    int    `yaml:"cpu"`
-				Memory string `yaml:"memory"`
-			} `yaml:"limits"`
-			Requests struct {
-				CPU    int    `yaml:"cpu"`
-				Memory string `yaml:"memory"`
-			} `yaml:"requests"`
-		} `yaml:"resources"`
-		EnableSqlite bool `yaml:"enableSqlite"`
-		Probes       struct {
-			Liveness struct {
-				PeriodSeconds       int `yaml:"periodSeconds"`
-				SuccessThreshold    int `yaml:"successThreshold"`
-				TimeoutSeconds      int `yaml:"timeoutSeconds"`
-				FailureThreshold    int `yaml:"failureThreshold"`
-				InitialDelaySeconds int `yaml:"initialDelaySeconds"`
-			} `yaml:"liveness"`
-			Readiness struct {
-				PeriodSeconds       int `yaml:"periodSeconds"`
-				SuccessThreshold    int `yaml:"successThreshold"`
-				TimeoutSeconds      int `yaml:"timeoutSeconds"`
-				FailureThreshold    int `yaml:"failureThreshold"`
-				InitialDelaySeconds int `yaml:"initialDelaySeconds"`
-			} `yaml:"readiness"`
-		} `yaml:"probes"`
-	} `yaml:"cd"`
-	Frontend struct {
-		Image   string `yaml:"image"`
-		Service struct {
-			Annotations struct {
-			} `yaml:"annotations"`
-		} `yaml:"service"`
-		Resources struct {
-			Limits struct {
-				CPU    string `yaml:"cpu"`
-				Memory string `yaml:"memory"`
-			} `yaml:"limits"`
-			Requests struct {
-				CPU    string `yaml:"cpu"`
-				Memory string `yaml:"memory"`
-			} `yaml:"requests"`
-		} `yaml:"resources"`
-		MaxWaitDuration string `yaml:"maxWaitDuration"`
-		BatchClient     struct {
-			Timeout string `yaml:"timeout"`
-		} `yaml:"batchClient"`
-	} `yaml:"frontend"`
-	Rollout struct {
-		Enabled   bool   `yaml:"enabled"`
-		Image     string `yaml:"image"`
-		Resources struct {
-			Limits struct {
-				CPU    string `yaml:"cpu"`
-				Memory string `yaml:"memory"`
-			} `yaml:"limits"`
-			Requests struct {
-				CPU    string `yaml:"cpu"`
-				Memory string `yaml:"memory"`
-			} `yaml:"requests"`
-		} `yaml:"resources"`
-		PodAnnotations struct {
-		} `yaml:"podAnnotations"`
-	} `yaml:"rollout"`
-	Ingress struct {
-		Create      bool `yaml:"create"`
-		Annotations struct {
-			NginxIngressKubernetesIoProxyReadTimeout int `yaml:"nginx.ingress.kubernetes.io/proxy-read-timeout"`
-		} `yaml:"annotations"`
-		DomainName interface{} `yaml:"domainName"`
-		Iap        struct {
-			Enabled    bool        `yaml:"enabled"`
-			SecretName interface{} `yaml:"secretName"`
-		} `yaml:"iap"`
-		TLS struct {
-			Host       interface{} `yaml:"host"`
-			SecretName string      `yaml:"secretName"`
-		} `yaml:"tls"`
-	} `yaml:"ingress"`
-	SSH struct {
-		Identity   string `yaml:"identity"`
-		KnownHosts string `yaml:"known_hosts"`
-	} `yaml:"ssh"`
-	Pgp struct {
-		KeyRing interface{} `yaml:"keyRing"`
-	} `yaml:"pgp"`
-	Argocd struct {
-		BaseURL      string `yaml:"baseUrl"`
-		Token        string `yaml:"token"`
-		Server       string `yaml:"server"`
-		Insecure     bool   `yaml:"insecure"`
-		SendWebhooks bool   `yaml:"sendWebhooks"`
-		Refresh      struct {
-			Enabled     bool `yaml:"enabled"`
-			Concurrency int  `yaml:"concurrency"`
-		} `yaml:"refresh"`
-		GenerateFiles bool `yaml:"generateFiles"`
-	} `yaml:"argocd"`
-	DatadogTracing struct {
-		Enabled     bool   `yaml:"enabled"`
-		Debugging   bool   `yaml:"debugging"`
-		Environment string `yaml:"environment"`
-	} `yaml:"datadogTracing"`
-	DatadogProfiling struct {
-		Enabled bool   `yaml:"enabled"`
-		APIKey  string `yaml:"apiKey"`
-	} `yaml:"datadogProfiling"`
-	DogstatsdMetrics struct {
-		Enabled        bool   `yaml:"enabled"`
-		EventsEnabled  bool   `yaml:"eventsEnabled"`
-		Address        string `yaml:"address"`
-		HostSocketPath string `yaml:"hostSocketPath"`
-	} `yaml:"dogstatsdMetrics"`
-	ImagePullSecrets []interface{} `yaml:"imagePullSecrets"`
-	Gke              struct {
-		BackendServiceID   string `yaml:"backend_service_id"`
-		BackendServiceName string `yaml:"backend_service_name"`
-		ProjectNumber      string `yaml:"project_number"`
-	} `yaml:"gke"`
-	EnvironmentConfigs struct {
-		BootstrapMode          bool        `yaml:"bootstrap_mode"`
-		EnvironmentConfigsJSON interface{} `yaml:"environment_configs_json"`
-	} `yaml:"environment_configs"`
-	Auth struct {
-		AzureAuth struct {
-			Enabled       bool   `yaml:"enabled"`
-			CloudInstance string `yaml:"cloudInstance"`
-			ClientID      string `yaml:"clientId"`
-			TenantID      string `yaml:"tenantId"`
-		} `yaml:"azureAuth"`
-		DexAuth struct {
-			Enabled      bool   `yaml:"enabled"`
-			InstallDex   bool   `yaml:"installDex"`
-			PolicyCsv    string `yaml:"policy_csv"`
-			ClientID     string `yaml:"clientId"`
-			ClientSecret string `yaml:"clientSecret"`
-			BaseURL      string `yaml:"baseURL"`
-			Scopes       string `yaml:"scopes"`
-		} `yaml:"dexAuth"`
-		API struct {
-			EnableDespiteNoAuth bool `yaml:"enableDespiteNoAuth"`
-		} `yaml:"api"`
-	} `yaml:"auth"`
-	Dex struct {
-		EnvVars []interface{} `yaml:"envVars"`
-		Config  struct {
-		} `yaml:"config"`
-	} `yaml:"dex"`
-	Revolution struct {
-		Dora struct {
-			Enabled     bool   `yaml:"enabled"`
-			URL         string `yaml:"url"`
-			Token       string `yaml:"token"`
-			Concurrency int    `yaml:"concurrency"`
-		} `yaml:"dora"`
-	} `yaml:"revolution"`
-	ManageArgoApplications struct {
-		Enabled bool          `yaml:"enabled"`
-		Filter  []interface{} `yaml:"filter"`
-	} `yaml:"manageArgoApplications"`
-}
 
 func runHelm(t *testing.T, valuesData []byte, dirName string) string {
 	testId := strconv.Itoa(rand.Intn(9999))
@@ -257,11 +49,12 @@ func runHelm(t *testing.T, valuesData []byte, dirName string) string {
 
 	return outputFile
 }
-func CheckForEnvVariable(t *testing.T, target core.EnvVar, strict bool, deployment *apps.Deployment) bool {
+
+func CheckForEnvVariable(t *testing.T, target core.EnvVar, deployment *apps.Deployment) bool {
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		for _, env := range container.Env {
 			if env.Name == target.Name {
-				if !strict || env.Value == target.Value {
+				if env.Value == target.Value {
 					return true
 				} else {
 					t.Logf("Found '%s' env variable. Value mismatch: wanted: '%s', got: '%s'.\n", target.Name, target.Value, env.Value)
@@ -270,20 +63,6 @@ func CheckForEnvVariable(t *testing.T, target core.EnvVar, strict bool, deployme
 		}
 	}
 	return false
-}
-
-func readValuesFile() (*ValuesDoc, error) {
-	data, err := os.ReadFile("../values.yaml")
-	if err != nil {
-		return nil, fmt.Errorf("../values.yaml: %w", err)
-	}
-	decoder := yaml.NewDecoder(bytes.NewBufferString(string(data)))
-
-	var d ValuesDoc
-	if err := decoder.Decode(&d); err != nil {
-		return nil, fmt.Errorf("document decode failed: %w", err)
-	}
-	return &d, nil
 }
 
 func searchSimpleKeyValuePair(yaml []string, key string, value string) bool {
@@ -327,20 +106,24 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 
 	tcs := []struct {
 		Name            string
-		Setup           func(t *testing.T, values *ValuesDoc) //Runs before each test case. Edit the values you want to test here.
+		Values          string
 		ExpectedEnvs    []core.EnvVar
 		ExpectedMissing []core.EnvVar
-		checkValues     bool //some test case values might be more complex than others. For now each test can decide if it wants to check for the values of the env variables or not.
 	}{
 		{
 			Name: "Basic Parsing works",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.Pgp.KeyRing = ""
-				values.Ingress.DomainName = "kuberpult-example.com"
-				values.EnvironmentConfigs.BootstrapMode = true //makes values.EnvironmentConfigs.EnvironmentConfigsJSON needed
-				values.EnvironmentConfigs.EnvironmentConfigsJSON = "{}"
-			},
+			Values: `
+git:
+  url:  "testURL"
+pgp:
+  keyRing: ""
+ingress:
+  domainName: "kuberpult-example.com"
+
+environment_configs:
+  bootstrap_mode: true
+  environment_configs_json: "{}"
+`,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_GIT_URL",
@@ -357,13 +140,15 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 					Value: "",
 				},
 			},
-			checkValues: true,
 		},
 		{
 			Name: "Change Git URL",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "checkThisValue"
-			},
+			Values: `
+git:
+  url:  "checkThisValue"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_GIT_URL",
@@ -371,14 +156,17 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
-			checkValues:     true,
 		},
 		{
 			Name: "Argo CD disabled",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.Argocd.GenerateFiles = false
-			},
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+argocd:
+  generateFiles: false
+`,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_ARGO_CD_GENERATE_FILES",
@@ -390,14 +178,17 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
-			checkValues:     true,
 		},
 		{
 			Name: "Argo CD enabled simple test",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.Argocd.GenerateFiles = true
-			},
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+argocd:
+  generateFiles: true
+`,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_ARGO_CD_GENERATE_FILES",
@@ -409,14 +200,17 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
-			checkValues:     true,
 		},
 		{
 			Name: "DD Metrics disabled",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.DatadogTracing.Enabled = false
-			},
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+dataDogTracing:
+  enabled: false
+`,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_GIT_URL",
@@ -449,14 +243,17 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 					Value: "",
 				},
 			},
-			checkValues: false, //Don't check the actual values of the env variables
 		},
 		{
 			Name: "DD Tracing enabled",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.DatadogTracing.Enabled = true
-			},
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+datadogTracing:
+  enabled: true
+`,
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "DD_AGENT_HOST",
@@ -476,46 +273,59 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 				},
 				{
 					Name:  "KUBERPULT_ENABLE_TRACING",
-					Value: "",
+					Value: "true",
 				},
 				{
 					Name:  "DD_TRACE_DEBUG",
-					Value: "",
+					Value: "false",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
-			checkValues:     false,
 		},
 		{
 			Name: "Two variables involved web hook disabled",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.Argocd.SendWebhooks = false
-			},
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+argocd:
+  sendWebHooks: false
+`,
 			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "testURL",
+				},
 				{
 					Name:  "KUBERPULT_ARGO_CD_SERVER",
 					Value: "",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
-			checkValues:     true,
 		},
 		{
 			Name: "Two variables involved web hook enabled",
-			Setup: func(t *testing.T, values *ValuesDoc) {
-				values.Git.URL = "testURL"
-				values.Argocd.SendWebhooks = true
-				values.Argocd.Server = "testServer"
-			},
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+argocd:
+  sendWebhooks: true
+  server: testServer
+`,
 			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "testURL",
+				},
 				{
 					Name:  "KUBERPULT_ARGO_CD_SERVER",
 					Value: "testServer",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
-			checkValues:     true,
 		},
 	}
 
@@ -523,28 +333,20 @@ func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			testDirName := t.TempDir()
-			values, err := readValuesFile()
-			if err != nil {
-				t.Fatalf(fmt.Sprintf("Error reading values file. Err: %v", err))
-			}
-			values.Ingress.DomainName = "kuberpult.example.com"
-			tc.Setup(t, values)
-			yamlValuesData, err := yaml.Marshal(values)
-			if err != nil {
-				t.Fatalf("Error Marshaling values file. err: %v\n", err)
-			}
-			outputFile := runHelm(t, yamlValuesData, testDirName)
+
+			outputFile := runHelm(t, []byte(tc.Values), testDirName)
 			if out, err := getDeployments(outputFile); err != nil {
 				t.Fatalf(fmt.Sprintf("%v", err))
 			} else {
 				targetDocument := out["kuberpult-cd-service"]
+
 				for _, env := range tc.ExpectedEnvs {
-					if !CheckForEnvVariable(t, env, tc.checkValues, &targetDocument) {
+					if !CheckForEnvVariable(t, env, &targetDocument) {
 						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
 					}
 				}
 				for _, env := range tc.ExpectedMissing {
-					if CheckForEnvVariable(t, env, tc.checkValues, &targetDocument) {
+					if CheckForEnvVariable(t, env, &targetDocument) {
 						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
 					}
 				}
