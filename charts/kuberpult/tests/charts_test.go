@@ -49,6 +49,7 @@ func runHelm(t *testing.T, valuesData []byte, dirName string) string {
 
 	return outputFile
 }
+
 func CheckForEnvVariable(t *testing.T, target core.EnvVar, deployment *apps.Deployment) bool {
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		for _, env := range container.Env {
@@ -100,6 +101,7 @@ func getDeployments(fileName string) (map[string]apps.Deployment, error) {
 	}
 	return output, nil
 }
+
 func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
 
 	tcs := []struct {
@@ -298,6 +300,29 @@ argocd:
 				{
 					Name:  "KUBERPULT_ARGO_CD_SERVER",
 					Value: "",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Two variables involved web hook enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+argocd:
+  sendWebhooks: true
+  server: testServer
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GIT_URL",
+					Value: "testURL",
+				},
+				{
+					Name:  "KUBERPULT_ARGO_CD_SERVER",
+					Value: "testServer",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
