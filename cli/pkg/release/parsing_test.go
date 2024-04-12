@@ -19,6 +19,7 @@ Copyright 2023 freiheit.com
 package release
 
 import (
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -110,7 +111,12 @@ func TestReadArgs(t *testing.T) {
 }
 
 func TestParseArgs(t *testing.T) {
+	type fileCreation struct {
+		filename string
+		content  string
+	}
 	type testCase struct {
+		setup            []fileCreation
 		name             string
 		cmdArgs          []string
 		expectedParams   *ReleaseParameters
@@ -119,6 +125,7 @@ func TestParseArgs(t *testing.T) {
 
 	tcs := []testCase{
 		{
+			setup:   []fileCreation{},
 			name:    "no enviornments and manifests",
 			cmdArgs: []string{"--application", "potato"},
 			expectedParams: &ReleaseParameters{
@@ -127,22 +134,39 @@ func TestParseArgs(t *testing.T) {
 			},
 		},
 		{
+			setup: []fileCreation{
+				{
+					filename: "production-manifest.yaml",
+					content: "some production manifest",
+				},
+			},
 			name:    "with environment and manifest",
 			cmdArgs: []string{"--application", "potato", "--environment", "production", "--manifest", "production-manifest.yaml"},
 			expectedParams: &ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string]string{
-					"production": "production-manifest.yaml",
+					"production": "some production manifest",
 				},
 			},
 		},
 		{
+			setup: []fileCreation{
+				{
+					filename: "development-manifest.yaml",
+					content: "some development manifest",
+				},
+				{
+					filename: "production-manifest.yaml",
+					content: "some production manifest",
+				},
+			},
 			name:    "with environment and manifest multiple times",
-			cmdArgs: []string{"--application", "potato", "--environment", "production", "--manifest", "production-manifest.yaml"},
+			cmdArgs: []string{"--application", "potato", "--environment", "development", "--manifest", "development-manifest.yaml", "--environment", "production", "--manifest", "production-manifest.yaml"},
 			expectedParams: &ReleaseParameters{
 				Application: "potato",
 				Manifests: map[string]string{
-					"production": "production-manifest.yaml",
+					"development": "some development manifest",
+					"production": "some production manifest",
 				},
 			},
 		},
@@ -157,7 +181,28 @@ func TestParseArgs(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			// test setup
+			dir, err := os.MkdirTemp("", "kuberpult-cli-test-*")
+			if err != nil {
+				t.Fatalf("error encoutered while creating test directory, error: %v", err)
+			}
+			t.Cleanup(func() {
+				os.RemoveAll(dir)
+			})
+			err = os.Chdir(dir)
+			if err != nil {
+				t.Fatalf("error encountered while changing working directory to %s, error: %v", dir, err)
+			}
+			
+			for _, fc := range tc.setup {
+				err = os.WriteFile(fc.filename, []byte(fc.content), 0664)
+				if err != nil {
+					t.Fatalf("error while creating file %s, error: %v", fc.filename, err)
+				}
+			}
+
 			params, err := ParseArgs(tc.cmdArgs)
+			// check errors
 			if err != nil && err.Error() != tc.expectedErrorMsg {
 				t.Fatalf("error messages mismatched, expected %s, received %s", tc.expectedErrorMsg, err.Error())
 			}
@@ -165,6 +210,7 @@ func TestParseArgs(t *testing.T) {
 				t.Fatalf("expected error %v, but no error was raised", tc.expectedErrorMsg)
 			}
 
+			// check result
 			if !cmp.Equal(params, tc.expectedParams, cmp.AllowUnexported(cmdArguments{})) {
 				t.Fatalf("expected args %v, got %v", tc.expectedParams, params)
 			}

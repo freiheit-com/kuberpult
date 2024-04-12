@@ -21,6 +21,7 @@ package release
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 )
@@ -83,7 +84,11 @@ func ParseArgs(args []string) (*ReleaseParameters, error) {
 		manifestFile := cmdArgs.manifests.Values[i]
 		environemnt := cmdArgs.environments.Values[i]
 
-		rp.Manifests[environemnt] = manifestFile
+		manifestBytes, err := os.ReadFile(manifestFile)
+		if err != nil {
+			return nil, fmt.Errorf("error while reading the manifest file %s, error: %w", manifestFile, err)
+		}
+		rp.Manifests[environemnt] = string(manifestBytes)
 	}
 
 	return &rp, nil
