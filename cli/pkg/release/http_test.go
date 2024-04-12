@@ -45,12 +45,19 @@ func (s *mockHttpServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 const MAXIMUM_MULTIPART_SIZE = 12 * 1024 * 1024 // = 12Mi, taken from environments.go
 
 func TestRequestCreation(t *testing.T) {
+	// simplified version of multipart.FileHeader
+	type simpleMultipartFormFileHeader struct {
+		filename string
+		content  string
+	}
+
 	type testCase struct {
-		name                        string
-		params                      *ReleaseParameters
-		expectedMultipartFormValues map[string][]string
-		expectedErrorMsg            string
-		responseCode                int
+		name                       string
+		params                     *ReleaseParameters
+		expectedMultipartFormValue map[string][]string
+		expectedMultupartFormFile  map[string][]simpleMultipartFormFileHeader
+		expectedErrorMsg           string
+		responseCode               int
 	}
 
 	tcs := []testCase{
@@ -59,8 +66,11 @@ func TestRequestCreation(t *testing.T) {
 			params: &ReleaseParameters{
 				Application: "potato",
 			},
-			expectedMultipartFormValues: map[string][]string{
+			expectedMultipartFormValue: map[string][]string{
 				"application": {"potato"},
+			},
+			expectedMultupartFormFile: map[string][]simpleMultipartFormFileHeader{
+				
 			},
 			responseCode: http.StatusOK,
 		},
@@ -72,9 +82,16 @@ func TestRequestCreation(t *testing.T) {
 					"development": "some development manifest",
 				},
 			},
-			expectedMultipartFormValues: map[string][]string{
+			expectedMultipartFormValue: map[string][]string{
 				"application":            {"potato"},
-				"manifests[development]": {"some development manifest"},
+			},
+			expectedMultupartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content: "some development manifest",
+					},
+				},
 			},
 
 			responseCode: http.StatusOK,
@@ -88,29 +105,24 @@ func TestRequestCreation(t *testing.T) {
 					"production":  "some production manifest",
 				},
 			},
-			expectedMultipartFormValues: map[string][]string{
-				"application":            {"potato"},
-				"manifests[development]": {"some development manifest"},
-				"manifests[production]":  {"some production manifest"},
+			expectedMultipartFormValue: map[string][]string{
+				"application": {"potato"},
 			},
-
-			responseCode: http.StatusOK,
-		},
-		{
-			name: "multiple environment manifests with response code StatusCreated",
-			params: &ReleaseParameters{
-				Application: "potato",
-				Manifests: map[string]string{
-					"development": "some development manifest",
-					"production":  "some production manifest",
+			expectedMultupartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content: "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content: "some production manifest",
+					},
 				},
 			},
-			expectedMultipartFormValues: map[string][]string{
-				"application":            {"potato"},
-				"manifests[development]": {"some development manifest"},
-				"manifests[production]":  {"some production manifest"},
-			},
-			responseCode: http.StatusCreated,
+			responseCode: http.StatusOK,
 		},
 		{
 			name: "multiple environment manifests with response code BadRequest",
@@ -121,10 +133,22 @@ func TestRequestCreation(t *testing.T) {
 					"production":  "some production manifest",
 				},
 			},
-			expectedMultipartFormValues: map[string][]string{
-				"application":            {"potato"},
-				"manifests[development]": {"some development manifest"},
-				"manifests[production]":  {"some production manifest"},
+			expectedMultipartFormValue: map[string][]string{
+				"application": {"potato"},
+			},
+			expectedMultupartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content: "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content: "some production manifest",
+					},
+				},
 			},
 			expectedErrorMsg: "error while issuing HTTP request, error: response was not OK or Accepted, response code: 400",
 			responseCode:     http.StatusBadRequest,
@@ -139,6 +163,7 @@ func TestRequestCreation(t *testing.T) {
 			}
 			server := httptest.NewServer(mockServer)
 
+			// check errors
 			err := Release(server.URL, tc.params)
 			if err != nil && err.Error() != tc.expectedErrorMsg {
 				t.Fatalf("error messages mismatched, expected %s, received %s", tc.expectedErrorMsg, err.Error())
@@ -147,8 +172,38 @@ func TestRequestCreation(t *testing.T) {
 				t.Fatalf("expected error %v, but no error was raised", tc.expectedErrorMsg)
 			}
 
-			if !cmp.Equal(mockServer.multipartForm.Value, tc.expectedMultipartFormValues, cmp.AllowUnexported()) {
-				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultipartFormValues, mockServer.multipartForm)
+			// check multipart form values
+			if !cmp.Equal(mockServer.multipartForm.Value, tc.expectedMultipartFormValue) {
+				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultipartFormValue, mockServer.multipartForm)
+			}
+
+			// check multipart form files
+			fileHeaders := make(map[string][]simpleMultipartFormFileHeader)
+			for key, val := range mockServer.multipartForm.File {
+				simpleHeaders := make([]simpleMultipartFormFileHeader, 0)
+				for _, header := range val {
+					file, err := header.Open()
+					if err != nil {
+						t.Fatalf("error encountered while opening the multipart file header for key \"%s\" file \"%s\", error: %v", key, header.Filename, err)
+					}
+					bytes := make([]byte, MAXIMUM_MULTIPART_SIZE)
+					n, err := file.Read(bytes)
+					if err != nil {
+						t.Fatalf("error encountered while reading the multipart file header for key \"%s\" file \"%s\", error: %v", key, header.Filename, err)
+					}
+					bytes = bytes[:n]
+					content := string(bytes)
+					simpleHeader := simpleMultipartFormFileHeader{
+						filename: header.Filename,
+						content: content,
+					}
+
+					simpleHeaders = append(simpleHeaders, simpleHeader)
+				}
+				fileHeaders[key] = simpleHeaders
+			}
+			if !cmp.Equal(fileHeaders, tc.expectedMultupartFormFile, cmp.AllowUnexported(simpleMultipartFormFileHeader{})) {
+				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultupartFormFile, fileHeaders)
 			}
 		})
 	}

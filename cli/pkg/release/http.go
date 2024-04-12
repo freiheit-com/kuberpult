@@ -71,7 +71,7 @@ func issueHttpRequest(url string, parsedArgs *ReleaseParameters) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("response was not OK or Accepted, response code: %v", resp)
+		return fmt.Errorf("response was not OK or Accepted, response code: %v", resp.StatusCode)
 	}
 
 	return nil
