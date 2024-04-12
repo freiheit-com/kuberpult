@@ -22,7 +22,7 @@ To remove a service _altogether_, proceed as follows:
   - Either wait for the normal release trains to roll this out on all environments
   - Or deploy the "undeploy version" to all environments manually
 - Hit "Delete Forever"
-  - If that button doesn't exist, it means the "undeploy" version is not rolled out everywhere, or there is a lock.  
+  - If that button doesn't exist, it means the "undeploy" version is not rolled out everywhere, or "undeploy" is not the latest version, or there is a lock.  
     ![](../assets/img/undeploy/delete_forever.png)
 - Finally, hit "Apply"
   - Note that ArgoCd may need some time to apply this change.  
