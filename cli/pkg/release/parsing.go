@@ -32,7 +32,7 @@ type cmdArguments struct {
 	manifests    cli_utils.RepeatedString
 }
 
-func readArgs(args []string) (*cmdArguments, error) {
+func parseArgs(args []string) (*cmdArguments, error) {
 	cmdArgs := cmdArguments{}
 
 	fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
@@ -51,12 +51,14 @@ func readArgs(args []string) (*cmdArguments, error) {
 
 	for i, arg := range args {
 		if arg == "--environment" {
-			if i+2 >= len(args) || args[i+2] != "--manifest" {
+			nextIndex := i + 2
+			if nextIndex >= len(args) || args[nextIndex] != "--manifest" {
 				return nil, fmt.Errorf("all --environment args must have a --manifest arg set immediately afterwards")
 			}
 		}
+		prevIndex := i - 2
 		if arg == "--manifest" {
-			if i-2 < 0 || args[i-2] != "--environment" {
+			if prevIndex < 0 || args[prevIndex] != "--environment" {
 				return nil, fmt.Errorf("all --manifest args must be set immediately after an --environment arg")
 			}
 		}
@@ -73,8 +75,8 @@ func readArgs(args []string) (*cmdArguments, error) {
 	return &cmdArgs, nil
 }
 
-func ParseArgs(args []string) (*ReleaseParameters, error) {
-	cmdArgs, err := readArgs(args)
+func ProcessArgs(args []string) (*ReleaseParameters, error) {
+	cmdArgs, err := parseArgs(args)
 	if err != nil {
 		return nil, fmt.Errorf("error while reading command line arguments, error: %w", err)
 	}

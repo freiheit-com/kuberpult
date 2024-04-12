@@ -100,7 +100,7 @@ func TestReadArgs(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			cmdArgs, err := readArgs(tc.args)
+			cmdArgs, err := parseArgs(tc.args)
 			// check errors
 			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
@@ -189,14 +189,14 @@ func TestParseArgs(t *testing.T) {
 			t.Cleanup(func() {
 				os.RemoveAll(dir)
 			})
-			
+
 			for i, _ := range tc.setup {
 				tc.setup[i].filename = filepath.Join(dir, tc.setup[i].filename)
 
 			}
 			for i, arg := range tc.cmdArgs {
 				if arg == "--manifest" {
-					tc.cmdArgs[i + 1] = filepath.Join(dir, tc.cmdArgs[i + 1])
+					tc.cmdArgs[i+1] = filepath.Join(dir, tc.cmdArgs[i+1])
 				}
 			}
 
@@ -207,7 +207,7 @@ func TestParseArgs(t *testing.T) {
 				}
 			}
 
-			params, err := ParseArgs(tc.cmdArgs)
+			params, err := ProcessArgs(tc.cmdArgs)
 			// check errors
 			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
 				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
