@@ -17,5 +17,7 @@
 include ../Makefile.variables
 
 build-pr:
-	@echo $(VERSION)
 	earthly --push +build-pr --VERSION=$(VERSION)
+
+build-main:
+	earthly --push +build-main --VERSION=$(VERSION)

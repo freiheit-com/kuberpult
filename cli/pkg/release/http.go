@@ -26,7 +26,7 @@ import (
 func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Request, error) {
 	form := bytes.NewBuffer(nil)
 	writer := multipart.NewWriter(form)
-
+	
 	if err := writer.WriteField("application", parsedArgs.Application); err != nil {
 		return nil, fmt.Errorf("error writing application field, error: %w", err)
 	}
@@ -34,10 +34,12 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 	for environment, manifest := range parsedArgs.Manifests {
 		part, err := writer.CreateFormFile(fmt.Sprintf("manifests[%s]", environment), fmt.Sprintf("%s-manifest", environment))
 		if err != nil {
+			writer.Close()
 			return nil, fmt.Errorf("error creating the form entry for environment %s with manifest file %s, error: %w", environment, manifest, err)
 		}
 		_, err = part.Write([]byte(manifest))
 		if err != nil {
+			writer.Close()
 			return nil, fmt.Errorf("error writing the form entry for environment %s with manifest file %s, error: %w", environment, manifest, err)
 		}
 	}

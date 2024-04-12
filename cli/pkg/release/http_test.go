@@ -14,16 +14,17 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 
-
 package release
 
 import (
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 type mockHttpServer struct {
@@ -34,7 +35,7 @@ type mockHttpServer struct {
 func (s *mockHttpServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	err := req.ParseMultipartForm(MAXIMUM_MULTIPART_SIZE)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("error while parsing the multipart form in the mock HTTP server, error: %w", err))
 	}
 	s.multipartForm = req.MultipartForm
 
@@ -54,7 +55,7 @@ func TestRequestCreation(t *testing.T) {
 		name                       string
 		params                     *ReleaseParameters
 		expectedMultipartFormValue map[string][]string
-		expectedMultupartFormFile  map[string][]simpleMultipartFormFileHeader
+		expectedMultipartFormFile  map[string][]simpleMultipartFormFileHeader
 		expectedErrorMsg           string
 		responseCode               int
 	}
@@ -68,7 +69,7 @@ func TestRequestCreation(t *testing.T) {
 			expectedMultipartFormValue: map[string][]string{
 				"application": {"potato"},
 			},
-			expectedMultupartFormFile: map[string][]simpleMultipartFormFileHeader{
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
 				
 			},
 			responseCode: http.StatusOK,
@@ -84,7 +85,7 @@ func TestRequestCreation(t *testing.T) {
 			expectedMultipartFormValue: map[string][]string{
 				"application":            {"potato"},
 			},
-			expectedMultupartFormFile: map[string][]simpleMultipartFormFileHeader{
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
 				"manifests[development]": {
 					{
 						filename: "development-manifest",
@@ -107,7 +108,7 @@ func TestRequestCreation(t *testing.T) {
 			expectedMultipartFormValue: map[string][]string{
 				"application": {"potato"},
 			},
-			expectedMultupartFormFile: map[string][]simpleMultipartFormFileHeader{
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
 				"manifests[development]": {
 					{
 						filename: "development-manifest",
@@ -135,7 +136,7 @@ func TestRequestCreation(t *testing.T) {
 			expectedMultipartFormValue: map[string][]string{
 				"application": {"potato"},
 			},
-			expectedMultupartFormFile: map[string][]simpleMultipartFormFileHeader{
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
 				"manifests[development]": {
 					{
 						filename: "development-manifest",
@@ -164,11 +165,9 @@ func TestRequestCreation(t *testing.T) {
 
 			// check errors
 			err := Release(server.URL, tc.params)
-			if err != nil && err.Error() != tc.expectedErrorMsg {
-				t.Fatalf("error messages mismatched, expected %s, received %s", tc.expectedErrorMsg, err.Error())
-			}
-			if err == nil && tc.expectedErrorMsg != "" {
-				t.Fatalf("expected error %v, but no error was raised", tc.expectedErrorMsg)
+			// check errors
+			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
 			// check multipart form values
@@ -178,6 +177,7 @@ func TestRequestCreation(t *testing.T) {
 
 			// check multipart form files
 			fileHeaders := make(map[string][]simpleMultipartFormFileHeader)
+			// Note: we do not need to sort the map before iterating over it, because we just use `cmp.Equal` which handles the undefined order
 			for key, val := range mockServer.multipartForm.File {
 				simpleHeaders := make([]simpleMultipartFormFileHeader, 0)
 				for _, header := range val {
@@ -185,6 +185,8 @@ func TestRequestCreation(t *testing.T) {
 					if err != nil {
 						t.Fatalf("error encountered while opening the multipart file header for key \"%s\" file \"%s\", error: %v", key, header.Filename, err)
 					}
+					defer file.Close()  
+
 					bytes := make([]byte, MAXIMUM_MULTIPART_SIZE)
 					n, err := file.Read(bytes)
 					if err != nil {
@@ -201,8 +203,8 @@ func TestRequestCreation(t *testing.T) {
 				}
 				fileHeaders[key] = simpleHeaders
 			}
-			if !cmp.Equal(fileHeaders, tc.expectedMultupartFormFile, cmp.AllowUnexported(simpleMultipartFormFileHeader{})) {
-				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultupartFormFile, fileHeaders)
+			if !cmp.Equal(fileHeaders, tc.expectedMultipartFormFile, cmp.AllowUnexported(simpleMultipartFormFileHeader{})) {
+				t.Fatalf("request multipart forms are different, expected %v, received %v", tc.expectedMultipartFormFile, fileHeaders)
 			}
 		})
 	}

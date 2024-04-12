@@ -39,7 +39,6 @@ func handleRelease(args []string) {
 func RunCLI() {
 	if len(os.Args) < 2 {
 		log.Fatalf("a subcommand must be specified, run \"kuberpult-client help\" for more information")
-		os.Exit(1)
 	}
 
 	subcommand := os.Args[1]

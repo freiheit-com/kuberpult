@@ -16,7 +16,7 @@ Copyright 2023 freiheit.com*/
 
 package cmd
 
-var helpMessage = `kuberpult-client is a command line client for controling a Kuberpult instance.
+const helpMessage = `kuberpult-client is a command line client for controling a Kuberpult instance.
 
 Subcommands
   help		display this help message

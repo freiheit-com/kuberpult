@@ -20,7 +20,23 @@ import (
 	"flag"
 	"fmt"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
+
+// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
+type errMatcher struct {
+	msg string
+}
+
+func (e errMatcher) Error() string {
+	return e.msg
+}
+
+func (e errMatcher) Is(err error) bool {
+	return e.Error() == err.Error()
+}
 
 func TestIsWellBehaved(t *testing.T) {
 	type testCase struct {
@@ -74,7 +90,7 @@ func TestParseCommandLineArgs(t *testing.T) {
 		argNames         []string
 		cmdArgs          []string
 		expectedValues   map[string]string
-		expectedErrorMsg string // should not be flakey
+		expectedErrorMsg string
 	}
 
 	tcs := []testCase{
@@ -121,11 +137,9 @@ func TestParseCommandLineArgs(t *testing.T) {
 			}
 
 			err := fs.Parse(tc.cmdArgs)
-			if err != nil && err.Error() != tc.expectedErrorMsg {
-				t.Fatalf("error messages mismatched, expected %s, received %s", tc.expectedErrorMsg, err.Error())
-			}
-			if err == nil && tc.expectedErrorMsg != "" {
-				t.Fatalf("expected error %v, but no error was raised", tc.expectedErrorMsg)
+			// check errors
+			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
+				t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 			}
 
 			for argName, expectedValue := range tc.expectedValues {
