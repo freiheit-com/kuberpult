@@ -76,6 +76,7 @@ func TestIsWellBehaved(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			res := isWellBehavedString(tc.str)
 			if res != tc.res {
 				t.Fatalf("incorrect result for string %s, expected %v, got %v", tc.str, tc.res, res)
@@ -128,6 +129,7 @@ func TestParseCommandLineArgs(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			fs := flag.NewFlagSet("flag set", flag.ContinueOnError)
 			rsVars := make(map[string]*RepeatedString)
 

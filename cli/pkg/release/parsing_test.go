@@ -100,6 +100,8 @@ func TestReadArgs(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			
 			cmdArgs, err := parseArgs(tc.args)
 			// check errors
 			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
@@ -181,6 +183,8 @@ func TestParseArgs(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			
 			// test setup
 			dir, err := os.MkdirTemp("", "kuberpult-cli-test-*")
 			if err != nil {
