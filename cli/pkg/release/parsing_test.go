@@ -40,17 +40,9 @@ func TestReadArgs(t *testing.T) {
 			expectedErrorMsg: "the --application arg must be set exactly once",
 		},
 		{
-			name: "only --application is properly provided",
+			name: "only --application is properly provided but without --environment and --manifest",
 			args: []string{"--application", "potato"},
-			expectedCmdArgs: &cmdArguments{
-				application: cli_utils.RepeatedString{
-					Values: []string{
-						"potato",
-					},
-				},
-				environments: cli_utils.RepeatedString{},
-				manifests:    cli_utils.RepeatedString{},
-			},
+			expectedErrorMsg: "the args --enviornment and --manifest must be set at least once",
 		},
 		{
 			name:             "--application has some improper value",

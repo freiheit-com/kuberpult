@@ -66,6 +66,10 @@ func readArgs(args []string) (*cmdArguments, error) {
 		return nil, fmt.Errorf("the args --environment and --manifest must be set an equal number of times")
 	}
 
+	if len(cmdArgs.environments.Values) == 0 {
+		return nil, fmt.Errorf("the args --enviornment and --manifest must be set at least once")
+	}
+
 	return &cmdArgs, nil
 }
 
