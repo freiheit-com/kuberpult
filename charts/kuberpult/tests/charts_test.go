@@ -333,13 +333,11 @@ argocd:
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			testDirName := t.TempDir()
-
 			outputFile := runHelm(t, []byte(tc.Values), testDirName)
 			if out, err := getDeployments(outputFile); err != nil {
 				t.Fatalf(fmt.Sprintf("%v", err))
 			} else {
 				targetDocument := out["kuberpult-cd-service"]
-
 				for _, env := range tc.ExpectedEnvs {
 					if !CheckForEnvVariable(t, env, &targetDocument) {
 						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
