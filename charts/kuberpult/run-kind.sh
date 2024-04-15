@@ -339,29 +339,37 @@ $(for action in CreateLock DeleteLock CreateRelease DeployRelease CreateUndeploy
 $(gsed -e "s/^/      /" <<<"${iap_clientSecret}")
     baseURL: "http://kuberpult-dex-service:5556"
 dex:
-  outh2:
-    grantTypes:
-      # ensure grantTypes includes the token-exchange grant (default)
-      - "urn:ietf:params:oauth:grant-type:token-exchange"
-  connectors:
-    - type: google
-      id: google
-      name: Google
-      config:
-        clientID: "${iap_clientId}"
-        clientSecret: |
-$(gsed -e "s/^/          /" <<<"${iap_clientSecret}")
+  # Set it to a valid URL
+
+
+  # Enable at least one connector
+  # See https://dexidp.io/docs/connectors/ for more options
+  enablePasswordDB: true
+  oauth2:
+     #grantTypes determines the allowed set of authorization flows.
+   grantTypes:
+   - "authorization_code"
+   - "refresh_token"
+   - "implicit"
+   - "password"
+   - "urn:ietf:params:oauth:grant-type:device_code"
+   - "urn:ietf:params:oauth:grant-type:token-exchange"
   config:
-    # Set it to a valid URL
-    issuer: "http://kuberpult-dex-service:5556"
+    issuer: "https://accounts.google.com"
 
     # See https://dexidp.io/docs/storage/ for more options
     storage:
       type: memory
-
-    # Enable at least one connector
-    # See https://dexidp.io/docs/connectors/ for more options
-    enablePasswordDB: true
+    connectors:
+    - type: google
+      id: google
+      name: Google
+      config:
+        issuer: https://accounts.google.com
+        redirectURI: http://127.0.0.1:5556/callback
+        clientID: "${iap_clientId}"
+        clientSecret: |
+$(gsed -e "s/^/          /" <<<"${iap_clientSecret}")
 VALUES
 
 # Get helm dependency charts and unzip them
