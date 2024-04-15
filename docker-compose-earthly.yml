@@ -4,6 +4,8 @@ services:
     environment:
       - LOG_LEVEL=INFO
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
+      - KUBERPULT_DB_ENABLED=false
+      - KUBERPULT_DB_LOCATION=/kp/database
       - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
       - KUBERPULT_DEX_MOCK=false
@@ -16,6 +18,7 @@ services:
       - "8443:8443"
     volumes:
       - ./services/cd-service:/kp/kuberpult
+      - ./cd_database:/kp/database
     stop_grace_period: 0.5s
   frontend-service:
     image: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-frontend-service:local
@@ -53,3 +56,5 @@ services:
       - ./services/frontend-service/src:/kp/src
       - ./services/frontend-service/public:/kp/public
     stop_grace_period: 0.5s
+volumes:
+  cd_database:
