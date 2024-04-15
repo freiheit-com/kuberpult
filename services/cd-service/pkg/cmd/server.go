@@ -102,7 +102,7 @@ func retrieveDatabaseInformation(ctx context.Context, databaseLocation string) *
 	result, err := db.Query("SELECT * FROM dummy_table;")
 
 	if err != nil {
-		logger.FromContext(ctx).Fatal("Error cquerying the database. Error: ", zap.Error(err))
+		logger.FromContext(ctx).Warn("Error querying the database. Error: ", zap.Error(err))
 		return nil
 	}
 	return result
