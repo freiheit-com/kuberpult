@@ -1,0 +1,38 @@
+VERSION 0.7
+
+ARG --global IMAGE_REGISTRY="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
+ARG --global SERVICES="cd-service frontend-service rollout-service"
+
+deps:
+    FROM alpine:3.18
+    WORKDIR /tmp
+    ARG TRIVY_VERSION=0.50.1
+    ARG TRIVY_CHECKSUM=4cf907dfe770d81931ee56fb996d285edbf4e0d2308bcfd0f4a3d80e93b0f146
+    RUN wget "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+    RUN echo "${TRIVY_CHECKSUM} trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | sha256sum -c
+    RUN tar -xzf trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz && mv trivy /usr/local/bin/trivy && trivy --version
+    WORKDIR /trivy
+    COPY templates templates
+
+scan-all:
+    FROM +deps
+    ARG --required kuberpult_version
+
+    ARG VERSION_REPORT_NAME="kuberpult-${kuberpult_version}-reports"
+    ARG REPORT_TAR_NAME="${VERSION_REPORT_NAME}.tar.gz"
+    RUN mkdir $VERSION_REPORT_NAME
+
+    FOR service IN $SERVICES
+        BUILD +scan-service --service=$service --version=$kuberpult_version
+        COPY (+scan-service/* --service=$service --version=$kuberpult_version) $VERSION_REPORT_NAME/
+    END
+
+    RUN tar -czf $REPORT_TAR_NAME $VERSION_REPORT_NAME/
+    SAVE ARTIFACT $REPORT_TAR_NAME AS LOCAL $REPORT_TAR_NAME
+
+scan-service:
+    FROM +deps
+    ARG --required service
+    ARG --required version
+    RUN trivy image $IMAGE_REGISTRY/kuberpult-$service:$version -f template --template "@templates/html.tpl" -o kuberpult-$service.html
+    SAVE ARTIFACT kuberpult-$service.html
