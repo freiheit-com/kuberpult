@@ -99,7 +99,7 @@ func retrieveDatabaseInformation(ctx context.Context, databaseLocation string) *
 		logger.FromContext(ctx).Fatal("Error creating DB connection. Error: ", zap.Error(err))
 		return nil
 	}
-	result, err := db.Query("SELECT * FROM exposed_service_example;")
+	result, err := db.Query("SELECT * FROM dummy_table;")
 
 	if err != nil {
 		logger.FromContext(ctx).Fatal("Error cquerying the database. Error: ", zap.Error(err))
@@ -115,7 +115,7 @@ func insertDatabaseInformation(ctx context.Context, databaseLocation string) (sq
 	}
 
 	message := "Hello DB!"
-	result, err := db.Exec("INSERT INTO exposed_service_example (id , created , data)  VALUES (?, ?, ?);", rand.Intn(9999), time.Now(), message)
+	result, err := db.Exec("INSERT INTO dummy_table (id , created , data)  VALUES (?, ?, ?);", rand.Intn(9999), time.Now(), message)
 	if err != nil {
 		logger.FromContext(ctx).Warn("Error inserting information into DB. Error: ", zap.Error(err))
 		return nil, err
@@ -289,7 +289,6 @@ func RunServer() {
 
 		if c.DbEnabled {
 			runDBMigrations(ctx, c.DbLocation)
-			printQuery(ctx, retrieveDatabaseInformation(ctx, c.DbLocation))
 			_, err := insertDatabaseInformation(ctx, c.DbLocation)
 			if err != nil {
 				logger.FromContext(ctx).Warn("Error inserting into the database. Error: ", zap.Error(err))
