@@ -646,7 +646,7 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 }
 
 func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, ev event.Event) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "writeEvent")
+	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
 	if err := event.Write(filesystem, eventDir, ev); err != nil {
