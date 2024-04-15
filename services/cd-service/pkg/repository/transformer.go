@@ -24,6 +24,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/sorting"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"io/fs"
 	"os"
@@ -57,7 +58,7 @@ import (
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
-	"github.com/hexops/gotextdiff/span"
+	diffspan "github.com/hexops/gotextdiff/span"
 )
 
 const (
@@ -598,7 +599,7 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 	for _, env := range environments {
 		envMap[env] = struct{}{}
 	}
-	err := writeEvent(eventId, sourceCommitId, fs, &event.NewRelease{
+	err := writeEvent(ctx, eventId, sourceCommitId, fs, &event.NewRelease{
 		Environments: envMap,
 	})
 	if err != nil {
@@ -644,12 +645,9 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 	return nil
 }
 
-func writeEvent(
-	eventId string,
-	sourceCommitId string,
-	filesystem billy.Filesystem,
-	ev event.Event,
-) error {
+func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, ev event.Event) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "writeEvent")
+	defer span.Finish()
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
 	if err := event.Write(filesystem, eventDir, ev); err != nil {
 		return fmt.Errorf(
@@ -786,7 +784,7 @@ func createUnifiedDiff(existingValue string, requestValue string, prefix string)
 	existingValueStr := string(existingValue)
 	existingFilename := fmt.Sprintf("%sexisting", prefix)
 	requestFilename := fmt.Sprintf("%srequest", prefix)
-	edits := myers.ComputeEdits(span.URIFromPath(existingFilename), existingValueStr, string(requestValue))
+	edits := myers.ComputeEdits(diffspan.URIFromPath(existingFilename), existingValueStr, string(requestValue))
 	return fmt.Sprint(gotextdiff.ToUnified(existingFilename, requestFilename, existingValueStr, edits))
 }
 
@@ -1962,6 +1960,8 @@ func getCommitIDFromReleaseDir(ctx context.Context, fs billy.Filesystem, release
 }
 
 func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir string, ev event.Event) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "eventsForRelease")
+	defer span.Finish()
 	if commitID, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir); err == nil {
 		gen := getGenerator(ctx)
 		eventUuid := gen.Generate()
@@ -1973,7 +1973,7 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 			return nil
 		}
 
-		if err := writeEvent(eventUuid, commitID, fs, ev); err != nil {
+		if err := writeEvent(ctx, eventUuid, commitID, fs, ev); err != nil {
 			return fmt.Errorf(
 				"could not write an event for commit %s, error: %w",
 				commitID, err)
