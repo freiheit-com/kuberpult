@@ -93,7 +93,11 @@ func RetrieveDatabaseInformation(databaseLocation string) (map[int]DummyDbRow, e
 	}
 	m := map[int]DummyDbRow{}
 	for rows.Next() {
-		r := DummyDbRow{}
+		r := DummyDbRow{
+			id:   0,
+			date: []byte{},
+			data: "",
+		}
 		err := rows.Scan(&r.id, &r.date, &r.data)
 		if err != nil {
 			return nil, fmt.Errorf("Error retrieving information from database. Error: %w\n", err)
