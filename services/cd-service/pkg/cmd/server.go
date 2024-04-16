@@ -18,15 +18,9 @@ package cmd
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/source/file"
-	"math/rand"
 	"net/http"
 	"os"
-	"path"
 	"strings"
 	"time"
 
@@ -43,7 +37,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/service"
-	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
@@ -55,96 +48,6 @@ import (
 )
 
 const datadogNameCd = "kuberpult-cd-service"
-
-func getDBConnection(dbFolderLocation string) (*sql.DB, error) {
-	return sql.Open("sqlite3", path.Join(dbFolderLocation, "db.sqlite")) //not clear on what is needed for the user and password
-}
-
-func runDBMigrations(ctx context.Context, dbFolderLocation string) {
-	db, err := getDBConnection(dbFolderLocation)
-
-	if err != nil {
-		logger.FromContext(ctx).Fatal("DB Error opening DB connection. Error: ", zap.Error(err))
-		return
-	}
-	defer db.Close()
-
-	driver, err := sqlite.WithInstance(db, &sqlite.Config{})
-	if err != nil {
-		logger.FromContext(ctx).Fatal("Error creating DB driver. Error: ", zap.Error(err))
-		return
-	}
-
-	migrationsSrc, err := (&file.File{}).Open(path.Join(dbFolderLocation, "migrations"))
-	if err != nil {
-		logger.FromContext(ctx).Fatal("Error opening DB migrations. Error: ", zap.Error(err))
-		return
-	}
-	m, err := migrate.NewWithInstance("file", migrationsSrc, "sqlite3", driver)
-	if err != nil {
-		logger.FromContext(ctx).Fatal("Error creating migration instance. Error: ", zap.Error(err))
-		return
-	}
-
-	if err := m.Up(); err != nil {
-		if !errors.Is(err, migrate.ErrNoChange) {
-			logger.FromContext(ctx).Fatal("Error running DB migrations. Error: ", zap.Error(err))
-		}
-	}
-}
-
-func retrieveDatabaseInformation(ctx context.Context, databaseLocation string) *sql.Rows {
-	db, err := getDBConnection(databaseLocation)
-	if err != nil {
-		logger.FromContext(ctx).Fatal("Error creating DB connection. Error: ", zap.Error(err))
-		return nil
-	}
-	result, err := db.Query("SELECT * FROM dummy_table;")
-
-	if err != nil {
-		logger.FromContext(ctx).Warn("Error querying the database. Error: ", zap.Error(err))
-		return nil
-	}
-	return result
-}
-func insertDatabaseInformation(ctx context.Context, databaseLocation string) (sql.Result, error) {
-	db, err := getDBConnection(databaseLocation)
-	if err != nil {
-		logger.FromContext(ctx).Fatal("Error creating DB connection. Error: ", zap.Error(err))
-		return nil, err
-	}
-
-	message := "Hello DB!"
-	result, err := db.Exec("INSERT INTO dummy_table (id , created , data)  VALUES (?, ?, ?);", rand.Intn(9999), time.Now(), message)
-	if err != nil {
-		logger.FromContext(ctx).Warn("Error inserting information into DB. Error: ", zap.Error(err))
-		return nil, err
-	}
-
-	if err != nil {
-		logger.FromContext(ctx).Warn("Error querying the database. Error: ", zap.Error(err))
-		return nil, err
-	}
-	return result, nil
-}
-
-func printQuery(ctx context.Context, res *sql.Rows) {
-	var (
-		id   int
-		date []byte
-		name string
-	)
-
-	for res.Next() {
-		err := res.Scan(&id, &date, &name)
-		if err != nil {
-			logger.FromContext(ctx).Warn("Error retrieving information from query. Error: ", zap.Error(err))
-			return
-		}
-		fmt.Println(id, string(date), name)
-	}
-
-}
 
 type Config struct {
 	// these will be mapped to "KUBERPULT_GIT_URL", etc.
@@ -288,12 +191,12 @@ func RunServer() {
 		}
 
 		if c.DbEnabled {
-			runDBMigrations(ctx, c.DbLocation)
-			_, err := insertDatabaseInformation(ctx, c.DbLocation)
+			repository.RunDBMigrations(ctx, c.DbLocation)
+			_, err := repository.InsertDatabaseInformation(ctx, c.DbLocation, "Hello DB!")
 			if err != nil {
 				logger.FromContext(ctx).Warn("Error inserting into the database. Error: ", zap.Error(err))
 			} else {
-				printQuery(ctx, retrieveDatabaseInformation(ctx, c.DbLocation))
+				repository.PrintQuery(ctx, repository.RetrieveDatabaseInformation(ctx, c.DbLocation))
 			}
 		}
 		cfg := repository.RepositoryConfig{
