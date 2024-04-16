@@ -36,57 +36,60 @@ func GetDBConnection(dbFolderLocation string) (*sql.DB, error) {
 	return sql.Open("sqlite3", path.Join(dbFolderLocation, "db.sqlite")) //not clear on what is needed for the user and password
 }
 
-func RunDBMigrations(ctx context.Context, dbFolderLocation string) {
+func RunDBMigrations(ctx context.Context, dbFolderLocation string) error {
 	db, err := GetDBConnection(dbFolderLocation)
 	if err != nil {
-		logger.FromContext(ctx).Fatal("DB Error opening DB connection. Error: ", zap.Error(err))
-		return
+		logger.FromContext(ctx).Warn("DB Error opening DB connection. Error: ", zap.Error(err))
+		return err
 	}
 	defer db.Close()
-
+	fmt.Println(dbFolderLocation)
 	driver, err := sqlite.WithInstance(db, &sqlite.Config{
 		DatabaseName:    "",
 		MigrationsTable: "",
 		NoTxWrap:        false,
 	})
 	if err != nil {
-		logger.FromContext(ctx).Fatal("Error creating DB driver. Error: ", zap.Error(err))
-		return
+		logger.FromContext(ctx).Warn("Error creating DB driver. Error: ", zap.Error(err))
+		return err
 	}
 
 	migrationsSrc, err := (&file.File{PartialDriver: iofs.PartialDriver{}}).Open(path.Join(dbFolderLocation, "migrations"))
 	if err != nil {
-		logger.FromContext(ctx).Fatal("Error opening DB migrations. Error: ", zap.Error(err))
-		return
+		logger.FromContext(ctx).Warn("Error opening DB migrations. Error: ", zap.Error(err))
+		return err
 	}
 	m, err := migrate.NewWithInstance("file", migrationsSrc, "sqlite3", driver)
 	if err != nil {
-		logger.FromContext(ctx).Fatal("Error creating migration instance. Error: ", zap.Error(err))
-		return
+		logger.FromContext(ctx).Warn("Error creating migration instance. Error: ", zap.Error(err))
+		return err
 	}
 
 	if err := m.Up(); err != nil {
 		if !errors.Is(err, migrate.ErrNoChange) {
-			logger.FromContext(ctx).Fatal("Error running DB migrations. Error: ", zap.Error(err))
+			logger.FromContext(ctx).Warn("Error running DB migrations. Error: ", zap.Error(err))
+			return err
 		}
 	}
+	return nil
 }
 
-func RetrieveDatabaseInformation(ctx context.Context, databaseLocation string) *sql.Rows {
+func RetrieveDatabaseInformation(ctx context.Context, databaseLocation string) (*sql.Rows, error) {
 	db, err := GetDBConnection(databaseLocation)
 
 	if err != nil {
-		logger.FromContext(ctx).Fatal("Error creating DB connection. Error: ", zap.Error(err))
-		return nil
+		logger.FromContext(ctx).Warn("Error creating DB connection. Error: ", zap.Error(err))
+		return nil, err
 	}
 	defer db.Close()
+
 	result, err := db.Query("SELECT * FROM dummy_table;")
 
 	if err != nil {
 		logger.FromContext(ctx).Warn("Error querying the database. Error: ", zap.Error(err))
-		return nil
+		return nil, err
 	}
-	return result
+	return result, nil
 }
 func InsertDatabaseInformation(ctx context.Context, databaseLocation string, message string) (sql.Result, error) {
 	db, err := GetDBConnection(databaseLocation)

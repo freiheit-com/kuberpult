@@ -191,12 +191,19 @@ func RunServer() {
 		}
 
 		if c.DbEnabled {
-			repository.RunDBMigrations(ctx, c.DbLocation)
+			migErr := repository.RunDBMigrations(ctx, c.DbLocation)
+			if migErr != nil {
+				logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
+			}
 			_, err := repository.InsertDatabaseInformation(ctx, c.DbLocation, "Hello DB!")
 			if err != nil {
 				logger.FromContext(ctx).Warn("Error inserting into the database. Error: ", zap.Error(err))
 			} else {
-				repository.PrintQuery(ctx, repository.RetrieveDatabaseInformation(ctx, c.DbLocation))
+				qRes, err := repository.RetrieveDatabaseInformation(ctx, c.DbLocation)
+				if err != nil {
+					logger.FromContext(ctx).Fatal("Error reading from the database. Error: ", zap.Error(err))
+				}
+				repository.PrintQuery(ctx, qRes)
 			}
 		}
 		cfg := repository.RepositoryConfig{
