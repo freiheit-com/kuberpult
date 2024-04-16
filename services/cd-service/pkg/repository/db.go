@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/golang-migrate/migrate/v4"
 	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
@@ -114,16 +115,16 @@ func PrintQuery(ctx context.Context, res *sql.Rows) {
 	var (
 		id   int
 		date []byte
-		name string
+		data string
 	)
 
 	for res.Next() {
-		err := res.Scan(&id, &date, &name)
+		err := res.Scan(&id, &date, &data)
 		if err != nil {
 			logger.FromContext(ctx).Warn("Error retrieving information from query. Error: ", zap.Error(err))
 			return
 		}
-		fmt.Println(id, string(date), name)
+		fmt.Println(id, string(date), data)
 	}
 
 }

@@ -60,11 +60,11 @@ func TestConnection(t *testing.T) {
 type dummyDbRow struct {
 	id   int
 	date []byte
-	name string
+	data string
 }
 
 func (r *dummyDbRow) Equal(target dummyDbRow) bool {
-	return r.name == target.name && r.id == target.id && string(r.date) == string(target.date)
+	return r.data == target.data && r.id == target.id && string(r.date) == string(target.date)
 }
 
 func TestMigrationScript(t *testing.T) {
@@ -88,12 +88,12 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 				{
 					id:   0,
 					date: []byte("2024-04-15T22:00:00Z"),
-					name: "First Message",
+					data: "First Message",
 				},
 				{
 					id:   1,
 					date: []byte("2024-04-15T22:00:00Z"),
-					name: "Second Message",
+					data: "Second Message",
 				},
 			},
 		},
@@ -131,7 +131,7 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 			m := map[int]dummyDbRow{}
 			for rows.Next() {
 				r := dummyDbRow{}
-				err := rows.Scan(&r.id, &r.date, &r.name)
+				err := rows.Scan(&r.id, &r.date, &r.data)
 				if err != nil {
 					logger.FromContext(ctx).Warn("Error retrieving information from database. Error: ", zap.Error(err))
 					return
@@ -140,7 +140,7 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 			}
 			for _, r := range tc.expectedData {
 				if val, ok := m[r.id]; !ok || !val.Equal(r) { //Not in map or in map but not Equal
-					t.Fatalf("Expected data not present in database. Missing: [%d, %s, %s]", r.id, string(r.date), r.name)
+					t.Fatalf("Expected data not present in database. Missing: [%d, %s, %s]", r.id, string(r.date), r.data)
 				}
 			}
 		})
