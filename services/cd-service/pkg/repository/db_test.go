@@ -49,6 +49,7 @@ func TestConnection(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Error establishing DB connection. Error: %v\n", err)
 			}
+                        defer connection.Close()
 			pingErr := connection.Ping()
 			if pingErr != nil {
 				t.Fatalf("Error DB. Error: %v\n", err)

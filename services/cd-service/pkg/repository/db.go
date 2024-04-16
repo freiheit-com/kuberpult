@@ -30,7 +30,7 @@ import (
 )
 
 func GetDBConnection(dbFolderLocation string) (*sql.DB, error) {
-	return sql.Open("sqlite3", path.Join(dbFolderLocation, "db.sqlite")) //not clear on what is needed for the user and password
+	return sql.Open("sqlite3", path.Join(dbFolderLocation, "db.sqlite"))
 }
 
 func RunDBMigrations(dbFolderLocation string) error {
