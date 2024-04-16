@@ -17,9 +17,6 @@ Copyright 2023 freiheit.com*/
 package repository
 
 import (
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
-	"go.uber.org/zap"
 	"os"
 	"path"
 	"strconv"
@@ -49,7 +46,7 @@ func TestConnection(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Error establishing DB connection. Error: %v\n", err)
 			}
-                        defer connection.Close()
+			defer connection.Close()
 			pingErr := connection.Ping()
 			if pingErr != nil {
 				t.Fatalf("Error DB. Error: %v\n", err)
@@ -58,21 +55,11 @@ func TestConnection(t *testing.T) {
 	}
 }
 
-type dummyDbRow struct {
-	id   int
-	date []byte
-	data string
-}
-
-func (r *dummyDbRow) Equal(target dummyDbRow) bool {
-	return r.data == target.data && r.id == target.id && string(r.date) == string(target.date)
-}
-
 func TestMigrationScript(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		migrationFile string
-		expectedData  []dummyDbRow
+		expectedData  []DummyDbRow
 	}{
 		{
 			Name: "Simple migration",
@@ -85,7 +72,7 @@ func TestMigrationScript(t *testing.T) {
 
 INSERT INTO dummy_table (id , created , data)  VALUES (0, 	'1713218400', 'First Message');
 INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second Message');`,
-			expectedData: []dummyDbRow{
+			expectedData: []DummyDbRow{
 				{
 					id:   0,
 					date: []byte("2024-04-15T22:00:00Z"),
@@ -115,30 +102,18 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 			if wErr != nil {
 				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
 			}
-			ctx := testutil.MakeTestContext()
 
-			migErr := RunDBMigrations(ctx, dbDir)
+			migErr := RunDBMigrations(dbDir)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			rows, err := RetrieveDatabaseInformation(ctx, dbDir)
+			m, err := RetrieveDatabaseInformation(dbDir)
 			if err != nil {
 				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
 
 			}
-
 			//parse the DB data
-			m := map[int]dummyDbRow{}
-			for rows.Next() {
-				r := dummyDbRow{}
-				err := rows.Scan(&r.id, &r.date, &r.data)
-				if err != nil {
-					logger.FromContext(ctx).Warn("Error retrieving information from database. Error: ", zap.Error(err))
-					return
-				}
-				m[r.id] = r
-			}
 			for _, r := range tc.expectedData {
 				if val, ok := m[r.id]; !ok || !val.Equal(r) { //Not in map or in map but not Equal
 					t.Fatalf("Expected data not present in database. Missing: [%d, %s, %s]", r.id, string(r.date), r.data)

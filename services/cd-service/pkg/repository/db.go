@@ -26,6 +26,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"math/rand"
 	"path"
+	"strings"
 	"time"
 )
 
@@ -67,7 +68,17 @@ func RunDBMigrations(dbFolderLocation string) error {
 	return nil
 }
 
-func RetrieveDatabaseInformation(databaseLocation string) (*sql.Rows, error) {
+type DummyDbRow struct {
+	id   int
+	date []byte
+	data string
+}
+
+func (r *DummyDbRow) Equal(target DummyDbRow) bool {
+	return r.data == target.data && r.id == target.id && string(r.date) == string(target.date)
+}
+
+func RetrieveDatabaseInformation(databaseLocation string) (map[int]DummyDbRow, error) {
 	db, err := GetDBConnection(databaseLocation)
 
 	if err != nil {
@@ -75,13 +86,22 @@ func RetrieveDatabaseInformation(databaseLocation string) (*sql.Rows, error) {
 	}
 	defer db.Close()
 
-	res, err := db.Query("SELECT * FROM dummy_table;")
+	rows, err := db.Query("SELECT * FROM dummy_table;")
 
 	if err != nil {
 		return nil, fmt.Errorf("Error querying the database. Error: %w\n", err)
 	}
+	m := map[int]DummyDbRow{}
+	for rows.Next() {
+		r := DummyDbRow{}
+		err := rows.Scan(&r.id, &r.date, &r.data)
+		if err != nil {
+			return nil, fmt.Errorf("Error retrieving information from database. Error: %w\n", err)
+		}
+		m[r.id] = r
+	}
 
-	return res, nil
+	return m, nil
 }
 
 func InsertDatabaseInformation(databaseLocation string, message string) (sql.Result, error) {
@@ -103,19 +123,15 @@ func InsertDatabaseInformation(databaseLocation string, message string) (sql.Res
 	return result, nil
 }
 
-func PrintQuery(res *sql.Rows) error {
-	var (
-		id   int
-		date []byte
-		data string
-	)
+func getHeader(totalWidth int) string {
+	return "+" + strings.Repeat("-", totalWidth-2) + "+"
+}
 
-	for res.Next() {
-		err := res.Scan(&id, &date, &data)
-		if err != nil {
-			return fmt.Errorf("Error retrieving information from query. Error: %w\n", err)
-		}
-		fmt.Println(id, string(date), data)
+func PrintQuery(queryResult map[int]DummyDbRow) error {
+	fmt.Println(getHeader(80))
+	for _, val := range queryResult {
+		fmt.Printf("| %-4d %50s %20s |\n", val.id, string(val.date), val.data)
 	}
+	fmt.Println(getHeader(80))
 	return nil
 }

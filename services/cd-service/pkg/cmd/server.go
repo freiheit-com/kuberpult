@@ -194,7 +194,7 @@ func RunServer() {
 		}
 
 		if c.DbEnabled {
-			migErr := repository.RunDBMigrations(ctx, c.DbLocation)
+			migErr := repository.RunDBMigrations(c.DbLocation)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
 			}
@@ -206,7 +206,10 @@ func RunServer() {
 				if err != nil {
 					logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
 				}
-				repository.PrintQuery(ctx, qRes)
+				pErr := repository.PrintQuery(qRes)
+				if pErr != nil {
+					logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
+				}
 			}
 		}
 		cfg := repository.RepositoryConfig{
