@@ -6,10 +6,10 @@ ARG --global target=docker
 deps:
     ARG USERARCH
     IF [ "$USERARCH" = "arm64" ]
-        FROM golang:1.21-bookworm
+        FROM golang:1.22-bookworm
         RUN apt update && apt install --auto-remove ca-certificates tzdata libgit2-dev libsqlite3-dev -y
     ELSE
-        FROM golang:1.21-alpine3.18
+        FROM golang:1.22-alpine3.19
         RUN apk add --no-cache ca-certificates tzdata bash libgit2-dev sqlite-dev alpine-sdk
     END
     
