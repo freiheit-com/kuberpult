@@ -1,3 +1,4 @@
+<!-- This file is used by trivy as a template to generate html reports. -->
 <!DOCTYPE html>
 <html>
   <head>

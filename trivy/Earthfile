@@ -1,7 +1,8 @@
 VERSION 0.7
 
 ARG --global IMAGE_REGISTRY="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
-ARG --global SERVICES="cd-service frontend-service rollout-service"
+LOCALLY
+ARG --global SERVICES=$(ls ../services)
 
 deps:
     FROM alpine:3.18
@@ -34,5 +35,7 @@ scan-service:
     FROM +deps
     ARG --required service
     ARG --required version
-    RUN trivy image $IMAGE_REGISTRY/kuberpult-$service:$version -f template --template "@templates/html.tpl" -o kuberpult-$service.html
+    CACHE --sharing shared --id trivy-cache /tmp/trivy_cache
+
+    RUN trivy --cache-dir /tmp/trivy_cache image $IMAGE_REGISTRY/kuberpult-$service:$version -f template --template "@templates/html.tpl" -o kuberpult-$service.html
     SAVE ARTIFACT kuberpult-$service.html
