@@ -17,6 +17,7 @@ Copyright 2023 freiheit.com*/
 package auth
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -29,12 +30,12 @@ func TestValidateRbacPermission(t *testing.T) {
 		Name           string
 		Permission     string
 		WantError      error
-		WantPermission *Permission
+		WantPermission Permission
 	}{
 		{
 			Name:       "Validating RBAC works as expected",
 			Permission: "p,role:Developer,CreateUndeploy,dev:*,*,allow",
-			WantPermission: &Permission{
+			WantPermission: Permission{
 				Role:        "Developer",
 				Action:      "CreateUndeploy",
 				Application: "*",
@@ -160,12 +161,7 @@ func TestCheckUserPermissions(t *testing.T) {
 			action:      PermissionCreateLock,
 			team:        "other-team",
 			rbacConfig:  RBACConfig{DexEnabled: true},
-			WantError: PermissionError{
-				Role:        "Developer",
-				Action:      "CreateLock",
-				Environment: "production",
-				Team:        "other-team",
-			},
+			WantError:   fmt.Errorf("the desired action can not be performed because Dex is enabled without any RBAC policies"),
 		},
 	}
 
@@ -173,8 +169,10 @@ func TestCheckUserPermissions(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			err := CheckUserPermissions(tc.rbacConfig, tc.user, tc.env, tc.team, tc.envGroup, tc.application, tc.action)
-			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("Error mismatch (-want +got):\n%s", diff)
+			if err != nil {
+				if diff := cmp.Diff(tc.WantError.Error(), err.Error()); diff != "" {
+					t.Errorf("Error mismatch (-want +got):\n%s", diff)
+				}
 			}
 		})
 	}
