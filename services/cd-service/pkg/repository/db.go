@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/sqlite"
+	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"go.uber.org/zap"
