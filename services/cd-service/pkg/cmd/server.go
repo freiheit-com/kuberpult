@@ -97,7 +97,9 @@ func RunServer() {
 		var c Config
 
 		err := envconfig.Process("kuberpult", &c)
-
+		if err != nil {
+			logger.FromContext(ctx).Fatal("config.parse.error", zap.Error(err))
+		}
 		if c.EnableProfiling {
 			ddFilename := c.DatadogApiKeyLocation
 			if ddFilename == "" {
