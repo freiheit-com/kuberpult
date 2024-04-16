@@ -17,7 +17,6 @@ Copyright 2023 freiheit.com*/
 package repository
 
 import (
-	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
 	"go.uber.org/zap"
@@ -111,7 +110,6 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 
 			ts := time.Now().Unix()
 			migrationFileNameAbsPath := path.Join(loc, strconv.FormatInt(ts, 10)+"_testing.up.sql")
-			fmt.Println(migrationFileNameAbsPath)
 			wErr := os.WriteFile(migrationFileNameAbsPath, []byte(tc.migrationFile), os.ModePerm)
 			if wErr != nil {
 				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
@@ -138,10 +136,8 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 					logger.FromContext(ctx).Warn("Error retrieving information from database. Error: ", zap.Error(err))
 					return
 				}
-				fmt.Println(r)
 				m[r.id] = r
 			}
-			fmt.Println(m)
 			for _, r := range tc.expectedData {
 				if val, ok := m[r.id]; !ok || !val.Equal(r) { //Not in map or in map but not Equal
 					t.Fatalf("Expected data not present in database. Missing: [%d, %s, %s]", r.id, string(r.date), r.name)
