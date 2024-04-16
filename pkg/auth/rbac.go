@@ -198,7 +198,7 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	policy = &RBACPolicies{Permissions: map[string]Permission{}}
+	policy = &RBACPolicies{Permissions: map[string]Permission{}, Groups: map[string]RBACGroup{}}
 	for scanner.Scan() {
 		// Trim spaces from policy
 		line := strings.ReplaceAll(scanner.Text(), " ", "")
