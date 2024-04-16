@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/golang-migrate/migrate/v4"
 	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
@@ -43,7 +42,7 @@ func RunDBMigrations(ctx context.Context, dbFolderLocation string) error {
 		return err
 	}
 	defer db.Close()
-	fmt.Println(dbFolderLocation)
+
 	driver, err := sqlite.WithInstance(db, &sqlite.Config{
 		DatabaseName:    "",
 		MigrationsTable: "",
