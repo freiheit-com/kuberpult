@@ -198,13 +198,13 @@ func RunServer() {
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
 			}
-			_, err := repository.InsertDatabaseInformation(ctx, c.DbLocation, "Hello DB!")
+			_, err := repository.InsertDatabaseInformation(c.DbLocation, "Hello DB!")
 			if err != nil {
 				logger.FromContext(ctx).Warn("Error inserting into the database. Error: ", zap.Error(err))
 			} else {
-				qRes, err := repository.RetrieveDatabaseInformation(ctx, c.DbLocation)
+				qRes, err := repository.RetrieveDatabaseInformation(c.DbLocation)
 				if err != nil {
-					logger.FromContext(ctx).Fatal("Error reading from the database. Error: ", zap.Error(err))
+					logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
 				}
 				repository.PrintQuery(ctx, qRes)
 			}
