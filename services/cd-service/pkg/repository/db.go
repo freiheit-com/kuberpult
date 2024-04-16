@@ -94,7 +94,7 @@ func RetrieveDatabaseInformation(ctx context.Context, databaseLocation string) (
 func InsertDatabaseInformation(ctx context.Context, databaseLocation string, message string) (sql.Result, error) {
 	db, err := GetDBConnection(databaseLocation)
 	if err != nil {
-		logger.FromContext(ctx).Fatal("Error creating DB connection. Error: ", zap.Error(err))
+		logger.FromContext(ctx).Warn("Error creating DB connection. Error: ", zap.Error(err))
 		return nil, err
 	}
 	defer db.Close()
