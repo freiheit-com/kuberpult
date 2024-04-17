@@ -79,6 +79,8 @@ type Config struct {
 	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
+	DbEnabled                bool          `default:"false" split_words:"true"`
+	DbLocation               string        `default:"/kp/database" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -189,6 +191,26 @@ func RunServer() {
 			logger.FromContext(ctx).Fatal("cd.config",
 				zap.String("details", "the size of the queue must be between 2 and 100"),
 			)
+		}
+
+		if c.DbEnabled {
+			migErr := repository.RunDBMigrations(c.DbLocation)
+			if migErr != nil {
+				logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
+			}
+			_, err := repository.InsertDatabaseInformation(c.DbLocation, "Hello DB!")
+			if err != nil {
+				logger.FromContext(ctx).Warn("Error inserting into the database. Error: ", zap.Error(err))
+			} else {
+				qRes, err := repository.RetrieveDatabaseInformation(c.DbLocation)
+				if err != nil {
+					logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
+				}
+				pErr := repository.PrintQuery(qRes)
+				if pErr != nil {
+					logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
+				}
+			}
 		}
 		cfg := repository.RepositoryConfig{
 			WebhookResolver: nil,
