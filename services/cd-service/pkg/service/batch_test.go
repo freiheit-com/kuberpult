@@ -22,7 +22,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository/testutil"
@@ -342,7 +341,7 @@ func TestBatchServiceFails(t *testing.T) {
 		context            context.Context
 		svc                *BatchServer
 		expectedError      error
-		expectedSetupError string
+		expectedSetupError error
 	}{
 		{
 			Name: "testing Dex setup without permissions",
@@ -367,7 +366,7 @@ func TestBatchServiceFails(t *testing.T) {
 			Batch:              []*api.BatchAction{},
 			context:            testutil.MakeTestContextDexEnabled(),
 			svc:                &BatchServer{},
-			expectedSetupError: "the desired action can not be performed because Dex is enabled without any RBAC policies",
+			expectedSetupError: errMatcher{"the desired action can not be performed because Dex is enabled without any RBAC policies"},
 		},
 	}
 	for _, tc := range tcs {
@@ -381,16 +380,16 @@ func TestBatchServiceFails(t *testing.T) {
 			for _, tr := range tc.Setup {
 				err := repo.Apply(tc.context, tr)
 				if err != nil {
-					if !strings.Contains(err.Error(), tc.expectedSetupError) {
-						t.Fatalf("error during setup mismatch want %s\ngot %s", err.Error(), tc.expectedSetupError)
+					if diff := cmp.Diff(tc.expectedSetupError, err, cmpopts.EquateErrors()); diff != "" {
+						t.Fatalf("error during setup mismatch (-want, +got):\n%s", diff)
 					} else {
 						errSetupObserved = true
 					}
 				}
 			}
-			if tc.expectedSetupError != "" && !errSetupObserved {
+			if tc.expectedSetupError != nil && !errSetupObserved {
 				// ensure we fail on unobserved error
-				t.Errorf("did not oberve error during setup: %s", tc.expectedSetupError)
+				t.Errorf("did not oberve error during setup: %s", tc.expectedSetupError.Error())
 			}
 
 			tc.svc.Repository = repo

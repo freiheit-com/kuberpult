@@ -17,8 +17,6 @@ Copyright 2023 freiheit.com*/
 package auth
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -161,7 +159,7 @@ func TestCheckUserPermissions(t *testing.T) {
 			action:      PermissionCreateLock,
 			team:        "other-team",
 			rbacConfig:  RBACConfig{DexEnabled: true},
-			WantError:   fmt.Errorf("the desired action can not be performed because Dex is enabled without any RBAC policies"),
+			WantError:   errMatcher{"the desired action can not be performed because Dex is enabled without any RBAC policies"},
 		},
 	}
 
@@ -169,10 +167,8 @@ func TestCheckUserPermissions(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			err := CheckUserPermissions(tc.rbacConfig, tc.user, tc.env, tc.team, tc.envGroup, tc.application, tc.action)
-			if err != nil {
-				if diff := cmp.Diff(tc.WantError.Error(), err.Error()); diff != "" {
-					t.Errorf("Error mismatch (-want +got):\n%s", diff)
-				}
+			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("Error mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -182,7 +178,7 @@ func TestValidateRbacPermissionWildcards(t *testing.T) {
 	tcs := []struct {
 		Name        string
 		permissions []string
-		WantError   string
+		WantError   error
 	}{
 		{
 			Name: "Check permission validation works for all wildcard combinations",
@@ -202,14 +198,14 @@ func TestValidateRbacPermissionWildcards(t *testing.T) {
 			permissions: []string{
 				"p,role:Developer,CreateLock,production:production",
 			},
-			WantError: "6 fields are expected but only 4 were specified",
+			WantError: errMatcher{"6 fields are expected but only 4 were specified"},
 		},
 		{
 			Name: "Check error case with wrong format for role",
 			permissions: []string{
 				"p,Developer,CreateLock,*:*,*,allow",
 			},
-			WantError: "the format for permissions expects the prefix `role:` for permissions",
+			WantError: errMatcher{"the format for permissions expects the prefix `role:` for permissions"},
 		},
 	}
 	for _, tc := range tcs {
@@ -218,8 +214,8 @@ func TestValidateRbacPermissionWildcards(t *testing.T) {
 			// Test all wildcard possible combinations (2^8).
 			for _, permission := range tc.permissions {
 				_, err := ValidateRbacPermission(permission)
-				if err != nil && !strings.Contains(err.Error(), tc.WantError) {
-					t.Fatalf("error during setup mismatch want %s\ngot %s", err.Error(), tc.WantError)
+				if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
+					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})

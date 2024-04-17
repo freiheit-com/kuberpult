@@ -254,7 +254,7 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup
 			for _, pApplication := range []string{application, "*"} {
 				// Check if the permission exists on the policy.
 				if rbacConfig.Policy == nil {
-					return fmt.Errorf("the desired action can not be performed because Dex is enabled without any RBAC policies")
+					return errors.New("the desired action can not be performed because Dex is enabled without any RBAC policies")
 				}
 				permissionsWanted := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, pEnvGroup, pEnv, pApplication)
 				_, permissionsExist := rbacConfig.Policy.Permissions[permissionsWanted]
