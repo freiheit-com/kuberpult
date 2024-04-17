@@ -48,7 +48,6 @@ type RBACConfig struct {
 	// Indicates if Dex is enabled.
 	DexEnabled bool
 	// The RBAC policies. The key is a permission or group, for example: "Developer, CreateLock, development:development, *, allow"
-	// Permissions are checked in the Permissions map and Group Policies are checked in the Groups Map
 	Policy *RBACPolicies
 }
 
@@ -156,10 +155,10 @@ func ValidateRbacPermission(line string) (p Permission, err error) {
 		return p, fmt.Errorf("6 fields are expected but only %d were specified", len(c))
 	}
 	// Permission role
-	if len(strings.Split(c[1], "role:")) < 2 {
+	if !strings.Contains(c[1], "role:") {
 		return p, fmt.Errorf("the format for permissions expects the prefix `role:` for permissions")
 	}
-	role := strings.Split(c[1], "role:")[1]
+	role := c[1][5:]
 	// Validates the permission action
 	action := c[2]
 	err = cfg.validateAction(action)
@@ -172,7 +171,7 @@ func ValidateRbacPermission(line string) (p Permission, err error) {
 	if err != nil {
 		return p, err
 	}
-	// Validate the environment names
+	// Validate the application names
 	application := c[4]
 	err = cfg.validateApplication(application)
 	if err != nil {
