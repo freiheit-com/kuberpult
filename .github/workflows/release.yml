@@ -64,6 +64,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.semrel.outputs.version }}
+      - name: Append vulnerability reports to release
+        run: |
+          echo $VERSION
+          earthly ./trivy+scan-all --kuberpult_version=v${VERSION}
+          gh release upload v$VERSION trivy/kuberpult-v${VERSION}-reports.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.semrel.outputs.version }}
       - name: Renovate standard-setup dev-env
         run: |
           curl -X POST -H "Content-type: application/json" "${{ format('https://cloudbuild.googleapis.com/v1/projects/fdc-standard-setup-dev-env/locations/europe-west1/triggers/fdc-standard-setup-dev-env-upgrade-dependencies-trigger:webhook?key={0}&secret={1}&trigger=fdc-standard-setup-dev-env-upgrade-dependencies-trigger&projectId=fdc-standard-setup-dev-env', secrets.DEV_ENV_CLOUD_BUILD_API_KEY, secrets.DEV_ENV_RENOVATE_WEBHOOK_KEY) }}" -d "{}"
