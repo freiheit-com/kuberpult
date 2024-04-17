@@ -74,6 +74,43 @@ func (s Server) handleEnvironmentLocks(w http.ResponseWriter, req *http.Request,
 	}
 }
 
+func (s Server) handleApiTeamLocks(w http.ResponseWriter, req *http.Request, environment, tail string) {
+
+	function, tail := xpath.Shift(tail)
+
+	if function != "team" {
+		http.Error(w, "Missing team path", http.StatusNotFound)
+		return
+	}
+
+	team, tail := xpath.Shift(tail)
+
+	if team == "" {
+		http.Error(w, "Missing team name", http.StatusNotFound)
+		return
+	}
+	lockID, tail := xpath.Shift(tail)
+
+	if lockID == "" {
+		http.Error(w, "Missing LockID", http.StatusNotFound)
+		return
+	}
+
+	if tail != "/" {
+		http.Error(w, fmt.Sprintf(""+
+			"locks does not accept additional path arguments after the lock ID, got: %s", tail), http.StatusNotFound)
+		return
+	}
+	switch req.Method {
+	case http.MethodPut:
+		s.handlePutTeamLock(w, req, environment, team, lockID)
+	case http.MethodDelete:
+		s.handleDeleteTeamLock(w, req, environment, team, lockID)
+	default:
+		http.Error(w, fmt.Sprintf("unsupported method '%s'", req.Method), http.StatusMethodNotAllowed)
+	}
+}
+
 func (s Server) handlePutEnvironmentLock(w http.ResponseWriter, req *http.Request, environment, lockID string) {
 	if s.checkContentType(w, req) {
 		return
@@ -328,4 +365,63 @@ func (s Server) handleDeleteEnvironmentGroupLock(w http.ResponseWriter, req *htt
 	if err != nil {
 		logger.FromContext(req.Context()).Error("Failed while sending the response: " + err.Error())
 	}
+}
+
+func (s Server) handlePutTeamLock(w http.ResponseWriter, req *http.Request, environment, team, lockID string) {
+
+	if s.checkContentType(w, req) {
+		return
+	}
+
+	var body putLockRequest
+	invalidMessage := "Please provide lock message in body"
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		decodeError := err.Error()
+		if errors.Is(err, io.EOF) {
+			decodeError = invalidMessage
+		}
+		http.Error(w, decodeError, http.StatusBadRequest)
+		return
+	}
+
+	if len(body.Message) == 0 {
+		http.Error(w, invalidMessage, http.StatusBadRequest)
+		return
+	}
+
+	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
+		{Action: &api.BatchAction_CreateEnvironmentTeamLock{
+			CreateEnvironmentTeamLock: &api.CreateEnvironmentTeamLockRequest{
+				Environment: environment,
+				Team:        team,
+				LockId:      lockID,
+				Message:     body.Message,
+			},
+		}},
+	}})
+	if err != nil {
+		handleGRPCError(req.Context(), w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s Server) handleDeleteTeamLock(w http.ResponseWriter, req *http.Request, environment, team, lockID string) {
+	_, err := s.BatchClient.ProcessBatch(req.Context(), &api.BatchRequest{Actions: []*api.BatchAction{
+		{Action: &api.BatchAction_DeleteEnvironmentTeamLock{
+			DeleteEnvironmentTeamLock: &api.DeleteEnvironmentTeamLockRequest{
+				Environment: environment,
+				Team:        team,
+				LockId:      lockID,
+			},
+		}},
+	}})
+
+	if err != nil {
+		handleGRPCError(req.Context(), w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

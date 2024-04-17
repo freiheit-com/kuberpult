@@ -21,10 +21,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"io/fs"
 	"os"
 	"path"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -53,7 +58,7 @@ import (
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
-	"github.com/hexops/gotextdiff/span"
+	diffspan "github.com/hexops/gotextdiff/span"
 )
 
 const (
@@ -165,7 +170,7 @@ func sortFiles(gs []os.FileInfo) func(i int, j int) bool {
 	}
 }
 
-func UpdateDatadogMetrics(ctx context.Context, state *State, changes *TransformerResult, now time.Time) error {
+func UpdateDatadogMetrics(ctx context.Context, state *State, repo Repository, changes *TransformerResult, now time.Time) error {
 	filesystem := state.Filesystem
 	if ddMetrics == nil {
 		return nil
@@ -179,6 +184,7 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, changes *Transforme
 	for k := range configs {
 		configKeys = append(configKeys, k)
 	}
+	repo.(*repository).GaugeQueueSize(ctx)
 	sort.Strings(configKeys)
 	for i := range configKeys {
 		env := configKeys[i]
@@ -202,6 +208,7 @@ func UpdateDatadogMetrics(ctx context.Context, state *State, changes *Transforme
 			}
 		}
 	}
+
 	if changes != nil && ddMetrics != nil {
 		for i := range changes.ChangedApps {
 			oneChange := changes.ChangedApps[i]
@@ -243,8 +250,7 @@ func RegularlySendDatadogMetrics(repo Repository, interval time.Duration, callBa
 }
 
 func GetRepositoryStateAndUpdateMetrics(ctx context.Context, repo Repository) {
-	repoState := repo.State()
-	if err := UpdateDatadogMetrics(ctx, repoState, nil, time.Now()); err != nil {
+	if err := UpdateDatadogMetrics(ctx, repo.State(), repo, nil, time.Now()); err != nil {
 		panic(err.Error())
 	}
 }
@@ -478,6 +484,8 @@ func (c *CreateApplicationVersion) Transform(
 	for env := range c.Manifests {
 		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
 	}
+	slices.Sort(allEnvsOfThisApp)
+
 	gen := getGenerator(ctx)
 	eventUuid := gen.Generate()
 	if c.WriteCommitData {
@@ -486,8 +494,11 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(err)
 		}
 	}
+	sortedKeys := sorting.SortKeys(c.Manifests)
+	for i := range sortedKeys {
+		env := sortedKeys[i]
+		man := c.Manifests[env]
 
-	for env, man := range c.Manifests {
 		err := state.checkUserPermissions(ctx, env, c.Application, auth.PermissionCreateRelease, c.Team, c.RBACConfig)
 		if err != nil {
 			return "", GetCreateReleaseGeneralFailure(err)
@@ -588,7 +599,7 @@ func writeCommitData(ctx context.Context, sourceCommitId string, sourceMessage s
 	for _, env := range environments {
 		envMap[env] = struct{}{}
 	}
-	err := writeEvent(eventId, sourceCommitId, fs, &event.NewRelease{
+	err := writeEvent(ctx, eventId, sourceCommitId, fs, &event.NewRelease{
 		Environments: envMap,
 	})
 	if err != nil {
@@ -634,12 +645,9 @@ func writeNextPrevInfo(ctx context.Context, sourceCommitId string, otherCommitId
 	return nil
 }
 
-func writeEvent(
-	eventId string,
-	sourceCommitId string,
-	filesystem billy.Filesystem,
-	ev event.Event,
-) error {
+func writeEvent(ctx context.Context, eventId string, sourceCommitId string, filesystem billy.Filesystem, ev event.Event) error {
+	span, _ := tracer.StartSpanFromContext(ctx, "writeEvent")
+	defer span.Finish()
 	eventDir := commitEventDir(filesystem, sourceCommitId, eventId)
 	if err := event.Write(filesystem, eventDir, ev); err != nil {
 		return fmt.Errorf(
@@ -776,7 +784,7 @@ func createUnifiedDiff(existingValue string, requestValue string, prefix string)
 	existingValueStr := string(existingValue)
 	existingFilename := fmt.Sprintf("%sexisting", prefix)
 	requestFilename := fmt.Sprintf("%srequest", prefix)
-	edits := myers.ComputeEdits(span.URIFromPath(existingFilename), existingValueStr, string(requestValue))
+	edits := myers.ComputeEdits(diffspan.URIFromPath(existingFilename), existingValueStr, string(requestValue))
 	return fmt.Sprint(gotextdiff.ToUnified(existingFilename, requestFilename, existingValueStr, edits))
 }
 
@@ -1517,6 +1525,127 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 	return fmt.Sprintf("Deleted lock %q on environment %q for application %q%s", c.LockId, c.Environment, c.Application, queueMessage), nil
 }
 
+type CreateEnvironmentTeamLock struct {
+	Authentication
+	Environment string
+	Team        string
+	LockId      string
+	Message     string
+}
+
+func (c *CreateEnvironmentTeamLock) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+) (string, error) {
+	// Note: it's possible to lock an application BEFORE it's even deployed to the environment.
+	err := state.checkUserPermissions(ctx, c.Environment, "*", auth.PermissionCreateLock, c.Team, c.RBACConfig)
+	if err != nil {
+		return "", err
+	}
+
+	if !valid.EnvironmentName(c.Environment) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid environment: '%s'", c.Environment))
+	}
+	if !valid.TeamName(c.Team) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid team: '%s'", c.Team))
+	}
+	if !valid.LockId(c.LockId) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot create environment team lock: invalid lock id: '%s'", c.LockId))
+	}
+
+	fs := state.Filesystem
+
+	foundTeam := false
+	if apps, err := state.GetApplications(); err == nil {
+		for _, currentApp := range apps {
+			currentTeamFile := fs.Join("applications", currentApp, "team")
+			if currentTeamName, err := util.ReadFile(fs, currentTeamFile); err == nil {
+				if c.Team == string(currentTeamName) {
+					foundTeam = true
+					break
+				}
+			} else {
+				logger.FromContext(ctx).Sugar().Warnf("CreateEnvironmentTeamLock: Could not find team for application: %s.", currentApp)
+			}
+		}
+	}
+	if err != nil || !foundTeam { //Not found team or apps dir doesn't exist
+		return "", &TeamNotFoundErr{err: fmt.Errorf("Team '%s' does not exist.", c.Team)}
+	}
+
+	envDir := fs.Join("environments", c.Environment)
+	if _, err := fs.Stat(envDir); err != nil {
+		return "", fmt.Errorf("error environment not found dir %q: %w", envDir, err)
+	}
+
+	teamDir := fs.Join(envDir, "teams", c.Team)
+	if err := fs.MkdirAll(teamDir, 0777); err != nil {
+		return "", fmt.Errorf("error could not create teams directory %q: %w", envDir, err)
+	}
+	chroot, err := fs.Chroot(teamDir)
+	if err != nil {
+		return "", fmt.Errorf("error changing root of fs to  %s: %w", teamDir, err)
+	}
+	if err := createLock(ctx, chroot, c.LockId, c.Message); err != nil {
+		return "", fmt.Errorf("error creating lock. ID: %s Lock Message: %s. %w", c.LockId, c.Message, err)
+	}
+
+	return fmt.Sprintf("Created lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
+}
+
+type DeleteEnvironmentTeamLock struct {
+	Authentication
+	Environment string
+	Team        string
+	LockId      string
+}
+
+func (c *DeleteEnvironmentTeamLock) Transform(
+	ctx context.Context,
+	state *State,
+	t TransformerContext,
+) (string, error) {
+	err := state.checkUserPermissions(ctx, c.Environment, "", auth.PermissionDeleteLock, c.Team, c.RBACConfig)
+	if err != nil {
+		return "", err
+	}
+
+	if !valid.EnvironmentName(c.Environment) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid environment: '%s'", c.Environment))
+	}
+	if !valid.TeamName(c.Team) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid team: '%s'", c.Team))
+	}
+	if !valid.LockId(c.LockId) {
+		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("cannot delete environment team lock: invalid lock id: '%s'", c.LockId))
+	}
+
+	fs := state.Filesystem
+	lockDir := fs.Join("environments", c.Environment, "teams", c.Team, "locks", c.LockId)
+	_, err = fs.Stat(lockDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for team lock does not exist", lockDir))
+		}
+		return "", err
+	}
+	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
+	}
+	s := State{
+		Commit:                 nil,
+		BootstrapMode:          false,
+		EnvironmentConfigsPath: "",
+		Filesystem:             fs,
+	}
+	if err := s.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Deleted lock %q on environment %q for team %q", c.LockId, c.Environment, c.Team), nil
+}
+
 type CreateEnvironment struct {
 	Authentication
 	Environment string
@@ -1631,8 +1760,8 @@ func (c *DeployApplicationVersion) Transform(
 	if c.LockBehaviour != api.LockBehavior_IGNORE {
 		// Check that the environment is not locked
 		var (
-			envLocks, appLocks map[string]Lock
-			err                error
+			envLocks, appLocks, teamLocks map[string]Lock
+			err                           error
 		)
 		envLocks, err = state.GetEnvironmentLocks(c.Environment)
 		if err != nil {
@@ -1642,7 +1771,20 @@ func (c *DeployApplicationVersion) Transform(
 		if err != nil {
 			return "", err
 		}
-		if len(envLocks) > 0 || len(appLocks) > 0 {
+
+		appDir := applicationDirectory(fs, c.Application)
+
+		team, err := util.ReadFile(fs, fs.Join(appDir, "team"))
+
+		if errors.Is(err, os.ErrNotExist) {
+			teamLocks = map[string]Lock{} //If we dont find the team file, there is no team for application, meaning there can't be any team locks
+		} else {
+			teamLocks, err = state.GetEnvironmentTeamLocks(c.Environment, string(team))
+			if err != nil {
+				return "", err
+			}
+		}
+		if len(envLocks) > 0 || len(appLocks) > 0 || len(teamLocks) > 0 {
 			if c.WriteCommitData {
 				var lockType, lockMsg string
 				if len(envLocks) > 0 {
@@ -1652,11 +1794,20 @@ func (c *DeployApplicationVersion) Transform(
 						break
 					}
 				} else {
-					lockType = "application"
-					for _, lock := range appLocks {
-						lockMsg = lock.Message
-						break
+					if len(appLocks) > 0 {
+						lockType = "application"
+						for _, lock := range appLocks {
+							lockMsg = lock.Message
+							break
+						}
+					} else {
+						lockType = "team"
+						for _, lock := range teamLocks {
+							lockMsg = lock.Message
+							break
+						}
 					}
+
 				}
 				if err := addEventForRelease(ctx, fs, releaseDir, &event.LockPreventedDeployment{
 					Application: c.Application,
@@ -1680,6 +1831,7 @@ func (c *DeployApplicationVersion) Transform(
 				return "", &LockedError{
 					EnvironmentApplicationLocks: appLocks,
 					EnvironmentLocks:            envLocks,
+					TeamLocks:                   teamLocks,
 				}
 			}
 		}
@@ -1808,6 +1960,8 @@ func getCommitIDFromReleaseDir(ctx context.Context, fs billy.Filesystem, release
 }
 
 func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir string, ev event.Event) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "eventsForRelease")
+	defer span.Finish()
 	if commitID, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir); err == nil {
 		gen := getGenerator(ctx)
 		eventUuid := gen.Generate()
@@ -1819,7 +1973,7 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 			return nil
 		}
 
-		if err := writeEvent(eventUuid, commitID, fs, ev); err != nil {
+		if err := writeEvent(ctx, eventUuid, commitID, fs, ev); err != nil {
 			return fmt.Errorf(
 				"could not write an event for commit %s, error: %w",
 				commitID, err)
@@ -1990,13 +2144,15 @@ func getEnvironmentGroupsEnvironmentsOrEnvironment(configs map[string]config.Env
 }
 
 type ReleaseTrainApplicationPrognosis struct {
-	SkipCause *api.ReleaseTrainAppPrognosis_SkipCause
-	Version   uint64
+	SkipCause        *api.ReleaseTrainAppPrognosis_SkipCause
+	FirstLockMessage string // we just record the first lock's message for now, will be changed in SRX-7CBX2O
+	Version          uint64
 }
 
 type ReleaseTrainEnvironmentPrognosis struct {
-	SkipCause *api.ReleaseTrainEnvPrognosis_SkipCause
-	Error     error
+	SkipCause        *api.ReleaseTrainEnvPrognosis_SkipCause
+	Error            error
+	FirstLockMessage string // we just record the first lock's message for now, will be changed in SRX-7CBX2O
 	// map key is the name of the app
 	AppsPrognoses map[string]ReleaseTrainApplicationPrognosis
 }
@@ -2135,8 +2291,9 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
 			},
-			Error:         nil,
-			AppsPrognoses: nil,
+			Error:            nil,
+			FirstLockMessage: "",
+			AppsPrognoses:    nil,
 		}
 	}
 
@@ -2151,9 +2308,10 @@ func (c *envReleaseTrain) prognosis(
 
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         err,
-			AppsPrognoses: nil,
+			SkipCause:        nil,
+			Error:            err,
+			FirstLockMessage: "",
+			AppsPrognoses:    nil,
 		}
 	}
 
@@ -2164,8 +2322,9 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
 			},
-			Error:         nil,
-			AppsPrognoses: nil,
+			Error:            nil,
+			FirstLockMessage: "",
+			AppsPrognoses:    nil,
 		}
 	}
 
@@ -2174,8 +2333,9 @@ func (c *envReleaseTrain) prognosis(
 			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
 			},
-			Error:         nil,
-			AppsPrognoses: nil,
+			Error:            nil,
+			FirstLockMessage: "",
+			AppsPrognoses:    nil,
 		}
 	}
 
@@ -2186,8 +2346,9 @@ func (c *envReleaseTrain) prognosis(
 				SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainEnvSkipCause_UPSTREAM_ENV_CONFIG_NOT_FOUND,
 				},
-				Error:         nil,
-				AppsPrognoses: nil,
+				Error:            nil,
+				FirstLockMessage: "",
+				AppsPrognoses:    nil,
 			}
 		}
 	}
@@ -2195,19 +2356,10 @@ func (c *envReleaseTrain) prognosis(
 	envLocks, err := state.GetEnvironmentLocks(c.Env)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)),
-			AppsPrognoses: nil,
-		}
-	}
-
-	if len(envLocks) > 0 {
-		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
-				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
-			},
-			Error:         nil,
-			AppsPrognoses: nil,
+			SkipCause:        nil,
+			Error:            grpc.InternalError(ctx, fmt.Errorf("could not get lock for environment %q: %w", c.Env, err)),
+			FirstLockMessage: "",
+			AppsPrognoses:    nil,
 		}
 	}
 
@@ -2219,22 +2371,50 @@ func (c *envReleaseTrain) prognosis(
 	apps, overrideVersions, err := c.Parent.getUpstreamLatestApp(upstreamLatest, state, ctx, upstreamEnvName, source, c.Parent.CommitHash)
 	if err != nil {
 		return ReleaseTrainEnvironmentPrognosis{
-			SkipCause:     nil,
-			Error:         err,
-			AppsPrognoses: nil,
+			SkipCause:        nil,
+			Error:            err,
+			FirstLockMessage: "",
+			AppsPrognoses:    nil,
 		}
 	}
 	sort.Strings(apps)
 
 	appsPrognoses := make(map[string]ReleaseTrainApplicationPrognosis)
+	if len(envLocks) > 0 {
+		// we don't really care about multiple locks, since they all have the same effect, so we just pick one:
+		var firstLock Lock
+		sortedKeys := sorting.SortKeys(envLocks)
+		for keyIndex := range sortedKeys {
+			key := sortedKeys[keyIndex]
+			firstLock = envLocks[key]
+			break
+		}
+
+		for _, appName := range apps {
+			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
+				SkipCause:        nil,
+				FirstLockMessage: firstLock.Message,
+				Version:          0,
+			}
+		}
+		return ReleaseTrainEnvironmentPrognosis{
+			SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+				SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
+			},
+			Error:            nil,
+			FirstLockMessage: firstLock.Message,
+			AppsPrognoses:    appsPrognoses,
+		}
+	}
 
 	for _, appName := range apps {
 		if c.Parent.Team != "" {
 			if team, err := state.GetApplicationTeamOwner(appName); err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:     nil,
-					Error:         err,
-					AppsPrognoses: nil,
+					SkipCause:        nil,
+					Error:            err,
+					FirstLockMessage: "",
+					AppsPrognoses:    nil,
 				}
 			} else if c.Parent.Team != team {
 				continue
@@ -2244,9 +2424,10 @@ func (c *envReleaseTrain) prognosis(
 		currentlyDeployedVersion, err := state.GetEnvironmentApplicationVersion(c.Env, appName)
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
-				SkipCause:     nil,
-				Error:         grpc.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, c.Env, err)),
-				AppsPrognoses: nil,
+				SkipCause:        nil,
+				Error:            grpc.PublicError(ctx, fmt.Errorf("application %q in env %q does not have a version deployed: %w", appName, c.Env, err)),
+				FirstLockMessage: "",
+				AppsPrognoses:    nil,
 			}
 		}
 
@@ -2261,18 +2442,20 @@ func (c *envReleaseTrain) prognosis(
 			versionToDeploy, err = GetLastRelease(state.Filesystem, appName)
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:     nil,
-					Error:         grpc.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err)),
-					AppsPrognoses: nil,
+					SkipCause:        nil,
+					Error:            grpc.PublicError(ctx, fmt.Errorf("application %q does not have a latest deployed: %w", appName, err)),
+					FirstLockMessage: "",
+					AppsPrognoses:    nil,
 				}
 			}
 		} else {
 			upstreamVersion, err := state.GetEnvironmentApplicationVersion(upstreamEnvName, appName)
 			if err != nil {
 				return ReleaseTrainEnvironmentPrognosis{
-					SkipCause:     nil,
-					Error:         grpc.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err)),
-					AppsPrognoses: nil,
+					SkipCause:        nil,
+					Error:            grpc.PublicError(ctx, fmt.Errorf("application %q does not have a version deployed in env %q: %w", appName, upstreamEnvName, err)),
+					FirstLockMessage: "",
+					AppsPrognoses:    nil,
 				}
 			}
 			if upstreamVersion == nil {
@@ -2280,7 +2463,8 @@ func (c *envReleaseTrain) prognosis(
 					SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 						SkipCause: api.ReleaseTrainAppSkipCause_APP_HAS_NO_VERSION_IN_UPSTREAM_ENV,
 					},
-					Version: 0,
+					FirstLockMessage: "",
+					Version:          0,
 				}
 				continue
 			}
@@ -2291,7 +2475,8 @@ func (c *envReleaseTrain) prognosis(
 				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainAppSkipCause_APP_ALREADY_IN_UPSTREAM_VERSION,
 				},
-				Version: 0,
+				FirstLockMessage: "",
+				Version:          0,
 			}
 			continue
 		}
@@ -2300,18 +2485,29 @@ func (c *envReleaseTrain) prognosis(
 
 		if err != nil {
 			return ReleaseTrainEnvironmentPrognosis{
-				SkipCause:     nil,
-				Error:         err,
-				AppsPrognoses: nil,
+				SkipCause:        nil,
+				Error:            err,
+				FirstLockMessage: "",
+				AppsPrognoses:    nil,
 			}
 		}
 
 		if len(appLocks) > 0 {
+			// we don't really care about multiple locks, since they all have the same effect, so we just pick one:
+			var firstLock Lock
+			sortedKeys := sorting.SortKeys(appLocks)
+			for keyIndex := range sortedKeys {
+				key := sortedKeys[keyIndex]
+				firstLock = appLocks[key]
+				break
+			}
+
 			appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
 				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainAppSkipCause_APP_IS_LOCKED,
 				},
-				Version: 0,
+				FirstLockMessage: firstLock.Message,
+				Version:          0,
 			}
 			continue
 		}
@@ -2326,21 +2522,24 @@ func (c *envReleaseTrain) prognosis(
 				SkipCause: &api.ReleaseTrainAppPrognosis_SkipCause{
 					SkipCause: api.ReleaseTrainAppSkipCause_APP_DOES_NOT_EXIST_IN_ENV,
 				},
-				Version: 0,
+				FirstLockMessage: "",
+				Version:          0,
 			}
 			continue
 		}
 
 		appsPrognoses[appName] = ReleaseTrainApplicationPrognosis{
-			SkipCause: nil,
-			Version:   versionToDeploy,
+			SkipCause:        nil,
+			FirstLockMessage: "",
+			Version:          versionToDeploy,
 		}
 	}
 
 	return ReleaseTrainEnvironmentPrognosis{
-		SkipCause:     nil,
-		Error:         nil,
-		AppsPrognoses: appsPrognoses,
+		SkipCause:        nil,
+		Error:            nil,
+		FirstLockMessage: "",
+		AppsPrognoses:    appsPrognoses,
 	}
 }
 
@@ -2392,6 +2591,22 @@ func (c *envReleaseTrain) Transform(
 		return "", prognosis.Error
 	}
 	if prognosis.SkipCause != nil {
+		for appName := range prognosis.AppsPrognoses {
+			release, err := GetLastRelease(state.Filesystem, appName)
+			if err != nil {
+				return "", fmt.Errorf("error getting latest release for app '%s' - %v", appName, err)
+			}
+			releaseDir := releasesDirectoryWithVersion(state.Filesystem, appName, release)
+			if err := addEventForRelease(ctx, state.Filesystem, releaseDir, &event.LockPreventedDeployment{
+				Application: appName,
+				Environment: c.Env,
+				LockMessage: prognosis.FirstLockMessage,
+				LockType:    "environment",
+			}); err != nil {
+				return "", err
+			}
+		}
+
 		return renderEnvironmentSkipCause(prognosis.SkipCause), nil
 	}
 

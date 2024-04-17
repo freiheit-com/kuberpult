@@ -264,6 +264,7 @@ func max(a uint32, b uint32) uint32 {
 	return b
 }
 
+// EnvironmentByDistance is there to sort by distance first and by name second
 type EnvironmentByDistance []*api.Environment
 
 func (s EnvironmentByDistance) Len() int {

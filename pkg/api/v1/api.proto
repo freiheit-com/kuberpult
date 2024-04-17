@@ -88,6 +88,7 @@ message LockPreventedDeploymentEvent {
     LOCK_TYPE_UNKNOWN = 0;
     LOCK_TYPE_ENV = 1;
     LOCK_TYPE_APP = 2;
+    LOCK_TYPE_TEAM = 3;
   }
   string application = 1;
   string environment = 2;
@@ -129,6 +130,8 @@ message BatchAction {
     CreateReleaseRequest create_release = 11;
     CreateEnvironmentGroupLockRequest create_environment_group_lock = 12;
     DeleteEnvironmentGroupLockRequest delete_environment_group_lock = 13;
+    CreateEnvironmentTeamLockRequest create_environment_team_lock = 14;
+    DeleteEnvironmentTeamLockRequest delete_environment_team_lock = 15;
   }
 }
 
@@ -176,6 +179,19 @@ message CreateEnvironmentApplicationLockRequest {
 message DeleteEnvironmentApplicationLockRequest {
   string environment = 1;
   string application = 2;
+  string lock_id = 3;
+}
+
+message CreateEnvironmentTeamLockRequest {
+  string environment = 1;
+  string team = 2;
+  string lock_id = 3;
+  string message = 4;
+}
+
+message DeleteEnvironmentTeamLockRequest {
+  string environment = 1;
+  string team = 2;
   string lock_id = 3;
 }
 
@@ -289,6 +305,7 @@ message Lock {
 message LockedError {
   map<string, Lock> environment_locks = 1;
   map<string, Lock> environment_application_locks = 2;
+  map<string, Lock> environment_team_locks = 3;
 }
 
 service FrontendConfigService {
@@ -601,6 +618,7 @@ enum ReleaseTrainAppSkipCause {
   APP_ALREADY_IN_UPSTREAM_VERSION = 1;
   APP_IS_LOCKED = 2;
   APP_DOES_NOT_EXIST_IN_ENV = 3;
+  APP_IS_LOCKED_BY_ENV = 4; // there is an env lock that prevents deployment for this app
 }
 
 message ReleaseTrainAppPrognosis {
