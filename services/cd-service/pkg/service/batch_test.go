@@ -366,7 +366,7 @@ func TestBatchServiceFails(t *testing.T) {
 			Batch:              []*api.BatchAction{},
 			context:            testutil.MakeTestContextDexEnabled(),
 			svc:                &BatchServer{},
-			expectedSetupError: errMatcher{"the desired action can not be performed because Dex is enabled without any RBAC policies"},
+			expectedSetupError: errMatcher{"error at index 0 of transformer batch: the desired action can not be performed because Dex is enabled without any RBAC policies"},
 		},
 	}
 	for _, tc := range tcs {
