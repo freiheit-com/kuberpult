@@ -21,16 +21,18 @@ import { Spinner } from '../../components/Spinner/Spinner';
 import { useParams } from 'react-router-dom';
 import React from 'react';
 import { CommitInfo } from '../../components/CommitInfo/CommitInfo';
+import { useAzureAuthSub } from '../../utils/AzureAuthProvider';
 
 export const CommitInfoPage: React.FC = () => {
     const [everythingLoaded, loadingState] = useGlobalLoadingState();
     const { commit: commitHash } = useParams();
+    const { authHeader } = useAzureAuthSub((auth) => auth);
 
     React.useEffect(() => {
         if (commitHash !== undefined) {
-            getCommitInfo(commitHash);
+            getCommitInfo(commitHash, authHeader);
         }
-    }, [commitHash]);
+    }, [commitHash, authHeader]);
 
     const commitInfo = useCommitInfo((res) => res);
 
