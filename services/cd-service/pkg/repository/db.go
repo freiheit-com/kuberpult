@@ -121,9 +121,6 @@ func InsertDatabaseInformation(databaseLocation string, message string) (sql.Res
 		return nil, fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("Error querying the database. Error: %w\n", err)
-	}
 	return result, nil
 }
 
