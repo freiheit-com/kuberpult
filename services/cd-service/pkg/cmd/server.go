@@ -123,9 +123,9 @@ func RunServer() {
 			if !c.DexEnabled {
 				logger.FromContext(ctx).Fatal("dexEnabled must be true if dexMock is true")
 			}
-			//if c.DexMockRole = nil {
-			//	logger.FromContext(ctx).Fatal("dexMockRole must be set to a role (e.g 'DEVELOPER'")
-			//}
+			if c.DexMockRole == "" {
+				logger.FromContext(ctx).Fatal("dexMockRole must be set to a role (e.g 'DEVELOPER' because dexEnabled=true")
+			}
 			reader = &auth.DummyGrpcContextReader{Role: c.DexMockRole}
 		} else {
 			reader = &auth.DexGrpcContextReader{DexEnabled: c.DexEnabled}

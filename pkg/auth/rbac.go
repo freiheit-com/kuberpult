@@ -40,15 +40,15 @@ const (
 	PermissionDeleteEnvironmentApplication = "DeleteEnvironmentApplication"
 	PermissionDeployReleaseTrain           = "DeployReleaseTrain"
 	// The default permission template.
-	PermissionTemplate = "%s,%s,%s:%s,%s,allow"
+	PermissionTemplate = "p,role:%s,%s,%s:%s,%s,allow"
 )
 
 // All static rbac information that is required to check authentication of a given user.
 type RBACConfig struct {
 	// Indicates if Dex is enabled.
 	DexEnabled bool
-	// The RBAC policy. A key is a permission, for example: "Developer, CreateLock, development:development, *, allow"
-	Policy map[string]*Permission
+	// The RBAC policies. The key is a permission or group, for example: "Developer, CreateLock, development:development, *, allow"
+	Policy *RBACPolicies
 }
 
 // Inits the RBAC Config struct
@@ -137,35 +137,47 @@ type Permission struct {
 	Environment string
 	Action      string
 }
+type RBACGroup struct {
+	Group string
+	Role  string
+}
 
-func ValidateRbacPermission(line string) (p *Permission, err error) {
+type RBACPolicies struct {
+	Groups      map[string]RBACGroup
+	Permissions map[string]Permission
+}
+
+func ValidateRbacPermission(line string) (p Permission, err error) {
 	cfg := initPolicyConfig()
 	// Verifies if all fields are specified
 	c := strings.Split(line, ",")
-	if len(c) != 5 {
-		return nil, fmt.Errorf("5 fields are expected but only %d were specified", len(c))
+	if len(c) != 6 {
+		return p, fmt.Errorf("6 fields are expected but only %d were specified", len(c))
 	}
 	// Permission role
-	role := c[0]
+	if !strings.Contains(c[1], "role:") {
+		return p, fmt.Errorf("the format for permissions expects the prefix `role:` for permissions")
+	}
+	role := c[1][5:]
 	// Validates the permission action
-	action := c[1]
+	action := c[2]
 	err = cfg.validateAction(action)
 	if err != nil {
-		return nil, err
+		return p, err
 	}
 	// Validate the permission environment
-	environment := c[2]
+	environment := c[3]
 	err = cfg.validateEnvs(environment, action)
 	if err != nil {
-		return nil, err
+		return p, err
 	}
-	// Validate the environment names
-	application := c[3]
+	// Validate the application names
+	application := c[4]
 	err = cfg.validateApplication(application)
 	if err != nil {
-		return nil, err
+		return p, err
 	}
-	return &Permission{
+	return Permission{
 		Role:        role,
 		Action:      action,
 		Environment: environment,
@@ -173,7 +185,7 @@ func ValidateRbacPermission(line string) (p *Permission, err error) {
 	}, nil
 }
 
-func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy map[string]*Permission, err error) {
+func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPolicies, err error) {
 	if !dexEnabled {
 		return nil, nil
 	}
@@ -184,18 +196,20 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy map[strin
 	}
 	defer file.Close()
 
-	policy = map[string]*Permission{}
 	scanner := bufio.NewScanner(file)
+	policy = &RBACPolicies{Permissions: map[string]Permission{}, Groups: map[string]RBACGroup{}}
 	for scanner.Scan() {
 		// Trim spaces from policy
 		line := strings.ReplaceAll(scanner.Text(), " ", "")
-		p, err := ValidateRbacPermission(line)
-		if err != nil {
-			return nil, err
+		if line[0] == 'p' {
+			p, err := ValidateRbacPermission(line)
+			if err != nil {
+				return nil, err
+			}
+			policy.Permissions[line] = p
 		}
-		policy[line] = p
 	}
-	if len(policy) == 0 {
+	if len(policy.Permissions) == 0 {
 		return nil, errors.New("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLED\" is true")
 	}
 	return policy, nil
@@ -239,8 +253,11 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env, team, envGroup
 		for _, pEnv := range []string{env, "*"} {
 			for _, pApplication := range []string{application, "*"} {
 				// Check if the permission exists on the policy.
+				if rbacConfig.Policy == nil {
+					return errors.New("the desired action can not be performed because Dex is enabled without any RBAC policies")
+				}
 				permissionsWanted := fmt.Sprintf(PermissionTemplate, user.DexAuthContext.Role, action, pEnvGroup, pEnv, pApplication)
-				_, permissionsExist := rbacConfig.Policy[permissionsWanted]
+				_, permissionsExist := rbacConfig.Policy.Permissions[permissionsWanted]
 				if permissionsExist {
 					return nil
 				}
