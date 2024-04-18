@@ -220,20 +220,18 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 	for scanner.Scan() {
 		// Trim spaces from policy
 		line := strings.ReplaceAll(scanner.Text(), " ", "")
-		if line[0] == 'p' {
+		if len(line) > 0 && line[0] == 'p' {
 			p, err := ValidateRbacPermission(line)
 			if err != nil {
 				return nil, err
 			}
 			policy.Permissions[line] = p
-		} else if line[0] == 'g' {
+		} else if len(line) > 0 && line[0] == 'g' {
 			g, err := ValidateRbacGroup(line)
 			if err != nil {
 				return nil, err
 			}
 			policy.Groups[line] = g
-		} else {
-			return nil, fmt.Errorf("unable to assign policy to either group roles (g) or permission (p): " + line)
 		}
 	}
 	if len(policy.Permissions) == 0 {
