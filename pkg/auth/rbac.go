@@ -185,6 +185,25 @@ func ValidateRbacPermission(line string) (p Permission, err error) {
 	}, nil
 }
 
+func ValidateRbacGroup(line string) (p RBACGroup, err error) {
+	// Verifies if all fields are specified
+	c := strings.Split(line, ",")
+	if len(c) != 3 {
+		return p, fmt.Errorf("3 fields are expected but %d were specified", len(c))
+	}
+	// get group name
+	group := c[1]
+	// Permission role
+	if !strings.Contains(c[2], "role:") {
+		return p, fmt.Errorf("the format for groups expects the prefix `role:` for a group's role")
+	}
+	role := c[2][5:]
+	return RBACGroup{
+		Role:  role,
+		Group: group,
+	}, nil
+}
+
 func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPolicies, err error) {
 	if !dexEnabled {
 		return nil, nil
@@ -207,6 +226,14 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 				return nil, err
 			}
 			policy.Permissions[line] = p
+		} else if line[0] == 'g' {
+			g, err := ValidateRbacGroup(line)
+			if err != nil {
+				return nil, err
+			}
+			policy.Groups[line] = g
+		} else {
+			return nil, fmt.Errorf("unable to assign policy to either group roles (g) or permission (p): " + line)
 		}
 	}
 	if len(policy.Permissions) == 0 {

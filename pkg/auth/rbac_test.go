@@ -86,6 +86,47 @@ func TestValidateRbacPermission(t *testing.T) {
 	}
 }
 
+func TestValidateRbacGroup(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		Group          string
+		WantError      error
+		WantPermission RBACGroup
+	}{
+		{
+			Name:  "Validating RBAC works as expected",
+			Group: "g,freiheit-com-org:fdc-org-team1,role:admin",
+			WantPermission: RBACGroup{
+				Role:  "admin",
+				Group: "freiheit-com-org:fdc-org-team1",
+			},
+		},
+		{
+			Name:      "Incorrect parsing of line passed to function",
+			Group:     "g,freiheit-com-org:fdc-org-team1,role:admin,another_thing",
+			WantError: errMatcher{"3 fields are expected but 4 were specified"},
+		},
+		{
+			Name:      "Incorrect parsing of line passed to function",
+			Group:     "g,freiheit-com-org:fdc-org-team1,admin",
+			WantError: errMatcher{"the format for groups expects the prefix `role:` for a group's role"},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			group, err := ValidateRbacGroup(tc.Group)
+			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(group, tc.WantPermission, cmpopts.EquateEmpty()); diff != "" {
+				t.Errorf("%s: unexpected result diff : %v", tc.Name, diff)
+			}
+		})
+	}
+}
+
 func TestCheckUserPermissions(t *testing.T) {
 	tcs := []struct {
 		Name        string
