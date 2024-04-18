@@ -3,7 +3,7 @@ VERSION 0.7
 
 
 godeps:
-    FROM golang:1.21-alpine
+    FROM golang:1.22-alpine
 
     RUN apk add curl
 
