@@ -12,8 +12,8 @@ importers:
       '@babel/core': 7.23.9
       '@babel/plugin-syntax-flow': 7.23.3
       '@babel/plugin-transform-react-jsx': 7.23.4
-      '@emotion/react': 11.11.3
-      '@emotion/styled': 11.11.0
+      '@emotion/react': 11.11.4
+      '@emotion/styled': 11.11.5
       '@improbable-eng/grpc-web': 0.15.0
       '@material-ui/core': 5.0.0-alpha.34
       '@material-ui/icons': 5.0.0-alpha.34
@@ -55,10 +55,10 @@ importers:
     dependencies:
       '@azure/msal-browser': 2.38.3
       '@azure/msal-react': 1.5.12_7hsqmrey76qwfx33byaohfzyrq
-      '@emotion/react': 11.11.3_enbot6244c3yf2zmg5mm7izfka
-      '@emotion/styled': 11.11.0_24b4rigi4y5lib3s2c4udlzofy
+      '@emotion/react': 11.11.4_enbot6244c3yf2zmg5mm7izfka
+      '@emotion/styled': 11.11.5_gwihlzsv52thetzz34x2fre7am
       '@improbable-eng/grpc-web': 0.15.0_google-protobuf@3.21.2
-      '@material-ui/core': 5.0.0-alpha.34_crhr4au2ebusmxqne6x7h435au
+      '@material-ui/core': 5.0.0-alpha.34_6u66eabb6c4n5sk6qowsb3wzo4
       '@material-ui/icons': 5.0.0-alpha.34_a2q3lj2t2ond2lqqjrdbqh4j2q
       '@peculiar/webcrypto': 1.4.5
       '@types/react-beforeunload': 2.1.5
@@ -1778,8 +1778,8 @@ packages:
     resolution: {integrity: sha512-gJB6HLm5rYwSLI6PQa+X1t5CFGrv1J1TWG+sOyMCeKz2ojaj6Fnl/rZEspogG+cvqbt4AE/2eIyD2QfLKTBNlQ==}
     dev: false
 
-  /@emotion/is-prop-valid/1.2.1:
-    resolution: {integrity: sha512-61Mf7Ufx4aDxx1xlDeOm8aFFigGHE4z+0sKCa+IHCeZKiyP9RLD0Mmx7m8b9/Cf37f7NAvQOOJAbQQGVr5uERw==}
+  /@emotion/is-prop-valid/1.2.2:
+    resolution: {integrity: sha512-uNsoYd37AFmaCdXlg6EYD1KaPOaRWRByMCYzbKUX4+hhMfrxdVSelShywL4JVaAeM/eHUOSprYBQls+/neX3pw==}
     dependencies:
       '@emotion/memoize': 0.8.1
     dev: false
@@ -1788,8 +1788,8 @@ packages:
     resolution: {integrity: sha512-W2P2c/VRW1/1tLox0mVUalvnWXxavmv/Oum2aPsRcoDJuob75FC3Y8FbpfLwUegRcxINtGUMPq0tFCvYNTBXNA==}
     dev: false
 
-  /@emotion/react/11.11.3_enbot6244c3yf2zmg5mm7izfka:
-    resolution: {integrity: sha512-Cnn0kuq4DoONOMcnoVsTOR8E+AdnKFf//6kUWc4LCdnxj31pZWn7rIULd6Y7/Js1PiPHzn7SKCM9vB/jBni8eA==}
+  /@emotion/react/11.11.4_enbot6244c3yf2zmg5mm7izfka:
+    resolution: {integrity: sha512-t8AjMlF0gHpvvxk5mAtCqR4vmxiGHCeJBaQO6gncUSdklELOgtwjerNY2yuJNfwnc6vi16U/+uMF+afIawJ9iw==}
     peerDependencies:
       '@types/react': '*'
       react: '>=16.8.0 || 18'
@@ -1819,12 +1819,22 @@ packages:
       csstype: 3.1.3
     dev: false
 
+  /@emotion/serialize/1.1.4:
+    resolution: {integrity: sha512-RIN04MBT8g+FnDwgvIUi8czvr1LU1alUMI05LekWB5DGyTm8cCBMCRpq3GqaiyEDRptEXOyXnvZ58GZYu4kBxQ==}
+    dependencies:
+      '@emotion/hash': 0.9.1
+      '@emotion/memoize': 0.8.1
+      '@emotion/unitless': 0.8.1
+      '@emotion/utils': 1.2.1
+      csstype: 3.1.3
+    dev: false
+
   /@emotion/sheet/1.2.2:
     resolution: {integrity: sha512-0QBtGvaqtWi+nx6doRwDdBIzhNdZrXUppvTM4dtZZWEGTXL/XE/yJxLMGlDT1Gt+UHH5IX1n+jkXyytE/av7OA==}
     dev: false
 
-  /@emotion/styled/11.11.0_24b4rigi4y5lib3s2c4udlzofy:
-    resolution: {integrity: sha512-hM5Nnvu9P3midq5aaXj4I+lnSfNi7Pmd4EWk1fOZ3pxookaQTNew6bp4JaCBYM4HVFZF9g7UjJmsUmC2JlxOng==}
+  /@emotion/styled/11.11.5_gwihlzsv52thetzz34x2fre7am:
+    resolution: {integrity: sha512-/ZjjnaNKvuMPxcIiUkf/9SHoG4Q196DRl1w82hQ3WCsjo1IUR8uaGWrC6a87CrYAW0Kb/pK7hk8BnLgLRi9KoQ==}
     peerDependencies:
       '@emotion/react': ^11.0.0-rc.0
       '@types/react': '*'
@@ -1835,9 +1845,9 @@ packages:
     dependencies:
       '@babel/runtime': 7.23.9
       '@emotion/babel-plugin': 11.11.0
-      '@emotion/is-prop-valid': 1.2.1
-      '@emotion/react': 11.11.3_enbot6244c3yf2zmg5mm7izfka
-      '@emotion/serialize': 1.1.3
+      '@emotion/is-prop-valid': 1.2.2
+      '@emotion/react': 11.11.4_enbot6244c3yf2zmg5mm7izfka
+      '@emotion/serialize': 1.1.4
       '@emotion/use-insertion-effect-with-fallbacks': 1.0.1_react@18.2.0
       '@emotion/utils': 1.2.1
       '@types/react': 18.2.59
@@ -2265,7 +2275,7 @@ packages:
     resolution: {integrity: sha512-Hcv+nVC0kZnQ3tD9GVu5xSMR4VVYOteQIr/hwFPVEvPdlXqgGEuRjiheChHgdM+JyqdgNcmzZOX/tnl0JOiI7A==}
     dev: false
 
-  /@material-ui/core/5.0.0-alpha.34_crhr4au2ebusmxqne6x7h435au:
+  /@material-ui/core/5.0.0-alpha.34_6u66eabb6c4n5sk6qowsb3wzo4:
     resolution: {integrity: sha512-OlY10og9ziDqFUpwjzILUoSBWyF8iEXJXEnVSNhn3ul0bUUb26Z5IZbddhSS1LF+F+iSuHHVaIjbFOnjy7uC5Q==}
     engines: {node: '>=12.0.0'}
     deprecated: Material UI v4 doesn't receive active development since September 2021. See the guide https://mui.com/material-ui/migration/migration-v4/ to upgrade to v5.
@@ -2284,10 +2294,10 @@ packages:
         optional: true
     dependencies:
       '@babel/runtime': 7.23.9
-      '@emotion/react': 11.11.3_enbot6244c3yf2zmg5mm7izfka
-      '@emotion/styled': 11.11.0_24b4rigi4y5lib3s2c4udlzofy
+      '@emotion/react': 11.11.4_enbot6244c3yf2zmg5mm7izfka
+      '@emotion/styled': 11.11.5_gwihlzsv52thetzz34x2fre7am
       '@material-ui/private-theming': 5.0.0-alpha.33_enbot6244c3yf2zmg5mm7izfka
-      '@material-ui/styled-engine': 5.0.0-alpha.34_2jbui5nro4tb6hwabdsx6ymml4
+      '@material-ui/styled-engine': 5.0.0-alpha.34_ilot62uxe3kggweyvbmzeinfca
       '@material-ui/styles': 5.0.0-alpha.33_enbot6244c3yf2zmg5mm7izfka
       '@material-ui/system': 5.0.0-alpha.34_m7tdnewbnsfwortrer45rd43le
       '@material-ui/types': 6.0.0_@types+react@18.2.59
@@ -2319,7 +2329,7 @@ packages:
         optional: true
     dependencies:
       '@babel/runtime': 7.23.9
-      '@material-ui/core': 5.0.0-alpha.34_crhr4au2ebusmxqne6x7h435au
+      '@material-ui/core': 5.0.0-alpha.34_6u66eabb6c4n5sk6qowsb3wzo4
       '@types/react': 18.2.59
       react: 18.2.0
     dev: false
@@ -2341,7 +2351,7 @@ packages:
       react: 18.2.0
     dev: false
 
-  /@material-ui/styled-engine/5.0.0-alpha.34_2jbui5nro4tb6hwabdsx6ymml4:
+  /@material-ui/styled-engine/5.0.0-alpha.34_ilot62uxe3kggweyvbmzeinfca:
     resolution: {integrity: sha512-1j+4tIxS6x3McJ+3O9mxwzjkci/uu09nnON7ZDgqX9O3f15D8CP8cmAy0PDm47M4utMwIqj+EaS4Y6d2PZWF5Q==}
     engines: {node: '>=12.0.0'}
     peerDependencies:
@@ -2356,8 +2366,8 @@ packages:
     dependencies:
       '@babel/runtime': 7.23.9
       '@emotion/cache': 11.11.0
-      '@emotion/react': 11.11.3_enbot6244c3yf2zmg5mm7izfka
-      '@emotion/styled': 11.11.0_24b4rigi4y5lib3s2c4udlzofy
+      '@emotion/react': 11.11.4_enbot6244c3yf2zmg5mm7izfka
+      '@emotion/styled': 11.11.5_gwihlzsv52thetzz34x2fre7am
       prop-types: 15.8.1
       react: 18.2.0
     dev: false
