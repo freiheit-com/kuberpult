@@ -207,6 +207,7 @@ func RunServer() {
 					logger.FromContext(ctx).Fatal("Error actually pinging DB: ", zap.Error(pErr))
 				}
 				logger.FromContext(ctx).Info("Pong!")
+				db.Close()
 			} else {
 				migErr := repository.RunDBMigrations(c.DbLocation)
 				if migErr != nil {
@@ -226,6 +227,8 @@ func RunServer() {
 					}
 				}
 			}
+		} else {
+			logger.FromContext(ctx).Info("DB not enabled!")
 		}
 		cfg := repository.RepositoryConfig{
 			WebhookResolver: nil,
