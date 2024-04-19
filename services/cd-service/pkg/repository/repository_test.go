@@ -83,8 +83,9 @@ func TestNew(t *testing.T) {
 				_, err := New(
 					testutil.MakeTestContext(),
 					RepositoryConfig{
-						URL:  "file://" + remoteDir,
-						Path: localDir,
+						URL:                 "file://" + remoteDir,
+						Path:                localDir,
+						ArgoCdGenerateFiles: true,
 					},
 				)
 				if err != nil {
@@ -109,8 +110,9 @@ func TestNew(t *testing.T) {
 				repo, err := New(
 					testutil.MakeTestContext(),
 					RepositoryConfig{
-						URL:  remoteDir,
-						Path: localDir,
+						URL:                 remoteDir,
+						Path:                localDir,
+						ArgoCdGenerateFiles: true,
 					},
 				)
 				if err != nil {
@@ -144,8 +146,9 @@ func TestNew(t *testing.T) {
 				repo, err := New(
 					testutil.MakeTestContext(),
 					RepositoryConfig{
-						URL:  remoteDir,
-						Path: t.TempDir(),
+						URL:                 remoteDir,
+						Path:                t.TempDir(),
+						ArgoCdGenerateFiles: true,
 					},
 				)
 				if err != nil {
@@ -299,9 +302,10 @@ func TestNew(t *testing.T) {
 			repo, err := New(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:    "file://" + remoteDir,
-					Path:   localDir,
-					Branch: tc.Branch,
+					URL:                 "file://" + remoteDir,
+					Path:                localDir,
+					Branch:              tc.Branch,
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -323,10 +327,11 @@ func TestGetTagsNoTags(t *testing.T) {
 		remoteDir := path.Join(dir, "remote")
 		localDir := path.Join(dir, "local")
 		repoConfig := RepositoryConfig{
-			StorageBackend: 0,
-			URL:            "file://" + remoteDir,
-			Path:           localDir,
-			Branch:         "master",
+			StorageBackend:      0,
+			URL:                 "file://" + remoteDir,
+			Path:                localDir,
+			Branch:              "master",
+			ArgoCdGenerateFiles: true,
 		}
 		cmd := exec.Command("git", "init", "--bare", remoteDir)
 		cmd.Start()
@@ -379,10 +384,11 @@ func TestGetTags(t *testing.T) {
 			remoteDir := path.Join(dir, "remote")
 			localDir := path.Join(dir, "local")
 			repoConfig := RepositoryConfig{
-				StorageBackend: 0,
-				URL:            "file://" + remoteDir,
-				Path:           localDir,
-				Branch:         "master",
+				StorageBackend:      0,
+				URL:                 "file://" + remoteDir,
+				Path:                localDir,
+				Branch:              "master",
+				ArgoCdGenerateFiles: true,
 			}
 			cmd := exec.Command("git", "init", "--bare", remoteDir)
 			cmd.Start()
@@ -488,8 +494,9 @@ func TestBootstrapModeNew(t *testing.T) {
 				_, err := New(
 					testutil.MakeTestContext(),
 					RepositoryConfig{
-						URL:  "file://" + remoteDir,
-						Path: localDir,
+						URL:                 "file://" + remoteDir,
+						Path:                localDir,
+						ArgoCdGenerateFiles: true,
 					},
 				)
 				if err != nil {
@@ -506,6 +513,7 @@ func TestBootstrapModeNew(t *testing.T) {
 					Path:                   localDir,
 					BootstrapMode:          true,
 					EnvironmentConfigsPath: environmentConfigsPath,
+					ArgoCdGenerateFiles:    true,
 				},
 			)
 			if err != nil {
@@ -553,6 +561,7 @@ func TestBootstrapModeReadConfig(t *testing.T) {
 					Path:                   localDir,
 					BootstrapMode:          true,
 					EnvironmentConfigsPath: environmentConfigsPath,
+					ArgoCdGenerateFiles:    true,
 				},
 			)
 			if err != nil {
@@ -618,6 +627,7 @@ func TestBootstrapError(t *testing.T) {
 					Path:                   localDir,
 					BootstrapMode:          true,
 					EnvironmentConfigsPath: environmentConfigsPath,
+					ArgoCdGenerateFiles:    true,
 				},
 			)
 			if err == nil {
@@ -722,8 +732,9 @@ func TestConfigReload(t *testing.T) {
 		repo, err := New(
 			testutil.MakeTestContext(),
 			RepositoryConfig{
-				URL:  remoteDir,
-				Path: t.TempDir(),
+				URL:                 remoteDir,
+				Path:                t.TempDir(),
+				ArgoCdGenerateFiles: true,
 			},
 		)
 
@@ -845,8 +856,9 @@ func TestConfigValidity(t *testing.T) {
 			_, err = New(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:  remoteDir,
-					Path: t.TempDir(),
+					URL:                 remoteDir,
+					Path:                t.TempDir(),
+					ArgoCdGenerateFiles: true,
 				},
 			)
 
@@ -915,10 +927,11 @@ func TestGc(t *testing.T) {
 			repo, err := New(
 				ctx,
 				RepositoryConfig{
-					URL:            "file://" + remoteDir,
-					Path:           localDir,
-					GcFrequency:    tc.GcFrequency,
-					StorageBackend: tc.StorageBackend,
+					URL:                 "file://" + remoteDir,
+					Path:                localDir,
+					GcFrequency:         tc.GcFrequency,
+					StorageBackend:      tc.StorageBackend,
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -1146,6 +1159,7 @@ func TestApplyQueuePanic(t *testing.T) {
 					URL:                   "file://" + remoteDir,
 					Path:                  localDir,
 					MaximumCommitsPerPush: 3,
+					ArgoCdGenerateFiles:   true,
 				},
 			)
 			if err != nil {
@@ -1218,9 +1232,10 @@ func TestApplyQueueTtlForHealth(t *testing.T) {
 			repo, processQueue, err := New2(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:            "file://" + remoteDir,
-					Path:           localDir,
-					NetworkTimeout: networkTimeout,
+					URL:                 "file://" + remoteDir,
+					Path:                localDir,
+					NetworkTimeout:      networkTimeout,
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -1472,6 +1487,7 @@ func TestApplyQueue(t *testing.T) {
 					URL:                   "file://" + remoteDir,
 					Path:                  localDir,
 					MaximumCommitsPerPush: 10,
+					ArgoCdGenerateFiles:   true,
 				},
 			)
 			if err != nil {
@@ -1572,6 +1588,7 @@ func TestMaximumCommitsPerPush(t *testing.T) {
 					},
 
 					MaximumCommitsPerPush: tc.MaximumCommitsPerPush,
+					ArgoCdGenerateFiles:   true,
 				},
 			)
 			if err != nil {
@@ -1677,8 +1694,9 @@ func BenchmarkApplyQueue(t *testing.B) {
 	repo, err := New(
 		testutil.MakeTestContext(),
 		RepositoryConfig{
-			URL:  "file://" + remoteDir,
-			Path: localDir,
+			URL:                 "file://" + remoteDir,
+			Path:                localDir,
+			ArgoCdGenerateFiles: true,
 		},
 	)
 	if err != nil {
@@ -1797,6 +1815,7 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 				t.Fatalf("error in mkdir: %v", err)
 				return
 			}
+
 			successReason, err := state.DeleteDirIfEmpty(tc.DeleteThisDir)
 			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
@@ -1880,8 +1899,9 @@ func TestProcessQueueOnce(t *testing.T) {
 			repo, actualError := New(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:  "file://" + remoteDir,
-					Path: localDir,
+					URL:                 "file://" + remoteDir,
+					Path:                localDir,
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if actualError != nil {
@@ -1936,8 +1956,9 @@ func TestGitPushDoesntGetStuck(t *testing.T) {
 					Credentials: Credentials{
 						SshKey: ts.ClientKey,
 					},
-					Path:           localDir,
-					NetworkTimeout: time.Second,
+					Path:                localDir,
+					NetworkTimeout:      time.Second,
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -2027,8 +2048,9 @@ func TestSendWebhookToArgoCd(t *testing.T) {
 			repo, _, err := New2(
 				ctx,
 				RepositoryConfig{
-					URL:  fmt.Sprintf("file://%s", path),
-					Path: path,
+					URL:                 fmt.Sprintf("file://%s", path),
+					Path:                path,
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -2179,6 +2201,103 @@ func TestLimit(t *testing.T) {
 	}
 }
 
+func TestArgoCDFileGeneration(t *testing.T) {
+	transformers := []Transformer{
+		&CreateEnvironment{
+			Environment: "production",
+			Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}, ArgoCd: &config.EnvironmentConfigArgoCd{
+				Destination: config.ArgoCdDestination{
+					Server: "development",
+				},
+			}},
+		},
+		&CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				"production": "manifest",
+			},
+		},
+		&CreateApplicationVersion{
+			Application: "test",
+			Manifests: map[string]string{
+				"production": "manifest2",
+			},
+		},
+	}
+	tcs := []struct {
+		Name                string
+		shouldGenerateFiles bool
+	}{
+		{
+			Name:                "ArgoCD files should NOT be generated",
+			shouldGenerateFiles: false,
+		},
+		{
+			Name:                "Argo CD files should be generated",
+			shouldGenerateFiles: true,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			cfg := RepositoryConfig{
+				MaximumCommitsPerPush: 5,
+				ArgoCdGenerateFiles:   tc.shouldGenerateFiles,
+			}
+			repo, err := setupRepository(t, cfg)
+			state := repo.State()
+			ctx := testutil.MakeTestContext()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, applyErr := repo.(*repository).ApplyTransformers(ctx, transformers...)
+
+			state = repo.State() //update state
+			if applyErr != nil {
+				t.Fatalf("Unexpected error applying transformers: Error: %v", applyErr)
+			}
+
+			if _, err := state.Filesystem.Stat("argocd"); errors.Is(err, os.ErrNotExist) {
+				if tc.shouldGenerateFiles {
+					t.Fatalf("Expected ArgoCD directory, but none was found. %v\n", err)
+				}
+			} else { //Argo CD dir exists
+				if !tc.shouldGenerateFiles {
+					t.Fatalf("ArgoCD files should not have been generated. Found ArgoCD directory.")
+				}
+			}
+
+		})
+	}
+}
+
+func setupRepository(t *testing.T, config RepositoryConfig) (Repository, error) {
+	//t.Parallel()
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	cmd.Start()
+	cmd.Wait()
+
+	config.URL = remoteDir
+	config.Path = localDir
+	config.CommitterEmail = "kuberpult@freiheit.com"
+	config.CommitterName = "kuberpult"
+	config.EnvironmentConfigsPath = filepath.Join(remoteDir, "..", "environment_configs.json")
+	t.Logf("test created dir: %s", localDir)
+	repo, _, err := New2(
+		testutil.MakeTestContext(),
+		config,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo, nil
+}
+
 func setupRepositoryTestAux(t *testing.T, commits uint) (Repository, error) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -2197,6 +2316,7 @@ func setupRepositoryTestAux(t *testing.T, commits uint) (Repository, error) {
 			CommitterName:          "kuberpult",
 			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
 			MaximumCommitsPerPush:  commits,
+			ArgoCdGenerateFiles:    true,
 		},
 	)
 	if err != nil {

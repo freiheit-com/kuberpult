@@ -1,0 +1,4 @@
+# Tar file
+kuberpult-*.tar.gz
+# Extracted reports directory
+kuberpult-*-reports/

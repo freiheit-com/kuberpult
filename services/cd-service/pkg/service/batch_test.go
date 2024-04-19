@@ -88,12 +88,29 @@ func getBatchActions() []*api.BatchAction {
 			LockId:      "5678",
 		},
 	}
+	opCreateTeamLock := &api.BatchAction_CreateEnvironmentTeamLock{ // this deletes the existing lock in the transformers
+		CreateEnvironmentTeamLock: &api.CreateEnvironmentTeamLockRequest{
+			Environment: "production",
+			Team:        "test-team",
+			LockId:      "teamlock",
+			Message:     "Test Create a Team lock",
+		},
+	}
+	opDeleteTeamLock := &api.BatchAction_DeleteEnvironmentTeamLock{ // this deletes the existing lock in the transformers
+		DeleteEnvironmentTeamLock: &api.DeleteEnvironmentTeamLockRequest{
+			Environment: "production",
+			Team:        "test-team",
+			LockId:      "91011",
+		},
+	}
 	ops := []*api.BatchAction{ // it works through the batch in order
 		{Action: opDeleteEnvLock},
 		{Action: opDeleteAppLock},
+		{Action: opDeleteTeamLock},
 		{Action: opDeploy},
 		{Action: opCreateEnvLock},
 		{Action: opCreateAppLock},
+		{Action: opCreateTeamLock},
 	}
 	return ops
 }
@@ -141,6 +158,7 @@ func TestBatchServiceWorks(t *testing.T) {
 					Manifests: map[string]string{
 						prod: "manifest",
 					},
+					Team: "test-team",
 				},
 				&repository.CreateEnvironmentLock{ // will be deleted by the batch actions
 					Environment: prod,
@@ -153,7 +171,14 @@ func TestBatchServiceWorks(t *testing.T) {
 					LockId:      "5678",
 					Message:     "AppLock",
 				},
+				&repository.CreateEnvironmentTeamLock{ // will be deleted by the batch actions
+					Environment: prod,
+					Team:        "test-team",
+					LockId:      "91011",
+					Message:     "TeamLock",
+				},
 			},
+
 			Batch:   getBatchActions(),
 			context: testutil.MakeTestContext(),
 			svc:     &BatchServer{},
@@ -170,6 +195,7 @@ func TestBatchServiceWorks(t *testing.T) {
 					Manifests: map[string]string{
 						"production": "manifest",
 					},
+					Team: "test-team",
 				},
 				&repository.CreateEnvironmentLock{
 					Environment: "production",
@@ -182,16 +208,23 @@ func TestBatchServiceWorks(t *testing.T) {
 					LockId:      "5678",
 					Message:     "no message",
 				},
+				&repository.CreateEnvironmentTeamLock{ // will be deleted by the batch actions
+					Environment: prod,
+					Team:        "test-team",
+					LockId:      "91011",
+					Message:     "TeamLock",
+				},
 			},
 			Batch:   getBatchActions(),
 			context: testutil.MakeTestContextDexEnabled(),
 			svc: &BatchServer{
 				RBACConfig: auth.RBACConfig{
 					DexEnabled: true,
-					Policy: map[string]*auth.Permission{
-						"developer,DeployRelease,production:production,*,allow": {Role: "Developer"},
-						"developer,CreateLock,production:production,*,allow":    {Role: "Developer"},
-						"developer,DeleteLock,production:production,*,allow":    {Role: "Developer"},
+					Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployRelease,production:production,*,allow": {Role: "Developer"},
+						"p,role:developer,CreateLock,production:production,*,allow":    {Role: "Developer"},
+						"p,role:developer,DeleteLock,production:production,*,allow":    {Role: "Developer"},
+					},
 					},
 				},
 			},
@@ -277,6 +310,24 @@ func TestBatchServiceWorks(t *testing.T) {
 					t.Error("lock was not deleted")
 				}
 			}
+			//Check that Team lock was created
+			{
+				teamLocks, err := tc.svc.Repository.State().GetEnvironmentTeamLocks("production", "test-team")
+				if err != nil {
+					t.Fatal(err)
+				}
+				lock, exists := teamLocks["teamlock"]
+				if !exists {
+					t.Error("Team lock was not created")
+				}
+				if lock.Message != "Test Create a Team lock" {
+					t.Errorf("unexpected lock message: expected \"please\", actual: %q", lock.Message)
+				}
+				_, exists = teamLocks["91011"]
+				if exists {
+					t.Error("lock was not deleted")
+				}
+			}
 
 		})
 	}
@@ -312,19 +363,10 @@ func TestBatchServiceFails(t *testing.T) {
 					Authentication: repository.Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true}},
 				},
 			},
-			Batch:   []*api.BatchAction{},
-			context: testutil.MakeTestContextDexEnabled(),
-			svc:     &BatchServer{},
-			// expectedSetupError: errMatcher{"error at index 0 of transformer batch: rpc error: code = PermissionDenied desc = PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production'"},
-			expectedSetupError: &repository.TransformerBatchApplyError{
-				Index: 0,
-				TransformerError: auth.PermissionError{
-					User:        "test tester",
-					Role:        "developer",
-					Action:      "CreateLock",
-					Environment: "production",
-				},
-			},
+			Batch:              []*api.BatchAction{},
+			context:            testutil.MakeTestContextDexEnabled(),
+			svc:                &BatchServer{},
+			expectedSetupError: errMatcher{"error at index 0 of transformer batch: the desired action can not be performed because Dex is enabled without any RBAC policies"},
 		},
 	}
 	for _, tc := range tcs {
@@ -579,6 +621,7 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 			CommitterEmail:         "kuberpult@freiheit.com",
 			CommitterName:          "kuberpult",
 			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+			ArgoCdGenerateFiles:    true,
 		},
 	)
 	if err != nil {

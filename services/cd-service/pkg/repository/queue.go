@@ -29,7 +29,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"go.uber.org/zap"
 )
 
 type queue struct {
@@ -60,9 +59,10 @@ func (q *queue) add(ctx context.Context, transformers []Transformer) <-chan erro
 		result:       resultChannel,
 	}
 
+	defer q.GaugeQueueSize(ctx)
+
 	select {
 	case q.transformerBatches <- e:
-		GaugeQueueSize(ctx, len(q.transformerBatches))
 		return resultChannel
 	default:
 		//Channel is full, we don't want to put anything else there.
@@ -78,12 +78,11 @@ func makeQueueN(size uint) queue {
 	}
 }
 
-func GaugeQueueSize(ctx context.Context, queueSize int) {
+func (q *queue) GaugeQueueSize(ctx context.Context) {
 	if ddMetrics != nil {
-		err := ddMetrics.Gauge("request_queue_size", float64(queueSize), []string{}, 1)
-
-		if err != nil {
-			logger.FromContext(ctx).Error("Error gauging queue size metric: ", zap.Error(err))
+		queueSize := len(q.transformerBatches)
+		if err := ddMetrics.Gauge("request_queue_size", float64(queueSize), []string{}, 1); err != nil {
+			logger.FromContext(ctx).Warn("Error gauging queue size datadog metric.")
 		}
 	}
 }

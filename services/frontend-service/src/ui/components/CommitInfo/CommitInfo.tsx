@@ -37,8 +37,29 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
     const nextPrevMessage =
         'Note that kuberpult links to the next commit in the repository that it is aware of.' +
         'This is not necessarily the next/previous commit that touches the desired microservice.';
-    const tooltipMsg = ' Limitation: Currently only commits that touch exactly one app are linked.';
+    const tooltipMsg =
+        ' Limitation: Currently only commits that touch exactly one app are linked. Additionally, kuberpult can only link commits if the previous commit hash is supplied to the /release endpoint.';
     const showInfo = !commitInfo.nextCommitHash || !commitInfo.previousCommitHash;
+    const previousButton =
+        commitInfo.previousCommitHash !== '' ? (
+            <div className="history-button-container">
+                <a href={'/ui/commits/' + commitInfo.previousCommitHash} title={nextPrevMessage}>
+                    Previous Commit
+                </a>
+            </div>
+        ) : (
+            <div className="history-text-container">Previous commit not found &nbsp;</div>
+        );
+    const nextButton =
+        commitInfo.nextCommitHash !== '' ? (
+            <div className="history-button-container">
+                <a href={'/ui/commits/' + commitInfo.nextCommitHash} title={nextPrevMessage}>
+                    Next Commit
+                </a>
+            </div>
+        ) : (
+            <div className="history-text-container">Next commit not found &nbsp;</div>
+        );
     return (
         <div>
             <TopAppBar showAppFilter={false} showTeamFilter={false} showWarningFilter={false} />
@@ -73,24 +94,9 @@ export const CommitInfo: React.FC<CommitInfoProps> = (props) => {
                     <div>
                         {commitInfo.touchedApps.length < 2 && (
                             <div className="next-prev-buttons">
-                                {commitInfo.previousCommitHash !== '' && (
-                                    <div className="history-button-container">
-                                        <a
-                                            href={'/ui/commits/' + commitInfo.previousCommitHash}
-                                            title={nextPrevMessage}>
-                                            Previous Commit
-                                        </a>
-                                    </div>
-                                )}
+                                {previousButton}
 
-                                {commitInfo.nextCommitHash !== '' && (
-                                    <div className="history-button-container">
-                                        <a href={'/ui/commits/' + commitInfo.nextCommitHash} title={nextPrevMessage}>
-                                            Next Commit
-                                        </a>
-                                    </div>
-                                )}
-
+                                {nextButton}
                                 {showInfo && <div title={tooltipMsg}> ⓘ </div>}
                             </div>
                         )}
@@ -143,9 +149,12 @@ const eventDescription = (event: Event): [JSX.Element, string] => {
             const de = tp.deploymentEvent;
             let description: JSX.Element;
             if (de.releaseTrainSource === undefined)
+                // if the releaseTrainSource is undefined, it could be either a
+                // manual deployment by the user or
+                // an automatic deployment because of the "upstream.latest" configuration of this environment
                 description = (
                     <span>
-                        Manual deployment of application <b>{de.application}</b> to environment{' '}
+                        Single deployment of application <b>{de.application}</b> to environment{' '}
                         <b>{de.targetEnvironment}</b>
                     </span>
                 );
@@ -198,6 +207,8 @@ const lockTypeName = (tp: LockPreventedDeploymentEvent_LockType): string => {
             return 'an application lock';
         case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_ENV:
             return 'an environment lock';
+        case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_TEAM:
+            return 'a team lock';
         case LockPreventedDeploymentEvent_LockType.LOCK_TYPE_UNKNOWN:
         case LockPreventedDeploymentEvent_LockType.UNRECOGNIZED:
             return 'an unknown lock';
