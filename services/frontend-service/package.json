@@ -40,7 +40,7 @@
     "@babel/plugin-transform-react-jsx": "7.23.4",
     "@testing-library/jest-dom": "6.4.0",
     "@testing-library/react": "14.1.2",
-    "@types/jest": "29.5.11",
+    "@types/jest": "29.5.12",
     "@types/node": "20.11.10",
     "@types/react": "18.2.59",
     "@types/react-dom": "18.2.19",
