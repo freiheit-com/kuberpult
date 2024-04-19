@@ -111,7 +111,7 @@ spec:
             cpu: "100m"
       - name: service
         #image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ $.Chart.AppVersion }}"
-        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:v2.17.0-7-gbaa055b"
+        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:v2.24.0-12-g8c45cab"
         ports:
           - name: http
             containerPort: 8080
@@ -231,6 +231,10 @@ spec:
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
           value: "{{ .Values.cd.backendConfig.queueSize }}"
+        - name: KUBERPULT_DB_ENABLED
+          value: true
+        - name: KUBERPULT_DB_OPTION
+          value: "cloudsql"
         volumeMounts:
         - name: repository
           mountPath: /repository
