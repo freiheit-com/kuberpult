@@ -36,14 +36,14 @@ func GetDBConnection(dbFolderLocation string) (*sql.DB, error) {
 }
 func GetRemoteConnection() (*sql.DB, error) {
 	var (
-		dbUser    = "postgres"     // e.g. 'my-db-user'
+		dbUser    = "test"         // e.g. 'my-db-user'
 		dbTCPHost = "127.0.0.1"    // e.g. '127.0.0.1' ('172.17.0.1' if deployed to GAE Flex)
 		dbPort    = "5432"         // e.g. '5432'
 		dbName    = "test-service" // e.g. 'my-database'
 	)
 
 	dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
-		dbTCPHost, dbUser, "postgres", dbPort, dbName)
+		dbTCPHost, dbUser, "test", dbPort, dbName)
 	//dbURI := fmt.Sprintf("host=%s user=%s port=%s database=%s sslmode=disable",
 	//	dbTCPHost, dbUser, dbPort, dbName)
 	dbPool, err := sql.Open("postgres", dbURI)
