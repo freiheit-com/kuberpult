@@ -41,6 +41,8 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 
 	authHeader, ok := md["authorization"]
 	if !ok {
+		// this happens if the caller does not pass the "authHeader".
+		// correct example: api.overviewService().StreamOverview({}, authHeader)
 		return nil, status.Errorf(codes.Unauthenticated, "Authorization token not supplied")
 	}
 
