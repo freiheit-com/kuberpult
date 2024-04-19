@@ -204,7 +204,7 @@ func RunServer() {
 				logger.FromContext(ctx).Info("DB connection established.")
 				pErr := db.Ping()
 				if pErr != nil {
-					logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(err))
+					logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
 				}
 				logger.FromContext(ctx).Info("Pong!")
 			} else {
