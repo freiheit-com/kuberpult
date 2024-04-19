@@ -24,6 +24,7 @@ import (
 	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	_ "github.com/lib/pq"
 	"math/rand"
 	"path"
 	"strings"
@@ -44,7 +45,7 @@ func GetRemoteConnection() (*sql.DB, error) {
 	dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s",
 		dbTCPHost, dbUser, "", dbPort, dbName)
 
-	dbPool, err := sql.Open("pgx", dbURI)
+	dbPool, err := sql.Open("postgres", dbURI)
 	if err != nil {
 		return nil, fmt.Errorf("sql.Open: %w", err)
 	}
