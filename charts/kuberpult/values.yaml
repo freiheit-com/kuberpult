@@ -95,7 +95,7 @@ cd:
   db:
     enabled: true
     location: "127.0.0.1"
-    port: 5432
+    authProxyPort: 5432
 frontend:
   image: kuberpult-frontend-service
 # Annotations given here will be added to kuberpult-frontend-service annotations.

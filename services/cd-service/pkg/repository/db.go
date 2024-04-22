@@ -20,39 +20,68 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/golang-migrate/migrate/v4"
-	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
-	"github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
-	_ "github.com/lib/pq"
 	"math/rand"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	"github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+	_ "github.com/lib/pq"
 )
 
-func GetDBConnection(dbFolderLocation string) (*sql.DB, error) {
-	return sql.Open("sqlite3", path.Join(dbFolderLocation, "db.sqlite"))
+type DBInfo struct {
+	DbUser     string
+	DbHost     string
+	DbPort     string
+	DbName     string
+	DriverName string
+	DbPassword string
 }
-func GetRemoteConnection() (*sql.DB, error) {
-	var (
-		dbUser    = "test"         // e.g. 'my-db-user'
-		dbTCPHost = "127.0.0.1"    // e.g. '127.0.0.1' ('172.17.0.1' if deployed to GAE Flex)
-		dbPort    = "5432"         // e.g. '5432'
-		dbName    = "test-service" // e.g. 'my-database'
-	)
+
+func (d *DBInfo) GetDBConnection() (*sql.DB, error) {
 
 	dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
-		dbTCPHost, dbUser, "test", dbPort, dbName)
+		d.DbHost, d.DbUser, d.DbPassword, d.DbPort, d.DbName)
 	//dbURI := fmt.Sprintf("host=%s user=%s port=%s database=%s sslmode=disable",
 	//	dbTCPHost, dbUser, dbPort, dbName)
-	dbPool, err := sql.Open("postgres", dbURI)
+	dbPool, err := sql.Open(d.DriverName, dbURI)
 	if err != nil {
 		return nil, fmt.Errorf("sql.Open: %w", err)
 	}
 	dbPool.SetConnMaxLifetime(5 * time.Minute)
 	return dbPool, nil
 }
+
+func (d *DBInfo) RunDBMigrations(migrationsFolder string) error {
+	db, err := d.GetDBConnection()
+	if err != nil {
+		return fmt.Errorf("DB Error opening DB connection. Error:  %w\n", err)
+	}
+	defer db.Close()
+	dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
+		d.DbHost, d.DbUser, d.DbPassword, d.DbPort, d.DbName)
+
+	m, err := migrate.New("file://"+migrationsFolder, dbURI)
+	if err != nil {
+		return fmt.Errorf("Error creating migration instance. Error: %w\n", err)
+	}
+
+	if err := m.Up(); err != nil {
+		if !errors.Is(err, migrate.ErrNoChange) {
+			return fmt.Errorf("Error running DB migrations. Error: %w\n", err)
+		}
+	}
+	return nil
+}
+
+func GetDBConnection(dbFolderLocation string) (*sql.DB, error) {
+	return sql.Open("sqlite3", path.Join(dbFolderLocation, "db.sqlite"))
+}
+
 func RunDBMigrations(dbFolderLocation string) error {
 	db, err := GetDBConnection(dbFolderLocation)
 	if err != nil {

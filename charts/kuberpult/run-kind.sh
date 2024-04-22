@@ -2,7 +2,11 @@
 
 set -eu
 set -o pipefail
-
+sourcedir="$(dirname "$(readlink -m "${BASH_SOURCE[0]}")")"
+standard_setup="${FDC_STANDARD_SETUP:-${sourcedir}/../../../../fdc-standard-setup}"
+secrets_file="${standard_setup}/secrets/fdc-standard-setup-dev-env-925fe612820f.json"
+iap_clientId=$(sops exec-file "${secrets_file}" "jq -r '.client_id' {}")
+iap_clientSecret=$(sops exec-file "${secrets_file}" "jq -r '.private_key' {}")
 # This script assumes that the docker images have already been built.
 # To run/debug/develop this locally, you probably want to run like this:
 # rm -rf ./manifests/; make clean; LOCAL_EXECUTION=true ./run-kind.sh
@@ -13,6 +17,7 @@ cd "$(dirname "$0")"
 # prefix every call to "echo" with the name of the script:
 function print() {
   /bin/echo "$0:" "$@"
+  /usr/bin/env echo "$0:" "$@"
 }
 
 cleanup() {
@@ -51,7 +56,7 @@ function waitForDeployment() {
   sleep 10
   until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
   do
-    sleep 4s
+    sleep 4
     print "logs:"
     kubectl -n "$ns" logs -l "$label" || echo "could not get logs for $label"
     print "describe pod:"
@@ -74,7 +79,7 @@ function portForwardAndWait() {
   sleep 10
   until nc -vz localhost "$portHere"
   do
-    sleep 3s
+    sleep 3
     print "logs:"
     kubectl -n "$ns" logs "$deployment"
     print "describe deployment:"

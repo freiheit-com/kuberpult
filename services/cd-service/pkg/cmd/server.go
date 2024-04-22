@@ -82,6 +82,10 @@ type Config struct {
 	DbEnabled                bool          `default:"false" split_words:"true"`
 	DbOption                 string        `default:"NO_DB" split_words:"true"`
 	DbLocation               string        `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance       string        `default:"change_me" split_words:"true"`
+	DbName                   string        `default:"change_me" split_words:"true"`
+	DbUserName               string        `default:"change_me" split_words:"true"`
+	DbUserPassword           string        `default:"change_me" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -195,19 +199,33 @@ func RunServer() {
 		}
 
 		if c.DbEnabled {
-			logger.FromContext(ctx).Warn(fmt.Sprintf("Database Enabled. Source: %s\n", c.DbOption))
 			if c.DbOption == "cloudsql" {
-				db, err := repository.GetRemoteConnection()
+				info := repository.DBInfo{
+					DbHost:     c.DbLocation,
+					DbPort:     "5432",
+					DriverName: "postgres",
+					DbName:     c.DbName,
+					DbPassword: c.DbUserPassword,
+					DbUser:     c.DbUserName,
+				}
+				dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
+					info.DbHost, info.DbUser, info.DbPassword, info.DbPort, info.DbName)
+				logger.FromContext(ctx).Warn(dbURI)
+				db, err := info.GetDBConnection()
 				if err != nil {
 					logger.FromContext(ctx).Fatal("Error establishing DB connection", zap.Error(err))
 				}
-				logger.FromContext(ctx).Warn("DB connection established.")
 				pErr := db.Ping()
 				if pErr != nil {
-					logger.FromContext(ctx).Fatal("Error actually pinging DB: ", zap.Error(pErr))
+					logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
 				}
-				logger.FromContext(ctx).Fatal("Pong!")
+				logger.FromContext(ctx).Warn("Connection to DB established.")
+
 				db.Close()
+				// migErr := info.RunDBMigrations(c.DbLocation)
+				// if migErr != nil {
+				// 	logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
+				// }
 			} else {
 				migErr := repository.RunDBMigrations(c.DbLocation)
 				if migErr != nil {
