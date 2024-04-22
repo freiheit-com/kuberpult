@@ -46,8 +46,7 @@ func (d *DBInfo) GetDBConnection() (*sql.DB, error) {
 
 	dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
 		d.DbHost, d.DbUser, d.DbPassword, d.DbPort, d.DbName)
-	//dbURI := fmt.Sprintf("host=%s user=%s port=%s database=%s sslmode=disable",
-	//	dbTCPHost, dbUser, dbPort, dbName)
+
 	dbPool, err := sql.Open(d.DriverName, dbURI)
 	if err != nil {
 		return nil, fmt.Errorf("sql.Open: %w", err)
@@ -105,12 +104,12 @@ func (d *DBInfo) RetrieveDatabaseInformation(message string) (map[int]DummyDbRow
 		return nil, fmt.Errorf("Error creating DB connection. Error: %w\n", err)
 	}
 	defer db.Close()
-	result, err := db.Exec("INSERT INTO dummy_table (id , created , data)  VALUES (?, ?, ?);", rand.Intn(9999), time.Now(), message)
+	// result, err := db.Exec("INSERT INTO dummy_table (id , created , data)  VALUES (?, ?, ?);", rand.Intn(9999), time.Now(), message)
 
-	if err != nil {
-		return nil, fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
-	}
-	fmt.Println(result)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
+	// }
+	// fmt.Println(result)
 
 	rows, err := db.Query("SELECT * FROM dummy_table;")
 
