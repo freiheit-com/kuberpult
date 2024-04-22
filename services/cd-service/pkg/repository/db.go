@@ -132,7 +132,11 @@ func (d *DBInfo) RetrieveDatabaseInformation() (map[int]DummyDbRow, error) {
 		m[r.id] = r
 	}
 
-	PrintQuery(m)
+	pErr := PrintQuery(m)
+	if pErr != nil {
+		return nil, fmt.Errorf("Error printing query: %w\n", pErr)
+
+	}
 	return m, nil
 }
 
