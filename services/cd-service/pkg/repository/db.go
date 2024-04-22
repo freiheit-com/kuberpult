@@ -69,22 +69,22 @@ func (d *DBInfo) RunDBMigrations(migrationsFolder string) error {
 		MultiStatementEnabled: false,
 		MultiStatementMaxSize: 0,
 		SchemaName:            "",
-		StatementTimeout:      time.Second,
+		StatementTimeout:      time.Second * 10,
 	})
 	if err != nil {
 		return fmt.Errorf("Error creating DB driver. Error: %w\n", err)
 	}
 
-	migrationsSrc, err := (&file.File{PartialDriver: iofs.PartialDriver{}}).Open(migrationsFolder)
-	if err != nil {
-		return fmt.Errorf("Error opening DB migrations. Error: %w\n", err)
-	}
+	// migrationsSrc, err := (&file.File{PartialDriver: iofs.PartialDriver{}}).Open(migrationsFolder)
+	// if err != nil {
+	// 	return fmt.Errorf("Error opening DB migrations. Error: %w\n", err)
+	// }
 
 	// dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
 	// 	d.DbHost, d.DbUser, d.DbPassword, d.DbPort, d.DbName)
 
-	m, err := migrate.NewWithInstance("file", migrationsSrc, d.DriverName, driver)
-
+	//m, err := migrate.NewWithInstance("file", migrationsSrc, d.DriverName, driver)
+	m, err := migrate.NewWithDatabaseInstance("file:///migrations", d.DbName, driver)
 	if err != nil {
 		return fmt.Errorf("Error creating migration instance. Error: %w\n", err)
 	}
