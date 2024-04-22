@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 @use '@material/button/mdc-button';
-@import "../../../assets/variables";
+@import '../../../assets/variables';
 
 .mdc-button {
     @extend .font;
