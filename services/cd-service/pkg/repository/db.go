@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	psql "github.com/golang-migrate/migrate/v4/database/postgres"
 	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
@@ -62,10 +62,24 @@ func (d *DBInfo) RunDBMigrations(migrationsFolder string) error {
 		return fmt.Errorf("DB Error opening DB connection. Error:  %w\n", err)
 	}
 	defer db.Close()
-	dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
-		d.DbHost, d.DbUser, d.DbPassword, d.DbPort, d.DbName)
 
-	m, err := migrate.New("file://"+migrationsFolder, dbURI)
+	driver, err := psql.WithInstance(db, &psql.Config{
+		DatabaseName: d.DbName,
+	})
+	if err != nil {
+		return fmt.Errorf("Error creating DB driver. Error: %w\n", err)
+	}
+
+	migrationsSrc, err := (&file.File{PartialDriver: iofs.PartialDriver{}}).Open(migrationsFolder)
+	if err != nil {
+		return fmt.Errorf("Error opening DB migrations. Error: %w\n", err)
+	}
+
+	// dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
+	// 	d.DbHost, d.DbUser, d.DbPassword, d.DbPort, d.DbName)
+
+	m, err := migrate.NewWithInstance("file", migrationsSrc, d.DriverName, driver)
+
 	if err != nil {
 		return fmt.Errorf("Error creating migration instance. Error: %w\n", err)
 	}
