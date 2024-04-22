@@ -94,7 +94,7 @@ func (d *DBInfo) RunDBMigrations(migrationsFolder string) error {
 		if !errors.Is(err, migrate.ErrNoChange) {
 			return fmt.Errorf("Error running DB migrations. Error: %w\n", err)
 		}
-		fmt.Printf("Migration error: %w\n", err)
+		fmt.Printf("Migration error: %s\n", err.Error())
 	}
 	return nil
 }
