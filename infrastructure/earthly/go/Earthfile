@@ -60,7 +60,6 @@ DOCKER:
     ARG entry_point="/main"
     ARG workdir=/kp
     ARG cgo_enabled=0
-    ARG --required image_tag
     ARG --required service
     ENV TZ=Europe/Berlin
     
@@ -79,7 +78,8 @@ DOCKER:
 
     USER kp
     WORKDIR $workdir
-
+    
+    ARG --required image_tag
     ARG use_datadog=false
     IF [ "$use_datadog" == "true" ]
         ARG dd_service=$service
