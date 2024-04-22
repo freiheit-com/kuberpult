@@ -227,6 +227,13 @@ func RunServer() {
 				if migErr != nil {
 					logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
 				}
+				logger.FromContext(ctx).Warn("Ran DB Migrations successfully!")
+
+				_, retrieveErr := info.RetrieveDatabaseInformation()
+				if retrieveErr != nil {
+					logger.FromContext(ctx).Fatal("Error retrieving information from db: Error: ", zap.Error(migErr))
+				}
+				logger.FromContext(ctx).Warn("Retrieving data from DB was successfull!")
 			} else {
 				migErr := repository.RunDBMigrations(c.DbLocation)
 				if migErr != nil {
@@ -246,9 +253,8 @@ func RunServer() {
 					}
 				}
 			}
-		} else {
-			logger.FromContext(ctx).Warn("DB not enabled!")
 		}
+
 		cfg := repository.RepositoryConfig{
 			WebhookResolver: nil,
 			URL:             c.GitUrl,

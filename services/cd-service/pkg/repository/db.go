@@ -98,6 +98,44 @@ func (d *DBInfo) RunDBMigrations(migrationsFolder string) error {
 	return nil
 }
 
+func (d *DBInfo) RetrieveDatabaseInformation() (map[int]DummyDbRow, error) {
+	db, err := d.GetDBConnection()
+
+	if err != nil {
+		return nil, fmt.Errorf("Error creating DB connection. Error: %w\n", err)
+	}
+	defer db.Close()
+
+	result, err := db.Exec("INSERT INTO dummy_table (id , created , data)  VALUES (?, ?, ?);", rand.Intn(9999), time.Now(), "Hello DB!")
+
+	if err != nil {
+		return nil, fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
+	}
+	fmt.Println(result)
+
+	rows, err := db.Query("SELECT * FROM dummy_table;")
+
+	if err != nil {
+		return nil, fmt.Errorf("Error querying the database. Error: %w\n", err)
+	}
+	m := map[int]DummyDbRow{}
+	for rows.Next() {
+		r := DummyDbRow{
+			id:   0,
+			date: []byte{},
+			data: "",
+		}
+		err := rows.Scan(&r.id, &r.date, &r.data)
+		if err != nil {
+			return nil, fmt.Errorf("Error retrieving information from database. Error: %w\n", err)
+		}
+		m[r.id] = r
+	}
+
+	PrintQuery(m)
+	return m, nil
+}
+
 func GetDBConnection(dbFolderLocation string) (*sql.DB, error) {
 	return sql.Open("sqlite3", path.Join(dbFolderLocation, "db.sqlite"))
 }
@@ -133,6 +171,7 @@ func RunDBMigrations(dbFolderLocation string) error {
 			return fmt.Errorf("Error running DB migrations. Error: %w\n", err)
 		}
 	}
+
 	return nil
 }
 
