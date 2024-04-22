@@ -231,7 +231,7 @@ func RunServer() {
 
 				_, retrieveErr := info.RetrieveDatabaseInformation()
 				if retrieveErr != nil {
-					logger.FromContext(ctx).Fatal("Error retrieving information from db: Error: ", zap.Error(migErr))
+					logger.FromContext(ctx).Fatal("Error retrieving information from db: Error: ", zap.Error(retrieveErr))
 				}
 				logger.FromContext(ctx).Warn("Retrieving data from DB was successfull!")
 			} else {
