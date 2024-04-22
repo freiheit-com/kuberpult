@@ -86,6 +86,7 @@ type Config struct {
 	DbName                   string        `default:"change_me" split_words:"true"`
 	DbUserName               string        `default:"change_me" split_words:"true"`
 	DbUserPassword           string        `default:"change_me" split_words:"true"`
+	DbAuthProxyPort		     string 	   `default:"5432" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -202,7 +203,7 @@ func RunServer() {
 			if c.DbOption == "cloudsql" {
 				info := repository.DBInfo{
 					DbHost:     c.DbLocation,
-					DbPort:     "5432",
+					DbPort:     c.port
 					DriverName: "postgres",
 					DbName:     c.DbName,
 					DbPassword: c.DbUserPassword,

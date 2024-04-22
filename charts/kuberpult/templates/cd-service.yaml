@@ -94,10 +94,12 @@ spec:
           - "--structured-logs"
 
           # Replace DB_PORT with the port the proxy should listen on
-          - "--port=5432"
-{{- if .Values.db.cd.enabled }}
+{{- if .Values.cd.db.enabled }}
+          - "--port= {{ .Values.cd.db.authProxyPort }}"
+{{- end }}
+{{- if .Values.cd.db.enabled }}
           #- "fdc-standard-setup-dev-env:europe-west1:psql-shared-tools-kuberpult"
-          - {{ .Values.cd.db.dbConnectionName }}
+          - {{ .Values.cd.db.dbConnectionName | quote }}
 {{- end }}
         securityContext:
           # The default Cloud SQL Auth Proxy image runs as the
@@ -119,8 +121,8 @@ spec:
             # application's requirements.
             cpu: "100m"
       - name: service
-        image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ $.Chart.AppVersion }}"
-        #image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:v2.24.0-23-gfb3a8cd"
+        #image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ $.Chart.AppVersion }}"
+        image: "europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/kuberpult-cd-service:v2.24.0-23-g2320baf"
         ports:
           - name: http
             containerPort: 8080
@@ -228,8 +230,8 @@ spec:
         - name: KUBERPULT_BOOTSTRAP_MODE
           value: "{{ .Values.environment_configs.bootstrap_mode }}"
 {{- end }}
-        - name: KUBERPULT_ENABLE_SQLITE
-          value: "{{ .Values.cd.enableSqlite }}"
+        # - name: KUBERPULT_ENABLE_SQLITE
+        #   value: "{{ .Values.cd.enableSqlite }}"
         - name: KUBERPULT_GIT_NETWORK_TIMEOUT
           value: "{{ .Values.git.networkTimeout }}"
         - name: KUBERPULT_GIT_WRITE_COMMIT_DATA
@@ -245,6 +247,10 @@ spec:
           value: "true"
         - name: KUBERPULT_DB_OPTION
           value: "cloudsql"
+        - name: KUBERPULT_DB_LOCATION
+          value: {{ .Values.cd.db.location }}
+        - name: KUBERPULT_DB_AUTH_PROXY_PORT
+          value: "{{ .Values.cd.db.authProxyPort }}"
         - name: KUBERPULT_DB_CLOUD_SQL_INSTANCE
           value: "{{ .Values.cd.db.dbCloudSqlInstance }}"
         - name: KUBERPULT_DB_NAME
