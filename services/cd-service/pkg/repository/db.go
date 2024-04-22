@@ -98,15 +98,14 @@ func (d *DBInfo) RunDBMigrations(migrationsFolder string) error {
 	return nil
 }
 
-func (d *DBInfo) RetrieveDatabaseInformation() (map[int]DummyDbRow, error) {
+func (d *DBInfo) RetrieveDatabaseInformation(message string) (map[int]DummyDbRow, error) {
 	db, err := d.GetDBConnection()
 
 	if err != nil {
 		return nil, fmt.Errorf("Error creating DB connection. Error: %w\n", err)
 	}
 	defer db.Close()
-
-	result, err := db.Exec("INSERT INTO dummy_table (id , created , data)  VALUES (?, ?, ?);", rand.Intn(9999), time.Now(), "Hello DB!")
+	result, err := db.Exec("INSERT INTO dummy_table (id , created , data)  VALUES (?, ?, ?);", rand.Intn(9999), time.Now(), message)
 
 	if err != nil {
 		return nil, fmt.Errorf("Error inserting information into DB. Error: %w\n", err)

@@ -229,7 +229,7 @@ func RunServer() {
 				}
 				logger.FromContext(ctx).Warn("Ran DB Migrations successfully!")
 
-				_, retrieveErr := info.RetrieveDatabaseInformation()
+				_, retrieveErr := info.RetrieveDatabaseInformation("Hello DB!")
 				if retrieveErr != nil {
 					logger.FromContext(ctx).Fatal("Error retrieving information from db: Error: ", zap.Error(retrieveErr))
 				}
