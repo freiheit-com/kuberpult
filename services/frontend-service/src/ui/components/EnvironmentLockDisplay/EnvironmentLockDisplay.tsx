@@ -79,7 +79,7 @@ export const EnvironmentLockDisplay: React.FC<{ env: string; lockId: string; big
     return (
         <Tooltip tooltipContent={content} id={'env-group-chip-id-' + lock.lockId}>
             <div>
-                <Button icon={lockIcon} onClick={deleteLock} className={'button-lock'} />
+                <Button icon={lockIcon} onClick={deleteLock} className={'button-lock'} highlightEffect={false} />
             </div>
         </Tooltip>
     );

@@ -63,7 +63,11 @@ export const Snackbar = (): JSX.Element => {
                     </div>
                     <div className={'k-snackbar-button'}>
                         <span>
-                            <Button onClick={onClickClose} icon={<Close width="18px" height="18px" />} />
+                            <Button
+                                onClick={onClickClose}
+                                icon={<Close width="18px" height="18px" />}
+                                highlightEffect={false}
+                            />
                         </span>
                     </div>
                 </div>
