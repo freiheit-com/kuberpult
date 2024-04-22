@@ -19,7 +19,7 @@
 
 git:
   # The git url of the manifest repository (git protocol)
-  url:  # git@github.com/.../...
+  url:  "git@github.com/.../..."
   webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
 
   # The branch to be use in the manifest repository
@@ -78,7 +78,10 @@ cd:
     requests:
       cpu: 2
       memory: 3Gi
-  enableSqlite: true
+  db:
+    enabled: true
+    location: "127.0.0.1"
+    authProxyPort: 5432
   probes:
     liveness:
       periodSeconds: 10
@@ -92,10 +95,7 @@ cd:
       timeoutSeconds: 5
       failureThreshold: 10
       initialDelaySeconds: 5
-  db:
-    enabled: true
-    location: "127.0.0.1"
-    authProxyPort: 5432
+
 frontend:
   image: kuberpult-frontend-service
 # Annotations given here will be added to kuberpult-frontend-service annotations.
@@ -134,7 +134,7 @@ ingress:
   create: true
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: 300
-  domainName: null
+  domainName: "sonething"
   # note that IAP is a GCP specific feature. On GCP we recommend to enable it.
   iap:
     enabled: false

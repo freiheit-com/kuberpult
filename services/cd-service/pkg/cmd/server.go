@@ -225,7 +225,7 @@ func RunServer() {
 				db.Close()
 				migErr := info.RunDBMigrations("/migrations")
 				if migErr != nil {
-					logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
+					logger.FromContext(ctx).Warn("Error running database migrations", zap.Error(migErr))
 				}
 				logger.FromContext(ctx).Warn("Ran DB Migrations successfully!")
 
