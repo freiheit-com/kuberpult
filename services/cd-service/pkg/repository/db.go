@@ -85,11 +85,11 @@ func (d *DBInfo) RunDBMigrations(migrationsFolder string) error {
 
 	//m, err := migrate.NewWithInstance("file", migrationsSrc, d.DriverName, driver)
 	m, err := migrate.NewWithDatabaseInstance("file:///migrations", d.DbName, driver)
-	defer m.Close()
+
 	if err != nil {
 		return fmt.Errorf("Error creating migration instance. Error: %w\n", err)
 	}
-
+	defer m.Close()
 	if err := m.Up(); err != nil {
 		if !errors.Is(err, migrate.ErrNoChange) {
 			return fmt.Errorf("Error running DB migrations. Error: %w\n", err)
