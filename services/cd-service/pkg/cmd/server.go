@@ -223,7 +223,7 @@ func RunServer() {
 				logger.FromContext(ctx).Warn("Connection to DB established.")
 
 				db.Close()
-				migErr := info.RunDBMigrations(c.DbLocation)
+				migErr := info.RunDBMigrations("/kp/database/")
 				if migErr != nil {
 					logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
 				}
