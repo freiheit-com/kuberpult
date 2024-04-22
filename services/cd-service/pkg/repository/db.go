@@ -64,7 +64,13 @@ func (d *DBInfo) RunDBMigrations(migrationsFolder string) error {
 	defer db.Close()
 
 	driver, err := psql.WithInstance(db, &psql.Config{
-		DatabaseName: d.DbName,
+		DatabaseName:          d.DbName,
+		MigrationsTable:       "",
+		MigrationsTableQuoted: false,
+		MultiStatementEnabled: false,
+		MultiStatementMaxSize: 0,
+		SchemaName:            "",
+		StatementTimeout:      time.Second,
 	})
 	if err != nil {
 		return fmt.Errorf("Error creating DB driver. Error: %w\n", err)
