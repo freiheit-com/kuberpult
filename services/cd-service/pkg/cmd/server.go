@@ -86,7 +86,7 @@ type Config struct {
 	DbName                   string        `default:"change_me" split_words:"true"`
 	DbUserName               string        `default:"change_me" split_words:"true"`
 	DbUserPassword           string        `default:"change_me" split_words:"true"`
-	DbAuthProxyPort		     string 	   `default:"5432" split_words:"true"`
+	DbAuthProxyPort          string        `default:"5432" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -203,7 +203,7 @@ func RunServer() {
 			if c.DbOption == "cloudsql" {
 				info := repository.DBInfo{
 					DbHost:     c.DbLocation,
-					DbPort:     c.port
+					DbPort:     c.DbAuthProxyPort,
 					DriverName: "postgres",
 					DbName:     c.DbName,
 					DbPassword: c.DbUserPassword,
@@ -223,10 +223,10 @@ func RunServer() {
 				logger.FromContext(ctx).Warn("Connection to DB established.")
 
 				db.Close()
-				// migErr := info.RunDBMigrations(c.DbLocation)
-				// if migErr != nil {
-				// 	logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
-				// }
+				migErr := info.RunDBMigrations(c.DbLocation)
+				if migErr != nil {
+					logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
+				}
 			} else {
 				migErr := repository.RunDBMigrations(c.DbLocation)
 				if migErr != nil {
