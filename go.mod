@@ -9,7 +9,6 @@ require (
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/coreos/go-oidc/v3 v3.10.0
-	github.com/coreos/go-oidc/v3 v3.8.0
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/golang-migrate/migrate/v4 v4.17.0
