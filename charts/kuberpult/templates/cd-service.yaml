@@ -36,9 +36,9 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: my-kuberpult-sa
+  name: {{ .Values.cd.db.k8sName }}
   annotations:
-    iam.gke.io/gcp-service-account: kuberpult-k8s-service-account@fdc-standard-setup-dev-env.iam.gserviceaccount.com
+    iam.gke.io/gcp-service-account: {{ .Values.cd.db.gcpEmail }}
 ---
 apiVersion: apps/v1
 kind: Deployment
