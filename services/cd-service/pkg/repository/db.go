@@ -42,10 +42,10 @@ func GetRemoteConnection() (*sql.DB, error) {
 		dbName    = "test-service" // e.g. 'my-database'
 	)
 
-	dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
-		dbTCPHost, dbUser, "postgres", dbPort, dbName)
-	//dbURI := fmt.Sprintf("host=%s user=%s port=%s database=%s sslmode=disable",
-	//	dbTCPHost, dbUser, dbPort, dbName)
+	//dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
+	//	dbTCPHost, dbUser, "", dbPort, dbName)
+	dbURI := fmt.Sprintf("host=%s user=%s port=%s database=%s sslmode=disable",
+		dbTCPHost, dbUser, dbPort, dbName)
 	dbPool, err := sql.Open("postgres", dbURI)
 	if err != nil {
 		return nil, fmt.Errorf("sql.Open: %w", err)
