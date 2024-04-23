@@ -252,7 +252,10 @@ func RunServer() {
 			if err != nil {
 				logger.FromContext(ctx).Fatal("Error retrieving information from db: Error: ", zap.Error(retrieveErr))
 			}
-			repository.PrintQuery(m)
+			printErr := repository.PrintQuery(m)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("Error printing information from db: Error: ", zap.Error(printErr))
+			}
 		}
 
 		cfg := repository.RepositoryConfig{
