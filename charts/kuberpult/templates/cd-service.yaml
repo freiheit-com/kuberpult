@@ -98,7 +98,6 @@ spec:
           - "--port={{ .Values.cd.db.authProxyPort }}"
 {{- end }}
 {{- if .Values.cd.db.enabled }}
-          #- "fdc-standard-setup-dev-env:europe-west1:psql-shared-tools-kuberpult"
           - {{ .Values.cd.db.dbConnectionName | quote }}
 {{- end }}
         securityContext:

@@ -19,7 +19,7 @@
 
 git:
   # The git url of the manifest repository (git protocol)
-  url:  "git@github.com/.../..."
+  url:  #"git@github.com/.../..."
   webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
 
   # The branch to be use in the manifest repository
@@ -134,7 +134,7 @@ ingress:
   create: true
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: 300
-  domainName: "sonething"
+  domainName: null
   # note that IAP is a GCP specific feature. On GCP we recommend to enable it.
   iap:
     enabled: false
