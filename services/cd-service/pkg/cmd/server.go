@@ -200,59 +200,59 @@ func RunServer() {
 		}
 
 		if c.DbEnabled {
+			var handler repository.DBHandler
 			if c.DbOption == "cloudsql" {
-				info := repository.DBInfo{
-					DbHost:     c.DbLocation,
-					DbPort:     c.DbAuthProxyPort,
-					DriverName: "postgres",
-					DbName:     c.DbName,
-					DbPassword: c.DbUserPassword,
-					DbUser:     c.DbUserName,
+				handler = repository.DBHandler{
+					DbHost:         c.DbLocation,
+					DbPort:         c.DbAuthProxyPort,
+					DriverName:     "postgres",
+					DbName:         c.DbName,
+					DbPassword:     c.DbUserPassword,
+					DbUser:         c.DbUserName,
+					MigrationsPath: "/migrations",
 				}
 				dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
-					info.DbHost, info.DbUser, info.DbPassword, info.DbPort, info.DbName)
+					handler.DbHost, handler.DbUser, handler.DbPassword, handler.DbPort, handler.DbName)
 				logger.FromContext(ctx).Warn(dbURI)
-				db, err := info.GetDBConnection()
-				if err != nil {
-					logger.FromContext(ctx).Fatal("Error establishing DB connection", zap.Error(err))
-				}
-				pErr := db.Ping()
-				if pErr != nil {
-					logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
-				}
-				logger.FromContext(ctx).Warn("Connection to DB established.")
-
-				db.Close()
-				migErr := info.RunDBMigrations("/migrations")
-				if migErr != nil {
-					logger.FromContext(ctx).Warn("Error running database migrations", zap.Error(migErr))
-				}
-				logger.FromContext(ctx).Warn("Ran DB Migrations successfully!")
-
-				_, retrieveErr := info.RetrieveDatabaseInformation("Hello DB!")
-				if retrieveErr != nil {
-					logger.FromContext(ctx).Fatal("Error retrieving information from db: Error: ", zap.Error(retrieveErr))
-				}
-				logger.FromContext(ctx).Warn("Retrieving data from DB was successfull!")
 			} else {
-				migErr := repository.RunDBMigrations(c.DbLocation)
-				if migErr != nil {
-					logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
-				}
-				_, err := repository.InsertDatabaseInformation(c.DbLocation, "Hello DB!")
-				if err != nil {
-					logger.FromContext(ctx).Warn("Error inserting into the database. Error: ", zap.Error(err))
-				} else {
-					qRes, err := repository.RetrieveDatabaseInformation(c.DbLocation)
-					if err != nil {
-						logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
-					}
-					pErr := repository.PrintQuery(qRes)
-					if pErr != nil {
-						logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
-					}
+				handler = repository.DBHandler{
+					DbHost:         c.DbLocation,
+					DbPort:         "",
+					DriverName:     "sqlite3",
+					DbName:         "",
+					DbPassword:     "",
+					DbUser:         "",
+					MigrationsPath: "",
 				}
 			}
+			db, err := handler.GetDBConnection()
+			if err != nil {
+				logger.FromContext(ctx).Fatal("Error establishing DB connection", zap.Error(err))
+			}
+			pErr := db.Ping()
+			if pErr != nil {
+				logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
+			}
+			logger.FromContext(ctx).Warn("Connection to DB established.")
+
+			db.Close()
+			migErr := handler.RunDBMigrations()
+			if migErr != nil {
+				logger.FromContext(ctx).Warn("Error running database migrations", zap.Error(migErr))
+			}
+			logger.FromContext(ctx).Warn("Ran DB Migrations successfully!")
+
+			_, retrieveErr := handler.InsertDatabaseInformation()
+			if retrieveErr != nil {
+				logger.FromContext(ctx).Fatal("Error inserting information into db: Error: ", zap.Error(retrieveErr))
+			}
+			logger.FromContext(ctx).Warn("Inserting data to DB was successfull!")
+
+			m, err := handler.RetrieveDatabaseInformation()
+			if err != nil {
+				logger.FromContext(ctx).Fatal("Error retrieving information from db: Error: ", zap.Error(retrieveErr))
+			}
+			repository.PrintQuery(m)
 		}
 
 		cfg := repository.RepositoryConfig{
