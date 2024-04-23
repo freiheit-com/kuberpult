@@ -106,12 +106,13 @@ func (d *DBInfo) RetrieveDatabaseInformation(message string) (map[int]DummyDbRow
 		return nil, fmt.Errorf("Error creating DB connection. Error: %w\n", err)
 	}
 	defer db.Close()
-	// result, err := db.Exec("INSERT INTO dummy_table (id , created , data)  VALUES (?, ?, ?);", rand.Intn(9999), time.Now(), message)
 
-	// if err != nil {
-	// 	return nil, fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
-	// }
-	// fmt.Println(result)
+	result, err := db.Exec("INSERT INTO dummy_table (id , created , data)  VALUES (?, ?, ?);", rand.Intn(9999), rand.Intn(9999), rand.Intn(9999))
+
+	if err != nil {
+		return nil, fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
+	}
+	fmt.Println(result)
 
 	rows, err := db.Query("SELECT * FROM dummy_table;")
 
