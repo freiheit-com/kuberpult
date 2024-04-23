@@ -14,6 +14,7 @@ services:
       - KUBERPULT_DEX_MOCK_ROLE=developer
       - KUBERPULT_GIT_WRITE_COMMIT_DATA=true
       - KUBERPULT_MAXIMUM_QUEUE_SIZE=2
+      - KUBERPULT_ALLOW_LONG_APP_NAMES=true
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
     ports:
       - "8080:8080"
