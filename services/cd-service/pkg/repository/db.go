@@ -107,8 +107,14 @@ func (d *DBInfo) RetrieveDatabaseInformation(message string) (map[int]DummyDbRow
 	}
 	defer db.Close()
 
-	result, err := db.Exec("INSERT INTO dummy_table (id , created , data) VALUES ($1, $2, $3);", rand.Intn(9999), rand.Intn(9999), rand.Intn(9999))
-	//result, err := db.Exec("INSERT INTO dummy_table (id , created , data) VALUES (10, 20, 30);")
+	stmt, err := db.Prepare("INSERT INTO dummy_table (id , created , data) VALUES (?, ?, ?);")
+
+	if err != nil {
+		return nil, fmt.Errorf("Error preparing statement. Error: %w\n", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(rand.Intn(9999), rand.Intn(9999), rand.Intn(9999))
 	if err != nil {
 		return nil, fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
 	}
