@@ -52,7 +52,7 @@
     "@types/node": "20.11.10",
     "@types/react": "18.2.59",
     "@types/react-dom": "18.2.19",
-    "@typescript-eslint/parser": "7.7.0",
+    "@typescript-eslint/parser": "7.7.1",
     "browser-headers": "0.4.1",
     "eslint": "8.56.0",
     "eslint-config-prettier": "9.1.0",
