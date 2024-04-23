@@ -206,8 +206,6 @@ type RepositoryConfig struct {
 	// Extend maximum AppName length
 	AllowLongAppNames bool
 
-	MaximumQueueSize uint
-
 	ArgoCdGenerateFiles bool
 }
 
