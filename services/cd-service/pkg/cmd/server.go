@@ -80,7 +80,6 @@ type Config struct {
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
 	DbEnabled                bool          `default:"false" split_words:"true"`
-	DbOption                 string        `default:"NO_DB" split_words:"true"`
 	DbLocation               string        `default:"/kp/database" split_words:"true"`
 }
 
@@ -195,35 +194,21 @@ func RunServer() {
 		}
 
 		if c.DbEnabled {
-			logger.FromContext(ctx).Info(fmt.Sprintf("Database Enabled. Source: %s\n", c.DbOption))
-			if c.DbOption == "cloudsql" {
-				db, err := repository.GetRemoteConnection()
-				if err != nil {
-					logger.FromContext(ctx).Fatal("Error establishing DB connection", zap.Error(err))
-				}
-				logger.FromContext(ctx).Info("DB connection established.")
-				pErr := db.Ping()
-				if pErr != nil {
-					logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(err))
-				}
-				logger.FromContext(ctx).Info("Pong!")
+			migErr := repository.RunDBMigrations(c.DbLocation)
+			if migErr != nil {
+				logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
+			}
+			_, err := repository.InsertDatabaseInformation(c.DbLocation, "Hello DB!")
+			if err != nil {
+				logger.FromContext(ctx).Warn("Error inserting into the database. Error: ", zap.Error(err))
 			} else {
-				migErr := repository.RunDBMigrations(c.DbLocation)
-				if migErr != nil {
-					logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
-				}
-				_, err := repository.InsertDatabaseInformation(c.DbLocation, "Hello DB!")
+				qRes, err := repository.RetrieveDatabaseInformation(c.DbLocation)
 				if err != nil {
-					logger.FromContext(ctx).Warn("Error inserting into the database. Error: ", zap.Error(err))
-				} else {
-					qRes, err := repository.RetrieveDatabaseInformation(c.DbLocation)
-					if err != nil {
-						logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
-					}
-					pErr := repository.PrintQuery(qRes)
-					if pErr != nil {
-						logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
-					}
+					logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
+				}
+				pErr := repository.PrintQuery(qRes)
+				if pErr != nil {
+					logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
 				}
 			}
 		}

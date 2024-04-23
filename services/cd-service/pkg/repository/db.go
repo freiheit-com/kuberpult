@@ -33,23 +33,7 @@ import (
 func GetDBConnection(dbFolderLocation string) (*sql.DB, error) {
 	return sql.Open("sqlite3", path.Join(dbFolderLocation, "db.sqlite"))
 }
-func GetRemoteConnection() (*sql.DB, error) {
-	var (
-		dbUser    = "postgres"     // e.g. 'my-db-user'
-		dbTCPHost = "127.0.0.1"    // e.g. '127.0.0.1' ('172.17.0.1' if deployed to GAE Flex)
-		dbPort    = "5432"         // e.g. '5432'
-		dbName    = "test-service" // e.g. 'my-database'
-	)
 
-	dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s",
-		dbTCPHost, dbUser, "", dbPort, dbName)
-
-	dbPool, err := sql.Open("pgx", dbURI)
-	if err != nil {
-		return nil, fmt.Errorf("sql.Open: %w", err)
-	}
-	return dbPool, nil
-}
 func RunDBMigrations(dbFolderLocation string) error {
 	db, err := GetDBConnection(dbFolderLocation)
 	if err != nil {
