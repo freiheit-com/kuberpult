@@ -68,3 +68,22 @@ func (s Server) HandleEnvironments(w http.ResponseWriter, req *http.Request, tai
 		http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
 	}
 }
+
+func (s Server) handleApiEnvironments(w http.ResponseWriter, req *http.Request, tail string) {
+	environment, tail := xpath.Shift(tail)
+	if environment == "" {
+		http.Error(w, "missing environment ID", http.StatusNotFound)
+		return
+	}
+
+	function, tail := xpath.Shift(tail)
+
+	switch function {
+	case "releasetrain":
+		s.handleApiReleaseTrain(w, req, environment, tail)
+	case "lock":
+		s.handleApiTeamLocks(w, req, environment, tail)
+	default:
+		http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
+	}
+}

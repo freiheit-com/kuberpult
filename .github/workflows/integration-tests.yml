@@ -10,6 +10,7 @@ on:
 jobs:
   integration-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env: 
       IMAGE_REGISTRY: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
     steps: 
@@ -53,6 +54,9 @@ jobs:
         echo Using registry: $IMAGE_REGISTRY
         echo Using tag: $IMAGE_TAG_KUBERPULT
         echo PR tag: $(make version)
+    - name: Run helm chart tests
+      run: |
+        make -C charts/kuberpult test-helm
     - name: Run integration tests
       run: |
         make integration-test   

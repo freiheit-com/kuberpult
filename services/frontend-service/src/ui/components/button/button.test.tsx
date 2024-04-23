@@ -17,7 +17,7 @@ import { Button } from './button';
 import { render } from '@testing-library/react';
 
 describe('Button', () => {
-    const getNode = () => <Button className={'button--test'} label={'Test Me'} />;
+    const getNode = () => <Button highlightEffect={false} className={'button--test'} label={'Test Me'} />;
     const getWrapper = () => render(getNode());
     it('renders a button', () => {
         const { container } = getWrapper();

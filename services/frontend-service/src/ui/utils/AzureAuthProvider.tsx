@@ -30,10 +30,11 @@ import { useFrontendConfig } from './store';
 import { AuthenticationResult } from '@azure/msal-common';
 import { Spinner } from '../components/Spinner/Spinner';
 
+export type AuthHeader = grpc.Metadata & {
+    Authorization?: String;
+};
 type AzureAuthSubType = {
-    authHeader: grpc.Metadata & {
-        Authorization?: String;
-    };
+    authHeader: AuthHeader;
     authReady: boolean;
 };
 

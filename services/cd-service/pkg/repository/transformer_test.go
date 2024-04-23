@@ -1390,9 +1390,9 @@ type FileWithContent struct {
 func verifyContent(fs billy.Filesystem, required []FileWithContent) error {
 	for _, contentRequirement := range required {
 		if data, err := util.ReadFile(fs, contentRequirement.Path); err != nil {
-			return fmt.Errorf("Error while opening file %s, error: %w", contentRequirement.Path, err)
+			return fmt.Errorf("error while opening file %s, error: %w", contentRequirement.Path, err)
 		} else if string(data) != contentRequirement.Content {
-			return fmt.Errorf("Actual file content is not equal to required content. Expected: %s, actual: %s", contentRequirement.Content, string(data))
+			return fmt.Errorf("actual file content of file '%s' is not equal to required content.\nExpected: '%s', actual: '%s'", contentRequirement.Path, contentRequirement.Content, string(data))
 		}
 	}
 	return nil
@@ -1499,9 +1499,8 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				},
 			},
 		},
-
 		{
-			Name: "Trigger a deployment via a relase train with environment group target",
+			Name: "Trigger a deployment via a release train with environment group target without lock",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "production",
@@ -1565,7 +1564,76 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			},
 		},
 		{
-			Name: "Block deployments using locks",
+			Name: "Trigger a deployment via a release train with environment group target with lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "production",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+						},
+						EnvironmentGroup: ptr.FromString("production-group"),
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Environment: "staging",
+							Latest:      true,
+						},
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"production": "some production manifest 2",
+						"staging":    "some staging manifest 2",
+					},
+					WriteCommitData: true,
+				},
+				&DeployApplicationVersion{
+					Environment:     "staging",
+					Application:     "app",
+					Version:         1,
+					WriteCommitData: true,
+				},
+				&CreateEnvironmentLock{
+					Environment: "production",
+					LockId:      "lock id 1",
+					Message:     "lock msg 1",
+				},
+				&ReleaseTrain{
+					Target:          "production-group",
+					WriteCommitData: true,
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
+					Content: "deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
+					Content: "deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
+					Content: "replaced-by",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/eventType",
+					Content: "lock-prevented-deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000004/lock_message",
+					Content: "lock msg 1",
+				},
+			},
+		},
+		{
+			Name: "Block deployments using env lock",
 			Transformers: []Transformer{
 				&CreateEnvironment{
 					Environment: "dev",
@@ -1588,12 +1656,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 					LockId:      "lock1",
 					Message:     "lock staging",
 				},
-				&CreateEnvironmentApplicationLock{
-					Environment: "dev",
-					Application: "myapp",
-					LockId:      "lock2",
-					Message:     "lock myapp",
-				},
 				&CreateApplicationVersion{
 					Application:    "myapp",
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
@@ -1607,7 +1669,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			expectedContent: []FileWithContent{
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
-					Content: "lock-prevented-deployment",
+					Content: "deployment",
 				},
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
@@ -1616,14 +1678,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
 					Content: "dev",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/lock_message",
-					Content: "lock myapp",
-				},
-				{
-					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/lock_type",
-					Content: "application",
 				},
 				{
 					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
@@ -1647,6 +1701,140 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Block deployments using app lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateEnvironment{
+					Environment: "staging",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				//&CreateEnvironmentLock{
+				//	Environment: "staging",
+				//	LockId:      "lock1",
+				//	Message:     "lock staging",
+				//},
+				&CreateEnvironmentApplicationLock{
+					Environment: "staging",
+					Application: "myapp",
+					LockId:      "lock2",
+					Message:     "lock myapp",
+				},
+				&CreateApplicationVersion{
+					Application:    "myapp",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"dev":     "some dev manifest",
+						"staging": "some staging manifest",
+					},
+					WriteCommitData: true,
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/eventType",
+					Content: "deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/application",
+					Content: "myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000001/environment",
+					Content: "dev",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/eventType",
+					Content: "lock-prevented-deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/application",
+					Content: "myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/environment",
+					Content: "staging",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_message",
+					Content: "lock myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000002/lock_type",
+					Content: "application",
+				},
+			},
+		},
+		{
+			Name: "Block deployments using Team lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "dev",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+					},
+				},
+				&CreateApplicationVersion{ //Create the team
+					Application:    "someapp",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaf",
+					Manifests: map[string]string{
+						"dev": "some dev manifest",
+					},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: "dev",
+					Team:        "sre-team",
+					LockId:      "lock2",
+					Message:     "lock sreteam",
+				},
+				&CreateApplicationVersion{
+					Application:    "myapp",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+					Manifests: map[string]string{
+						"dev": "some dev manifest",
+					},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+			},
+			expectedContent: []FileWithContent{
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/eventType",
+					Content: "lock-prevented-deployment",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/application",
+					Content: "myapp",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/environment",
+					Content: "dev",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/lock_message",
+					Content: "lock sreteam",
+				},
+				{
+					Path:    "commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab/events/00000000-0000-0000-0000-000000000003/lock_type",
+					Content: "team",
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1665,7 +1853,7 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			}
 			fs := updatedState.Filesystem
 			if err := verifyContent(fs, tc.expectedContent); err != nil {
-				t.Fatalf("Error while verifying content: %v. Filesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
+				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
 			}
 		})
 	}
@@ -1858,7 +2046,7 @@ func TestNextAndPreviousCommitCreation(t *testing.T) {
 					Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			},
-			expectedError: errMatcher{"Error while opening file commits/12/34/nextCommit, error: file does not exist"},
+			expectedError: errMatcher{"error while opening file commits/12/34/nextCommit, error: file does not exist"},
 		},
 	}
 
@@ -1921,7 +2109,7 @@ func TestReplacedByEvent(t *testing.T) {
 					Content: "does-not-matter",
 				},
 			},
-			ExpectedError: errMatcher{"Error while opening file commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/commit, error: file does not exist"},
+			ExpectedError: errMatcher{"error while opening file commits/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events/00000000-0000-0000-0000-000000000001/commit, error: file does not exist"},
 		},
 		{
 			Name: "Replace an already existing version on some environment",
@@ -2487,16 +2675,17 @@ func TestUndeployErrors(t *testing.T) {
 func TestReleaseTrainErrors(t *testing.T) {
 	tcs := []struct {
 		Name              string
-		Transformers      []Transformer
+		Setup             []Transformer
+		ReleaseTrain      ReleaseTrain
 		expectedError     *TransformerBatchApplyError
+		expectedPrognosis ReleaseTrainPrognosis
 		expectedCommitMsg string
 	}{
 		{
-			Name: "Access non-existent environment",
-			Transformers: []Transformer{
-				&ReleaseTrain{
-					Target: "doesnotexistenvironment",
-				},
+			Name:  "Access non-existent environment",
+			Setup: []Transformer{},
+			ReleaseTrain: ReleaseTrain{
+				Target: "doesnotexistenvironment",
 			},
 			expectedError: &TransformerBatchApplyError{
 				Index: 0,
@@ -2505,11 +2694,18 @@ func TestReleaseTrainErrors(t *testing.T) {
 					"error: could not find environment group or environment configs for 'doesnotexistenvironment'",
 				),
 			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: status.Error(
+					codes.InvalidArgument,
+					"error: could not find environment group or environment configs for 'doesnotexistenvironment'",
+				),
+				EnvironmentPrognoses: nil,
+			},
 			expectedCommitMsg: "",
 		},
 		{
 			Name: "Environment is locked - but train continues in other env",
-			Transformers: []Transformer{
+			Setup: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance + "-de",
 					Config: config.EnvironmentConfig{
@@ -2530,16 +2726,37 @@ func TestReleaseTrainErrors(t *testing.T) {
 				},
 				&CreateEnvironmentLock{
 					Environment: envAcceptance + "-ca",
-					Message:     "don't",
-					LockId:      "care",
+					Message:     "mA",
+					LockId:      "IdA",
 				},
 				&CreateEnvironmentLock{
 					Environment: envAcceptance + "-de",
-					Message:     "do not",
-					LockId:      "care either",
+					Message:     "mB",
+					LockId:      "IdB",
 				},
-				&ReleaseTrain{
-					Target: envAcceptance,
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target: envAcceptance,
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": {
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
+						},
+						Error:            nil,
+						AppsPrognoses:    map[string]ReleaseTrainApplicationPrognosis{},
+						FirstLockMessage: "mA",
+					},
+					"acceptance-de": {
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_IS_LOCKED,
+						},
+						Error:            nil,
+						AppsPrognoses:    map[string]ReleaseTrainApplicationPrognosis{},
+						FirstLockMessage: "mB",
+					},
 				},
 			},
 			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
@@ -2549,7 +2766,7 @@ Target Environment 'acceptance-de' is locked - skipping.`,
 		},
 		{
 			Name: "Environment has no upstream - but train continues in other env",
-			Transformers: []Transformer{
+			Setup: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance + "-ca",
 					Config: config.EnvironmentConfig{
@@ -2564,8 +2781,27 @@ Target Environment 'acceptance-de' is locked - skipping.`,
 						EnvironmentGroup: ptr.FromString(envAcceptance),
 					},
 				},
-				&ReleaseTrain{
-					Target: envAcceptance,
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target: envAcceptance,
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
+						},
+						Error:         nil,
+						AppsPrognoses: nil,
+					},
+					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM,
+						},
+						Error:         nil,
+						AppsPrognoses: nil,
+					},
 				},
 			},
 			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
@@ -2575,7 +2811,7 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 		},
 		{
 			Name: "Environment has no upstream.latest or env - but train continues in other env",
-			Transformers: []Transformer{
+			Setup: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance + "-ca",
 					Config: config.EnvironmentConfig{
@@ -2596,8 +2832,27 @@ Environment '"acceptance-de"' does not have upstream configured - skipping.`,
 						EnvironmentGroup: ptr.FromString(envAcceptance),
 					},
 				},
-				&ReleaseTrain{
-					Target: envAcceptance,
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target: envAcceptance,
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
+						},
+						Error:         nil,
+						AppsPrognoses: nil,
+					},
+					"acceptance-de": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_NO_UPSTREAM_LATEST_OR_UPSTREAM_ENV,
+						},
+						Error:         nil,
+						AppsPrognoses: nil,
+					},
 				},
 			},
 			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
@@ -2607,7 +2862,7 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 		},
 		{
 			Name: "Environment has both upstream.latest and env - but train continues in other env",
-			Transformers: []Transformer{
+			Setup: []Transformer{
 				&CreateEnvironment{
 					Environment: envAcceptance + "-ca",
 					Config: config.EnvironmentConfig{
@@ -2628,9 +2883,30 @@ Environment "acceptance-de" does not have upstream.latest or upstream.environmen
 						EnvironmentGroup: ptr.FromString(envAcceptance),
 					},
 				},
-				&ReleaseTrain{
-					Target: envAcceptance,
+			},
+			expectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"acceptance-ca": {
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
+						},
+						Error:            nil,
+						FirstLockMessage: "",
+						AppsPrognoses:    nil,
+					},
+					"acceptance-de": {
+						SkipCause: &api.ReleaseTrainEnvPrognosis_SkipCause{
+							SkipCause: api.ReleaseTrainEnvSkipCause_ENV_HAS_BOTH_UPSTREAM_LATEST_AND_UPSTREAM_ENV,
+						},
+						Error:            nil,
+						FirstLockMessage: "",
+						AppsPrognoses:    nil,
+					},
 				},
+			},
+			ReleaseTrain: ReleaseTrain{
+				Target: envAcceptance,
 			},
 			expectedCommitMsg: `Release Train to environment/environment group 'acceptance':
 
@@ -2643,7 +2919,23 @@ Environment "acceptance-de" has both upstream.latest and upstream.environment co
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			repo := setupRepositoryTest(t)
-			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), tc.Transformers...)
+			ctx := testutil.MakeTestContext()
+
+			err := repo.Apply(ctx, tc.Setup...)
+			if err != nil {
+				t.Fatalf("error encountered during setup, but none was expected here, error: %v", err)
+			}
+
+			prognosis := tc.ReleaseTrain.Prognosis(ctx, repo.State())
+
+			if diff := cmp.Diff(prognosis.EnvironmentPrognoses, tc.expectedPrognosis.EnvironmentPrognoses); diff != "" {
+				t.Fatalf("release train prognosis is wrong, wanted the result \n%v\n got\n%v\ndiff:\n%s", tc.expectedPrognosis.EnvironmentPrognoses, prognosis.EnvironmentPrognoses, diff)
+			}
+			if !cmp.Equal(prognosis.Error, tc.expectedPrognosis.Error, cmpopts.EquateErrors()) {
+				t.Fatalf("release train prognosis is wrong, wanted the error %v, got %v", tc.expectedPrognosis.Error, prognosis.Error)
+			}
+
+			commitMsg, _, _, err := repo.ApplyTransformersInternal(testutil.MakeTestContext(), []Transformer{&tc.ReleaseTrain}...)
 
 			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
@@ -2668,6 +2960,7 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 		expectedError      *TransformerBatchApplyError
 		expectedCommitMsg  string
 		overrideCommitHash string
+		ExpectedPrognosis  ReleaseTrainPrognosis
 	}{
 		{
 			Name: "Release train done without commit Hash",
@@ -2697,6 +2990,21 @@ func TestReleaseTrainWithCommit(t *testing.T) {
 			ReleaseTrainEnv:    "staging",
 			expectedCommitMsg:  "Release Train to environment/environment group 'staging':\n\nRelease Train to 'staging' environment:\n\nThe release train deployed 1 services from 'dev' to 'staging'\ndeployed version 1 of \"test\" to \"staging\"",
 			overrideCommitHash: "",
+			ExpectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"staging": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: nil,
+						Error:     nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{
+							"test": ReleaseTrainApplicationPrognosis{
+								SkipCause: nil,
+								Version:   1,
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			Name: "Release train done with commit Hash",
@@ -2736,6 +3044,21 @@ Release Train to 'staging' environment:
 
 The release train deployed 1 services from 'dev' to 'staging'
 deployed version 1 of "test" to "staging"`,
+			ExpectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"staging": ReleaseTrainEnvironmentPrognosis{
+						SkipCause: nil,
+						Error:     nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{
+							"test": ReleaseTrainApplicationPrognosis{
+								SkipCause: nil,
+								Version:   1,
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			Name: "Release train done with commit but nothing to deploy",
@@ -2764,6 +3087,16 @@ deployed version 1 of "test" to "staging"`,
 Release Train to 'dev' environment:
 
 The release train deployed 0 services from 'latest' to 'dev'`,
+			ExpectedPrognosis: ReleaseTrainPrognosis{
+				Error: nil,
+				EnvironmentPrognoses: map[string]ReleaseTrainEnvironmentPrognosis{
+					"dev": ReleaseTrainEnvironmentPrognosis{
+						SkipCause:     nil,
+						Error:         nil,
+						AppsPrognoses: map[string]ReleaseTrainApplicationPrognosis{},
+					},
+				},
+			},
 		},
 		{
 			Name: "Release train with invalid commitHash",
@@ -2794,6 +3127,13 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 				),
 			},
 			overrideCommitHash: "3f1debc97f5880c59caab9b36ad31f52604ce4dd",
+			ExpectedPrognosis: ReleaseTrainPrognosis{
+				Error: status.Error(
+					codes.InvalidArgument,
+					"error: could not get app version for commitHash 3f1debc97f5880c59caab9b36ad31f52604ce4dd for dev: ErrNotFound: object not found - no match for id (3f1debc97f5880c59caab9b36ad31f52604ce4dd)",
+				),
+				EnvironmentPrognoses: nil,
+			},
 		},
 		{
 			Name: "Release train with invalid oid value",
@@ -2823,6 +3163,13 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 					"error: could not get app version for commitHash aa for dev: Error creating new oid for commitHash aa: invalid oid",
 				),
 			},
+			ExpectedPrognosis: ReleaseTrainPrognosis{
+				Error: status.Error(
+					codes.InvalidArgument,
+					"error: could not get app version for commitHash aa for dev: Error creating new oid for commitHash aa: invalid oid",
+				),
+				EnvironmentPrognoses: nil,
+			},
 			overrideCommitHash: "aa",
 		},
 	}
@@ -2846,11 +3193,12 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 			repo, err := New(
 				ctx,
 				RepositoryConfig{
-					URL:            "file://" + remoteDir,
-					Path:           localDir,
-					CommitterEmail: "kuberpult@freiheit.com",
-					CommitterName:  "kuberpult",
-					Branch:         "main",
+					URL:                 "file://" + remoteDir,
+					Path:                localDir,
+					CommitterEmail:      "kuberpult@freiheit.com",
+					CommitterName:       "kuberpult",
+					Branch:              "main",
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -2878,6 +3226,13 @@ The release train deployed 0 services from 'latest' to 'dev'`,
 				Target:     tc.ReleaseTrainEnv,
 				Repo:       repo,
 			}
+
+			prognosis := releaseTrain.Prognosis(ctx, repo.State())
+
+			if !cmp.Equal(prognosis.EnvironmentPrognoses, tc.ExpectedPrognosis.EnvironmentPrognoses) || !cmp.Equal(prognosis.Error, tc.ExpectedPrognosis.Error, cmpopts.EquateErrors()) {
+				t.Fatalf("release train prognosis is wrong, wanted %v, got %v", tc.ExpectedPrognosis, prognosis)
+			}
+
 			commitMsg, _, _, applyErr := repo.ApplyTransformersInternal(testutil.MakeTestContext(), releaseTrain)
 
 			if diff := cmp.Diff(tc.expectedError, applyErr, cmpopts.EquateErrors()); diff != "" {
@@ -2980,6 +3335,49 @@ func TestTransformerChanges(t *testing.T) {
 						envAcceptance: envAcceptance,
 					},
 					WriteCommitData: true,
+				},
+				&ReleaseTrain{
+					Target: envProduction,
+				},
+			},
+			expectedChanges: &TransformerResult{
+				ChangedApps: nil,
+			},
+		},
+		{
+			Name: "team lock",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config:      testutil.MakeEnvConfigUpstream(envAcceptance, nil),
+				},
+				&CreateEnvironment{
+					Environment: envAcceptance,
+					Config:      testutil.MakeEnvConfigLatest(nil),
+				},
+				&CreateApplicationVersion{
+					Application: "foo",
+					Manifests: map[string]string{
+						envProduction: envProduction,
+						envAcceptance: envAcceptance,
+					},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{ //team lock always needs to come after some release creation
+					Environment: envProduction,
+					Team:        "sre-team",
+					LockId:      "foo-id",
+					Message:     "foo",
+				},
+				&CreateApplicationVersion{
+					Application: "bar",
+					Manifests: map[string]string{
+						envProduction: envProduction,
+						envAcceptance: envAcceptance,
+					},
+					WriteCommitData: true,
+					Team:            "sre-team",
 				},
 				&ReleaseTrain{
 					Target: envProduction,
@@ -3166,10 +3564,10 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 				&UndeployApplication{
 					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeployUndeploy,staging:*,app1,allow":    {Role: "developer"},
-						"developer,DeployUndeploy,production:*,app1,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployUndeploy,staging:*,app1,allow":    {Role: "developer"},
+						"p,role:developer,DeployUndeploy,production:*,app1,allow": {Role: "developer"},
+					}}}},
 				},
 			},
 		},
@@ -3201,9 +3599,9 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 				&UndeployApplication{
 					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeployUndeploy,production:*,app1,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployUndeploy,production:*,app1,allow": {Role: "developer"},
+					}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3219,8 +3617,8 @@ func TestRbacTransformerTest(t *testing.T) {
 				&CreateEnvironment{
 					Environment: "production-p1",
 					Config:      config.EnvironmentConfig{EnvironmentGroup: nil},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateEnvironment,*:*,*,allow": {Role: "developer"}}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateEnvironment,*:*,*,allow": {Role: "developer"}}}}}},
 			},
 		},
 		{
@@ -3229,8 +3627,8 @@ func TestRbacTransformerTest(t *testing.T) {
 				&CreateEnvironment{
 					Environment: "production-p2",
 					Config:      config.EnvironmentConfig{EnvironmentGroup: &envGroupProduction},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateEnvironment,production:*,*,allow": {Role: "developer"}}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateEnvironment,production:*,*,allow": {Role: "developer"}}}}}},
 			},
 		},
 		{
@@ -3239,7 +3637,7 @@ func TestRbacTransformerTest(t *testing.T) {
 				&CreateEnvironment{
 					Environment:    "production-p2",
 					Config:         config.EnvironmentConfig{EnvironmentGroup: &envGroupProduction},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}}},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
 				User:        "test tester",
@@ -3272,11 +3670,11 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
-						"developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
-						"developer,DeployRelease,staging:*,app1,allow":     {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
+						"p,role:developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
+						"p,role:developer,DeployRelease,staging:*,app1,allow":     {Role: "developer"},
+					}}}},
 				},
 			},
 		},
@@ -3304,10 +3702,10 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
-						"developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
+						"p,role:developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
+					}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3341,9 +3739,9 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
+					}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3357,19 +3755,19 @@ func TestRbacTransformerTest(t *testing.T) {
 			Name: "able to create release train with permissions policy",
 			Transformers: ReleaseTrainTestSetup(&ReleaseTrain{
 				Target: envProduction,
-				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-					"developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
-					"developer,DeployRelease,production:*,test,allow":            {Role: "developer"},
-				}}},
+				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+					"p,role:developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
+					"p,role:developer,DeployRelease,production:*,test,allow":            {Role: "developer"},
+				}}}},
 			}),
 		},
 		{
 			Name: "unable to create release train without permissions policy: Missing DeployRelease permission",
 			Transformers: ReleaseTrainTestSetup(&ReleaseTrain{
 				Target: envProduction,
-				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-					"developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
-				}}},
+				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+					"p,role:developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
+				}}}},
 			}),
 			ExpectedError: fixtureWrapTransformError(status.Error(codes.Internal, "internal error")),
 		},
@@ -3377,7 +3775,7 @@ func TestRbacTransformerTest(t *testing.T) {
 			Name: "unable to create release train without permissions policy: Missing ReleaseTrain permission",
 			Transformers: ReleaseTrainTestSetup(&ReleaseTrain{
 				Target:         envProduction,
-				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 			}),
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
 				User:        "test tester",
@@ -3399,10 +3797,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
-						"developer,DeployRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
+						"p,role:developer,DeployRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
+					}}}},
 					WriteCommitData: true,
 				},
 			},
@@ -3420,9 +3818,9 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
+					}}}},
 					WriteCommitData: true,
 				},
 			},
@@ -3450,7 +3848,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
-					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 					WriteCommitData: true,
 				},
 			},
@@ -3486,8 +3884,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Application:   "app1",
 					Version:       1,
 					LockBehaviour: api.LockBehavior_FAIL,
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeployRelease,acceptance:acceptance,*,allow": {Role: "developer"}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployRelease,acceptance:acceptance,*,allow": {Role: "developer"}}}}},
 				},
 			},
 		},
@@ -3512,7 +3910,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Application:    "app1",
 					Version:        1,
 					LockBehaviour:  api.LockBehavior_FAIL,
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3533,8 +3931,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment: "production",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "developer"}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"}}}}},
 				},
 			},
 		},
@@ -3549,8 +3947,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment: "production",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"releaseManager,CreateLock,production:production,*,allow": {Role: "releaseManager"}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:releaseManager,CreateLock,production:production,*,allow": {Role: "releaseManager"}}}}},
 				},
 			},
 			ctx: testutil.MakeTestContextDexEnabledUser("releaseManager"),
@@ -3566,7 +3964,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment:    "production",
 					Message:        "don't",
 					LockId:         "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3587,13 +3985,13 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment: "production",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "developer"}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"}}}}},
 				},
 				&DeleteEnvironmentLock{
 					Environment:    "production",
 					LockId:         "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3614,16 +4012,16 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment: "production",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "developer"}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"}}}}},
 				},
 				&DeleteEnvironmentLock{
 					Environment: "production",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeployRelease,production:production,*,allow": {Role: "developer"},
-						"developer,CreateLock,production:production,*,allow":    {Role: "developer"},
-						"developer,DeleteLock,production:production,*,allow":    {Role: "developer"}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployRelease,production:production,*,allow": {Role: "developer"},
+						"p,role:developer,CreateLock,production:production,*,allow":    {Role: "developer"},
+						"p,role:developer,DeleteLock,production:production,*,allow":    {Role: "developer"}}}}},
 				},
 			},
 		},
@@ -3647,7 +4045,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Application:    "test",
 					Message:        "don't",
 					LockId:         "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3677,9 +4075,9 @@ func TestRbacTransformerTest(t *testing.T) {
 					Application: "test",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "Developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
+					}}}},
 				},
 			},
 		},
@@ -3709,7 +4107,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment:    "production",
 					Application:    "test",
 					LockId:         "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3739,17 +4137,176 @@ func TestRbacTransformerTest(t *testing.T) {
 					Application: "test",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"},
+					}}}},
 				},
 				&DeleteEnvironmentApplicationLock{
 					Environment: "production",
 					Application: "test",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeleteLock,production:production,*,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteLock,production:production,*,allow": {Role: "developer"},
+					}}}},
+				},
+			},
+		},
+		{
+			Name: "unable to create environment team lock without permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{
+					Environment:    "production",
+					Team:           "sre-team",
+					Message:        "don't",
+					LockId:         "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
+				User:        "test tester",
+				Role:        "developer",
+				Action:      "CreateLock",
+				Environment: "production",
+				Team:        "sre-team",
+			}),
+		},
+		{
+			Name: "able to create environment team lock with correct permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: "production",
+					Team:        "sre-team",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
+					}}}},
+				},
+			},
+		},
+		{
+			Name: "able to create environment team lock with correct permissions policy - sre-team",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: "production",
+					Team:        "sre-team",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
+					}}}},
+				},
+			},
+		},
+		{
+			Name: "unable to delete environment team lock without permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{
+					Environment:    "production",
+					Team:           "sre-team",
+					Message:        "don't",
+					LockId:         "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&DeleteEnvironmentTeamLock{
+					Environment:    "production",
+					Team:           "sre-team",
+					LockId:         "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
+				},
+			},
+			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
+				User:        "test tester",
+				Role:        "developer",
+				Action:      "DeleteLock",
+				Environment: "production",
+				Team:        "sre-team",
+			}),
+		},
+		{
+			Name: "able to delete environment team lock without permissions policy",
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment:    "production",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: "production",
+					Team:        "sre-team",
+					Message:     "don't",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"},
+					}}}},
+				},
+				&DeleteEnvironmentTeamLock{
+					Environment: "production",
+					Team:        "sre-team",
+					LockId:      "manual",
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteLock,production:production,*,allow": {Role: "developer"},
+					}}}},
 				},
 			},
 		},
@@ -3779,7 +4336,7 @@ func TestRbacTransformerTest(t *testing.T) {
 				&DeleteEnvFromApp{
 					Application:    "app1",
 					Environment:    envProduction,
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3815,9 +4372,9 @@ func TestRbacTransformerTest(t *testing.T) {
 				&DeleteEnvFromApp{
 					Application: "app1",
 					Environment: envProduction,
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeleteEnvironmentApplication,production:production,*,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteEnvironmentApplication,production:production,*,allow": {Role: "developer"},
+					}}}},
 				},
 			},
 		},
@@ -3839,11 +4396,12 @@ func TestRbacTransformerTest(t *testing.T) {
 			repo, err := New(
 				ctx,
 				RepositoryConfig{
-					URL:            remoteDir,
-					Path:           localDir,
-					CommitterEmail: "kuberpult@freiheit.com",
-					CommitterName:  "kuberpult",
-					BootstrapMode:  false,
+					URL:                 remoteDir,
+					Path:                localDir,
+					CommitterEmail:      "kuberpult@freiheit.com",
+					CommitterName:       "kuberpult",
+					BootstrapMode:       false,
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -4254,6 +4812,45 @@ func TestTransformer(t *testing.T) {
 			},
 			Test: func(t *testing.T, s *State) {
 				locks, err := s.GetEnvironmentApplicationLocks("production", "test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				expected := map[string]Lock{
+					"manual": {
+						Message: "don't",
+						CreatedBy: Actor{
+							Name:  "test tester",
+							Email: "testmail@example.com",
+						},
+						CreatedAt: timeNowOld,
+					},
+				}
+				if !reflect.DeepEqual(locks, expected) {
+					t.Fatalf("mismatched locks. expected:\n%#v\n, actual:\n%#v", expected, locks)
+				}
+			},
+		},
+		{
+			Name: "Lock team",
+			Transformers: []Transformer{
+				&CreateEnvironment{Environment: "production"},
+				&CreateApplicationVersion{
+					Application: "test",
+					Manifests: map[string]string{
+						"production": "productionmanifest",
+					},
+					WriteCommitData: true,
+					Team:            "sre-team",
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: "production",
+					Team:        "sre-team",
+					Message:     "don't",
+					LockId:      "manual",
+				},
+			},
+			Test: func(t *testing.T, s *State) {
+				locks, err := s.GetEnvironmentTeamLocks("production", "sre-team")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -5447,11 +6044,12 @@ spec:
 			repo, err := New(
 				testutil.MakeTestContext(),
 				RepositoryConfig{
-					URL:            remoteDir,
-					Path:           localDir,
-					CommitterEmail: "kuberpult@freiheit.com",
-					CommitterName:  "kuberpult",
-					BootstrapMode:  tc.BootstrapMode,
+					URL:                 remoteDir,
+					Path:                localDir,
+					CommitterEmail:      "kuberpult@freiheit.com",
+					CommitterName:       "kuberpult",
+					BootstrapMode:       tc.BootstrapMode,
+					ArgoCdGenerateFiles: true,
 				},
 			)
 			if err != nil {
@@ -5653,11 +6251,13 @@ func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	repo, err := New(
 		testutil.MakeTestContext(),
 		RepositoryConfig{
-			URL:             remoteDir,
-			Path:            localDir,
-			CommitterEmail:  "kuberpult@freiheit.com",
-			CommitterName:   "kuberpult",
-			WriteCommitData: true,
+			URL:                   remoteDir,
+			Path:                  localDir,
+			CommitterEmail:        "kuberpult@freiheit.com",
+			CommitterName:         "kuberpult",
+			WriteCommitData:       true,
+			MaximumCommitsPerPush: 5,
+			ArgoCdGenerateFiles:   true,
 		},
 	)
 	if err != nil {
@@ -5681,6 +6281,121 @@ func (i *injectErr) Transform(ctx context.Context, state *State, t TransformerCo
 	s, err := i.Transformer.Transform(ctx, state, t)
 	state.Filesystem = original
 	return s, err
+}
+
+func TestAllErrorsHandledDeleteEnvironmentTeamLock(t *testing.T) {
+	t.Parallel()
+	collector := &testfs.UsageCollector{}
+	fixtureWrapTransformError := func(err error) *TransformerBatchApplyError {
+		return &TransformerBatchApplyError{
+			Index:            0,
+			TransformerError: err,
+		}
+	}
+	tcs := []struct {
+		name             string
+		operation        testfs.Operation
+		createLockBefore bool
+		filename         string
+		expectedError    error
+	}{
+		{
+			name:             "delete lock succeeds",
+			createLockBefore: true,
+		},
+		{
+			name:             "delete lock fails - remove",
+			createLockBefore: true,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/teams/sre-team/locks/foo",
+			expectedError:    fixtureWrapTransformError(errMatcher{"failed to delete directory \"environments/dev/teams/sre-team/locks/foo\": obscure error"}),
+		},
+		{
+			name:             "delete lock fails - readdir",
+			createLockBefore: true,
+			operation:        testfs.READDIR,
+			filename:         "environments/dev/teams/sre-team/locks",
+			expectedError:    fixtureWrapTransformError(errMatcher{"DeleteDirIfEmpty: failed to read directory \"environments/dev/teams/sre-team/locks\": obscure error"}),
+		},
+		{
+			name:             "remove fails 2",
+			createLockBefore: true,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/teams/sre-team/locks",
+			expectedError:    fixtureWrapTransformError(errMatcher{"DeleteDirIfEmpty: failed to delete directory \"environments/dev/teams/sre-team/locks\": obscure error"}),
+		},
+		{
+			name:             "stat fails on lock dir",
+			createLockBefore: true,
+			operation:        testfs.STAT,
+			filename:         "environments/dev/teams/sre-team/locks/foo",
+			expectedError:    fixtureWrapTransformError(errMatcher{"obscure error"}),
+		},
+		{
+			name:             "remove fails when lock does not exist",
+			createLockBefore: false,
+			operation:        testfs.REMOVE,
+			filename:         "environments/dev/team/sre-team/locks",
+			expectedError:    fixtureWrapTransformError(status.Error(codes.FailedPrecondition, "error: directory environments/dev/teams/sre-team/locks/foo for team lock does not exist")),
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			repo := setupRepositoryTest(t)
+			env := "dev"
+			lockId := "foo"
+			team := "sre-team"
+			appName := "app"
+			createLock := &CreateEnvironmentTeamLock{
+				Environment: env,
+				LockId:      lockId,
+				Team:        team,
+				Message:     "",
+			}
+			ts := []Transformer{
+				&CreateEnvironment{
+					Environment: env,
+				},
+				&CreateApplicationVersion{
+					Application: appName,
+					Manifests: map[string]string{
+						env: env,
+					},
+					WriteCommitData: true,
+					Team:            team,
+				},
+			}
+			if tc.createLockBefore {
+				ts = append(ts, createLock)
+			}
+
+			err := repo.Apply(testutil.MakeTestContext(), ts...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = repo.Apply(testutil.MakeTestContext(), &injectErr{
+				Transformer: &DeleteEnvironmentTeamLock{
+					Environment:    env,
+					LockId:         lockId,
+					Team:           team,
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
+				},
+				collector: collector,
+				operation: tc.operation,
+				filename:  tc.filename,
+				err:       fmt.Errorf("obscure error"),
+			})
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+	// Note: We have to run this after all tests in the array, in order to collect all untested operations:
+	untested := collector.UntestedOps()
+	for _, op := range untested {
+		t.Errorf("Untested operations %s %s", op.Operation, op.Filename)
+	}
 }
 
 func TestAllErrorsHandledDeleteEnvironmentLock(t *testing.T) {
@@ -6072,6 +6787,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				},
 			},
 			expectedGauges: []Gauge{
+				makeGauge("request_queue_size", 0, []string{}, 1),
 				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
 				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
@@ -6108,6 +6824,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				},
 			},
 			expectedGauges: []Gauge{
+				makeGauge("request_queue_size", 0, []string{}, 1),
 				makeGauge("env_lock_count", 0, []string{"env:envA"}, 1),
 				makeGauge("app_lock_count", 0, []string{"app:app1", "env:envA"}, 1),
 				makeGauge("lastDeployed", 0, []string{"kuberpult_application:app1", "kuberpult_environment:envA"}, 1),
@@ -6136,7 +6853,7 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				t.Fatalf("Expected no error: %v", applyErr)
 			}
 
-			err := UpdateDatadogMetrics(ctx, state, nil, time.UnixMilli(0))
+			err := UpdateDatadogMetrics(ctx, state, repo, nil, time.UnixMilli(0))
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}
@@ -6161,6 +6878,65 @@ func TestUpdateDatadogMetricsInternal(t *testing.T) {
 				if diff := cmp.Diff(actualGauge, expectedGauge, cmpopts.IgnoreFields(statsd.Event{}, "Timestamp")); diff != "" {
 					t.Errorf("[%d] got %v, want %v, diff (-want +got) %s", i, actualGauge, expectedGauge, diff)
 				}
+			}
+		})
+	}
+}
+
+func TestDatadogQueueMetric(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		changes        *TransformerResult
+		transformers   []Transformer
+		expectedGauges int
+	}{
+		{
+			Name: "Changes are sent as one event",
+			transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "envA",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				},
+				&CreateApplicationVersion{
+					Application: "app1",
+					Manifests: map[string]string{
+						"envA": "envA-manifest-1",
+					},
+					WriteCommitData: false,
+				},
+				&CreateApplicationVersion{
+					Application: "app2",
+					Manifests: map[string]string{
+						"envA": "envA-manifest-2",
+					},
+					WriteCommitData: false,
+				},
+			},
+			expectedGauges: 2,
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			//t.Parallel() // do not run in parallel because of the global var `ddMetrics`!
+			ctx := WithTimeNow(testutil.MakeTestContext(), time.Unix(0, 0))
+			var mockClient = &MockClient{}
+			var client statsd.ClientInterface = mockClient
+			ddMetrics = client
+			repo := setupRepositoryTest(t)
+
+			err := repo.Apply(ctx, tc.transformers...)
+
+			if err != nil {
+				t.Fatalf("Expected no error: %v", err)
+			}
+
+			if tc.expectedGauges != len(mockClient.gauges) {
+				// Don't compare the value of the gauge, only the number of gauges,
+				// because we cannot be sure at this point what the size of the queue was during measurement
+				msg := fmt.Sprintf("expected %d gauges but got %d\n",
+					tc.expectedGauges, len(mockClient.gauges))
+				t.Fatalf(msg)
 			}
 		})
 	}
@@ -6317,7 +7093,7 @@ func TestUpdateDatadogEventsInternal(t *testing.T) {
 				t.Fatalf("Expected no error: %v", applyErr)
 			}
 
-			err := UpdateDatadogMetrics(ctx, state, tc.changes, time.UnixMilli(0))
+			err := UpdateDatadogMetrics(ctx, state, repo, tc.changes, time.UnixMilli(0))
 			if err != nil {
 				t.Fatalf("Expected no error: %v", err)
 			}

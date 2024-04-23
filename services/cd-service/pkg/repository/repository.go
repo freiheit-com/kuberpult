@@ -61,6 +61,10 @@ import (
 	git "github.com/libgit2/git2go/v34"
 )
 
+type contextKey string
+
+const DdMetricsKey contextKey = "ddMetrics"
+
 // A Repository provides a multiple reader / single writer access to a git repository.
 type Repository interface {
 	Apply(ctx context.Context, transformers ...Transformer) error
@@ -201,6 +205,10 @@ type RepositoryConfig struct {
 	MaximumQueueSize      uint
 	// Extend maximum AppName length
 	AllowLongAppNames bool
+
+	MaximumQueueSize uint
+
+	ArgoCdGenerateFiles bool
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -334,9 +342,11 @@ func New(ctx context.Context, cfg RepositoryConfig) (Repository, error) {
 func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.BackgroundFunc, error) {
 	logger := logger.FromContext(ctx)
 
-	ddMetricsFromCtx := ctx.Value("ddMetrics")
+	ddMetricsFromCtx := ctx.Value(DdMetricsKey)
 	if ddMetricsFromCtx != nil {
 		ddMetrics = ddMetricsFromCtx.(statsd.ClientInterface)
+	} else {
+		logger.Sugar().Warnf("could not load ddmetrics from context - running without datadog metrics")
 	}
 
 	if cfg.Branch == "" {
@@ -546,17 +556,17 @@ func (r *repository) useRemote(callback func(*git.Remote) error) error {
 	}
 }
 
-func (r *repository) drainQueue() []transformerBatch {
+func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
 	if r.config.MaximumCommitsPerPush < 2 {
 		return nil
 	}
 	limit := r.config.MaximumCommitsPerPush - 1
 	transformerBatches := []transformerBatch{}
+	defer r.queue.GaugeQueueSize(ctx)
 	for uint(len(transformerBatches)) < limit {
 		select {
 		case f := <-r.queue.transformerBatches:
 			// Check that the item is not already cancelled
-			GaugeQueueSize(f.ctx, len(r.queue.transformerBatches))
 			select {
 			case <-f.ctx.Done():
 				f.finish(f.ctx.Err())
@@ -568,6 +578,10 @@ func (r *repository) drainQueue() []transformerBatch {
 		}
 	}
 	return transformerBatches
+}
+
+func (r *repository) GaugeQueueSize(ctx context.Context) {
+	r.queue.GaugeQueueSize(ctx)
 }
 
 // It returns always nil
@@ -615,7 +629,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	}()
 
 	// Try to fetch more items from the queue in order to push more things together
-	transformerBatches = append(transformerBatches, r.drainQueue()...)
+	transformerBatches = append(transformerBatches, r.drainQueue(ctx)...)
 
 	var pushSuccess = true
 
@@ -679,7 +693,7 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 
 	ddSpan, ctx := tracer.StartSpanFromContext(ctx, "SendMetrics")
 	if r.config.DogstatsdEvents {
-		ddError := UpdateDatadogMetrics(ctx, r.State(), changes, time.Now())
+		ddError := UpdateDatadogMetrics(ctx, r.State(), r, changes, time.Now())
 		if ddError != nil {
 			logger.Warn(fmt.Sprintf("Could not send datadog metrics/events %v", ddError))
 		}
@@ -1209,20 +1223,22 @@ func (r *repository) updateArgoCdApps(ctx context.Context, state *State, env str
 		}
 		spanCollectData.Finish()
 
-		spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
-		defer spanRenderAndWrite.Finish()
-		if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
-			return err
-		} else {
-			spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
-			defer spanWrite.Finish()
-			for apiVersion, content := range manifests {
-				if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
-					return err
-				}
-				target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
-				if err := util.WriteFile(fs, target, content, 0666); err != nil {
-					return err
+		if r.config.ArgoCdGenerateFiles {
+			spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
+			defer spanRenderAndWrite.Finish()
+			if manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, config, env, appData); err != nil {
+				return err
+			} else {
+				spanWrite, _ := tracer.StartSpanFromContext(ctx, "Write")
+				defer spanWrite.Finish()
+				for apiVersion, content := range manifests {
+					if err := fs.MkdirAll(fs.Join("argocd", string(apiVersion)), 0777); err != nil {
+						return err
+					}
+					target := fs.Join("argocd", string(apiVersion), fmt.Sprintf("%s.yaml", env))
+					if err := util.WriteFile(fs, target, content, 0666); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -1467,7 +1483,9 @@ func (s *State) GetEnvLockDir(environment string, lockId string) string {
 func (s *State) GetAppLocksDir(environment string, application string) string {
 	return s.Filesystem.Join("environments", environment, "applications", application, "locks")
 }
-
+func (s *State) GetTeamLocksDir(environment string, team string) string {
+	return s.Filesystem.Join("environments", environment, "teams", team, "locks")
+}
 func (s *State) GetEnvironmentLocks(environment string) (map[string]Lock, error) {
 	base := s.GetEnvLocksDir(environment)
 	if entries, err := s.Filesystem.ReadDir(base); err != nil {
@@ -1507,7 +1525,25 @@ func (s *State) GetEnvironmentApplicationLocks(environment, application string) 
 		return result, nil
 	}
 }
-
+func (s *State) GetEnvironmentTeamLocks(environment, team string) (map[string]Lock, error) {
+	base := s.GetTeamLocksDir(environment, team)
+	if entries, err := s.Filesystem.ReadDir(base); err != nil {
+		return nil, err
+	} else {
+		result := make(map[string]Lock, len(entries))
+		for _, e := range entries {
+			if !e.IsDir() {
+				return nil, fmt.Errorf("error getting team locks: found file in the locks directory. run migration script to generate correct metadata")
+			}
+			if lock, err := readLock(s.Filesystem, s.Filesystem.Join(base, e.Name())); err != nil {
+				return nil, err
+			} else {
+				result[e.Name()] = *lock
+			}
+		}
+		return result, nil
+	}
+}
 func (s *State) GetDeploymentMetaData(environment, application string) (string, time.Time, error) {
 	base := s.Filesystem.Join("environments", environment, "applications", application)
 	author, err := readFile(s.Filesystem, s.Filesystem.Join(base, "deployed_by"))
@@ -1535,6 +1571,12 @@ func (s *State) GetDeploymentMetaData(environment, application string) (string, 
 	}
 
 	return string(author), deployedAt, nil
+}
+
+func (s *State) DeleteTeamLockIfEmpty(ctx context.Context, environment string, team string) error {
+	dir := s.GetTeamLocksDir(environment, team)
+	_, err := s.DeleteDirIfEmpty(dir)
+	return err
 }
 
 func (s *State) DeleteAppLockIfEmpty(ctx context.Context, environment string, application string) error {
@@ -1622,6 +1664,18 @@ func (s *State) readSymlink(environment string, application string, symlinkName 
 			res, err := strconv.ParseUint(stat.Name(), 10, 64)
 			return &res, err
 		}
+	}
+}
+
+func (s *State) GetTeamName(application string) (string, error) {
+	fs := s.Filesystem
+
+	teamFilePath := fs.Join("applications", application, "team")
+
+	if teamName, err := util.ReadFile(fs, teamFilePath); err != nil {
+		return "", err
+	} else {
+		return string(teamName), nil
 	}
 }
 

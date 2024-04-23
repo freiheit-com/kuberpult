@@ -133,6 +133,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                         className="mdc-show-button mdc-button--unelevated"
                         icon={<ShowBarWhite />}
                         onClick={toggleSideBar}
+                        highlightEffect={false}
                     />
                     <SideBar
                         className={classNames(`mdc-drawer-sidebar mdc-drawer-sidebar-container`, {

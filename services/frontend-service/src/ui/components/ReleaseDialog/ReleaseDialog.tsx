@@ -64,7 +64,7 @@ export const AppLock: React.FC<{
         <div
             title={'App Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}
             onClick={deleteAppLock}>
-            <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} />
+            <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} highlightEffect={false} />
         </div>
     );
 };
@@ -232,6 +232,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             label="Add lock"
                             onClick={createAppLock}
                             icon={<Locks className="icon" />}
+                            highlightEffect={true}
                         />
                         <div
                             title={
@@ -334,6 +335,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         onClick={closeReleaseDialog}
                         className={classNames('release-dialog-close', className)}
                         icon={<Close />}
+                        highlightEffect={false}
                     />
                 </div>
                 <EnvironmentList app={app} className={className} release={release} version={version} />
