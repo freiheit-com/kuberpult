@@ -107,8 +107,8 @@ func (d *DBInfo) RetrieveDatabaseInformation(message string) (map[int]DummyDbRow
 	}
 	defer db.Close()
 
-	//result, err := db.Exec("INSERT INTO dummy_table (id , created , data) VALUES (10, 20, 30);", rand.Intn(9999), rand.Intn(9999), rand.Intn(9999))
-	result, err := db.Exec("INSERT INTO dummy_table (id , created , data) VALUES (10, 20, 30);")
+	result, err := db.Exec("INSERT INTO dummy_table (id , created , data) VALUES ($1, $2, $3);", rand.Intn(9999), rand.Intn(9999), rand.Intn(9999))
+	//result, err := db.Exec("INSERT INTO dummy_table (id , created , data) VALUES (10, 20, 30);")
 	if err != nil {
 		return nil, fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
 	}
