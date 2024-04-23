@@ -195,18 +195,18 @@ func RunServer() {
 		}
 
 		if c.DbEnabled {
-			logger.FromContext(ctx).Warn(fmt.Sprintf("Database Enabled. Source: %s\n", c.DbOption))
+			logger.FromContext(ctx).Info(fmt.Sprintf("Database Enabled. Source: %s\n", c.DbOption))
 			if c.DbOption == "cloudsql" {
 				db, err := repository.GetRemoteConnection()
 				if err != nil {
 					logger.FromContext(ctx).Fatal("Error establishing DB connection", zap.Error(err))
 				}
-				logger.FromContext(ctx).Warn("DB connection established.")
+				logger.FromContext(ctx).Info("DB connection established.")
 				pErr := db.Ping()
 				if pErr != nil {
 					logger.FromContext(ctx).Fatal("Error actually pinging DB: ", zap.Error(pErr))
 				}
-				logger.FromContext(ctx).Fatal("Pong!")
+				logger.FromContext(ctx).Info("Pong!")
 				db.Close()
 			} else {
 				migErr := repository.RunDBMigrations(c.DbLocation)
@@ -228,7 +228,7 @@ func RunServer() {
 				}
 			}
 		} else {
-			logger.FromContext(ctx).Warn("DB not enabled!")
+			logger.FromContext(ctx).Info("DB not enabled!")
 		}
 		cfg := repository.RepositoryConfig{
 			WebhookResolver: nil,
