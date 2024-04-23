@@ -96,8 +96,9 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 			t.Parallel()
 			dbDir := t.TempDir()
 			handler := DBHandler{
-				DriverName: "sqlite3",
-				DbHost:     dbDir,
+				DriverName:     "sqlite3",
+				DbHost:         dbDir,
+				MigrationsPath: dbDir + "/migrations",
 			}
 			loc, mkdirErr := createMigrationFolder(dbDir)
 			if mkdirErr != nil {
