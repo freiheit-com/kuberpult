@@ -399,7 +399,7 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	fs := state.Filesystem
 	if !valid.ApplicationName(c.Application) {
-		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, valid.MaxAppNameLen)
+		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
 	}
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
