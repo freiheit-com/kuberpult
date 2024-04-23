@@ -19,7 +19,7 @@
 
 git:
   # The git url of the manifest repository (git protocol)
-  url: # git@github.com/.../...
+  url:  # git@github.com/.../...
   webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
 
   # The branch to be use in the manifest repository
