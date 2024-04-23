@@ -8,7 +8,7 @@ require (
 	github.com/argoproj/argo-cd/v2 v2.9.8
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/coreos/go-oidc/v3 v3.8.0
+	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/golang-migrate/migrate/v4 v4.17.0
@@ -149,7 +149,7 @@ require (
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.6.0-alpha.5 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.1 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-redis/cache/v9 v9.0.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
