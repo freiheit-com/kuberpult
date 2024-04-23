@@ -57,7 +57,7 @@ func (d *DBHandler) GetDBConnection() (*sql.DB, error) {
 	} else if d.DriverName == "sqlite3" {
 		return sql.Open("sqlite3", path.Join(d.DbHost, "db.sqlite"))
 	}
-	return nil, fmt.Errorf("Driver: '%s' not supported.", d.DriverName)
+	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", d.DriverName)
 
 }
 
@@ -79,16 +79,16 @@ func (d *DBHandler) getDriver(db *sql.DB) (database.Driver, error) {
 			NoTxWrap:        false,
 		})
 	}
-	return nil, fmt.Errorf("Driver: %s not supported.", d.DriverName)
+	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", d.DriverName)
 }
 
 func (d *DBHandler) getMigrationHandler(driver database.Driver) (*migrate.Migrate, error) {
 	if d.DriverName == "postgres" {
 		return migrate.NewWithDatabaseInstance("file://"+d.MigrationsPath, d.DbName, driver)
 	} else if d.DriverName == "sqlite3" {
-		return migrate.NewWithDatabaseInstance("file://"+d.DbHost+"/migrations", "", driver) //FIX ME
+		return migrate.NewWithDatabaseInstance("file://"+d.MigrationsPath, "", driver) //FIX ME
 	}
-	return nil, fmt.Errorf("Driver: %s not supported.", d.DriverName)
+	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", d.DriverName)
 }
 
 func (d *DBHandler) RunDBMigrations() error {

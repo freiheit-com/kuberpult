@@ -80,13 +80,12 @@ type Config struct {
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
 	AllowLongAppNames        bool          `default:"false" split_words:"true"`
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
-	DbEnabled                bool          `default:"false" split_words:"true"`
 	DbOption                 string        `default:"NO_DB" split_words:"true"`
 	DbLocation               string        `default:"/kp/database" split_words:"true"`
-	DbCloudSqlInstance       string        `default:"change_me" split_words:"true"`
-	DbName                   string        `default:"change_me" split_words:"true"`
-	DbUserName               string        `default:"change_me" split_words:"true"`
-	DbUserPassword           string        `default:"change_me" split_words:"true"`
+	DbCloudSqlInstance       string        `default:"" split_words:"true"`
+	DbName                   string        `default:"" split_words:"true"`
+	DbUserName               string        `default:"" split_words:"true"`
+	DbUserPassword           string        `default:"" split_words:"true"`
 	DbAuthProxyPort          string        `default:"5432" split_words:"true"`
 }
 
@@ -200,7 +199,7 @@ func RunServer() {
 			)
 		}
 
-		if c.DbEnabled {
+		if c.DbOption != "NO_DB" {
 			var handler repository.DBHandler
 			if c.DbOption == "cloudsql" {
 				handler = repository.DBHandler{
@@ -220,7 +219,7 @@ func RunServer() {
 					DbName:         "",
 					DbPassword:     "",
 					DbUser:         "",
-					MigrationsPath: "",
+					MigrationsPath: c.DbLocation + "/migrations",
 				}
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
@@ -236,7 +235,7 @@ func RunServer() {
 			db.Close()
 			migErr := handler.RunDBMigrations()
 			if migErr != nil {
-				logger.FromContext(ctx).Warn("Error running database migrations: ", zap.Error(migErr))
+				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
 			}
 			_, retrieveErr := handler.InsertDatabaseInformation()
 			if retrieveErr != nil {
