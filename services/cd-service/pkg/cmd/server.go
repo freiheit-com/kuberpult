@@ -211,10 +211,7 @@ func RunServer() {
 					DbUser:         c.DbUserName,
 					MigrationsPath: "/migrations",
 				}
-				dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
-					handler.DbHost, handler.DbUser, handler.DbPassword, handler.DbPort, handler.DbName)
-				logger.FromContext(ctx).Warn(dbURI)
-			} else {
+			} else if c.DbOption == "sqlite" {
 				handler = repository.DBHandler{
 					DbHost:         c.DbLocation,
 					DbPort:         "",
@@ -224,37 +221,33 @@ func RunServer() {
 					DbUser:         "",
 					MigrationsPath: "",
 				}
+			} else {
+				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
 			}
 			db, err := handler.GetDBConnection()
 			if err != nil {
-				logger.FromContext(ctx).Fatal("Error establishing DB connection", zap.Error(err))
+				logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
 			pErr := db.Ping()
 			if pErr != nil {
 				logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
 			}
-			logger.FromContext(ctx).Warn("Connection to DB established.")
-
 			db.Close()
 			migErr := handler.RunDBMigrations()
 			if migErr != nil {
-				logger.FromContext(ctx).Warn("Error running database migrations", zap.Error(migErr))
+				logger.FromContext(ctx).Warn("Error running database migrations: ", zap.Error(migErr))
 			}
-			logger.FromContext(ctx).Warn("Ran DB Migrations successfully!")
-
 			_, retrieveErr := handler.InsertDatabaseInformation()
 			if retrieveErr != nil {
-				logger.FromContext(ctx).Fatal("Error inserting information into db: Error: ", zap.Error(retrieveErr))
+				logger.FromContext(ctx).Warn("Error inserting information into db: ", zap.Error(retrieveErr))
 			}
-			logger.FromContext(ctx).Warn("Inserting data to DB was successfull!")
-
 			m, err := handler.RetrieveDatabaseInformation()
 			if err != nil {
-				logger.FromContext(ctx).Fatal("Error retrieving information from db: Error: ", zap.Error(retrieveErr))
+				logger.FromContext(ctx).Warn("Error retrieving information from db: ", zap.Error(retrieveErr))
 			}
 			printErr := repository.PrintQuery(m)
-			if err != nil {
-				logger.FromContext(ctx).Fatal("Error printing information from db: Error: ", zap.Error(printErr))
+			if printErr != nil {
+				logger.FromContext(ctx).Fatal("Error printing information from db: ", zap.Error(printErr))
 			}
 		}
 
