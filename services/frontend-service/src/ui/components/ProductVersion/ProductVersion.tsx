@@ -253,7 +253,12 @@ export const ProductVersion: React.FC = () => {
                             ))}
                         </select>
                     </div>
-                    <Button label={'Run Release Train'} className="release_train_button" onClick={openDialog} />
+                    <Button
+                        label={'Run Release Train'}
+                        className="release_train_button"
+                        onClick={openDialog}
+                        highlightEffect={false}
+                    />
                 </div>
             ) : (
                 <div />

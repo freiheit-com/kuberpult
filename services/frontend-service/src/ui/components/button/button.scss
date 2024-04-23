@@ -14,9 +14,22 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 @use '@material/button/mdc-button';
+@import '../../../assets/variables';
 
 .mdc-button {
     @extend .font;
+
+    color: black;
+
+    &.highlight {
+        background-color: white;
+        color: var(--mdc-theme-primary);
+
+        &:focus {
+            background-color: var(--mdc-theme-secondary);
+            color: white;
+        }
+    }
 }
 
 .expand-button {

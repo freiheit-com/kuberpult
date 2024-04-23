@@ -96,6 +96,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
                                 className="mdc-button--unelevated button-confirm"
                                 label={'Select All'}
                                 onClick={onSelectAll}
+                                highlightEffect={false}
                             />
                         </div>
                         <div className={'item'} key={'button-menu-all'} title={'ESC also closes the dialog'}>
@@ -103,6 +104,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = (props) => {
                                 className="mdc-button--unelevated button-confirm"
                                 label={allTeamsLabel}
                                 onClick={onClear}
+                                highlightEffect={false}
                             />
                         </div>
                     </div>

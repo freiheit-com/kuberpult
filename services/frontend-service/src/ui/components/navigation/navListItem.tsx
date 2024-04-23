@@ -14,8 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright 2023 freiheit.com*/
 import classNames from 'classnames';
-import { cloneElement, useEffect, useRef } from 'react';
-import { MDCRipple } from '@material/ripple';
+import { cloneElement, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useNavigateWithSearchParams } from '../../utils/store';
 
@@ -30,18 +29,10 @@ export const NavbarIndicator = (props: { pathname: string; to: string }): JSX.El
 };
 
 export const NavListItem = (props: { className?: string; to: string; icon?: JSX.Element }): JSX.Element => {
-    const MDComponent = useRef<MDCRipple>();
     const control = useRef<HTMLAnchorElement>(null);
     const { className, to, icon } = props;
     const { pathname } = useLocation();
     const { navURL } = useNavigateWithSearchParams(to);
-
-    useEffect(() => {
-        if (control.current) {
-            MDComponent.current = new MDCRipple(control.current);
-        }
-        return (): void => MDComponent.current?.destroy();
-    }, []);
 
     const allClassNames = classNames(
         'mdc-list-item',
