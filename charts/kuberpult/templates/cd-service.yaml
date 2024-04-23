@@ -238,6 +238,7 @@ spec:
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
           value: "{{ .Values.cd.backendConfig.queueSize }}"
+<<<<<<< HEAD
 {{- if .Values.cd.db.enabled }}
         - name: KUBERPULT_DB_ENABLED
           value: "true"
@@ -260,6 +261,10 @@ spec:
           value: "false"
 {{- end }}
 
+=======
+        - name: KUBERPULT_ALLOW_LONG_APP_NAMES
+          value: "{{ .Values.cd.allowLongAppNames }}"
+>>>>>>> origin/main
         volumeMounts:
         - name: migrations
           mountPath: /migrations

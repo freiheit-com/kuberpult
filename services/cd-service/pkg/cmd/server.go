@@ -78,6 +78,7 @@ type Config struct {
 	GitWebUrl                string        `default:"" split_words:"true"`
 	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
+	AllowLongAppNames        bool          `default:"false" split_words:"true"`
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
 	DbEnabled                bool          `default:"false" split_words:"true"`
 	DbOption                 string        `default:"NO_DB" split_words:"true"`
@@ -276,6 +277,7 @@ func RunServer() {
 			WriteCommitData:        c.GitWriteCommitData,
 			MaximumCommitsPerPush:  c.GitMaximumCommitsPerPush,
 			MaximumQueueSize:       c.MaximumQueueSize,
+			AllowLongAppNames:      c.AllowLongAppNames,
 			ArgoCdGenerateFiles:    c.ArgoCdGenerateFiles,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)
