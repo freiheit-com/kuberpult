@@ -49,7 +49,6 @@ func GetRemoteConnection() (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sql.Open: %w", err)
 	}
-	dbPool.SetConnMaxLifetime(5 * time.Minute)
 	return dbPool, nil
 }
 func RunDBMigrations(dbFolderLocation string) error {
