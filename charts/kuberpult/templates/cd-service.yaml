@@ -33,13 +33,6 @@
 {{ fail "Values.cd.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{ .Values.cd.db.k8sName }}
-  annotations:
-    iam.gke.io/gcp-service-account: {{ .Values.cd.db.gcpEmail }}
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -79,12 +72,12 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: my-kuberpult-sa
+      serviceAccountName: {{ .Values.cd.db.k8sName }}
       containers:
       - name: cloud-sql-proxy
         # It is recommended to use the latest version of the Cloud SQL Auth Proxy
         # Make sure to update on a regular schedule!
-        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.0
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
         args:
           # If connecting from a VPC-native GKE cluster, you can use the
           # following flag to have the proxy connect over private IP
@@ -114,11 +107,11 @@ spec:
             # The proxy's memory use scales linearly with the number of active
             # connections. Fewer open connections will use less memory. Adjust
             # this value based on your application's requirements.
-            memory: "500Mi"
+            memory: {{ .Values.cd.db.limits.memory }}
             # The proxy's CPU use scales linearly with the amount of IO between
             # the database and the application. Adjust this value based on your
             # application's requirements.
-            cpu: "100m"
+            cpu:  {{ .Values.cd.db.limits.cpu }}
       - name: service
         image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ $.Chart.AppVersion }}"
         ports:
@@ -238,7 +231,6 @@ spec:
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
           value: "{{ .Values.cd.backendConfig.queueSize }}"
-<<<<<<< HEAD
 {{- if .Values.cd.db.enabled }}
         - name: KUBERPULT_DB_ENABLED
           value: "true"
@@ -261,10 +253,8 @@ spec:
           value: "false"
 {{- end }}
 
-=======
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"
->>>>>>> origin/main
         volumeMounts:
         - name: migrations
           mountPath: /migrations
@@ -414,7 +404,7 @@ kind: ConfigMap
 metadata:
   name: kuberpult-rbac
 data:
-  policy.csv: "{{ .Values.auth.dexAuth.policy_csv | quote}}"
+  policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
 {{- end }}
 apiVersion: v1
 kind: ConfigMap
