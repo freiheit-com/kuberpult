@@ -19,7 +19,7 @@
 
 git:
   # The git url of the manifest repository (git protocol)
-  url:   git@github.com/.../...
+  url:  # git@github.com/.../...
   webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
 
   # The branch to be use in the manifest repository
@@ -89,7 +89,7 @@ cd:
     enabled: true
     location: "127.0.0.1"
     authProxyPort: 5432
-    dbOption: "sqlite"
+    dbOption: "NO_DB"
     k8sName: "k8sname"
     dbConnectionName: "connectioname"
     dbName: "databaseName"
