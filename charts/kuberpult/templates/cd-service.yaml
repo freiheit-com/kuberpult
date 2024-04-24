@@ -32,6 +32,9 @@
 {{- if .Values.cd.tag }}
 {{ fail "Values.cd.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
+{{- if not (or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") (eq .Values.cd.db.dbOption "NO_DB")) }}
+{{ fail ".Values.cd.db.dbOption does not contain a valid value (NO_DB, sqlite, cloudsql)."}}
+{{ end -}}
 ---
 apiVersion: apps/v1
 kind: Deployment
