@@ -88,7 +88,7 @@ cd:
   db:
     location: "127.0.0.1"
     authProxyPort: 5432
-    dbOption: "NO_DB"
+    dbOption: "cloudsql"
     k8sName: "k8sname"
     dbConnectionName: "connectioname"
     dbName: "databaseName"
