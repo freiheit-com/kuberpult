@@ -64,11 +64,11 @@ build: bin/main
 
 build-pr:
 	echo "build on pull request"
-	$(EARTHLY) --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) --no-output --push +build-pr --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 build-main:
 	echo "build on main"
-	$(EARTHLY) --push +build-main --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
+	$(EARTHLY) --no-output --push +build-main --registry=$(IMAGE_REGISTRY) --tag=$(VERSION) --mirror=$(ARTIFACT_REGISTRY_MIRROR)
 
 .PHONY: cleanup-pr
 cleanup-pr:

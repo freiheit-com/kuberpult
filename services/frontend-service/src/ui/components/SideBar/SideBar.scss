@@ -71,6 +71,7 @@ Copyright 2023 freiheit.com*/
 
 .mdc-drawer-sidebar-list-item-text-summary {
     @extend .text-regular;
+    word-break: break-word;
 }
 
 .mdc-drawer-sidebar-list-item-delete-all {

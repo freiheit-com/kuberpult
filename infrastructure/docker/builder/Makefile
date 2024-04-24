@@ -38,7 +38,7 @@ cleanup-main:
 
 release:
 	echo "Releasing $(IMAGENAME)"
-	earthly --push +publish --DOCKER_REGISTRY_URI=$(DOCKER_REGISTRY_URI) --IMAGE_TAG=$(IMAGE_TAG) --VERSION=$(VERSION)
+	earthly --no-output --push +publish --DOCKER_REGISTRY_URI=$(DOCKER_REGISTRY_URI) --IMAGE_TAG=$(IMAGE_TAG) --VERSION=$(VERSION)
 
 publish: release
 	echo $(IMAGE_TAG)

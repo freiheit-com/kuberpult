@@ -144,6 +144,7 @@ jobs:
     if: |
         always() &&
         (needs.stageA_build.result != 'failed')  &&
+        (needs.stageA_build.result != 'cancelled')  &&
         (needs.execution_plan.outputs.stage_b != 'null')
     strategy:
       matrix:

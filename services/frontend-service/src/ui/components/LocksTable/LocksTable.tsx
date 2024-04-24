@@ -61,6 +61,7 @@ export const LocksTable: React.FC<{
                                                     className={'mdc-data-indicator-sort-button'}
                                                     onClick={sortOnClick}
                                                     icon={<SortAscending />}
+                                                    highlightEffect={false}
                                                 />
                                             )}
                                             {columnHeader === 'Date' && sort === 'newestToOldest' && (
@@ -68,6 +69,7 @@ export const LocksTable: React.FC<{
                                                     className={'mdc-data-indicator-sort-button'}
                                                     onClick={sortOnClick}
                                                     icon={<SortDescending />}
+                                                    highlightEffect={false}
                                                 />
                                             )}
                                         </div>

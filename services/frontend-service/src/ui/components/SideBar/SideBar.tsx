@@ -271,7 +271,11 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
                     }>
                     There are other similar locks.
                 </div>
-                <Button onClick={handleAddAll} label={' Delete them all! '} className={''}></Button>
+                <Button
+                    onClick={handleAddAll}
+                    label={' Delete them all! '}
+                    className={''}
+                    highlightEffect={false}></Button>
             </div>
         );
     return (
@@ -464,6 +468,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                         className={'mdc-drawer-sidebar-header__button mdc-button--unelevated'}
                         icon={<HideBarWhite />}
                         onClick={toggleSidebar}
+                        highlightEffect={false}
                     />
                     <h1 className="mdc-drawer-sidebar mdc-drawer-sidebar-header-title">{title}</h1>
                 </div>
@@ -487,6 +492,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                         label={'Apply'}
                         disabled={!canApply}
                         onClick={showDialog}
+                        highlightEffect={false}
                     />
                     {showSpinner && <Spinner message="Submitting changes" />}
                     {confirmationDialog}
