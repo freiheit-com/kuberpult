@@ -100,7 +100,6 @@ RELEASE:
     FUNCTION
     ARG --required image_tag
     SAVE IMAGE --push $image_tag
-    BUILD ../../../trivy+scan-service-pr --image_tag=$image_tag
 
 datadog-wrapper:
     FROM datadog/serverless-init:1-alpine

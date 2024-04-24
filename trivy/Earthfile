@@ -18,25 +18,31 @@ deps:
 scan-all:
     FROM +deps
     ARG --required kuberpult_version
-
+    ARG trigger=""
     ARG VERSION_REPORT_NAME="kuberpult-${kuberpult_version}-reports"
     ARG REPORT_TAR_NAME="${VERSION_REPORT_NAME}.tar.gz"
     RUN mkdir $VERSION_REPORT_NAME
 
-    FOR service IN $SERVICES
-        BUILD +scan-service --service=$service --version=$kuberpult_version
-        COPY (+scan-service/* --service=$service --version=$kuberpult_version) $VERSION_REPORT_NAME/
+    IF [ "$trigger" == "pull-request" ]
+        FOR service IN $SERVICES
+            BUILD +scan-service-pr --service=$service --version=$kuberpult_version
+        END
+    ELSE
+        FOR service IN $SERVICES
+            BUILD +scan-service --service=$service --version=$kuberpult_version
+            COPY (+scan-service/* --service=$service --version=$kuberpult_version) $VERSION_REPORT_NAME/
+        END
+        RUN tar -czf $REPORT_TAR_NAME $VERSION_REPORT_NAME/
+        SAVE ARTIFACT $REPORT_TAR_NAME AS LOCAL $REPORT_TAR_NAME
     END
-
-    RUN tar -czf $REPORT_TAR_NAME $VERSION_REPORT_NAME/
-    SAVE ARTIFACT $REPORT_TAR_NAME AS LOCAL $REPORT_TAR_NAME
 
 scan-service-pr:
     FROM +deps
-    ARG --required image_tag
+    ARG --required service
+    ARG --required version
     CACHE --sharing locked --id trivy-cache /tmp/trivy_cache
 
-    RUN trivy --cache-dir /tmp/trivy_cache --severity HIGH,CRITICAL --exit-code 1 image $image_tag
+    RUN trivy --cache-dir /tmp/trivy_cache --severity HIGH,CRITICAL --exit-code 1 image $IMAGE_REGISTRY/kuberpult-$service:$version
 
 scan-service:
     FROM +deps
