@@ -19,7 +19,7 @@
 
 git:
   # The git url of the manifest repository (git protocol)
-  url:  # git@github.com/.../...
+  url:   git@github.com/.../...
   webUrl:  # only necessary for webhooks to argoCd, e.g. https://github.com/freiheit-com/kuberpult
 
   # The branch to be use in the manifest repository
@@ -86,12 +86,18 @@ cd:
       memory: 3Gi
 # The Database is not ready for use on production and the helm options might change in the near future.
   db:
-    enabled: false
+    enabled: true
     location: "127.0.0.1"
     authProxyPort: 5432
-    limits:
-      cpu: 2
-      memory: 3Gi
+    dbOption: "sqlite"
+    k8sName: "k8sname"
+    dbConnectionName: "connectioname"
+    dbName: "databaseName"
+    dbUser: "username"
+    dbPassword: "password"
+    requests:
+      cpu: "100m"
+      memory: "200Mi"
   probes:
     liveness:
       periodSeconds: 10
@@ -144,7 +150,7 @@ ingress:
   create: true
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: 300
-  domainName: null
+  domainName: "some"
   # note that IAP is a GCP specific feature. On GCP we recommend to enable it.
   iap:
     enabled: false

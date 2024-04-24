@@ -337,29 +337,18 @@ ingress:
   domainName: "kuberpult-example.com"
 cd:
   db:
-    enabled: false
+    dbOption: NO_DB
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
-					Name:  "KUBERPULT_DB_ENABLED",
-					Value: "false",
+					Name:  "KUBERPULT_DB_OPTION",
+					Value: "NO_DB",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_OPTION",
-					Value: "",
-				},
+
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_DB_AUTH_PROXY_PORT",
-					Value: "",
-				},
-				{
-					Name:  "KUBERPULT_DB_CLOUD_SQL_INSTANCE",
 					Value: "",
 				},
 				{
@@ -377,7 +366,7 @@ cd:
 			},
 		},
 		{
-			Name: "Database enabled",
+			Name: "Database cloudsql enabled",
 			Values: `
 git:
   url: "testURL"
@@ -385,19 +374,13 @@ ingress:
   domainName: "kuberpult-example.com"
 cd:
   db:
-    enabled: true
+    dbOption: cloudsql
     location: "127.0.0.1"
-    authProxyPort: 5432
     dbName: dbName
     dbUser: dbUser
     dbPassword: dbPassword
-    dbOption: cloudsql
 `,
 			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_ENABLED",
-					Value: "true",
-				},
 				{
 					Name:  "KUBERPULT_DB_OPTION",
 					Value: "cloudsql",
@@ -405,10 +388,6 @@ cd:
 				{
 					Name:  "KUBERPULT_DB_LOCATION",
 					Value: "127.0.0.1",
-				},
-				{
-					Name:  "KUBERPULT_DB_AUTH_PROXY_PORT",
-					Value: "5432",
 				},
 				{
 					Name:  "KUBERPULT_DB_NAME",
@@ -424,6 +403,46 @@ cd:
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},
+		},
+		{
+			Name: "Database cloudsql enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+cd:
+  db:
+    dbOption: sqlite
+    location: /kp/database
+    dbName: does
+    dbUser: not
+    dbPassword: matter
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_OPTION",
+					Value: "sqlite",
+				},
+				{
+					Name:  "KUBERPULT_DB_LOCATION",
+					Value: "/kp/database",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_NAME",
+					Value: "",
+				},
+				{
+					Name:  "KUBERPULT_DB_USER_PASSWORD",
+					Value: "",
+				},
+			},
 		},
 	}
 
