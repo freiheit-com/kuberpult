@@ -130,10 +130,6 @@ print 'installing kuberpult helm chart...'
 
 cat <<VALUES > vals.yaml
 cd:
-  db:
-    dbOption: sqlite
-    location: /migrations
-    migrations: /migrations
   resources:
     limits:
       memory: 200Mi
