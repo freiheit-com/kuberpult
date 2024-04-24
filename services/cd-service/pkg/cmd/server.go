@@ -87,6 +87,7 @@ type Config struct {
 	DbUserName               string        `default:"" split_words:"true"`
 	DbUserPassword           string        `default:"" split_words:"true"`
 	DbAuthProxyPort          string        `default:"5432" split_words:"true"`
+	DbMigrationsLocation     string        `default:"" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -209,7 +210,7 @@ func RunServer() {
 					DbName:         c.DbName,
 					DbPassword:     c.DbUserPassword,
 					DbUser:         c.DbUserName,
-					MigrationsPath: "/migrations",
+					MigrationsPath: c.DbMigrationsLocation,
 				}
 			} else if c.DbOption == "sqlite" {
 				handler = repository.DBHandler{
@@ -219,7 +220,7 @@ func RunServer() {
 					DbName:         "",
 					DbPassword:     "",
 					DbUser:         "",
-					MigrationsPath: c.DbLocation + "/migrations",
+					MigrationsPath: c.DbMigrationsLocation,
 				}
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")

@@ -94,6 +94,7 @@ cd:
     dbName: "databaseName"
     dbUser: "username"
     dbPassword: "password"
+    migrations: /migrations
     requests:
       cpu: "100m"
       memory: "200Mi"

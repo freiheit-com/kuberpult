@@ -75,7 +75,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-{{- if .Values.cd.db.k8sName }}
+{{- if eq .Values.cd.db.dbOption "cloudsql" }}
       serviceAccountName: {{ .Values.cd.db.k8sName }}  
 {{- end }} 
       containers:
@@ -241,6 +241,8 @@ spec:
 {{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
         - name: KUBERPULT_DB_LOCATION
           value: {{ .Values.cd.db.location }}
+        - name: KUBERPULT_DB_MIGRATIONS_LOCATION
+          value: {{ .Values.cd.db.migrations }}
 {{- end }}
 {{- if eq .Values.cd.db.dbOption "cloudsql" }}
         - name: KUBERPULT_DB_NAME
@@ -253,8 +255,10 @@ spec:
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"
         volumeMounts:
+{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
         - name: migrations
-          mountPath: /migrations
+          mountPath: {{ .Values.cd.db.migrations }}
+{{- end }}
         - name: repository
           mountPath: /repository
         - name: ssh
@@ -403,9 +407,11 @@ metadata:
 data:
   policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
 {{- end }}
+{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kuberpult-migrations
 data:
   20210813132049_test.up.sql: "CREATE TABLE IF NOT EXISTS dummy_table(id BIGINT, created int, data int, PRIMARY KEY(id));"
+{{- end }}
