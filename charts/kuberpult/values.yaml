@@ -84,7 +84,7 @@ cd:
     requests:
       cpu: 2
       memory: 3Gi
-# Database is still evolving and the helm options might change in the future
+# The Database is not ready for use on production and the helm options might change in the near future.
   db:
     enabled: false
     location: "127.0.0.1"
