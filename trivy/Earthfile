@@ -31,6 +31,13 @@ scan-all:
     RUN tar -czf $REPORT_TAR_NAME $VERSION_REPORT_NAME/
     SAVE ARTIFACT $REPORT_TAR_NAME AS LOCAL $REPORT_TAR_NAME
 
+scan-service-pr:
+    FROM +deps
+    ARG --required image_tag
+    CACHE --sharing locked --id trivy-cache /tmp/trivy_cache
+
+    RUN trivy --cache-dir /tmp/trivy_cache --severity HIGH,CRITICAL --exit-code 1 image $image_tag
+
 scan-service:
     FROM +deps
     ARG --required service
