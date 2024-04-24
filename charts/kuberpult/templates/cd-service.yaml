@@ -270,7 +270,7 @@ spec:
 {{- if .Values.auth.dexAuth.enabled }}
         - name: kuberpult-rbac
           mountPath: /kuberpult-rbac
-{{- end }}
+{{- end }} 
 {{- if .Values.dogstatsdMetrics.enabled }}
         - name: dsdsocket
           mountPath: {{ .Values.dogstatsdMetrics.hostSocketPath }}
