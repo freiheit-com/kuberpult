@@ -35,7 +35,7 @@ scan-service:
     FROM +deps
     ARG --required service
     ARG --required version
-    CACHE --sharing shared --id trivy-cache /tmp/trivy_cache
+    CACHE --sharing locked --id trivy-cache /tmp/trivy_cache
 
     RUN trivy --cache-dir /tmp/trivy_cache image $IMAGE_REGISTRY/kuberpult-$service:$version -f template --template "@templates/html.tpl" -o kuberpult-$service.html
     SAVE ARTIFACT kuberpult-$service.html
