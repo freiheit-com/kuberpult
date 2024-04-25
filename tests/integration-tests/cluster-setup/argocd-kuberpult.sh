@@ -132,6 +132,7 @@ cat <<VALUES > vals.yaml
 cd:
   db:
     dbOption: sqlite
+    location: /migrations
   resources:
     limits:
       memory: 200Mi
