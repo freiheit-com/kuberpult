@@ -86,9 +86,9 @@ cd:
       memory: 3Gi
 # The Database is not ready for use on production and the helm options might change in the near future.
   db:
-    location: "127.0.0.1"
+    location: /migrations
     authProxyPort: 5432
-    dbOption: "cloudsql"
+    dbOption: "sqlite"
     k8sName: "k8sname"
     dbConnectionName: "connectioname"
     dbName: "databaseName"

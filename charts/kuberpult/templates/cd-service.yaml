@@ -258,6 +258,12 @@ spec:
 {{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
         - name: migrations
           mountPath: {{ .Values.cd.db.migrations }}
+          readOnly: false
+{{- end }}
+{{- if eq .Values.cd.db.dbOption "sqlite" }}
+        - name: sqlite
+          mountPath: /sqlite
+          readOnly: false
 {{- end }}
         - name: repository
           mountPath: /repository
@@ -305,9 +311,16 @@ spec:
         configMap:
           name: kuberpult-keyring
 {{- end }}
+{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
       - name: migrations
         configMap:
           name: kuberpult-migrations
+{{- end }} 
+{{- if eq .Values.cd.db.dbOption "sqlite" }}
+      - name: sqlite
+        emptyDir:
+          sizeLimit: 1Gi
+{{- end }}
 {{- if .Values.environment_configs.bootstrap_mode }}
       - name: environment-configs
         configMap:

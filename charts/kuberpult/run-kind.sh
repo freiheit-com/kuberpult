@@ -51,7 +51,7 @@ function waitForDeployment() {
   sleep 10
   until kubectl wait --for=condition=ready pod -n "$ns" -l "$label" --timeout=30s
   do
-    sleep 4s
+    sleep 4
     print "logs:"
     kubectl -n "$ns" logs -l "$label" || echo "could not get logs for $label"
     print "describe pod:"
@@ -74,7 +74,7 @@ function portForwardAndWait() {
   sleep 10
   until nc -vz localhost "$portHere"
   do
-    sleep 3s
+    sleep 3
     print "logs:"
     kubectl -n "$ns" logs "$deployment"
     print "describe deployment:"
@@ -172,7 +172,10 @@ print "$frontend_imagename"
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
 kind load docker-image "$rollout_imagename"
-
+kind load docker-image quay.io/argoproj/argocd:v2.7.4
+kind load docker-image ghcr.io/dexidp/dex:v2.36.0
+kind load docker-image gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+kind load docker-image public.ecr.aws/docker/library/redis:7.0.11-alpine
 
 ## argoCd
 
@@ -270,6 +273,10 @@ cd:
     requests:
       memory: 200Mi
       cpu: 0.05
+  db:
+    dbOption: sqlite
+    location: /sqlite
+    migrations: /migrations
 frontend:
   resources:
     limits:

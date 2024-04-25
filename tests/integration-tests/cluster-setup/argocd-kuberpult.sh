@@ -132,7 +132,7 @@ cat <<VALUES > vals.yaml
 cd:
   db:
     dbOption: sqlite
-    location: /migrations
+    location: /sqlite
     migrations: /migrations
   resources:
     limits:
