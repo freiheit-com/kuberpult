@@ -206,7 +206,7 @@ $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
       g, kuberpult, role:kuberpult
 
 YAML
-helm install argocd argo-cd/argo-cd --values argocd-values.yml --version 5.36.0
+helm install argocd argo-cd/argo-cd --values argocd-values.yml --version 5.55.0
 
 print applying app...
 
