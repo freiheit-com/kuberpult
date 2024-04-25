@@ -276,7 +276,6 @@ cd:
   db:
     dbOption: sqlite
     location: /sqlite
-    migrations: /migrations
 frontend:
   resources:
     limits:
