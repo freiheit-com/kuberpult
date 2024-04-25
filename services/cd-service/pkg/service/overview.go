@@ -241,7 +241,7 @@ func (o *OverviewServiceServer) getOverview(
 			envInGroup.Applications = env.Applications
 		}
 	}
-	if apps, err := s.GetApplications(); err != nil {
+	if apps, err := s.GetApplications(nil); err != nil {
 		return nil, err
 	} else {
 		for _, appName := range apps {

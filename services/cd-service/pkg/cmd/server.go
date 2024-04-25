@@ -195,9 +195,10 @@ func RunServer() {
 		}
 
 		if c.DbEnabled {
+			// run migrations from scripts (other migrations are done after setting up the repo)
 			migErr := repository.RunDBMigrations(c.DbLocation)
 			if migErr != nil {
-				logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
+				logger.FromContext(ctx).Fatal("Error running database migrations from sql scripts", zap.Error(migErr))
 			}
 			_, err := repository.InsertDatabaseInformation(c.DbLocation, "Hello DB!")
 			if err != nil {
@@ -248,6 +249,14 @@ func RunServer() {
 
 		repositoryService := &service.Service{
 			Repository: repo,
+		}
+
+		if c.DbEnabled {
+			logger.FromContext(ctx).Warn("running custom migrations")
+			migErr := repository.RunCustomMigrations(ctx, c.DbLocation, repo)
+			if migErr != nil {
+				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
+			}
 		}
 
 		span.Finish()

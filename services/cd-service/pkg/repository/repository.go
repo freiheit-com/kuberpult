@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -147,6 +148,9 @@ type repository struct {
 	notify notify.Notify
 
 	backOffProvider func() backoff.BackOff
+
+	useDatabase      bool
+	databaseLocation string
 }
 
 type WebhookResolver interface {
@@ -207,6 +211,9 @@ type RepositoryConfig struct {
 	AllowLongAppNames bool
 
 	ArgoCdGenerateFiles bool
+
+	UseDatabase      bool
+	DatabaseLocation string
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -394,16 +401,18 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			return nil, nil, err
 		} else {
 			result := &repository{
-				writesDone:      0,
-				headLock:        sync.Mutex{},
-				notify:          notify.Notify{},
-				writeLock:       sync.Mutex{},
-				config:          &cfg,
-				credentials:     credentials,
-				certificates:    certificates,
-				repository:      repo2,
-				queue:           makeQueueN(cfg.MaximumQueueSize),
-				backOffProvider: defaultBackOffProvider,
+				writesDone:       0,
+				headLock:         sync.Mutex{},
+				notify:           notify.Notify{},
+				writeLock:        sync.Mutex{},
+				config:           &cfg,
+				credentials:      credentials,
+				certificates:     certificates,
+				repository:       repo2,
+				queue:            makeQueueN(cfg.MaximumQueueSize),
+				backOffProvider:  defaultBackOffProvider,
+				useDatabase:      cfg.UseDatabase,
+				databaseLocation: cfg.DatabaseLocation,
 			}
 			result.headLock.Lock()
 
@@ -1254,6 +1263,12 @@ func (r *repository) State() *State {
 
 func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 	var commit *git.Commit
+	connectToDb := func() *sql.DB {
+		if r.useDatabase {
+			return GetDBConnectionOrPanic(r.databaseLocation)
+		}
+		return nil
+	}
 	if oid == nil {
 		if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
 			var gerr *git.GitError
@@ -1264,6 +1279,8 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
 						BootstrapMode:          r.config.BootstrapMode,
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+						UseDatabase:            r.useDatabase,
+						db:                     connectToDb(),
 					}, nil
 				}
 			}
@@ -1286,6 +1303,8 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Commit:                 commit,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+		UseDatabase:            r.useDatabase,
+		db:                     connectToDb(),
 	}, nil
 }
 
@@ -1375,6 +1394,8 @@ type State struct {
 	Commit                 *git.Commit
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
+	UseDatabase            bool
+	db                     *sql.DB
 }
 
 func (s *State) Releases(application string) ([]uint64, error) {
@@ -1785,7 +1806,20 @@ func (s *State) GetEnvironmentApplications(environment string) ([]string, error)
 	return names(s.Filesystem, appDir)
 }
 
-func (s *State) GetApplications() ([]string, error) {
+// GetApplications returns apps from either the db (if enabled), or otherwise the filesystem
+func (s *State) GetApplications(ctx context.Context) ([]string, error) {
+	if s.UseDatabase {
+		result, err := DBSelectAllApplications(ctx, s.db)
+		if err != nil {
+			return nil, err
+		}
+		return result.Apps, nil
+	}
+	return s.GetApplicationsFromFile()
+}
+
+// GetApplicationsFromFile returns apps from the filesystem
+func (s *State) GetApplicationsFromFile() ([]string, error) {
 	return names(s.Filesystem, "applications")
 }
 
