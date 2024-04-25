@@ -32,7 +32,9 @@
 {{- if .Values.cd.tag }}
 {{ fail "Values.cd.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
-
+{{- if not (or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") (eq .Values.cd.db.dbOption "NO_DB")) }}
+{{ fail ".Values.cd.db.dbOption does not contain a valid value (NO_DB, sqlite, cloudsql)."}}
+{{ end -}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -73,7 +75,48 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- if eq .Values.cd.db.dbOption "cloudsql" }}
+      serviceAccountName: {{ .Values.cd.db.k8sName }}  
+{{- end }} 
       containers:
+{{- if eq .Values.cd.db.dbOption "cloudsql" }}
+      - name: cloud-sql-proxy
+        # It is recommended to use the latest version of the Cloud SQL Auth Proxy
+        # Make sure to update on a regular schedule!
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args:
+          # If connecting from a VPC-native GKE cluster, you can use the
+          # following flag to have the proxy connect over private IP
+          - "--private-ip"
+
+          # Enable structured logging with LogEntry format:
+          - "--structured-logs"
+
+          # Replace DB_PORT with the port the proxy should listen on
+
+          - "--port={{ .Values.cd.db.authProxyPort }}"
+
+          - {{ .Values.cd.db.dbConnectionName | quote }}
+        securityContext:
+          # The default Cloud SQL Auth Proxy image runs as the
+          # "nonroot" user and group (uid: 65532) by default.
+          runAsNonRoot: true
+        # You should use resource requests/limits as a best practice to prevent
+        # pods from consuming too many resources and affecting the execution of
+        # other pods. You should adjust the following values based on what your
+        # application needs. For details, see
+        # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+        resources:
+          requests:
+            # The proxy's memory use scales linearly with the number of active
+            # connections. Fewer open connections will use less memory. Adjust
+            # this value based on your application's requirements.
+            memory: {{ .Values.cd.db.requests.memory }}
+            # The proxy's CPU use scales linearly with the amount of IO between
+            # the database and the application. Adjust this value based on your
+            # application's requirements.
+            cpu:  {{ .Values.cd.db.requests.cpu }}
+{{- end }}
       - name: service
         image: "{{ .Values.hub }}/{{ .Values.cd.image }}:{{ $.Chart.AppVersion }}"
         ports:
@@ -183,8 +226,6 @@ spec:
         - name: KUBERPULT_BOOTSTRAP_MODE
           value: "{{ .Values.environment_configs.bootstrap_mode }}"
 {{- end }}
-        - name: KUBERPULT_ENABLE_SQLITE
-          value: "{{ .Values.cd.enableSqlite }}"
         - name: KUBERPULT_GIT_NETWORK_TIMEOUT
           value: "{{ .Values.git.networkTimeout }}"
         - name: KUBERPULT_GIT_WRITE_COMMIT_DATA
@@ -195,9 +236,35 @@ spec:
           value: "{{ .Values.datadogProfiling.enabled }}"
         - name: KUBERPULT_MAXIMUM_QUEUE_SIZE
           value: "{{ .Values.cd.backendConfig.queueSize }}"
+        - name: KUBERPULT_DB_OPTION # { NO_DB, cloudsql, sqlite }
+          value: {{ .Values.cd.db.dbOption }}
+{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
+        - name: KUBERPULT_DB_LOCATION
+          value: {{ .Values.cd.db.location }}
+        - name: KUBERPULT_DB_MIGRATIONS_LOCATION
+          value: {{ .Values.cd.db.migrations }}
+{{- end }}
+{{- if eq .Values.cd.db.dbOption "cloudsql" }}
+        - name: KUBERPULT_DB_NAME
+          value: "{{ .Values.cd.db.dbName }}"
+        - name: KUBERPULT_DB_USER_NAME
+          value: "{{ .Values.cd.db.dbUser }}"
+        - name: KUBERPULT_DB_USER_PASSWORD
+          value: "{{ .Values.cd.db.dbPassword }}"
+{{- end }}
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"
         volumeMounts:
+{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
+        - name: migrations
+          mountPath: {{ .Values.cd.db.migrations }}
+          readOnly: false
+{{- end }}
+{{- if eq .Values.cd.db.dbOption "sqlite" }}
+        - name: sqlite
+          mountPath: /sqlite
+          readOnly: false
+{{- end }}
         - name: repository
           mountPath: /repository
         - name: ssh
@@ -243,6 +310,16 @@ spec:
       - name: keyring
         configMap:
           name: kuberpult-keyring
+{{- end }}
+{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
+      - name: migrations
+        configMap:
+          name: kuberpult-migrations
+{{- end }} 
+{{- if eq .Values.cd.db.dbOption "sqlite" }}
+      - name: sqlite
+        emptyDir:
+          sizeLimit: 1Gi
 {{- end }}
 {{- if .Values.environment_configs.bootstrap_mode }}
       - name: environment-configs
@@ -342,4 +419,12 @@ metadata:
   name: kuberpult-rbac
 data:
   policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
+{{- end }}
+{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kuberpult-migrations
+data:
+  20210813132049_test.up.sql: "CREATE TABLE IF NOT EXISTS dummy_table(id BIGINT, created int, data int, PRIMARY KEY(id));"
 {{- end }}

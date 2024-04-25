@@ -6,6 +6,8 @@ services:
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
       - KUBERPULT_DB_ENABLED=true
       - KUBERPULT_DB_LOCATION=/kp/database
+      - KUBERPULT_DB_MIGRATIONS_LOCATION=/kp/database/migrations
+      - KUBERPULT_DB_OPTION=sqlite
       - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_GIT_NETWORK_TIMEOUT=3s
       - KUBERPULT_DEX_MOCK=false

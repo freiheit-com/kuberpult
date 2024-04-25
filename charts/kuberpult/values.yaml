@@ -84,7 +84,22 @@ cd:
     requests:
       cpu: 2
       memory: 3Gi
-  enableSqlite: true
+# The Database is not ready for use on production and the helm options might change in the near future.
+  db:
+    location: "127.0.0.1"
+    authProxyPort: 5432
+    dbOption: "cloudsql"
+# k8sName is required if `dbOption = "cloudsql"`, otherwise it's ignored.
+# k8sName is the name of the kubernetes service account.
+    k8sName: "k8sname"
+    dbConnectionName: "connectioname"
+    dbName: "databaseName"
+    dbUser: "username"
+    dbPassword: "password"
+    migrations: /migrations
+    requests:
+      cpu: "100m"
+      memory: "200Mi"
   probes:
     liveness:
       periodSeconds: 10
