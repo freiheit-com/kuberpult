@@ -133,6 +133,7 @@ cd:
   db:
     dbOption: sqlite
     location: /migrations
+    migrations: /migrations
   resources:
     limits:
       memory: 200Mi
