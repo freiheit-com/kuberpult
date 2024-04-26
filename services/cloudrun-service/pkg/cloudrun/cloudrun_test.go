@@ -22,6 +22,8 @@ import (
 	"google.golang.org/api/run/v1"
 )
 
+const errorMessage = "Expected %s, but got %s"
+
 func TestIsPresent(t *testing.T) {
 	for _, test := range []struct {
 		testName         string
@@ -120,11 +122,269 @@ func TestGetParent(t *testing.T) {
 			parent, err := getParent(testCase.service)
 			if err != nil {
 				if err.Error() != testCase.expectedError {
-					t.Errorf("Expected %s, but got %s", testCase.expectedError, err.Error())
+					t.Errorf(errorMessage, testCase.expectedError, err.Error())
 				}
 			}
 			if parent != testCase.expectedParent {
-				t.Errorf("Expected %s, but got %s", testCase.expectedParent, parent)
+				t.Errorf(errorMessage, testCase.expectedParent, parent)
+			}
+		})
+	}
+}
+
+func TestGetServiceConditions(t *testing.T) {
+	for _, test := range []struct {
+		testName           string
+		service            *run.Service
+		expectedConditions ServiceConditions
+		expectedError      string
+	}{
+		{
+			testName: "All conditions ready",
+			service: &run.Service{
+				Status: &run.ServiceStatus{
+					Conditions: []*run.GoogleCloudRunV1Condition{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
+							Type:   "ConfigurationsReady",
+							Status: "True",
+						},
+						{
+							Type:   "RoutesReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+			expectedConditions: ServiceConditions{
+				Ready:              "True",
+				ConfigurationReady: "True",
+				RoutesReady:        "True",
+			},
+			expectedError: "",
+		},
+		{
+			testName: "Service not ready",
+			service: &run.Service{
+				Status: &run.ServiceStatus{
+					Conditions: []*run.GoogleCloudRunV1Condition{
+						{
+							Type:   "Ready",
+							Status: "False",
+						},
+						{
+							Type:   "ConfigurationsReady",
+							Status: "True",
+						},
+						{
+							Type:   "RoutesReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+			expectedConditions: ServiceConditions{
+				Ready:              "False",
+				ConfigurationReady: "True",
+				RoutesReady:        "True",
+			},
+			expectedError: "",
+		},
+		{
+			testName: "Service Configuration not ready",
+			service: &run.Service{
+				Status: &run.ServiceStatus{
+					Conditions: []*run.GoogleCloudRunV1Condition{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
+							Type:   "ConfigurationsReady",
+							Status: "False",
+						},
+						{
+							Type:   "RoutesReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+			expectedConditions: ServiceConditions{
+				Ready:              "True",
+				ConfigurationReady: "False",
+				RoutesReady:        "True",
+			},
+			expectedError: "",
+		},
+		{
+			testName: "Service Routes not ready",
+			service: &run.Service{
+				Status: &run.ServiceStatus{
+					Conditions: []*run.GoogleCloudRunV1Condition{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
+							Type:   "ConfigurationsReady",
+							Status: "True",
+						},
+						{
+							Type:   "RoutesReady",
+							Status: "False",
+						},
+					},
+				},
+			},
+			expectedConditions: ServiceConditions{
+				Ready:              "True",
+				ConfigurationReady: "True",
+				RoutesReady:        "False",
+			},
+			expectedError: "",
+		},
+		{
+			testName: "All conditions not ready",
+			service: &run.Service{
+				Status: &run.ServiceStatus{
+					Conditions: []*run.GoogleCloudRunV1Condition{
+						{
+							Type:   "Ready",
+							Status: "False",
+						},
+						{
+							Type:   "ConfigurationsReady",
+							Status: "False",
+						},
+						{
+							Type:   "RoutesReady",
+							Status: "False",
+						},
+					},
+				},
+			},
+			expectedConditions: ServiceConditions{
+				Ready:              "False",
+				ConfigurationReady: "False",
+				RoutesReady:        "False",
+			},
+			expectedError: "",
+		},
+		{
+			testName: "Unknown state",
+			service: &run.Service{
+				Status: &run.ServiceStatus{
+					Conditions: []*run.GoogleCloudRunV1Condition{
+						{
+							Type:   "Ready",
+							Status: "False",
+						},
+						{
+							Type:   "ConfigurationsReady",
+							Status: "False",
+						},
+						{
+							Type:   "RoutesReady",
+							Status: "False",
+						},
+					},
+				},
+			},
+			expectedConditions: ServiceConditions{
+				Ready:              "False",
+				ConfigurationReady: "False",
+				RoutesReady:        "False",
+			},
+			expectedError: "",
+		},
+		{
+			testName: "Error in condition type",
+			service: &run.Service{
+				Status: &run.ServiceStatus{
+					Conditions: []*run.GoogleCloudRunV1Condition{
+						{
+							Type:   "NonExistentType",
+							Status: "True",
+						},
+						{
+							Type:   "ConfigurationsReady",
+							Status: "True",
+						},
+						{
+							Type:   "RoutesReady",
+							Status: "False",
+						},
+					},
+				},
+			},
+			expectedConditions: ServiceConditions{},
+			expectedError:      "unknown service condition type NonExistentType",
+		},
+	} {
+		testCase := test
+		t.Run(testCase.testName, func(t *testing.T) {
+			t.Parallel()
+			conditions, err := GetServiceConditions(testCase.service)
+			if err != nil {
+				if err.Error() != testCase.expectedError {
+					t.Errorf(errorMessage, testCase.expectedError, err.Error())
+				}
+			}
+			if conditions != testCase.expectedConditions {
+				t.Errorf(errorMessage, testCase.expectedConditions, conditions)
+			}
+		})
+	}
+}
+
+func TestGetOperationId(t *testing.T) {
+	parent := "projects/proj/locations/loc"
+	for _, test := range []struct {
+		testName      string
+		service       *run.Service
+		expectedId    string
+		expectedError string
+	}{
+		{
+			testName: "Correct operation ID",
+			service: &run.Service{
+				Metadata: &run.ObjectMeta{
+					Name: "test-service",
+					Annotations: map[string]string{
+						"run.googleapis.com/operation-id": "1234-1234-1234",
+					},
+				},
+			},
+			expectedId:    parent + "/operations/1234-1234-1234",
+			expectedError: "",
+		},
+		{
+			testName: "Operation id does not exist",
+			service: &run.Service{
+				Metadata: &run.ObjectMeta{
+					Name:        "test-service",
+					Annotations: map[string]string{},
+				},
+			},
+			expectedId:    "",
+			expectedError: "failed to get operation-id for service test-service",
+		},
+	} {
+		testCase := test
+		t.Run(testCase.testName, func(t *testing.T) {
+			t.Parallel()
+			operationId, err := getOperationId(parent, testCase.service)
+			if err != nil {
+				if err.Error() != testCase.expectedError {
+					t.Errorf(errorMessage, testCase.expectedError, err.Error())
+				}
+			}
+			if operationId != testCase.expectedId {
+				t.Errorf(errorMessage, testCase.expectedId, operationId)
 			}
 		})
 	}
