@@ -201,9 +201,9 @@ func RunServer() {
 		}
 
 		if c.DbOption != "NO_DB" {
-			var handler repository.DBHandler
+			var dbCfg repository.DBConfig
 			if c.DbOption == "cloudsql" {
-				handler = repository.DBHandler{
+				dbCfg = repository.DBConfig{
 					DbHost:         c.DbLocation,
 					DbPort:         c.DbAuthProxyPort,
 					DriverName:     "postgres",
@@ -213,36 +213,36 @@ func RunServer() {
 					MigrationsPath: c.DbMigrationsLocation,
 				}
 			} else if c.DbOption == "sqlite" {
-				handler = repository.DBHandler{
+				dbCfg = repository.DBConfig{
 					DbHost:         c.DbLocation,
-					DbPort:         "",
+					DbPort:         c.DbAuthProxyPort,
 					DriverName:     "sqlite3",
-					DbName:         "",
-					DbPassword:     "",
-					DbUser:         "",
+					DbName:         c.DbName,
+					DbPassword:     c.DbUserPassword,
+					DbUser:         c.DbUserName,
 					MigrationsPath: c.DbMigrationsLocation,
 				}
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
 			}
-			db, err := handler.GetDBConnection()
+			db, err := repository.Connect(dbCfg)
 			if err != nil {
 				logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
-			pErr := db.Ping()
+			pErr := db.DB.Ping()
 			if pErr != nil {
 				logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
 			}
-			db.Close()
-			migErr := handler.RunDBMigrations()
+
+			migErr := repository.RunDBMigrations(dbCfg)
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
 			}
-			_, retrieveErr := handler.InsertDatabaseInformation()
+			_, retrieveErr := db.InsertDatabaseInformation()
 			if retrieveErr != nil {
 				logger.FromContext(ctx).Warn("Error inserting information into db: ", zap.Error(retrieveErr))
 			}
-			m, err := handler.RetrieveDatabaseInformation()
+			m, err := db.RetrieveDatabaseInformation()
 			if err != nil {
 				logger.FromContext(ctx).Warn("Error retrieving information from db: ", zap.Error(retrieveErr))
 			}
@@ -250,6 +250,7 @@ func RunServer() {
 			if printErr != nil {
 				logger.FromContext(ctx).Fatal("Error printing information from db: ", zap.Error(printErr))
 			}
+			db.DB.Close()
 		}
 
 		cfg := repository.RepositoryConfig{
