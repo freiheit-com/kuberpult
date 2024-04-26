@@ -1513,6 +1513,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
+		DB:                     state.DB,
 	}
 	if err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
 		return "", err
@@ -1557,7 +1558,7 @@ func (c *CreateEnvironmentTeamLock) Transform(
 	fs := state.Filesystem
 
 	foundTeam := false
-	if apps, err := state.GetApplications(); err == nil {
+	if apps, err := state.GetApplicationsFromFile(); err == nil {
 		for _, currentApp := range apps {
 			currentTeamFile := fs.Join("applications", currentApp, "team")
 			if currentTeamName, err := util.ReadFile(fs, currentTeamFile); err == nil {
@@ -1638,6 +1639,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
+		DB:                     state.DB,
 	}
 	if err := s.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
 		return "", err
@@ -1905,6 +1907,7 @@ func (c *DeployApplicationVersion) Transform(
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
+		DB:                     state.DB,
 	}
 	err = s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
 	if err != nil {
@@ -2111,7 +2114,7 @@ func (c *ReleaseTrain) getUpstreamLatestApp(upstreamLatest bool, state *State, c
 		return apps, appVersions, nil
 	}
 	if upstreamLatest {
-		apps, err = state.GetApplications()
+		apps, err = state.GetApplicationsFromFile()
 		if err != nil {
 			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get all applications for %q: %w", source, err))
 		}

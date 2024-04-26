@@ -17,11 +17,16 @@ Copyright 2023 freiheit.com*/
 package repository
 
 import (
+	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path"
+	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -110,13 +115,13 @@ func GetConnectionAndDriver(cfg DBConfig) (*sql.DB, database.Driver, error) {
 	return nil, nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", cfg.DriverName)
 }
 
-func (d *DBHandler) getMigrationHandler() (*migrate.Migrate, error) {
-	if d.DriverName == "postgres" {
-		return migrate.NewWithDatabaseInstance("file://"+d.MigrationsPath, d.DbName, *d.DBDriver)
-	} else if d.DriverName == "sqlite3" {
-		return migrate.NewWithDatabaseInstance("file://"+d.MigrationsPath, "", *d.DBDriver) //FIX ME
+func (h *DBHandler) getMigrationHandler() (*migrate.Migrate, error) {
+	if h.DriverName == "postgres" {
+		return migrate.NewWithDatabaseInstance("file://"+h.MigrationsPath, h.DbName, *h.DBDriver)
+	} else if h.DriverName == "sqlite3" {
+		return migrate.NewWithDatabaseInstance("file://"+h.MigrationsPath, "", *h.DBDriver) //FIX ME
 	}
-	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", d.DriverName)
+	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", h.DriverName)
 }
 
 func RunDBMigrations(cfg DBConfig) error {
@@ -140,87 +145,134 @@ func RunDBMigrations(cfg DBConfig) error {
 	return nil
 }
 
-func (d *DBHandler) getDummyPreparedStatement(db *sql.DB) (*sql.Stmt, error) {
-	var statement string
-	if d.DriverName == "postgres" { //TODO: Replace ? or $x based on driver
-		statement = "INSERT INTO dummy_table (id , created , data)  VALUES ($1, $2, $3);"
-	} else if d.DriverName == "sqlite3" {
-		statement = "INSERT INTO dummy_table (id , created , data)  VALUES (?, ?, ?);"
+func (h *DBHandler) AdaptQuery(query string) string {
+	if h.DriverName == "postgres" {
+		return query
+	} else if h.DriverName == "sqlite3" {
+		return PostgresToSqliteQuery(query)
 	}
-	return db.Prepare(statement)
+	panic(fmt.Errorf("AdaptQuery: invalid driver: %s", h.DriverName))
 }
 
-func (d *DBHandler) insertDummyRow() (sql.Result, error) {
+// PostgresToSqliteQuery just replaces all "?" into "$1", "$2", etc
+func PostgresToSqliteQuery(query string) string {
+	var q = query
+	var i = 1
+	for strings.Contains(q, "?") {
+		q = strings.Replace(q, "?", fmt.Sprintf("$%d", i), 1)
+		i++
+	}
+	return q
+}
 
-	stmt, err := d.getDummyPreparedStatement(d.DB)
+func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion int64, applications []string) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
+	defer span.Finish()
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("could not begin transaction. Error: %w", err)
+	}
+	jsonToInsert, _ := json.Marshal(AllApplicationsJson{
+		Apps: applications,
+	})
+	insertQuery := h.AdaptQuery("INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?);")
+	logger.FromContext(ctx).Sugar().Warnf("Query: %s", insertQuery)
+	//fmt.Printf("Query: %s", insertQuery)
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		previousVersion+1,
+		time.Now(),
+		jsonToInsert)
 
 	if err != nil {
-		return nil, fmt.Errorf("Error Preparing statement. Error: %w\n", err)
+		return fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
 	}
-	defer stmt.Close()
-
-	result, err := stmt.Exec(rand.Intn(9999), rand.Intn(9999), rand.Intn(9999))
-
+	err = tx.Commit()
 	if err != nil {
-		return nil, fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
+		return fmt.Errorf("could not commit transaction. Error: %w", err)
 	}
-
-	return result, nil
-}
-
-func (d *DBHandler) InsertDatabaseInformation() (sql.Result, error) {
-
-	result, err := d.insertDummyRow()
-
-	if err != nil {
-		return nil, fmt.Errorf("Error inserting row. Error: %w\n", err)
-	}
-
-	return result, nil
-}
-
-func (d *DBHandler) RetrieveDatabaseInformation() (map[int]DummyDbRow, error) {
-	rows, err := d.DB.Query("SELECT * FROM dummy_table;")
-
-	if err != nil {
-		return nil, fmt.Errorf("Error querying the database. Error: %w\n", err)
-	}
-	m := map[int]DummyDbRow{}
-	for rows.Next() {
-		r := DummyDbRow{
-			id:   0,
-			date: []byte{},
-			data: "",
-		}
-		err := rows.Scan(&r.id, &r.date, &r.data)
-		if err != nil {
-			return nil, fmt.Errorf("Error retrieving information from database. Error: %w\n", err)
-		}
-		m[r.id] = r
-	}
-
-	return m, nil
-}
-
-type DummyDbRow struct {
-	id   int
-	date []byte
-	data string
-}
-
-func (r *DummyDbRow) Equal(target DummyDbRow) bool {
-	return r.data == target.data && r.id == target.id && string(r.date) == string(target.date)
-}
-
-func getHeader(totalWidth int) string {
-	return "+" + strings.Repeat("-", totalWidth-2) + "+"
-}
-
-func PrintQuery(queryResult map[int]DummyDbRow) error {
-	fmt.Println(getHeader(80))
-	for _, val := range queryResult {
-		fmt.Printf("| %-4d %50s %20s |\n", val.id, string(val.date), val.data)
-	}
-	fmt.Println(getHeader(80))
 	return nil
+}
+
+// DBSelectAllApplications returns (nil, nil) if there are no rows
+func (h *DBHandler) DBSelectAllApplications(ctx context.Context) (*AllApplicationsGo, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
+	defer span.Finish()
+	query := "SELECT version, created, json FROM all_apps ORDER BY version DESC LIMIT 1;"
+	span.SetTag("query", query)
+	rows := h.DB.QueryRowContext(ctx, query)
+	result := AllApplicationsRow{}
+
+	err := rows.Scan(&result.version, &result.created, &result.data)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+	}
+
+	var resultGo = AllApplicationsGo{}
+	var resultJson = AllApplicationsJson{}
+	err = json.Unmarshal(([]byte)(result.data), &resultJson)
+	if err != nil {
+		return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, result.data)
+	}
+	resultGo.Version = result.version
+	resultGo.Created = result.created
+	resultGo.Apps = resultJson.Apps
+	return &resultGo, nil
+}
+
+func (h *DBHandler) RunCustomMigrations(ctx context.Context, repo Repository) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "RunCustomMigrations")
+	defer span.Finish()
+	return h.RunCustomMigrationAllTables(ctx, repo)
+}
+
+func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, repo Repository) error {
+	l := logger.FromContext(ctx).Sugar()
+	allAppsDb, err := h.DBSelectAllApplications(ctx)
+	if err != nil {
+		l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
+		allAppsDb = nil
+	}
+
+	allAppsRepo, err := repo.State().GetApplicationsFromFile()
+	if err != nil {
+		return fmt.Errorf("could not get applications to run custom migrations: %v", err)
+	}
+	var version int64 = 0
+	if allAppsDb != nil {
+		slices.Sort(allAppsDb.Apps)
+		version = allAppsDb.Version
+	} else {
+		version = 1
+	}
+	slices.Sort(allAppsRepo)
+
+	if allAppsDb != nil && reflect.DeepEqual(allAppsDb.Apps, allAppsRepo) {
+		// nothing to do
+		logger.FromContext(ctx).Sugar().Infof("Nothing to do, all apps are equal")
+		return nil
+	}
+	// if there is any difference, we assume the manifest wins over the database state,
+	// so we use `allAppsRepo`:
+	return h.DBWriteAllApplications(ctx, version, allAppsRepo)
+}
+
+type AllApplicationsJson struct {
+	Apps []string `json:"apps"`
+}
+
+type AllApplicationsRow struct {
+	version int64
+	created time.Time
+	data    string
+}
+
+type AllApplicationsGo struct {
+	Version int64
+	Created time.Time
+	AllApplicationsJson
 }

@@ -200,6 +200,7 @@ func RunServer() {
 			)
 		}
 
+		var dbHandler *repository.DBHandler = nil
 		if c.DbOption != "NO_DB" {
 			var dbCfg repository.DBConfig
 			if c.DbOption == "cloudsql" {
@@ -225,11 +226,11 @@ func RunServer() {
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
 			}
-			db, err := repository.Connect(dbCfg)
+			dbHandler, err = repository.Connect(dbCfg)
 			if err != nil {
 				logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
-			pErr := db.DB.Ping()
+			pErr := dbHandler.DB.Ping()
 			if pErr != nil {
 				logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
 			}
@@ -238,19 +239,6 @@ func RunServer() {
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
 			}
-			_, retrieveErr := db.InsertDatabaseInformation()
-			if retrieveErr != nil {
-				logger.FromContext(ctx).Warn("Error inserting information into db: ", zap.Error(retrieveErr))
-			}
-			m, err := db.RetrieveDatabaseInformation()
-			if err != nil {
-				logger.FromContext(ctx).Warn("Error retrieving information from db: ", zap.Error(retrieveErr))
-			}
-			printErr := repository.PrintQuery(m)
-			if printErr != nil {
-				logger.FromContext(ctx).Fatal("Error printing information from db: ", zap.Error(printErr))
-			}
-			db.DB.Close()
 		}
 
 		cfg := repository.RepositoryConfig{
@@ -288,6 +276,13 @@ func RunServer() {
 
 		repositoryService := &service.Service{
 			Repository: repo,
+		}
+		if c.DbOption != "NO_DB" {
+			logger.FromContext(ctx).Warn("running custom migrations")
+			migErr := dbHandler.RunCustomMigrations(ctx, repo)
+			if migErr != nil {
+				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
+			}
 		}
 
 		span.Finish()
