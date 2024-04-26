@@ -139,6 +139,8 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 
 		if existingApp == nil {
 			createSpan, ctx := tracer.StartSpanFromContext(ctx, "CreateApplication")
+			defer createSpan.Finish()
+
 			createSpan.SetTag("application", app.Name)
 			createSpan.SetTag("environment", env.Name)
 			createSpan.SetTag("operation", "create")
@@ -161,7 +163,6 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 					logger.FromContext(ctx).Error("creating "+appToCreate.Name+",env "+env.Name, zap.Error(err))
 				}
 			}
-			createSpan.Finish()
 		} else {
 			appToUpdate := CreateArgoApplication(overview, app, env)
 			appUpdateRequest := &application.ApplicationUpdateRequest{
@@ -179,6 +180,8 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 			diff := cmp.Diff(appUpdateRequest.Application.Spec, existingApp.Spec, cmp.AllowUnexported(emptyAppSpec.Destination))
 			if diff != "" {
 				updateSpan, ctx := tracer.StartSpanFromContext(ctx, "UpdateApplications")
+				defer updateSpan.Finish()
+
 				updateSpan.SetTag("application", app.Name)
 				updateSpan.SetTag("environment", env.Name)
 				updateSpan.SetTag("operation", "update")
@@ -187,7 +190,6 @@ func (a ArgoAppProcessor) CreateOrUpdateApp(ctx context.Context, overview *api.G
 				if err != nil {
 					logger.FromContext(ctx).Error("updating application: "+appToUpdate.Name+",env "+env.Name, zap.Error(err))
 				}
-				updateSpan.Finish()
 			}
 		}
 	}
