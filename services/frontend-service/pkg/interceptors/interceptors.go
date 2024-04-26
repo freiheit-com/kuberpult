@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -124,6 +125,21 @@ func GoogleIAPInterceptor(
 	httpHandler(w, req)
 }
 
+func checkPolicy(httpCtx context.Context, w http.ResponseWriter, req *http.Request, userGroup string) context.Context {
+	policy, err := auth.ReadRbacPolicy(true, "/etc/policy.csv")
+	if err != nil {
+		http.Error(w, "unable to access RBAC policy to validate login", http.StatusBadRequest)
+		return nil
+	}
+	for _, policyGroup := range policy.Groups {
+		if policyGroup.Group == userGroup {
+			auth.WriteUserRoleToHttpHeader(req, policyGroup.Role)
+			httpCtx = auth.WriteUserRoleToGrpcContext(req.Context(), policyGroup.Role)
+		}
+	}
+	return httpCtx
+}
+
 // DexLoginInterceptor intercepts HTTP calls to the frontend service.
 // DexLoginInterceptor must only be used if dex is enabled.
 // If the user us not logged in, it redirected the calls to the Dex login page.
@@ -134,14 +150,28 @@ func DexLoginInterceptor(
 	httpHandler http.HandlerFunc,
 	clientID, baseURL string,
 ) {
-	role, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
+	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
 	if err != nil {
 		logger.FromContext(req.Context()).Debug(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		// If user is not authenticated redirect to the login page.
 		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
 	}
-	auth.WriteUserRoleToHttpHeader(req, role)
-	httpCtx := auth.WriteUserRoleToGrpcContext(req.Context(), role)
+	var httpCtx context.Context
+
+	switch {
+	case len(claims["groups"].([]interface{})) > 0:
+		for _, group := range claims["groups"].([]interface{}) {
+			groupName := strings.Trim(group.(string), "\"")
+			httpCtx = checkPolicy(httpCtx, w, req, groupName)
+		}
+	case claims["sub"].(string) != "":
+		httpCtx = checkPolicy(httpCtx, w, req, claims["sub"].(string))
+	default:
+		http.Error(w, "unable to parse token with expected fields for DEX login", http.StatusBadRequest)
+		return
+	}
+
+	httpCtx = context.WithValue(httpCtx, "claims", claims)
 	req = req.WithContext(httpCtx)
 	httpHandler(w, req)
 }

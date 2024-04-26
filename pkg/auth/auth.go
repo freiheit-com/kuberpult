@@ -40,9 +40,10 @@ The frontend-service also allows overwriting the default values, see function `g
 The cd-service generally expects these headers, either in the grpc context or the http headers.
 */
 const (
-	HeaderUserName  = "author-name"
-	HeaderUserEmail = "author-email"
-	HeaderUserRole  = "author-role"
+	HeaderUserName   = "author-name"
+	HeaderUserEmail  = "author-email"
+	HeaderUserRole   = "author-role"
+	HeaderClaimsInfo = "author-claims"
 )
 
 func Encode64(s string) string {
@@ -79,6 +80,12 @@ func WriteUserToGrpcContext(ctx context.Context, u User) context.Context {
 // Only used when RBAC is enabled.
 func WriteUserRoleToGrpcContext(ctx context.Context, userRole string) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, HeaderUserRole, Encode64(userRole))
+}
+
+// WriteUserRoleToGrpcContext adds the user claims to the GRPC context.
+// Only used when RBAC is enabled.
+func WriteUserClaimsToGrpcContext(ctx context.Context, claims string) context.Context {
+	return metadata.AppendToOutgoingContext(ctx, HeaderClaimsInfo, Encode64(claims))
 }
 
 type GrpcContextReader interface {
@@ -201,7 +208,7 @@ func WriteUserToHttpHeader(r *http.Request, user User) {
 // WriteUserRoleToHttpHeader writes the user role into http headers
 // it is used for requests like /release and managing locks which are delegated from frontend-service to cd-service
 func WriteUserRoleToHttpHeader(r *http.Request, role string) {
-	r.Header.Set(HeaderUserRole, Encode64(role))
+	r.Header.Add(HeaderUserRole, Encode64(role))
 }
 
 func GetUserOrDefault(u *User, defaultUser User) User {
