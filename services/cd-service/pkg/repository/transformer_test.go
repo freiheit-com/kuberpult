@@ -3564,10 +3564,10 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 				&UndeployApplication{
 					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeployUndeploy,staging:*,app1,allow":    {Role: "developer"},
-						"developer,DeployUndeploy,production:*,app1,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployUndeploy,staging:*,app1,allow":    {Role: "developer"},
+						"p,role:developer,DeployUndeploy,production:*,app1,allow": {Role: "developer"},
+					}}}},
 				},
 			},
 		},
@@ -3599,9 +3599,9 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 				&UndeployApplication{
 					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeployUndeploy,production:*,app1,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployUndeploy,production:*,app1,allow": {Role: "developer"},
+					}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3617,8 +3617,8 @@ func TestRbacTransformerTest(t *testing.T) {
 				&CreateEnvironment{
 					Environment: "production-p1",
 					Config:      config.EnvironmentConfig{EnvironmentGroup: nil},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateEnvironment,*:*,*,allow": {Role: "developer"}}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateEnvironment,*:*,*,allow": {Role: "developer"}}}}}},
 			},
 		},
 		{
@@ -3627,8 +3627,8 @@ func TestRbacTransformerTest(t *testing.T) {
 				&CreateEnvironment{
 					Environment: "production-p2",
 					Config:      config.EnvironmentConfig{EnvironmentGroup: &envGroupProduction},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateEnvironment,production:*,*,allow": {Role: "developer"}}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateEnvironment,production:*,*,allow": {Role: "developer"}}}}}},
 			},
 		},
 		{
@@ -3637,7 +3637,7 @@ func TestRbacTransformerTest(t *testing.T) {
 				&CreateEnvironment{
 					Environment:    "production-p2",
 					Config:         config.EnvironmentConfig{EnvironmentGroup: &envGroupProduction},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}}},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
 				User:        "test tester",
@@ -3670,11 +3670,11 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
-						"developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
-						"developer,DeployRelease,staging:*,app1,allow":     {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
+						"p,role:developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
+						"p,role:developer,DeployRelease,staging:*,app1,allow":     {Role: "developer"},
+					}}}},
 				},
 			},
 		},
@@ -3702,10 +3702,10 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
-						"developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
+						"p,role:developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
+					}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3739,9 +3739,9 @@ func TestRbacTransformerTest(t *testing.T) {
 				},
 				&CreateUndeployApplicationVersion{
 					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
+					}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3755,19 +3755,19 @@ func TestRbacTransformerTest(t *testing.T) {
 			Name: "able to create release train with permissions policy",
 			Transformers: ReleaseTrainTestSetup(&ReleaseTrain{
 				Target: envProduction,
-				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-					"developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
-					"developer,DeployRelease,production:*,test,allow":            {Role: "developer"},
-				}}},
+				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+					"p,role:developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
+					"p,role:developer,DeployRelease,production:*,test,allow":            {Role: "developer"},
+				}}}},
 			}),
 		},
 		{
 			Name: "unable to create release train without permissions policy: Missing DeployRelease permission",
 			Transformers: ReleaseTrainTestSetup(&ReleaseTrain{
 				Target: envProduction,
-				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-					"developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
-				}}},
+				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+					"p,role:developer,DeployReleaseTrain,production:production,*,allow": {Role: "developer"},
+				}}}},
 			}),
 			ExpectedError: fixtureWrapTransformError(status.Error(codes.Internal, "internal error")),
 		},
@@ -3775,7 +3775,7 @@ func TestRbacTransformerTest(t *testing.T) {
 			Name: "unable to create release train without permissions policy: Missing ReleaseTrain permission",
 			Transformers: ReleaseTrainTestSetup(&ReleaseTrain{
 				Target:         envProduction,
-				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+				Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 			}),
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
 				User:        "test tester",
@@ -3797,10 +3797,10 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
-						"developer,DeployRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
+						"p,role:developer,DeployRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
+					}}}},
 					WriteCommitData: true,
 				},
 			},
@@ -3818,9 +3818,9 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateRelease,acceptance:*,app1-testing,allow": {Role: "developer"},
+					}}}},
 					WriteCommitData: true,
 				},
 			},
@@ -3848,7 +3848,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Manifests: map[string]string{
 						envAcceptance: "acceptance", // not empty
 					},
-					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 					WriteCommitData: true,
 				},
 			},
@@ -3884,8 +3884,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Application:   "app1",
 					Version:       1,
 					LockBehaviour: api.LockBehavior_FAIL,
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeployRelease,acceptance:acceptance,*,allow": {Role: "developer"}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployRelease,acceptance:acceptance,*,allow": {Role: "developer"}}}}},
 				},
 			},
 		},
@@ -3910,7 +3910,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Application:    "app1",
 					Version:        1,
 					LockBehaviour:  api.LockBehavior_FAIL,
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3931,8 +3931,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment: "production",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "developer"}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"}}}}},
 				},
 			},
 		},
@@ -3947,8 +3947,8 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment: "production",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"releaseManager,CreateLock,production:production,*,allow": {Role: "releaseManager"}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:releaseManager,CreateLock,production:production,*,allow": {Role: "releaseManager"}}}}},
 				},
 			},
 			ctx: testutil.MakeTestContextDexEnabledUser("releaseManager"),
@@ -3964,7 +3964,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment:    "production",
 					Message:        "don't",
 					LockId:         "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -3985,13 +3985,13 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment: "production",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "developer"}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"}}}}},
 				},
 				&DeleteEnvironmentLock{
 					Environment:    "production",
 					LockId:         "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -4012,16 +4012,16 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment: "production",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "developer"}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"}}}}},
 				},
 				&DeleteEnvironmentLock{
 					Environment: "production",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeployRelease,production:production,*,allow": {Role: "developer"},
-						"developer,CreateLock,production:production,*,allow":    {Role: "developer"},
-						"developer,DeleteLock,production:production,*,allow":    {Role: "developer"}}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployRelease,production:production,*,allow": {Role: "developer"},
+						"p,role:developer,CreateLock,production:production,*,allow":    {Role: "developer"},
+						"p,role:developer,DeleteLock,production:production,*,allow":    {Role: "developer"}}}}},
 				},
 			},
 		},
@@ -4045,7 +4045,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Application:    "test",
 					Message:        "don't",
 					LockId:         "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -4075,9 +4075,9 @@ func TestRbacTransformerTest(t *testing.T) {
 					Application: "test",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "Developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
+					}}}},
 				},
 			},
 		},
@@ -4107,7 +4107,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment:    "production",
 					Application:    "test",
 					LockId:         "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -4137,17 +4137,17 @@ func TestRbacTransformerTest(t *testing.T) {
 					Application: "test",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"},
+					}}}},
 				},
 				&DeleteEnvironmentApplicationLock{
 					Environment: "production",
 					Application: "test",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeleteLock,production:production,*,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteLock,production:production,*,allow": {Role: "developer"},
+					}}}},
 				},
 			},
 		},
@@ -4172,7 +4172,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Team:           "sre-team",
 					Message:        "don't",
 					LockId:         "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -4204,9 +4204,9 @@ func TestRbacTransformerTest(t *testing.T) {
 					Team:        "sre-team",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "Developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
+					}}}},
 				},
 			},
 		},
@@ -4231,9 +4231,9 @@ func TestRbacTransformerTest(t *testing.T) {
 					Team:        "sre-team",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "Developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "Developer"},
+					}}}},
 				},
 			},
 		},
@@ -4264,7 +4264,7 @@ func TestRbacTransformerTest(t *testing.T) {
 					Environment:    "production",
 					Team:           "sre-team",
 					LockId:         "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -4296,17 +4296,17 @@ func TestRbacTransformerTest(t *testing.T) {
 					Team:        "sre-team",
 					Message:     "don't",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,CreateLock,production:production,*,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,CreateLock,production:production,*,allow": {Role: "developer"},
+					}}}},
 				},
 				&DeleteEnvironmentTeamLock{
 					Environment: "production",
 					Team:        "sre-team",
 					LockId:      "manual",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeleteLock,production:production,*,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteLock,production:production,*,allow": {Role: "developer"},
+					}}}},
 				},
 			},
 		},
@@ -4336,7 +4336,7 @@ func TestRbacTransformerTest(t *testing.T) {
 				&DeleteEnvFromApp{
 					Application:    "app1",
 					Environment:    envProduction,
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{}}}},
 				},
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
@@ -4372,9 +4372,9 @@ func TestRbacTransformerTest(t *testing.T) {
 				&DeleteEnvFromApp{
 					Application: "app1",
 					Environment: envProduction,
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: map[string]*auth.Permission{
-						"developer,DeleteEnvironmentApplication,production:production,*,allow": {Role: "developer"},
-					}}},
+					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeleteEnvironmentApplication,production:production,*,allow": {Role: "developer"},
+					}}}},
 				},
 			},
 		},

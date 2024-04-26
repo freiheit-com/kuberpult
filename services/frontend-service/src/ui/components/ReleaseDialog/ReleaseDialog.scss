@@ -194,6 +194,5 @@ button.button-lock {
 
 button.mdc-button.env-card-deploy-btn {
     border-radius: $release-dialog-inner-border-radius;
-    color: white;
     @extend .text-bold;
 }

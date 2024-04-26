@@ -36,6 +36,7 @@ import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useIsAuthenticated } from '@azure/msal-react';
 import { useApi } from './GrpcApi';
+import { AuthHeader } from './AzureAuthProvider';
 
 // see maxBatchActions in batch.go
 export const maxBatchActions = 100;
@@ -99,10 +100,10 @@ export const refreshTags = (): void => {
 };
 export const [useTag, updateTag] = createStore<TagsResponse>({ response: tagsResponse, tagsReady: false });
 
-export const getCommitInfo = (commitHash: string): void => {
-    const api = useApi;
-    api.gitService()
-        .GetCommitInfo({ commitHash: commitHash })
+export const getCommitInfo = (commitHash: string, authHeader: AuthHeader): void => {
+    useApi
+        .gitService()
+        .GetCommitInfo({ commitHash: commitHash }, authHeader)
         .then((result: GetCommitInfoResponse) => {
             updateCommitInfo.set({ response: result, commitInfoReady: CommitInfoState.READY });
         })

@@ -220,10 +220,11 @@ func TestBatchServiceWorks(t *testing.T) {
 			svc: &BatchServer{
 				RBACConfig: auth.RBACConfig{
 					DexEnabled: true,
-					Policy: map[string]*auth.Permission{
-						"developer,DeployRelease,production:production,*,allow": {Role: "Developer"},
-						"developer,CreateLock,production:production,*,allow":    {Role: "Developer"},
-						"developer,DeleteLock,production:production,*,allow":    {Role: "Developer"},
+					Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
+						"p,role:developer,DeployRelease,production:production,*,allow": {Role: "Developer"},
+						"p,role:developer,CreateLock,production:production,*,allow":    {Role: "Developer"},
+						"p,role:developer,DeleteLock,production:production,*,allow":    {Role: "Developer"},
+					},
 					},
 				},
 			},
@@ -362,19 +363,10 @@ func TestBatchServiceFails(t *testing.T) {
 					Authentication: repository.Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true}},
 				},
 			},
-			Batch:   []*api.BatchAction{},
-			context: testutil.MakeTestContextDexEnabled(),
-			svc:     &BatchServer{},
-			// expectedSetupError: errMatcher{"error at index 0 of transformer batch: rpc error: code = PermissionDenied desc = PermissionDenied: The user 'test tester' with role 'developer' is not allowed to perform the action 'CreateLock' on environment 'production'"},
-			expectedSetupError: &repository.TransformerBatchApplyError{
-				Index: 0,
-				TransformerError: auth.PermissionError{
-					User:        "test tester",
-					Role:        "developer",
-					Action:      "CreateLock",
-					Environment: "production",
-				},
-			},
+			Batch:              []*api.BatchAction{},
+			context:            testutil.MakeTestContextDexEnabled(),
+			svc:                &BatchServer{},
+			expectedSetupError: errMatcher{"error at index 0 of transformer batch: the desired action can not be performed because Dex is enabled without any RBAC policies"},
 		},
 	}
 	for _, tc := range tcs {

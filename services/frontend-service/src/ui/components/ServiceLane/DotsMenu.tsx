@@ -85,7 +85,7 @@ export const DotsMenu: React.FC<DotsMenuProps> = (props) => {
     if (!open) {
         return (
             <div className={'dots-menu dots-menu-hidden'}>
-                <Button className="mdc-button--unelevated" label={'⋮'} onClick={openMenu} />
+                <Button className="mdc-button--unelevated" label={'⋮'} onClick={openMenu} highlightEffect={false} />
             </div>
         );
     }
@@ -101,6 +101,7 @@ export const DotsMenu: React.FC<DotsMenuProps> = (props) => {
                             className="mdc-button--unelevated"
                             label={button.label}
                             onClick={memoizedOnClick}
+                            highlightEffect={false}
                         />
                     </li>
                 ))}

@@ -67,6 +67,12 @@ log:
   level: "WARN"
 cd:
   image: kuberpult-cd-service
+# By default, kuberpult allows names of apps to be max 39 characters.
+# This is usually enough. If you want to extend the length to up to 70 characters,
+# You need to ensure that ArgoCD has no issue with this. Set the Argo CD helm parameter:
+# `configs.cm.application.resourceTrackingMethod: annotation+label`
+# Note that there is no simple way in kuberpult to rename an app.
+  allowLongAppNames: false
   backendConfig:
     create: false   # Add backend config for health checks on GKE only
     timeoutSec: 300  # 30sec is the default on gcp loadbalancers, however kuberpult needs more with parallel requests. It is the time how long the loadbalancer waits for kuberpult to finish calls to the rest endpoint "release"
@@ -78,7 +84,22 @@ cd:
     requests:
       cpu: 2
       memory: 3Gi
-  enableSqlite: true
+# The Database is not ready for use on production and the helm options might change in the near future.
+  db:
+    location: "127.0.0.1"
+    authProxyPort: 5432
+    dbOption: "cloudsql"
+# k8sName is required if `dbOption = "cloudsql"`, otherwise it's ignored.
+# k8sName is the name of the kubernetes service account.
+    k8sName: "k8sname"
+    dbConnectionName: "connectioname"
+    dbName: "databaseName"
+    dbUser: "username"
+    dbPassword: "password"
+    migrations: /migrations
+    requests:
+      cpu: "100m"
+      memory: "200Mi"
   probes:
     liveness:
       periodSeconds: 10

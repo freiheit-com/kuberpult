@@ -39,6 +39,7 @@ docker:
     ARG tag="local"
     ARG use_datadog=false
     COPY gitconfig /etc/gitconfig
+    COPY policy.csv /etc/policy.csv
     DO go-build+DOCKER --UID=$UID --image_tag=$registry/kuberpult-$service:$tag --cgo_enabled=$cgo_enabled --entry_point=/main --service=$service --use_datadog=$use_datadog
 
 release:

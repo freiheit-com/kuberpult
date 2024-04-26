@@ -69,11 +69,13 @@ export const EnvironmentCard: React.FC<{ environment: Environment; group: Enviro
                         label={'Add Environment Lock in ' + environment.name}
                         icon={<Locks />}
                         onClick={addLock}
+                        highlightEffect={false}
                     />
                     <Button
                         className="environment-action service-action--show-config"
                         label={'Show Configuration of environment ' + environment.name}
                         onClick={onShowConfigClick}
+                        highlightEffect={false}
                     />
                     <div>
                         <ProductVersionLink
@@ -114,6 +116,7 @@ export const EnvironmentGroupCard: React.FC<{ environmentGroup: EnvironmentGroup
                         label={'Add Lock for each environment in ' + environmentGroup.environmentGroupName}
                         icon={<Locks />}
                         onClick={addLock}
+                        highlightEffect={false}
                     />
                 </div>
             </div>
