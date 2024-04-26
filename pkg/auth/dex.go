@@ -25,12 +25,11 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	jwt "github.com/golang-jwt/jwt/v5"
+	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/oauth2"
 )
 
@@ -271,39 +270,43 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 	}, nil
 }
 
+type MapClaims struct {
+	Groups []string `json:"groups"`
+	Email  string   `json:"email"`
+	Name   string   `json:"name"`
+	Sub    string   `json:"sub"`
+}
+
 // Verifies if the user is authenticated.
-func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string) (group string, err error) {
+func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string) (jwt.MapClaims, error) {
 	// Get the token cookie from the request
 	cookie, err := r.Cookie(dexOAUTHTokenName)
 	if err != nil {
-		return "", fmt.Errorf("%s token not found", dexOAUTHTokenName)
+		return nil, fmt.Errorf("%s token not found", dexOAUTHTokenName)
 	}
 	tokenString := cookie.Value
 
 	// Validates token audience and expiring date.
 	idToken, err := ValidateOIDCToken(ctx, baseURL+issuerPATH, tokenString, clientID)
 	if err != nil {
-		return "", fmt.Errorf("failed to verify token: %s", err)
+		return nil, fmt.Errorf("failed to verify token: %s", err)
 	}
 	// Extract token claims and verify the token is not expired.
 	claims := jwt.MapClaims{
 		"groups": []string{},
+		"email":  "",
+		"name":   "",
+		"sub":    "",
 	}
 	err = idToken.Claims(&claims)
 	if err != nil {
-		return "", fmt.Errorf("could not parse token claims")
+		return nil, fmt.Errorf("could not parse token claims")
 	}
 
-	// Convert the `groups` claim to an comma separated group string.
-	var groups string
-	if len(claims["groups"].([]interface{})) == 0 {
-		return "", fmt.Errorf("failed to verify token: no group defined")
-	}
-	for _, group := range claims["groups"].([]interface{}) {
-		groupName := strings.Trim(group.(string), "\"")
-		groups = groupName + "," + groups
+	// check if claims is empty in terms of required fields for identification
+	if claims["groups"] == nil && claims["sub"] == "" {
+		return nil, fmt.Errorf("need required fields to determine group of user")
 	}
 
-	// Returns the user object with the token information
-	return groups, nil
+	return claims, nil
 }
