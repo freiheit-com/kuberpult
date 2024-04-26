@@ -17,6 +17,7 @@ Copyright 2023 freiheit.com*/
 package repository
 
 import (
+	"go.uber.org/zap"
 	"os"
 	"path"
 	"strconv"
@@ -42,16 +43,16 @@ func TestConnection(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
-			handler := DBHandler{
+			cfg := DBConfig{
 				DriverName: "sqlite3",
 				DbHost:     dir,
 			}
-			connection, err := handler.GetDBConnection()
+			db, err := Connect(cfg)
 			if err != nil {
 				t.Fatalf("Error establishing DB connection. Error: %v\n", err)
 			}
-			defer connection.Close()
-			pingErr := connection.Ping()
+			defer db.DB.Close()
+			pingErr := db.DB.Ping()
 			if pingErr != nil {
 				t.Fatalf("Error DB. Error: %v\n", err)
 			}
@@ -95,7 +96,7 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			dbDir := t.TempDir()
-			handler := DBHandler{
+			cfg := DBConfig{
 				DriverName:     "sqlite3",
 				DbHost:         dbDir,
 				MigrationsPath: dbDir + "/migrations",
@@ -112,12 +113,16 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
 			}
 
-			migErr := handler.RunDBMigrations()
+			migErr := RunDBMigrations(cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			m, err := handler.RetrieveDatabaseInformation()
+			db, err := Connect(cfg)
+			if err != nil {
+				t.Fatal("Error establishing DB connection: ", zap.Error(err))
+			}
+			m, err := db.RetrieveDatabaseInformation()
 			if err != nil {
 				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
 			}
