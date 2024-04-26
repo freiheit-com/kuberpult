@@ -19,10 +19,7 @@ package cloudrun
 import (
 	"context"
 	"fmt"
-	"log"
 
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"go.uber.org/zap"
 	"google.golang.org/api/run/v1"
 )
 
@@ -73,6 +70,7 @@ func Init(ctx context.Context) error {
 
 func Deploy(ctx context.Context, svc *run.Service) error {
 	serviceName := svc.Metadata.Name
+	// Get the full path of the project. Example: projects/<project-id>/locations/<region>
 	parent, err := getParent(svc)
 	if err != nil {
 		return err
@@ -82,38 +80,23 @@ func Deploy(ctx context.Context, svc *run.Service) error {
 	if err != nil {
 		return err
 	}
+	var serviceCallResp *run.Service
+	// If the service is already deployed before, then we need to call ReplaceService. Otherwise, we call Create.
 	if isPresent(resp.Items, serviceName) {
 		servicePath := fmt.Sprintf("%s/services/%s", parent, serviceName)
 		serviceCall := runService.Projects.Locations.Services.ReplaceService(servicePath, svc)
-		resp, err := serviceCall.Do()
+		serviceCallResp, err = serviceCall.Do()
 		if err != nil {
-			logger.FromContext(ctx).Error("Service replace failed", zap.String("Error", err.Error()))
 			return err
-		}
-		operationId, err := getOperationId(parent, resp)
-		if err != nil {
-			logger.FromContext(ctx).Error("Failed to get operation id", zap.String("Error", err.Error()))
-			return err
-		}
-		operation := runService.Projects.Locations.Operations.Wait(operationId, &run.GoogleLongrunningWaitOperationRequest{})
-		opResp, err := operation.Do()
-		if err != nil {
-			log.Fatalf("Failed to get operation status: %v", err)
-		}
-		if !opResp.Done {
-			logger.FromContext(ctx).Error("Service creation timed out")
 		}
 	} else {
 		serviceCall := runService.Projects.Locations.Services.Create(parent, svc)
-		_, err := serviceCall.Do()
+		serviceCallResp, err = serviceCall.Do()
 		if err != nil {
-			logger.FromContext(ctx).Error("Service create failed:", zap.String("Error", err.Error()))
 			return err
 		}
-
 	}
-	logger.FromContext(ctx).Info("Service deployed successfully")
-	return nil
+	return waitForOperation(parent, serviceCallResp, 60)
 }
 
 func GetServiceConditions(serviceCallResponse *run.Service) (ServiceConditions, error) {
@@ -142,6 +125,25 @@ func getOperationId(parent string, serviceCallResp *run.Service) (string, error)
 	return fmt.Sprintf("%s/operations/%s", parent, operationId), nil
 }
 
+func waitForOperation(parent string, serviceCallResp *run.Service, timeoutSeconds uint16) error {
+	operationId, err := getOperationId(parent, serviceCallResp)
+	if err != nil {
+		return err
+	}
+	opService := run.NewProjectsLocationsOperationsService(runService)
+	waitOperationRequest := &run.GoogleLongrunningWaitOperationRequest{
+		Timeout: fmt.Sprintf("%ds", timeoutSeconds),
+	}
+	opServiceCall := opService.Wait(operationId, waitOperationRequest)
+	operationResp, err := opServiceCall.Do()
+	if err != nil {
+		return fmt.Errorf("failed to wait for the service %s: %s", serviceCallResp.Metadata.Name, err)
+	}
+	if !operationResp.Done {
+		return fmt.Errorf("service %s creation exceeded the timeout of %d seconds", serviceCallResp.Metadata.Name, timeoutSeconds)
+	}
+	return nil
+}
 func isPresent(services []*run.Service, serviceName string) bool {
 	for _, service := range services {
 		if service.Metadata.Name == serviceName {

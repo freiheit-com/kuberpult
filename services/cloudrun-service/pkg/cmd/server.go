@@ -38,7 +38,7 @@ func runServer(ctx context.Context) error {
 		ApiVersion: "serving.knative.dev/v1",
 		Kind:       "Service",
 		Metadata: &run.ObjectMeta{
-			Name:      "test-service2",
+			Name:      "test-service1",
 			Namespace: "855333057980",
 			Labels:    map[string]string{"cloud.googleapis.com/location": "europe-west1"},
 		},
@@ -77,21 +77,14 @@ func runServer(ctx context.Context) error {
 			},
 		},
 	}
-	// req := runService.Projects.Locations.Services.List("projects/855333057980/locations/europe-west1")
-	// it, err := req.Do()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// for _, service := range it.Items {
-	// 	for _, container := range service.Spec.Template.Spec.Containers {
-	// 		fmt.Printf("%s:\t%s\n", service.Metadata.Name, container.Image)
-	// 	}
-	// }
+
 	if err := cloudrun.Init(ctx); err != nil {
 		logger.FromContext(ctx).Fatal("Failed to initialize cloud run service")
 	}
 	if err := cloudrun.Deploy(ctx, svc); err != nil {
 		logger.FromContext(ctx).Error("Service deploy failed", zap.String("Error", err.Error()))
+	} else {
+		logger.FromContext(ctx).Info("Service deployed successfully", zap.String("Service", svc.Metadata.Name))
 	}
 	// if err := cloudrun.Deploy(ctx, svc); err != nil {
 	// 	logger.FromContext(ctx).Error("Service deploy failed", zap.String("Error", err.Error()))
