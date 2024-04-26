@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"github.com/freiheit-com/kuberpult/services/cloudrun-service/pkg/cloudrun"
@@ -34,12 +35,21 @@ func RunServer() {
 }
 
 func runServer(ctx context.Context) error {
+	projectId, exists := os.LookupEnv("GCP_PROJECT_ID")
+	if !exists {
+		logger.FromContext(ctx).Fatal("environment variable GCP_PROJECT_ID is missing")
+	}
+	imageTag, exists := os.LookupEnv("IMAGE_TAG")
+	if !exists {
+		logger.FromContext(ctx).Fatal("environment variable IMAGE_TAG is missing")
+	}
+	servicePort := int64(3001)
 	svc := &run.Service{
 		ApiVersion: "serving.knative.dev/v1",
 		Kind:       "Service",
 		Metadata: &run.ObjectMeta{
 			Name:      "test-service1",
-			Namespace: "855333057980",
+			Namespace: projectId,
 			Labels:    map[string]string{"cloud.googleapis.com/location": "europe-west1"},
 		},
 		Spec: &run.ServiceSpec{
@@ -48,17 +58,17 @@ func runServer(ctx context.Context) error {
 					Containers: []*run.Container{
 						{
 							Name:  "test-service",
-							Image: "eu.gcr.io/fdc-standard-setup-dev-env/services/serverless-app-example:rev637cd5fc5a8a99ba555b61fc9e3679715de89ebe",
+							Image: imageTag,
 							Ports: []*run.ContainerPort{
 								{
-									ContainerPort: 3000,
+									ContainerPort: servicePort,
 									Name:          "h2c",
 								},
 							},
 							Env: []*run.EnvVar{
 								{
 									Name:  "SERVERLESS_ECHO_GRPC_PORT",
-									Value: "3000",
+									Value: "3002",
 								},
 								{
 									Name:  "SERVERLESS_ECHO_HEALTH_PORT",
@@ -67,7 +77,7 @@ func runServer(ctx context.Context) error {
 							},
 							StartupProbe: &run.Probe{
 								TcpSocket: &run.TCPSocketAction{
-									Port: 3000,
+									Port: servicePort,
 								},
 								TimeoutSeconds: 10,
 							},
@@ -86,9 +96,6 @@ func runServer(ctx context.Context) error {
 	} else {
 		logger.FromContext(ctx).Info("Service deployed successfully", zap.String("Service", svc.Metadata.Name))
 	}
-	// if err := cloudrun.Deploy(ctx, svc); err != nil {
-	// 	logger.FromContext(ctx).Error("Service deploy failed", zap.String("Error", err.Error()))
-	// }
 
 	// setup.Run(ctx, setup.ServerConfig{
 	// 	HTTP: nil,

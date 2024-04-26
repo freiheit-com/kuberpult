@@ -96,7 +96,18 @@ func Deploy(ctx context.Context, svc *run.Service) error {
 			return err
 		}
 	}
-	return waitForOperation(parent, serviceCallResp, 60)
+	if err := waitForOperation(parent, serviceCallResp, 60); err != nil {
+		return err
+	}
+	conditions, err := GetServiceConditions(serviceCallResp)
+	if err != nil {
+		return err
+	}
+	// TODO: something wrong here. Sometimes the condition evaluates to false even though the service failed startup.
+	if conditions.Ready != "True" || conditions.ConfigurationReady != "True" || conditions.RoutesReady != "True" {
+		return fmt.Errorf("service %s not ready\n%s", serviceName, conditions)
+	}
+	return nil
 }
 
 func GetServiceConditions(serviceCallResponse *run.Service) (ServiceConditions, error) {
