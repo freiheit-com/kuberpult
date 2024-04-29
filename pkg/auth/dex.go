@@ -270,13 +270,6 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 	}, nil
 }
 
-type MapClaims struct {
-	Groups []string `json:"groups"`
-	Email  string   `json:"email"`
-	Name   string   `json:"name"`
-	Sub    string   `json:"sub"`
-}
-
 // Verifies if the user is authenticated.
 func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string) (jwt.MapClaims, error) {
 	// Get the token cookie from the request
