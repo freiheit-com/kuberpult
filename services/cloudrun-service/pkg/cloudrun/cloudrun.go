@@ -110,9 +110,8 @@ func Deploy(ctx context.Context, svc *run.Service) error {
 		return err
 	}
 	if condition.Status != "True" {
-		return fmt.Errorf("service not ready\n%s", condition)
+		return fmt.Errorf("service not ready: %s", condition)
 	}
-	fmt.Printf("Service deployed successfully: %s", condition)
 	return nil
 }
 

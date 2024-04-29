@@ -44,72 +44,58 @@ func runServer(ctx context.Context) error {
 		logger.FromContext(ctx).Fatal("environment variable IMAGE_TAG is missing")
 	}
 	servicePort := int64(3000)
+	//exhaustruct:ignore
 	metaData := &run.ObjectMeta{
 		Name:      "test-service1",
 		Namespace: projectId,
 		Labels:    map[string]string{"cloud.googleapis.com/location": "europe-west1"},
 	}
-	svc := &run.Service{
-		ApiVersion: "serving.knative.dev/v1",
-		Kind:       "Service",
-		Metadata:   metaData,
-		Spec: &run.ServiceSpec{
-			Template: &run.RevisionTemplate{
-				Spec: &run.RevisionSpec{
-					Containers: []*run.Container{
-						{
-							Name:  "test-service",
-							Image: imageTag,
-							Ports: []*run.ContainerPort{
-								{
-									ContainerPort: servicePort,
-									Name:          "h2c",
-								},
-							},
-							Env: []*run.EnvVar{
-								{
-									Name:  "SERVERLESS_ECHO_GRPC_PORT",
-									Value: fmt.Sprint(servicePort),
-								},
-								{
-									Name:  "SERVERLESS_ECHO_HEALTH_PORT",
-									Value: "8080",
-								},
-							},
-							StartupProbe: &run.Probe{
-								TcpSocket: &run.TCPSocketAction{
-									Port: servicePort,
-								},
-								TimeoutSeconds: 10,
-							},
-						},
-					},
-				},
-			},
+	//exhaustruct:ignore
+	ports := &run.ContainerPort{
+		ContainerPort: servicePort,
+		Name:          "h2c",
+	}
+	//exhaustruct:ignore
+	envVars := []*run.EnvVar{
+		{
+			Name:  "SERVERLESS_ECHO_GRPC_PORT",
+			Value: fmt.Sprint(servicePort),
+		},
+		{
+			Name:  "SERVERLESS_ECHO_HEALTH_PORT",
+			Value: "8080",
 		},
 	}
+	//exhaustruct:ignore
+	tcpSocket := &run.TCPSocketAction{Port: servicePort}
+	//exhaustruct:ignore
+	startupProbe := &run.Probe{
+		TcpSocket:      tcpSocket,
+		TimeoutSeconds: 10,
+	}
+	//exhaustruct:ignore
+	container := &run.Container{
+		Name:         "test-service",
+		Image:        imageTag,
+		Ports:        []*run.ContainerPort{ports},
+		Env:          envVars,
+		StartupProbe: startupProbe,
+	}
+	containers := []*run.Container{container}
+	//exhaustruct:ignore
+	service := &run.Service{}
+	service.ApiVersion = "serving.knative.dev/v1"
+	service.Kind = "Service"
+	service.Metadata = metaData
+	service.Spec.Template.Spec.Containers = containers
 
 	if err := cloudrun.Init(ctx); err != nil {
 		logger.FromContext(ctx).Fatal("Failed to initialize cloud run service")
 	}
-	if err := cloudrun.Deploy(ctx, svc); err != nil {
+	if err := cloudrun.Deploy(ctx, service); err != nil {
 		logger.FromContext(ctx).Error("Service deploy failed", zap.String("Error", err.Error()))
 	} else {
-		logger.FromContext(ctx).Info("Service deployed successfully", zap.String("Service", svc.Metadata.Name))
+		logger.FromContext(ctx).Info("Service deployed successfully", zap.String("Service", service.Metadata.Name))
 	}
-
-	// setup.Run(ctx, setup.ServerConfig{
-	// 	HTTP: nil,
-	// 	GRPC: &setup.GRPCConfig{
-	// 		Shutdown: nil,
-	// 		Port:     "8443",
-	// 		Opts:     nil,
-	// 		Register: func(srv *grpc.Server) {
-	// 			// Just a placeholder for now
-	// 		},
-	// 	},
-	// 	Background: nil,
-	// 	Shutdown:   nil,
-	// })
 	return nil
 }
