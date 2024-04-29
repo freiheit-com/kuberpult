@@ -253,25 +253,22 @@ auth:
     clientId: ""
     tenantId: ""
   dexAuth:
-    enabled: false
-    # Indicates if dex is to be installed. If you want to use your own Dex instance do not enable this flag.
-    installDex: false
-    # Defines the rbac policy when using Dex.
-    # The permissions are added using the following format (<ROLE>, <ACTION>, <ENVIRONMENT_GROUP>:<ENVIRONMENT>, <APPLICATION>, allow).
-    #
-    # Available actions are: CreateLock, DeleteLock, CreateRelease, DeployRelease, CreateUndeploy, DeployUndeploy, CreateEnvironment, CreateEnvironmentApplication and DeployReleaseTrain.
-    # The actions CreateUndeploy, DeployUndeploy and CreateEnvironmentApplication are environment independent meaning that the environment specified on the permission
-    # needs to follow the following format <ENVIRONMENT_GROUP>:*, otherwise an error will be thrown.
-    #
-    # Example permission: Developer, CreateLock, development:development, *, allow
-    # If no group is configured for an environment, the environment group name is the same as the environment name, here "development".
-    # The policy will be available on the kuberpult-rbac config map.
-    policy_csv: ""
-    clientId: ""
-    clientSecret: ""
-    baseURL: ""
-    # List of scopes to validate the token. Please add them as comma separated values.
-    scopes: ""
+    enabled: true
+    installDex: true
+    policy_csv: |
+      p, role:Developer, CreateLock, *:*, *, allow
+      p, role:Developer, DeleteLock, *:*, *, allow
+      p, role:Developer, CreateRelease, *:*, *, allow
+      p, role:Developer, DeployRelease, *:*, *, allow
+      p, role:Developer, CreateUndeploy, *:*, *, allow
+      p, role:Developer, DeployUndeploy, *:*, *, allow
+      p, role:Developer, CreateEnvironment, *:*, *, allow
+      p, role:Developer, DeleteEnvironmentApplication, *:*, *, allow
+      p, role:Developer, DeployReleaseTrain, *:*, *, allow
+    clientId: "kuberpult-dex"
+    clientSecret: "kuberpult-dex-secret"
+    baseURL: "https://dex.kuberpult.dev.freiheit.systems/"
+    scopes: "openid, email, profile"
   api:
     # New api endpoints (starting with `/api/`), are by default only turned on when IAP is enabled.
     # As of now this applies only to the manifest endpoint `/api/application/<application>/release/<release>/manifests`.
@@ -304,7 +301,28 @@ dex:
   #       clientID: $GOOGLE_CLIENT_ID
   #       clientSecret: $GOOGLE_CLIENT_SECRET
   #       redirectURI: http://127.0.0.1:5556/callback
-  config: {}
+  config:
+    issuer: "https://dex.kuberpult.dev.freiheit.systems/dex"
+    web:
+      http: 0.0.0.0:8080
+    # See https://dexidp.io/docs/storage/ for more options
+    storage:
+      type: memory
+    staticClients:
+      - id: kuberpult-dex
+        secret: kuberpult-dex-secret
+        name: 'kuberpult'
+        redirectURIs:
+          - 'https://dex.kuberpult.dev.freiheit.systems/callback'
+    connectors:
+      - type: google
+        id: google
+        name: Google
+        config:
+          issuer: accounts.google.com
+          redirectURI: "https://dex.kuberpult.dev.freiheit.systems/dex/callback"
+          clientID: "106887483619435718021"
+          clientSecret: "client_secret"
 # Configuration for revolution dora metrics. If you are not using revolution you can safely ignore this.
 revolution:
   dora:
