@@ -183,7 +183,10 @@ kind load docker-image public.ecr.aws/docker/library/redis:7.0.11-alpine
 kind load docker-image "$cd_imagename"
 kind load docker-image "$frontend_imagename"
 kind load docker-image "$rollout_imagename"
-
+kind load docker-image quay.io/argoproj/argocd:v2.7.4
+kind load docker-image ghcr.io/dexidp/dex:v2.36.0
+kind load docker-image gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+kind load docker-image public.ecr.aws/docker/library/redis:7.0.11-alpine
 
 ## argoCd
 
@@ -281,6 +284,9 @@ cd:
     requests:
       memory: 200Mi
       cpu: 0.05
+  db:
+    dbOption: sqlite
+    location: /sqlite
 frontend:
   resources:
     limits:

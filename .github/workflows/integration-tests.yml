@@ -10,6 +10,7 @@ on:
 jobs:
   integration-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env: 
       IMAGE_REGISTRY: europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
     steps: 

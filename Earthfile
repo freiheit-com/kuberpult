@@ -95,7 +95,7 @@ integration-test:
 # With alpine:3.18, we get occasional issues with gpg that says there's a process running already, even though there shouldn't be.
 # Ubuntu:22.04 seems to solve this issue.
     FROM ubuntu:22.04
-    RUN apt update && apt install -y curl gpg gpg-agent gettext bash git golang netcat-openbsd
+    RUN apt update && apt install --auto-remove -y curl gpg gpg-agent gettext bash git golang netcat-openbsd docker.io
     ARG GO_TEST_ARGS
     # K3S environment variables
     ENV KUBECONFIG=/kp/kubeconfig.yaml

@@ -197,14 +197,14 @@ type RepositoryConfig struct {
 	// if set, kuberpult will generate push events to argoCd whenever it writes to the manifest repo:
 	ArgoWebhookUrl string
 	// the url to the git repo, like the browser requires it (https protocol)
-	WebURL          string
-	DogstatsdEvents bool
-	WriteCommitData bool
-	WebhookResolver WebhookResolver
-
+	WebURL                string
+	DogstatsdEvents       bool
+	WriteCommitData       bool
+	WebhookResolver       WebhookResolver
 	MaximumCommitsPerPush uint
-
-	MaximumQueueSize uint
+	MaximumQueueSize      uint
+	// Extend maximum AppName length
+	AllowLongAppNames bool
 
 	ArgoCdGenerateFiles bool
 }

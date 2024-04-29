@@ -60,7 +60,7 @@ type DexAppClient struct {
 
 const (
 	// Dex service internal URL. Used to connect to dex internally in the cluster.
-	dexServiceURL = "http://kuberpult-dex-service:5556"
+	dexServiceURL = "http://kuberpult-dex:5556"
 	// Dex issuer path. Needs to be match the dex issuer helm config.
 	issuerPATH = "/dex"
 	// Dex callback path. Needs to be match the dex staticClients.redirectURIs helm config.
