@@ -19,6 +19,8 @@ package cloudrun
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/api/run/v1"
 )
 
@@ -74,7 +76,7 @@ func TestGetParent(t *testing.T) {
 		testName       string
 		service        *run.Service
 		expectedParent string
-		expectedError  string
+		expectedError  error
 	}{
 		{
 			testName: "Namespace does not exist",
@@ -85,7 +87,7 @@ func TestGetParent(t *testing.T) {
 				},
 			},
 			expectedParent: "",
-			expectedError:  serviceConfigError{name: "testService", namespaceMissing: true}.Error(),
+			expectedError:  serviceConfigError{name: "testService", namespaceMissing: true},
 		},
 		{
 			testName: "Location does not exist",
@@ -93,7 +95,7 @@ func TestGetParent(t *testing.T) {
 				Metadata: &run.ObjectMeta{Name: "testService", Namespace: "proj_id"},
 			},
 			expectedParent: "",
-			expectedError:  serviceConfigError{name: "testService", locationMissing: true}.Error(),
+			expectedError:  serviceConfigError{name: "testService", locationMissing: true},
 		},
 		{
 			testName: "Namespace and Location do not exist",
@@ -101,7 +103,7 @@ func TestGetParent(t *testing.T) {
 				Metadata: &run.ObjectMeta{Name: "testService"},
 			},
 			expectedParent: "",
-			expectedError:  serviceConfigError{name: "testService", namespaceMissing: true, locationMissing: true}.Error(),
+			expectedError:  serviceConfigError{name: "testService", namespaceMissing: true},
 		},
 		{
 			testName: "Namespace and Location do exist",
@@ -113,7 +115,7 @@ func TestGetParent(t *testing.T) {
 				},
 			},
 			expectedParent: "projects/proj_id/locations/europe-west1",
-			expectedError:  "",
+			expectedError:  nil,
 		},
 	} {
 		testCase := test
@@ -121,8 +123,8 @@ func TestGetParent(t *testing.T) {
 			t.Parallel()
 			parent, err := getParent(testCase.service)
 			if err != nil {
-				if err.Error() != testCase.expectedError {
-					t.Errorf(errorMessage, testCase.expectedError, err.Error())
+				if diff := cmp.Diff(testCase.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 			}
 			if parent != testCase.expectedParent {
@@ -137,7 +139,7 @@ func TestGetServiceConditions(t *testing.T) {
 		testName          string
 		service           *run.Service
 		expectedCondition ServiceReadyCondition
-		expectedError     string
+		expectedError     error
 	}{
 		{
 			testName: "Service ready",
@@ -172,7 +174,7 @@ func TestGetServiceConditions(t *testing.T) {
 				Reason:   "",
 				Message:  "",
 			},
-			expectedError: "",
+			expectedError: nil,
 		},
 		{
 			testName: "Service not ready",
@@ -207,7 +209,7 @@ func TestGetServiceConditions(t *testing.T) {
 				Message:  "service not ready",
 				Reason:   "ErrHealthCheck",
 			},
-			expectedError: "",
+			expectedError: nil,
 		},
 		{
 			testName: "Ready condition not present",
@@ -236,7 +238,7 @@ func TestGetServiceConditions(t *testing.T) {
 				Message:  "",
 				Reason:   "",
 			},
-			expectedError: "failed to get Ready status for service example-service",
+			expectedError: serviceReadyConditionError{name: "example-service"},
 		},
 	} {
 		testCase := test
@@ -244,8 +246,8 @@ func TestGetServiceConditions(t *testing.T) {
 			t.Parallel()
 			conditions, err := GetServiceReadyCondition(testCase.service)
 			if err != nil {
-				if err.Error() != testCase.expectedError {
-					t.Errorf(errorMessage, testCase.expectedError, err.Error())
+				if diff := cmp.Diff(testCase.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 			}
 			if conditions != testCase.expectedCondition {
@@ -261,7 +263,7 @@ func TestGetOperationId(t *testing.T) {
 		testName      string
 		service       *run.Service
 		expectedId    string
-		expectedError string
+		expectedError error
 	}{
 		{
 			testName: "Correct operation ID",
@@ -274,7 +276,7 @@ func TestGetOperationId(t *testing.T) {
 				},
 			},
 			expectedId:    parent + "/operations/1234-1234-1234",
-			expectedError: "",
+			expectedError: nil,
 		},
 		{
 			testName: "Operation id does not exist",
@@ -285,7 +287,7 @@ func TestGetOperationId(t *testing.T) {
 				},
 			},
 			expectedId:    "",
-			expectedError: "failed to get operation-id for service test-service",
+			expectedError: operationIdMissingError{"test-service"},
 		},
 	} {
 		testCase := test
@@ -293,8 +295,8 @@ func TestGetOperationId(t *testing.T) {
 			t.Parallel()
 			operationId, err := getOperationId(parent, testCase.service)
 			if err != nil {
-				if err.Error() != testCase.expectedError {
-					t.Errorf(errorMessage, testCase.expectedError, err.Error())
+				if diff := cmp.Diff(testCase.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+					t.Errorf("error mismatch (-want, +got):\n%s", diff)
 				}
 			}
 			if operationId != testCase.expectedId {

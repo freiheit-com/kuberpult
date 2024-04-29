@@ -19,6 +19,7 @@ package cloudrun
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"google.golang.org/api/run/v1"
 )
@@ -34,34 +35,6 @@ const (
 var (
 	runService *run.APIService
 )
-
-type ServiceReadyCondition struct {
-	Name     string
-	Revision int64
-	Status   string
-	Reason   string
-	Message  string
-}
-
-func (c ServiceReadyCondition) String() string {
-	return fmt.Sprintf("Service:%s, ObservedGeneration:%d, Ready:%s, Reason:%s, Message:%s", c.Name, c.Revision, c.Status, c.Reason, c.Message)
-}
-
-type serviceConfigError struct {
-	name             string
-	namespaceMissing bool
-	locationMissing  bool
-}
-
-func (p serviceConfigError) Error() string {
-	if p.namespaceMissing {
-		return fmt.Sprintf("Namespace is missing for service: %s", p.name)
-	}
-	if p.locationMissing {
-		return fmt.Sprintf("location is missing for service: %s", p.name)
-	}
-	return "Configuration error"
-}
 
 func Init(ctx context.Context) error {
 	var err error
@@ -131,7 +104,7 @@ func GetServiceReadyCondition(serviceCallResponse *run.Service) (ServiceReadyCon
 		}
 	}
 	if serviceReadyCondition.Status == "" {
-		return serviceReadyCondition, fmt.Errorf("failed to get Ready status for service %s", serviceReadyCondition.Name)
+		return serviceReadyCondition, serviceReadyConditionError{serviceCallResponse.Metadata.Name}
 	}
 	return serviceReadyCondition, nil
 }
@@ -139,12 +112,12 @@ func GetServiceReadyCondition(serviceCallResponse *run.Service) (ServiceReadyCon
 func getOperationId(parent string, serviceCallResp *run.Service) (string, error) {
 	operationId, exists := serviceCallResp.Metadata.Annotations[operationIdAnnotation]
 	if !exists {
-		return "", fmt.Errorf("failed to get operation-id for service %s", serviceCallResp.Metadata.Name)
+		return "", operationIdMissingError{serviceCallResp.Metadata.Name}
 	}
 	return fmt.Sprintf("%s/operations/%s", parent, operationId), nil
 }
 
-func waitForOperation(parent string, serviceCallResp *run.Service, timeoutSeconds uint16) error {
+func waitForOperation(parent string, serviceCallResp *run.Service, timeout time.Duration) error {
 	operationId, err := getOperationId(parent, serviceCallResp)
 	if err != nil {
 		return err
@@ -152,7 +125,7 @@ func waitForOperation(parent string, serviceCallResp *run.Service, timeoutSecond
 	opService := run.NewProjectsLocationsOperationsService(runService)
 	//exhaustruct:ignore
 	waitOperationRequest := &run.GoogleLongrunningWaitOperationRequest{
-		Timeout: fmt.Sprintf("%ds", timeoutSeconds),
+		Timeout: fmt.Sprintf("%ds", timeout),
 	}
 	opServiceCall := opService.Wait(operationId, waitOperationRequest)
 	operationResp, err := opServiceCall.Do()
@@ -160,7 +133,7 @@ func waitForOperation(parent string, serviceCallResp *run.Service, timeoutSecond
 		return fmt.Errorf("failed to wait for the service %s: %s", serviceCallResp.Metadata.Name, err)
 	}
 	if !operationResp.Done {
-		return fmt.Errorf("service %s creation exceeded the timeout of %d seconds", serviceCallResp.Metadata.Name, timeoutSeconds)
+		return fmt.Errorf("service %s creation exceeded the timeout of %d seconds", serviceCallResp.Metadata.Name, timeout)
 	}
 	return nil
 }
