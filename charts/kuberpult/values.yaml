@@ -324,34 +324,7 @@ dex:
           issuer: accounts.google.com
           redirectURI: "https://dex.kuberpult.dev.freiheit.systems/dex/callback"
           clientID: "106887483619435718021"
-          clientSecret: "-----BEGIN PRIVATE KEY-----
-MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCqoLAzHEqgMi3v
-JDI1xT+E4AutkF5UG6VTeCYrqQPEhjFASBrzIvNTGIQeBWumNC2+XBHcZyTmefcD
-/6wLi3Ff6Bx9ZIo3h4zm77t98pD77YCKsfKM/azKOVHuvIBEERQ0UphQ7ZiieoYs
-RFbp/tgBnCR42w4S6NZV0/Ocv3oEyPrX5+2vETiHNX9mr1ZfnBdPbWlczfz0Nqqo
-KDgh/+g0WTYjfbdNO7jrigRehp+veSTUKxeLbCmFk813nMRirBLsCbj3gp7MFVMX
-0ZLutmUaznDf39+FBa4PrSEM4rMKL8OjgCdB6xbIJ49Pr5DgkI3uENbUSDfbsmdj
-Np5ZnpBdAgMBAAECggEAIF+lnsTu6c8rhPSerDIVF650uMUsCJRIPXqN73m9c8Os
-Q5CKwHfwp+L+aj3IC3xZ84S/hMxzJWGduv3/FB+sbrB4+1egm+GVm9l/fumPlaUd
-3vLdXN/isWnHwF62jXOaHEVRjgVOkQFjRLHgtbv7Gu8XwnB5jp/rztQMpEB2M8Lo
-eY99WNgsTjHH86pM0527gaxOtuZWsZFwxEdjgpwcLTncziCRq6a6eudfBBdwhCjG
-Rvv5kGVwwRCP612aoSlc/t571CxIHdXmCwbDuEPEf4o2v4D2x9LOzQUlqvNtRtzJ
-Tj+FAblnIfKPIXFMDeUcb+ldHnUq4c1y+U4Iu9coxwKBgQDp3bSyQDt832uguozY
-m2gjscFwPNya8buuCPNasNod2P/jgbu58qchfOPNPMj6h4j6jQgAWs++mVXxMmwy
-VCiGyJkpdqleua8KZUcyW35D3HUjwsVILmblQL+yOLwbFToXXpQsY1uHRC3qAuX6
-41VCAGXi8qWAW4H51ZBPmAQKawKBgQC6xsr8wa4byxML4m4ZtgbnHvpP9c8HsUy1
-agj8fRDGTezAf9I816IgF4Oee9WTioHGNIU7ZXXCxW1ONyNVJvuST11Go7uGlTw3
-E2PPosNsCxSlH1VSkaTVreUxo7c/6CcXNlbA9gB/lWYcgPVoQnHWXF93cQ4gh8oh
-oVohtmqSVwKBgEk+GzJcNYVFP6Ll6eiIu1O6fveUyA5quLmnqfd0PcttQ67P2ahB
-25/8Sifj6pmzyu2VL7VUu41Y3nacsRAOFWco+fbnZ+H3y185GtQlnWTJbZJWlIyn
-o6gW4DKD3D2rJzdccpF4SJkTfEG2yKoLeo8iKsap8bVCc3F4NisHU/SjAoGBAK/L
-s/q6gRl/xemFsYNZpJ2ctpTUE4x2AHEv4E1lmYhMh+2XYVYKz3nNKADfJWK9FvBr
-Not1L6WnFP5tP0BCdL59HJoEOdiuVgKwqV0hITZsJ35TQ4d3teG4zuQt56iq5UAf
-0P/FiyqKf5WMe28qOuM8Bk7xhg5wQHvu1lqsyxn5AoGBAKuUeYli5Ttj/PeqEJQO
-CVh34pFlOh9KFhXlMYYE6zvEmYycRjxpa0kPBnMqzz+fRnuEAcsP3FnSoecngySf
-o1L4E0UTjFvhQcVol4vUIiLoMeAjRV1GglLhENmnwyljQCQh7sFRlqaozHmKpXwB
-/Sp8mtSnTdoZrsFa7lM2Wdf4
------END PRIVATE KEY-----"
+          clientSecret: "client_secret"
 revolution:
   dora:
     enabled: false
