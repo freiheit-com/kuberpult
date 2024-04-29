@@ -253,25 +253,22 @@ auth:
     clientId: ""
     tenantId: ""
   dexAuth:
-    enabled: false
-    # Indicates if dex is to be installed. If you want to use your own Dex instance do not enable this flag.
-    installDex: false
-    # Defines the rbac policy when using Dex.
-    # The permissions are added using the following format (<ROLE>, <ACTION>, <ENVIRONMENT_GROUP>:<ENVIRONMENT>, <APPLICATION>, allow).
-    #
-    # Available actions are: CreateLock, DeleteLock, CreateRelease, DeployRelease, CreateUndeploy, DeployUndeploy, CreateEnvironment, CreateEnvironmentApplication and DeployReleaseTrain.
-    # The actions CreateUndeploy, DeployUndeploy and CreateEnvironmentApplication are environment independent meaning that the environment specified on the permission
-    # needs to follow the following format <ENVIRONMENT_GROUP>:*, otherwise an error will be thrown.
-    #
-    # Example permission: Developer, CreateLock, development:development, *, allow
-    # If no group is configured for an environment, the environment group name is the same as the environment name, here "development".
-    # The policy will be available on the kuberpult-rbac config map.
-    policy_csv: ""
-    clientId: ""
-    clientSecret: ""
-    baseURL: ""
-    # List of scopes to validate the token. Please add them as comma separated values.
-    scopes: ""
+    enabled: true
+    installDex: true
+    policy_csv: |
+      p, role:Developer, CreateLock, *:*, *, allow
+      p, role:Developer, DeleteLock, *:*, *, allow
+      p, role:Developer, CreateRelease, *:*, *, allow
+      p, role:Developer, DeployRelease, *:*, *, allow
+      p, role:Developer, CreateUndeploy, *:*, *, allow
+      p, role:Developer, DeployUndeploy, *:*, *, allow
+      p, role:Developer, CreateEnvironment, *:*, *, allow
+      p, role:Developer, DeleteEnvironmentApplication, *:*, *, allow
+      p, role:Developer, DeployReleaseTrain, *:*, *, allow
+    clientId: "kuberpult-dex"
+    clientSecret: "kuberpult-dex-secret"
+    baseURL: "https://dex.kuberpult.dev.freiheit.systems/"
+    scopes: "openid, email, profile"
   api:
     # New api endpoints (starting with `/api/`), are by default only turned on when IAP is enabled.
     # As of now this applies only to the manifest endpoint `/api/application/<application>/release/<release>/manifests`.
@@ -282,30 +279,58 @@ auth:
 
 # The Dex configuration values. For more information please check the Dex repository https://github.com/dexidp/dex
 dex:
-  # List of environment variables to be added to the dex service pod.
-  # Example, if you want your DEX service to have access to to the OAUTH_CLIENT_ID, you can specify
-  # it the following way:
-  #
-  #  - name: OAUTH_CLIENT_ID
-  #    valueFrom:
-  #      secretKeyRef:
-  #      name: kuberpult-oauth-client-id
-  #        key: kuberpult-oauth-client-id
-  envVars: []
-  # The configuration of the OAUTH provider.
-  # For more information on the connectors to use see https://dexidp.io/docs/connectors/
-  # Here is an example on how to connect with Google connector:
-  #
-  #     connectors:
-  #     - type: google
-  #     id: google
-  #     name: Google
-  #     config:
-  #       clientID: $GOOGLE_CLIENT_ID
-  #       clientSecret: $GOOGLE_CLIENT_SECRET
-  #       redirectURI: http://127.0.0.1:5556/callback
-  config: {}
-# Configuration for revolution dora metrics. If you are not using revolution you can safely ignore this.
+  # Set it to a valid URL
+  # Enable at least one connector
+  # See https://dexidp.io/docs/connectors/ for more options
+  config:
+    issuer: "https://dex.kuberpult.dev.freiheit.systems/dex"
+    web:
+      http: 0.0.0.0:8080
+    # See https://dexidp.io/docs/storage/ for more options
+    storage:
+      type: memory
+    staticClients:
+      - id: kuberpult-dex
+        secret: kuberpult-dex-secret
+        name: 'kuberpult'
+        redirectURIs:
+          - 'https://dex.kuberpult.dev.freiheit.systems/callback'
+    connectors:
+      - type: google
+        id: google
+        name: Google
+        config:
+          issuer: accounts.google.com
+          redirectURI: "https://dex.kuberpult.dev.freiheit.systems/dex/callback"
+          clientID: "106887483619435718021"
+          clientSecret: "-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCqoLAzHEqgMi3v
+JDI1xT+E4AutkF5UG6VTeCYrqQPEhjFASBrzIvNTGIQeBWumNC2+XBHcZyTmefcD
+/6wLi3Ff6Bx9ZIo3h4zm77t98pD77YCKsfKM/azKOVHuvIBEERQ0UphQ7ZiieoYs
+RFbp/tgBnCR42w4S6NZV0/Ocv3oEyPrX5+2vETiHNX9mr1ZfnBdPbWlczfz0Nqqo
+KDgh/+g0WTYjfbdNO7jrigRehp+veSTUKxeLbCmFk813nMRirBLsCbj3gp7MFVMX
+0ZLutmUaznDf39+FBa4PrSEM4rMKL8OjgCdB6xbIJ49Pr5DgkI3uENbUSDfbsmdj
+Np5ZnpBdAgMBAAECggEAIF+lnsTu6c8rhPSerDIVF650uMUsCJRIPXqN73m9c8Os
+Q5CKwHfwp+L+aj3IC3xZ84S/hMxzJWGduv3/FB+sbrB4+1egm+GVm9l/fumPlaUd
+3vLdXN/isWnHwF62jXOaHEVRjgVOkQFjRLHgtbv7Gu8XwnB5jp/rztQMpEB2M8Lo
+eY99WNgsTjHH86pM0527gaxOtuZWsZFwxEdjgpwcLTncziCRq6a6eudfBBdwhCjG
+Rvv5kGVwwRCP612aoSlc/t571CxIHdXmCwbDuEPEf4o2v4D2x9LOzQUlqvNtRtzJ
+Tj+FAblnIfKPIXFMDeUcb+ldHnUq4c1y+U4Iu9coxwKBgQDp3bSyQDt832uguozY
+m2gjscFwPNya8buuCPNasNod2P/jgbu58qchfOPNPMj6h4j6jQgAWs++mVXxMmwy
+VCiGyJkpdqleua8KZUcyW35D3HUjwsVILmblQL+yOLwbFToXXpQsY1uHRC3qAuX6
+41VCAGXi8qWAW4H51ZBPmAQKawKBgQC6xsr8wa4byxML4m4ZtgbnHvpP9c8HsUy1
+agj8fRDGTezAf9I816IgF4Oee9WTioHGNIU7ZXXCxW1ONyNVJvuST11Go7uGlTw3
+E2PPosNsCxSlH1VSkaTVreUxo7c/6CcXNlbA9gB/lWYcgPVoQnHWXF93cQ4gh8oh
+oVohtmqSVwKBgEk+GzJcNYVFP6Ll6eiIu1O6fveUyA5quLmnqfd0PcttQ67P2ahB
+25/8Sifj6pmzyu2VL7VUu41Y3nacsRAOFWco+fbnZ+H3y185GtQlnWTJbZJWlIyn
+o6gW4DKD3D2rJzdccpF4SJkTfEG2yKoLeo8iKsap8bVCc3F4NisHU/SjAoGBAK/L
+s/q6gRl/xemFsYNZpJ2ctpTUE4x2AHEv4E1lmYhMh+2XYVYKz3nNKADfJWK9FvBr
+Not1L6WnFP5tP0BCdL59HJoEOdiuVgKwqV0hITZsJ35TQ4d3teG4zuQt56iq5UAf
+0P/FiyqKf5WMe28qOuM8Bk7xhg5wQHvu1lqsyxn5AoGBAKuUeYli5Ttj/PeqEJQO
+CVh34pFlOh9KFhXlMYYE6zvEmYycRjxpa0kPBnMqzz+fRnuEAcsP3FnSoecngySf
+o1L4E0UTjFvhQcVol4vUIiLoMeAjRV1GglLhENmnwyljQCQh7sFRlqaozHmKpXwB
+/Sp8mtSnTdoZrsFa7lM2Wdf4
+-----END PRIVATE KEY-----"
 revolution:
   dora:
     enabled: false
