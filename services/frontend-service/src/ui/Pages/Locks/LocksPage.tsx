@@ -31,6 +31,8 @@ const applicationFieldHeaders = [
     '',
 ];
 
+const teamFieldHeaders = ['Date', 'Environment', 'Team', 'Lock Id', 'Message', 'Author Name', 'Author Email', ''];
+
 const environmentFieldHeaders = ['Date', 'Environment', 'Lock Id', 'Message', 'Author Name', 'Author Email', ''];
 export const LocksPage: React.FC = () => {
     const [params] = useSearchParams();
@@ -55,6 +57,31 @@ export const LocksPage: React.FC = () => {
             ),
         [envs]
     );
+    const tLocks = useMemo(
+        () =>
+            sortLocks(
+                Object.values(envs)
+                    .map((env) =>
+                        Object.values(env.teamLocks)
+                            .map((teamLock) =>
+                                Object.values(teamLock).map((lock) => ({
+                                    date: lock.createdAt,
+                                    environment: env.name,
+                                    team: teamLock.team,
+                                    lockId: lock.lockId,
+                                    message: lock.message,
+                                    authorName: lock.createdBy?.name,
+                                    authorEmail: lock.createdBy?.email,
+                                }))
+                            )
+                            .flat()
+                    )
+                    .flat(),
+                'oldestToNewest'
+            ),
+        [envs]
+    );
+    const teamLocks = tLocks.filter((value, index, self) => index === self.findIndex((t) => t.lockId === value.lockId));
     const appLocks = useMemo(
         () =>
             sortLocks(
@@ -90,6 +117,7 @@ export const LocksPage: React.FC = () => {
             <main className="main-content">
                 <LocksTable headerTitle="Environment Locks" columnHeaders={environmentFieldHeaders} locks={envLocks} />
                 <LocksTable headerTitle="Application Locks" columnHeaders={applicationFieldHeaders} locks={appLocks} />
+                <LocksTable headerTitle="Team Locks" columnHeaders={teamFieldHeaders} locks={teamLocks} />
             </main>
         </div>
     );

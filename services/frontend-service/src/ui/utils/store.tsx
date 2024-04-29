@@ -45,6 +45,7 @@ export interface DisplayLock {
     date?: Date;
     environment: string;
     application?: string;
+    team?: string;
     message: string;
     lockId: string;
     authorName?: string;

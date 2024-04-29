@@ -113,7 +113,7 @@ func (o *OverviewServiceServer) getOverview(
 					EnvironmentGroup: &groupName,
 				},
 				Locks:        map[string]*api.Lock{},
-				TeamLocks:    map[string]*api.Lock{},
+				TeamLocks:    map[string]*api.TeamLock{},
 				Applications: map[string]*api.Environment_Application{},
 			}
 			envInGroup.Config = env.Config
@@ -156,21 +156,26 @@ func (o *OverviewServiceServer) getOverview(
 					_, exists := teamSet[teamName]
 					if err == nil && !exists {
 						teamSet[teamName] = true
+						fmt.Printf("Checking team locks for team: '%s'\n", teamName)
 						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr != nil {
 							return nil, teamErr
 						} else {
 							for lockId, lock := range teamLocks {
-								env.TeamLocks[lockId] = &api.Lock{
-									Message:   lock.Message,
-									LockId:    lockId,
-									CreatedAt: timestamppb.New(lock.CreatedAt),
-									CreatedBy: &api.Actor{
-										Name:  lock.CreatedBy.Name,
-										Email: lock.CreatedBy.Email,
+								fmt.Printf("Got a lock: '%s'\n", lockId)
+								env.TeamLocks[lockId] = &api.TeamLock{
+									Lock: &api.Lock{
+										Message:   lock.Message,
+										LockId:    lockId,
+										CreatedAt: timestamppb.New(lock.CreatedAt),
+										CreatedBy: &api.Actor{
+											Name:  lock.CreatedBy.Name,
+											Email: lock.CreatedBy.Email,
+										},
 									},
+									Team: teamName,
 								}
 							}
-							envInGroup.Locks = env.Locks
+							envInGroup.TeamLocks = env.TeamLocks
 						}
 					}
 
