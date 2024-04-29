@@ -40,10 +40,9 @@ The frontend-service also allows overwriting the default values, see function `g
 The cd-service generally expects these headers, either in the grpc context or the http headers.
 */
 const (
-	HeaderUserName   = "author-name"
-	HeaderUserEmail  = "author-email"
-	HeaderUserRole   = "author-role"
-	HeaderClaimsInfo = "author-claims"
+	HeaderUserName  = "author-name"
+	HeaderUserEmail = "author-email"
+	HeaderUserRole  = "author-role"
 )
 
 func Encode64(s string) string {
@@ -80,12 +79,6 @@ func WriteUserToGrpcContext(ctx context.Context, u User) context.Context {
 // Only used when RBAC is enabled.
 func WriteUserRoleToGrpcContext(ctx context.Context, userRole string) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, HeaderUserRole, Encode64(userRole))
-}
-
-// WriteUserRoleToGrpcContext adds the user claims to the GRPC context.
-// Only used when RBAC is enabled.
-func WriteUserClaimsToGrpcContext(ctx context.Context, claims string) context.Context {
-	return metadata.AppendToOutgoingContext(ctx, HeaderClaimsInfo, Encode64(claims))
 }
 
 type GrpcContextReader interface {
