@@ -3,7 +3,7 @@
 set -eu
 set -o pipefail
 
-sourcedir="$(dirname "$(readlink -m "${BASH_SOURCE[0]}")")"
+sourcedir="$(dirname "$(greadlink -m "${BASH_SOURCE[0]}")")"
 standard_setup="${FDC_STANDARD_SETUP:-${sourcedir}/../../../../fdc-standard-setup}"
 secrets_file="${standard_setup}/secrets/fdc-standard-setup-dev-env-925fe612820f.json"
 iap_clientId=$(sops exec-file "${secrets_file}" "jq -r '.client_id' {}")
@@ -332,17 +332,21 @@ auth:
     enabled: true
     installDex: true
     policy_csv: |
-$(for action in CreateLock DeleteLock CreateRelease DeployRelease CreateUndeploy DeployUndeploy CreateEnvironment DeployReleaseTrain; do
-        echo "      Developer, $action, development:*, *, allow"
-      done)
-    clientId: "${iap_clientId}"
-    clientSecret: |
-$(gsed -e "s/^/      /" <<<"${iap_clientSecret}")
-    baseURL: "http://kuberpult-dex-service:5556"
+      p, role:Developer, CreateLock, *:*, *, allow
+      p, role:Developer, DeleteLock, *:*, *, allow
+      p, role:Developer, CreateRelease, *:*, *, allow
+      p, role:Developer, DeployRelease, *:*, *, allow
+      p, role:Developer, CreateUndeploy, *:*, *, allow
+      p, role:Developer, DeployUndeploy, *:*, *, allow
+      p, role:Developer, CreateEnvironment, *:*, *, allow
+      p, role:Developer, DeleteEnvironmentApplication, *:*, *, allow
+      p, role:Developer, DeployReleaseTrain, *:*, *, allow
+    clientId: "kuberpult-dex"
+    clientSecret: "kuberpult-dex-secret"
+    baseURL: https://kuberpult-cd-service-565bb85ccc-68wng.default.svc.cluster.local
+    scopes: "openid, groups, email, profile, federated:id"
 dex:
   # Set it to a valid URL
-
-
   # Enable at least one connector
   # See https://dexidp.io/docs/connectors/ for more options
   enablePasswordDB: true
@@ -356,25 +360,38 @@ dex:
    - "urn:ietf:params:oauth:grant-type:device_code"
    - "urn:ietf:params:oauth:grant-type:token-exchange"
   config:
-    issuer: "https://accounts.google.com"
+    issuer: https://kuberpult-cd-service-565bb85ccc-68wng.default.svc.cluster.local/dex
 
     # See https://dexidp.io/docs/storage/ for more options
     storage:
       type: memory
+    staticClients:
+    - id: kuberpult-dex
+      secret: kuberpult-dex-secret
+      name: 'kuberpult'
+      redirectURIs:
+        - 'https://kuberpult-cd-service-565bb85ccc-68wng.default.svc.cluster.local/callback'
+    enablePasswordDB: true
+    staticPasswords:
+      - email: "cicd"
+        # bcrypt hash of the string "cicd"
+        hash: "\$2a\$12\$8x2fhzu58fwIwQRKmd/sPeeqAsPKdD3xlzCveATqJPAJxlQyTO5E2"
+        username: "cicd"
+        userID: "1"
     connectors:
     - type: google
       id: google
       name: Google
       config:
-        issuer: https://accounts.google.com
-        redirectURI: http://127.0.0.1:5556/callback
+        redirectURI: https://kuberpult-cd-service-565bb85ccc-68wng.default.svc.cluster.local/callback
         clientID: "${iap_clientId}"
         clientSecret: |
 $(gsed -e "s/^/          /" <<<"${iap_clientSecret}")
 VALUES
+echo "here"
 
 # Get helm dependency charts and unzip them
-(rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
+#(rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -x "$filename" && rm -f "$filename"; done;)
 
 echo "Creating tmp.mpl"
 helm template ./ --values vals.yaml > tmp.tmpl

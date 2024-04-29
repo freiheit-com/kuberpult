@@ -456,15 +456,207 @@ config:
       # https://dexidp.io/docs/custom-scopes-claims-clients/#public-clients
       public: true
 VALUES
+
+
+kuberpult_URL=https://kuberpult-cd-service.kuberpult.svc.cluster.local
+cat <<VALUES > jonas.yaml
+cd:
+  resources:
+    limits:
+      memory: 200Mi
+      cpu: 0.05
+    requests:
+      memory: 200Mi
+      cpu: 0.05
+frontend:
+  resources:
+    limits:
+      memory: 200Mi
+      cpu: 0.05
+    requests:
+      memory: 200Mi
+      cpu: 0.05
+rollout:
+  enabled: true
+  resources:
+    limits:
+      memory: 200Mi
+      cpu: 0.05
+    requests:
+      memory: 200Mi
+      cpu: 0.05
+ingress:
+  domainName: kuberpult.example.com
+log:
+  level: INFO
+git:
+  url: "ssh://git@server.${GIT_NAMESPACE}.svc.cluster.local/git/repos/manifests"
+  sourceRepoUrl: "https://github.com/freiheit-com/kuberpult/tree/{branch}/{dir}"
+  branch: "main"
+  networkTimeout: 1s
+ssh:
+  identity: |
+$(gsed -e "s/^/    /" <../../services/cd-service/client)
+  known_hosts: |
+$(gsed -e "s/^/    /" <../../services/cd-service/known_hosts)
+argocd:
+  token: "$token"
+  server: "https://argocd-server.${ARGO_NAMESPACE}.svc.cluster.local:443"
+  insecure: true
+  refresh:
+    enabled: true
+manageArgoApplications:
+  enabled: false
+  filter: ""
+datadogProfiling:
+  enabled: false
+  apiKey: invalid-3
+pgp:
+  keyRing: |
+$(gsed -e "s/^/    /" <./kuberpult-keyring.gpg)
+auth:
+  dexAuth:
+    enabled: true
+    installDex: true
+    policy_csv: |
+      p, role:Developer, CreateLock, *:*, *, allow
+      p, role:Developer, DeleteLock, *:*, *, allow
+      p, role:Developer, CreateRelease, *:*, *, allow
+      p, role:Developer, DeployRelease, *:*, *, allow
+      p, role:Developer, CreateUndeploy, *:*, *, allow
+      p, role:Developer, DeployUndeploy, *:*, *, allow
+      p, role:Developer, CreateEnvironment, *:*, *, allow
+      p, role:Developer, DeleteEnvironmentApplication, *:*, *, allow
+      p, role:Developer, DeployReleaseTrain, *:*, *, allow
+    clientId: "kuberpult-dex"
+    clientSecret: "kuberpult-dex-secret"
+    baseURL: $kuberpult_URL
+    scopes: "openid, email, profile"
+dex:
+  # Set it to a valid URL
+  # Enable at least one connector
+  # See https://dexidp.io/docs/connectors/ for more options
+  config:
+    issuer: $kuberpult_URL/dex
+    web:
+      http: 0.0.0.0:8080
+    # See https://dexidp.io/docs/storage/ for more options
+    storage:
+      type: memory
+    staticClients:
+    - id: kuberpult-dex
+      secret: kuberpult-dex-secret
+      name: 'kuberpult'
+      redirectURIs:
+      - '${kuberpult_URL}/callback'
+    connectors:
+    - type: google
+      id: google
+      name: Google
+      config:
+        issuer: accounts.google.com
+        redirectURI: $kuberpult_URL/dex/callback
+        clientID: "${iap_clientId}"
+        clientSecret: |
+$(gsed -e "s/^/          /" <<<"${iap_clientSecret}")
+VALUES
+
+
+cat << VALUES > full_jonas.yaml
+cd:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 256m
+      memory: 512Mi
+frontend:
+  resources:
+    limits:
+      cpu: 500ms
+      memory: 250Mi
+    requests:
+      cpu: 256m
+      memory: 250Mi
+git:
+  url: "ssh://git@github.com/jdvgh/kuberpult-manifests-repo.git"
+  branch: "main"
+  manifestRepoUrl: "https://github.com/jdvgh/kuberpult-manifests-repo/tree/{branch}/{dir}"
+log:
+  # Possible values are "gcp" for a gcp-optimized format and "default" for json
+  format: "default"
+  # Other possible values are "DEBUG", "INFO", "ERROR"
+  level: "INFO"
+ingress:
+  # The simplest setup involves an ingress, to make kuberpult available outside the cluster.
+  # set to false, if you want use your own ingress:
+  create: false
+auth:
+  dexAuth:
+    enabled: true
+    installDex: true
+    policy_csv: |
+      p, role:Developer, CreateLock, *:*, *, allow
+      p, role:Developer, DeleteLock, *:*, *, allow
+      p, role:Developer, CreateRelease, *:*, *, allow
+      p, role:Developer, DeployRelease, *:*, *, allow
+      p, role:Developer, CreateUndeploy, *:*, *, allow
+      p, role:Developer, DeployUndeploy, *:*, *, allow
+      p, role:Developer, CreateEnvironment, *:*, *, allow
+      p, role:Developer, DeleteEnvironmentApplication, *:*, *, allow
+      p, role:Developer, DeployReleaseTrain, *:*, *, allow
+    clientId: "kuberpult-dex"
+    clientSecret: "kuberpult-dex-secret"
+    baseURL: https://kuberpult-otop-ref-d2-euw4.d.dscore.com
+    scopes: "openid, groups, email, profile, federated:id"
+ssh:
+  known_hosts: |
+    github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
+  # This section is necessary to checkout the manifest repo from git. Only ssh is supported (no https).
+  identity: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    -----END OPENSSH PRIVATE KEY-----
+dex:
+  config:
+    storage:
+      type: memory
+    issuer: https://kuberpult-otop-ref-d2-euw4.d.dscore.com/dex
+    outh2:
+      grantTypes:
+        # ensure grantTypes includes the token-exchange grant (default)
+        - "urn:ietf:params:oauth:grant-type:token-exchange"
+    connectors:
+      - config:
+          clientID: ID
+          clientSecret: SECRET
+          redirectURI: https://kuberpult-otop-ref-d2-euw4.d.dscore.com/dex/callback
+        id: google
+        name: Google
+        type: google
+    staticClients:
+    - id: kuberpult-dex
+      secret: kuberpult-dex-secret
+      name: 'kuberpult'
+      redirectURIs:
+        - 'https://kuberpult-otop-ref-d2-euw4.d.dscore.com/callback'
+    enablePasswordDB: true
+    staticPasswords:
+      - email: "cicd"
+        # bcrypt hash of the string "cicd"
+        hash: "\$2a\$12\$8x2fhzu58fwIwQRKmd/sPeeqAsPKdD3xlzCveATqJPAJxlQyTO5E2"
+        username: "cicd"
+        userID: "1"
+VALUES
 # Get helm dependency charts and unzip them
-(rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
+#(rm -rf charts && helm dep update && cd charts && for filename in *.tgz; do tar -xf "$filename" && rm -f "$filename"; done;)
 
 echo "Creating tmp.mpl"
-helm template ./ --values vals.yaml > tmp.tmpl
+yamlfile=jonas.yaml
+helm template ./ --values $yamlfile > tmp.tmpl
 helm uninstall kuberpult-local || echo IGNORE
 echo "helm install"
-cat vals.yaml
-helm install --values github_full.yaml kuberpult-local ./
+helm install --values $yamlfile kuberpult-local ./
 #echo 'checking for pods and waiting for portforwarding to be ready...'
 #
 helm uninstall dex-local || echo IGNORE
