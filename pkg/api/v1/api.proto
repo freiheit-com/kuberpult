@@ -302,6 +302,12 @@ message Lock {
   Actor created_by = 5;
 }
 
+message TeamLock {
+  Lock lock = 1;
+  string team = 2;
+}
+
+
 message LockedError {
   map<string, Lock> environment_locks = 1;
   map<string, Lock> environment_application_locks = 2;
@@ -528,7 +534,7 @@ message Environment {
   map<string, Application> applications = 4;
   uint32 distance_to_upstream = 5;
   Priority priority = 6;
-  map<string, Lock> teamLocks = 7;
+  map<string, TeamLock> teamLocks = 7;
 }
 
 message Release {
