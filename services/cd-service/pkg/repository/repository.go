@@ -209,6 +209,8 @@ type RepositoryConfig struct {
 	AllowLongAppNames bool
 
 	ArgoCdGenerateFiles bool
+
+	DBHandler *DBHandler
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -406,6 +408,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 				repository:      repo2,
 				queue:           makeQueueN(cfg.MaximumQueueSize),
 				backOffProvider: defaultBackOffProvider,
+				DB:              cfg.DBHandler,
 			}
 			result.headLock.Lock()
 

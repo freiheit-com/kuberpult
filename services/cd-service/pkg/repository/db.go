@@ -202,8 +202,11 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context) (*AllApplicatio
 	query := "SELECT version, created, json FROM all_apps ORDER BY version DESC LIMIT 1;"
 	span.SetTag("query", query)
 	rows := h.DB.QueryRowContext(ctx, query)
-	result := AllApplicationsRow{}
-
+	result := AllApplicationsRow{
+		version: 0,
+		created: time.Time{},
+		data:    "",
+	}
 	err := rows.Scan(&result.version, &result.created, &result.data)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -212,15 +215,17 @@ func (h *DBHandler) DBSelectAllApplications(ctx context.Context) (*AllApplicatio
 		return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
 	}
 
-	var resultGo = AllApplicationsGo{}
+	//exhaustruct:ignore
 	var resultJson = AllApplicationsJson{}
 	err = json.Unmarshal(([]byte)(result.data), &resultJson)
 	if err != nil {
 		return nil, fmt.Errorf("Error during json unmarshal. Error: %w. Data: %s\n", err, result.data)
 	}
-	resultGo.Version = result.version
-	resultGo.Created = result.created
-	resultGo.Apps = resultJson.Apps
+	var resultGo = AllApplicationsGo{
+		Version:             result.version,
+		Created:             result.created,
+		AllApplicationsJson: AllApplicationsJson{Apps: resultJson.Apps},
+	}
 	return &resultGo, nil
 }
 

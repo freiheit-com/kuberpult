@@ -268,6 +268,7 @@ func RunServer() {
 			MaximumQueueSize:       c.MaximumQueueSize,
 			AllowLongAppNames:      c.AllowLongAppNames,
 			ArgoCdGenerateFiles:    c.ArgoCdGenerateFiles,
+			DBHandler:              dbHandler,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {

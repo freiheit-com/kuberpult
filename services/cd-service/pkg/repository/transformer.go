@@ -1336,6 +1336,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
+		DB:                     state.DB,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
 	_, err = fs.Stat(lockDir)
