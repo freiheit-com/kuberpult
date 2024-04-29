@@ -62,6 +62,7 @@ const sampleEnvsA: Environment[] = [
     {
         name: 'tester',
         locks: {},
+        teamLocks: {},
         applications: {},
         distanceToUpstream: 0,
         priority: Priority.UPSTREAM,

@@ -82,6 +82,7 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: {},
+                    teamLocks: {},
                     applications: {
                         test1: {
                             name: 'test1',

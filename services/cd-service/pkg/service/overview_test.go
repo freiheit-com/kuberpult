@@ -61,7 +61,8 @@ func makeEnv(envName string, groupName string, upstream *api.EnvironmentConfig_U
 			Upstream:         upstream,
 			EnvironmentGroup: &groupName,
 		},
-		Locks:              map[string]*api.Lock{},
+		Locks: map[string]*api.Lock{},
+
 		Applications:       apps,
 		DistanceToUpstream: 0,
 		Priority:           api.Priority_UPSTREAM, // we are 1 away from prod, hence pre-prod

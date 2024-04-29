@@ -528,6 +528,7 @@ message Environment {
   map<string, Application> applications = 4;
   uint32 distance_to_upstream = 5;
   Priority priority = 6;
+  map<string, Lock> teamLocks = 7;
 }
 
 message Release {

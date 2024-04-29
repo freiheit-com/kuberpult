@@ -323,6 +323,7 @@ describe('Test app locks', () => {
                 {
                     name: 'integration',
                     locks: {},
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                     applications: {
@@ -345,6 +346,7 @@ describe('Test app locks', () => {
                 {
                     name: 'integration',
                     locks: {},
+                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                     applications: {

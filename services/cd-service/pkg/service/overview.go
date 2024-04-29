@@ -159,7 +159,7 @@ func (o *OverviewServiceServer) getOverview(
 							return nil, teamErr
 						} else {
 							for lockId, lock := range teamLocks {
-								env.Locks[lockId] = &api.Lock{
+								env.TeamLocks[lockId] = &api.Lock{
 									Message:   lock.Message,
 									LockId:    lockId,
 									CreatedAt: timestamppb.New(lock.CreatedAt),
