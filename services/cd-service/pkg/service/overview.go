@@ -113,6 +113,7 @@ func (o *OverviewServiceServer) getOverview(
 					EnvironmentGroup: &groupName,
 				},
 				Locks:        map[string]*api.Lock{},
+				TeamLocks:    map[string]*api.Lock{},
 				Applications: map[string]*api.Environment_Application{},
 			}
 			envInGroup.Config = env.Config
