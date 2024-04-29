@@ -242,7 +242,7 @@ func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, repo Reposi
 	if err != nil {
 		return fmt.Errorf("could not get applications to run custom migrations: %v", err)
 	}
-	var version int64 = 0
+	var version int64
 	if allAppsDb != nil {
 		slices.Sort(allAppsDb.Apps)
 		version = allAppsDb.Version
