@@ -117,18 +117,23 @@ func Deploy(ctx context.Context, svc *run.Service) error {
 
 func GetServiceReadyCondition(serviceCallResponse *run.Service) (ServiceReadyCondition, error) {
 	//exhaustruct:ignore
-	serviceConditions := ServiceReadyCondition{}
-	serviceConditions.Name = serviceCallResponse.Metadata.Name
-	serviceConditions.Revision = serviceCallResponse.Status.ObservedGeneration
+	serviceReadyCondition := ServiceReadyCondition{
+		Status:   "",
+		Name:     serviceCallResponse.Metadata.Name,
+		Revision: serviceCallResponse.Status.ObservedGeneration,
+	}
 	conditions := serviceCallResponse.Status.Conditions
 	for _, condition := range conditions {
 		if condition.Type == serviceReady {
-			serviceConditions.Status = condition.Status
-			serviceConditions.Reason = condition.Reason
-			serviceConditions.Message = condition.Message
+			serviceReadyCondition.Status = condition.Status
+			serviceReadyCondition.Reason = condition.Reason
+			serviceReadyCondition.Message = condition.Message
 		}
 	}
-	return serviceConditions, nil
+	if serviceReadyCondition.Status == "" {
+		return serviceReadyCondition, fmt.Errorf("failed to get Ready status for service %s", serviceReadyCondition.Name)
+	}
+	return serviceReadyCondition, nil
 }
 
 func getOperationId(parent string, serviceCallResp *run.Service) (string, error) {

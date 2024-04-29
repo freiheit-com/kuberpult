@@ -209,6 +209,35 @@ func TestGetServiceConditions(t *testing.T) {
 			},
 			expectedError: "",
 		},
+		{
+			testName: "Ready condition not present",
+			service: &run.Service{
+				Metadata: &run.ObjectMeta{
+					Name: "example-service",
+				},
+				Status: &run.ServiceStatus{
+					ObservedGeneration: 3,
+					Conditions: []*run.GoogleCloudRunV1Condition{
+						{
+							Type:   "ConfigurationsReady",
+							Status: "True",
+						},
+						{
+							Type:   "RoutesReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+			expectedCondition: ServiceReadyCondition{
+				Name:     "example-service",
+				Revision: 3,
+				Status:   "",
+				Message:  "",
+				Reason:   "",
+			},
+			expectedError: "failed to get Ready status for service example-service",
+		},
 	} {
 		testCase := test
 		t.Run(testCase.testName, func(t *testing.T) {
