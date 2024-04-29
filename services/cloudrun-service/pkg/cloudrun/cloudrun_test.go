@@ -134,46 +134,60 @@ func TestGetParent(t *testing.T) {
 
 func TestGetServiceConditions(t *testing.T) {
 	for _, test := range []struct {
-		testName           string
-		service            *run.Service
-		expectedConditions ServiceConditions
-		expectedError      string
+		testName          string
+		service           *run.Service
+		expectedCondition ServiceReadyCondition
+		expectedError     string
 	}{
 		{
-			testName: "All conditions ready",
+			testName: "Service ready",
 			service: &run.Service{
+				Metadata: &run.ObjectMeta{
+					Name: "example-service",
+				},
 				Status: &run.ServiceStatus{
+					ObservedGeneration: 2,
 					Conditions: []*run.GoogleCloudRunV1Condition{
 						{
-							Type:   "Ready",
-							Status: "True",
+							Type:    "Ready",
+							Status:  "True",
+							Message: "",
+							Reason:  "",
 						},
 						{
 							Type:   "ConfigurationsReady",
-							Status: "True",
+							Status: "False",
 						},
 						{
 							Type:   "RoutesReady",
-							Status: "True",
+							Status: "Unknown",
 						},
 					},
 				},
 			},
-			expectedConditions: ServiceConditions{
-				Ready:              "True",
-				ConfigurationReady: "True",
-				RoutesReady:        "True",
+			expectedCondition: ServiceReadyCondition{
+				Name:     "example-service",
+				Revision: 2,
+				Status:   "True",
+				Reason:   "",
+				Message:  "",
 			},
 			expectedError: "",
 		},
 		{
 			testName: "Service not ready",
 			service: &run.Service{
+				Metadata: &run.ObjectMeta{
+					Name: "example-service",
+				},
 				Status: &run.ServiceStatus{
+					ObservedGeneration: 3,
 					Conditions: []*run.GoogleCloudRunV1Condition{
 						{
-							Type:   "Ready",
-							Status: "False",
+							Type:    "Ready",
+							Status:  "False",
+							Message: "service not ready",
+							Reason:  "ErrHealthCheck",
 						},
 						{
 							Type:   "ConfigurationsReady",
@@ -186,156 +200,27 @@ func TestGetServiceConditions(t *testing.T) {
 					},
 				},
 			},
-			expectedConditions: ServiceConditions{
-				Ready:              "False",
-				ConfigurationReady: "True",
-				RoutesReady:        "True",
+			expectedCondition: ServiceReadyCondition{
+				Name:     "example-service",
+				Revision: 3,
+				Status:   "False",
+				Message:  "service not ready",
+				Reason:   "ErrHealthCheck",
 			},
 			expectedError: "",
-		},
-		{
-			testName: "Service Configuration not ready",
-			service: &run.Service{
-				Status: &run.ServiceStatus{
-					Conditions: []*run.GoogleCloudRunV1Condition{
-						{
-							Type:   "Ready",
-							Status: "True",
-						},
-						{
-							Type:   "ConfigurationsReady",
-							Status: "False",
-						},
-						{
-							Type:   "RoutesReady",
-							Status: "True",
-						},
-					},
-				},
-			},
-			expectedConditions: ServiceConditions{
-				Ready:              "True",
-				ConfigurationReady: "False",
-				RoutesReady:        "True",
-			},
-			expectedError: "",
-		},
-		{
-			testName: "Service Routes not ready",
-			service: &run.Service{
-				Status: &run.ServiceStatus{
-					Conditions: []*run.GoogleCloudRunV1Condition{
-						{
-							Type:   "Ready",
-							Status: "True",
-						},
-						{
-							Type:   "ConfigurationsReady",
-							Status: "True",
-						},
-						{
-							Type:   "RoutesReady",
-							Status: "False",
-						},
-					},
-				},
-			},
-			expectedConditions: ServiceConditions{
-				Ready:              "True",
-				ConfigurationReady: "True",
-				RoutesReady:        "False",
-			},
-			expectedError: "",
-		},
-		{
-			testName: "All conditions not ready",
-			service: &run.Service{
-				Status: &run.ServiceStatus{
-					Conditions: []*run.GoogleCloudRunV1Condition{
-						{
-							Type:   "Ready",
-							Status: "False",
-						},
-						{
-							Type:   "ConfigurationsReady",
-							Status: "False",
-						},
-						{
-							Type:   "RoutesReady",
-							Status: "False",
-						},
-					},
-				},
-			},
-			expectedConditions: ServiceConditions{
-				Ready:              "False",
-				ConfigurationReady: "False",
-				RoutesReady:        "False",
-			},
-			expectedError: "",
-		},
-		{
-			testName: "Unknown state",
-			service: &run.Service{
-				Status: &run.ServiceStatus{
-					Conditions: []*run.GoogleCloudRunV1Condition{
-						{
-							Type:   "Ready",
-							Status: "False",
-						},
-						{
-							Type:   "ConfigurationsReady",
-							Status: "False",
-						},
-						{
-							Type:   "RoutesReady",
-							Status: "False",
-						},
-					},
-				},
-			},
-			expectedConditions: ServiceConditions{
-				Ready:              "False",
-				ConfigurationReady: "False",
-				RoutesReady:        "False",
-			},
-			expectedError: "",
-		},
-		{
-			testName: "Error in condition type",
-			service: &run.Service{
-				Status: &run.ServiceStatus{
-					Conditions: []*run.GoogleCloudRunV1Condition{
-						{
-							Type:   "NonExistentType",
-							Status: "True",
-						},
-						{
-							Type:   "ConfigurationsReady",
-							Status: "True",
-						},
-						{
-							Type:   "RoutesReady",
-							Status: "False",
-						},
-					},
-				},
-			},
-			expectedConditions: ServiceConditions{},
-			expectedError:      "unknown service condition type NonExistentType",
 		},
 	} {
 		testCase := test
 		t.Run(testCase.testName, func(t *testing.T) {
 			t.Parallel()
-			conditions, err := GetServiceConditions(testCase.service)
+			conditions, err := GetServiceReadyCondition(testCase.service)
 			if err != nil {
 				if err.Error() != testCase.expectedError {
 					t.Errorf(errorMessage, testCase.expectedError, err.Error())
 				}
 			}
-			if conditions != testCase.expectedConditions {
-				t.Errorf(errorMessage, testCase.expectedConditions, conditions)
+			if conditions != testCase.expectedCondition {
+				t.Errorf(errorMessage, testCase.expectedCondition, conditions)
 			}
 		})
 	}

@@ -43,15 +43,16 @@ func runServer(ctx context.Context) error {
 	if !exists {
 		logger.FromContext(ctx).Fatal("environment variable IMAGE_TAG is missing")
 	}
-	servicePort := int64(3001)
+	servicePort := int64(3000)
+	metaData := &run.ObjectMeta{
+		Name:      "test-service1",
+		Namespace: projectId,
+		Labels:    map[string]string{"cloud.googleapis.com/location": "europe-west1"},
+	}
 	svc := &run.Service{
 		ApiVersion: "serving.knative.dev/v1",
 		Kind:       "Service",
-		Metadata: &run.ObjectMeta{
-			Name:      "test-service1",
-			Namespace: projectId,
-			Labels:    map[string]string{"cloud.googleapis.com/location": "europe-west1"},
-		},
+		Metadata:   metaData,
 		Spec: &run.ServiceSpec{
 			Template: &run.RevisionTemplate{
 				Spec: &run.RevisionSpec{
@@ -68,7 +69,7 @@ func runServer(ctx context.Context) error {
 							Env: []*run.EnvVar{
 								{
 									Name:  "SERVERLESS_ECHO_GRPC_PORT",
-									Value: "3002",
+									Value: fmt.Sprint(servicePort),
 								},
 								{
 									Name:  "SERVERLESS_ECHO_HEALTH_PORT",

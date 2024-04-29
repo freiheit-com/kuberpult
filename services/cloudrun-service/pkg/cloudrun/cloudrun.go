@@ -35,15 +35,16 @@ var (
 	runService *run.APIService
 )
 
-// Possible values are True, False or Unknown
-type ServiceConditions struct {
-	Ready              string
-	ConfigurationReady string
-	RoutesReady        string
+type ServiceReadyCondition struct {
+	Name     string
+	Revision int64
+	Status   string
+	Reason   string
+	Message  string
 }
 
-func (c ServiceConditions) String() string {
-	return fmt.Sprintf("Ready:%s, ConfigurationReady:%s, RoutesReady:%s", c.Ready, c.ConfigurationReady, c.Ready)
+func (c ServiceReadyCondition) String() string {
+	return fmt.Sprintf("Service:%s, ObservedGeneration:%d, Ready:%s, Reason:%s, Message:%s", c.Name, c.Revision, c.Status, c.Reason, c.Message)
 }
 
 type serviceConfigError struct {
@@ -72,6 +73,7 @@ func Deploy(ctx context.Context, svc *run.Service) error {
 	serviceName := svc.Metadata.Name
 	// Get the full path of the project. Example: projects/<project-id>/locations/<region>
 	parent, err := getParent(svc)
+	servicePath := fmt.Sprintf("%s/services/%s", parent, serviceName)
 	if err != nil {
 		return err
 	}
@@ -83,7 +85,6 @@ func Deploy(ctx context.Context, svc *run.Service) error {
 	var serviceCallResp *run.Service
 	// If the service is already deployed before, then we need to call ReplaceService. Otherwise, we call Create.
 	if isPresent(resp.Items, serviceName) {
-		servicePath := fmt.Sprintf("%s/services/%s", parent, serviceName)
 		serviceCall := runService.Projects.Locations.Services.ReplaceService(servicePath, svc)
 		serviceCallResp, err = serviceCall.Do()
 		if err != nil {
@@ -99,30 +100,33 @@ func Deploy(ctx context.Context, svc *run.Service) error {
 	if err := waitForOperation(parent, serviceCallResp, 60); err != nil {
 		return err
 	}
-	conditions, err := GetServiceConditions(serviceCallResp)
+	getServiceCall := runService.Projects.Locations.Services.Get(servicePath)
+	serviceResp, err := getServiceCall.Do()
 	if err != nil {
 		return err
 	}
-	// TODO: something wrong here. Sometimes the condition evaluates to false even though the service failed startup.
-	if conditions.Ready != "True" || conditions.ConfigurationReady != "True" || conditions.RoutesReady != "True" {
-		return fmt.Errorf("service %s not ready\n%s", serviceName, conditions)
+	condition, err := GetServiceReadyCondition(serviceResp)
+	if err != nil {
+		return err
 	}
+	if condition.Status != "True" {
+		return fmt.Errorf("service not ready\n%s", condition)
+	}
+	fmt.Printf("Service deployed successfully: %s", condition)
 	return nil
 }
 
-func GetServiceConditions(serviceCallResponse *run.Service) (ServiceConditions, error) {
-	serviceConditions := ServiceConditions{}
+func GetServiceReadyCondition(serviceCallResponse *run.Service) (ServiceReadyCondition, error) {
+	//exhaustruct:ignore
+	serviceConditions := ServiceReadyCondition{}
+	serviceConditions.Name = serviceCallResponse.Metadata.Name
+	serviceConditions.Revision = serviceCallResponse.Status.ObservedGeneration
 	conditions := serviceCallResponse.Status.Conditions
 	for _, condition := range conditions {
-		switch condition.Type {
-		case serviceConfigurationsReady:
-			serviceConditions.ConfigurationReady = condition.Status
-		case serviceReady:
-			serviceConditions.Ready = condition.Status
-		case serviceRoutesReady:
-			serviceConditions.RoutesReady = condition.Status
-		default:
-			return serviceConditions, fmt.Errorf("unknown service condition type %s", condition.Type)
+		if condition.Type == serviceReady {
+			serviceConditions.Status = condition.Status
+			serviceConditions.Reason = condition.Reason
+			serviceConditions.Message = condition.Message
 		}
 	}
 	return serviceConditions, nil
@@ -142,6 +146,7 @@ func waitForOperation(parent string, serviceCallResp *run.Service, timeoutSecond
 		return err
 	}
 	opService := run.NewProjectsLocationsOperationsService(runService)
+	//exhaustruct:ignore
 	waitOperationRequest := &run.GoogleLongrunningWaitOperationRequest{
 		Timeout: fmt.Sprintf("%ds", timeoutSeconds),
 	}
@@ -167,11 +172,11 @@ func isPresent(services []*run.Service, serviceName string) bool {
 func getParent(svc *run.Service) (string, error) {
 	namespace := svc.Metadata.Namespace
 	if namespace == "" {
-		return "", serviceConfigError{name: svc.Metadata.Name, namespaceMissing: true}
+		return "", serviceConfigError{name: svc.Metadata.Name, namespaceMissing: true, locationMissing: false}
 	}
 	location, exists := svc.Metadata.Labels[serviceLocationLabel]
 	if !exists {
-		return "", serviceConfigError{name: svc.Metadata.Name, locationMissing: true}
+		return "", serviceConfigError{name: svc.Metadata.Name, locationMissing: true, namespaceMissing: false}
 	}
 	return fmt.Sprintf("projects/%s/locations/%s", namespace, location), nil
 }
