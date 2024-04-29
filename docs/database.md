@@ -5,7 +5,7 @@
 
 ## Background
 
-Kuberpult is switching over to use a database.
+Kuberpult is switching over to use a database. The rough timeline to have the database production-ready is summer 2024.
 As of now Kuberpult is using the manifest repository to store data.
 This worked fine for a while, and it had the added bonus
 that ArgoCD is reading from the same manifest git repository.
