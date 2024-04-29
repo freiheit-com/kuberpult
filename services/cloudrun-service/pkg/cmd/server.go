@@ -83,11 +83,24 @@ func runServer(ctx context.Context) error {
 	}
 	containers := []*run.Container{container}
 	//exhaustruct:ignore
-	service := &run.Service{}
-	service.ApiVersion = "serving.knative.dev/v1"
-	service.Kind = "Service"
-	service.Metadata = metaData
-	service.Spec.Template.Spec.Containers = containers
+	spec := &run.RevisionSpec{
+		Containers: containers,
+	}
+	//exhaustruct:ignore
+	revTemplate := &run.RevisionTemplate{
+		Spec: spec,
+	}
+	//exhaustruct:ignore
+	serviceSpec := &run.ServiceSpec{
+		Template: revTemplate,
+	}
+	//exhaustruct:ignore
+	service := &run.Service{
+		ApiVersion: "serving.knative.dev/v1",
+		Kind:       "Service",
+		Metadata:   metaData,
+		Spec:       serviceSpec,
+	}
 
 	if err := cloudrun.Init(ctx); err != nil {
 		logger.FromContext(ctx).Fatal("Failed to initialize cloud run service")
