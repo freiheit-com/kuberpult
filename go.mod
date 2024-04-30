@@ -35,7 +35,7 @@ require (
 	google.golang.org/api v0.152.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.32.0
-	gopkg.in/DataDog/dd-trace-go.v1 v1.61.0
+	gopkg.in/DataDog/dd-trace-go.v1 v1.63.1
 	k8s.io/apimachinery v0.27.3
 	k8s.io/utils v0.0.0-20231121161247-cf03d44ff3cf
 	sigs.k8s.io/yaml v1.4.0
@@ -131,10 +131,10 @@ require (
 require (
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	dario.cat/mergo v1.0.0 // indirect
-	github.com/DataDog/appsec-internal-go v1.4.1 // indirect
+	github.com/DataDog/appsec-internal-go v1.5.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/obfuscate v0.48.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/remoteconfig/state v0.48.1 // indirect
-	github.com/DataDog/go-libddwaf/v2 v2.3.1 // indirect
+	github.com/DataDog/go-libddwaf/v2 v2.4.2 // indirect
 	github.com/DataDog/go-tuf v1.0.2-0.5.2 // indirect
 	github.com/DataDog/gostackparse v0.7.0 // indirect
 	github.com/DataDog/sketches-go v1.4.2 // indirect
@@ -199,7 +199,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
