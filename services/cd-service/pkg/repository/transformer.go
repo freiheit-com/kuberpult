@@ -401,6 +401,26 @@ func (c *CreateApplicationVersion) Transform(
 	if !valid.ApplicationName(c.Application) {
 		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
 	}
+	if state.DB != nil {
+		err = state.DB.WithTransaction(ctx, func(ctx context.Context) error {
+			allApps, err := state.DB.DBSelectAllApplications(ctx)
+			if err != nil {
+				return GetCreateReleaseGeneralFailure(err)
+			}
+			if !slices.Contains(allApps.Apps, c.Application) {
+				allApps.Apps = append(allApps.Apps, c.Application)
+				err := state.DB.DBWriteAllApplications(ctx, allApps.Version, allApps.Apps)
+				if err != nil {
+					return GetCreateReleaseGeneralFailure(err)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
 	if err = fs.MkdirAll(releaseDir, 0777); err != nil {

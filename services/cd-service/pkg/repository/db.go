@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path"
 	"reflect"
@@ -165,8 +166,34 @@ func PostgresToSqliteQuery(query string) string {
 	return q
 }
 
+type DBFunction func(ctx context.Context) error
+
+// WithTransaction opens a transaction, runs `f` and then calls either Commit or Rollback
+func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func(tx *sql.Tx) {
+		err := tx.Rollback()
+		if err != nil {
+			logger.FromContext(ctx).Warn("db.rollback.failed", zap.Error(err))
+		}
+	}(tx)
+
+	err = f(ctx)
+	if err != nil {
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion int64, applications []string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllApplications")
 	defer span.Finish()
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {

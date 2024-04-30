@@ -1382,7 +1382,8 @@ type State struct {
 	Commit                 *git.Commit
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
-	DB                     *DBHandler
+	// DbHandler will be nil if the DB is disabled
+	DB *DBHandler
 }
 
 func (s *State) Releases(application string) ([]uint64, error) {
