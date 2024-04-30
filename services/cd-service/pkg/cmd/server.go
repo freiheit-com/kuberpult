@@ -239,32 +239,6 @@ func RunServer() {
 			if migErr != nil {
 				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
 			}
-			db, err := repository.Connect(dbCfg)
-			if err != nil {
-				logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
-			}
-			pErr := db.DB.Ping()
-			if pErr != nil {
-				logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
-			}
-
-			migErr := repository.RunDBMigrations(dbCfg)
-			if migErr != nil {
-				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
-			}
-			_, retrieveErr := db.InsertDatabaseInformation()
-			if retrieveErr != nil {
-				logger.FromContext(ctx).Warn("Error inserting information into db: ", zap.Error(retrieveErr))
-			}
-			m, err := db.RetrieveDatabaseInformation()
-			if err != nil {
-				logger.FromContext(ctx).Warn("Error retrieving information from db: ", zap.Error(retrieveErr))
-			}
-			printErr := repository.PrintQuery(m)
-			if printErr != nil {
-				logger.FromContext(ctx).Fatal("Error printing information from db: ", zap.Error(printErr))
-			}
-			db.DB.Close()
 		}
 
 		cfg := repository.RepositoryConfig{
