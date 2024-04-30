@@ -68,6 +68,15 @@ export const AppLock: React.FC<{
         </div>
     );
 };
+export const TeamLock: React.FC<{
+    env: Environment;
+    team: string;
+    lock: Lock;
+}> = ({ env, team, lock }) => (
+    <div title={'Team Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}>
+        <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} highlightEffect={false} />
+    </div>
+);
 
 export type EnvironmentListItemProps = {
     env: Environment;
@@ -76,6 +85,7 @@ export type EnvironmentListItemProps = {
     release: Release;
     queuedVersion: number;
     className?: string;
+    team?: string;
 };
 
 type CommitIdProps = {
@@ -109,6 +119,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     release,
     queuedVersion,
     className,
+    team,
 }) => {
     const createAppLock = useCallback(() => {
         addAction({
@@ -181,6 +192,10 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         return [returnString, time];
     };
     const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, application?.version, env.name));
+    // eslint-disable-next-line no-console
+    console.log(env.name);
+    // eslint-disable-next-line no-console
+    console.log(env.teamLocks);
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -204,6 +219,16 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                             ))
                         )}
                     {appRolloutStatus && <RolloutStatusDescription status={appRolloutStatus} />}
+                </div>
+                <div className={classNames('env-card-app-locks')}>
+                    {Object.values(env.teamLocks)
+                        .filter((teamLock) => teamLock.team === team)
+                        .map((locks) =>
+                            Object.values(locks).map((lock) => (
+                                <TeamLock key={lock.lockId} env={env} team={team || ''} lock={lock} />
+                            ))
+                        )}
+                    {appRolloutStatus && <RolloutStatusDescription status={2} />}
                 </div>
             </div>
             <div className="content-area">
@@ -251,8 +276,9 @@ export const EnvironmentList: React.FC<{
     release: Release;
     app: string;
     version: number;
+    team: string;
     className?: string;
-}> = ({ release, app, version, className }) => {
+}> = ({ release, app, version, className, team }) => {
     const allEnvGroups: EnvironmentGroup[] = useEnvironmentGroups();
     return (
         <div className="release-env-group-list">
@@ -265,6 +291,7 @@ export const EnvironmentList: React.FC<{
                             envGroup={envGroup}
                             app={app}
                             release={release}
+                            team={team}
                             className={className}
                             queuedVersion={env.applications[app] ? env.applications[app].queuedVersion : 0}
                         />
@@ -338,7 +365,13 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         highlightEffect={false}
                     />
                 </div>
-                <EnvironmentList app={app} className={className} release={release} version={version} />
+                <EnvironmentList
+                    app={app}
+                    team={team || ''}
+                    className={className}
+                    release={release}
+                    version={version}
+                />
             </>
         </PlainDialog>
     );
