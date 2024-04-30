@@ -26,6 +26,7 @@ import (
 	"time"
 
 	billy "github.com/go-git/go-billy/v5"
+	gogit "github.com/go-git/go-git/v5"
 	git "github.com/libgit2/git2go/v34"
 )
 
@@ -181,20 +182,20 @@ type treeBuilderSymlink struct {
 	name       string
 	target     string
 	oid        *git.Oid
-	repository *git.Repository
+	repository *gogit.Repository
 }
 
 func (b *treeBuilderSymlink) load() error {
-	if b.target == "" {
-		if b.oid != nil {
-			bld, err := b.repository.LookupBlob(b.oid)
-			if err != nil {
-				return err
-			}
-			data := bld.Contents()
-			b.target = string(data)
-		}
-	}
+	// if b.target == "" {
+	// 	if b.oid != nil {
+	// 		bld, err := b.repository.LookupBlob(b.oid)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		data := bld.Contents()
+	// 		b.target = string(data)
+	// 	}
+	// }
 	return nil
 }
 
@@ -202,16 +203,18 @@ func (b *treeBuilderSymlink) insert() (*git.Oid, git.Filemode, error) {
 	if b.target == "" {
 		return b.oid, git.FilemodeLink, nil
 	} else {
-		odb, err := b.repository.Odb()
-		if err != nil {
-			return nil, 0, err
-		}
-		oid, err := odb.Write([]byte(b.target), git.ObjectBlob)
-		if err != nil {
-			return nil, 0, err
-		}
-		return oid, git.FilemodeLink, nil
+		// odb, err := b.repository.Odb()
+		// if err != nil {
+		// 	return nil, 0, err
+		// }
+		// oid, err := odb.Write([]byte(b.target), git.ObjectBlob)
+		// if err != nil {
+		// 	return nil, 0, err
+		// }
+		// return oid, git.FilemodeLink, nil
 	}
+	return b.oid, git.FilemodeLink, nil
+
 }
 
 func (b *treeBuilderSymlink) osInfo() os.FileInfo {
@@ -225,88 +228,89 @@ func (b *treeBuilderSymlink) osInfo() os.FileInfo {
 type TreeBuilderFS struct {
 	info       fileInfo
 	entries    map[string]treeBuilderEntry
-	repository *git.Repository
+	repository *gogit.Repository
 	oid        *git.Oid
 	parent     *TreeBuilderFS
 }
 
 func (t *TreeBuilderFS) load() error {
-	if t.entries == nil {
-		tree, err := t.repository.LookupTree(t.oid)
-		if err != nil {
-			return err
-		}
-		result := map[string]treeBuilderEntry{}
-		count := tree.EntryCount()
-		for i := uint64(0); i < count; i++ {
-			entry := tree.EntryByIndex(i)
-			switch entry.Filemode {
-			case git.FilemodeTree:
-				result[entry.Name] = &TreeBuilderFS{
-					entries: nil,
-					info: fileInfo{
-						size: 0,
-						name: entry.Name,
-						mode: os.ModeDir | os.ModePerm,
-					},
-					repository: t.repository,
-					parent:     t,
-					oid:        entry.Id,
-				}
-			case git.FilemodeBlob:
-				result[entry.Name] = &treeBuilderBlob{
-					content:    nil,
-					mode:       0,
-					pos:        0,
-					name:       entry.Name,
-					repository: t.repository,
-					oid:        entry.Id,
-				}
-			case git.FilemodeLink:
-				result[entry.Name] = &treeBuilderSymlink{
-					target:     "",
-					name:       entry.Name,
-					repository: t.repository,
-					oid:        entry.Id,
-				}
-			default:
-				return fmt.Errorf("unsupported file mode %d", entry.Filemode)
-			}
-		}
-		t.entries = result
-	}
+	// if t.entries == nil {
+	// 	tree, err := t.repository.LookupTree(t.oid)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	result := map[string]treeBuilderEntry{}
+	// 	count := tree.EntryCount()
+	// 	for i := uint64(0); i < count; i++ {
+	// 		entry := tree.EntryByIndex(i)
+	// 		switch entry.Filemode {
+	// 		case git.FilemodeTree:
+	// 			result[entry.Name] = &TreeBuilderFS{
+	// 				entries: nil,
+	// 				info: fileInfo{
+	// 					size: 0,
+	// 					name: entry.Name,
+	// 					mode: os.ModeDir | os.ModePerm,
+	// 				},
+	// 				repository: t.repository,
+	// 				parent:     t,
+	// 				oid:        entry.Id,
+	// 			}
+	// 		case git.FilemodeBlob:
+	// 			result[entry.Name] = &treeBuilderBlob{
+	// 				content:    nil,
+	// 				mode:       0,
+	// 				pos:        0,
+	// 				name:       entry.Name,
+	// 				repository: t.repository,
+	// 				oid:        entry.Id,
+	// 			}
+	// 		case git.FilemodeLink:
+	// 			result[entry.Name] = &treeBuilderSymlink{
+	// 				target:     "",
+	// 				name:       entry.Name,
+	// 				repository: t.repository,
+	// 				oid:        entry.Id,
+	// 			}
+	// 		default:
+	// 			return fmt.Errorf("unsupported file mode %d", entry.Filemode)
+	// 		}
+	// 	}
+	// 	t.entries = result
+	// }
 	return nil
 }
 
 func (t *TreeBuilderFS) insert() (*git.Oid, git.Filemode, error) {
-	if t.entries == nil {
-		// this tree wasn't modified, we can short-circuit it
-		return t.oid, git.FilemodeTree, nil
-	} else {
-		bld, err := t.repository.TreeBuilder()
-		if err != nil {
-			return nil, 0, err
-		}
-		defer bld.Free()
-		for name, entry := range t.entries {
-			oid, mode, err := entry.insert()
-			if err != nil {
-				return nil, 0, err
-			}
-			if oid == nil {
-				return nil, 0, fmt.Errorf("Oid is zero for %s %#v", name, entry)
-			}
-			err = bld.Insert(name, oid, mode)
-			if err != nil {
-				return nil, 0, err
-			}
-		}
-		oid, err := bld.Write()
-		if err != nil {
-			return nil, 0, err
-		}
-		return oid, git.FilemodeTree, nil
-	}
+	// if t.entries == nil {
+	// 	// this tree wasn't modified, we can short-circuit it
+	// 	return t.oid, git.FilemodeTree, nil
+	// } else {
+	// 	bld, err := t.repository.TreeBuilder()
+	// 	if err != nil {
+	// 		return nil, 0, err
+	// 	}
+	// 	defer bld.Free()
+	// 	for name, entry := range t.entries {
+	// 		oid, mode, err := entry.insert()
+	// 		if err != nil {
+	// 			return nil, 0, err
+	// 		}
+	// 		if oid == nil {
+	// 			return nil, 0, fmt.Errorf("Oid is zero for %s %#v", name, entry)
+	// 		}
+	// 		err = bld.Insert(name, oid, mode)
+	// 		if err != nil {
+	// 			return nil, 0, err
+	// 		}
+	// 	}
+	// 	oid, err := bld.Write()
+	// 	if err != nil {
+	// 		return nil, 0, err
+	// 	}
+	// 	return oid, git.FilemodeTree, nil
+	// }
+	return nil, 0, nil
 }
 
 func (t *TreeBuilderFS) Insert() (*git.Oid, error) {
@@ -351,22 +355,8 @@ func (t *TreeBuilderFS) OpenFile(filename string, flag int, perm os.FileMode) (b
 		} else {
 			return nil, fs.ErrInvalid
 		}
-	} else {
-		if flag&os.O_CREATE != 0 {
-			file := &treeBuilderBlob{
-				oid:        nil,
-				pos:        0,
-				name:       name,
-				repository: t.repository,
-				mode:       writeMode,
-				content:    []byte{},
-			}
-			node.entries[name] = file
-			return file, nil
-		} else {
-			return nil, fs.ErrNotExist
-		}
 	}
+	return nil, nil
 }
 
 func (t *TreeBuilderFS) Stat(filename string) (os.FileInfo, error) {
@@ -541,7 +531,7 @@ func (t *TreeBuilderFS) Symlink(target, filename string) error {
 	return nil
 }
 
-func NewEmptyTreeBuildFS(repo *git.Repository) *TreeBuilderFS {
+func NewEmptyTreeBuildFS(repo *gogit.Repository) *TreeBuilderFS {
 	return &TreeBuilderFS{
 		oid:    nil,
 		parent: nil,
@@ -555,7 +545,7 @@ func NewEmptyTreeBuildFS(repo *git.Repository) *TreeBuilderFS {
 	}
 }
 
-func NewTreeBuildFS(repo *git.Repository, oid *git.Oid) *TreeBuilderFS {
+func NewTreeBuildFS(repo *gogit.Repository, oid *git.Oid) *TreeBuilderFS {
 	return &TreeBuilderFS{
 		entries: nil,
 		parent:  nil,

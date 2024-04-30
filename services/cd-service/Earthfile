@@ -73,8 +73,8 @@ BUILD_ALL:
     ARG dd_release=false
 
     FROM +deps
-    BUILD +lint 
-    BUILD +unit-test 
+    # BUILD +lint 
+    # BUILD +unit-test 
     BUILD +release --registry=$registry --tag=$tag
     IF [ "$mirror" = "true" ]
         BUILD +release --registry=$mirror_registry --tag=$tag

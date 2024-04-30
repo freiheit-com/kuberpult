@@ -79,7 +79,7 @@ func (o *OverviewServiceServer) getOverview(
 	s *repository.State) (*api.GetOverviewResponse, error) {
 	var rev string
 	if s.Commit != nil {
-		rev = s.Commit.Id().String()
+		rev = s.Commit.String()
 	}
 	result := api.GetOverviewResponse{
 		Branch:            "",

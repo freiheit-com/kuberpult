@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -51,13 +52,19 @@ import (
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/sqlitestore"
 	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/logger"
 	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/util"
+	gogit "github.com/go-git/go-git/v5"
+	goconf "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/go-git/go-git/v5/storage/memory"
 	git "github.com/libgit2/git2go/v34"
 )
 
@@ -139,7 +146,7 @@ type repository struct {
 	credentials  *credentialsStore
 	certificates *certificateStore
 
-	repository *git.Repository
+	repository *gogit.Repository
 
 	// Mutex guarding head
 	headLock sync.Mutex
@@ -213,120 +220,133 @@ type RepositoryConfig struct {
 	DBHandler *DBHandler
 }
 
-func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
-	repo2, err := git.OpenRepositoryExtended(path, git.RepositoryOpenNoSearch, path)
+func openOrCreate(path string, storageBackend StorageBackend, cfg RepositoryConfig) (*gogit.Repository, error) {
+	fs := memfs.New()
+	storer := memory.NewStorage()
+	authMethod, err := ssh.NewPublicKeysFromFile("git", cfg.Credentials.SshKey, "")
 	if err != nil {
-		var gerr *git.GitError
-		if errors.As(err, &gerr) {
-			if gerr.Code == git.ErrorCodeNotFound {
-				err = os.MkdirAll(path, 0777)
-				if err != nil {
-					return nil, err
-				}
-				repo2, err = git.InitRepository(path, true)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
+		return nil, err
 	}
-	if storageBackend == SqliteBackend {
-		sqlitePath := filepath.Join(path, "odb.sqlite")
-		be, err := sqlitestore.NewOdbBackend(sqlitePath)
-		if err != nil {
-			return nil, fmt.Errorf("creating odb backend: %w", err)
-		}
-		odb, err := repo2.Odb()
-		if err != nil {
-			return nil, fmt.Errorf("gettting odb: %w", err)
-		}
-		// Prioriority 99 ensures that libgit prefers this backend for writing over its buildin backends.
-		err = odb.AddBackend(be, 99)
-		if err != nil {
-			return nil, fmt.Errorf("setting odb backend: %w", err)
-		}
+	cloneOptions := &gogit.CloneOptions{
+		URL:             cfg.URL,
+		InsecureSkipTLS: false,
+		Auth:            authMethod,
+		Progress:        os.Stdout,
+		Depth:           1,
+		Tags:            gogit.AllTags,
+		SingleBranch:    true,
+		ReferenceName:   "main",
 	}
+	// Clones the repository into the worktree (fs) and stores all the .git
+	// content into the storer
+	fmt.Printf("Starting memory clone")
+	repo2, err := gogit.Clone(storer, fs, cloneOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// repo2, err := gogit.PlainOpen(path)
+	// if err != nil {
+	// 	var gerr *git.GitError
+	// 	if errors.As(err, &gerr) {
+	// 		if gerr.Code == git.ErrorCodeNotFound {
+	// 			err = os.MkdirAll(path, 0777)
+	// 			if err != nil {
+	// 				return nil, err
+	// 			}
+	// 			repo2, err = gogit.PlainInit(path, true)
+	// 			if err != nil {
+	// 				return nil, err
+	// 			}
+	// 		} else {
+	// 			return nil, err
+	// 		}
+	// 	} else {
+	// 		return nil, err
+	// 	}
+	// }
 	return repo2, err
 }
 
 func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags []*api.TagData, err error) {
-	repo, err := openOrCreate(repoName, cfg.StorageBackend)
+	repo, err := openOrCreate(repoName, cfg.StorageBackend, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open/create repo: %v", err)
 	}
 
-	var credentials *credentialsStore
-	var certificates *certificateStore
-	if strings.HasPrefix(cfg.URL, "./") || strings.HasPrefix(cfg.URL, "/") {
-	} else {
-		credentials, err = cfg.Credentials.load()
-		if err != nil {
-			return nil, fmt.Errorf("failure to load credentials: %v", err)
-		}
-		certificates, err = cfg.Certificates.load()
-		if err != nil {
-			return nil, fmt.Errorf("failure to load certificates: %v", err)
-		}
-	}
+	// var credentials *credentialsStore
+	// var certificates *certificateStore
+	// if strings.HasPrefix(cfg.URL, "./") || strings.HasPrefix(cfg.URL, "/") {
+	// } else {
+	// 	credentials, err = cfg.Credentials.load()
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("failure to load credentials: %v", err)
+	// 	}
+	// 	certificates, err = cfg.Certificates.load()
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("failure to load certificates: %v", err)
+	// 	}
+	// }
 
-	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+	// fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
 	//exhaustruct:ignore
-	RemoteCallbacks := git.RemoteCallbacks{
-		CredentialsCallback:      credentials.CredentialsCallback(ctx),
-		CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+	// RemoteCallbacks := git.RemoteCallbacks{
+	// 	CredentialsCallback:      credentials.CredentialsCallback(ctx),
+	// 	CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+	// }
+	auth, err := ssh.NewPublicKeys("git", []byte(cfg.Credentials.SshKey), "")
+	fetchOptions := gogit.FetchOptions{
+		Tags: gogit.AllTags,
+		Auth: auth,
 	}
-	fetchOptions := git.FetchOptions{
-		Prune:           git.FetchPruneUnspecified,
-		UpdateFetchhead: false,
-		Headers:         nil,
-		ProxyOptions: git.ProxyOptions{
-			Type: git.ProxyTypeNone,
-			Url:  "",
-		},
-		RemoteCallbacks: RemoteCallbacks,
-		DownloadTags:    git.DownloadTagsAll,
-	}
-	remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
+	// fetchOptions := git.FetchOptions{
+	// 	Prune:           git.FetchPruneUnspecified,
+	// 	UpdateFetchhead: false,
+	// 	Headers:         nil,
+	// 	ProxyOptions: git.ProxyOptions{
+	// 		Type: git.ProxyTypeNone,
+	// 		Url:  "",
+	// 	},
+	// 	RemoteCallbacks: RemoteCallbacks,
+	// 	DownloadTags:    git.DownloadTagsAll,
+	// }
+	remote, err := repo.Remote(cfg.URL)
+	// remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failure to create anonymous remote: %v", err)
 	}
-	err = remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+	err = remote.Fetch(&fetchOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failure to fetch: %v", err)
 	}
 
-	tagsList, err := repo.Tags.List()
-	if err != nil {
-		return nil, fmt.Errorf("unable to list tags: %v", err)
-	}
+	// tagsList, err := repo.Tags()
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unable to list tags: %v", err)
+	// }
 
-	sort.Strings(tagsList)
-	iters, err := repo.NewReferenceIteratorGlob("refs/tags/*")
-	if err != nil {
-		return nil, fmt.Errorf("unable to get list of tags: %v", err)
-	}
-	for {
-		tagObject, err := iters.Next()
-		if err != nil {
-			break
-		}
-		tagRef, lookupErr := repo.LookupTag(tagObject.Target())
-		if lookupErr != nil {
-			tagCommit, err := repo.LookupCommit(tagObject.Target())
-			// If LookupTag fails, fallback to LookupCommit
-			// to cover all tags, annotated and lightweight
-			if err != nil {
-				return nil, fmt.Errorf("unable to lookup tag [%s]: %v - original err: %v", tagObject.Name(), err, lookupErr)
-			}
-			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
-		} else {
-			tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagRef.Id().String()})
-		}
-	}
+	// sort.Strings(tagsList)
+	// iters, err := repo.NewReferenceIteratorGlob("refs/tags/*")
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unable to get list of tags: %v", err)
+	// }
+	// for {
+	// 	tagObject, err := iters.Next()
+	// 	if err != nil {
+	// 		break
+	// 	}
+	// 	tagRef, lookupErr := repo.LookupTag(tagObject.Target())
+	// 	if lookupErr != nil {
+	// 		tagCommit, err := repo.LookupCommit(tagObject.Target())
+	// 		// If LookupTag fails, fallback to LookupCommit
+	// 		// to cover all tags, annotated and lightweight
+	// 		if err != nil {
+	// 			return nil, fmt.Errorf("unable to lookup tag [%s]: %v - original err: %v", tagObject.Name(), err, lookupErr)
+	// 		}
+	// 		tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagCommit.Id().String()})
+	// 	} else {
+	// 		tags = append(tags, &api.TagData{Tag: tagObject.Name(), CommitId: tagRef.Id().String()})
+	// 	}
+	// }
 
 	return tags, nil
 }
@@ -390,11 +410,11 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 		}
 	}
 
-	if repo2, err := openOrCreate(cfg.Path, cfg.StorageBackend); err != nil {
+	if repo2, err := openOrCreate(cfg.Path, cfg.StorageBackend, cfg); err != nil {
 		return nil, nil, err
 	} else {
 		// configure remotes
-		if remote, err := repo2.Remotes.CreateAnonymous(cfg.URL); err != nil {
+		if remote, err := repo2.Remote(cfg.URL); err != nil {
 			return nil, nil, err
 		} else {
 			result := &repository{
@@ -413,49 +433,53 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			result.headLock.Lock()
 
 			defer result.headLock.Unlock()
-			fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch)
+			fetchSpec := goconf.RefSpec(fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch))
 			//exhaustruct:ignore
-			RemoteCallbacks := git.RemoteCallbacks{
-				UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-					logger.Debug("git.fetched",
-						zap.String("refname", refname),
-						zap.String("revision.new", b.String()),
-					)
-					return nil
-				},
-				CredentialsCallback:      credentials.CredentialsCallback(ctx),
-				CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+			// RemoteCallbacks := git.RemoteCallbacks{
+			// 	UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
+			// 		logger.Debug("git.fetched",
+			// 			zap.String("refname", refname),
+			// 			zap.String("revision.new", b.String()),
+			// 		)
+			// 		return nil
+			// 	},
+			// 	CredentialsCallback:      credentials.CredentialsCallback(ctx),
+			// 	CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
+			// }
+			// fetchOptions := git.FetchOptions{
+			// 	Prune:           git.FetchPruneUnspecified,
+			// 	UpdateFetchhead: false,
+			// 	DownloadTags:    git.DownloadTagsUnspecified,
+			// 	Headers:         nil,
+			// 	ProxyOptions: git.ProxyOptions{
+			// 		Type: git.ProxyTypeNone,
+			// 		Url:  "",
+			// 	},
+			// 	// RemoteCallbacks: RemoteCallbacks,
+			// }
+			fetchOps := &gogit.FetchOptions{
+				Tags:     gogit.AllTags,
+				RefSpecs: []goconf.RefSpec{fetchSpec},
 			}
-			fetchOptions := git.FetchOptions{
-				Prune:           git.FetchPruneUnspecified,
-				UpdateFetchhead: false,
-				DownloadTags:    git.DownloadTagsUnspecified,
-				Headers:         nil,
-				ProxyOptions: git.ProxyOptions{
-					Type: git.ProxyTypeNone,
-					Url:  "",
-				},
-				RemoteCallbacks: RemoteCallbacks,
-			}
-			err := remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+			err := remote.Fetch(fetchOps)
 			if err != nil {
 				return nil, nil, err
 			}
-			var rev *git.Oid
-			if remoteRef, err := repo2.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch)); err != nil {
-				var gerr *git.GitError
-				if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
-					// not found
-					// nothing to do
-				} else {
-					return nil, nil, err
-				}
-			} else {
-				rev = remoteRef.Target()
-				if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
-					return nil, nil, err
-				}
-			}
+			// var rev plumbing.ReferenceName
+
+			// remoteRef, err := repo2.References()
+			// if err != nil {
+			// 	return nil, nil, err
+			// }
+			// remoteRef.ForEach(func(r *plumbing.Reference) error {
+			// 	if r.String() == fmt.Sprintf("refs/remotes/origin/%s", cfg.Branch) {
+			// 		rev = r.Target()
+			// 	}
+			// 	return nil
+			// })
+			// if _, err := repo2.References.Create(fmt.Sprintf("refs/heads/%s", cfg.Branch), rev, true, "reset branch"); err != nil {
+			// 	return nil, nil, err
+			// }
 
 			// check that we can build the current state
 			state, err := result.StateAt(nil)
@@ -500,8 +524,8 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 			// this triggers a for loop every `NetworkTimeout` to refresh the readiness
 		case <-ctx.Done():
 			return nil
-		case e := <-r.queue.transformerBatches:
-			r.ProcessQueueOnce(ctx, e, defaultPushUpdate, DefaultPushActionCallback)
+			// case e := <-r.queue.transformerBatches:
+			// r.ProcessQueueOnce(ctx, e, defaultPushUpdate, DefaultPushActionCallback)
 		}
 	}
 }
@@ -536,27 +560,28 @@ func (r *repository) applyTransformerBatches(transformerBatches []transformerBat
 
 var panicError = errors.New("Panic")
 
-func (r *repository) useRemote(callback func(*git.Remote) error) error {
-	remote, err := r.repository.Remotes.CreateAnonymous(r.config.URL)
+func (r *repository) useRemote(callback func(*gogit.Remote) error) error {
+	remote, err := r.repository.Remote(r.config.URL)
 	if err != nil {
 		return fmt.Errorf("opening remote %q: %w", r.config.URL, err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), r.config.NetworkTimeout)
-	defer cancel()
-	errCh := make(chan error, 1)
-	go func() {
-		// Usually we call `defer` right after resource allocation (`CreateAnonymous`).
-		// The issue with that is that the `callback` requires the remote, and cannot be cancelled properly.
-		// So `callback` may run longer than `useRemote`, and if at that point `Disconnect` was already called, we get a `panic`.
-		defer remote.Disconnect()
-		errCh <- callback(remote)
-	}()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-errCh:
-		return err
-	}
+	callback(remote)
+	// ctx, cancel := context.WithTimeout(context.Background(), r.config.NetworkTimeout)
+	// defer cancel()
+	// errCh := make(chan error, 1)
+	// go func() {
+	// 	// Usually we call `defer` right after resource allocation (`CreateAnonymous`).
+	// 	// The issue with that is that the `callback` requires the remote, and cannot be cancelled properly.
+	// 	// So `callback` may run longer than `useRemote`, and if at that point `Disconnect` was already called, we get a `panic`.
+	// 	defer remote.Disconnect()
+	// 	errCh <- callback(remote)
+	// }()
+	// select {
+	// case <-ctx.Done():
+	// 	return ctx.Err()
+	// case err := <-errCh:
+	return err
+	// }
 }
 
 func (r *repository) drainQueue(ctx context.Context) []transformerBatch {
@@ -602,10 +627,10 @@ type PushActionFunc func() error
 type PushActionCallbackFunc func(git.PushOptions, *repository) PushActionFunc
 
 // DefaultPushActionCallback is public for testing reasons only.
-func DefaultPushActionCallback(pushOptions git.PushOptions, r *repository) PushActionFunc {
+func DefaultPushActionCallback(pushOptions gogit.PushOptions, r *repository) PushActionFunc {
 	return func() error {
-		return r.useRemote(func(remote *git.Remote) error {
-			return remote.Push([]string{fmt.Sprintf("refs/heads/%s:refs/heads/%s", r.config.Branch, r.config.Branch)}, &pushOptions)
+		return r.useRemote(func(remote *gogit.Remote) error {
+			return remote.Push(&pushOptions)
 		})
 	}
 }
@@ -952,8 +977,8 @@ type TransformerResult struct {
 }
 
 type CommitIds struct {
-	Previous *git.Oid
-	Current  *git.Oid
+	Previous *plumbing.Hash
+	Current  *plumbing.Hash
 }
 
 func (r *TransformerResult) AddAppEnv(app string, env string, team string) {
@@ -1005,7 +1030,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
 
-	treeId, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
+	_, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
 	if insertError != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
 	}
@@ -1030,21 +1055,34 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 		When:  time.Now(),
 	}
 
-	var rev *git.Oid
+	var rev *plumbing.Hash
 	// the commit can be nil, if it's the first commit in the repo
 	if state.Commit != nil {
-		rev = state.Commit.Id()
+		rev = state.Commit
 	}
 	oldCommitId := rev
-
-	newCommitId, createErr := r.repository.CreateCommitFromIds(
-		fmt.Sprintf("refs/heads/%s", r.config.Branch),
-		author,
-		committer,
-		strings.Join(commitMsg, "\n"),
-		treeId,
-		rev,
-	)
+	wt, err := r.repository.Worktree()
+	if err != nil {
+		return nil, &TransformerBatchApplyError{
+			TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", err),
+			Index:            -1,
+		}
+	}
+	wt.Add("./")
+	commitOps := &gogit.CommitOptions{
+		All:       true,
+		Committer: (*object.Signature)(committer),
+		Author:    (*object.Signature)(author),
+	}
+	newCommitId, createErr := wt.Commit(strings.Join(commitMsg, " "), commitOps)
+	// newCommitId, createErr := r.repository.CreateCommitFromIds(
+	// 	fmt.Sprintf("refs/heads/%s", r.config.Branch),
+	// 	author,
+	// 	committer,
+	// 	strings.Join(commitMsg, "\n"),
+	// 	treeId,
+	// 	rev,
+	// )
 	if createErr != nil {
 		return nil, &TransformerBatchApplyError{
 			TransformerError: fmt.Errorf("%s: %w", "createCommitFromIds failed", createErr),
@@ -1053,7 +1091,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	}
 	result := CombineArray(changes)
 	result.Commits = &CommitIds{
-		Current:  newCommitId,
+		Current:  &newCommitId,
 		Previous: nil,
 	}
 	if oldCommitId != nil {
@@ -1063,66 +1101,71 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 }
 
 func (r *repository) FetchAndReset(ctx context.Context) error {
-	fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", r.config.Branch, r.config.Branch)
-	logger := logger.FromContext(ctx)
+	// fetchSpec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", r.config.Branch, r.config.Branch)
+	// logger := logger.FromContext(ctx)
 	//exhaustruct:ignore
-	RemoteCallbacks := git.RemoteCallbacks{
-		UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
-			logger.Debug("git.fetched",
-				zap.String("refname", refname),
-				zap.String("revision.new", b.String()),
-			)
-			return nil
-		},
-		CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
-		CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
+	// RemoteCallbacks := git.RemoteCallbacks{
+	// 	UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
+	// 		logger.Debug("git.fetched",
+	// 			zap.String("refname", refname),
+	// 			zap.String("revision.new", b.String()),
+	// 		)
+	// 		return nil
+	// 	},
+	// 	CredentialsCallback:      r.credentials.CredentialsCallback(ctx),
+	// 	CertificateCheckCallback: r.certificates.CertificateCheckCallback(ctx),
+	// }
+	auth, err := ssh.NewPublicKeys("git", []byte(r.config.Credentials.SshKey), "")
+	fetchOptions := gogit.FetchOptions{
+		Tags: gogit.AllTags,
+		Auth: auth,
 	}
-	fetchOptions := git.FetchOptions{
-		Prune:           git.FetchPruneUnspecified,
-		UpdateFetchhead: false,
-		DownloadTags:    git.DownloadTagsUnspecified,
-		Headers:         nil,
-		ProxyOptions: git.ProxyOptions{
-			Type: git.ProxyTypeNone,
-			Url:  "",
-		},
-		RemoteCallbacks: RemoteCallbacks,
-	}
-	err := r.useRemote(func(remote *git.Remote) error {
-		return remote.Fetch([]string{fetchSpec}, &fetchOptions, "fetching")
+	// fetchOptions := git.FetchOptions{
+	// 	Prune:           git.FetchPruneUnspecified,
+	// 	UpdateFetchhead: false,
+	// 	DownloadTags:    git.DownloadTagsUnspecified,
+	// 	Headers:         nil,
+	// 	ProxyOptions: git.ProxyOptions{
+	// 		Type: git.ProxyTypeNone,
+	// 		Url:  "",
+	// 	},
+	// 	RemoteCallbacks: RemoteCallbacks,
+	// }
+	err = r.useRemote(func(remote *gogit.Remote) error {
+		return remote.Fetch(&fetchOptions)
 	})
 	if err != nil {
 		return err
 	}
-	var zero git.Oid
-	var rev *git.Oid = &zero
-	if remoteRef, err := r.repository.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", r.config.Branch)); err != nil {
-		var gerr *git.GitError
-		if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
-			// not found
-			// nothing to do
-		} else {
-			return err
-		}
-	} else {
-		rev = remoteRef.Target()
-		if _, err := r.repository.References.Create(fmt.Sprintf("refs/heads/%s", r.config.Branch), rev, true, "reset branch"); err != nil {
-			return err
-		}
-	}
-	obj, err := r.repository.Lookup(rev)
-	if err != nil {
-		return err
-	}
-	commit, err := obj.AsCommit()
-	if err != nil {
-		return err
-	}
-	//exhaustruct:ignore
-	err = r.repository.ResetToCommit(commit, git.ResetSoft, &git.CheckoutOptions{Strategy: git.CheckoutForce})
-	if err != nil {
-		return err
-	}
+	// var zero git.Oid
+	// var rev *git.Oid = &zero
+	// if remoteRef, err := r.repository.References.Lookup(fmt.Sprintf("refs/remotes/origin/%s", r.config.Branch)); err != nil {
+	// 	var gerr *git.GitError
+	// 	if errors.As(err, &gerr) && gerr.Code == git.ErrorCodeNotFound {
+	// 		// not found
+	// 		// nothing to do
+	// 	} else {
+	// 		return err
+	// 	}
+	// } else {
+	// 	rev = remoteRef.Target()
+	// 	if _, err := r.repository.References.Create(fmt.Sprintf("refs/heads/%s", r.config.Branch), rev, true, "reset branch"); err != nil {
+	// 		return err
+	// 	}
+	// }
+	// obj, err := r.repository.Lookup(rev)
+	// if err != nil {
+	// 	return err
+	// }
+	// commit, err := obj.AsCommit()
+	// if err != nil {
+	// 	return err
+	// }
+	// //exhaustruct:ignore
+	// err = r.repository.ResetToCommit(commit, git.ResetSoft, &git.CheckoutOptions{Strategy: git.CheckoutForce})
+	// if err != nil {
+	// 	return err
+	// }
 	return nil
 }
 
@@ -1258,38 +1301,37 @@ func (r *repository) State() *State {
 }
 
 func (r *repository) StateAt(oid *git.Oid) (*State, error) {
-	var commit *git.Commit
-	if oid == nil {
-		if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
-			var gerr *git.GitError
-			if errors.As(err, &gerr) {
-				if gerr.Code == git.ErrorCodeNotFound {
-					return &State{
-						Commit:                 nil,
-						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
-						BootstrapMode:          r.config.BootstrapMode,
-						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-						DBHandler:              r.DB,
-					}, nil
-				}
-			}
-			return nil, err
-		} else {
-			commit, err = obj.AsCommit()
-			if err != nil {
-				return nil, err
-			}
-		}
-	} else {
-		var err error
-		commit, err = r.repository.LookupCommit(oid)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// if oid == nil {
+	// 	if obj, err := r.repository.RevparseSingle(fmt.Sprintf("refs/heads/%s", r.config.Branch)); err != nil {
+	// 		var gerr *git.GitError
+	// 		if errors.As(err, &gerr) {
+	// 			if gerr.Code == git.ErrorCodeNotFound {
+	// 				return &State{
+	// 					Commit:                 nil,
+	// 					Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
+	// 					BootstrapMode:          r.config.BootstrapMode,
+	// 					EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+	// 					DB:                     r.DB,
+	// 				}, nil
+	// 			}
+	// 		}
+	// 		return nil, err
+	// 	} else {
+	// 		commit, err = obj.AsCommit()
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+	// 	}
+	// } else {
+	// 	var err error
+	// 	commit, err = r.repository.LookupCommit(oid)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 	return &State{
-		Filesystem:             fs.NewTreeBuildFS(r.repository, commit.TreeId()),
-		Commit:                 commit,
+		Filesystem:             fs.NewTreeBuildFS(r.repository, nil),
+		Commit:                 nil,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
 		DBHandler:              r.DB,
@@ -1379,7 +1421,7 @@ func (r *repository) maybeGc(ctx context.Context) {
 
 type State struct {
 	Filesystem             billy.Filesystem
-	Commit                 *git.Commit
+	Commit                 *plumbing.Hash
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
 	// DbHandler will be nil if the DB is disabled
