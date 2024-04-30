@@ -177,6 +177,8 @@ func (o *OverviewServiceServer) getOverview(
 							}
 							envInGroup.TeamLocks = env.TeamLocks
 						}
+					} else {
+
 					}
 
 					var version *uint64

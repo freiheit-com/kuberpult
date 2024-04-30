@@ -63,6 +63,7 @@ export const LocksPage: React.FC = () => {
                 Object.values(envs)
                     .map((env) =>
                         Object.values(env.teamLocks)
+                            .flat()
                             .map((teamLock) =>
                                 Object.values(teamLock).map((lock) => ({
                                     date: lock.createdAt,
@@ -82,6 +83,10 @@ export const LocksPage: React.FC = () => {
         [envs]
     );
     const teamLocks = tLocks.filter((value, index, self) => index === self.findIndex((t) => t.lockId === value.lockId));
+    // eslint-disable-next-line no-console
+    console.log(envs);
+    // eslint-disable-next-line no-console
+    console.log(tLocks);
     const appLocks = useMemo(
         () =>
             sortLocks(
