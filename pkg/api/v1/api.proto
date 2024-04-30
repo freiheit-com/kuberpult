@@ -302,12 +302,6 @@ message Lock {
   Actor created_by = 5;
 }
 
-message TeamLock {
-  Lock lock = 1;
-  string team = 2;
-}
-
-
 message LockedError {
   map<string, Lock> environment_locks = 1;
   map<string, Lock> environment_application_locks = 2;
@@ -518,6 +512,7 @@ message Environment {
     // version=0 means "nothing is deployed"
     uint64 version = 2;
     map<string, Lock> locks = 3;
+
     // "version" describes the currently deployed version. "queuedVersion" describes a version that was to be deployed, but a lock stopped the deployment:
     // "queuedVersion" has nothing to do with queue.go
     // queued_version=0 means "nothing is queued"
@@ -526,6 +521,8 @@ message Environment {
     bool undeploy_version = 6;
     ArgoCD argo_cd = 7;
     DeploymentMetaData deployment_meta_data = 8;
+    map<string, Lock> teamLocks = 9; //Keep in mind that team lock information will be duplicated if there is a team with more than one application on some environment
+    string team = 10;
   }
 
   string name = 1;
@@ -534,7 +531,6 @@ message Environment {
   map<string, Application> applications = 4;
   uint32 distance_to_upstream = 5;
   Priority priority = 6;
-  map<string, TeamLock> teamLocks = 7;
 }
 
 message Release {

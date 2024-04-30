@@ -94,7 +94,6 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, grpc.InternalError(ctx, err)
 	} else {
 		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
-		teamSet := map[string]bool{}
 		for envName, config := range envs {
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
@@ -113,7 +112,6 @@ func (o *OverviewServiceServer) getOverview(
 					EnvironmentGroup: &groupName,
 				},
 				Locks:        map[string]*api.Lock{},
-				TeamLocks:    map[string]*api.TeamLock{},
 				Applications: map[string]*api.Environment_Application{},
 			}
 			envInGroup.Config = env.Config
@@ -139,6 +137,10 @@ func (o *OverviewServiceServer) getOverview(
 			} else {
 
 				for _, appName := range apps {
+					teamName, err := s.GetTeamName(appName)
+					if err != nil {
+						teamName = ""
+					}
 					app := api.Environment_Application{
 						Version:         0,
 						QueuedVersion:   0,
@@ -146,39 +148,31 @@ func (o *OverviewServiceServer) getOverview(
 						ArgoCd:          nil,
 						Name:            appName,
 						Locks:           map[string]*api.Lock{},
+						TeamLocks:       map[string]*api.Lock{},
+						Team:            teamName,
 						DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
 							DeployAuthor: "",
 							DeployTime:   "",
 						},
 					}
 					//we don't want to insert the locks for a team twice, so init a set of checked teams and filter the ones we already processed.
-					teamName, err := s.GetTeamName(appName)
-					_, exists := teamSet[teamName]
-					if err == nil && !exists {
-						teamSet[teamName] = true
-						fmt.Printf("Checking team locks for team: '%s'\n", teamName)
-						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr != nil {
-							return nil, teamErr
-						} else {
-							for lockId, lock := range teamLocks {
-								fmt.Printf("Got a lock: '%s'\n", lockId)
-								env.TeamLocks[lockId] = &api.TeamLock{
-									Lock: &api.Lock{
-										Message:   lock.Message,
-										LockId:    lockId,
-										CreatedAt: timestamppb.New(lock.CreatedAt),
-										CreatedBy: &api.Actor{
-											Name:  lock.CreatedBy.Name,
-											Email: lock.CreatedBy.Email,
-										},
-									},
-									Team: teamName,
-								}
-							}
-							envInGroup.TeamLocks = env.TeamLocks
-						}
-					} else {
 
+					fmt.Printf("Checking team locks for team: '%s'\n", teamName)
+					if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr != nil {
+						return nil, teamErr
+					} else {
+						for lockId, lock := range teamLocks {
+							fmt.Printf("Got a lock: '%s'\n", lockId)
+							app.TeamLocks[lockId] = &api.Lock{
+								Message:   lock.Message,
+								LockId:    lockId,
+								CreatedAt: timestamppb.New(lock.CreatedAt),
+								CreatedBy: &api.Actor{
+									Name:  lock.CreatedBy.Name,
+									Email: lock.CreatedBy.Email,
+								},
+							}
+						}
 					}
 
 					var version *uint64
