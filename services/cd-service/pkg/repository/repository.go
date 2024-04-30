@@ -1269,7 +1269,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
 						BootstrapMode:          r.config.BootstrapMode,
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-						DB:                     r.DB,
+						DBHandler:              r.DB,
 					}, nil
 				}
 			}
@@ -1292,7 +1292,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Commit:                 commit,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
-		DB:                     r.DB,
+		DBHandler:              r.DB,
 	}, nil
 }
 
@@ -1382,7 +1382,8 @@ type State struct {
 	Commit                 *git.Commit
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
-	DB                     *DBHandler
+	// DbHandler will be nil if the DB is disabled
+	DBHandler *DBHandler
 }
 
 func (s *State) Releases(application string) ([]uint64, error) {
@@ -1795,8 +1796,8 @@ func (s *State) GetEnvironmentApplications(environment string) ([]string, error)
 
 // GetApplications returns apps from either the db (if enabled), or otherwise the filesystem
 func (s *State) GetApplications(ctx context.Context) ([]string, error) {
-	if s.DB != nil {
-		result, err := s.DB.DBSelectAllApplications(ctx)
+	if s.DBHandler != nil {
+		result, err := s.DBHandler.DBSelectAllApplications(ctx)
 		if err != nil {
 			return nil, err
 		}
