@@ -20,46 +20,118 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/golang-migrate/migrate/v4"
-	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
-	"github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"math/rand"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database"
+	psql "github.com/golang-migrate/migrate/v4/database/postgres"
+	sqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/lib/pq"
 )
 
-func GetDBConnection(dbFolderLocation string) (*sql.DB, error) {
-	return sql.Open("sqlite3", path.Join(dbFolderLocation, "db.sqlite"))
+type DBConfig struct {
+	DbUser         string
+	DbHost         string
+	DbPort         string
+	DbName         string
+	DriverName     string
+	DbPassword     string
+	MigrationsPath string
 }
 
-func RunDBMigrations(dbFolderLocation string) error {
-	db, err := GetDBConnection(dbFolderLocation)
+type DBHandler struct {
+	DbName         string
+	DriverName     string
+	MigrationsPath string
+	DB             *sql.DB
+	DBDriver       *database.Driver
+}
+
+func Connect(cfg DBConfig) (*DBHandler, error) {
+	db, driver, err := GetConnectionAndDriver(cfg)
+
+	if err != nil {
+		return nil, err
+	}
+	return &DBHandler{
+		DbName:         cfg.DbName,
+		DriverName:     cfg.DriverName,
+		MigrationsPath: cfg.MigrationsPath,
+		DB:             db,
+		DBDriver:       &driver,
+	}, nil
+}
+
+func GetDBConnection(cfg DBConfig) (*sql.DB, error) {
+	if cfg.DriverName == "postgres" {
+		dbURI := fmt.Sprintf("host=%s user=%s password=%s port=%s database=%s sslmode=disable",
+			cfg.DbHost, cfg.DbUser, cfg.DbPassword, cfg.DbPort, cfg.DbName)
+
+		dbPool, err := sql.Open(cfg.DriverName, dbURI)
+		if err != nil {
+			return nil, fmt.Errorf("sql.Open: %w", err)
+		}
+		dbPool.SetConnMaxLifetime(5 * time.Minute)
+		return dbPool, nil
+	} else if cfg.DriverName == "sqlite3" {
+		return sql.Open("sqlite3", path.Join(cfg.DbHost, "db.sqlite"))
+	}
+	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", cfg.DriverName)
+}
+
+func GetConnectionAndDriver(cfg DBConfig) (*sql.DB, database.Driver, error) {
+	db, err := GetDBConnection(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	if cfg.DriverName == "postgres" {
+		driver, err := psql.WithInstance(db, &psql.Config{
+			DatabaseName:          cfg.DbName,
+			MigrationsTable:       "",
+			MigrationsTableQuoted: false,
+			MultiStatementEnabled: false,
+			MultiStatementMaxSize: 0,
+			SchemaName:            "",
+			StatementTimeout:      time.Second * 10,
+		})
+		return db, driver, err
+	} else if cfg.DriverName == "sqlite3" {
+		driver, err := sqlite.WithInstance(db, &sqlite.Config{
+			DatabaseName:    "",
+			MigrationsTable: "",
+			NoTxWrap:        false,
+		})
+		return db, driver, err
+	}
+	return nil, nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", cfg.DriverName)
+}
+
+func (d *DBHandler) getMigrationHandler() (*migrate.Migrate, error) {
+	if d.DriverName == "postgres" {
+		return migrate.NewWithDatabaseInstance("file://"+d.MigrationsPath, d.DbName, *d.DBDriver)
+	} else if d.DriverName == "sqlite3" {
+		return migrate.NewWithDatabaseInstance("file://"+d.MigrationsPath, "", *d.DBDriver) //FIX ME
+	}
+	return nil, fmt.Errorf("Driver: '%s' not supported. Supported: postgres and sqlite3.", d.DriverName)
+}
+
+func RunDBMigrations(cfg DBConfig) error {
+	d, err := Connect(cfg)
 	if err != nil {
 		return fmt.Errorf("DB Error opening DB connection. Error:  %w\n", err)
 	}
-	defer db.Close()
+	defer d.DB.Close()
 
-	driver, err := sqlite.WithInstance(db, &sqlite.Config{
-		DatabaseName:    "",
-		MigrationsTable: "",
-		NoTxWrap:        false,
-	})
-	if err != nil {
-		return fmt.Errorf("Error creating DB driver. Error: %w\n", err)
-	}
+	m, err := d.getMigrationHandler()
 
-	migrationsSrc, err := (&file.File{PartialDriver: iofs.PartialDriver{}}).Open(path.Join(dbFolderLocation, "migrations"))
-	if err != nil {
-		return fmt.Errorf("Error opening DB migrations. Error: %w\n", err)
-	}
-
-	m, err := migrate.NewWithInstance("file", migrationsSrc, "sqlite3", driver)
 	if err != nil {
 		return fmt.Errorf("Error creating migration instance. Error: %w\n", err)
 	}
-
+	defer m.Close()
 	if err := m.Up(); err != nil {
 		if !errors.Is(err, migrate.ErrNoChange) {
 			return fmt.Errorf("Error running DB migrations. Error: %w\n", err)
@@ -68,25 +140,47 @@ func RunDBMigrations(dbFolderLocation string) error {
 	return nil
 }
 
-type DummyDbRow struct {
-	id   int
-	date []byte
-	data string
+func (d *DBHandler) getDummyPreparedStatement(db *sql.DB) (*sql.Stmt, error) {
+	var statement string
+	if d.DriverName == "postgres" { //TODO: Replace ? or $x based on driver
+		statement = "INSERT INTO dummy_table (id , created , data)  VALUES ($1, $2, $3);"
+	} else if d.DriverName == "sqlite3" {
+		statement = "INSERT INTO dummy_table (id , created , data)  VALUES (?, ?, ?);"
+	}
+	return db.Prepare(statement)
 }
 
-func (r *DummyDbRow) Equal(target DummyDbRow) bool {
-	return r.data == target.data && r.id == target.id && string(r.date) == string(target.date)
-}
+func (d *DBHandler) insertDummyRow() (sql.Result, error) {
 
-func RetrieveDatabaseInformation(databaseLocation string) (map[int]DummyDbRow, error) {
-	db, err := GetDBConnection(databaseLocation)
+	stmt, err := d.getDummyPreparedStatement(d.DB)
 
 	if err != nil {
-		return nil, fmt.Errorf("Error creating DB connection. Error: %w\n", err)
+		return nil, fmt.Errorf("Error Preparing statement. Error: %w\n", err)
 	}
-	defer db.Close()
+	defer stmt.Close()
 
-	rows, err := db.Query("SELECT * FROM dummy_table;")
+	result, err := stmt.Exec(rand.Intn(9999), rand.Intn(9999), rand.Intn(9999))
+
+	if err != nil {
+		return nil, fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
+	}
+
+	return result, nil
+}
+
+func (d *DBHandler) InsertDatabaseInformation() (sql.Result, error) {
+
+	result, err := d.insertDummyRow()
+
+	if err != nil {
+		return nil, fmt.Errorf("Error inserting row. Error: %w\n", err)
+	}
+
+	return result, nil
+}
+
+func (d *DBHandler) RetrieveDatabaseInformation() (map[int]DummyDbRow, error) {
+	rows, err := d.DB.Query("SELECT * FROM dummy_table;")
 
 	if err != nil {
 		return nil, fmt.Errorf("Error querying the database. Error: %w\n", err)
@@ -108,20 +202,14 @@ func RetrieveDatabaseInformation(databaseLocation string) (map[int]DummyDbRow, e
 	return m, nil
 }
 
-func InsertDatabaseInformation(databaseLocation string, message string) (sql.Result, error) {
-	db, err := GetDBConnection(databaseLocation)
-	if err != nil {
-		return nil, fmt.Errorf("Error creating DB connection. Error: %w\n", err)
-	}
-	defer db.Close()
+type DummyDbRow struct {
+	id   int
+	date []byte
+	data string
+}
 
-	result, err := db.Exec("INSERT INTO dummy_table (id , created , data)  VALUES (?, ?, ?);", rand.Intn(9999), time.Now(), message)
-
-	if err != nil {
-		return nil, fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
-	}
-
-	return result, nil
+func (r *DummyDbRow) Equal(target DummyDbRow) bool {
+	return r.data == target.data && r.id == target.id && string(r.date) == string(target.date)
 }
 
 func getHeader(totalWidth int) string {

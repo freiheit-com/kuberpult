@@ -78,9 +78,16 @@ type Config struct {
 	GitWebUrl                string        `default:"" split_words:"true"`
 	GitMaximumCommitsPerPush uint          `default:"1" split_words:"true"`
 	MaximumQueueSize         uint          `default:"5" split_words:"true"`
+	AllowLongAppNames        bool          `default:"false" split_words:"true"`
 	ArgoCdGenerateFiles      bool          `default:"true" split_words:"true"`
-	DbEnabled                bool          `default:"false" split_words:"true"`
+	DbOption                 string        `default:"NO_DB" split_words:"true"`
 	DbLocation               string        `default:"/kp/database" split_words:"true"`
+	DbCloudSqlInstance       string        `default:"" split_words:"true"`
+	DbName                   string        `default:"" split_words:"true"`
+	DbUserName               string        `default:"" split_words:"true"`
+	DbUserPassword           string        `default:"" split_words:"true"`
+	DbAuthProxyPort          string        `default:"5432" split_words:"true"`
+	DbMigrationsLocation     string        `default:"" split_words:"true"`
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -193,25 +200,59 @@ func RunServer() {
 			)
 		}
 
-		if c.DbEnabled {
-			migErr := repository.RunDBMigrations(c.DbLocation)
-			if migErr != nil {
-				logger.FromContext(ctx).Fatal("Error running database migrations", zap.Error(migErr))
-			}
-			_, err := repository.InsertDatabaseInformation(c.DbLocation, "Hello DB!")
-			if err != nil {
-				logger.FromContext(ctx).Warn("Error inserting into the database. Error: ", zap.Error(err))
+		if c.DbOption != "NO_DB" {
+			var dbCfg repository.DBConfig
+			if c.DbOption == "cloudsql" {
+				dbCfg = repository.DBConfig{
+					DbHost:         c.DbLocation,
+					DbPort:         c.DbAuthProxyPort,
+					DriverName:     "postgres",
+					DbName:         c.DbName,
+					DbPassword:     c.DbUserPassword,
+					DbUser:         c.DbUserName,
+					MigrationsPath: c.DbMigrationsLocation,
+				}
+			} else if c.DbOption == "sqlite" {
+				dbCfg = repository.DBConfig{
+					DbHost:         c.DbLocation,
+					DbPort:         c.DbAuthProxyPort,
+					DriverName:     "sqlite3",
+					DbName:         c.DbName,
+					DbPassword:     c.DbUserPassword,
+					DbUser:         c.DbUserName,
+					MigrationsPath: c.DbMigrationsLocation,
+				}
 			} else {
-				qRes, err := repository.RetrieveDatabaseInformation(c.DbLocation)
-				if err != nil {
-					logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
-				}
-				pErr := repository.PrintQuery(qRes)
-				if pErr != nil {
-					logger.FromContext(ctx).Warn("Error reading from the database. Error: ", zap.Error(err))
-				}
+				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
 			}
+			db, err := repository.Connect(dbCfg)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
+			}
+			pErr := db.DB.Ping()
+			if pErr != nil {
+				logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
+			}
+
+			migErr := repository.RunDBMigrations(dbCfg)
+			if migErr != nil {
+				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
+			}
+			_, retrieveErr := db.InsertDatabaseInformation()
+			if retrieveErr != nil {
+				logger.FromContext(ctx).Warn("Error inserting information into db: ", zap.Error(retrieveErr))
+			}
+			m, err := db.RetrieveDatabaseInformation()
+			if err != nil {
+				logger.FromContext(ctx).Warn("Error retrieving information from db: ", zap.Error(retrieveErr))
+			}
+			printErr := repository.PrintQuery(m)
+			if printErr != nil {
+				logger.FromContext(ctx).Fatal("Error printing information from db: ", zap.Error(printErr))
+			}
+			db.DB.Close()
 		}
+
 		cfg := repository.RepositoryConfig{
 			WebhookResolver: nil,
 			URL:             c.GitUrl,
@@ -237,6 +278,7 @@ func RunServer() {
 			WriteCommitData:        c.GitWriteCommitData,
 			MaximumCommitsPerPush:  c.GitMaximumCommitsPerPush,
 			MaximumQueueSize:       c.MaximumQueueSize,
+			AllowLongAppNames:      c.AllowLongAppNames,
 			ArgoCdGenerateFiles:    c.ArgoCdGenerateFiles,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)

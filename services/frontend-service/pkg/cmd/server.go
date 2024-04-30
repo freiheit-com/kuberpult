@@ -233,6 +233,8 @@ func runServer(ctx context.Context) error {
 		grpcStreamInterceptors = append(grpcStreamInterceptors, AzureStreamInterceptor)
 	}
 
+	mux := http.NewServeMux()
+	http.DefaultServeMux = mux
 	if c.DexEnabled {
 		// Registers Dex handlers.
 		_, err := auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes))
@@ -323,7 +325,6 @@ func runServer(ctx context.Context) error {
 		KeyRing:                     pgpKeyRing,
 		AzureAuth:                   c.AzureEnableAuth,
 	}
-	mux := http.NewServeMux()
 	restHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {

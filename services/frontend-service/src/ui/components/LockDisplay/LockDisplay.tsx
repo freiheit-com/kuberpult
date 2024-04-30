@@ -70,6 +70,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                         className="lock-display-info lock-action service-action--delete"
                         onClick={deleteLock}
                         icon={<Delete />}
+                        highlightEffect={false}
                     />
                 </div>
             </div>

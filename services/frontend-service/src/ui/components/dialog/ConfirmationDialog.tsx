@@ -51,6 +51,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => 
                         testId="test-confirm-button-cancel"
                         label={'Cancel'}
                         onClick={props.onCancel}
+                        highlightEffect={false}
                     />
                 </div>
                 <div className={'item'} key={'button-menu-confirm'}>
@@ -59,6 +60,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = (props) => 
                         testId="test-confirm-button-confirm"
                         label={props.confirmLabel}
                         onClick={props.onConfirm}
+                        highlightEffect={false}
                     />
                 </div>
             </div>

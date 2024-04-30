@@ -17,6 +17,7 @@ Copyright 2023 freiheit.com*/
 package repository
 
 import (
+	"go.uber.org/zap"
 	"os"
 	"path"
 	"strconv"
@@ -42,12 +43,16 @@ func TestConnection(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
-			connection, err := GetDBConnection(dir)
+			cfg := DBConfig{
+				DriverName: "sqlite3",
+				DbHost:     dir,
+			}
+			db, err := Connect(cfg)
 			if err != nil {
 				t.Fatalf("Error establishing DB connection. Error: %v\n", err)
 			}
-			defer connection.Close()
-			pingErr := connection.Ping()
+			defer db.DB.Close()
+			pingErr := db.DB.Ping()
 			if pingErr != nil {
 				t.Fatalf("Error DB. Error: %v\n", err)
 			}
@@ -91,6 +96,11 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			dbDir := t.TempDir()
+			cfg := DBConfig{
+				DriverName:     "sqlite3",
+				DbHost:         dbDir,
+				MigrationsPath: dbDir + "/migrations",
+			}
 			loc, mkdirErr := createMigrationFolder(dbDir)
 			if mkdirErr != nil {
 				t.Fatalf("Error creating migrations folder. Error: %v\n", mkdirErr)
@@ -103,15 +113,18 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
 			}
 
-			migErr := RunDBMigrations(dbDir)
+			migErr := RunDBMigrations(cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
 			}
 
-			m, err := RetrieveDatabaseInformation(dbDir)
+			db, err := Connect(cfg)
+			if err != nil {
+				t.Fatal("Error establishing DB connection: ", zap.Error(err))
+			}
+			m, err := db.RetrieveDatabaseInformation()
 			if err != nil {
 				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
-
 			}
 			//parse the DB data
 			for _, r := range tc.expectedData {
