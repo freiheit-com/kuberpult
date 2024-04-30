@@ -139,7 +139,7 @@ func DexLoginInterceptor(
 	if err != nil {
 		// If user is not authenticated redirect to the login page.
 		fmt.Println("Redirected")
-		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
+		http.Redirect(w, req, baseURL+auth.LoginPATH, http.StatusFound)
 	}
 	auth.WriteUserRoleToHttpHeader(req, role)
 	httpCtx := auth.WriteUserRoleToGrpcContext(req.Context(), role)

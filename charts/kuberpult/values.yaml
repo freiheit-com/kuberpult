@@ -305,6 +305,9 @@ dex:
   #      secretKeyRef:
   #      name: kuberpult-oauth-client-id
   #        key: kuberpult-oauth-client-id
+  service:
+    annotations: {}
+    # cloud.google.com/backend-config: {"default": "kuberpult-dex"}
   envVars: []
   # The configuration of the OAUTH provider.
   # For more information on the connectors to use see https://dexidp.io/docs/connectors/

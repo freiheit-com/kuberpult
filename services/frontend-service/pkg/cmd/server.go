@@ -329,7 +329,7 @@ func runServer(ctx context.Context) error {
 		defer readAllAndClose(req.Body, 1024)
 		if c.DexEnabled {
 			fmt.Println("DEX ENABLED")
-			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexClientSecret)
+			interceptors.DexLoginInterceptor(w, req, httpHandler.Handle, c.DexClientId, c.DexBaseURL)
 			return
 		}
 		httpHandler.Handle(w, req)

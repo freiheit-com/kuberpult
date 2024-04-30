@@ -3,7 +3,7 @@ set -eu
 set -o pipefail
 set -x
 
-env=staging
+env=development
 lockId=test${RANDOM}
 app=${1}
 url="http://localhost:8081/environments/${env}/applications/${app}/locks/${lockId}"
