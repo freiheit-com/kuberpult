@@ -125,8 +125,8 @@ func GoogleIAPInterceptor(
 	httpHandler(w, req)
 }
 
-func checkPolicy(httpCtx context.Context, w http.ResponseWriter, req *http.Request, userGroup string) context.Context {
-	policy, err := auth.ReadRbacPolicy(true, "/etc/policy.csv")
+func checkPolicy(httpCtx context.Context, w http.ResponseWriter, req *http.Request, userGroup, DexRbacPolicyPath string) context.Context {
+	policy, err := auth.ReadRbacPolicy(true, DexRbacPolicyPath)
 	if err != nil {
 		http.Error(w, "unable to access RBAC policy to validate login", http.StatusBadRequest)
 		return nil
@@ -148,7 +148,7 @@ func DexLoginInterceptor(
 	w http.ResponseWriter,
 	req *http.Request,
 	httpHandler http.HandlerFunc,
-	clientID, baseURL string,
+	clientID, baseURL, DexRbacPolicyPath string,
 ) {
 	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
 	if err != nil {
@@ -162,10 +162,10 @@ func DexLoginInterceptor(
 	case len(claims["groups"].([]interface{})) > 0:
 		for _, group := range claims["groups"].([]interface{}) {
 			groupName := strings.Trim(group.(string), "\"")
-			httpCtx = checkPolicy(httpCtx, w, req, groupName)
+			httpCtx = checkPolicy(httpCtx, w, req, groupName, DexRbacPolicyPath)
 		}
-	case claims["sub"].(string) != "":
-		httpCtx = checkPolicy(httpCtx, w, req, claims["sub"].(string))
+	case claims["email"].(string) != "":
+		httpCtx = checkPolicy(httpCtx, w, req, claims["email"].(string), DexRbacPolicyPath)
 	default:
 		http.Error(w, "unable to parse token with expected fields for DEX login", http.StatusBadRequest)
 		return
