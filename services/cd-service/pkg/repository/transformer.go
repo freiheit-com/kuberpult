@@ -405,13 +405,13 @@ func (c *CreateApplicationVersion) Transform(
 		err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
 			allApps, err := state.DBHandler.DBSelectAllApplications(ctx)
 			if err != nil {
-				return GetCreateReleaseGeneralFailure(err)
+				return err
 			}
 			if !slices.Contains(allApps.Apps, c.Application) {
 				allApps.Apps = append(allApps.Apps, c.Application)
 				err := state.DBHandler.DBWriteAllApplications(ctx, allApps.Version, allApps.Apps)
 				if err != nil {
-					return GetCreateReleaseGeneralFailure(err)
+					return err
 				}
 			}
 			return nil
@@ -1069,6 +1069,19 @@ func (u *UndeployApplication) Transform(
 		// remove environment application
 		if err := fs.Remove(appDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
+		}
+	}
+	if state.DBHandler != nil {
+		err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
+			applications, err := state.DBHandler.DBSelectAllApplications(ctx)
+			if err != nil {
+				return err
+			}
+			applications.Apps = Remove(applications.Apps, u.Application)
+			return state.DBHandler.DBWriteAllApplications(ctx, applications.Version, applications.Apps)
+		})
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: could not apply transaction for application '%v': '%w'", u.Application, err)
 		}
 	}
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
