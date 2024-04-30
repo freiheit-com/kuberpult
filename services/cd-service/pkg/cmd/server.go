@@ -200,6 +200,7 @@ func RunServer() {
 			)
 		}
 
+		var dbHandler *repository.DBHandler = nil
 		if c.DbOption != "NO_DB" {
 			var dbCfg repository.DBConfig
 			if c.DbOption == "cloudsql" {
@@ -224,6 +225,19 @@ func RunServer() {
 				}
 			} else {
 				logger.FromContext(ctx).Fatal("Database was enabled but no valid DB option was provided.")
+			}
+			dbHandler, err = repository.Connect(dbCfg)
+			if err != nil {
+				logger.FromContext(ctx).Fatal("Error establishing DB connection: ", zap.Error(err))
+			}
+			pErr := dbHandler.DB.Ping()
+			if pErr != nil {
+				logger.FromContext(ctx).Fatal("Error pinging DB: ", zap.Error(pErr))
+			}
+
+			migErr := repository.RunDBMigrations(dbCfg)
+			if migErr != nil {
+				logger.FromContext(ctx).Fatal("Error running database migrations: ", zap.Error(migErr))
 			}
 			db, err := repository.Connect(dbCfg)
 			if err != nil {
@@ -280,6 +294,7 @@ func RunServer() {
 			MaximumQueueSize:       c.MaximumQueueSize,
 			AllowLongAppNames:      c.AllowLongAppNames,
 			ArgoCdGenerateFiles:    c.ArgoCdGenerateFiles,
+			DBHandler:              dbHandler,
 		}
 		repo, repoQueue, err := repository.New2(ctx, cfg)
 		if err != nil {
@@ -288,6 +303,13 @@ func RunServer() {
 
 		repositoryService := &service.Service{
 			Repository: repo,
+		}
+		if c.DbOption != "NO_DB" {
+			logger.FromContext(ctx).Warn("running custom migrations")
+			migErr := dbHandler.RunCustomMigrations(ctx, repo)
+			if migErr != nil {
+				logger.FromContext(ctx).Fatal("Error running custom database migrations", zap.Error(migErr))
+			}
 		}
 
 		span.Finish()
