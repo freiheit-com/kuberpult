@@ -44,7 +44,7 @@ export const LocksTable: React.FC<{
                     <thead>
                         <tr className="mdc-data-table__header-row">
                             <th className="mdc-data-indicator" role="columnheader" scope="col">
-                                <div className="mdc-data-header-title">{headerTitle + locks.length}</div>
+                                <div className="mdc-data-header-title">{headerTitle}</div>
                             </th>
                         </tr>
                         <tr className="mdc-data-table__header-row">

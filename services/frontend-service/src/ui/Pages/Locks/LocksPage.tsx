@@ -57,36 +57,26 @@ export const LocksPage: React.FC = () => {
             ),
         [envs]
     );
-    const tLocks = useMemo(
+    const teamLocks = useMemo(
         () =>
             sortLocks(
                 Object.values(envs)
                     .map((env) =>
-                        Object.values(env.teamLocks)
-                            .flat()
-                            .map((teamLock) =>
-                                Object.values(teamLock).map((lock) => ({
-                                    date: lock.createdAt,
-                                    environment: env.name,
-                                    team: teamLock.team,
-                                    lockId: lock.lockId,
-                                    message: lock.message,
-                                    authorName: lock.createdBy?.name,
-                                    authorEmail: lock.createdBy?.email,
-                                }))
-                            )
-                            .flat()
+                        Object.values(env.teamLocks).map((lock) => ({
+                            date: lock.lock?.createdAt,
+                            environment: env.name || '--', //If property is not defined, replace it with a default value
+                            team: lock.team || '--',
+                            lockId: lock.lock?.lockId || '--',
+                            message: lock.lock?.message || '--',
+                            authorName: lock.lock?.createdBy?.name || '--',
+                            authorEmail: lock.lock?.createdBy?.email || '--',
+                        }))
                     )
                     .flat(),
                 'oldestToNewest'
             ),
         [envs]
     );
-    const teamLocks = tLocks.filter((value, index, self) => index === self.findIndex((t) => t.lockId === value.lockId));
-    // eslint-disable-next-line no-console
-    console.log(envs);
-    // eslint-disable-next-line no-console
-    console.log(tLocks);
     const appLocks = useMemo(
         () =>
             sortLocks(
