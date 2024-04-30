@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import React, { useMemo } from 'react';
 import { LocksTable } from '../../components/LocksTable/LocksTable';
-import { searchCustomFilter, sortLocks, useEnvironments, useGlobalLoadingState } from '../../utils/store';
+import { DisplayLock, searchCustomFilter, sortLocks, useEnvironments, useGlobalLoadingState } from '../../utils/store';
 import { useSearchParams } from 'react-router-dom';
 import { LoadingStateSpinner } from '../../utils/LoadingStateSpinner';
 import { TopAppBar } from '../../components/TopAppBar/TopAppBar';
@@ -57,26 +57,38 @@ export const LocksPage: React.FC = () => {
             ),
         [envs]
     );
-    const teamLocks = useMemo(
+    let teamLocks = useMemo(
         () =>
             sortLocks(
                 Object.values(envs)
                     .map((env) =>
-                        Object.values(env.teamLocks).map((lock) => ({
-                            date: lock.lock?.createdAt,
-                            environment: env.name || '--', //If property is not defined, replace it with a default value
-                            team: lock.team || '--',
-                            lockId: lock.lock?.lockId || '--',
-                            message: lock.lock?.message || '--',
-                            authorName: lock.lock?.createdBy?.name || '--',
-                            authorEmail: lock.lock?.createdBy?.email || '--',
-                        }))
+                        Object.values(env.applications)
+                            .map((app) =>
+                                Object.values(app.teamLocks).map((lock) => ({
+                                    date: lock.createdAt,
+                                    environment: env.name,
+                                    team: app.team,
+                                    lockId: lock.lockId,
+                                    message: lock.message,
+                                    authorName: lock.createdBy?.name,
+                                    authorEmail: lock.createdBy?.email,
+                                }))
+                            )
+                            .flat()
                     )
                     .flat(),
                 'oldestToNewest'
             ),
         [envs]
     );
+    //filter dups
+    teamLocks = teamLocks.filter(
+        (value: DisplayLock, index: number, self: DisplayLock[]) =>
+            index === self.findIndex((t: DisplayLock) => t.lockId === value.lockId)
+    );
+    // eslint-disable-next-line no-console
+    console.log(envs);
+
     const appLocks = useMemo(
         () =>
             sortLocks(

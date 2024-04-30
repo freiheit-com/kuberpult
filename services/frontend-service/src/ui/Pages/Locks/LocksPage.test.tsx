@@ -73,7 +73,6 @@ describe('Test env locks', () => {
                 {
                     name: 'integration',
                     locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
-                    teamLocks: {},
                     applications: {},
                     distanceToUpstream: 0,
                     priority: 2,
@@ -92,7 +91,6 @@ describe('Test env locks', () => {
                         lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
                         lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
                     },
-                    teamLocks: {},
                     applications: {},
                     distanceToUpstream: 0,
                     priority: 2,
@@ -111,7 +109,6 @@ describe('Test env locks', () => {
                         lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
                         locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
                     },
-                    teamLocks: {},
                     applications: {},
                     distanceToUpstream: 0,
                     priority: 2,
@@ -162,7 +159,6 @@ describe('Test env locks', () => {
                 {
                     name: 'integration',
                     locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
-                    teamLocks: {},
                     applications: {},
                     distanceToUpstream: 0,
                     priority: 0,
@@ -179,7 +175,6 @@ describe('Test env locks', () => {
                     locks: {
                         lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
                     },
-                    teamLocks: {},
                     applications: {},
                     distanceToUpstream: 0,
                     priority: 0,
@@ -190,7 +185,6 @@ describe('Test env locks', () => {
                         locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
                         lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
                     },
-                    teamLocks: {},
                     applications: {},
                     distanceToUpstream: 0,
                     priority: 0,
@@ -207,7 +201,6 @@ describe('Test env locks', () => {
                     locks: {
                         lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
                     },
-                    teamLocks: {},
                     applications: {},
                     distanceToUpstream: 0,
                     priority: 0,
@@ -218,7 +211,6 @@ describe('Test env locks', () => {
                         lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
                         locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
                     },
-                    teamLocks: {},
                     applications: {},
                     distanceToUpstream: 0,
                     priority: 0,
@@ -271,7 +263,6 @@ describe('Test env locks', () => {
                             createdBy: { email: 'kuberpult@fdc.com', name: 'kuberpultUser' },
                         },
                     },
-                    teamLocks: {},
                     applications: {},
                     distanceToUpstream: 0,
                     priority: 0,
@@ -332,7 +323,6 @@ describe('Test app locks', () => {
                 {
                     name: 'integration',
                     locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                     applications: {
@@ -340,6 +330,8 @@ describe('Test app locks', () => {
                             name: 'foo',
                             version: 1337,
                             locks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 0,
                             undeployVersion: true,
                         },
@@ -355,7 +347,6 @@ describe('Test app locks', () => {
                 {
                     name: 'integration',
                     locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                     applications: {
@@ -371,6 +362,8 @@ describe('Test app locks', () => {
                                 lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
                                 lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
                             },
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 0,
                             undeployVersion: true,
                         },
@@ -390,7 +383,6 @@ describe('Test app locks', () => {
                         locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
                         lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
                     },
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                     applications: {
@@ -402,6 +394,8 @@ describe('Test app locks', () => {
                             locks: {
                                 lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
                             },
+                            teamLocks: {},
+                            team: 'test-team',
                         },
                         bar: {
                             name: 'bar',
@@ -416,6 +410,8 @@ describe('Test app locks', () => {
                                     createdAt: new Date(1995, 11, 17),
                                 },
                             },
+                            teamLocks: {},
+                            team: 'test-team',
                         },
                     },
                 },

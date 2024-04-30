@@ -82,12 +82,13 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: {},
-                    teamLocks: {},
                     applications: {
                         test1: {
                             name: 'test1',
                             version: 2,
                             locks: {},
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 0,
                             undeployVersion: false,
                         },
@@ -134,12 +135,13 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    teamLocks: {},
                     applications: {
                         test1: {
                             name: 'test1',
                             version: 2,
                             locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 0,
                             undeployVersion: false,
                         },
@@ -184,12 +186,13 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    teamLocks: {},
                     applications: {
                         test1: {
                             name: 'test1',
                             version: 2,
                             locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 0,
                             undeployVersion: false,
                             deploymentMetaData: { deployAuthor: 'test', deployTime: '1688467491' },
@@ -223,12 +226,13 @@ describe('Release Dialog', () => {
                 {
                     name: 'prod',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    teamLocks: {},
                     applications: {
                         test1: {
                             name: 'test1',
                             version: 2,
                             locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 0,
                             undeployVersion: false,
                         },
@@ -239,12 +243,13 @@ describe('Release Dialog', () => {
                 {
                     name: 'dev',
                     locks: { envLock: { message: 'envLock', lockId: 'ui-envlock' } },
-                    teamLocks: {},
                     applications: {
                         test1: {
                             name: 'test1',
                             version: 3,
                             locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 666,
                             undeployVersion: false,
                         },

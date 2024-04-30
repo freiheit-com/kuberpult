@@ -32,7 +32,6 @@ describe('EnvironmentChip', () => {
         distanceToUpstream: 0,
         priority: Priority.PROD,
         locks: {},
-        teamLocks: {},
         applications: {},
     };
     const envGroup: EnvironmentGroup = {
@@ -154,7 +153,6 @@ const envGroupPairFromPrios = (
         applications: {},
         distanceToUpstream: -1, // shouldn't matter, if this value is used an error will be thrown
         locks: {},
-        teamLocks: {},
         name: 'Test me',
         priority: envPrio,
     };
@@ -238,7 +236,6 @@ const envFromPrio = (prio: Priority): Environment => ({
     distanceToUpstream: 0,
     priority: prio,
     locks: {},
-    teamLocks: {},
     applications: {},
 });
 

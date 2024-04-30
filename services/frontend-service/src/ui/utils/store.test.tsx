@@ -89,7 +89,6 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            teamLocks: {},
                             applications: {},
                         },
                     ],
@@ -124,7 +123,6 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            teamLocks: {},
                             applications: {},
                         },
                         {
@@ -134,7 +132,6 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            teamLocks: {},
                             applications: {},
                         },
                     ],
@@ -174,7 +171,6 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            teamLocks: {},
                             applications: {
                                 app1: {
                                     name: 'betty',
@@ -182,6 +178,8 @@ describe('Test useLocksSimilarTo', () => {
                                         l1: makeLock({ lockId: 'l1' }),
                                     },
                                     version: 666,
+                                    teamLocks: {},
+                                    team: 'test-team',
                                     undeployVersion: false,
                                     queuedVersion: 0,
                                     argoCd: undefined,
@@ -228,13 +226,14 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            teamLocks: {},
                             applications: {
                                 app1: {
                                     name: 'betty',
                                     locks: {
                                         l1: makeLock({ lockId: 'l1' }),
                                     },
+                                    teamLocks: {},
+                                    team: 'test-team',
                                     version: 666,
                                     undeployVersion: false,
                                     queuedVersion: 0,
@@ -249,7 +248,6 @@ describe('Test useLocksSimilarTo', () => {
                             locks: {
                                 l1: makeLock({ lockId: 'l1' }),
                             },
-                            teamLocks: {},
                             applications: {},
                         },
                     ],
@@ -753,7 +751,6 @@ describe('Test useLocksConflictingWithActions', () => {
                             lockId: 'my-env-lock1',
                         }),
                     },
-                    teamLocks: {},
                     applications: {
                         echo: {
                             name: 'app1',
@@ -766,6 +763,8 @@ describe('Test useLocksConflictingWithActions', () => {
                             },
                             queuedVersion: 0,
                             undeployVersion: false,
+                            teamLocks: {},
+                            team: 'test-team',
                         },
                     },
                     distanceToUpstream: 0,
@@ -813,7 +812,6 @@ describe('Test useLocksConflictingWithActions', () => {
                             lockId: 'my-env-lock1',
                         }),
                     },
-                    teamLocks: {},
                     applications: {
                         echo: {
                             name: 'anotherapp', // this lock differs by app
@@ -824,6 +822,8 @@ describe('Test useLocksConflictingWithActions', () => {
                                     message: 'i do not like this app',
                                 }),
                             },
+                            teamLocks: {},
+                            team: 'test-team',
                             queuedVersion: 0,
                             undeployVersion: false,
                         },

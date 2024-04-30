@@ -68,11 +68,20 @@ export const AppLock: React.FC<{
         </div>
     );
 };
+
 export const TeamLock: React.FC<{
     env: Environment;
     team: string;
     lock: Lock;
 }> = ({ env, team, lock }) => (
+    // const deleteAppLock = useCallback(() => {
+    //     addAction({
+    //         action: {
+    //             $case: 'deleteEnvironmentApplicationLock',
+    //             deleteEnvironmentApplicationLock: { environment: env.name, application: app, lockId: lock.lockId },
+    //         },
+    //     });
+    // }, [team, env.name, lock.lockId]);
     <div title={'Team Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}>
         <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} highlightEffect={false} />
     </div>
@@ -192,10 +201,26 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         return [returnString, time];
     };
     const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, application?.version, env.name));
-    // eslint-disable-next-line no-console
-    console.log(env.name);
-    // eslint-disable-next-line no-console
-    console.log(env.teamLocks);
+
+    let teamLocks = Object.values(env.applications)
+        .filter((application) => application.name === app)
+        .filter((app) => app.team === team)
+        .map((app) =>
+            Object.values(app.teamLocks)
+                .map((lock) => ({
+                    date: lock.createdAt,
+                    environment: env.name,
+                    team: app.team,
+                    lockId: lock.lockId,
+                    message: lock.message,
+                    authorName: lock.createdBy?.name,
+                    authorEmail: lock.createdBy?.email,
+                }))
+                .flat()
+        )
+        .flat();
+
+    teamLocks = teamLocks.filter((value, index, self) => index === self.findIndex((t) => t.lockId === value.lockId));
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -221,16 +246,13 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     {appRolloutStatus && <RolloutStatusDescription status={appRolloutStatus} />}
                 </div>
                 <div className={classNames('env-card-app-locks')}>
-                    {Object.values(env.teamLocks)
-                        .filter((teamLock) => teamLock.team === team)
-                        .map((locks) =>
-                            Object.values(locks).map((lock) => (
-                                <TeamLock key={lock.lockId} env={env} team={team || ''} lock={lock} />
-                            ))
-                        )}
-                    {appRolloutStatus && <RolloutStatusDescription status={2} />}
+                    {Object.values(teamLocks).map((lock) => (
+                        <TeamLock key={lock.lockId} env={env} team={team || ''} lock={lock} />
+                    ))}
+                    {appRolloutStatus && <RolloutStatusDescription status={appRolloutStatus} />}
                 </div>
             </div>
+
             <div className="content-area">
                 <div className="content-left">
                     <div

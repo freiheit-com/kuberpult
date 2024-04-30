@@ -75,7 +75,6 @@ describe('Release Card Mini', () => {
                 {
                     name: 'other',
                     locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                     applications: {
@@ -84,6 +83,8 @@ describe('Release Card Mini', () => {
                             queuedVersion: 0,
                             name: 'test2',
                             locks: {},
+                            teamLocks: {},
+                            team: 'test-team',
                             undeployVersion: false,
                         },
                     },
@@ -100,7 +101,6 @@ describe('Release Card Mini', () => {
                 {
                     name: 'other',
                     locks: {},
-                    teamLocks: {},
                     distanceToUpstream: 0,
                     priority: 0,
                     applications: {
@@ -109,6 +109,8 @@ describe('Release Card Mini', () => {
                             queuedVersion: 0,
                             name: 'test2',
                             locks: {},
+                            teamLocks: {},
+                            team: 'test-team',
                             undeployVersion: false,
                         },
                     },
