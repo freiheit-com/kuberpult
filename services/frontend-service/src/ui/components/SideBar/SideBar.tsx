@@ -51,6 +51,8 @@ export enum ActionTypes {
     DeleteApplicationLock,
     DeleteEnvFromApp,
     ReleaseTrain,
+    DeleteEnvironmentTeamLock,
+    CreateEnvironmentTeamLock,
     UNKNOWN,
 }
 
@@ -64,6 +66,7 @@ export type ActionDetails = {
     // action details optional
     environment?: string;
     application?: string;
+    team?: string;
     lockId?: string;
     lockMessage?: string;
     version?: number;
@@ -72,7 +75,8 @@ export type ActionDetails = {
 export const getActionDetails = (
     { action }: BatchAction,
     appLocks: DisplayLock[],
-    envLocks: DisplayLock[]
+    envLocks: DisplayLock[],
+    teamLocks: DisplayLock[]
 ): ActionDetails => {
     switch (action?.$case) {
         case 'createEnvironmentLock':
@@ -118,9 +122,9 @@ export const getActionDetails = (
             };
         case 'deleteEnvironmentApplicationLock':
             return {
-                type: ActionTypes.DeleteApplicationLock,
+                type: ActionTypes.DeleteEnvironmentTeamLock,
                 name: 'Delete App Lock',
-                dialogTitle: 'Are you sure you want to delete this application lock?',
+                dialogTitle: 'Are you sure you want to delete this app lock?',
                 summary:
                     'Delete application lock for "' +
                     action.deleteEnvironmentApplicationLock.application +
@@ -135,6 +139,25 @@ export const getActionDetails = (
                 lockId: action.deleteEnvironmentApplicationLock.lockId,
                 lockMessage: appLocks.find((lock) => lock.lockId === action.deleteEnvironmentApplicationLock.lockId)
                     ?.message,
+            };
+        case 'deleteEnvironmentTeamLock':
+            return {
+                type: ActionTypes.DeleteEnvironmentTeamLock,
+                name: 'Delete Team Lock',
+                dialogTitle: 'Are you sure you want to delete this team lock?',
+                summary:
+                    'Delete application lock for "' +
+                    action.deleteEnvironmentTeamLock.team +
+                    '" on ' +
+                    action.deleteEnvironmentTeamLock.environment +
+                    ' with the message: "' +
+                    teamLocks.find((lock) => lock.lockId === action.deleteEnvironmentTeamLock.lockId)?.message +
+                    '"',
+                tooltip: 'This will only remove the lock, it will not automatically deploy anything.',
+                environment: action.deleteEnvironmentTeamLock.environment,
+                team: action.deleteEnvironmentTeamLock.team,
+                lockId: action.deleteEnvironmentTeamLock.lockId,
+                lockMessage: appLocks.find((lock) => lock.lockId === action.deleteEnvironmentTeamLock.lockId)?.message,
             };
         case 'deploy':
             return {
@@ -213,8 +236,8 @@ type SideBarListItemProps = {
 };
 
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
-    const { environmentLocks, appLocks } = useAllLocks();
-    const actionDetails = getActionDetails(action, appLocks, environmentLocks);
+    const { environmentLocks, appLocks, teamLocks } = useAllLocks();
+    const actionDetails = getActionDetails(action, appLocks, environmentLocks, teamLocks);
     const release = useRelease(actionDetails.application ?? '', actionDetails.version ?? 0);
     const handleDelete = useCallback(() => deleteAction(action), [action]);
     const similarLocks = useLocksSimilarTo(action);

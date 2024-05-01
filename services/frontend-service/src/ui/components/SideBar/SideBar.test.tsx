@@ -392,6 +392,7 @@ describe('Action details', () => {
         action: BatchAction;
         envLocks?: DisplayLock[];
         appLocks?: DisplayLock[];
+        teamLocks?: DisplayLock[];
         expectedDetails: ActionDetails;
     }
     const data: dataT[] = [
@@ -604,8 +605,9 @@ describe('Action details', () => {
         it(testcase.name, () => {
             const envLocks = testcase.envLocks || [];
             const appLocks = testcase.appLocks || [];
-            const obtainedDetails = renderHook(() => getActionDetails(testcase.action, appLocks, envLocks)).result
-                .current;
+            const teamLocks = testcase.teamLocks || [];
+            const obtainedDetails = renderHook(() => getActionDetails(testcase.action, appLocks, envLocks, teamLocks))
+                .result.current;
             expect(obtainedDetails).toStrictEqual(testcase.expectedDetails);
         });
     });

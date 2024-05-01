@@ -43,6 +43,17 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     },
                 },
             });
+        } else if (lock.team) {
+            addAction({
+                action: {
+                    $case: 'deleteEnvironmentTeamLock',
+                    deleteEnvironmentTeamLock: {
+                        environment: lock.environment,
+                        lockId: lock.lockId,
+                        team: lock.team,
+                    },
+                },
+            });
         } else {
             addAction({
                 action: {

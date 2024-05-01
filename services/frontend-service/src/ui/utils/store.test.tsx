@@ -66,6 +66,7 @@ describe('Test useLocksSimilarTo', () => {
             expectedLocks: {
                 appLocks: [],
                 environmentLocks: [],
+                teamLocks: [],
             },
         },
         {
@@ -100,6 +101,7 @@ describe('Test useLocksSimilarTo', () => {
             expectedLocks: {
                 appLocks: [],
                 environmentLocks: [],
+                teamLocks: [],
             },
         },
         {
@@ -148,6 +150,7 @@ describe('Test useLocksSimilarTo', () => {
                         environment: 'staging',
                     }),
                 ],
+                teamLocks: [],
             },
         },
         {
@@ -202,6 +205,7 @@ describe('Test useLocksSimilarTo', () => {
                     }),
                 ],
                 environmentLocks: [],
+                teamLocks: [],
             },
         },
         {
@@ -277,6 +281,7 @@ describe('Test useLocksSimilarTo', () => {
                         message: 'lock msg 1',
                     }),
                 ],
+                teamLocks: [],
             },
         },
     ];
