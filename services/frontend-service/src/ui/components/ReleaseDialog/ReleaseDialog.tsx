@@ -243,16 +243,14 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                                 <AppLock key={lock.lockId} env={env} app={app} lock={lock} />
                             ))
                         )}
-                    {appRolloutStatus && <RolloutStatusDescription status={appRolloutStatus} />}
                 </div>
                 <div className={classNames('env-card-app-locks')}>
                     {Object.values(teamLocks).map((lock) => (
                         <TeamLock key={lock.lockId} env={env} team={team || ''} lock={lock} />
                     ))}
-                    {appRolloutStatus && <RolloutStatusDescription status={appRolloutStatus} />}
                 </div>
+                {appRolloutStatus && <RolloutStatusDescription status={appRolloutStatus} />}
             </div>
-
             <div className="content-area">
                 <div className="content-left">
                     <div

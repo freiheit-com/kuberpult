@@ -122,9 +122,9 @@ export const getActionDetails = (
             };
         case 'deleteEnvironmentApplicationLock':
             return {
-                type: ActionTypes.DeleteEnvironmentTeamLock,
+                type: ActionTypes.DeleteApplicationLock,
                 name: 'Delete App Lock',
-                dialogTitle: 'Are you sure you want to delete this app lock?',
+                dialogTitle: 'Are you sure you want to delete this application lock?',
                 summary:
                     'Delete application lock for "' +
                     action.deleteEnvironmentApplicationLock.application +
@@ -146,7 +146,7 @@ export const getActionDetails = (
                 name: 'Delete Team Lock',
                 dialogTitle: 'Are you sure you want to delete this team lock?',
                 summary:
-                    'Delete application lock for "' +
+                    'Delete team lock for "' +
                     action.deleteEnvironmentTeamLock.team +
                     '" on ' +
                     action.deleteEnvironmentTeamLock.environment +
