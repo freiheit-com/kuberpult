@@ -359,7 +359,6 @@ func TestOverviewService(t *testing.T) {
 				if releases[0].PrNumber == "" {
 					t.Errorf("Release should have PR number \"678\", but got %q", releases[0].PrNumber)
 				}
-
 				// Check Dev
 				// Note that EnvironmentGroups are sorted, so it's dev,staging,production (see MapEnvironmentsToGroups for details on sorting)
 				devGroup := resp.EnvironmentGroups[0]
@@ -378,7 +377,7 @@ func TestOverviewService(t *testing.T) {
 					}
 				}
 
-				if len(dev.Locks) != 2 {
+				if len(dev.Locks) != 1 {
 					t.Errorf("development environment has wrong locks: %#v", dev.Locks)
 				}
 				if lck, ok := dev.Locks["manual"]; !ok {
@@ -388,7 +387,9 @@ func TestOverviewService(t *testing.T) {
 						t.Errorf("development environment manual lock has wrong message: %q", lck.Message)
 					}
 				}
-				if lck, ok := dev.Locks["manual-team-lock"]; !ok {
+
+				// check team lock
+				if lck, ok := dev.Applications["test-with-team"].TeamLocks["manual-team-lock"]; !ok {
 					t.Errorf("development environment doesn't contain manual-team lock: %#v", dev.Locks)
 				} else {
 					if lck.Message != "team lock message" {
@@ -655,6 +656,7 @@ func TestOverviewServiceFromCommit(t *testing.T) {
 						Manifests: map[string]string{
 							"development": "dev",
 						},
+
 						SourceAuthor:   "example <example@example.com>",
 						SourceCommitId: "deadbeef",
 						SourceMessage:  "changed something (#678)",
