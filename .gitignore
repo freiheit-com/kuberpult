@@ -13,9 +13,7 @@ cd_database/db.sqlite
 .pnpm-store
 build/
 .tmp-earthly-out
-.scannerwork
-sonar-project.properties
-go_test_coverage.out
+
 # used by envrc https://direnv.net/
 .envrc
 charts/kuberpult/kuberpult-keyring.gpg

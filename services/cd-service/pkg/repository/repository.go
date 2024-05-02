@@ -445,6 +445,15 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 
 			defer result.headLock.Unlock()
 			fetchSpec := goconf.RefSpec(fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", cfg.Branch, cfg.Branch))
+			authMethod, err := ssh.NewPublicKeysFromFile("git", cfg.Credentials.SshKey, "")
+			if err != nil {
+				return nil, nil, err
+			}
+			callBack, err := ssh.NewKnownHostsCallback(cfg.Certificates.KnownHostsFile)
+			if err != nil {
+				return nil, nil, err
+			}
+			authMethod.HostKeyCallback = callBack
 			//exhaustruct:ignore
 			// RemoteCallbacks := git.RemoteCallbacks{
 			// 	UpdateTipsCallback: func(refname string, a *git.Oid, b *git.Oid) error {
@@ -471,8 +480,9 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			fetchOps := &gogit.FetchOptions{
 				Tags:     gogit.AllTags,
 				RefSpecs: []goconf.RefSpec{fetchSpec},
+				Auth:     authMethod,
 			}
-			err := remote.Fetch(fetchOps)
+			err = remote.Fetch(fetchOps)
 			if err != nil {
 				return nil, nil, err
 			}
