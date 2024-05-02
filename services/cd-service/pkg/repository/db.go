@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path"
 	"reflect"
@@ -168,6 +167,15 @@ func PostgresToSqliteQuery(query string) string {
 
 type DBFunction func(ctx context.Context) error
 
+func Remove(s []string, r string) []string {
+	for i, v := range s {
+		if v == r {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
+}
+
 // WithTransaction opens a transaction, runs `f` and then calls either Commit or Rollback
 func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
 	tx, err := h.DB.BeginTx(ctx, nil)
@@ -175,10 +183,9 @@ func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
 		return err
 	}
 	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
-			logger.FromContext(ctx).Warn("db.rollback.failed", zap.Error(err))
-		}
+		_ = tx.Rollback()
+		// we ignore the error returned from Rollback() here,
+		// because it is always set when Commit() was successful
 	}(tx)
 
 	err = f(ctx)
@@ -199,6 +206,7 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion 
 	if err != nil {
 		return fmt.Errorf("could not begin transaction. Error: %w", err)
 	}
+	slices.Sort(applications) // we don't really *need* the sorting, it's just for convenience
 	jsonToInsert, _ := json.Marshal(AllApplicationsJson{
 		Apps: applications,
 	})
@@ -263,34 +271,36 @@ func (h *DBHandler) RunCustomMigrations(ctx context.Context, repo Repository) er
 }
 
 func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, repo Repository) error {
-	l := logger.FromContext(ctx).Sugar()
-	allAppsDb, err := h.DBSelectAllApplications(ctx)
-	if err != nil {
-		l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
-		allAppsDb = nil
-	}
+	return h.WithTransaction(ctx, func(ctx context.Context) error {
+		l := logger.FromContext(ctx).Sugar()
+		allAppsDb, err := h.DBSelectAllApplications(ctx)
+		if err != nil {
+			l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
+			allAppsDb = nil
+		}
 
-	allAppsRepo, err := repo.State().GetApplicationsFromFile()
-	if err != nil {
-		return fmt.Errorf("could not get applications to run custom migrations: %v", err)
-	}
-	var version int64
-	if allAppsDb != nil {
-		slices.Sort(allAppsDb.Apps)
-		version = allAppsDb.Version
-	} else {
-		version = 1
-	}
-	slices.Sort(allAppsRepo)
+		allAppsRepo, err := repo.State().GetApplicationsFromFile()
+		if err != nil {
+			return fmt.Errorf("could not get applications to run custom migrations: %v", err)
+		}
+		var version int64
+		if allAppsDb != nil {
+			slices.Sort(allAppsDb.Apps)
+			version = allAppsDb.Version
+		} else {
+			version = 1
+		}
+		slices.Sort(allAppsRepo)
 
-	if allAppsDb != nil && reflect.DeepEqual(allAppsDb.Apps, allAppsRepo) {
-		// nothing to do
-		logger.FromContext(ctx).Sugar().Infof("Nothing to do, all apps are equal")
-		return nil
-	}
-	// if there is any difference, we assume the manifest wins over the database state,
-	// so we use `allAppsRepo`:
-	return h.DBWriteAllApplications(ctx, version, allAppsRepo)
+		if allAppsDb != nil && reflect.DeepEqual(allAppsDb.Apps, allAppsRepo) {
+			// nothing to do
+			logger.FromContext(ctx).Sugar().Infof("Nothing to do, all apps are equal")
+			return nil
+		}
+		// if there is any difference, we assume the manifest wins over the database state,
+		// so we use `allAppsRepo`:
+		return h.DBWriteAllApplications(ctx, version, allAppsRepo)
+	})
 }
 
 type AllApplicationsJson struct {
