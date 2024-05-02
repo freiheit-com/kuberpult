@@ -236,7 +236,7 @@ describe('Test useLocksSimilarTo', () => {
                                     locks: {
                                         l1: makeLock({ lockId: 'l1' }),
                                     },
-                                    teamLocks: {},
+                                    teamLocks: { l1: makeLock({ lockId: 'l1' }) },
                                     team: 'test-team',
                                     version: 666,
                                     undeployVersion: false,
@@ -281,7 +281,14 @@ describe('Test useLocksSimilarTo', () => {
                         message: 'lock msg 1',
                     }),
                 ],
-                teamLocks: [],
+                teamLocks: [
+                    makeDisplayLock({
+                        environment: 'dev',
+                        lockId: 'l1',
+                        team: 'test-team',
+                        message: 'lock msg 1',
+                    }),
+                ],
             },
         },
     ];
@@ -299,6 +306,7 @@ describe('Test useLocksSimilarTo', () => {
             // then
             expect(actions.appLocks).toStrictEqual(testcase.expectedLocks.appLocks);
             expect(actions.environmentLocks).toStrictEqual(testcase.expectedLocks.environmentLocks);
+            expect(actions.teamLocks).toStrictEqual(testcase.expectedLocks.teamLocks);
         });
     });
 });

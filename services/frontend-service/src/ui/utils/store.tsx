@@ -704,7 +704,7 @@ export const useLocksSimilarTo = (cartItemAction: BatchAction | undefined): AllL
         }
         // if the id is the same, but we are on a different environment or different team:
         if (teamLock.lockId === data.lockId && (teamLock.environment !== data.env || teamLock.team !== data.team)) {
-            resultLocks.appLocks.push(teamLock);
+            resultLocks.teamLocks.push(teamLock);
         }
     });
     return resultLocks;

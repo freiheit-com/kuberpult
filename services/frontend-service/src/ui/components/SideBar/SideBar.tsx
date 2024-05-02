@@ -282,6 +282,28 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
             };
             addAction(newAction);
         });
+        similarLocks.teamLocks.forEach((displayLock: DisplayLock) => {
+            if (!displayLock.environment) {
+                throw new Error('team lock must have environment set: ' + JSON.stringify(displayLock));
+            }
+            if (!displayLock.lockId) {
+                throw new Error('team lock must have lock id set: ' + JSON.stringify(displayLock));
+            }
+            if (!displayLock.team) {
+                throw new Error('team lock must have team set: ' + JSON.stringify(displayLock));
+            }
+            const newAction: BatchAction = {
+                action: {
+                    $case: 'deleteEnvironmentTeamLock',
+                    deleteEnvironmentTeamLock: {
+                        environment: displayLock.environment,
+                        team: displayLock.team,
+                        lockId: displayLock.lockId,
+                    },
+                },
+            };
+            addAction(newAction);
+        });
     }, [similarLocks]);
     const deleteAllSection =
         similarLocks.environmentLocks.length === 0 && similarLocks.appLocks.length === 0 ? null : (
