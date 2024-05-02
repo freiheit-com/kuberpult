@@ -421,10 +421,12 @@ data:
   policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
 {{- end }}
 {{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kuberpult-migrations
 data:
-  20210813132049_test.up.sql: "CREATE TABLE IF NOT EXISTS dummy_table(id BIGINT, created int, data int, PRIMARY KEY(id));"
+  1713956693027648_all_apps.up.sql: "CREATE TABLE IF NOT EXISTS all_apps(version BIGINT, created TIMESTAMP, json VARCHAR(255), PRIMARY KEY(version));"
 {{- end }}
+

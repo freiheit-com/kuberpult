@@ -17,6 +17,8 @@ Copyright 2023 freiheit.com*/
 package repository
 
 import (
+	"context"
+	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	"os"
 	"path"
@@ -64,29 +66,26 @@ func TestMigrationScript(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		migrationFile string
-		expectedData  []DummyDbRow
+		expectedData  *AllApplicationsGo
 	}{
 		{
 			Name: "Simple migration",
-			migrationFile: `CREATE TABLE IF NOT EXISTS dummy_table
-(   id BIGINT,
+			migrationFile: `
+CREATE TABLE IF NOT EXISTS all_apps
+(
+    version BIGINT,
     created TIMESTAMP,
-    data VARCHAR(255),
-    PRIMARY KEY(id)
+    json VARCHAR(255),
+    PRIMARY KEY(version)
 );
 
-INSERT INTO dummy_table (id , created , data)  VALUES (0, 	'1713218400', 'First Message');
-INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second Message');`,
-			expectedData: []DummyDbRow{
-				{
-					id:   0,
-					date: []byte("2024-04-15T22:00:00Z"),
-					data: "First Message",
-				},
-				{
-					id:   1,
-					date: []byte("2024-04-15T22:00:00Z"),
-					data: "Second Message",
+INSERT INTO all_apps (version , created , json)  VALUES (0, 	'1713218400', 'First Message');
+INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"apps":["my-test-app"]}');`,
+			expectedData: &AllApplicationsGo{
+				Version: 1,
+				Created: time.Unix(1713218400, 0).UTC(),
+				AllApplicationsJson: AllApplicationsJson{
+					Apps: []string{"my-test-app"},
 				},
 			},
 		},
@@ -95,6 +94,7 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
+			ctx := context.Background()
 			dbDir := t.TempDir()
 			cfg := DBConfig{
 				DriverName:     "sqlite3",
@@ -122,15 +122,53 @@ INSERT INTO dummy_table (id , created , data)  VALUES (1, 	'1713218400', 'Second
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
-			m, err := db.RetrieveDatabaseInformation()
+			m, err := db.DBSelectAllApplications(ctx)
 			if err != nil {
 				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
 			}
-			//parse the DB data
-			for _, r := range tc.expectedData {
-				if val, ok := m[r.id]; !ok || !val.Equal(r) { //Not in map or in map but not Equal
-					t.Fatalf("Expected data not present in database. Missing: [%d, %s, %s]", r.id, string(r.date), r.data)
-				}
+
+			if diff := cmp.Diff(tc.expectedData, m); diff != "" {
+				t.Errorf("response mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestSqliteToPostgresQuery(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		inputQuery    string
+		expectedQuery string
+	}{
+		{
+			Name:          "select without parameter",
+			inputQuery:    "select * from foo where true",
+			expectedQuery: "select * from foo where true",
+		},
+		{
+			Name:          "select with 1 parameter",
+			inputQuery:    "select * from foo where bar = ?",
+			expectedQuery: "select * from foo where bar = $1",
+		},
+		{
+			Name:          "select with 3 parameter",
+			inputQuery:    "SELECT * FROM foo WHERE bar = ? AND pow = ? OR this=?",
+			expectedQuery: "SELECT * FROM foo WHERE bar = $1 AND pow = $2 OR this=$3",
+		},
+		{
+			Name:          "insert with 3 parameter",
+			inputQuery:    "INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?)",
+			expectedQuery: "INSERT INTO all_apps (version , created , json)  VALUES ($1, $2, $3)",
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			actualQuery := SqliteToPostgresQuery(tc.inputQuery)
+			if diff := cmp.Diff(tc.expectedQuery, actualQuery); diff != "" {
+				t.Errorf("response mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}

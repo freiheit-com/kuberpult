@@ -147,6 +147,8 @@ type repository struct {
 	notify notify.Notify
 
 	backOffProvider func() backoff.BackOff
+
+	DB *DBHandler
 }
 
 type WebhookResolver interface {
@@ -207,6 +209,8 @@ type RepositoryConfig struct {
 	AllowLongAppNames bool
 
 	ArgoCdGenerateFiles bool
+
+	DBHandler *DBHandler
 }
 
 func openOrCreate(path string, storageBackend StorageBackend) (*git.Repository, error) {
@@ -404,6 +408,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 				repository:      repo2,
 				queue:           makeQueueN(cfg.MaximumQueueSize),
 				backOffProvider: defaultBackOffProvider,
+				DB:              cfg.DBHandler,
 			}
 			result.headLock.Lock()
 
@@ -1264,6 +1269,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 						Filesystem:             fs.NewEmptyTreeBuildFS(r.repository),
 						BootstrapMode:          r.config.BootstrapMode,
 						EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+						DBHandler:              r.DB,
 					}, nil
 				}
 			}
@@ -1286,6 +1292,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 		Commit:                 commit,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
+		DBHandler:              r.DB,
 	}, nil
 }
 
@@ -1375,6 +1382,8 @@ type State struct {
 	Commit                 *git.Commit
 	BootstrapMode          bool
 	EnvironmentConfigsPath string
+	// DbHandler will be nil if the DB is disabled
+	DBHandler *DBHandler
 }
 
 func (s *State) Releases(application string) ([]uint64, error) {
@@ -1785,7 +1794,20 @@ func (s *State) GetEnvironmentApplications(environment string) ([]string, error)
 	return names(s.Filesystem, appDir)
 }
 
-func (s *State) GetApplications() ([]string, error) {
+// GetApplications returns apps from either the db (if enabled), or otherwise the filesystem
+func (s *State) GetApplications(ctx context.Context) ([]string, error) {
+	if s.DBHandler != nil {
+		result, err := s.DBHandler.DBSelectAllApplications(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return result.Apps, nil
+	}
+	return s.GetApplicationsFromFile()
+}
+
+// GetApplicationsFromFile returns apps from the filesystem
+func (s *State) GetApplicationsFromFile() ([]string, error) {
 	return names(s.Filesystem, "applications")
 }
 
