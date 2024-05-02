@@ -425,7 +425,7 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 		for _, remote := range remotes {
 			fmt.Println(remote.String())
 		}
-		if remote, err := repo2.Remote(cfg.URL); err != nil {
+		if remote, err := repo2.Remote("origin"); err != nil {
 			return nil, nil, err
 		} else {
 			result := &repository{
