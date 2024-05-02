@@ -86,8 +86,6 @@ export const LocksPage: React.FC = () => {
         (value: DisplayLock, index: number, self: DisplayLock[]) =>
             index === self.findIndex((t: DisplayLock) => t.lockId === value.lockId)
     );
-    // eslint-disable-next-line no-console
-    console.log(envs);
 
     const appLocks = useMemo(
         () =>

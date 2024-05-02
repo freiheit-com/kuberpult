@@ -524,6 +524,33 @@ export type AllLocks = {
     appLocks: DisplayLock[];
     teamLocks: DisplayLock[];
 };
+export const useTeamLocks = (team: string): DisplayLock[] => {
+    const envs = useEnvironments();
+    const teamLocks: DisplayLock[] = [];
+    envs.forEach((env: Environment) => {
+        for (const applicationsKey in env.applications) {
+            const app = env.applications[applicationsKey];
+            if (team === app.team) {
+                for (const locksKey in app.teamLocks) {
+                    const lock = app.teamLocks[locksKey];
+                    const displayLock: DisplayLock = {
+                        lockId: lock.lockId,
+                        team: app.team,
+                        date: lock.createdAt,
+                        environment: env.name,
+                        message: lock.message,
+                        authorName: lock.createdBy?.name,
+                        authorEmail: lock.createdBy?.email,
+                    };
+                    if (!teamLocks.some((e) => e.lockId === lock.lockId)) {
+                        teamLocks.push(displayLock);
+                    }
+                }
+            }
+        }
+    });
+    return teamLocks;
+};
 
 export const useAllLocks = (): AllLocks => {
     const envs = useEnvironments();

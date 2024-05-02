@@ -443,3 +443,157 @@ describe('Test app locks', () => {
         });
     });
 });
+
+describe('Test Team locks', () => {
+    interface dataAppT {
+        name: string;
+        envs: Environment[];
+        sortOrder: 'oldestToNewest' | 'newestToOldest';
+        expectedLockIDs: string[];
+    }
+
+    const sampleAppData: dataAppT[] = [
+        {
+            name: 'no locks',
+            envs: [],
+            sortOrder: 'oldestToNewest',
+            expectedLockIDs: [],
+        },
+        {
+            name: 'get one lock',
+            envs: [
+                {
+                    name: 'integration',
+                    locks: {},
+                    distanceToUpstream: 0,
+                    priority: 0,
+                    applications: {
+                        foo: {
+                            name: 'foo',
+                            version: 1337,
+                            locks: {},
+                            teamLocks: { locktest: { message: 'locktest', lockId: 'ui-v2-1337' } },
+                            team: 'test-team',
+                            queuedVersion: 0,
+                            undeployVersion: true,
+                        },
+                    },
+                },
+            ],
+            sortOrder: 'oldestToNewest',
+            expectedLockIDs: ['ui-v2-1337'],
+        },
+        {
+            name: 'get a few locks (sorted, newestToOldest)',
+            envs: [
+                {
+                    name: 'integration',
+                    locks: {},
+                    distanceToUpstream: 0,
+                    priority: 0,
+                    applications: {
+                        foo: {
+                            name: 'foo',
+                            version: 1337,
+                            locks: {},
+                            teamLocks: {
+                                locktest: {
+                                    message: 'locktest',
+                                    lockId: 'ui-v2-1337',
+                                    createdAt: new Date(1995, 11, 17),
+                                },
+                                lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
+                                lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
+                            },
+                            team: 'test-team',
+                            queuedVersion: 0,
+                            undeployVersion: true,
+                        },
+                    },
+                },
+            ],
+            sortOrder: 'newestToOldest',
+            expectedLockIDs: ['ui-v2-1337', 'ui-v2-123', 'ui-v2-321'],
+        },
+        {
+            name: 'get a few locks (sorted, oldestToNewest)',
+            envs: [
+                {
+                    name: 'integration',
+                    locks: {
+                        lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
+                        locktest: { message: 'locktest', lockId: 'ui-v2-1337', createdAt: new Date(1995, 11, 17) },
+                        lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
+                    },
+                    distanceToUpstream: 0,
+                    priority: 0,
+                    applications: {
+                        foo: {
+                            name: 'foo',
+                            version: 1337,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                            locks: {
+                                lockbar: { message: 'lockbar', lockId: 'ui-v2-321', createdAt: new Date(1995, 11, 15) },
+                            },
+                            teamLocks: {
+                                lockbar: {
+                                    message: 'team lock 1',
+                                    lockId: 'ui-v2-t-lock-1',
+                                    createdAt: new Date(1995, 11, 15),
+                                },
+                            },
+                            team: 'test-team',
+                        },
+                        bar: {
+                            name: 'bar',
+                            version: 420,
+                            queuedVersion: 0,
+                            undeployVersion: false,
+                            locks: {
+                                lockfoo: { message: 'lockfoo', lockId: 'ui-v2-123', createdAt: new Date(1995, 11, 16) },
+                                locktest: {
+                                    message: 'locktest',
+                                    lockId: 'ui-v2-1337',
+                                    createdAt: new Date(1995, 11, 17),
+                                },
+                            },
+                            teamLocks: {
+                                lockbar: {
+                                    message: 'team lock 2',
+                                    lockId: 'ui-v2-t-lock-2',
+                                    createdAt: new Date(1995, 11, 15),
+                                },
+                            },
+                            team: 'test-team',
+                        },
+                    },
+                },
+            ],
+            sortOrder: 'oldestToNewest',
+            expectedLockIDs: ['ui-v2-t-lock-1', 'ui-v2-t-lock-2'],
+        },
+    ];
+
+    describe.each(sampleAppData)(`Test Lock IDs`, (testcase) => {
+        it(testcase.name, () => {
+            // given
+            // UpdateOverview.set({ environmentGroups: testcase.envs });
+            UpdateOverview.set({
+                environmentGroups: [
+                    {
+                        environments: testcase.envs,
+                        environmentGroupName: 'dontcare',
+                        distanceToUpstream: 0,
+                        priority: Priority.UNRECOGNIZED,
+                    },
+                ],
+            });
+
+            // when
+            const obtained = renderHook(() => useAllLocks().teamLocks).result.current;
+            // then
+            expect(obtained.map((lock) => lock.lockId)).toStrictEqual(testcase.expectedLockIDs);
+        });
+    });
+});

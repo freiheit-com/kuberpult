@@ -157,7 +157,7 @@ export const getActionDetails = (
                 environment: action.deleteEnvironmentTeamLock.environment,
                 team: action.deleteEnvironmentTeamLock.team,
                 lockId: action.deleteEnvironmentTeamLock.lockId,
-                lockMessage: appLocks.find((lock) => lock.lockId === action.deleteEnvironmentTeamLock.lockId)?.message,
+                lockMessage: teamLocks.find((lock) => lock.lockId === action.deleteEnvironmentTeamLock.lockId)?.message,
             };
         case 'deploy':
             return {
@@ -360,7 +360,10 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
     }, []);
 
     const conflictingLocks = useLocksConflictingWithActions();
-    const hasLocks = conflictingLocks.environmentLocks.length > 0 || conflictingLocks.appLocks.length > 0;
+    const hasLocks =
+        conflictingLocks.environmentLocks.length > 0 ||
+        conflictingLocks.appLocks.length > 0 ||
+        conflictingLocks.teamLocks.length > 0;
 
     const applyActions = useCallback(() => {
         if (lockMessage) {
@@ -454,6 +457,22 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 </ul>
             </>
         );
+    const teamLocksRendered =
+        conflictingLocks.teamLocks.length === 0 ? undefined : (
+            <>
+                <h4>Conflicting Team Locks:</h4>
+                <ul>
+                    {conflictingLocks.teamLocks.map((teamLock: DisplayLock) => (
+                        <li key={teamLock.lockId + '-' + teamLock.team + '-' + teamLock.environment}>
+                            <DisplayLockInlineRenderer
+                                lock={teamLock}
+                                key={teamLock.lockId + '-' + teamLock.environment + '-' + teamLock.team}
+                            />
+                        </li>
+                    ))}
+                </ul>
+            </>
+        );
     const confirmationDialog: JSX.Element = hasLocks ? (
         <ConfirmationDialog
             classNames={'confirmation-dialog'}
@@ -468,6 +487,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 <div className={'locks'}>
                     {envLocksRendered}
                     {appLocksRendered}
+                    {teamLocksRendered}
                 </div>
             </div>
         </ConfirmationDialog>

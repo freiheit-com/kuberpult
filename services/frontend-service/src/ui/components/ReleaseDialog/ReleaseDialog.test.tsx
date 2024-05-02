@@ -248,7 +248,7 @@ describe('Release Dialog', () => {
                             name: 'test1',
                             version: 3,
                             locks: { applock: { message: 'appLock', lockId: 'ui-applock' } },
-                            teamLocks: {},
+                            teamLocks: { teamLock: { message: 'teamLock', lockId: 'ui-teamlock' } },
                             team: 'test-team',
                             queuedVersion: 666,
                             undeployVersion: false,

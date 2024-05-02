@@ -73,19 +73,23 @@ export const TeamLock: React.FC<{
     env: Environment;
     team: string;
     lock: Lock;
-}> = ({ env, team, lock }) => (
-    // const deleteAppLock = useCallback(() => {
-    //     addAction({
-    //         action: {
-    //             $case: 'deleteEnvironmentApplicationLock',
-    //             deleteEnvironmentApplicationLock: { environment: env.name, application: app, lockId: lock.lockId },
-    //         },
-    //     });
-    // }, [team, env.name, lock.lockId]);
-    <div title={'Team Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}>
-        <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} highlightEffect={false} />
-    </div>
-);
+}> = ({ env, team, lock }) => {
+    const deleteTeamLock = useCallback(() => {
+        addAction({
+            action: {
+                $case: 'deleteEnvironmentTeamLock',
+                deleteEnvironmentTeamLock: { environment: env.name, team: team, lockId: lock.lockId },
+            },
+        });
+    }, [team, env.name, lock.lockId]);
+    return (
+        <div
+            title={'Team Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}
+            onClick={deleteTeamLock}>
+            <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} highlightEffect={false} />
+        </div>
+    );
+};
 
 export type EnvironmentListItemProps = {
     env: Environment;
@@ -206,21 +210,34 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         .filter((application) => application.name === app)
         .filter((app) => app.team === team)
         .map((app) =>
-            Object.values(app.teamLocks)
-                .map((lock) => ({
-                    date: lock.createdAt,
-                    environment: env.name,
-                    team: app.team,
-                    lockId: lock.lockId,
-                    message: lock.message,
-                    authorName: lock.createdBy?.name,
-                    authorEmail: lock.createdBy?.email,
-                }))
-                .flat()
+            Object.values(app.teamLocks).map((lock) => ({
+                date: lock.createdAt,
+                environment: env.name,
+                team: app.team,
+                lockId: lock.lockId,
+                message: lock.message,
+                authorName: lock.createdBy?.name,
+                authorEmail: lock.createdBy?.email,
+            }))
         )
         .flat();
 
     teamLocks = teamLocks.filter((value, index, self) => index === self.findIndex((t) => t.lockId === value.lockId));
+    const appLocks = Object.values(env.applications)
+        .filter((application) => application.name === app)
+        .map((app) =>
+            Object.values(app.locks).map((lock) => ({
+                date: lock.createdAt,
+                environment: env.name,
+                team: app.team,
+                lockId: lock.lockId,
+                message: lock.message,
+                authorName: lock.createdBy?.name,
+                authorEmail: lock.createdBy?.email,
+            }))
+        )
+        .flat();
+
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -234,22 +251,25 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     numberEnvsDeployed={undefined}
                     numberEnvsInGroup={undefined}
                 />
-                <div className={classNames('env-card-app-locks')}>
-                    {Object.values(env.applications)
-                        .filter((application) => application.name === app)
-                        .map((app) => app.locks)
-                        .map((locks) =>
-                            Object.values(locks).map((lock) => (
+                <div className={classNames('env-card-locks')}>
+                    {appLocks.length > 0 && (
+                        <div className={classNames('env-card-app-locks')}>
+                            App:
+                            {Object.values(appLocks).map((lock) => (
                                 <AppLock key={lock.lockId} env={env} app={app} lock={lock} />
-                            ))
-                        )}
+                            ))}
+                        </div>
+                    )}
+                    {teamLocks.length > 0 && (
+                        <div className={classNames('env-card-app-locks')}>
+                            Team:
+                            {Object.values(teamLocks).map((lock) => (
+                                <TeamLock key={lock.lockId} env={env} team={team || ''} lock={lock} />
+                            ))}
+                        </div>
+                    )}
+                    {appRolloutStatus && <RolloutStatusDescription status={appRolloutStatus} />}
                 </div>
-                <div className={classNames('env-card-app-locks')}>
-                    {Object.values(teamLocks).map((lock) => (
-                        <TeamLock key={lock.lockId} env={env} team={team || ''} lock={lock} />
-                    ))}
-                </div>
-                {appRolloutStatus && <RolloutStatusDescription status={appRolloutStatus} />}
             </div>
             <div className="content-area">
                 <div className="content-left">
@@ -329,7 +349,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, version } = props;
     // the ReleaseDialog is only opened when there is a release, so we can assume that it exists here:
     const release = useReleaseOrThrow(app, version);
-    const team = useTeamFromApplication(app);
+    const team = useTeamFromApplication(app) || '';
     const closeReleaseDialog = useCloseReleaseDialog();
 
     const dialog: JSX.Element | '' = (
@@ -385,13 +405,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         highlightEffect={false}
                     />
                 </div>
-                <EnvironmentList
-                    app={app}
-                    team={team || ''}
-                    className={className}
-                    release={release}
-                    version={version}
-                />
+                <EnvironmentList app={app} team={team} className={className} release={release} version={version} />
             </>
         </PlainDialog>
     );

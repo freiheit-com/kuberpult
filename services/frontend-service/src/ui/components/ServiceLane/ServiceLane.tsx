@@ -22,13 +22,14 @@ import {
     useDeployedReleases,
     useFilteredApplicationLocks,
     useNavigateWithSearchParams,
+    useTeamLocks,
     useVersionsForApp,
 } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
 import { DeleteWhite, HistoryWhite } from '../../../images';
 import { Application, Environment, UndeploySummary } from '../../../api/api';
 import * as React from 'react';
-import { AppLockSummary } from '../chip/EnvironmentGroupChip';
+import { AppLockSummary, TeamLockSummary } from '../chip/EnvironmentGroupChip';
 import { WarningBoxes } from './Warnings';
 import { DotsMenu, DotsMenuButton } from './DotsMenu';
 import { useCallback, useState } from 'react';
@@ -195,6 +196,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
 
     const dotsMenu = <DotsMenu buttons={buttons} />;
     const appLocks = useFilteredApplicationLocks(application.name);
+    const teamLocks = useTeamLocks(application.team);
     const dialog = (
         <EnvSelectionDialog
             environments={envs.map((e) => e.name)}
@@ -210,7 +212,13 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
             {dialog}
             <div className="service-lane__header">
                 <div className="service__name">
-                    {(application.team ? application.team + ' | ' : '<No Team> | ') + application.name}
+                    {application.team ? application.team : '<No Team> '}
+                    {teamLocks.length >= 1 && (
+                        <div className={'test-app-lock-summary'}>
+                            <TeamLockSummary team={application.team} numLocks={teamLocks.length} />
+                        </div>
+                    )}
+                    {' | ' + application.name}
                     {appLocks.length >= 1 && (
                         <div className={'test-app-lock-summary'}>
                             <AppLockSummary app={application.name} numLocks={appLocks.length} />

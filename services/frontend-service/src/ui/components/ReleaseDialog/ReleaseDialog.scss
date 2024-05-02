@@ -139,7 +139,9 @@ Copyright 2023 freiheit.com*/
                         }
                     }
                 }
-
+                .env-card-locks{
+                    display: flex;
+                }
                 .env-card-app-locks {
                     display: flex;
                     position: relative;
@@ -147,6 +149,7 @@ Copyright 2023 freiheit.com*/
                     flex-direction: row;
                     align-items: center;
                     gap: 0;
+                    overflow: auto;
 
                     svg {
                         min-width: 16px;

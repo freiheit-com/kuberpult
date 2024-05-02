@@ -155,14 +155,10 @@ func (o *OverviewServiceServer) getOverview(
 							DeployTime:   "",
 						},
 					}
-					//we don't want to insert the locks for a team twice, so init a set of checked teams and filter the ones we already processed.
-
-					fmt.Printf("Checking team locks for team: '%s'\n", teamName)
 					if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr != nil {
 						return nil, teamErr
 					} else {
 						for lockId, lock := range teamLocks {
-							fmt.Printf("Got a lock: '%s'\n", lockId)
 							app.TeamLocks[lockId] = &api.Lock{
 								Message:   lock.Message,
 								LockId:    lockId,
