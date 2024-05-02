@@ -236,11 +236,11 @@ func openOrCreate(path string, storageBackend StorageBackend, cfg RepositoryConf
 		URL:             cfg.URL,
 		InsecureSkipTLS: false,
 		Auth:            authMethod,
-		Progress:        os.Stdout,
-		Depth:           1,
-		Tags:            gogit.AllTags,
-		SingleBranch:    true,
-		ReferenceName:   "main",
+		// Progress:        os.Stdout,
+		Depth:         1,
+		Tags:          gogit.AllTags,
+		SingleBranch:  true,
+		ReferenceName: "main",
 	}
 	// Clones the repository into the worktree (fs) and stores all the .git
 	// content into the storer
@@ -414,11 +414,17 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 			return nil, nil, err
 		}
 	}
-
 	if repo2, err := openOrCreate(cfg.Path, cfg.StorageBackend, cfg); err != nil {
 		return nil, nil, err
 	} else {
 		// configure remotes
+		remotes, err := repo2.Remotes()
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, remote := range remotes {
+			fmt.Println(remote.String())
+		}
 		if remote, err := repo2.Remote(cfg.URL); err != nil {
 			return nil, nil, err
 		} else {
