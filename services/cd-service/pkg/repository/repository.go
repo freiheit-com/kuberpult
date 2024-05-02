@@ -227,6 +227,11 @@ func openOrCreate(path string, storageBackend StorageBackend, cfg RepositoryConf
 	if err != nil {
 		return nil, err
 	}
+	callBack, err := ssh.NewKnownHostsCallback(cfg.Certificates.KnownHostsFile)
+	if err != nil {
+		return nil, err
+	}
+	authMethod.HostKeyCallback = callBack
 	cloneOptions := &gogit.CloneOptions{
 		URL:             cfg.URL,
 		InsecureSkipTLS: false,
