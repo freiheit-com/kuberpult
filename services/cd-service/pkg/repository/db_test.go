@@ -134,7 +134,7 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 	}
 }
 
-func TestPostgresToSqliteQuery(t *testing.T) {
+func TestSqliteToPostgresQuery(t *testing.T) {
 	tcs := []struct {
 		Name          string
 		inputQuery    string
@@ -166,7 +166,7 @@ func TestPostgresToSqliteQuery(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
-			actualQuery := PostgresToSqliteQuery(tc.inputQuery)
+			actualQuery := SqliteToPostgresQuery(tc.inputQuery)
 			if diff := cmp.Diff(tc.expectedQuery, actualQuery); diff != "" {
 				t.Errorf("response mismatch (-want, +got):\n%s", diff)
 			}
