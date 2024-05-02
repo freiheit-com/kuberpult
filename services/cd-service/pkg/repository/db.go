@@ -147,15 +147,15 @@ func RunDBMigrations(cfg DBConfig) error {
 
 func (h *DBHandler) AdaptQuery(query string) string {
 	if h.DriverName == "postgres" {
-		return query
+		return SqliteToPostgresQuery(query)
 	} else if h.DriverName == "sqlite3" {
-		return PostgresToSqliteQuery(query)
+		return query
 	}
 	panic(fmt.Errorf("AdaptQuery: invalid driver: %s", h.DriverName))
 }
 
-// PostgresToSqliteQuery just replaces all "?" into "$1", "$2", etc
-func PostgresToSqliteQuery(query string) string {
+// SqliteToPostgresQuery just replaces all "?" into "$1", "$2", etc
+func SqliteToPostgresQuery(query string) string {
 	var q = query
 	var i = 1
 	for strings.Contains(q, "?") {
