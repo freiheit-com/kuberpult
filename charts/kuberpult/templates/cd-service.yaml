@@ -421,6 +421,7 @@ data:
   policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
 {{- end }}
 {{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
