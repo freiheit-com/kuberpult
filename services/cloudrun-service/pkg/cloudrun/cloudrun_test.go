@@ -122,10 +122,8 @@ func TestGetParent(t *testing.T) {
 		t.Run(testCase.testName, func(t *testing.T) {
 			t.Parallel()
 			parent, err := getParent(testCase.service)
-			if err != nil {
-				if diff := cmp.Diff(testCase.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-					t.Errorf("error mismatch (-want, +got):\n%s", diff)
-				}
+			if diff := cmp.Diff(testCase.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			if parent != testCase.expectedParent {
 				t.Errorf(errorMessage, testCase.expectedParent, parent)
@@ -245,10 +243,8 @@ func TestGetServiceConditions(t *testing.T) {
 		t.Run(testCase.testName, func(t *testing.T) {
 			t.Parallel()
 			conditions, err := GetServiceReadyCondition(testCase.service)
-			if err != nil {
-				if diff := cmp.Diff(testCase.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-					t.Errorf("error mismatch (-want, +got):\n%s", diff)
-				}
+			if diff := cmp.Diff(testCase.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			if conditions != testCase.expectedCondition {
 				t.Errorf(errorMessage, testCase.expectedCondition, conditions)
@@ -294,10 +290,8 @@ func TestGetOperationId(t *testing.T) {
 		t.Run(testCase.testName, func(t *testing.T) {
 			t.Parallel()
 			operationId, err := getOperationId(parent, testCase.service)
-			if err != nil {
-				if diff := cmp.Diff(testCase.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-					t.Errorf("error mismatch (-want, +got):\n%s", diff)
-				}
+			if diff := cmp.Diff(testCase.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			if operationId != testCase.expectedId {
 				t.Errorf(errorMessage, testCase.expectedId, operationId)
