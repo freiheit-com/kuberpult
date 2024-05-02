@@ -138,9 +138,6 @@ func (o *OverviewServiceServer) getOverview(
 
 				for _, appName := range apps {
 					teamName, err := s.GetTeamName(appName)
-					if err != nil {
-						teamName = ""
-					}
 					app := api.Environment_Application{
 						Version:         0,
 						QueuedVersion:   0,
@@ -155,21 +152,23 @@ func (o *OverviewServiceServer) getOverview(
 							DeployTime:   "",
 						},
 					}
-					if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr != nil {
-						return nil, teamErr
-					} else {
-						for lockId, lock := range teamLocks {
-							app.TeamLocks[lockId] = &api.Lock{
-								Message:   lock.Message,
-								LockId:    lockId,
-								CreatedAt: timestamppb.New(lock.CreatedAt),
-								CreatedBy: &api.Actor{
-									Name:  lock.CreatedBy.Name,
-									Email: lock.CreatedBy.Email,
-								},
+					if err == nil {
+						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr != nil {
+							return nil, teamErr
+						} else {
+							for lockId, lock := range teamLocks {
+								app.TeamLocks[lockId] = &api.Lock{
+									Message:   lock.Message,
+									LockId:    lockId,
+									CreatedAt: timestamppb.New(lock.CreatedAt),
+									CreatedBy: &api.Actor{
+										Name:  lock.CreatedBy.Name,
+										Email: lock.CreatedBy.Email,
+									},
+								}
 							}
 						}
-					}
+					} // Err != nil means no team name was found so no need to parse team locks
 
 					var version *uint64
 					if version, err = s.GetEnvironmentApplicationVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
