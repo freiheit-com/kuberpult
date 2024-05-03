@@ -206,7 +206,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     };
     const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, application?.version, env.name));
 
-    let teamLocks = Object.values(env.applications)
+    const teamLocks = Object.values(env.applications)
         .filter((application) => application.name === app)
         .filter((app) => app.team === team)
         .map((app) =>
