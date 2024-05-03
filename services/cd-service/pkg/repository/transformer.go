@@ -1887,7 +1887,6 @@ func (c *DeployApplicationVersion) Transform(
 		//File does not exist
 		firstDeployment = true
 	}
-
 	// Create a symlink to the release
 	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
 		return "", err
@@ -1955,8 +1954,36 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if c.WriteCommitData { // write the corresponding event
-		if err := addEventForRelease(ctx, fs, releaseDir, createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)); err != nil {
-			return "", err
+		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
+		logger.FromContext(ctx).Sugar().Info("Creating deployment event")
+		if state.DBHandler != nil {
+			newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+
+			err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
+				return state.DBHandler.DBWriteDeploymentEvent(ctx, newReleaseCommitId, "sample_email@example.com", *deploymentEvent)
+			})
+
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+
+			rows, err := state.DBHandler.DBSelectAllEventsForCommit(ctx, newReleaseCommitId)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+			for _, element := range rows {
+				fmt.Printf("Timestamp:   '%v'\n", element.Created)
+				fmt.Printf("Commit: 	   '%s'\n", element.CommitHash)
+				fmt.Printf("Event Type: '%v'\n", element.eventType)
+				fmt.Printf("Json:  '%v'\n", element.eventJson)
+			}
+		} else {
+			if err := addEventForRelease(ctx, fs, releaseDir, deploymentEvent); err != nil {
+				return "", err
+			}
 		}
 
 		if !firstDeployment && !lockPreventedDeployment {
@@ -2009,7 +2036,6 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 				commitID)
 			return nil
 		}
-
 		if err := writeEvent(ctx, eventUuid, commitID, fs, ev); err != nil {
 			return fmt.Errorf(
 				"could not write an event for commit %s, error: %w",

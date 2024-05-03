@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path"
 	"reflect"
@@ -230,6 +231,95 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion 
 	return nil
 }
 
+func (h *DBHandler) writeEvent(ctx context.Context, eventType string, sourceCommitHash string, eventJson []byte) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentEvent")
+	defer span.Finish()
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("could not begin transaction. Error: %w", err)
+	}
+
+	insertQuery := h.AdaptQuery("INSERT INTO events (created , commitHash, eventType, json)  VALUES (?, ?, ?, ?);")
+	logger.FromContext(ctx).Sugar().Warnf("Query: %s", insertQuery)
+	//fmt.Printf("Query: %s", insertQuery)
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		time.Now(),
+		sourceCommitHash,
+		eventType,
+		eventJson)
+
+	if err != nil {
+		return fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("could not commit transaction. Error: %w", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, sourceCommitHash string, email string, deployment event.Deployment) error {
+	var sourceTrainEnvironmentGroup string
+	var sourceTrainUpstream string
+	if deployment.SourceTrainEnvironmentGroup == nil {
+		sourceTrainEnvironmentGroup = ""
+	}
+	if deployment.SourceTrainUpstream == nil {
+		sourceTrainUpstream = ""
+	}
+
+	jsonToInsert, _ := json.Marshal(DeploymentEventJson{
+		Data: DeploymentEventDataJson{
+			Application:                 deployment.Application,
+			Environment:                 deployment.Environment,
+			SourceTrainEnvironmentGroup: sourceTrainEnvironmentGroup,
+			SourceTrainUpstream:         sourceTrainUpstream,
+		},
+		Metadata: DeploymentEventMetaDataJson{
+			AuthorEmail: email,
+		},
+	})
+	return h.writeEvent(ctx, "deployment", sourceCommitHash, jsonToInsert)
+}
+
+// DBSelectAllApplications returns (nil, nil) if there are no rows
+func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash string) ([]EventGo, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEvents")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT created, commitHash, eventType, json FROM events WHERE commitHash = (?) ORDER BY created DESC;")
+	span.SetTag("query", query)
+
+	logger.FromContext(ctx).Sugar().Warnf("Query: %s", query)
+	//fmt.Printf("Query: %s", insertQuery)
+	span.SetTag("query", query)
+
+	rows, err := h.DB.QueryContext(ctx, query, commitHash)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error querying DB. Error: %w\n", err)
+	}
+
+	var result []EventGo
+
+	for rows.Next() {
+
+		var row = EventGo{}
+		err := rows.Scan(&row.Created, &row.CommitHash, &row.eventType, &row.eventJson)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+		}
+
+		result = append(result, row)
+	}
+	return result, nil
+}
+
 // DBSelectAllApplications returns (nil, nil) if there are no rows
 func (h *DBHandler) DBSelectAllApplications(ctx context.Context) (*AllApplicationsGo, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
@@ -317,4 +407,42 @@ type AllApplicationsGo struct {
 	Version int64
 	Created time.Time
 	AllApplicationsJson
+}
+
+type EventRow struct {
+	Created    time.Time
+	CommitHash string
+	EventType  string
+	Event      string
+}
+
+type EventGo struct {
+	Created    time.Time
+	CommitHash string
+	eventType  string
+	eventJson  string
+}
+
+type DeploymentEventGo struct {
+	Created    time.Time
+	CommitHash string
+	eventType  string
+	event      DeploymentEventJson
+}
+
+type DeploymentEventJson struct {
+	Data     DeploymentEventDataJson
+	Metadata DeploymentEventMetaDataJson
+}
+
+type DeploymentEventMetaDataJson struct {
+	AuthorEmail string
+}
+
+type DeploymentEventDataJson struct {
+	EventType                   string
+	Application                 string
+	Environment                 string
+	SourceTrainEnvironmentGroup string
+	SourceTrainUpstream         string
 }
