@@ -220,9 +220,9 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                 authorEmail: lock.createdBy?.email,
             }))
         )
-        .flat();
+        .flat()
+        .filter((value, index, self) => index === self.findIndex((t) => t.lockId === value.lockId));
 
-    teamLocks = teamLocks.filter((value, index, self) => index === self.findIndex((t) => t.lockId === value.lockId));
     const appLocks = Object.values(env.applications)
         .filter((application) => application.name === app)
         .map((app) =>

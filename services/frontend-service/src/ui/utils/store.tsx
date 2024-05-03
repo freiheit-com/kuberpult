@@ -366,6 +366,28 @@ export const useEnvironments = (): Environment[] =>
  */
 export const useEnvironmentNames = (): string[] => useEnvironments().map((env) => env.name);
 
+export const useTeamLocks = (): DisplayLock[] =>
+    Object.values(useEnvironments())
+        .map((env) =>
+            Object.values(env.applications)
+                .map((app) =>
+                    Object.values(app.teamLocks).map((lock) => ({
+                        date: lock.createdAt,
+                        environment: env.name,
+                        team: app.team,
+                        lockId: lock.lockId,
+                        message: lock.message,
+                        authorName: lock.createdBy?.name,
+                        authorEmail: lock.createdBy?.email,
+                    }))
+                )
+                .flat()
+        )
+        .flat()
+        .filter(
+            (value: DisplayLock, index: number, self: DisplayLock[]) =>
+                index === self.findIndex((t: DisplayLock) => t.lockId === value.lockId)
+        );
 /**
  * returns the classname according to the priority of an environment, used to color environments
  */
@@ -524,7 +546,8 @@ export type AllLocks = {
     appLocks: DisplayLock[];
     teamLocks: DisplayLock[];
 };
-export const useTeamLocks = (team: string): DisplayLock[] => {
+
+export const useTeamLocksFilterByTeam = (team: string): DisplayLock[] => {
     const envs = useEnvironments();
     const teamLocks: DisplayLock[] = [];
     envs.forEach((env: Environment) => {

@@ -22,7 +22,7 @@ import {
     useDeployedReleases,
     useFilteredApplicationLocks,
     useNavigateWithSearchParams,
-    useTeamLocks,
+    useTeamLocksFilterByTeam,
     useVersionsForApp,
 } from '../../utils/store';
 import { ReleaseCard } from '../ReleaseCard/ReleaseCard';
@@ -196,7 +196,7 @@ export const ServiceLane: React.FC<{ application: Application }> = (props) => {
 
     const dotsMenu = <DotsMenu buttons={buttons} />;
     const appLocks = useFilteredApplicationLocks(application.name);
-    const teamLocks = useTeamLocks(application.team);
+    const teamLocks = useTeamLocksFilterByTeam(application.team);
     const dialog = (
         <EnvSelectionDialog
             environments={envs.map((e) => e.name)}

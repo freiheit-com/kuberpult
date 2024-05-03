@@ -39,7 +39,7 @@ export const DisplayLockInlineRenderer: React.FC<{ lock: DisplayLock }> = (props
     } else {
         description = (
             <span>
-                Application <b>{lock.application}</b> locked by <b>{author}</b> on environment <b>{lock.environment}</b>
+                Environment <b>{lock.environment}</b> locked by <b>{author}</b>
             </span>
         );
     }

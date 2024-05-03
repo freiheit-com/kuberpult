@@ -51,7 +51,7 @@ export const TeamLockSummary: React.FC<{
     return (
         <div
             key={'app-lock-hint-' + team}
-            title={'"' + team + '" has ' + numLocks + ' team ' + plural + '. Click on a tile to see details.'}>
+            title={'"' + team + '" has ' + numLocks + ' team ' + plural + '. Click on an icon to see details.'}>
             <div>
                 &nbsp;
                 <LocksWhite className="env-card-env-lock-icon" width="16px" height="16px" />
