@@ -132,7 +132,6 @@ func runServer(ctx context.Context) error {
 		logger.FromContext(ctx).Error("config.parse", zap.Error(err))
 		return err
 	}
-	logger.FromContext(ctx).Warn(fmt.Sprintf("config: \n%v", c))
 	if c.GitAuthorEmail == "" {
 		msg := "DefaultGitAuthorEmail must not be empty"
 		logger.FromContext(ctx).Error(msg)
