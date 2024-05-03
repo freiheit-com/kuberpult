@@ -147,15 +147,15 @@ func RunDBMigrations(cfg DBConfig) error {
 
 func (h *DBHandler) AdaptQuery(query string) string {
 	if h.DriverName == "postgres" {
-		return query
+		return SqliteToPostgresQuery(query)
 	} else if h.DriverName == "sqlite3" {
-		return PostgresToSqliteQuery(query)
+		return query
 	}
 	panic(fmt.Errorf("AdaptQuery: invalid driver: %s", h.DriverName))
 }
 
-// PostgresToSqliteQuery just replaces all "?" into "$1", "$2", etc
-func PostgresToSqliteQuery(query string) string {
+// SqliteToPostgresQuery just replaces all "?" into "$1", "$2", etc
+func SqliteToPostgresQuery(query string) string {
 	var q = query
 	var i = 1
 	for strings.Contains(q, "?") {
@@ -165,13 +165,48 @@ func PostgresToSqliteQuery(query string) string {
 	return q
 }
 
+type DBFunction func(ctx context.Context) error
+
+func Remove(s []string, r string) []string {
+	for i, v := range s {
+		if v == r {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
+}
+
+// WithTransaction opens a transaction, runs `f` and then calls either Commit or Rollback
+func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func(tx *sql.Tx) {
+		_ = tx.Rollback()
+		// we ignore the error returned from Rollback() here,
+		// because it is always set when Commit() was successful
+	}(tx)
+
+	err = f(ctx)
+	if err != nil {
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion int64, applications []string) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllApplications")
 	defer span.Finish()
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("could not begin transaction. Error: %w", err)
 	}
+	slices.Sort(applications) // we don't really *need* the sorting, it's just for convenience
 	jsonToInsert, _ := json.Marshal(AllApplicationsJson{
 		Apps: applications,
 	})
@@ -237,34 +272,36 @@ func (h *DBHandler) RunCustomMigrations(ctx context.Context, repo Repository) er
 }
 
 func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, repo Repository) error {
-	l := logger.FromContext(ctx).Sugar()
-	allAppsDb, err := h.DBSelectAllApplications(ctx)
-	if err != nil {
-		l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
-		allAppsDb = nil
-	}
+	return h.WithTransaction(ctx, func(ctx context.Context) error {
+		l := logger.FromContext(ctx).Sugar()
+		allAppsDb, err := h.DBSelectAllApplications(ctx)
+		if err != nil {
+			l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
+			allAppsDb = nil
+		}
 
-	allAppsRepo, err := repo.State().GetApplicationsFromFile()
-	if err != nil {
-		return fmt.Errorf("could not get applications to run custom migrations: %v", err)
-	}
-	var version int64
-	if allAppsDb != nil {
-		slices.Sort(allAppsDb.Apps)
-		version = allAppsDb.Version
-	} else {
-		version = 1
-	}
-	slices.Sort(allAppsRepo)
+		allAppsRepo, err := repo.State().GetApplicationsFromFile()
+		if err != nil {
+			return fmt.Errorf("could not get applications to run custom migrations: %v", err)
+		}
+		var version int64
+		if allAppsDb != nil {
+			slices.Sort(allAppsDb.Apps)
+			version = allAppsDb.Version
+		} else {
+			version = 1
+		}
+		slices.Sort(allAppsRepo)
 
-	if allAppsDb != nil && reflect.DeepEqual(allAppsDb.Apps, allAppsRepo) {
-		// nothing to do
-		logger.FromContext(ctx).Sugar().Infof("Nothing to do, all apps are equal")
-		return nil
-	}
-	// if there is any difference, we assume the manifest wins over the database state,
-	// so we use `allAppsRepo`:
-	return h.DBWriteAllApplications(ctx, version, allAppsRepo)
+		if allAppsDb != nil && reflect.DeepEqual(allAppsDb.Apps, allAppsRepo) {
+			// nothing to do
+			logger.FromContext(ctx).Sugar().Infof("Nothing to do, all apps are equal")
+			return nil
+		}
+		// if there is any difference, we assume the manifest wins over the database state,
+		// so we use `allAppsRepo`:
+		return h.DBWriteAllApplications(ctx, version, allAppsRepo)
+	})
 }
 
 type AllApplicationsJson struct {

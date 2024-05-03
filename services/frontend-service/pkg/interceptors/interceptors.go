@@ -23,6 +23,7 @@ import (
 
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
 	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -137,6 +138,7 @@ func DexLoginInterceptor(
 	role, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
 	fmt.Printf("%s\n", role)
 	if err != nil {
+		logger.FromContext(req.Context()).Debug(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		// If user is not authenticated redirect to the login page.
 		fmt.Println("Redirected")
 		http.Redirect(w, req, baseURL+auth.LoginPATH, http.StatusFound)

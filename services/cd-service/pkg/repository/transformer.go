@@ -401,6 +401,26 @@ func (c *CreateApplicationVersion) Transform(
 	if !valid.ApplicationName(c.Application) {
 		return "", GetCreateReleaseAppNameTooLong(c.Application, valid.AppNameRegExp, uint32(valid.MaxAppNameLen))
 	}
+	if state.DBHandler != nil {
+		err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
+			allApps, err := state.DBHandler.DBSelectAllApplications(ctx)
+			if err != nil {
+				return err
+			}
+			if !slices.Contains(allApps.Apps, c.Application) {
+				allApps.Apps = append(allApps.Apps, c.Application)
+				err := state.DBHandler.DBWriteAllApplications(ctx, allApps.Version, allApps.Apps)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(err)
+		}
+	}
+
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, version)
 	appDir := applicationDirectory(fs, c.Application)
 	if err = fs.MkdirAll(releaseDir, 0777); err != nil {
@@ -1051,6 +1071,19 @@ func (u *UndeployApplication) Transform(
 			return "", fmt.Errorf("UndeployApplication: unexpected error application '%v' environment '%v': '%w'", u.Application, env, err)
 		}
 	}
+	if state.DBHandler != nil {
+		err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
+			applications, err := state.DBHandler.DBSelectAllApplications(ctx)
+			if err != nil {
+				return err
+			}
+			applications.Apps = Remove(applications.Apps, u.Application)
+			return state.DBHandler.DBWriteAllApplications(ctx, applications.Version, applications.Apps)
+		})
+		if err != nil {
+			return "", fmt.Errorf("UndeployApplication: could not apply transaction for application '%v': '%w'", u.Application, err)
+		}
+	}
 	return fmt.Sprintf("application '%v' was deleted successfully", u.Application), nil
 }
 
@@ -1336,7 +1369,7 @@ func (c *DeleteEnvironmentLock) Transform(
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
-		DB:                     state.DB,
+		DBHandler:              state.DBHandler,
 	}
 	lockDir := s.GetEnvLockDir(c.Environment, c.LockId)
 	_, err = fs.Stat(lockDir)
@@ -1514,7 +1547,7 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
-		DB:                     state.DB,
+		DBHandler:              state.DBHandler,
 	}
 	if err := s.DeleteAppLockIfEmpty(ctx, c.Environment, c.Application); err != nil {
 		return "", err
@@ -1640,7 +1673,7 @@ func (c *DeleteEnvironmentTeamLock) Transform(
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
-		DB:                     state.DB,
+		DBHandler:              state.DBHandler,
 	}
 	if err := s.DeleteTeamLockIfEmpty(ctx, c.Environment, c.Team); err != nil {
 		return "", err
@@ -1908,7 +1941,7 @@ func (c *DeployApplicationVersion) Transform(
 		BootstrapMode:          false,
 		EnvironmentConfigsPath: "",
 		Filesystem:             fs,
-		DB:                     state.DB,
+		DBHandler:              state.DBHandler,
 	}
 	err = s.DeleteQueuedVersionIfExists(c.Environment, c.Application)
 	if err != nil {
