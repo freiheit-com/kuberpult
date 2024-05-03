@@ -220,8 +220,10 @@ type RepositoryConfig struct {
 	DBHandler *DBHandler
 }
 
+var fss = memfs.New()
+
 func openOrCreate(path string, storageBackend StorageBackend, cfg RepositoryConfig) (*gogit.Repository, error) {
-	fs := memfs.New()
+
 	storer := memory.NewStorage()
 	authMethod, err := ssh.NewPublicKeysFromFile("git", cfg.Credentials.SshKey, "")
 	if err != nil {
@@ -245,7 +247,7 @@ func openOrCreate(path string, storageBackend StorageBackend, cfg RepositoryConf
 	// Clones the repository into the worktree (fs) and stores all the .git
 	// content into the storer
 	fmt.Printf("Starting memory clone")
-	repo2, err := gogit.Clone(storer, fs, cloneOptions)
+	repo2, err := gogit.Clone(storer, fss, cloneOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -1351,7 +1353,7 @@ func (r *repository) StateAt(oid *git.Oid) (*State, error) {
 	// 	}
 	// }
 	return &State{
-		Filesystem:             fs.NewTreeBuildFS(r.repository, nil),
+		Filesystem:             fss,
 		Commit:                 nil,
 		BootstrapMode:          r.config.BootstrapMode,
 		EnvironmentConfigsPath: r.config.EnvironmentConfigsPath,
