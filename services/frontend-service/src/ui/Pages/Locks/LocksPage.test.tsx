@@ -578,7 +578,6 @@ describe('Test Team locks', () => {
     describe.each(sampleAppData)(`Test Lock IDs`, (testcase) => {
         it(testcase.name, () => {
             // given
-            // UpdateOverview.set({ environmentGroups: testcase.envs });
             UpdateOverview.set({
                 environmentGroups: [
                     {
