@@ -284,7 +284,7 @@ auth:
       p, role:Developer, DeployReleaseTrain, *:*, *, allow
     clientId: "kuberpult-dex"
     clientSecret: "kuberpult-dex-secret"
-    baseURL: "https://dex.kuberpult.dev.freiheit.systems/"
+    baseURL: "https://kuberpult.dev.freiheit.systems/"
     scopes: "openid, email, profile"
   api:
     # New api endpoints (starting with `/api/`), are by default only turned on when IAP is enabled.
@@ -322,7 +322,7 @@ dex:
   #       clientSecret: $GOOGLE_CLIENT_SECRET
   #       redirectURI: http://127.0.0.1:5556/callback
   config:
-    issuer: "https://dex.kuberpult.dev.freiheit.systems/dex"
+    issuer: "https://kuberpult.dev.freiheit.systems/dex"
     web:
       http: 0.0.0.0:8080
     # See https://dexidp.io/docs/storage/ for more options
@@ -333,14 +333,14 @@ dex:
         secret: kuberpult-dex-secret
         name: 'kuberpult'
         redirectURIs:
-          - 'https://dex.kuberpult.dev.freiheit.systems/callback'
+          - 'https://kuberpult.dev.freiheit.systems/callback'
     connectors:
       - type: google
         id: google
         name: Google
         config:
           issuer: accounts.google.com
-          redirectURI: "https://dex.kuberpult.dev.freiheit.systems/dex/callback"
+          redirectURI: "https://kuberpult.dev.freiheit.systems/dex/callback"
           clientID: "iap_client_id"
           clientSecret: "client_secret"
 # Configuration for revolution dora metrics. If you are not using revolution you can safely ignore this.
