@@ -261,25 +261,27 @@ func (h *DBHandler) writeEvent(ctx context.Context, eventType string, sourceComm
 }
 
 func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, sourceCommitHash string, email string, deployment event.Deployment) error {
-	var sourceTrainEnvironmentGroup string
-	var sourceTrainUpstream string
-	if deployment.SourceTrainEnvironmentGroup == nil {
-		sourceTrainEnvironmentGroup = ""
-	}
-	if deployment.SourceTrainUpstream == nil {
-		sourceTrainUpstream = ""
+	dataJson, err := json.Marshal(event.Deployment{
+		Application:                 deployment.Application,
+		Environment:                 deployment.Environment,
+		SourceTrainEnvironmentGroup: deployment.SourceTrainEnvironmentGroup,
+		SourceTrainUpstream:         deployment.SourceTrainUpstream,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling data event json.")
 	}
 
-	jsonToInsert, _ := json.Marshal(DeploymentEventJson{
-		Data: DeploymentEventDataJson{
-			Application:                 deployment.Application,
-			Environment:                 deployment.Environment,
-			SourceTrainEnvironmentGroup: sourceTrainEnvironmentGroup,
-			SourceTrainUpstream:         sourceTrainUpstream,
-		},
-		Metadata: DeploymentEventMetaDataJson{
-			AuthorEmail: email,
-		},
+	metadataJson, err := json.Marshal(event.DeploymentEventMetaDataJson{
+		AuthorEmail: email,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling metadata event json.")
+	}
+	jsonToInsert, _ := json.Marshal(event.DeploymentEventJson{
+		DataJson:     string(dataJson),
+		MetadataJson: string(metadataJson),
 	})
 	return h.writeEvent(ctx, "deployment", sourceCommitHash, jsonToInsert)
 }
@@ -305,9 +307,8 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 	var result []EventGo
 
 	for rows.Next() {
-
 		var row = EventGo{}
-		err := rows.Scan(&row.Created, &row.CommitHash, &row.eventType, &row.eventJson)
+		err := rows.Scan(&row.Created, &row.CommitHash, &row.EventType, &row.EventJson)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -419,30 +420,6 @@ type EventRow struct {
 type EventGo struct {
 	Created    time.Time
 	CommitHash string
-	eventType  string
-	eventJson  string
-}
-
-type DeploymentEventGo struct {
-	Created    time.Time
-	CommitHash string
-	eventType  string
-	event      DeploymentEventJson
-}
-
-type DeploymentEventJson struct {
-	Data     DeploymentEventDataJson
-	Metadata DeploymentEventMetaDataJson
-}
-
-type DeploymentEventMetaDataJson struct {
-	AuthorEmail string
-}
-
-type DeploymentEventDataJson struct {
-	EventType                   string
-	Application                 string
-	Environment                 string
-	SourceTrainEnvironmentGroup string
-	SourceTrainUpstream         string
+	EventType  string
+	EventJson  string
 }

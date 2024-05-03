@@ -216,6 +216,8 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 
 func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPath string) ([]*api.Event, error) {
 	var result []*api.Event
+	parts := strings.Split(commitPath, "/")
+	commitID := parts[len(parts)-2] + parts[len(parts)-1]
 	allEventsPath := fs.Join(commitPath, "events")
 	potentialEventDirs, err := fs.ReadDir(allEventsPath)
 	if err != nil {
@@ -236,6 +238,23 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPa
 				return nil, fmt.Errorf("could not read events %v", err)
 			}
 			result = append(result, event)
+		}
+	}
+
+	if s.Config.DBHandler != nil {
+		events, err := s.Config.DBHandler.DBSelectAllEventsForCommit(ctx, commitID)
+		if err != nil {
+			return nil, fmt.Errorf("could not read events from DB: %v", err)
+		}
+		fmt.Printf("Number of events for commit: %s: %d\n\n", commitID, len(events))
+		for _, currEvent := range events {
+			ev, err := eventmod.UnMarshallEvent(currEvent.EventType, currEvent.EventJson)
+			fmt.Printf("Simple Event: %v\n", ev)
+			if err != nil {
+				return nil, fmt.Errorf("error processing event from DB: %v", err)
+			}
+			fmt.Printf("ProtoEvent: %v\n", eventmod.DBToProto(ev))
+			result = append(result, eventmod.DBToProto(ev))
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {

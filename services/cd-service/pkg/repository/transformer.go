@@ -1977,8 +1977,8 @@ func (c *DeployApplicationVersion) Transform(
 			for _, element := range rows {
 				fmt.Printf("Timestamp:   '%v'\n", element.Created)
 				fmt.Printf("Commit: 	   '%s'\n", element.CommitHash)
-				fmt.Printf("Event Type: '%v'\n", element.eventType)
-				fmt.Printf("Json:  '%v'\n", element.eventJson)
+				fmt.Printf("Event Type: '%v'\n", element.EventType)
+				fmt.Printf("Json:  '%v'\n", element.EventJson)
 			}
 		} else {
 			if err := addEventForRelease(ctx, fs, releaseDir, deploymentEvent); err != nil {

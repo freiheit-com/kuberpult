@@ -17,10 +17,12 @@ Copyright 2023 freiheit.com*/
 package event
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"slices"
+	"time"
 
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
@@ -58,10 +60,10 @@ func (ev *NewRelease) toProto(trg *api.Event) {
 // Deployment is an event that denotes that an application of a commit
 // has been released to an environment.
 type Deployment struct {
-	Application                 string  `fs:"application"`
-	Environment                 string  `fs:"environment"`
-	SourceTrainEnvironmentGroup *string `fs:"source_train_environment_group"`
-	SourceTrainUpstream         *string `fs:"source_train_upstream"`
+	Application                 string  `fs:"application" json:"Application"`
+	Environment                 string  `fs:"environment" json:"Environment"`
+	SourceTrainEnvironmentGroup *string `fs:"source_train_environment_group" json:"SourceTrainEnvironmentGroup"`
+	SourceTrainUpstream         *string `fs:"source_train_upstream" json:"SourceTrainUpstream"`
 }
 
 func (_ *Deployment) eventType() string {
@@ -179,6 +181,43 @@ func Read(fs billy.Filesystem, eventDir string) (Event, error) {
 	return result, nil
 }
 
+func UnMarshallEvent(eventType string, eventJson string) (Event, error) {
+	var result Event
+
+	var wrapper DeploymentEventJson
+
+	err := json.Unmarshal([]byte(eventJson), &wrapper)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error processing general event. Json Unmarshall of general event failed: %s\n", eventJson)
+	}
+
+	switch eventType {
+	case "new-release":
+		//exhaustruct:ignore
+		result = &NewRelease{}
+	case "deployment":
+		//exhaustruct:ignore
+		result = &Deployment{}
+	case "lock-prevented-deployment":
+		//exhaustruct:ignore
+		result = &LockPreventedDeployment{}
+	case "replaced-by":
+		//exhaustruct:ignore
+		result = &ReplacedBy{}
+	default:
+		return nil, fmt.Errorf("unknown event type: %q", eventType)
+	}
+
+	fmt.Println(wrapper.DataJson)
+
+	err = json.Unmarshal([]byte(wrapper.DataJson), &result)
+	if err != nil {
+		return nil, fmt.Errorf("Error processing event. Json Unmarshall of event of type '%s': %s\n", eventType, wrapper.DataJson)
+	}
+	return result, nil
+}
+
 // Write an event to a filesystem
 func Write(filesystem billy.Filesystem, eventDir string, event Event) error {
 	_, err := filesystem.Stat(eventDir)
@@ -202,4 +241,28 @@ func ToProto(eventID timeuuid.UUID, ev Event) *api.Event {
 	}
 	ev.toProto(result)
 	return result
+}
+
+func DBToProto(ev Event) *api.Event {
+	result := &api.Event{
+		EventType: nil,
+	}
+	ev.toProto(result)
+	return result
+}
+
+type DeploymentEventJson struct {
+	DataJson     string
+	MetadataJson string
+}
+
+type DeploymentEventGo struct {
+	Created    time.Time
+	CommitHash string
+	eventType  string
+	event      DeploymentEventJson
+}
+
+type DeploymentEventMetaDataJson struct {
+	AuthorEmail string
 }
