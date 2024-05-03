@@ -220,10 +220,10 @@ type RepositoryConfig struct {
 	DBHandler *DBHandler
 }
 
-var fss = memfs.New()
+var fss billy.Filesystem
 
 func openOrCreate(path string, storageBackend StorageBackend, cfg RepositoryConfig) (*gogit.Repository, error) {
-
+	fss = memfs.New()
 	storer := memory.NewStorage()
 	authMethod, err := ssh.NewPublicKeysFromFile("git", cfg.Credentials.SshKey, "")
 	if err != nil {
@@ -484,10 +484,12 @@ func New2(ctx context.Context, cfg RepositoryConfig) (Repository, setup.Backgrou
 				RefSpecs: []goconf.RefSpec{fetchSpec},
 				Auth:     authMethod,
 			}
+			fmt.Println("Fetching tags")
 			err = remote.Fetch(fetchOps)
 			if err != nil {
 				return nil, nil, err
 			}
+			fmt.Println("Done fetching tags")
 			// var rev plumbing.ReferenceName
 
 			// remoteRef, err := repo2.References()
@@ -528,6 +530,7 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 			e.finish(ctx.Err())
 		}
 	}()
+	fmt.Println("ProcessQueue Repository")
 	tick := time.Tick(r.config.NetworkTimeout) //nolint: staticcheck
 	ttl := r.config.NetworkTimeout * 3
 	for {
@@ -547,8 +550,8 @@ func (r *repository) ProcessQueue(ctx context.Context, health *setup.HealthRepor
 			// this triggers a for loop every `NetworkTimeout` to refresh the readiness
 		case <-ctx.Done():
 			return nil
-			// case e := <-r.queue.transformerBatches:
-			// r.ProcessQueueOnce(ctx, e, defaultPushUpdate, DefaultPushActionCallback)
+		case e := <-r.queue.transformerBatches:
+			r.ProcessQueueOnce(ctx, e, defaultPushUpdate, DefaultPushActionCallback)
 		}
 	}
 }
@@ -647,14 +650,12 @@ func defaultPushUpdate(branch string, success *bool) git.PushUpdateReferenceCall
 }
 
 type PushActionFunc func() error
-type PushActionCallbackFunc func(git.PushOptions, *repository) PushActionFunc
+type PushActionCallbackFunc func(gogit.PushOptions, *repository) PushActionFunc
 
 // DefaultPushActionCallback is public for testing reasons only.
 func DefaultPushActionCallback(pushOptions gogit.PushOptions, r *repository) PushActionFunc {
 	return func() error {
-		return r.useRemote(func(remote *gogit.Remote) error {
-			return remote.Push(&pushOptions)
-		})
+		return r.repository.Push(&pushOptions)
 	}
 }
 
@@ -663,7 +664,7 @@ type PushUpdateFunc func(string, *bool) git.PushUpdateReferenceCallback
 func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, callback PushUpdateFunc, pushAction PushActionCallbackFunc) {
 	logger := logger.FromContext(ctx)
 	var err error = panicError
-
+	fmt.Println("ProcessQueueuOnce")
 	// Check that the first transformerBatch is not already canceled
 	select {
 	case <-e.ctx.Done():
@@ -685,19 +686,14 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	var pushSuccess = true
 
 	//exhaustruct:ignore
-	RemoteCallbacks := git.RemoteCallbacks{
-		CredentialsCallback:         r.credentials.CredentialsCallback(e.ctx),
-		CertificateCheckCallback:    r.certificates.CertificateCheckCallback(e.ctx),
-		PushUpdateReferenceCallback: callback(r.config.Branch, &pushSuccess),
-	}
-	pushOptions := git.PushOptions{
-		PbParallelism: 0,
-		Headers:       nil,
-		ProxyOptions: git.ProxyOptions{
-			Type: git.ProxyTypeNone,
-			Url:  "",
-		},
-		RemoteCallbacks: RemoteCallbacks,
+
+	authMethod, err := ssh.NewPublicKeysFromFile("git", "/ssh_key/identity", "")
+	callBack, err := ssh.NewKnownHostsCallback("/known_hosts/ssh_known_hosts")
+
+	authMethod.HostKeyCallback = callBack
+	pushOptions := gogit.PushOptions{
+		RemoteName: "origin",
+		Auth:       authMethod,
 	}
 
 	// Apply the items
@@ -1045,6 +1041,7 @@ func CombineArray(others []*TransformerResult) *TransformerResult {
 }
 
 func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Transformer) (*TransformerResult, *TransformerBatchApplyError) {
+	fmt.Println("ApplyTransformers")
 	commitMsg, state, changes, applyErr := r.ApplyTransformersInternal(ctx, transformers...)
 	if applyErr != nil {
 		return nil, applyErr
@@ -1091,7 +1088,15 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 			Index:            -1,
 		}
 	}
-	wt.Add("./")
+	_, err = wt.Add("./")
+	if err != nil {
+		return nil, &TransformerBatchApplyError{
+			TransformerError: fmt.Errorf("%s: %w", "failed to add files", err),
+			Index:            -1,
+		}
+	}
+	status, err := wt.Status()
+	fmt.Println(status.String())
 	commitOps := &gogit.CommitOptions{
 		All:       true,
 		Committer: (*object.Signature)(committer),
@@ -1112,6 +1117,7 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 			Index:            -1,
 		}
 	}
+	fmt.Println("Done commiting")
 	result := CombineArray(changes)
 	result.Commits = &CommitIds{
 		Current:  &newCommitId,
@@ -2107,6 +2113,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 // deploys if necessary
 // deletes the queue
 func (s *State) ProcessQueue(ctx context.Context, fs billy.Filesystem, environment string, application string) (string, error) {
+	fmt.Println("ProcessQueue")
 	queuedVersion, err := s.GetQueuedVersion(environment, application)
 	queueDeploymentMessage := ""
 	if err != nil {
@@ -2131,4 +2138,5 @@ func (s *State) ProcessQueue(ctx context.Context, fs billy.Filesystem, environme
 		}
 	}
 	return queueDeploymentMessage, nil
+
 }
