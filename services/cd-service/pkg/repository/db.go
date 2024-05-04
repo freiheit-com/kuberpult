@@ -260,7 +260,8 @@ func (h *DBHandler) writeEvent(ctx context.Context, eventType string, sourceComm
 	return nil
 }
 
-func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, sourceCommitHash string, email string, deployment event.Deployment) error {
+func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, sourceCommitHash, email string, deployment *event.Deployment) error {
+
 	dataJson, err := json.Marshal(event.Deployment{
 		Application:                 deployment.Application,
 		Environment:                 deployment.Environment,
@@ -269,17 +270,17 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, sourceCommitHash
 	})
 
 	if err != nil {
-		return fmt.Errorf("error marshalling data event json.")
+		return fmt.Errorf("error converting deployment event data to json. Error: %w\n", err)
 	}
 
-	metadataJson, err := json.Marshal(event.DeploymentEventMetaDataJson{
+	metadataJson, err := json.Marshal(event.Metadata{
 		AuthorEmail: email,
 	})
 
 	if err != nil {
-		return fmt.Errorf("error marshalling metadata event json.")
+		return fmt.Errorf("error converting deployment event metadata to json. Error: %w\n", err)
 	}
-	jsonToInsert, _ := json.Marshal(event.DeploymentEventJson{
+	jsonToInsert, _ := json.Marshal(event.EventJson{
 		DataJson:     string(dataJson),
 		MetadataJson: string(metadataJson),
 	})
@@ -287,7 +288,7 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, sourceCommitHash
 }
 
 // DBSelectAllApplications returns (nil, nil) if there are no rows
-func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash string) ([]EventGo, error) {
+func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash string) ([]EventRow, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEvents")
 	defer span.Finish()
 
@@ -304,10 +305,10 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 		return nil, fmt.Errorf("Error querying DB. Error: %w\n", err)
 	}
 
-	var result []EventGo
+	var result []EventRow
 
 	for rows.Next() {
-		var row = EventGo{}
+		var row = EventRow{}
 		err := rows.Scan(&row.Created, &row.CommitHash, &row.EventType, &row.EventJson)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -411,13 +412,6 @@ type AllApplicationsGo struct {
 }
 
 type EventRow struct {
-	Created    time.Time
-	CommitHash string
-	EventType  string
-	Event      string
-}
-
-type EventGo struct {
 	Created    time.Time
 	CommitHash string
 	EventType  string

@@ -1955,31 +1955,20 @@ func (c *DeployApplicationVersion) Transform(
 
 	if c.WriteCommitData { // write the corresponding event
 		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
-		logger.FromContext(ctx).Sugar().Info("Creating deployment event")
-		if state.DBHandler != nil {
+		if s.DBHandler != nil {
 			newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir)
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
 
 			err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
-				return state.DBHandler.DBWriteDeploymentEvent(ctx, newReleaseCommitId, "sample_email@example.com", *deploymentEvent)
+				return state.DBHandler.DBWriteDeploymentEvent(ctx, newReleaseCommitId, "sample_email@example.com", deploymentEvent)
 			})
 
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
 
-			rows, err := state.DBHandler.DBSelectAllEventsForCommit(ctx, newReleaseCommitId)
-			if err != nil {
-				return "", GetCreateReleaseGeneralFailure(err)
-			}
-			for _, element := range rows {
-				fmt.Printf("Timestamp:   '%v'\n", element.Created)
-				fmt.Printf("Commit: 	   '%s'\n", element.CommitHash)
-				fmt.Printf("Event Type: '%v'\n", element.EventType)
-				fmt.Printf("Json:  '%v'\n", element.EventJson)
-			}
 		} else {
 			if err := addEventForRelease(ctx, fs, releaseDir, deploymentEvent); err != nil {
 				return "", err

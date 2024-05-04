@@ -249,12 +249,10 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPa
 		fmt.Printf("Number of events for commit: %s: %d\n\n", commitID, len(events))
 		for _, currEvent := range events {
 			ev, err := eventmod.UnMarshallEvent(currEvent.EventType, currEvent.EventJson)
-			fmt.Printf("Simple Event: %v\n", ev)
 			if err != nil {
 				return nil, fmt.Errorf("error processing event from DB: %v", err)
 			}
-			fmt.Printf("ProtoEvent: %v\n", eventmod.DBToProto(ev))
-			result = append(result, eventmod.DBToProto(ev))
+			result = append(result, eventmod.DBToProto(ev.EventData, currEvent.Created))
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {

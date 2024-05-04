@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"io/fs"
 	"slices"
 	"time"
@@ -146,6 +147,11 @@ func (ev *ReplacedBy) toProto(trg *api.Event) {
 	}
 }
 
+//type EventMetadata struct {
+//	author string
+//	UUID   strin
+//}
+
 // Event is a commit-releated event
 type Event interface {
 	eventType() string
@@ -181,41 +187,47 @@ func Read(fs billy.Filesystem, eventDir string) (Event, error) {
 	return result, nil
 }
 
-func UnMarshallEvent(eventType string, eventJson string) (Event, error) {
-	var result Event
+func UnMarshallEvent(eventType string, eventJson string) (DBEventGo, error) {
+	var concreteEvent Event
+	var metadata Metadata
+	var generalEvent EventJson
 
-	var wrapper DeploymentEventJson
-
-	err := json.Unmarshal([]byte(eventJson), &wrapper)
+	err := json.Unmarshal([]byte(eventJson), &generalEvent)
 
 	if err != nil {
-		return nil, fmt.Errorf("Error processing general event. Json Unmarshall of general event failed: %s\n", eventJson)
+		return DBEventGo{}, fmt.Errorf("Error processing general event. Json Unmarshall of general event failed: %s\n", eventJson)
 	}
 
 	switch eventType {
 	case "new-release":
 		//exhaustruct:ignore
-		result = &NewRelease{}
+		concreteEvent = &NewRelease{}
 	case "deployment":
-		//exhaustruct:ignore
-		result = &Deployment{}
+		concreteEvent = &Deployment{}
 	case "lock-prevented-deployment":
 		//exhaustruct:ignore
-		result = &LockPreventedDeployment{}
+		concreteEvent = &LockPreventedDeployment{}
 	case "replaced-by":
 		//exhaustruct:ignore
-		result = &ReplacedBy{}
+		concreteEvent = &ReplacedBy{}
 	default:
-		return nil, fmt.Errorf("unknown event type: %q", eventType)
+		return DBEventGo{}, fmt.Errorf("unknown event type: %q", eventType)
 	}
 
-	fmt.Println(wrapper.DataJson)
-
-	err = json.Unmarshal([]byte(wrapper.DataJson), &result)
+	err = json.Unmarshal([]byte(generalEvent.DataJson), &concreteEvent)
 	if err != nil {
-		return nil, fmt.Errorf("Error processing event. Json Unmarshall of event of type '%s': %s\n", eventType, wrapper.DataJson)
+		return DBEventGo{}, fmt.Errorf("Error processing event. Json Unmarshall of event of type '%s' failed: %s\n", eventType, generalEvent.DataJson)
 	}
-	return result, nil
+
+	err = json.Unmarshal([]byte(generalEvent.MetadataJson), &metadata)
+
+	if err != nil {
+		return DBEventGo{}, fmt.Errorf("Error processing event. Json Unmarshall of event of type '%s' failed: %s\n", eventType, generalEvent.DataJson)
+	}
+	return DBEventGo{
+		EventMetadata: metadata,
+		EventData:     concreteEvent,
+	}, nil
 }
 
 // Write an event to a filesystem
@@ -243,26 +255,26 @@ func ToProto(eventID timeuuid.UUID, ev Event) *api.Event {
 	return result
 }
 
-func DBToProto(ev Event) *api.Event {
+func DBToProto(ev Event, createdAt time.Time) *api.Event {
 	result := &api.Event{
 		EventType: nil,
+		CreatedAt: timestamppb.New(createdAt),
 	}
 	ev.toProto(result)
 	return result
 }
 
-type DeploymentEventJson struct {
+type EventJson struct {
 	DataJson     string
 	MetadataJson string
 }
 
-type DeploymentEventGo struct {
-	Created    time.Time
-	CommitHash string
-	eventType  string
-	event      DeploymentEventJson
+type Metadata struct {
+	AuthorEmail string
+	Uuid        string
 }
 
-type DeploymentEventMetaDataJson struct {
-	AuthorEmail string
+type DBEventGo struct {
+	EventData     Event
+	EventMetadata Metadata
 }
