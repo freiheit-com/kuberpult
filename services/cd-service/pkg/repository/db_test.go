@@ -18,6 +18,8 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	"os"
@@ -134,32 +136,25 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 	}
 }
 
-func TestEventStorage(t *testing.T) {
+func TestDeploymentStorage(t *testing.T) {
 	tcs := []struct {
-		Name          string
-		migrationFile string
-		expectedData  *AllApplicationsGo
+		Name         string
+		commitHash   string
+		email        string
+		event        event.Deployment
+		expectedData *EventRow
 	}{
 		{
-			Name: "Simple migration",
-			migrationFile: `
-CREATE TABLE IF NOT EXISTS all_apps
-(
-    version BIGINT,
-    created TIMESTAMP,
-    json VARCHAR(255),
-    PRIMARY KEY(version)
-);
-
-INSERT INTO all_apps (version , created , json)  VALUES (0, 	'1713218400', 'First Message');
-INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"apps":["my-test-app"]}');`,
-			expectedData: &AllApplicationsGo{
-				Version: 1,
-				Created: time.Unix(1713218400, 0).UTC(),
-				AllApplicationsJson: AllApplicationsJson{
-					Apps: []string{"my-test-app"},
-				},
+			Name:       "Simple Deployment event",
+			commitHash: "abcdefghi",
+			email:      "test@email.com",
+			event: event.Deployment{
+				Environment:                 envProduction,
+				Application:                 "test-app",
+				SourceTrainUpstream:         nil,
+				SourceTrainEnvironmentGroup: nil,
 			},
+			expectedData: &EventRow{},
 		},
 	}
 	for _, tc := range tcs {
@@ -171,20 +166,14 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			cfg := DBConfig{
 				DriverName:     "sqlite3",
 				DbHost:         dbDir,
-				MigrationsPath: dbDir + "/migrations",
+				MigrationsPath: "/kp/cd_database/migrations",
 			}
-			loc, mkdirErr := createMigrationFolder(dbDir)
-			if mkdirErr != nil {
-				t.Fatalf("Error creating migrations folder. Error: %v\n", mkdirErr)
-			}
+			fmt.Println(os.Executable())
+			_, err := os.Stat(cfg.MigrationsPath)
+			if err != nil {
+				t.Fatalf("Error accessing migrations folder. Error: %v\n", err)
 
-			ts := time.Now().Unix()
-			migrationFileNameAbsPath := path.Join(loc, strconv.FormatInt(ts, 10)+"_testing.up.sql")
-			wErr := os.WriteFile(migrationFileNameAbsPath, []byte(tc.migrationFile), os.ModePerm)
-			if wErr != nil {
-				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
 			}
-
 			migErr := RunDBMigrations(cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
@@ -194,14 +183,29 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 			if err != nil {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
-			m, err := db.DBSelectAllApplications(ctx)
+
+			writeDeploymentError := db.DBWriteDeploymentEvent(ctx, tc.commitHash, tc.email, &tc.event)
+			if writeDeploymentError != nil {
+				t.Fatalf("Error writing event to DB. Error: %v\n", writeDeploymentError)
+			}
+
+			m, err := db.DBSelectAllEventsForCommit(ctx, tc.commitHash)
 			if err != nil {
 				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
 			}
 
-			if diff := cmp.Diff(tc.expectedData, m); diff != "" {
-				t.Errorf("response mismatch (-want, +got):\n%s", diff)
+			for _, currEvent := range m {
+				e, err := event.UnMarshallEvent("deployment", currEvent.EventJson)
+
+				if err != nil {
+					t.Fatalf("Error obtaining event from DB. Error: %v\n", err)
+				}
+
+				if diff := cmp.Diff(e.EventData, &tc.event); diff != "" {
+					t.Errorf("response mismatch (-want, +got):\n%s", diff)
+				}
 			}
+
 		})
 	}
 }

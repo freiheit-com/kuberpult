@@ -26,6 +26,7 @@ compile:
 unit-test:
     FROM +compile
     ARG GO_TEST_ARGS
+
     DO go-build+UNIT_TEST --GO_TEST_ARGS=$GO_TEST_ARGS
 
 lint:
