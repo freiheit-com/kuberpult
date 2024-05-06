@@ -13,8 +13,10 @@ rootDir=$(git rev-parse --show-toplevel)
 kuberpultClientId=$(cat "${FDC_STANDARD_SETUP}/infrastructure/terraform/gcp/tools/europe-west1/03_kuberpult/kuberpult-client-id")
 kuberpultIapToken=$(sops exec-file --no-fifo "${FDC_STANDARD_SETUP}"/secrets/fdc-standard-setup-dev-env-925fe612820f.json 'GOOGLE_APPLICATION_CREDENTIALS={} bash '"${FDC_STANDARD_SETUP}/infrastructure/scripts/get-iap-token.sh ${kuberpultClientId}")
 
-TOKEN=$(gcloud auth print-identity-token)
-
+#TOKEN=$(gcloud auth print-identity-token --impersonate-service-account terraform@fdc-public-docker-registry.iam.gserviceaccount.com)
+#TOKEN=$(gcloud auth print-identity-token)
+#echo $iap_clientId
+TOKEN=$(gcloud auth print-identity-token --impersonate-service-account "106887483619435718021")
 curl https://kuberpult.dev.freiheit.systems/dex/token -POST -v \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
