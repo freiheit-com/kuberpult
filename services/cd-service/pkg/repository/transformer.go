@@ -1380,7 +1380,14 @@ func (c *DeleteEnvironmentLock) Transform(
 		}
 		return "", err
 	}
-
+	files, err := fs.ReadDir(lockDir)
+	if err != nil {
+		return "", fmt.Errorf("Failed to read directory %q: %w", lockDir, err)
+	}
+	for _, file := range files {
+		fmt.Println(file.Name())
+		fs.Remove(fs.Join(lockDir, file.Name()))
+	}
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	}
@@ -1539,6 +1546,14 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
 		}
 		return "", err
+	}
+	files, err := fs.ReadDir(lockDir)
+	if err != nil {
+		return "", fmt.Errorf("Failed to read directory %q: %w", lockDir, err)
+	}
+	for _, file := range files {
+		fmt.Println(file.Name())
+		fs.Remove(fs.Join(lockDir, file.Name()))
 	}
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)

@@ -50,7 +50,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/setup"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/argocd"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
-	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/fs"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -655,6 +654,7 @@ type PushActionCallbackFunc func(gogit.PushOptions, *repository) PushActionFunc
 // DefaultPushActionCallback is public for testing reasons only.
 func DefaultPushActionCallback(pushOptions gogit.PushOptions, r *repository) PushActionFunc {
 	return func() error {
+		fmt.Println("Pushing")
 		return r.repository.Push(&pushOptions)
 	}
 }
@@ -688,8 +688,13 @@ func (r *repository) ProcessQueueOnce(ctx context.Context, e transformerBatch, c
 	//exhaustruct:ignore
 
 	authMethod, err := ssh.NewPublicKeysFromFile("git", "/ssh_key/identity", "")
+	if err != nil {
+		fmt.Println(err)
+	}
 	callBack, err := ssh.NewKnownHostsCallback("/known_hosts/ssh_known_hosts")
-
+	if err != nil {
+		fmt.Println(err)
+	}
 	authMethod.HostKeyCallback = callBack
 	pushOptions := gogit.PushOptions{
 		RemoteName: "origin",
@@ -1046,14 +1051,14 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 	if applyErr != nil {
 		return nil, applyErr
 	}
+	fmt.Println("Failed in ApplyTransformers")
 	if err := r.afterTransform(ctx, *state); err != nil {
 		return nil, &TransformerBatchApplyError{TransformerError: fmt.Errorf("%s: %w", "failure in afterTransform", err), Index: -1}
 	}
-
-	_, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
-	if insertError != nil {
-		return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
-	}
+	// _, insertError := state.Filesystem.(*fs.TreeBuilderFS).Insert()
+	// if insertError != nil {
+	// 	return nil, &TransformerBatchApplyError{TransformerError: insertError, Index: -1}
+	// }
 	committer := &git.Signature{
 		Name:  r.config.CommitterName,
 		Email: r.config.CommitterEmail,
@@ -1088,7 +1093,11 @@ func (r *repository) ApplyTransformers(ctx context.Context, transformers ...Tran
 			Index:            -1,
 		}
 	}
-	_, err = wt.Add("./")
+	addOps := gogit.AddOptions{
+		All:  true,
+		Path: "./",
+	}
+	err = wt.AddWithOptions(&addOps)
 	if err != nil {
 		return nil, &TransformerBatchApplyError{
 			TransformerError: fmt.Errorf("%s: %w", "failed to add files", err),
@@ -1659,6 +1668,7 @@ func (s *State) DeleteTeamLockIfEmpty(ctx context.Context, environment string, t
 
 func (s *State) DeleteAppLockIfEmpty(ctx context.Context, environment string, application string) error {
 	dir := s.GetAppLocksDir(environment, application)
+	fmt.Println("App lock deleting")
 	_, err := s.DeleteDirIfEmpty(dir)
 	return err
 }
@@ -1682,6 +1692,11 @@ const (
 // Returns SuccessReason for unit testing.
 func (s *State) DeleteDirIfEmpty(directoryName string) (SuccessReason, error) {
 	fileInfos, err := s.Filesystem.ReadDir(directoryName)
+	fmt.Println("DeleteDirIfEmpty")
+	for _, file := range fileInfos {
+		fmt.Println("Deleting", file.Name())
+		s.Filesystem.Remove(s.Filesystem.Join(directoryName, file.Name()))
+	}
 	if err != nil {
 		return NoReason, fmt.Errorf("DeleteDirIfEmpty: failed to read directory %q: %w", directoryName, err)
 	}
