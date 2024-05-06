@@ -6233,6 +6233,40 @@ func setupRepositoryTest(t *testing.T) Repository {
 	return repo
 }
 
+func setupRepositoryWithDB(t *testing.T) (Repository, string) {
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	err := cmd.Start()
+	if err != nil {
+		t.Errorf("could not start git init")
+		return nil, ""
+	}
+	err = cmd.Wait()
+	if err != nil {
+		t.Errorf("could not wait for git init to finish")
+		return nil, ""
+	}
+
+	repo, err := New(
+		testutil.MakeTestContext(),
+		RepositoryConfig{
+			URL:                   remoteDir,
+			Path:                  localDir,
+			CommitterEmail:        "kuberpult@freiheit.com",
+			CommitterName:         "kuberpult",
+			WriteCommitData:       true,
+			MaximumCommitsPerPush: 5,
+			ArgoCdGenerateFiles:   true,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo, remoteDir
+}
+
 func setupRepositoryTestWithPath(t *testing.T) (Repository, string) {
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")

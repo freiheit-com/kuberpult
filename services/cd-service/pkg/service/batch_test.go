@@ -613,6 +613,7 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 	cmd.Start()
 	cmd.Wait()
 	t.Logf("test created dir: %s", localDir)
+
 	repo, err := repository.New(
 		testutil.MakeTestContext(),
 		repository.RepositoryConfig{

@@ -259,6 +259,7 @@ func DBToProto(ev Event, createdAt time.Time) *api.Event {
 	result := &api.Event{
 		EventType: nil,
 		CreatedAt: timestamppb.New(createdAt),
+		Uuid:      timeuuid.UUIDFromTime(createdAt).String(),
 	}
 	ev.toProto(result)
 	return result
@@ -271,7 +272,6 @@ type EventJson struct {
 
 type Metadata struct {
 	AuthorEmail string
-	Uuid        string
 }
 
 type DBEventGo struct {

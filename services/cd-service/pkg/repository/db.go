@@ -232,7 +232,7 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion 
 }
 
 func (h *DBHandler) writeEvent(ctx context.Context, eventType string, sourceCommitHash string, eventJson []byte) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteDeploymentEvent")
+	span, ctx := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -240,8 +240,9 @@ func (h *DBHandler) writeEvent(ctx context.Context, eventType string, sourceComm
 	}
 
 	insertQuery := h.AdaptQuery("INSERT INTO events (created , commitHash, eventType, json)  VALUES (?, ?, ?, ?);")
+
 	logger.FromContext(ctx).Sugar().Warnf("Query: %s", insertQuery)
-	//fmt.Printf("Query: %s", insertQuery)
+
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
@@ -287,7 +288,6 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, sourceCommitHash
 	return h.writeEvent(ctx, "deployment", sourceCommitHash, jsonToInsert)
 }
 
-// DBSelectAllApplications returns (nil, nil) if there are no rows
 func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash string) ([]EventRow, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEvents")
 	defer span.Finish()
@@ -308,7 +308,13 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 	var result []EventRow
 
 	for rows.Next() {
-		var row = EventRow{}
+		var row = EventRow{
+			Created:    time.Now(), //will be overwritten, prevents CI linter from complaining from missing fields
+			CommitHash: "",
+			EventType:  "",
+			EventJson:  "",
+		}
+
 		err := rows.Scan(&row.Created, &row.CommitHash, &row.EventType, &row.EventJson)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {

@@ -134,6 +134,78 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 	}
 }
 
+func TestEventStorage(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		migrationFile string
+		expectedData  *AllApplicationsGo
+	}{
+		{
+			Name: "Simple migration",
+			migrationFile: `
+CREATE TABLE IF NOT EXISTS all_apps
+(
+    version BIGINT,
+    created TIMESTAMP,
+    json VARCHAR(255),
+    PRIMARY KEY(version)
+);
+
+INSERT INTO all_apps (version , created , json)  VALUES (0, 	'1713218400', 'First Message');
+INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"apps":["my-test-app"]}');`,
+			expectedData: &AllApplicationsGo{
+				Version: 1,
+				Created: time.Unix(1713218400, 0).UTC(),
+				AllApplicationsJson: AllApplicationsJson{
+					Apps: []string{"my-test-app"},
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			dbDir := t.TempDir()
+			cfg := DBConfig{
+				DriverName:     "sqlite3",
+				DbHost:         dbDir,
+				MigrationsPath: dbDir + "/migrations",
+			}
+			loc, mkdirErr := createMigrationFolder(dbDir)
+			if mkdirErr != nil {
+				t.Fatalf("Error creating migrations folder. Error: %v\n", mkdirErr)
+			}
+
+			ts := time.Now().Unix()
+			migrationFileNameAbsPath := path.Join(loc, strconv.FormatInt(ts, 10)+"_testing.up.sql")
+			wErr := os.WriteFile(migrationFileNameAbsPath, []byte(tc.migrationFile), os.ModePerm)
+			if wErr != nil {
+				t.Fatalf("Error creating migration file. Error: %v\n", mkdirErr)
+			}
+
+			migErr := RunDBMigrations(cfg)
+			if migErr != nil {
+				t.Fatalf("Error running migration script. Error: %v\n", migErr)
+			}
+
+			db, err := Connect(cfg)
+			if err != nil {
+				t.Fatal("Error establishing DB connection: ", zap.Error(err))
+			}
+			m, err := db.DBSelectAllApplications(ctx)
+			if err != nil {
+				t.Fatalf("Error querying dabatabse. Error: %v\n", err)
+			}
+
+			if diff := cmp.Diff(tc.expectedData, m); diff != "" {
+				t.Errorf("response mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestSqliteToPostgresQuery(t *testing.T) {
 	tcs := []struct {
 		Name          string
