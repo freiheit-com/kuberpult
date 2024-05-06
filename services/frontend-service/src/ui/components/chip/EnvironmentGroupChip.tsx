@@ -43,6 +43,23 @@ export const AppLockSummary: React.FC<{
     );
 };
 
+export const TeamLockSummary: React.FC<{
+    team: string;
+    numLocks: number;
+}> = ({ team, numLocks }) => {
+    const plural = numLocks === 1 ? 'lock' : 'locks';
+    return (
+        <div
+            key={'app-lock-hint-' + team}
+            title={'"' + team + '" has ' + numLocks + ' team ' + plural + '. Click on an icon to see details.'}>
+            <div>
+                &nbsp;
+                <LocksWhite className="env-card-env-lock-icon" width="16px" height="16px" />
+            </div>
+        </div>
+    );
+};
+
 export type EnvironmentChipProps = {
     className: string;
     env: Environment;

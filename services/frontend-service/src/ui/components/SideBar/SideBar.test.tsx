@@ -392,6 +392,7 @@ describe('Action details', () => {
         action: BatchAction;
         envLocks?: DisplayLock[];
         appLocks?: DisplayLock[];
+        teamLocks?: DisplayLock[];
         expectedDetails: ActionDetails;
     }
     const data: dataT[] = [
@@ -468,7 +469,11 @@ describe('Action details', () => {
             action: {
                 action: {
                     $case: 'deleteEnvironmentApplicationLock',
-                    deleteEnvironmentApplicationLock: { environment: 'foo', application: 'bar', lockId: 'ui-v2-1337' },
+                    deleteEnvironmentApplicationLock: {
+                        environment: 'foo',
+                        application: 'bar',
+                        lockId: 'ui-v2-1337',
+                    },
                 },
             },
             appLocks: [
@@ -488,6 +493,34 @@ describe('Action details', () => {
                 environment: 'foo',
                 application: 'bar',
                 lockId: 'ui-v2-1337',
+                lockMessage: 'bar',
+            },
+        },
+        {
+            name: 'test deleteEnvironmentTeamLock action',
+            action: {
+                action: {
+                    $case: 'deleteEnvironmentTeamLock',
+                    deleteEnvironmentTeamLock: { environment: 'foo', team: 'bar', lockId: 'ui-v2-1338' },
+                },
+            },
+            teamLocks: [
+                {
+                    lockId: 'ui-v2-1338',
+                    environment: 'foo',
+                    message: 'bar',
+                    team: 'bar',
+                },
+            ],
+            expectedDetails: {
+                type: ActionTypes.DeleteEnvironmentTeamLock,
+                name: 'Delete Team Lock',
+                dialogTitle: 'Are you sure you want to delete this team lock?',
+                summary: 'Delete team lock for "bar" on foo with the message: "bar"',
+                tooltip: 'This will only remove the lock, it will not automatically deploy anything.',
+                environment: 'foo',
+                team: 'bar',
+                lockId: 'ui-v2-1338',
                 lockMessage: 'bar',
             },
         },
@@ -604,8 +637,9 @@ describe('Action details', () => {
         it(testcase.name, () => {
             const envLocks = testcase.envLocks || [];
             const appLocks = testcase.appLocks || [];
-            const obtainedDetails = renderHook(() => getActionDetails(testcase.action, appLocks, envLocks)).result
-                .current;
+            const teamLocks = testcase.teamLocks || [];
+            const obtainedDetails = renderHook(() => getActionDetails(testcase.action, appLocks, envLocks, teamLocks))
+                .result.current;
             expect(obtainedDetails).toStrictEqual(testcase.expectedDetails);
         });
     });

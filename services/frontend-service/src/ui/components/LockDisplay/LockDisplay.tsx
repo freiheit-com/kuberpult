@@ -43,6 +43,17 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     },
                 },
             });
+        } else if (lock.team) {
+            addAction({
+                action: {
+                    $case: 'deleteEnvironmentTeamLock',
+                    deleteEnvironmentTeamLock: {
+                        environment: lock.environment,
+                        lockId: lock.lockId,
+                        team: lock.team,
+                    },
+                },
+            });
         } else {
             addAction({
                 action: {
@@ -62,6 +73,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                     {!!lock.date && <FormattedDate createdAt={lock.date} className={allClassNames} />}
                     <div className="lock-display-info">{lock.environment}</div>
                     {!!lock.application && <div className="lock-display-info">{lock.application}</div>}
+                    {!!lock.team && <div className="lock-display-info">{lock.team}</div>}
                     <div className="lock-display-info">{lock.lockId}</div>
                     <div className="lock-display-info">{lock.message}</div>
                     <div className="lock-display-info">{lock.authorName}</div>

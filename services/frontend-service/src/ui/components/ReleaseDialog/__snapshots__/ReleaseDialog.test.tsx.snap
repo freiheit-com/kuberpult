@@ -133,24 +133,29 @@ exports[`Release Dialog Renders the environment locks normal release 1`] = `
                     </span>
                   </div>
                   <div
-                    class="env-card-app-locks"
+                    class="env-card-locks"
                   >
                     <div
-                      title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                      class="env-card-app-locks"
                     >
-                      <button
-                        aria-label=""
-                        class="mdc-button button-lock"
+                      App:
+                      <div
+                        title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
                       >
-                        <div
-                          class="mdc-button__ripple"
-                        />
-                        <svg
-                          class="env-card-app-lock"
+                        <button
+                          aria-label=""
+                          class="mdc-button button-lock"
                         >
-                          Locks.svg
-                        </svg>
-                      </button>
+                          <div
+                            class="mdc-button__ripple"
+                          />
+                          <svg
+                            class="env-card-app-lock"
+                          >
+                            Locks.svg
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     <span
                       class="rollout__description_pending"
@@ -399,24 +404,29 @@ exports[`Release Dialog Renders the environment locks normal release with deploy
                     </span>
                   </div>
                   <div
-                    class="env-card-app-locks"
+                    class="env-card-locks"
                   >
                     <div
-                      title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                      class="env-card-app-locks"
                     >
-                      <button
-                        aria-label=""
-                        class="mdc-button button-lock"
+                      App:
+                      <div
+                        title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
                       >
-                        <div
-                          class="mdc-button__ripple"
-                        />
-                        <svg
-                          class="env-card-app-lock"
+                        <button
+                          aria-label=""
+                          class="mdc-button button-lock"
                         >
-                          Locks.svg
-                        </svg>
-                      </button>
+                          <div
+                            class="mdc-button__ripple"
+                          />
+                          <svg
+                            class="env-card-app-lock"
+                          >
+                            Locks.svg
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     <span
                       class="rollout__description_pending"
@@ -671,24 +681,29 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     </span>
                   </div>
                   <div
-                    class="env-card-app-locks"
+                    class="env-card-locks"
                   >
                     <div
-                      title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                      class="env-card-app-locks"
                     >
-                      <button
-                        aria-label=""
-                        class="mdc-button button-lock"
+                      App:
+                      <div
+                        title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
                       >
-                        <div
-                          class="mdc-button__ripple"
-                        />
-                        <svg
-                          class="env-card-app-lock"
+                        <button
+                          aria-label=""
+                          class="mdc-button button-lock"
                         >
-                          Locks.svg
-                        </svg>
-                      </button>
+                          <div
+                            class="mdc-button__ripple"
+                          />
+                          <svg
+                            class="env-card-app-lock"
+                          >
+                            Locks.svg
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     <span
                       class="rollout__description_pending"
@@ -851,24 +866,29 @@ exports[`Release Dialog Renders the environment locks two envs release 1`] = `
                     </span>
                   </div>
                   <div
-                    class="env-card-app-locks"
+                    class="env-card-locks"
                   >
                     <div
-                      title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
+                      class="env-card-app-locks"
                     >
-                      <button
-                        aria-label=""
-                        class="mdc-button button-lock"
+                      App:
+                      <div
+                        title="App Lock Message: \\"appLock\\" | ID: \\"ui-applock\\"  | Click to unlock. "
                       >
-                        <div
-                          class="mdc-button__ripple"
-                        />
-                        <svg
-                          class="env-card-app-lock"
+                        <button
+                          aria-label=""
+                          class="mdc-button button-lock"
                         >
-                          Locks.svg
-                        </svg>
-                      </button>
+                          <div
+                            class="mdc-button__ripple"
+                          />
+                          <svg
+                            class="env-card-app-lock"
+                          >
+                            Locks.svg
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     <span
                       class="rollout__description_progressing"
