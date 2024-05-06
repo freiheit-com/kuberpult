@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { Button } from '../button';
 import { DeleteGray, HideBarWhite } from '../../../images';
-import { BatchAction } from '../../../api/api';
+import { BatchAction, DeleteEnvironmentTeamLockRequest } from '../../../api/api';
 import {
     deleteAction,
     useActions,
@@ -141,6 +141,17 @@ export const getActionDetails = (
                     ?.message,
             };
         case 'deleteEnvironmentTeamLock':
+            const findMatchingTeamLock = (
+                teamLocks: DisplayLock[],
+                action: DeleteEnvironmentTeamLockRequest
+            ): DisplayLock | undefined =>
+                teamLocks.find(
+                    (lock) =>
+                        lock.lockId === action.lockId &&
+                        lock.team === action.team &&
+                        lock.environment === action.environment
+                ); // 2 Team locks that don't have the same environment or team might, in theory, have the same lock ID, so the lock id does not uniquely identify a lock, but the combination of env + team + ID should.
+            const tl = findMatchingTeamLock(teamLocks, action.deleteEnvironmentTeamLock);
             return {
                 type: ActionTypes.DeleteEnvironmentTeamLock,
                 name: 'Delete Team Lock',
@@ -151,13 +162,13 @@ export const getActionDetails = (
                     '" on ' +
                     action.deleteEnvironmentTeamLock.environment +
                     ' with the message: "' +
-                    teamLocks.find((lock) => lock.lockId === action.deleteEnvironmentTeamLock.lockId)?.message +
+                    tl?.message +
                     '"',
                 tooltip: 'This will only remove the lock, it will not automatically deploy anything.',
-                environment: action.deleteEnvironmentTeamLock.environment,
-                team: action.deleteEnvironmentTeamLock.team,
-                lockId: action.deleteEnvironmentTeamLock.lockId,
-                lockMessage: teamLocks.find((lock) => lock.lockId === action.deleteEnvironmentTeamLock.lockId)?.message,
+                environment: tl?.environment,
+                team: tl?.team,
+                lockId: tl?.lockId,
+                lockMessage: tl?.message,
             };
         case 'deploy':
             return {

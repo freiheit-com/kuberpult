@@ -386,7 +386,11 @@ export const useTeamLocks = (): DisplayLock[] =>
         .flat()
         .filter(
             (value: DisplayLock, index: number, self: DisplayLock[]) =>
-                index === self.findIndex((t: DisplayLock) => t.lockId === value.lockId)
+                index ===
+                self.findIndex(
+                    (t: DisplayLock) =>
+                        t.lockId === value.lockId && t.team === value.team && t.environment === value.environment
+                )
         );
 /**
  * returns the classname according to the priority of an environment, used to color environments
@@ -487,7 +491,6 @@ export const useLocksConflictingWithActions = (): AllLocks => {
                 if (action.action?.$case === 'deploy') {
                     const app = action.action.deploy.application;
                     const env = action.action.deploy.environment;
-                    //If getTeam(app) == lock.team and env == lock.env
                     const appTeam = appMap[app].team;
                     if (teamLock.environment === env && teamLock.team === appTeam) {
                         // found a team lock that matches
@@ -565,7 +568,14 @@ export const useTeamLocksFilterByTeam = (team: string): DisplayLock[] => {
                         authorName: lock.createdBy?.name,
                         authorEmail: lock.createdBy?.email,
                     };
-                    if (!teamLocks.some((e) => e.lockId === lock.lockId)) {
+                    if (
+                        !teamLocks.some(
+                            (e) =>
+                                e.lockId === displayLock.lockId &&
+                                e.team === displayLock.team &&
+                                e.environment === displayLock.environment
+                        )
+                    ) {
                         teamLocks.push(displayLock);
                     }
                 }
@@ -619,7 +629,14 @@ export const useAllLocks = (): AllLocks => {
                     authorName: lock.createdBy?.name,
                     authorEmail: lock.createdBy?.email,
                 };
-                if (!teamLocks.some((e) => e.lockId === lock.lockId)) {
+                if (
+                    !teamLocks.some(
+                        (l) =>
+                            l.lockId === displayLock.lockId &&
+                            l.environment === displayLock.environment &&
+                            l.team === displayLock.team
+                    ) // 2 Team locks that don't have the same environment or team might, in theory, have the same lock ID, so the lock id does not uniquely identify a lock, but the combination of env + team + ID should.
+                ) {
                     teamLocks.push(displayLock);
                 }
             }
