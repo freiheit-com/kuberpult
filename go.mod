@@ -4,12 +4,14 @@ go 1.21
 
 require (
 	github.com/DataDog/datadog-go/v5 v5.5.0
+	github.com/MicahParks/keyfunc v1.9.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
 	github.com/argoproj/argo-cd/v2 v2.9.8
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/go-git/go-billy/v5 v5.5.0
+	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/golang-migrate/migrate/v4 v4.17.1
 	github.com/google/go-cmp v0.6.0
@@ -155,7 +157,6 @@ require (
 	github.com/go-redis/cache/v9 v9.0.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-github/v53 v53.2.0 // indirect
