@@ -558,7 +558,7 @@ func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL,
 		logger.FromContext(req.Context()).Info(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		return &auth.User{DexAuthContext: &auth.DexAuthContext{Role: "unknown1"}}
 	}
-	var httpCtx context.Context
+	httpCtx := req.Context()
 	fmt.Printf("claims: %v\n", claims)
 	switch val := claims["groups"].(type) {
 	case []interface{}:
