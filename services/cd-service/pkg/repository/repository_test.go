@@ -18,6 +18,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1052,7 +1053,7 @@ type SlowTransformer struct {
 	started  chan struct{}
 }
 
-func (s *SlowTransformer) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
+func (s *SlowTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	s.started <- struct{}{}
 	<-s.finished
 	return "ok", nil
@@ -1060,13 +1061,13 @@ func (s *SlowTransformer) Transform(ctx context.Context, state *State, t Transfo
 
 type EmptyTransformer struct{}
 
-func (p *EmptyTransformer) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
+func (p *EmptyTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	return "nothing happened", nil
 }
 
 type PanicTransformer struct{}
 
-func (p *PanicTransformer) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
+func (p *PanicTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	panic("panic tranformer")
 }
 
@@ -1074,13 +1075,13 @@ var TransformerError = errors.New("error transformer")
 
 type ErrorTransformer struct{}
 
-func (p *ErrorTransformer) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
+func (p *ErrorTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	return "error", TransformerError
 }
 
 type InvalidJsonTransformer struct{}
 
-func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, t TransformerContext) (string, error) {
+func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
 	return "error", InvalidJson
 }
 
@@ -2252,7 +2253,7 @@ func TestArgoCDFileGeneration(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			_, applyErr := repo.(*repository).ApplyTransformers(ctx, transformers...)
+			_, applyErr := repo.(*repository).ApplyTransformers(ctx, transformers, nil)
 
 			state = repo.State() //update state
 			if applyErr != nil {

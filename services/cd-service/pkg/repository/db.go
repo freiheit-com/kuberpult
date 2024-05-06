@@ -168,7 +168,7 @@ func SqliteToPostgresQuery(query string) string {
 	return q
 }
 
-type DBFunction func(ctx context.Context) error
+type DBFunction func(ctx context.Context, transaction *sql.Tx) error
 
 func Remove(s []string, r string) []string {
 	for i, v := range s {
@@ -191,7 +191,7 @@ func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
 		// because it is always set when Commit() was successful
 	}(tx)
 
-	err = f(ctx)
+	err = f(ctx, tx)
 	if err != nil {
 		return err
 	}
@@ -202,42 +202,72 @@ func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
 	return nil
 }
 
-func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion int64, applications []string) error {
+type EventType string
+
+const (
+	EvtCreateApplicationVersion         EventType = "CreateApplicationVersion"
+	EvtDeployApplicationVersion         EventType = "DeployApplicationVersion"
+	EvtCreateUndeployApplicationVersion EventType = "CreateUndeployApplicationVersion"
+	EvtUndeployApplication              EventType = "UndeployApplication"
+	EvtDeleteEnvFromApp                 EventType = "DeleteEnvFromApp"
+	EvtCreateEnvironmentLock            EventType = "CreateEnvironmentLock"
+	EvtDeleteEnvironmentLock            EventType = "DeleteEnvironmentLock"
+	EvtCreateEnvironmentTeamLock        EventType = "CreateEnvironmentTeamLock"
+	EvtDeleteEnvironmentTeamLock        EventType = "DeleteEnvironmentTeamLock"
+	EvtCreateEnvironmentGroupLock       EventType = "CreateEnvironmentGroupLock"
+	EvtDeleteEnvironmentGroupLock       EventType = "DeleteEnvironmentGroupLock"
+	EvtCreateEnvironment                EventType = "CreateEnvironment"
+	EvtCreateEnvironmentApplicationLock EventType = "CreateEnvironmentApplicationLock"
+	EvtDeleteEnvironmentApplicationLock EventType = "DeleteEnvironmentApplicationLock"
+	EvtReleaseTrain                     EventType = "ReleaseTrain"
+)
+
+// DBWriteEslEventInternal writes one event to the event-sourcing-light table, taking arbitrary data as input
+func (h *DBHandler) DBWriteEslEventInternal(ctx context.Context, eventType EventType, tx *sql.Tx, data interface{}) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	defer span.Finish()
+
+	jsonToInsert, err := json.Marshal(data)
+
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
+
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		time.Now(),
+		eventType,
+		jsonToInsert)
+
+	if err != nil {
+		return fmt.Errorf("could not write internal esl event into DB. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBWriteAllApplications(ctx context.Context, transaction *sql.Tx, previousVersion int64, applications []string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllApplications")
 	defer span.Finish()
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("could not begin transaction. Error: %w", err)
-	}
 	slices.Sort(applications) // we don't really *need* the sorting, it's just for convenience
 	jsonToInsert, _ := json.Marshal(AllApplicationsJson{
 		Apps: applications,
 	})
 	insertQuery := h.AdaptQuery("INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?);")
 	span.SetTag("query", insertQuery)
-	_, err = tx.Exec(
+	_, err := transaction.Exec(
 		insertQuery,
 		previousVersion+1,
 		time.Now(),
 		jsonToInsert)
 
 	if err != nil {
-		return fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
-	}
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("could not commit transaction. Error: %w", err)
+		return fmt.Errorf("could not insert all apps into DB. Error: %w\n", err)
 	}
 	return nil
 }
 
-func (h *DBHandler) writeEvent(ctx context.Context, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
+func (h *DBHandler) writeEvent(ctx context.Context, transaction *sql.Tx, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("could not begin transaction. Error: %w", err)
-	}
 	insertQuery := h.AdaptQuery("INSERT INTO events (uuid, timestamp, commitHash, eventType, json)  VALUES (?, ?, ?, ?, ?);")
 
 	rawUUID, err := timeuuid.ParseUUID(eventuuid)
@@ -245,7 +275,7 @@ func (h *DBHandler) writeEvent(ctx context.Context, eventuuid string, eventType 
 		return fmt.Errorf("error parsing UUID. Error: %w", err)
 	}
 	span.SetTag("query", insertQuery)
-	_, err = tx.Exec(
+	_, err = transaction.Exec(
 		insertQuery,
 		rawUUID.String(),
 		uuid2.GetTime(&rawUUID).AsTime(),
@@ -254,17 +284,12 @@ func (h *DBHandler) writeEvent(ctx context.Context, eventuuid string, eventType 
 		eventJson)
 
 	if err != nil {
-		return fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
-	}
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("could not commit transaction. Error: %w", err)
+		return fmt.Errorf("Error inserting event information into DB. Error: %w\n", err)
 	}
 	return nil
 }
 
-func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, uuid, sourceCommitHash, email string, deployment *event.Deployment) error {
-
+func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, transaction *sql.Tx, uuid, sourceCommitHash, email string, deployment *event.Deployment) error {
 	metadata := event.Metadata{
 		AuthorEmail: email,
 		Uuid:        uuid,
@@ -277,7 +302,7 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, uuid, sourceComm
 	if err != nil {
 		return fmt.Errorf("error marshalling deployment event to Json. Error: %v\n", err)
 	}
-	return h.writeEvent(ctx, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
+	return h.writeEvent(ctx, transaction, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash string) ([]EventRow, error) {
@@ -317,12 +342,12 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 }
 
 // DBSelectAllApplications returns (nil, nil) if there are no rows
-func (h *DBHandler) DBSelectAllApplications(ctx context.Context) (*AllApplicationsGo, error) {
+func (h *DBHandler) DBSelectAllApplications(ctx context.Context, transaction *sql.Tx) (*AllApplicationsGo, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllApplications")
 	defer span.Finish()
 	query := "SELECT version, created, json FROM all_apps ORDER BY version DESC LIMIT 1;"
 	span.SetTag("query", query)
-	rows := h.DB.QueryRowContext(ctx, query)
+	rows := transaction.QueryRowContext(ctx, query)
 	result := AllApplicationsRow{
 		version: 0,
 		created: time.Time{},
@@ -357,9 +382,9 @@ func (h *DBHandler) RunCustomMigrations(ctx context.Context, repo Repository) er
 }
 
 func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, repo Repository) error {
-	return h.WithTransaction(ctx, func(ctx context.Context) error {
+	return h.WithTransaction(ctx, func(ctx context.Context, transaction *sql.Tx) error {
 		l := logger.FromContext(ctx).Sugar()
-		allAppsDb, err := h.DBSelectAllApplications(ctx)
+		allAppsDb, err := h.DBSelectAllApplications(ctx, transaction)
 		if err != nil {
 			l.Warnf("could not get applications from database - assuming the manifest repo is correct: %v", err)
 			allAppsDb = nil
@@ -385,7 +410,7 @@ func (h *DBHandler) RunCustomMigrationAllTables(ctx context.Context, repo Reposi
 		}
 		// if there is any difference, we assume the manifest wins over the database state,
 		// so we use `allAppsRepo`:
-		return h.DBWriteAllApplications(ctx, version, allAppsRepo)
+		return h.DBWriteAllApplications(ctx, transaction, version, allAppsRepo)
 	})
 }
 
