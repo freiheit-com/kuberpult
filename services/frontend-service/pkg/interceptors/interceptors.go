@@ -157,16 +157,22 @@ func DexLoginInterceptor(
 		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
 	}
 	var httpCtx context.Context
-
-	switch {
-	case len(claims["groups"].([]interface{})) > 0:
-		for _, group := range claims["groups"].([]interface{}) {
+	switch val := claims["groups"].(type) {
+	case []interface{}:
+		for _, group := range val {
 			groupName := strings.Trim(group.(string), "\"")
 			httpCtx = checkPolicy(httpCtx, w, req, groupName, DexRbacPolicyPath)
 		}
-	case claims["email"].(string) != "":
+	case []string:
+		httpCtx = checkPolicy(httpCtx, w, req, strings.Join(val, ","), DexRbacPolicyPath)
+	case string:
+		httpCtx = checkPolicy(httpCtx, w, req, val, DexRbacPolicyPath)
+	}
+
+	if claims["email"].(string) != "" {
 		httpCtx = checkPolicy(httpCtx, w, req, claims["email"].(string), DexRbacPolicyPath)
-	default:
+	}
+	if claims["email"].(string) != "" && claims["groups"] == nil {
 		http.Error(w, "unable to parse token with expected fields for DEX login", http.StatusBadRequest)
 		return
 	}
