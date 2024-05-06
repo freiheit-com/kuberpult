@@ -199,6 +199,55 @@ func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
 	return nil
 }
 
+type EventType string
+
+const (
+	EvtCreateApplicationVersion EventType = "CreateApplicationVersion"
+	EvtDeployApplicationVersion EventType = "DeployApplicationVersion"
+)
+
+// DBWriteEslEventCreateAppVersion writes the CreateApplicationVersion event to the event-sourcing-light table
+func (h *DBHandler) DBWriteEslEventCreateAppVersion(ctx context.Context, eventType EventType, data CreateApplicationVersion) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEvent")
+	defer span.Finish()
+
+	jsonToInsert, _ := json.Marshal(data)
+	err := h.dbWriteEslEventInternal(ctx, eventType, jsonToInsert)
+	if err != nil {
+		return fmt.Errorf("Error inserting information into DB in DBWriteEslEventCreateAppVersion. Error: %w\n", err)
+	}
+	return nil
+}
+
+// DBWriteEslEventInternal writes one event to the event-sourcing-light table, taking a json string as input
+func (h *DBHandler) dbWriteEslEventInternal(ctx context.Context, eventType EventType, json []byte) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventInternal")
+	defer span.Finish()
+
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("could not begin transaction. Error: %w", err)
+	}
+	insertQuery := h.AdaptQuery("INSERT INTO event_sourcing_light (created, event_type , json)  VALUES (?, ?, ?);")
+	logger.FromContext(ctx).Sugar().Warnf("Query: %s", insertQuery)
+
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		time.Now(),
+		eventType,
+		json)
+
+	if err != nil {
+		return fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("could not commit transaction. Error: %w", err)
+	}
+	return nil
+}
+
 func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion int64, applications []string) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteAllApplications")
 	defer span.Finish()

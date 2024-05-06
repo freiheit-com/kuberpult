@@ -343,19 +343,19 @@ func (r *transformerRunner) DeleteEnvFromApp(app string, env string) {
 }
 
 type CreateApplicationVersion struct {
-	Authentication
-	Version         uint64
-	Application     string
-	Manifests       map[string]string
-	SourceCommitId  string
-	SourceAuthor    string
-	SourceMessage   string
-	SourceRepoUrl   string
-	Team            string
-	DisplayVersion  string
-	WriteCommitData bool
-	PreviousCommit  string
-	NextCommit      string
+	Authentication  `json:"-"`
+	Version         uint64            `json:"version"`
+	Application     string            `json:"app"`
+	Manifests       map[string]string `json:"manifests"`
+	SourceCommitId  string            `json:"sourceCommitId"`
+	SourceAuthor    string            `json:"sourceCommitAuthor"`
+	SourceMessage   string            `json:"sourceCommitMessage"`
+	SourceRepoUrl   string            `json:"sourceRepoUrl"`
+	Team            string            `json:"team"`
+	DisplayVersion  string            `json:"displayVersion"`
+	WriteCommitData bool              `json:"writeCommitData"`
+	PreviousCommit  string            `json:"previousCommit"`
+	NextCommit      string            `json:"nextCommit"`
 }
 
 type ctxMarkerGenerateUuid struct{}
@@ -393,6 +393,14 @@ func (c *CreateApplicationVersion) Transform(
 	state *State,
 	t TransformerContext,
 ) (string, error) {
+	err := state.DBHandler.DBWriteEslEventCreateAppVersion(ctx, EvtCreateApplicationVersion, *c)
+	//err := state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
+	//
+	//	return nil
+	//})
+	if err != nil {
+		return "", err
+	}
 	version, err := c.calculateVersion(state)
 	if err != nil {
 		return "", err
