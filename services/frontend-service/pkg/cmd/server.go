@@ -334,6 +334,7 @@ func runServer(ctx context.Context) error {
 	})
 	for _, endpoint := range []string{
 		"/environments",
+		"/api.v1.BatchService/ProcessBatch",
 		"/environments/",
 		"/environment-groups",
 		"/environment-groups/",
@@ -524,6 +525,11 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			user = getRequestAuthorFromGoogleIAP(ctx, r)
 			source = "iap"
 		}
+		if c.DexEnabled {
+			source = "dex"
+			user = getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, c.DexRbacPolicyPath)
+			logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
+		}
 		if user != nil {
 			span.SetTag("current-user-name", user.Name)
 			span.SetTag("current-user-email", user.Email)
@@ -534,12 +540,69 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		auth.WriteUserToHttpHeader(r, combinedUser)
 		ctx = auth.WriteUserToContext(ctx, combinedUser)
 		ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
+		if user.DexAuthContext != nil {
+			ctx = auth.WriteUserRoleToGrpcContext(ctx, user.DexAuthContext.Role)
+		}
 		p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
 		return nil
 	})
 	if err != nil {
 		fmt.Printf("error: %v %#v", err, err)
 	}
+}
+
+func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, DexRbacPolicyPath string) *auth.User {
+
+	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
+	if err != nil {
+		logger.FromContext(req.Context()).Info(fmt.Sprintf("Error verifying token for Dex: %s", err))
+		return &auth.User{DexAuthContext: &auth.DexAuthContext{Role: "unknown1"}}
+	}
+	var httpCtx context.Context
+	fmt.Printf("claims: %v\n", claims)
+	switch val := claims["groups"].(type) {
+	case []interface{}:
+		fmt.Printf("groups is []interface{}: %v\n", val)
+		for _, group := range val {
+			groupName := strings.Trim(group.(string), "\"")
+			httpCtx = interceptors.CheckPolicy(httpCtx, w, req, groupName, DexRbacPolicyPath)
+			roleUntyped := httpCtx.Value(auth.HeaderUserRole)
+			fmt.Printf("roleUntyped: %v\n", roleUntyped)
+		}
+	case []string:
+		fmt.Printf("groups is []string: %v\n", val)
+		httpCtx = interceptors.CheckPolicy(httpCtx, w, req, strings.Join(val, ","), DexRbacPolicyPath)
+	case string:
+		fmt.Printf("groups is string: %v\n", val)
+		httpCtx = interceptors.CheckPolicy(httpCtx, w, req, val, DexRbacPolicyPath)
+	}
+
+	if claims["email"].(string) != "" {
+		fmt.Printf("email: %v\n", claims["email"].(string))
+		httpCtx = interceptors.CheckPolicy(httpCtx, w, req, claims["email"].(string), DexRbacPolicyPath)
+	}
+	if claims["email"].(string) != "" && claims["groups"] == nil {
+		logger.FromContext(req.Context()).Info(fmt.Sprintf("unable to parse token with expected fields for DEX login", http.StatusBadRequest))
+		http.Error(w, "unable to parse token with expected fields for DEX login", http.StatusBadRequest)
+		return &auth.User{DexAuthContext: &auth.DexAuthContext{Role: "unknown2"}}
+	}
+
+	httpCtx = context.WithValue(httpCtx, "claims", claims)
+	req = req.WithContext(httpCtx)
+	roleUntyped := httpCtx.Value(auth.HeaderUserRole)
+	fmt.Printf("roleUntyped: %v\n", roleUntyped)
+	role64, roleOk := roleUntyped.(string)
+	if !roleOk {
+		return &auth.User{DexAuthContext: &auth.DexAuthContext{Role: "unknown3"}}
+	}
+	role, err := auth.Decode64(role64)
+	if err != nil {
+
+		return &auth.User{DexAuthContext: &auth.DexAuthContext{Role: "unknown4"}}
+	}
+	logger.FromContext(httpCtx).Info(fmt.Sprintf("role: %s\n", role))
+	return &auth.User{
+		DexAuthContext: &auth.DexAuthContext{Role: role}}
 }
 
 // GrpcProxy passes through gRPC messages to another server.

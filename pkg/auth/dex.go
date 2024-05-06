@@ -273,12 +273,12 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 // Verifies if the user is authenticated.
 func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string) (jwt.MapClaims, error) {
 	// Get the token cookie from the request
-	logger.FromContext(ctx).Debug("Before getting cookie")
+	logger.FromContext(ctx).Info("Before getting cookie")
 	cookie, err := r.Cookie(dexOAUTHTokenName)
 	if err != nil {
 		return nil, fmt.Errorf("%s token not found", dexOAUTHTokenName)
 	}
-	logger.FromContext(ctx).Debug("after getting cookie")
+	logger.FromContext(ctx).Info("after getting cookie")
 
 	tokenString := cookie.Value
 

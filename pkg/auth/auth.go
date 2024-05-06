@@ -143,6 +143,8 @@ func (x *DexGrpcContextReader) ReadUserFromGrpcContext(ctx context.Context) (*Us
 	// RBAC Role of the user. only mandatory if DEX is enabled.
 	if x.DexEnabled {
 		rolesInHeader := md.Get(HeaderUserRole)
+		logger.FromContext(ctx).Info(fmt.Sprintf("Extract: roles in header %v", rolesInHeader))
+		logger.FromContext(ctx).Info(fmt.Sprintf("metadata %v", md))
 		if len(rolesInHeader) == 0 {
 			return nil, grpc.AuthError(ctx, fmt.Errorf("extract: role undefined but dex is enabled"))
 		}
