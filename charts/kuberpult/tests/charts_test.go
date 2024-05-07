@@ -104,13 +104,28 @@ func getDeployments(fileName string) (map[string]apps.Deployment, error) {
 }
 
 func TestHelmChartsKuberpultCdEnvVariables(t *testing.T) {
-
 	tcs := []struct {
 		Name            string
 		Values          string
 		ExpectedEnvs    []core.EnvVar
 		ExpectedMissing []core.EnvVar
 	}{
+		{
+			Name: "Minimal values.yaml leads to proper default values",
+			Values: `
+git:
+  url:  "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_DB_OPTION",
+					Value: "NO_DB",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
 		{
 			Name: "Basic Parsing works",
 			Values: `
