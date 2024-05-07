@@ -604,8 +604,8 @@ func TestBatchServiceLimit(t *testing.T) {
 	}
 }
 
-func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
-	t.Parallel()
+func setupRepositoryTestWithDB(t *testing.T, dbConfig *repository.DBConfig) (repository.Repository, error) {
+	//t.Parallel()
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
@@ -614,21 +614,42 @@ func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
 	cmd.Wait()
 	t.Logf("test created dir: %s", localDir)
 
+	repoCfg := repository.RepositoryConfig{
+		URL:                    remoteDir,
+		Path:                   localDir,
+		CommitterEmail:         "kuberpult@freiheit.com",
+		CommitterName:          "kuberpult",
+		EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+		ArgoCdGenerateFiles:    true,
+	}
+	if dbConfig != nil {
+		dbConfig.DbHost = dir
+
+		migErr := repository.RunDBMigrations(*dbConfig)
+		if migErr != nil {
+			t.Fatal(migErr)
+		}
+
+		db, err := repository.Connect(*dbConfig)
+		if err != nil {
+			t.Fatal(err)
+		}
+		repoCfg.DBHandler = db
+		fmt.Println(dbConfig.DbHost)
+	}
+
 	repo, err := repository.New(
 		testutil.MakeTestContext(),
-		repository.RepositoryConfig{
-			URL:                    remoteDir,
-			Path:                   localDir,
-			CommitterEmail:         "kuberpult@freiheit.com",
-			CommitterName:          "kuberpult",
-			EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
-			ArgoCdGenerateFiles:    true,
-		},
+		repoCfg,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return repo, nil
+}
+
+func setupRepositoryTest(t *testing.T) (repository.Repository, error) {
+	return setupRepositoryTestWithDB(t, nil)
 }
 
 func TestReleaseTrain(t *testing.T) {

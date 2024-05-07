@@ -18,7 +18,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
@@ -138,15 +137,15 @@ INSERT INTO all_apps (version , created , json)  VALUES (1, 	'1713218400', '{"ap
 
 func TestDeploymentStorage(t *testing.T) {
 	tcs := []struct {
-		Name         string
-		commitHash   string
-		email        string
-		event        event.Deployment
-		expectedData *EventRow
+		Name       string
+		commitHash string
+		email      string
+		event      event.Deployment
+		metadata   event.Metadata
 	}{
 		{
 			Name:       "Simple Deployment event",
-			commitHash: "abcdefghi",
+			commitHash: "abcdefabcdef",
 			email:      "test@email.com",
 			event: event.Deployment{
 				Environment:                 envProduction,
@@ -154,7 +153,9 @@ func TestDeploymentStorage(t *testing.T) {
 				SourceTrainUpstream:         nil,
 				SourceTrainEnvironmentGroup: nil,
 			},
-			expectedData: &EventRow{},
+			metadata: event.Metadata{
+				AuthorEmail: "test@email.com",
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -168,12 +169,6 @@ func TestDeploymentStorage(t *testing.T) {
 				DbHost:         dbDir,
 				MigrationsPath: "/kp/cd_database/migrations",
 			}
-			fmt.Println(os.Executable())
-			_, err := os.Stat(cfg.MigrationsPath)
-			if err != nil {
-				t.Fatalf("Error accessing migrations folder. Error: %v\n", err)
-
-			}
 			migErr := RunDBMigrations(cfg)
 			if migErr != nil {
 				t.Fatalf("Error running migration script. Error: %v\n", migErr)
@@ -184,7 +179,7 @@ func TestDeploymentStorage(t *testing.T) {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
 
-			writeDeploymentError := db.DBWriteDeploymentEvent(ctx, tc.commitHash, tc.email, &tc.event)
+			writeDeploymentError := db.DBWriteDeploymentEvent(ctx, "", tc.commitHash, tc.email, &tc.event)
 			if writeDeploymentError != nil {
 				t.Fatalf("Error writing event to DB. Error: %v\n", writeDeploymentError)
 			}
@@ -202,6 +197,10 @@ func TestDeploymentStorage(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(e.EventData, &tc.event); diff != "" {
+					t.Errorf("response mismatch (-want, +got):\n%s", diff)
+				}
+
+				if diff := cmp.Diff(e.EventMetadata, tc.metadata); diff != "" {
 					t.Errorf("response mismatch (-want, +got):\n%s", diff)
 				}
 			}

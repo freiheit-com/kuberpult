@@ -407,6 +407,15 @@ func (c *CreateApplicationVersion) Transform(
 			if err != nil {
 				return err
 			}
+			if allApps == nil {
+				allApps = &AllApplicationsGo{
+					Version: 1,
+					AllApplicationsJson: AllApplicationsJson{
+						Apps: []string{},
+					},
+				}
+			}
+
 			if !slices.Contains(allApps.Apps, c.Application) {
 				allApps.Apps = append(allApps.Apps, c.Application)
 				err := state.DBHandler.DBWriteAllApplications(ctx, allApps.Version, allApps.Apps)
@@ -1960,9 +1969,12 @@ func (c *DeployApplicationVersion) Transform(
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
+			gen := getGenerator(ctx)
+			eventUuid := gen.Generate()
 
 			err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
-				return state.DBHandler.DBWriteDeploymentEvent(ctx, newReleaseCommitId, "sample_email@example.com", deploymentEvent)
+				fmt.Printf("Deployment Event UUID: %s\n", eventUuid)
+				return state.DBHandler.DBWriteDeploymentEvent(ctx, eventUuid, newReleaseCommitId, "sample_email@example.com", deploymentEvent)
 			})
 
 			if err != nil {

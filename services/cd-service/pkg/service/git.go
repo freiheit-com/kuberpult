@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	uuid2 "github.com/freiheit-com/kuberpult/pkg/uuid"
 	"os"
 	"sort"
 	"strconv"
@@ -252,7 +253,16 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPa
 			if err != nil {
 				return nil, fmt.Errorf("error processing event from DB: %v", err)
 			}
-			result = append(result, eventmod.DBToProto(ev.EventData, currEvent.Created))
+			fmt.Printf("CURRENT EVENT.CREATE: %s\n", currEvent.Uuid)
+			rawUUID, err := timeuuid.ParseUUID(currEvent.Uuid)
+			if err != nil {
+				return nil, fmt.Errorf("Could not parse UUID: %v", err)
+			}
+
+			fmt.Printf("currEvent.Created: %v\n", currEvent.Uuid)
+			fmt.Printf("time from uuid currEvent.UUID: %v\n", uuid2.TimeFromUUID("00000000-0000-0000-0000-000000000001"))
+
+			result = append(result, eventmod.DBToProto(ev.EventData, rawUUID))
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {

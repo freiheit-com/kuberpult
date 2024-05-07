@@ -20,15 +20,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"io/fs"
-	"slices"
-	"time"
-
 	"github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/go-git/go-billy/v5"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
+	"io/fs"
+	"slices"
 )
 
 type eventType struct {
@@ -255,11 +252,11 @@ func ToProto(eventID timeuuid.UUID, ev Event) *api.Event {
 	return result
 }
 
-func DBToProto(ev Event, createdAt time.Time) *api.Event {
+func DBToProto(ev Event, eventID timeuuid.UUID) *api.Event {
 	result := &api.Event{
 		EventType: nil,
-		CreatedAt: timestamppb.New(createdAt),
-		Uuid:      timeuuid.UUIDFromTime(createdAt).String(),
+		CreatedAt: uuid.GetTime(&eventID),
+		Uuid:      eventID.String(),
 	}
 	ev.toProto(result)
 	return result
@@ -272,6 +269,7 @@ type EventJson struct {
 
 type Metadata struct {
 	AuthorEmail string
+	Uuid        string
 }
 
 type DBEventGo struct {

@@ -23,7 +23,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	uuid2 "github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
+	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path"
 	"reflect"
@@ -231,22 +233,24 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion 
 	return nil
 }
 
-func (h *DBHandler) writeEvent(ctx context.Context, eventType string, sourceCommitHash string, eventJson []byte) error {
+func (h *DBHandler) writeEvent(ctx context.Context, eventuuid, eventType, sourceCommitHash string, eventJson []byte) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("could not begin transaction. Error: %w", err)
 	}
-
-	insertQuery := h.AdaptQuery("INSERT INTO events (created , commitHash, eventType, json)  VALUES (?, ?, ?, ?);")
+	insertQuery := h.AdaptQuery("INSERT INTO events (uuid, timestamp, commitHash, eventType, json)  VALUES (?, ?, ?, ?, ?);")
 
 	logger.FromContext(ctx).Sugar().Warnf("Query: %s", insertQuery)
+
+	rawUUID, err := timeuuid.ParseUUID(eventuuid)
 
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
-		time.Now(),
+		rawUUID.String(),
+		uuid2.GetTime(&rawUUID).AsTime(),
 		sourceCommitHash,
 		eventType,
 		eventJson)
@@ -261,7 +265,7 @@ func (h *DBHandler) writeEvent(ctx context.Context, eventType string, sourceComm
 	return nil
 }
 
-func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, sourceCommitHash, email string, deployment *event.Deployment) error {
+func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, uuid, sourceCommitHash, email string, deployment *event.Deployment) error {
 
 	dataJson, err := json.Marshal(event.Deployment{
 		Application:                 deployment.Application,
@@ -276,6 +280,7 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, sourceCommitHash
 
 	metadataJson, err := json.Marshal(event.Metadata{
 		AuthorEmail: email,
+		Uuid:        uuid,
 	})
 
 	if err != nil {
@@ -285,14 +290,14 @@ func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, sourceCommitHash
 		DataJson:     string(dataJson),
 		MetadataJson: string(metadataJson),
 	})
-	return h.writeEvent(ctx, "deployment", sourceCommitHash, jsonToInsert)
+	return h.writeEvent(ctx, uuid, "deployment", sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash string) ([]EventRow, error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEvents")
 	defer span.Finish()
 
-	query := h.AdaptQuery("SELECT created, commitHash, eventType, json FROM events WHERE commitHash = (?) ORDER BY created DESC;")
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json FROM events WHERE commitHash = (?) ORDER BY timestamp DESC;")
 	span.SetTag("query", query)
 
 	logger.FromContext(ctx).Sugar().Warnf("Query: %s", query)
@@ -309,13 +314,13 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 
 	for rows.Next() {
 		var row = EventRow{
-			Created:    time.Now(), //will be overwritten, prevents CI linter from complaining from missing fields
+			Uuid:       "", //will be overwritten, prevents CI linter from complaining from missing fields
+			Timestamp:  time.Now(),
 			CommitHash: "",
 			EventType:  "",
 			EventJson:  "",
 		}
-
-		err := rows.Scan(&row.Created, &row.CommitHash, &row.EventType, &row.EventJson)
+		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -324,6 +329,19 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 		}
 
 		result = append(result, row)
+	}
+	return result, nil
+}
+
+// Gets all deployment events from Raw DB data
+func DBParseToEvents(rows []EventRow) ([]event.Event, error) {
+	var result []event.Event
+	for _, row := range rows {
+		evGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
+		if err != nil {
+			return result, fmt.Errorf("Error unmarshalling event: %v\n", err)
+		}
+		result = append(result, evGo.EventData)
 	}
 	return result, nil
 }
@@ -418,7 +436,8 @@ type AllApplicationsGo struct {
 }
 
 type EventRow struct {
-	Created    time.Time
+	Uuid       string
+	Timestamp  time.Time
 	CommitHash string
 	EventType  string
 	EventJson  string
