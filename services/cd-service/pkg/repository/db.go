@@ -245,7 +245,9 @@ func (h *DBHandler) writeEvent(ctx context.Context, eventuuid, eventType, source
 	logger.FromContext(ctx).Sugar().Warnf("Query: %s", insertQuery)
 
 	rawUUID, err := timeuuid.ParseUUID(eventuuid)
-
+	if err != nil {
+		return fmt.Errorf("error parsing UUID. Error: %w", err)
+	}
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
