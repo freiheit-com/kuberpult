@@ -561,6 +561,7 @@ func (c *CreateApplicationVersion) Transform(
 				LockBehaviour:   api.LockBehavior_RECORD,
 				Authentication:  c.Authentication,
 				WriteCommitData: c.WriteCommitData,
+				author:          c.SourceAuthor,
 			}
 			err := t.Execute(d)
 			if err != nil {
@@ -1771,6 +1772,7 @@ type DeployApplicationVersion struct {
 	LockBehaviour   api.LockBehavior
 	WriteCommitData bool
 	SourceTrain     *DeployApplicationVersionSource
+	author          string
 }
 
 type DeployApplicationVersionSource struct {
@@ -1974,7 +1976,7 @@ func (c *DeployApplicationVersion) Transform(
 			eventUuid := gen.Generate()
 
 			err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
-				return state.DBHandler.DBWriteDeploymentEvent(ctx, eventUuid, newReleaseCommitId, "sample_email@example.com", deploymentEvent)
+				return state.DBHandler.DBWriteDeploymentEvent(ctx, eventUuid, newReleaseCommitId, c.author, deploymentEvent)
 			})
 
 			if err != nil {

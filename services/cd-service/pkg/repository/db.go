@@ -293,7 +293,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEvents")
 	defer span.Finish()
 
-	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json FROM events WHERE commitHash = (?) ORDER BY timestamp DESC;")
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json FROM events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
 	span.SetTag("query", query)
 
 	logger.FromContext(ctx).Sugar().Warnf("Query: %s", query)

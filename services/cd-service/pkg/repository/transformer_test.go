@@ -6288,7 +6288,6 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 }
 
 func setupRepositoryTestWithDB(t *testing.T, dbConfig *DBConfig) (Repository, error) {
-	//t.Parallel()
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
