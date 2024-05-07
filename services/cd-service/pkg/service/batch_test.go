@@ -605,7 +605,6 @@ func TestBatchServiceLimit(t *testing.T) {
 }
 
 func setupRepositoryTestWithDB(t *testing.T, dbConfig *repository.DBConfig) (repository.Repository, error) {
-	//t.Parallel()
 	dir := t.TempDir()
 	remoteDir := path.Join(dir, "remote")
 	localDir := path.Join(dir, "local")
