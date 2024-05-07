@@ -1974,7 +1974,6 @@ func (c *DeployApplicationVersion) Transform(
 			eventUuid := gen.Generate()
 
 			err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
-				fmt.Printf("Deployment Event UUID: %s\n", eventUuid)
 				return state.DBHandler.DBWriteDeploymentEvent(ctx, eventUuid, newReleaseCommitId, "sample_email@example.com", deploymentEvent)
 			})
 

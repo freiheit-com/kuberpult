@@ -215,7 +215,6 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion 
 	})
 	insertQuery := h.AdaptQuery("INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?);")
 	logger.FromContext(ctx).Sugar().Warnf("Query: %s", insertQuery)
-	//fmt.Printf("Query: %s", insertQuery)
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
@@ -303,7 +302,6 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 	span.SetTag("query", query)
 
 	logger.FromContext(ctx).Sugar().Warnf("Query: %s", query)
-	//fmt.Printf("Query: %s", insertQuery)
 	span.SetTag("query", query)
 
 	rows, err := h.DB.QueryContext(ctx, query, commitHash)
