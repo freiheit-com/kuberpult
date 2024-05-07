@@ -298,7 +298,7 @@ func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL string)
 	}
 
 	// check if claims is empty in terms of required fields for identification
-	if claims["groups"] == nil && claims["sub"] == "" {
+	if claims["email"].(string) == "" && len(claims["groups"].([]string)) < 1 {
 		return nil, fmt.Errorf("need required fields to determine group of user")
 	}
 
