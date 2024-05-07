@@ -2037,6 +2037,7 @@ func addEventForRelease(ctx context.Context, fs billy.Filesystem, releaseDir str
 				commitID)
 			return nil
 		}
+		
 		if err := writeEvent(ctx, eventUuid, commitID, fs, ev); err != nil {
 			return fmt.Errorf(
 				"could not write an event for commit %s, error: %w",

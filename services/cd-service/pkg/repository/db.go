@@ -268,12 +268,7 @@ func (h *DBHandler) writeEvent(ctx context.Context, eventuuid, eventType, source
 
 func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, uuid, sourceCommitHash, email string, deployment *event.Deployment) error {
 
-	dataJson, err := json.Marshal(event.Deployment{
-		Application:                 deployment.Application,
-		Environment:                 deployment.Environment,
-		SourceTrainEnvironmentGroup: deployment.SourceTrainEnvironmentGroup,
-		SourceTrainUpstream:         deployment.SourceTrainUpstream,
-	})
+	dataJson, err := json.Marshal(deployment)
 
 	if err != nil {
 		return fmt.Errorf("error converting deployment event data to json. Error: %w\n", err)
