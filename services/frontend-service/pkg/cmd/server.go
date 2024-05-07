@@ -555,17 +555,17 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, DexRbacPolicyPath string) *auth.User {
 	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, DexRbacPolicyPath)
 	if err != nil {
-		return &auth.User{DexAuthContext: &auth.DexAuthContext{Role: "unknown1"}}
+		return &auth.User{}
 	}
 	roleUntyped := httpCtx.Value(auth.HeaderUserRole)
 	role64, roleOk := roleUntyped.(string)
 	if !roleOk {
-		return &auth.User{DexAuthContext: &auth.DexAuthContext{Role: "unknown3"}}
+		return &auth.User{}
 	}
 	role, err := auth.Decode64(role64)
 	if err != nil {
 
-		return &auth.User{DexAuthContext: &auth.DexAuthContext{Role: "unknown4"}}
+		return &auth.User{}
 	}
 	return &auth.User{
 		DexAuthContext: &auth.DexAuthContext{Role: role}}
