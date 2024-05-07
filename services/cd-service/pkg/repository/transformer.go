@@ -413,6 +413,7 @@ func (c *CreateApplicationVersion) Transform(
 					AllApplicationsJson: AllApplicationsJson{
 						Apps: []string{},
 					},
+					Created: time.Now(),
 				}
 			}
 
