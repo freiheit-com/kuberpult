@@ -125,7 +125,7 @@ func GoogleIAPInterceptor(
 	httpHandler(w, req)
 }
 
-func checkPolicy(httpCtx context.Context, w http.ResponseWriter, req *http.Request, userGroup, DexRbacPolicyPath string) context.Context {
+func CheckPolicy(httpCtx context.Context, w http.ResponseWriter, req *http.Request, userGroup, DexRbacPolicyPath string) context.Context {
 	policy, err := auth.ReadRbacPolicy(true, DexRbacPolicyPath)
 	if err != nil {
 		http.Error(w, "unable to access RBAC policy to validate login", http.StatusBadRequest)
@@ -135,6 +135,7 @@ func checkPolicy(httpCtx context.Context, w http.ResponseWriter, req *http.Reque
 		if policyGroup.Group == userGroup {
 			auth.WriteUserRoleToHttpHeader(req, policyGroup.Role)
 			httpCtx = auth.WriteUserRoleToGrpcContext(req.Context(), policyGroup.Role)
+			httpCtx = context.WithValue(httpCtx, auth.HeaderUserRole, auth.Encode64(policyGroup.Role))
 		}
 	}
 	return httpCtx
@@ -150,34 +151,43 @@ func DexLoginInterceptor(
 	httpHandler http.HandlerFunc,
 	clientID, baseURL, DexRbacPolicyPath string,
 ) {
-	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
+	httpCtx, err := GetContextFromDex(w, req, clientID, baseURL, DexRbacPolicyPath)
 	if err != nil {
 		logger.FromContext(req.Context()).Debug(fmt.Sprintf("Error verifying token for Dex: %s", err))
 		// If user is not authenticated redirect to the login page.
 		http.Redirect(w, req, auth.LoginPATH, http.StatusFound)
+		return
 	}
-	var httpCtx context.Context
+	req = req.WithContext(httpCtx)
+	httpHandler(w, req)
+}
+
+func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, DexRbacPolicyPath string) (context.Context, error) {
+	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL)
+	if err != nil {
+		logger.FromContext(req.Context()).Info(fmt.Sprintf("Error verifying token for Dex: %s", err))
+		return req.Context(), err
+	}
+	httpCtx := req.Context()
 	switch val := claims["groups"].(type) {
 	case []interface{}:
 		for _, group := range val {
 			groupName := strings.Trim(group.(string), "\"")
-			httpCtx = checkPolicy(httpCtx, w, req, groupName, DexRbacPolicyPath)
+			httpCtx = CheckPolicy(httpCtx, w, req, groupName, DexRbacPolicyPath)
 		}
 	case []string:
-		httpCtx = checkPolicy(httpCtx, w, req, strings.Join(val, ","), DexRbacPolicyPath)
+		httpCtx = CheckPolicy(httpCtx, w, req, strings.Join(val, ","), DexRbacPolicyPath)
 	case string:
-		httpCtx = checkPolicy(httpCtx, w, req, val, DexRbacPolicyPath)
+		httpCtx = CheckPolicy(httpCtx, w, req, val, DexRbacPolicyPath)
 	}
 
 	if claims["email"].(string) != "" {
-		httpCtx = checkPolicy(httpCtx, w, req, claims["email"].(string), DexRbacPolicyPath)
+		httpCtx = CheckPolicy(httpCtx, w, req, claims["email"].(string), DexRbacPolicyPath)
 	}
 	if claims["email"].(string) != "" && claims["groups"] == nil {
-		http.Error(w, "unable to parse token with expected fields for DEX login", http.StatusBadRequest)
-		return
-	}
 
+		return nil, fmt.Errorf("unable to parse token with expected fields for DEX login", http.StatusBadRequest)
+	}
 	httpCtx = context.WithValue(httpCtx, "claims", claims)
-	req = req.WithContext(httpCtx)
-	httpHandler(w, req)
+	return httpCtx, nil
 }

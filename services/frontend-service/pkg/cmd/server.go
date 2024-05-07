@@ -334,6 +334,7 @@ func runServer(ctx context.Context) error {
 	})
 	for _, endpoint := range []string{
 		"/environments",
+		"/api.v1.BatchService/ProcessBatch",
 		"/environments/",
 		"/environment-groups",
 		"/environment-groups/",
@@ -369,6 +370,7 @@ func runServer(ctx context.Context) error {
 	splitGrpcHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		if grpcWebServer.IsGrpcWebRequest(req) {
 			grpcWebServer.ServeHTTP(resp, req)
+			//TODO: check where to put dex cookies
 		} else {
 			/**
 			The htst header is a security feature that tells the browser:
@@ -524,6 +526,11 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			user = getRequestAuthorFromGoogleIAP(ctx, r)
 			source = "iap"
 		}
+		if c.DexEnabled {
+			source = "dex"
+			user = getUserFromDex(w, r, c.DexClientId, c.DexBaseURL, c.DexRbacPolicyPath)
+			logger.FromContext(ctx).Info(fmt.Sprintf("Dex user: %v - role: %v", user, user.DexAuthContext.Role))
+		}
 		if user != nil {
 			span.SetTag("current-user-name", user.Name)
 			span.SetTag("current-user-email", user.Email)
@@ -534,12 +541,34 @@ func (p *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		auth.WriteUserToHttpHeader(r, combinedUser)
 		ctx = auth.WriteUserToContext(ctx, combinedUser)
 		ctx = auth.WriteUserToGrpcContext(ctx, combinedUser)
+		if user.DexAuthContext != nil {
+			ctx = auth.WriteUserRoleToGrpcContext(ctx, user.DexAuthContext.Role)
+		}
 		p.HttpServer.ServeHTTP(w, r.WithContext(ctx))
 		return nil
 	})
 	if err != nil {
 		fmt.Printf("error: %v %#v", err, err)
 	}
+}
+
+func getUserFromDex(w http.ResponseWriter, req *http.Request, clientID, baseURL, DexRbacPolicyPath string) *auth.User {
+	httpCtx, err := interceptors.GetContextFromDex(w, req, clientID, baseURL, DexRbacPolicyPath)
+	if err != nil {
+		return &auth.User{DexAuthContext: &auth.DexAuthContext{Role: "unknown1"}}
+	}
+	roleUntyped := httpCtx.Value(auth.HeaderUserRole)
+	role64, roleOk := roleUntyped.(string)
+	if !roleOk {
+		return &auth.User{DexAuthContext: &auth.DexAuthContext{Role: "unknown3"}}
+	}
+	role, err := auth.Decode64(role64)
+	if err != nil {
+
+		return &auth.User{DexAuthContext: &auth.DexAuthContext{Role: "unknown4"}}
+	}
+	return &auth.User{
+		DexAuthContext: &auth.DexAuthContext{Role: role}}
 }
 
 // GrpcProxy passes through gRPC messages to another server.
