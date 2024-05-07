@@ -195,6 +195,7 @@ func UnMarshallEvent(eventType string, eventJson string) (DBEventGo, error) {
 		//exhaustruct:ignore
 		concreteEvent = &NewRelease{}
 	case "deployment":
+		//exhaustruct:ignore
 		concreteEvent = &Deployment{}
 	case "lock-prevented-deployment":
 		//exhaustruct:ignore
@@ -238,16 +239,6 @@ func Write(filesystem billy.Filesystem, eventDir string, event Event) error {
 
 // Convert an event to its protobuf representation
 func ToProto(eventID timeuuid.UUID, ev Event) *api.Event {
-	result := &api.Event{
-		EventType: nil,
-		CreatedAt: uuid.GetTime(&eventID),
-		Uuid:      eventID.String(),
-	}
-	ev.toProto(result)
-	return result
-}
-
-func DBToProto(ev Event, eventID timeuuid.UUID) *api.Event {
 	result := &api.Event{
 		EventType: nil,
 		CreatedAt: uuid.GetTime(&eventID),
