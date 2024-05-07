@@ -17,7 +17,7 @@ kuberpultIapToken=$(sops exec-file --no-fifo "${FDC_STANDARD_SETUP}"/secrets/fdc
 #TOKEN=$(gcloud auth print-identity-token)
 #echo $iap_clientId
 TOKEN=$(gcloud auth print-identity-token --impersonate-service-account "106887483619435718021")
-curl https://kuberpult.dev.freiheit.systems/dex/token -POST -v \
+curl https://kuberpult.dev.freiheit.systems/token -POST -v \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   --user kuberpult-dex:kuberpult-dex-secret \
