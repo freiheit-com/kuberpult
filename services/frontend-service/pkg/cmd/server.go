@@ -370,7 +370,6 @@ func runServer(ctx context.Context) error {
 	splitGrpcHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		if grpcWebServer.IsGrpcWebRequest(req) {
 			grpcWebServer.ServeHTTP(resp, req)
-			//TODO: check where to put dex cookies
 		} else {
 			/**
 			The htst header is a security feature that tells the browser:
