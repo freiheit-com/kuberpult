@@ -202,19 +202,58 @@ func (h *DBHandler) WithTransaction(ctx context.Context, f DBFunction) error {
 type EventType string
 
 const (
-	EvtCreateApplicationVersion EventType = "CreateApplicationVersion"
-	EvtDeployApplicationVersion EventType = "DeployApplicationVersion"
+	EvtCreateApplicationVersion         EventType = "CreateApplicationVersion"
+	EvtDeployApplicationVersion         EventType = "DeployApplicationVersion"
+	EvtCreateUndeployApplicationVersion EventType = "CreateUndeployApplicationVersion"
+	EvtUndeployApplication              EventType = "UndeployApplication"
+	EvtDeleteEnvFromApp                 EventType = "DeleteEnvFromApp"
 )
 
 // DBWriteEslEventCreateAppVersion writes the CreateApplicationVersion event to the event-sourcing-light table
-func (h *DBHandler) DBWriteEslEventCreateAppVersion(ctx context.Context, eventType EventType, data CreateApplicationVersion) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEvent")
+func (h *DBHandler) DBWriteEslEventCreateAppVersion(ctx context.Context, data *CreateApplicationVersion) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventCreateAppVersion")
 	defer span.Finish()
 
 	jsonToInsert, _ := json.Marshal(data)
-	err := h.dbWriteEslEventInternal(ctx, eventType, jsonToInsert)
+	err := h.dbWriteEslEventInternal(ctx, EvtCreateApplicationVersion, jsonToInsert)
 	if err != nil {
 		return fmt.Errorf("Error inserting information into DB in DBWriteEslEventCreateAppVersion. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBWriteEslEventUndeployApplication(ctx context.Context, data *UndeployApplication) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventUndeployApplication")
+	defer span.Finish()
+
+	jsonToInsert, _ := json.Marshal(data)
+	err := h.dbWriteEslEventInternal(ctx, EvtUndeployApplication, jsonToInsert)
+	if err != nil {
+		return fmt.Errorf("Error inserting information into DB in DBWriteEslEventUndeployApplication. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBWriteEslEventCreateUndeployAppVersion(ctx context.Context, data *CreateUndeployApplicationVersion) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventCreateAppVersion")
+	defer span.Finish()
+
+	jsonToInsert, _ := json.Marshal(data)
+	err := h.dbWriteEslEventInternal(ctx, EvtCreateUndeployApplicationVersion, jsonToInsert)
+	if err != nil {
+		return fmt.Errorf("Error inserting information into DB in DBWriteEslEventCreateUndeployAppVersion. Error: %w\n", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBWriteEslEventDeleteEnvFromApp(ctx context.Context, data *DeleteEnvFromApp) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBWriteEslEventDeleteEnvFromApp")
+	defer span.Finish()
+
+	jsonToInsert, _ := json.Marshal(data)
+	err := h.dbWriteEslEventInternal(ctx, EvtDeleteEnvFromApp, jsonToInsert)
+	if err != nil {
+		return fmt.Errorf("Error inserting information into DB in DBWriteEslEventDeleteEnvFromApp. Error: %w\n", err)
 	}
 	return nil
 }

@@ -393,11 +393,7 @@ func (c *CreateApplicationVersion) Transform(
 	state *State,
 	t TransformerContext,
 ) (string, error) {
-	err := state.DBHandler.DBWriteEslEventCreateAppVersion(ctx, EvtCreateApplicationVersion, *c)
-	//err := state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
-	//
-	//	return nil
-	//})
+	err := state.DBHandler.DBWriteEslEventCreateAppVersion(ctx, c)
 	if err != nil {
 		return "", err
 	}
@@ -841,6 +837,12 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	t TransformerContext,
 ) (string, error) {
 	fs := state.Filesystem
+
+	err := state.DBHandler.DBWriteEslEventCreateUndeployAppVersion(ctx, c)
+	if err != nil {
+		return "", err
+	}
+
 	lastRelease, err := GetLastRelease(fs, c.Application)
 	if err != nil {
 		return "", err
@@ -1110,6 +1112,12 @@ func (u *DeleteEnvFromApp) Transform(
 	if err != nil {
 		return "", err
 	}
+
+	err = state.DBHandler.DBWriteEslEventCreateAppVersion(ctx, u)
+	if err != nil {
+		return "", err
+	}
+
 	fs := state.Filesystem
 	thisSprintf := func(format string, a ...any) string {
 		return fmt.Sprintf("DeleteEnvFromApp app '%s' on env '%s': %s", u.Application, u.Environment, fmt.Sprintf(format, a...))
