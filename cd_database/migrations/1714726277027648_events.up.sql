@@ -7,3 +7,5 @@ CREATE TABLE IF NOT EXISTS events
     json VARCHAR(255),
     PRIMARY KEY(uuid)
 );
+
+CREATE INDEX commitHashIdx on events (commitHash);

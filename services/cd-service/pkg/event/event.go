@@ -28,6 +28,15 @@ import (
 	"slices"
 )
 
+type EventType string
+
+const (
+	EventTypeDeployment             EventType = "deployment"
+	EventTypeLockPreventeDeployment EventType = "lock-prevented-deployment"
+	EventTypeReplaceBy              EventType = "replaced-by"
+	EventTypeNewRelease             EventType = "new-release"
+)
+
 type eventType struct {
 	EventType string `fs:"eventType"`
 }
@@ -39,7 +48,7 @@ type NewRelease struct {
 }
 
 func (_ *NewRelease) eventType() string {
-	return "new-release"
+	return string(EventTypeNewRelease)
 }
 
 func (ev *NewRelease) toProto(trg *api.Event) {
@@ -65,7 +74,7 @@ type Deployment struct {
 }
 
 func (_ *Deployment) eventType() string {
-	return "deployment"
+	return string(EventTypeDeployment)
 }
 
 func (ev *Deployment) toProto(trg *api.Event) {
@@ -99,7 +108,7 @@ type LockPreventedDeployment struct {
 }
 
 func (_ *LockPreventedDeployment) eventType() string {
-	return "lock-prevented-deployment"
+	return string(EventTypeLockPreventeDeployment)
 }
 
 func (ev *LockPreventedDeployment) toProto(trg *api.Event) {
@@ -131,7 +140,7 @@ type ReplacedBy struct {
 }
 
 func (_ *ReplacedBy) eventType() string {
-	return "replaced-by"
+	return string(EventTypeReplaceBy)
 }
 
 func (ev *ReplacedBy) toProto(trg *api.Event) {
@@ -179,10 +188,26 @@ func Read(fs billy.Filesystem, eventDir string) (Event, error) {
 	return result, nil
 }
 
-func UnMarshallEvent(eventType string, eventJson string) (DBEventGo, error) {
-	var concreteEvent Event
-	var metadata Metadata
-	var generalEvent EventJson
+func UnMarshallEvent(eventType EventType, eventJson string) (DBEventGo, error) {
+
+	var generalEvent DBEventGo
+
+	switch eventType {
+	case "new-release":
+		//exhaustruct:ignore
+		generalEvent.EventData = &NewRelease{}
+	case "deployment":
+		//exhaustruct:ignore
+		generalEvent.EventData = &Deployment{}
+	case "lock-prevented-deployment":
+		//exhaustruct:ignore
+		generalEvent.EventData = &LockPreventedDeployment{}
+	case "replaced-by":
+		//exhaustruct:ignore
+		generalEvent.EventData = &ReplacedBy{}
+	default:
+		return DBEventGo{}, fmt.Errorf("unknown event type: %q", eventType)
+	}
 
 	err := json.Unmarshal([]byte(eventJson), &generalEvent)
 
@@ -190,37 +215,7 @@ func UnMarshallEvent(eventType string, eventJson string) (DBEventGo, error) {
 		return DBEventGo{}, fmt.Errorf("Error processing general event. Json Unmarshall of general event failed: %s\n", eventJson)
 	}
 
-	switch eventType {
-	case "new-release":
-		//exhaustruct:ignore
-		concreteEvent = &NewRelease{}
-	case "deployment":
-		//exhaustruct:ignore
-		concreteEvent = &Deployment{}
-	case "lock-prevented-deployment":
-		//exhaustruct:ignore
-		concreteEvent = &LockPreventedDeployment{}
-	case "replaced-by":
-		//exhaustruct:ignore
-		concreteEvent = &ReplacedBy{}
-	default:
-		return DBEventGo{}, fmt.Errorf("unknown event type: %q", eventType)
-	}
-
-	err = json.Unmarshal([]byte(generalEvent.DataJson), &concreteEvent)
-	if err != nil {
-		return DBEventGo{}, fmt.Errorf("Error processing event. Json Unmarshall of event of type '%s' failed: %s\n", eventType, generalEvent.DataJson)
-	}
-
-	err = json.Unmarshal([]byte(generalEvent.MetadataJson), &metadata)
-
-	if err != nil {
-		return DBEventGo{}, fmt.Errorf("Error processing event. Json Unmarshall of event of type '%s' failed: %s\n", eventType, generalEvent.DataJson)
-	}
-	return DBEventGo{
-		EventMetadata: metadata,
-		EventData:     concreteEvent,
-	}, nil
+	return generalEvent, nil
 }
 
 // Write an event to a filesystem
@@ -246,11 +241,6 @@ func ToProto(eventID timeuuid.UUID, ev Event) *api.Event {
 	}
 	ev.toProto(result)
 	return result
-}
-
-type EventJson struct {
-	DataJson     string
-	MetadataJson string
 }
 
 type Metadata struct {

@@ -231,7 +231,7 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion 
 	return nil
 }
 
-func (h *DBHandler) writeEvent(ctx context.Context, eventuuid, eventType, sourceCommitHash string, eventJson []byte) error {
+func (h *DBHandler) writeEvent(ctx context.Context, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
 	span, ctx := tracer.StartSpanFromContext(ctx, "writeEvent")
 	defer span.Finish()
 	tx, err := h.DB.BeginTx(ctx, nil)
@@ -265,25 +265,19 @@ func (h *DBHandler) writeEvent(ctx context.Context, eventuuid, eventType, source
 
 func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, uuid, sourceCommitHash, email string, deployment *event.Deployment) error {
 
-	dataJson, err := json.Marshal(deployment)
-
-	if err != nil {
-		return fmt.Errorf("error converting deployment event data to json. Error: %w\n", err)
-	}
-
-	metadataJson, err := json.Marshal(event.Metadata{
+	metadata := event.Metadata{
 		AuthorEmail: email,
 		Uuid:        uuid,
+	}
+	jsonToInsert, err := json.Marshal(event.DBEventGo{
+		EventData:     deployment,
+		EventMetadata: metadata,
 	})
 
 	if err != nil {
-		return fmt.Errorf("error converting deployment event metadata to json. Error: %w\n", err)
+		return fmt.Errorf("error marshalling deployment event to Json. Error: %v\n", err)
 	}
-	jsonToInsert, _ := json.Marshal(event.EventJson{
-		DataJson:     string(dataJson),
-		MetadataJson: string(metadataJson),
-	})
-	return h.writeEvent(ctx, uuid, "deployment", sourceCommitHash, jsonToInsert)
+	return h.writeEvent(ctx, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
 }
 
 func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash string) ([]EventRow, error) {
@@ -415,6 +409,6 @@ type EventRow struct {
 	Uuid       string
 	Timestamp  time.Time
 	CommitHash string
-	EventType  string
+	EventType  event.EventType
 	EventJson  string
 }

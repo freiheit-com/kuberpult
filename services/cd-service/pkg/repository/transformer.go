@@ -906,6 +906,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				LockBehaviour:   api.LockBehavior_RECORD,
 				Authentication:  c.Authentication,
 				WriteCommitData: c.WriteCommitData,
+				author:          "",
 			}
 			err := t.Execute(d)
 			if err != nil {
@@ -2715,6 +2716,7 @@ func (c *envReleaseTrain) Transform(
 				Upstream:    upstreamEnvName,
 				TargetGroup: c.TrainGroup,
 			},
+			author: "",
 		}
 		if err := t.Execute(d); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
