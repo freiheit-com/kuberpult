@@ -241,7 +241,7 @@ func openOrCreate(path string, storageBackend StorageBackend, cfg RepositoryConf
 		Depth:         1,
 		Tags:          gogit.AllTags,
 		SingleBranch:  true,
-		ReferenceName: "main",
+		ReferenceName: "master",
 	}
 	// Clones the repository into the worktree (fs) and stores all the .git
 	// content into the storer
@@ -299,10 +299,18 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	// 	CredentialsCallback:      credentials.CredentialsCallback(ctx),
 	// 	CertificateCheckCallback: certificates.CertificateCheckCallback(ctx),
 	// }
-	auth, err := ssh.NewPublicKeys("git", []byte(cfg.Credentials.SshKey), "")
+	authMethod, err := ssh.NewPublicKeysFromFile("git", cfg.Credentials.SshKey, "")
+	if err != nil {
+		return nil, err
+	}
+	callBack, err := ssh.NewKnownHostsCallback(cfg.Certificates.KnownHostsFile)
+	if err != nil {
+		return nil, err
+	}
+	authMethod.HostKeyCallback = callBack
 	fetchOptions := gogit.FetchOptions{
 		Tags: gogit.AllTags,
-		Auth: auth,
+		Auth: authMethod,
 	}
 	// fetchOptions := git.FetchOptions{
 	// 	Prune:           git.FetchPruneUnspecified,
@@ -315,16 +323,20 @@ func GetTags(cfg RepositoryConfig, repoName string, ctx context.Context) (tags [
 	// 	RemoteCallbacks: RemoteCallbacks,
 	// 	DownloadTags:    git.DownloadTagsAll,
 	// }
-	remote, err := repo.Remote(cfg.URL)
+	remotes, err := repo.Remotes()
 	// remote, err := repo.Remotes.CreateAnonymous(cfg.URL)
 	if err != nil {
-		return nil, fmt.Errorf("failure to create anonymous remote: %v", err)
+		return nil, fmt.Errorf("failed to get remotes: %v", err)
+	}
+	remoteName := remotes[0].Config().Name
+	remote, err := repo.Remote(remoteName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get remote: %v", err)
 	}
 	err = remote.Fetch(&fetchOptions)
 	if err != nil {
-		return nil, fmt.Errorf("failure to fetch: %v", err)
+		return nil, fmt.Errorf("failed to fetch tags: %v", err)
 	}
-
 	// tagsList, err := repo.Tags()
 	// if err != nil {
 	// 	return nil, fmt.Errorf("unable to list tags: %v", err)
