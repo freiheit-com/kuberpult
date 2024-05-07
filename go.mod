@@ -4,7 +4,6 @@ go 1.21
 
 require (
 	github.com/DataDog/datadog-go/v5 v5.5.0
-	github.com/MicahParks/keyfunc v1.9.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
 	github.com/argoproj/argo-cd/v2 v2.9.8
 	github.com/blendle/zapdriver v1.3.1
