@@ -135,7 +135,7 @@ func CheckPolicy(httpCtx context.Context, w http.ResponseWriter, req *http.Reque
 		if policyGroup.Group == userGroup {
 			auth.WriteUserRoleToHttpHeader(req, policyGroup.Role)
 			httpCtx = auth.WriteUserRoleToGrpcContext(req.Context(), policyGroup.Role)
-			httpCtx = context.WithValue(httpCtx, auth.HeaderUserRole, auth.Encode64(policyGroup.Role))
+			httpCtx = context.WithValue(httpCtx, auth.HeaderUserRole, auth.Encode64(policyGroup.Role)) //nolint: go-staticcheck
 		}
 	}
 	return httpCtx
@@ -186,8 +186,7 @@ func GetContextFromDex(w http.ResponseWriter, req *http.Request, clientID, baseU
 	}
 	if claims["email"].(string) != "" && claims["groups"] == nil {
 
-		return nil, fmt.Errorf("unable to parse token with expected fields for DEX login", http.StatusBadRequest)
+		return nil, fmt.Errorf("unable to parse token with expected fields for DEX login")
 	}
-	httpCtx = context.WithValue(httpCtx, "claims", claims)
 	return httpCtx, nil
 }
