@@ -316,8 +316,8 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 
 	for rows.Next() {
 		var row = EventRow{
-			Uuid:       "", //will be overwritten, prevents CI linter from complaining from missing fields
-			Timestamp:  time.Now(),
+			Uuid:       "",
+			Timestamp:  time.Now(), //will be overwritten, prevents CI linter from complaining from missing fields
 			CommitHash: "",
 			EventType:  "",
 			EventJson:  "",
@@ -335,7 +335,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 	return result, nil
 }
 
-// Gets all deployment events from Raw DB data
+// Gets all events from Raw DB data
 func DBParseToEvents(rows []EventRow) ([]event.Event, error) {
 	var result []event.Event
 	for _, row := range rows {

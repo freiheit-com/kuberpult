@@ -144,11 +144,6 @@ func (ev *ReplacedBy) toProto(trg *api.Event) {
 	}
 }
 
-//type EventMetadata struct {
-//	author string
-//	UUID   strin
-//}
-
 // Event is a commit-releated event
 type Event interface {
 	eventType() string

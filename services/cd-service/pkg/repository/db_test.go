@@ -155,6 +155,7 @@ func TestDeploymentStorage(t *testing.T) {
 			},
 			metadata: event.Metadata{
 				AuthorEmail: "test@email.com",
+				Uuid:        "00000000-0000-0000-0000-000000000001",
 			},
 		},
 	}
@@ -179,7 +180,7 @@ func TestDeploymentStorage(t *testing.T) {
 				t.Fatal("Error establishing DB connection: ", zap.Error(err))
 			}
 
-			writeDeploymentError := db.DBWriteDeploymentEvent(ctx, "", tc.commitHash, tc.email, &tc.event)
+			writeDeploymentError := db.DBWriteDeploymentEvent(ctx, tc.metadata.Uuid, tc.commitHash, tc.email, &tc.event)
 			if writeDeploymentError != nil {
 				t.Fatalf("Error writing event to DB. Error: %v\n", writeDeploymentError)
 			}

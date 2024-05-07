@@ -262,7 +262,7 @@ func (s *GitServer) GetEvents(ctx context.Context, fs billy.Filesystem, commitPa
 			fmt.Printf("currEvent.Created: %v\n", currEvent.Uuid)
 			fmt.Printf("time from uuid currEvent.UUID: %v\n", uuid2.TimeFromUUID("00000000-0000-0000-0000-000000000001"))
 
-			result = append(result, eventmod.DBToProto(ev.EventData, rawUUID))
+			result = append(result, eventmod.ToProto(rawUUID, ev.EventData))
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {
