@@ -214,7 +214,6 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion 
 		Apps: applications,
 	})
 	insertQuery := h.AdaptQuery("INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?);")
-	logger.FromContext(ctx).Sugar().Warnf("Query: %s", insertQuery)
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
@@ -240,8 +239,6 @@ func (h *DBHandler) writeEvent(ctx context.Context, eventuuid, eventType, source
 		return fmt.Errorf("could not begin transaction. Error: %w", err)
 	}
 	insertQuery := h.AdaptQuery("INSERT INTO events (uuid, timestamp, commitHash, eventType, json)  VALUES (?, ?, ?, ?, ?);")
-
-	logger.FromContext(ctx).Sugar().Warnf("Query: %s", insertQuery)
 
 	rawUUID, err := timeuuid.ParseUUID(eventuuid)
 	if err != nil {
@@ -296,9 +293,6 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json FROM events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
 	span.SetTag("query", query)
 
-	logger.FromContext(ctx).Sugar().Warnf("Query: %s", query)
-	span.SetTag("query", query)
-
 	rows, err := h.DB.QueryContext(ctx, query, commitHash)
 
 	if err != nil {
@@ -310,7 +304,7 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 	for rows.Next() {
 		var row = EventRow{
 			Uuid:       "",
-			Timestamp:  time.Now(), //will be overwritten, prevents CI linter from complaining from missing fields
+			Timestamp:  time.Unix(0, 0), //will be overwritten, prevents CI linter from complaining from missing fields
 			CommitHash: "",
 			EventType:  "",
 			EventJson:  "",
@@ -324,19 +318,6 @@ func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash s
 		}
 
 		result = append(result, row)
-	}
-	return result, nil
-}
-
-// Gets all events from Raw DB data
-func DBParseToEvents(rows []EventRow) ([]event.Event, error) {
-	var result []event.Event
-	for _, row := range rows {
-		evGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
-		if err != nil {
-			return result, fmt.Errorf("Error unmarshalling event: %v\n", err)
-		}
-		result = append(result, evGo.EventData)
 	}
 	return result, nil
 }

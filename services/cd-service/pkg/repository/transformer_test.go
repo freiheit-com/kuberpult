@@ -7627,3 +7627,16 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 		})
 	}
 }
+
+// DBParseToEvents gets all events from Raw DB data
+func DBParseToEvents(rows []EventRow) ([]event.Event, error) {
+	var result []event.Event
+	for _, row := range rows {
+		evGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
+		if err != nil {
+			return result, fmt.Errorf("Error unmarshalling event: %v\n", err)
+		}
+		result = append(result, evGo.EventData)
+	}
+	return result, nil
+}
