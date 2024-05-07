@@ -69,6 +69,28 @@ export const AppLock: React.FC<{
     );
 };
 
+export const TeamLock: React.FC<{
+    env: Environment;
+    team: string;
+    lock: Lock;
+}> = ({ env, team, lock }) => {
+    const deleteTeamLock = useCallback(() => {
+        addAction({
+            action: {
+                $case: 'deleteEnvironmentTeamLock',
+                deleteEnvironmentTeamLock: { environment: env.name, team: team, lockId: lock.lockId },
+            },
+        });
+    }, [team, env.name, lock.lockId]);
+    return (
+        <div
+            title={'Team Lock Message: "' + lock.message + '" | ID: "' + lock.lockId + '"  | Click to unlock. '}
+            onClick={deleteTeamLock}>
+            <Button icon={<Locks className="env-card-app-lock" />} className={'button-lock'} highlightEffect={false} />
+        </div>
+    );
+};
+
 export type EnvironmentListItemProps = {
     env: Environment;
     envGroup: EnvironmentGroup;
@@ -76,6 +98,7 @@ export type EnvironmentListItemProps = {
     release: Release;
     queuedVersion: number;
     className?: string;
+    team?: string;
 };
 
 type CommitIdProps = {
@@ -109,6 +132,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     release,
     queuedVersion,
     className,
+    team,
 }) => {
     const createAppLock = useCallback(() => {
         addAction({
@@ -181,6 +205,39 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         return [returnString, time];
     };
     const appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, application?.version, env.name));
+
+    const teamLocks = Object.values(env.applications)
+        .filter((application) => application.name === app)
+        .filter((app) => app.team === team)
+        .map((app) =>
+            Object.values(app.teamLocks).map((lock) => ({
+                date: lock.createdAt,
+                environment: env.name,
+                team: app.team,
+                lockId: lock.lockId,
+                message: lock.message,
+                authorName: lock.createdBy?.name,
+                authorEmail: lock.createdBy?.email,
+            }))
+        )
+        .flat()
+        .filter((value, index, self) => index === self.findIndex((t) => t.lockId === value.lockId));
+
+    const appLocks = Object.values(env.applications)
+        .filter((application) => application.name === app)
+        .map((app) =>
+            Object.values(app.locks).map((lock) => ({
+                date: lock.createdAt,
+                environment: env.name,
+                team: app.team,
+                lockId: lock.lockId,
+                message: lock.message,
+                authorName: lock.createdBy?.name,
+                authorEmail: lock.createdBy?.email,
+            }))
+        )
+        .flat();
+
     return (
         <li key={env.name} className={classNames('env-card', className)}>
             <div className="env-card-header">
@@ -194,15 +251,23 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     numberEnvsDeployed={undefined}
                     numberEnvsInGroup={undefined}
                 />
-                <div className={classNames('env-card-app-locks')}>
-                    {Object.values(env.applications)
-                        .filter((application) => application.name === app)
-                        .map((app) => app.locks)
-                        .map((locks) =>
-                            Object.values(locks).map((lock) => (
+                <div className={classNames('env-card-locks')}>
+                    {appLocks.length > 0 && (
+                        <div className={classNames('env-card-app-locks')}>
+                            App:
+                            {Object.values(appLocks).map((lock) => (
                                 <AppLock key={lock.lockId} env={env} app={app} lock={lock} />
-                            ))
-                        )}
+                            ))}
+                        </div>
+                    )}
+                    {teamLocks.length > 0 && (
+                        <div className={classNames('env-card-app-locks')}>
+                            Team:
+                            {Object.values(teamLocks).map((lock) => (
+                                <TeamLock key={lock.lockId} env={env} team={team || ''} lock={lock} />
+                            ))}
+                        </div>
+                    )}
                     {appRolloutStatus && <RolloutStatusDescription status={appRolloutStatus} />}
                 </div>
             </div>
@@ -251,8 +316,9 @@ export const EnvironmentList: React.FC<{
     release: Release;
     app: string;
     version: number;
+    team: string;
     className?: string;
-}> = ({ release, app, version, className }) => {
+}> = ({ release, app, version, className, team }) => {
     const allEnvGroups: EnvironmentGroup[] = useEnvironmentGroups();
     return (
         <div className="release-env-group-list">
@@ -265,6 +331,7 @@ export const EnvironmentList: React.FC<{
                             envGroup={envGroup}
                             app={app}
                             release={release}
+                            team={team}
                             className={className}
                             queuedVersion={env.applications[app] ? env.applications[app].queuedVersion : 0}
                         />
@@ -282,7 +349,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
     const { app, className, version } = props;
     // the ReleaseDialog is only opened when there is a release, so we can assume that it exists here:
     const release = useReleaseOrThrow(app, version);
-    const team = useTeamFromApplication(app);
+    const team = useTeamFromApplication(app) || '';
     const closeReleaseDialog = useCloseReleaseDialog();
 
     const dialog: JSX.Element | '' = (
@@ -338,7 +405,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                         highlightEffect={false}
                     />
                 </div>
-                <EnvironmentList app={app} className={className} release={release} version={version} />
+                <EnvironmentList app={app} team={team} className={className} release={release} version={version} />
             </>
         </PlainDialog>
     );

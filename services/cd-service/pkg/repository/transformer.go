@@ -2139,6 +2139,8 @@ func getOverrideVersions(commitHash, upstreamEnvName string, repo Repository) (r
 				ArgoCd:             nil,
 				DeploymentMetaData: nil,
 				Name:               appName,
+				TeamLocks:          nil,
+				Team:               "",
 			}
 			version, err := s.GetEnvironmentApplicationVersion(envName, appName)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {

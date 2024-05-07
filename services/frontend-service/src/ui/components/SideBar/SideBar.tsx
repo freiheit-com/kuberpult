@@ -15,7 +15,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 Copyright 2023 freiheit.com*/
 import { Button } from '../button';
 import { DeleteGray, HideBarWhite } from '../../../images';
-import { BatchAction } from '../../../api/api';
+import { BatchAction, DeleteEnvironmentTeamLockRequest } from '../../../api/api';
 import {
     deleteAction,
     useActions,
@@ -51,6 +51,8 @@ export enum ActionTypes {
     DeleteApplicationLock,
     DeleteEnvFromApp,
     ReleaseTrain,
+    DeleteEnvironmentTeamLock,
+    CreateEnvironmentTeamLock,
     UNKNOWN,
 }
 
@@ -64,6 +66,7 @@ export type ActionDetails = {
     // action details optional
     environment?: string;
     application?: string;
+    team?: string;
     lockId?: string;
     lockMessage?: string;
     version?: number;
@@ -72,7 +75,8 @@ export type ActionDetails = {
 export const getActionDetails = (
     { action }: BatchAction,
     appLocks: DisplayLock[],
-    envLocks: DisplayLock[]
+    envLocks: DisplayLock[],
+    teamLocks: DisplayLock[]
 ): ActionDetails => {
     switch (action?.$case) {
         case 'createEnvironmentLock':
@@ -135,6 +139,36 @@ export const getActionDetails = (
                 lockId: action.deleteEnvironmentApplicationLock.lockId,
                 lockMessage: appLocks.find((lock) => lock.lockId === action.deleteEnvironmentApplicationLock.lockId)
                     ?.message,
+            };
+        case 'deleteEnvironmentTeamLock':
+            const findMatchingTeamLock = (
+                teamLocks: DisplayLock[],
+                action: DeleteEnvironmentTeamLockRequest
+            ): DisplayLock | undefined =>
+                teamLocks.find(
+                    (lock) =>
+                        lock.lockId === action.lockId &&
+                        lock.team === action.team &&
+                        lock.environment === action.environment
+                ); // 2 Team locks that don't have the same environment or team might, in theory, have the same lock ID, so the lock id does not uniquely identify a lock, but the combination of env + team + ID should.
+            const target = findMatchingTeamLock(teamLocks, action.deleteEnvironmentTeamLock);
+            return {
+                type: ActionTypes.DeleteEnvironmentTeamLock,
+                name: 'Delete Team Lock',
+                dialogTitle: 'Are you sure you want to delete this team lock?',
+                summary:
+                    'Delete team lock for "' +
+                    target?.team +
+                    '" on ' +
+                    target?.environment +
+                    ' with the message: "' +
+                    target?.message +
+                    '"',
+                tooltip: 'This will only remove the lock, it will not automatically deploy anything.',
+                environment: target?.environment,
+                team: target?.team,
+                lockId: target?.lockId,
+                lockMessage: target?.message,
             };
         case 'deploy':
             return {
@@ -213,8 +247,8 @@ type SideBarListItemProps = {
 };
 
 export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children: action }: SideBarListItemProps) => {
-    const { environmentLocks, appLocks } = useAllLocks();
-    const actionDetails = getActionDetails(action, appLocks, environmentLocks);
+    const { environmentLocks, appLocks, teamLocks } = useAllLocks();
+    const actionDetails = getActionDetails(action, appLocks, environmentLocks, teamLocks);
     const release = useRelease(actionDetails.application ?? '', actionDetails.version ?? 0);
     const handleDelete = useCallback(() => deleteAction(action), [action]);
     const similarLocks = useLocksSimilarTo(action);
@@ -253,6 +287,28 @@ export const SideBarListItem: React.FC<{ children: BatchAction }> = ({ children:
                     $case: 'deleteEnvironmentLock',
                     deleteEnvironmentLock: {
                         environment: displayLock.environment,
+                        lockId: displayLock.lockId,
+                    },
+                },
+            };
+            addAction(newAction);
+        });
+        similarLocks.teamLocks.forEach((displayLock: DisplayLock) => {
+            if (!displayLock.environment) {
+                throw new Error('team lock must have environment set: ' + JSON.stringify(displayLock));
+            }
+            if (!displayLock.lockId) {
+                throw new Error('team lock must have lock id set: ' + JSON.stringify(displayLock));
+            }
+            if (!displayLock.team) {
+                throw new Error('team lock must have team set: ' + JSON.stringify(displayLock));
+            }
+            const newAction: BatchAction = {
+                action: {
+                    $case: 'deleteEnvironmentTeamLock',
+                    deleteEnvironmentTeamLock: {
+                        environment: displayLock.environment,
+                        team: displayLock.team,
                         lockId: displayLock.lockId,
                     },
                 },
@@ -337,7 +393,10 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
     }, []);
 
     const conflictingLocks = useLocksConflictingWithActions();
-    const hasLocks = conflictingLocks.environmentLocks.length > 0 || conflictingLocks.appLocks.length > 0;
+    const hasLocks =
+        conflictingLocks.environmentLocks.length > 0 ||
+        conflictingLocks.appLocks.length > 0 ||
+        conflictingLocks.teamLocks.length > 0;
 
     const applyActions = useCallback(() => {
         if (lockMessage) {
@@ -431,6 +490,22 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 </ul>
             </>
         );
+    const teamLocksRendered =
+        conflictingLocks.teamLocks.length === 0 ? undefined : (
+            <>
+                <h4>Conflicting Team Locks:</h4>
+                <ul>
+                    {conflictingLocks.teamLocks.map((teamLock: DisplayLock) => (
+                        <li key={teamLock.lockId + '-' + teamLock.team + '-' + teamLock.environment}>
+                            <DisplayLockInlineRenderer
+                                lock={teamLock}
+                                key={teamLock.lockId + '-' + teamLock.environment + '-' + teamLock.team}
+                            />
+                        </li>
+                    ))}
+                </ul>
+            </>
+        );
     const confirmationDialog: JSX.Element = hasLocks ? (
         <ConfirmationDialog
             classNames={'confirmation-dialog'}
@@ -445,6 +520,7 @@ export const SideBar: React.FC<{ className?: string; toggleSidebar: () => void }
                 <div className={'locks'}>
                     {envLocksRendered}
                     {appLocksRendered}
+                    {teamLocksRendered}
                 </div>
             </div>
         </ConfirmationDialog>

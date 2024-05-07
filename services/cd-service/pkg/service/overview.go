@@ -94,7 +94,6 @@ func (o *OverviewServiceServer) getOverview(
 		return nil, grpc.InternalError(ctx, err)
 	} else {
 		result.EnvironmentGroups = mapper.MapEnvironmentsToGroups(envs)
-		teamSet := map[string]bool{}
 		for envName, config := range envs {
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
@@ -138,6 +137,7 @@ func (o *OverviewServiceServer) getOverview(
 			} else {
 
 				for _, appName := range apps {
+					teamName, err := s.GetTeamName(appName)
 					app := api.Environment_Application{
 						Version:         0,
 						QueuedVersion:   0,
@@ -145,21 +145,19 @@ func (o *OverviewServiceServer) getOverview(
 						ArgoCd:          nil,
 						Name:            appName,
 						Locks:           map[string]*api.Lock{},
+						TeamLocks:       map[string]*api.Lock{},
+						Team:            teamName,
 						DeploymentMetaData: &api.Environment_Application_DeploymentMetaData{
 							DeployAuthor: "",
 							DeployTime:   "",
 						},
 					}
-					//we don't want to insert the locks for a team twice, so init a set of checked teams and filter the ones we already processed.
-					teamName, err := s.GetTeamName(appName)
-					_, exists := teamSet[teamName]
-					if err == nil && !exists {
-						teamSet[teamName] = true
+					if err == nil {
 						if teamLocks, teamErr := s.GetEnvironmentTeamLocks(envName, teamName); teamErr != nil {
 							return nil, teamErr
 						} else {
 							for lockId, lock := range teamLocks {
-								env.Locks[lockId] = &api.Lock{
+								app.TeamLocks[lockId] = &api.Lock{
 									Message:   lock.Message,
 									LockId:    lockId,
 									CreatedAt: timestamppb.New(lock.CreatedAt),
@@ -169,9 +167,8 @@ func (o *OverviewServiceServer) getOverview(
 									},
 								}
 							}
-							envInGroup.Locks = env.Locks
 						}
-					}
+					} // Err != nil means no team name was found so no need to parse team locks
 
 					var version *uint64
 					if version, err = s.GetEnvironmentApplicationVersion(envName, appName); err != nil && !errors.Is(err, os.ErrNotExist) {
