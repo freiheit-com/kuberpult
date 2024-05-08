@@ -21,10 +21,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+
 	"io"
 	"math/rand"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
@@ -47,6 +49,7 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/testfs"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/config"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/go-cmp/cmp"
@@ -1400,9 +1403,11 @@ func verifyContent(fs billy.Filesystem, required []FileWithContent) error {
 
 func TestApplicationDeploymentEvent(t *testing.T) {
 	type TestCase struct {
-		Name            string
-		Transformers    []Transformer
-		expectedContent []FileWithContent
+		Name             string
+		Transformers     []Transformer
+		expectedContent  []FileWithContent
+		db               bool
+		expectedDBEvents []event.Event
 	}
 
 	tcs := []TestCase{
@@ -1835,6 +1840,34 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Create a single application version and deploy it with DB",
+			// no need to bother with environments here
+			Transformers: []Transformer{
+				&CreateApplicationVersion{
+					Application:    "app",
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[string]string{
+						"staging": "doesn't matter",
+					},
+					WriteCommitData: true,
+				},
+				&DeployApplicationVersion{
+					Application:     "app",
+					Environment:     "staging",
+					WriteCommitData: true,
+					Version:         1,
+				},
+			},
+			db: true,
+			expectedDBEvents: []event.Event{
+				&event.Deployment{
+					Application: "app",
+					Environment: "staging",
+				},
+			},
+			expectedContent: []FileWithContent{},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1845,8 +1878,18 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			fakeGen := testutil.NewIncrementalUUIDGenerator()
 			ctx := testutil.MakeTestContext()
 			ctx = AddGeneratorToContext(ctx, fakeGen)
+			var repo Repository
+			if tc.db {
+				cfg := DBConfig{
+					MigrationsPath: "/kp/cd_database/migrations",
+					DriverName:     "sqlite3",
+				}
+				repo, _ = setupRepositoryTestWithDB(t, &cfg)
 
-			repo := setupRepositoryTest(t)
+			} else {
+				repo = setupRepositoryTest(t)
+			}
+
 			_, updatedState, _, err := repo.ApplyTransformersInternal(ctx, tc.Transformers...)
 			if err != nil {
 				t.Fatalf("encountered error but no error is expected here: %v", err)
@@ -1854,6 +1897,22 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			fs := updatedState.Filesystem
 			if err := verifyContent(fs, tc.expectedContent); err != nil {
 				t.Fatalf("Error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(fs), "\n"))
+			}
+			if tc.db {
+				rows, err := repo.State().DBHandler.DBSelectAllEventsForCommit(ctx, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(rows) != len(tc.expectedDBEvents) {
+					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
+				}
+				dEvents, err := DBParseToEvents(rows)
+				if err != nil {
+					t.Fatalf("encountered error but no error is expected here: %v", err)
+				}
+				if len(dEvents) != len(tc.expectedDBEvents) {
+					t.Fatalf("error event count mismatch expected '%d' events but got '%d'\n", len(tc.expectedDBEvents), len(rows))
+				}
 			}
 		})
 	}
@@ -6228,6 +6287,49 @@ func makeTransformersForDelete(numVersions uint64) []Transformer {
 	return res
 }
 
+func setupRepositoryTestWithDB(t *testing.T, dbConfig *DBConfig) (Repository, error) {
+	dir := t.TempDir()
+	remoteDir := path.Join(dir, "remote")
+	localDir := path.Join(dir, "local")
+	cmd := exec.Command("git", "init", "--bare", remoteDir)
+	cmd.Start()
+	cmd.Wait()
+	t.Logf("test created dir: %s", localDir)
+
+	repoCfg := RepositoryConfig{
+		URL:                    remoteDir,
+		Path:                   localDir,
+		CommitterEmail:         "kuberpult@freiheit.com",
+		CommitterName:          "kuberpult",
+		EnvironmentConfigsPath: filepath.Join(remoteDir, "..", "environment_configs.json"),
+		ArgoCdGenerateFiles:    true,
+	}
+	if dbConfig != nil {
+		dbConfig.DbHost = dir
+
+		migErr := RunDBMigrations(*dbConfig)
+		if migErr != nil {
+			t.Fatal(migErr)
+		}
+
+		db, err := Connect(*dbConfig)
+		if err != nil {
+			t.Fatal(err)
+		}
+		repoCfg.DBHandler = db
+		fmt.Println(dbConfig.DbHost)
+	}
+
+	repo, err := New(
+		testutil.MakeTestContext(),
+		repoCfg,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repo, nil
+}
+
 func setupRepositoryTest(t *testing.T) Repository {
 	repo, _ := setupRepositoryTestWithPath(t)
 	return repo
@@ -7524,4 +7626,17 @@ func TestEnvironmentGroupLocks(t *testing.T) {
 			}
 		})
 	}
+}
+
+// DBParseToEvents gets all events from Raw DB data
+func DBParseToEvents(rows []EventRow) ([]event.Event, error) {
+	var result []event.Event
+	for _, row := range rows {
+		evGo, err := event.UnMarshallEvent(row.EventType, row.EventJson)
+		if err != nil {
+			return result, fmt.Errorf("Error unmarshalling event: %v\n", err)
+		}
+		result = append(result, evGo.EventData)
+	}
+	return result, nil
 }
