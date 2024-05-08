@@ -29,7 +29,11 @@ type ReleaseParameters struct {
 // calls the Release endpoint with the specified parameters
 // this function might be used in the future for programmatic interaction with Kuberpult, hence its separation
 func Release(url string, params *ReleaseParameters) error {
-	if err := issueHttpRequest(url, params); err != nil {
+	req, err := prepareHttpRequest(url, params)
+	if err != nil {
+		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
+	}
+	if err := issueHttpRequest(url, req); err != nil {
 		return fmt.Errorf("error while issuing HTTP request, error: %v", err)
 	}
 	return nil

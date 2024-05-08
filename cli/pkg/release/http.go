@@ -57,12 +57,7 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 	return req, nil
 }
 
-func issueHttpRequest(url string, parsedArgs *ReleaseParameters) error {
-	req, err := prepareHttpRequest(url, parsedArgs)
-	if err != nil {
-		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
-	}
-
+func issueHttpRequest(url string, req *http.Request) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
