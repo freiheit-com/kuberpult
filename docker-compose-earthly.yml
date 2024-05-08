@@ -41,7 +41,7 @@ services:
       - KUBERPULT_SOURCE_REPO_URL=https://github.com/freiheit-com/kuberpult/commit/{commit}
       - KUBERPULT_MANIFEST_REPO_URL=https://github.com/freiheit-com/fdc-standard-setup-dev-env-manifest/tree/{branch}/{dir}
       - KUBERPULT_GIT_BRANCH=main
-      - KUBERPULT_API_ENABLE_DESPITE_NO_AUTH=false
+      - KUBERPULT_API_ENABLE_DESPITE_NO_AUTH=true
       - KUBERPULT_BATCH_CLIENT_TIMEOUT=2m
     ports:
       - "8081:8081"

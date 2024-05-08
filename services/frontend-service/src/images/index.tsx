@@ -12,7 +12,7 @@ MIT License for more details.
 You should have received a copy of the MIT License
 along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
-Copyright 2023 freiheit.com*/
+Copyright freiheit.com*/
 import { ReactComponent as Logo } from './kuberpult-logo.svg';
 import { ReactComponent as Home } from './Home.svg';
 import { ReactComponent as Environments } from './Environments.svg';
