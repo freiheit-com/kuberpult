@@ -1986,7 +1986,7 @@ func (c *DeployApplicationVersion) Transform(
 
 		} else {
 			if err := addEventForRelease(ctx, fs, releaseDir, deploymentEvent); err != nil {
-				return "", err
+				return "", GetCreateReleaseGeneralFailure(err)
 			}
 		}
 
