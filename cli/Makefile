@@ -12,6 +12,8 @@
 # You should have received a copy of the MIT License
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
+# Copyright freiheit.com
+
 include ../Makefile.variables
 
 build-pr:
