@@ -13,7 +13,6 @@
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 # Copyright freiheit.com
-
 SHELL := sh
 
 include ./Makefile.variables
