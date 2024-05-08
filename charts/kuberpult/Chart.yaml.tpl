@@ -45,7 +45,7 @@ appVersion: "${VERSION}"
 dependencies:
 - name: dex
   condition: auth.dexAuth.installDex
-  version: "0.14.2"
+  version: "0.17.1"
   repository: https://charts.dexidp.io
 
 maintainers:
