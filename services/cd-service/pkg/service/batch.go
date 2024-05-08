@@ -114,10 +114,12 @@ func (d *BatchServer) processAction(
 ) (repository.Transformer, *api.BatchResult, error) {
 	switch action := batchAction.Action.(type) {
 	case *api.BatchAction_CreateEnvironmentLock:
+		fmt.Println("Creating environment lock")
 		act := action.CreateEnvironmentLock
 		if err := ValidateEnvironmentLock("create", act.Environment, act.LockId); err != nil {
 			return nil, nil, err
 		}
+		fmt.Println("Env Lock valid")
 		return &repository.CreateEnvironmentLock{
 			Environment:    act.Environment,
 			LockId:         act.LockId,
@@ -340,14 +342,18 @@ func (d *BatchServer) ProcessBatch(
 	transformers := make([]repository.Transformer, 0, maxBatchActions)
 	for _, batchAction := range in.GetActions() {
 		transformer, result, err := d.processAction(batchAction)
+		fmt.Println("Process batch done")
 		if err != nil {
 			// Validation error
 			return nil, err
 		}
+		fmt.Println("Process batch done with no errors")
 		transformers = append(transformers, transformer)
 		results = append(results, result)
 	}
+	fmt.Println("Applying batch")
 	err = d.Repository.Apply(ctx, transformers...)
+	fmt.Println("Done with repository.apply")
 	if err != nil {
 		var applyErr *repository.TransformerBatchApplyError
 		if errors.Is(err, repository.ErrQueueFull) {

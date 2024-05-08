@@ -102,7 +102,7 @@ func (r *reposerver) GenerateManifest(ctx context.Context, req *argorepo.Manifes
 		XXX_unrecognized:     nil,
 		XXX_sizecache:        0,
 		Manifests:            mn,
-		Revision:             state.Commit.Id().String(),
+		Revision:             state.Commit.String(),
 		SourceType:           "Directory",
 	}
 	return resp, nil
@@ -172,8 +172,8 @@ func (r *reposerver) ResolveRevision(ctx context.Context, req *argorepo.ResolveR
 		XXX_NoUnkeyedLiteral: struct{}{},
 		XXX_unrecognized:     nil,
 		XXX_sizecache:        0,
-		Revision:             state.Commit.Id().String(),
-		AmbiguousRevision:    fmt.Sprintf("%s (%s)", req.AmbiguousRevision, state.Commit.Id()),
+		Revision:             state.Commit.String(),
+		AmbiguousRevision:    fmt.Sprintf("%s (%s)", req.AmbiguousRevision, state.Commit),
 	}
 	return &resp, nil
 }

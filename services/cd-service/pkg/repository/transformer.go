@@ -21,10 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/freiheit-com/kuberpult/pkg/sorting"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"io/fs"
 	"os"
@@ -34,6 +30,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/freiheit-com/kuberpult/pkg/sorting"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/freiheit-com/kuberpult/pkg/metrics"
@@ -1379,7 +1380,14 @@ func (c *DeleteEnvironmentLock) Transform(
 		}
 		return "", err
 	}
-
+	files, err := fs.ReadDir(lockDir)
+	if err != nil {
+		return "", fmt.Errorf("Failed to read directory %q: %w", lockDir, err)
+	}
+	for _, file := range files {
+		fmt.Println(file.Name())
+		fs.Remove(fs.Join(lockDir, file.Name()))
+	}
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
 	}
@@ -1538,6 +1546,14 @@ func (c *DeleteEnvironmentApplicationLock) Transform(
 			return "", grpc.FailedPrecondition(ctx, fmt.Errorf("directory %s for app lock does not exist", lockDir))
 		}
 		return "", err
+	}
+	files, err := fs.ReadDir(lockDir)
+	if err != nil {
+		return "", fmt.Errorf("Failed to read directory %q: %w", lockDir, err)
+	}
+	for _, file := range files {
+		fmt.Println(file.Name())
+		fs.Remove(fs.Join(lockDir, file.Name()))
 	}
 	if err := fs.Remove(lockDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("failed to delete directory %q: %w", lockDir, err)
@@ -1782,6 +1798,7 @@ func (c *DeployApplicationVersion) Transform(
 	releaseDir := releasesDirectoryWithVersion(fs, c.Application, c.Version)
 	manifest := fs.Join(releaseDir, "environments", c.Environment, "manifests.yaml")
 	var manifestContent []byte
+	fmt.Println("Deploying new version")
 	if file, err := fs.Open(manifest); err != nil {
 		return "", wrapFileError(err, manifest, fmt.Sprintf("deployment failed: could not open manifest for app %s with release %d on env %s", c.Application, c.Version, c.Environment))
 	} else {

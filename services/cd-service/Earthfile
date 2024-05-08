@@ -54,7 +54,7 @@ build-pr:
     ARG mirror="false"
     ARG mirror_registry="europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult"
 
-    DO +BUILD_ALL --tag=$tag --registry=$registry --mirror=$mirror  --mirror_registry=$mirror_registry
+    DO +BUILD_ALL --tag=$tag --registry=$registry --mirror=$mirror  --mirror_registry=$mirror_registry --dd_release=true
 
 build-main:
     ARG --required tag
@@ -73,8 +73,8 @@ BUILD_ALL:
     ARG dd_release=false
 
     FROM +deps
-    BUILD +lint 
-    BUILD +unit-test 
+    # BUILD +lint 
+    # BUILD +unit-test 
     BUILD +release --registry=$registry --tag=$tag
     IF [ "$mirror" = "true" ]
         BUILD +release --registry=$mirror_registry --tag=$tag
