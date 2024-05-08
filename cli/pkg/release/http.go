@@ -57,7 +57,7 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 	return req, nil
 }
 
-func issueHttpRequest(url string, req *http.Request) error {
+func issueHttpRequest(req *http.Request) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {

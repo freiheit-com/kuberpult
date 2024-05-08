@@ -33,7 +33,7 @@ func Release(url string, params *ReleaseParameters) error {
 	if err != nil {
 		return fmt.Errorf("error while preparing HTTP request, error: %w", err)
 	}
-	if err := issueHttpRequest(url, req); err != nil {
+	if err := issueHttpRequest(req); err != nil {
 		return fmt.Errorf("error while issuing HTTP request, error: %v", err)
 	}
 	return nil
