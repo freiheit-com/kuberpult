@@ -13,7 +13,7 @@
 # along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
 
 # Copyright freiheit.com
-å
+
 
 include ../../../Makefile.variables
 
