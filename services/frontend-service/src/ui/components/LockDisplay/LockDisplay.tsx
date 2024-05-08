@@ -65,7 +65,7 @@ export const LockDisplay: React.FC<{ lock: DisplayLock }> = (props) => {
                 },
             });
         }
-    }, [lock.application, lock.environment, lock.lockId]);
+    }, [lock.application, lock.environment, lock.lockId, lock.team]);
     return (
         <div className="lock-display">
             <div className="lock-display__table">

@@ -731,7 +731,12 @@ func TestGetCommitInfo(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			shutdown := make(chan struct{}, 1)
-			repo, err := setupRepositoryTest(t)
+			cfg := rp.DBConfig{
+				DriverName:     "sqlite3",
+				MigrationsPath: "/kp/cd_database/migrations",
+			}
+			repo, err := setupRepositoryTestWithDB(t, &cfg)
+
 			if err != nil {
 				t.Fatalf("error setting up repository test: %v", err)
 			}
@@ -753,6 +758,7 @@ func TestGetCommitInfo(t *testing.T) {
 			config := rp.RepositoryConfig{
 				WriteCommitData:     tc.allowReadingCommitData,
 				ArgoCdGenerateFiles: true,
+				DBHandler:           repo.State().DBHandler,
 			}
 			sv := &GitServer{
 				OverviewService: &OverviewServiceServer{Repository: repo, Shutdown: shutdown},

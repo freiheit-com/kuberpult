@@ -23,6 +23,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/freiheit-com/kuberpult/pkg/logger"
+	uuid2 "github.com/freiheit-com/kuberpult/pkg/uuid"
+	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/event"
+	"github.com/onokonem/sillyQueueServer/timeuuid"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"path"
 	"reflect"
@@ -211,8 +214,6 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion 
 		Apps: applications,
 	})
 	insertQuery := h.AdaptQuery("INSERT INTO all_apps (version , created , json)  VALUES (?, ?, ?);")
-	logger.FromContext(ctx).Sugar().Warnf("Query: %s", insertQuery)
-	//fmt.Printf("Query: %s", insertQuery)
 	span.SetTag("query", insertQuery)
 	_, err = tx.Exec(
 		insertQuery,
@@ -228,6 +229,91 @@ func (h *DBHandler) DBWriteAllApplications(ctx context.Context, previousVersion 
 		return fmt.Errorf("could not commit transaction. Error: %w", err)
 	}
 	return nil
+}
+
+func (h *DBHandler) writeEvent(ctx context.Context, eventuuid string, eventType event.EventType, sourceCommitHash string, eventJson []byte) error {
+	span, ctx := tracer.StartSpanFromContext(ctx, "writeEvent")
+	defer span.Finish()
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("could not begin transaction. Error: %w", err)
+	}
+	insertQuery := h.AdaptQuery("INSERT INTO events (uuid, timestamp, commitHash, eventType, json)  VALUES (?, ?, ?, ?, ?);")
+
+	rawUUID, err := timeuuid.ParseUUID(eventuuid)
+	if err != nil {
+		return fmt.Errorf("error parsing UUID. Error: %w", err)
+	}
+	span.SetTag("query", insertQuery)
+	_, err = tx.Exec(
+		insertQuery,
+		rawUUID.String(),
+		uuid2.GetTime(&rawUUID).AsTime(),
+		sourceCommitHash,
+		eventType,
+		eventJson)
+
+	if err != nil {
+		return fmt.Errorf("Error inserting information into DB. Error: %w\n", err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("could not commit transaction. Error: %w", err)
+	}
+	return nil
+}
+
+func (h *DBHandler) DBWriteDeploymentEvent(ctx context.Context, uuid, sourceCommitHash, email string, deployment *event.Deployment) error {
+
+	metadata := event.Metadata{
+		AuthorEmail: email,
+		Uuid:        uuid,
+	}
+	jsonToInsert, err := json.Marshal(event.DBEventGo{
+		EventData:     deployment,
+		EventMetadata: metadata,
+	})
+
+	if err != nil {
+		return fmt.Errorf("error marshalling deployment event to Json. Error: %v\n", err)
+	}
+	return h.writeEvent(ctx, uuid, event.EventTypeDeployment, sourceCommitHash, jsonToInsert)
+}
+
+func (h *DBHandler) DBSelectAllEventsForCommit(ctx context.Context, commitHash string) ([]EventRow, error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAllEvents")
+	defer span.Finish()
+
+	query := h.AdaptQuery("SELECT uuid, timestamp, commitHash, eventType, json FROM events WHERE commitHash = (?) ORDER BY timestamp DESC LIMIT 100;")
+	span.SetTag("query", query)
+
+	rows, err := h.DB.QueryContext(ctx, query, commitHash)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error querying DB. Error: %w\n", err)
+	}
+
+	var result []EventRow
+
+	for rows.Next() {
+		var row = EventRow{
+			Uuid:       "",
+			Timestamp:  time.Unix(0, 0), //will be overwritten, prevents CI linter from complaining from missing fields
+			CommitHash: "",
+			EventType:  "",
+			EventJson:  "",
+		}
+		err := rows.Scan(&row.Uuid, &row.Timestamp, &row.CommitHash, &row.EventType, &row.EventJson)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("Error scanning row from DB. Error: %w\n", err)
+		}
+
+		result = append(result, row)
+	}
+	return result, nil
 }
 
 // DBSelectAllApplications returns (nil, nil) if there are no rows
@@ -317,4 +403,12 @@ type AllApplicationsGo struct {
 	Version int64
 	Created time.Time
 	AllApplicationsJson
+}
+
+type EventRow struct {
+	Uuid       string
+	Timestamp  time.Time
+	CommitHash string
+	EventType  event.EventType
+	EventJson  string
 }
