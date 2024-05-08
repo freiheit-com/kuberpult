@@ -14,7 +14,6 @@
 
 # Copyright freiheit.com
 
-
 # NOTE: this will be replaced with the etf-golang makefile
 include ../Makefile.variables
 MAKEFLAGS += --no-builtin-rules
