@@ -407,6 +407,16 @@ func (c *CreateApplicationVersion) Transform(
 			if err != nil {
 				return err
 			}
+			if allApps == nil {
+				allApps = &AllApplicationsGo{
+					Version: 1,
+					AllApplicationsJson: AllApplicationsJson{
+						Apps: []string{},
+					},
+					Created: time.Now(),
+				}
+			}
+
 			if !slices.Contains(allApps.Apps, c.Application) {
 				allApps.Apps = append(allApps.Apps, c.Application)
 				err := state.DBHandler.DBWriteAllApplications(ctx, allApps.Version, allApps.Apps)
@@ -551,6 +561,7 @@ func (c *CreateApplicationVersion) Transform(
 				LockBehaviour:   api.LockBehavior_RECORD,
 				Authentication:  c.Authentication,
 				WriteCommitData: c.WriteCommitData,
+				author:          c.SourceAuthor,
 			}
 			err := t.Execute(d)
 			if err != nil {
@@ -895,6 +906,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				LockBehaviour:   api.LockBehavior_RECORD,
 				Authentication:  c.Authentication,
 				WriteCommitData: c.WriteCommitData,
+				author:          "",
 			}
 			err := t.Execute(d)
 			if err != nil {
@@ -1761,6 +1773,7 @@ type DeployApplicationVersion struct {
 	LockBehaviour   api.LockBehavior
 	WriteCommitData bool
 	SourceTrain     *DeployApplicationVersionSource
+	author          string
 }
 
 type DeployApplicationVersionSource struct {
@@ -1887,7 +1900,6 @@ func (c *DeployApplicationVersion) Transform(
 		//File does not exist
 		firstDeployment = true
 	}
-
 	// Create a symlink to the release
 	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
 		return "", err
@@ -1955,8 +1967,27 @@ func (c *DeployApplicationVersion) Transform(
 	}
 
 	if c.WriteCommitData { // write the corresponding event
-		if err := addEventForRelease(ctx, fs, releaseDir, createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)); err != nil {
-			return "", err
+		deploymentEvent := createDeploymentEvent(c.Application, c.Environment, c.SourceTrain)
+		if s.DBHandler != nil {
+			newReleaseCommitId, err := getCommitIDFromReleaseDir(ctx, fs, releaseDir)
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+			gen := getGenerator(ctx)
+			eventUuid := gen.Generate()
+
+			err = state.DBHandler.WithTransaction(ctx, func(ctx context.Context) error {
+				return state.DBHandler.DBWriteDeploymentEvent(ctx, eventUuid, newReleaseCommitId, c.author, deploymentEvent)
+			})
+
+			if err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
+
+		} else {
+			if err := addEventForRelease(ctx, fs, releaseDir, deploymentEvent); err != nil {
+				return "", GetCreateReleaseGeneralFailure(err)
+			}
 		}
 
 		if !firstDeployment && !lockPreventedDeployment {
@@ -2112,6 +2143,8 @@ func getOverrideVersions(commitHash, upstreamEnvName string, repo Repository) (r
 				ArgoCd:             nil,
 				DeploymentMetaData: nil,
 				Name:               appName,
+				TeamLocks:          nil,
+				Team:               "",
 			}
 			version, err := s.GetEnvironmentApplicationVersion(envName, appName)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -2683,6 +2716,7 @@ func (c *envReleaseTrain) Transform(
 				Upstream:    upstreamEnvName,
 				TargetGroup: c.TrainGroup,
 			},
+			author: "",
 		}
 		if err := t.Execute(d); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
