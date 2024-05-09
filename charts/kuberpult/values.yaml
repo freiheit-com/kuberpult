@@ -341,7 +341,7 @@ dex:
         config:
           issuer: accounts.google.com
           redirectURI: "https://kuberpult.dev.freiheit.systems/dex/callback"
-          clientID: "test-client-id"
+          clientID: "855333057980-f2m0tp6rnpuqg92fnsmh6kkg4vqiojlf.apps.googleusercontent.com"
           clientSecret: "client_secret"
 # Configuration for revolution dora metrics. If you are not using revolution you can safely ignore this.
 revolution:
