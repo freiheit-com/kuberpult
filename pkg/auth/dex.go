@@ -264,7 +264,7 @@ func ValidateOIDCToken(ctx context.Context, issuerURL, rawToken string, allowedA
 func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err error) {
 	ctx := oidc.ClientContext(context.Background(), a.Client)
 	fmt.Printf("Issuer URL: %s\n", a.IssuerURL)
-	p, err := oidc.NewProvider(ctx, a.IssuerURL)
+	p, err := oidc.NewProvider(ctx, "https://kuberpult.dev.freiheit.systems/dex")
 	if err != nil {
 		return nil, err
 	}
