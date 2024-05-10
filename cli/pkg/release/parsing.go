@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
 )
@@ -31,6 +32,41 @@ type cmdArguments struct {
 	environments cli_utils.RepeatedString
 	manifests    cli_utils.RepeatedString
 	team         cli_utils.RepeatedString // same hack as application field here
+}
+
+// checks whether every --environment arg is matched with a --manifest arg
+func environmentManifestsPaired(args []string) (result bool, message string) {
+	for i, arg := range args {
+		if arg == "--environment" {
+			nextIndex := i + 2
+			if nextIndex >= len(args) || args[nextIndex] != "--manifest" {
+				return false, "all --environment args must have a --manifest arg set immediately afterwards"
+			}
+		}
+		prevIndex := i - 2
+		if arg == "--manifest" {
+			if prevIndex < 0 || args[prevIndex] != "--environment" {
+				return false, "all --manifest args must be set immediately after an --environment arg"
+			}
+		}
+	}
+	return true, ""
+}
+
+func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
+	if len(cmdArgs.application.Values) != 1 {
+		return false, "the --application arg must be set exactly once"
+	}
+
+	if len(cmdArgs.environments.Values) == 0 {
+		return false, "the args --enviornment and --manifest must be set at least once"
+	}
+
+	if len(cmdArgs.team.Values) > 1 {
+		return false, "the --team arg must be set at most once"
+	}
+
+	return true, ""
 }
 
 func parseArgs(args []string) (*cmdArguments, error) {
@@ -47,35 +83,16 @@ func parseArgs(args []string) (*cmdArguments, error) {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
 	}
 
-	if len(cmdArgs.application.Values) != 1 {
-		return nil, fmt.Errorf("the --application arg must be set exactly once")
+	if len(fs.Args()) != 0 { // kuberpult-cli release does not accept any positional arguments, so this is an error
+		return nil, fmt.Errorf("these arguments are not recognized: \"%v\"", strings.Join(fs.Args(), " "))
 	}
 
-	for i, arg := range args {
-		if arg == "--environment" {
-			nextIndex := i + 2
-			if nextIndex >= len(args) || args[nextIndex] != "--manifest" {
-				return nil, fmt.Errorf("all --environment args must have a --manifest arg set immediately afterwards")
-			}
-		}
-		prevIndex := i - 2
-		if arg == "--manifest" {
-			if prevIndex < 0 || args[prevIndex] != "--environment" {
-				return nil, fmt.Errorf("all --manifest args must be set immediately after an --environment arg")
-			}
-		}
+	if ok, msg := parsedArgsValid(&cmdArgs); !ok {
+		return nil, fmt.Errorf(msg)
 	}
 
-	if len(cmdArgs.environments.Values) != len(cmdArgs.manifests.Values) { // this condition never holds since we make sure every --environment is matched with a --manifest
-		return nil, fmt.Errorf("the args --environment and --manifest must be set an equal number of times")
-	}
-
-	if len(cmdArgs.environments.Values) == 0 {
-		return nil, fmt.Errorf("the args --enviornment and --manifest must be set at least once")
-	}
-
-	if len(cmdArgs.team.Values) > 1 {
-		return nil, fmt.Errorf("the --team arg must be set at most once")
+	if ok, msg := environmentManifestsPaired(args); !ok {
+		return nil, fmt.Errorf(msg)
 	}
 
 	return &cmdArgs, nil
