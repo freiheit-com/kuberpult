@@ -22,9 +22,10 @@ import (
 
 // a representation of the parameters of the /release endpoint
 type ReleaseParameters struct {
-	Application string
-	Manifests   map[string]string // key is name of the environment and value is the manifest.yaml content
-	Team        *string
+	Application    string
+	Manifests      map[string]string // key is name of the environment and value is the manifest.yaml content
+	Team           *string
+	SourceCommitId *string
 }
 
 // calls the Release endpoint with the specified parameters

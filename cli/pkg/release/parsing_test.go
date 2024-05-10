@@ -50,13 +50,13 @@ func TestReadArgs(t *testing.T) {
 
 	tcs := []testCase{
 		{
-			name: "some unrecognized positional arguments",
-			args: []string{"potato", "tomato"},
+			name:             "some unrecognized positional arguments",
+			args:             []string{"potato", "tomato"},
 			expectedErrorMsg: "these arguments are not recognized: \"potato tomato\"",
 		},
 		{
-			name: "some flags that don't exist",
-			args: []string{"--potato", "tomato"},
+			name:             "some flags that don't exist",
+			args:             []string{"--potato", "tomato"},
 			expectedErrorMsg: "error while parsing command line arguments, error: flag provided but not defined: -potato",
 		},
 		{
@@ -132,9 +132,45 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name: "--team is specified twice",
-			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--team", "tomato-team"},
+			name:             "--team is specified twice",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--team", "tomato-team"},
 			expectedErrorMsg: "the --team arg must be set at most once",
+		},
+		{
+			name: "--source_commit_id is specified",
+			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef"},
+			expectedCmdArgs: &cmdArguments{
+				application: cli_utils.RepeatedString{
+					Values: []string{
+						"potato",
+					},
+				},
+				environments: cli_utils.RepeatedString{
+					Values: []string{
+						"production",
+					},
+				},
+				manifests: cli_utils.RepeatedString{
+					Values: []string{
+						"manifest-file.yaml",
+					},
+				},
+				team: cli_utils.RepeatedString{
+					Values: []string{
+						"potato-team",
+					},
+				},
+				sourceCommitId: cli_utils.RepeatedString{
+					Values: []string{
+						"0123abcdef0123abcdef0123abcdef0123abcdef",
+					},
+				},
+			},
+		},
+		{
+			name:             "--source_commit_id is specified but has an invalid value",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "potato-commit"},
+			expectedErrorMsg: "the --source_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal",
 		},
 	}
 
@@ -142,7 +178,7 @@ func TestReadArgs(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			
+
 			cmdArgs, err := parseArgs(tc.args)
 			// check errors
 			if diff := cmp.Diff(errMatcher{tc.expectedErrorMsg}, err, cmpopts.EquateErrors()); !(err == nil && tc.expectedErrorMsg == "") && diff != "" {
@@ -225,7 +261,7 @@ func TestParseArgs(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			
+
 			// test setup
 			dir, err := os.MkdirTemp("", "kuberpult-cli-test-*")
 			if err != nil {

@@ -73,10 +73,8 @@ func TestRequestCreation(t *testing.T) {
 			expectedMultipartFormValue: map[string][]string{
 				"application": {"potato"},
 			},
-			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
-				
-			},
-			responseCode: http.StatusOK,
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{},
+			responseCode:              http.StatusOK,
 		},
 		{
 			name: "one environment manifest",
@@ -87,13 +85,13 @@ func TestRequestCreation(t *testing.T) {
 				},
 			},
 			expectedMultipartFormValue: map[string][]string{
-				"application":            {"potato"},
+				"application": {"potato"},
 			},
 			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
 				"manifests[development]": {
 					{
 						filename: "development-manifest",
-						content: "some development manifest",
+						content:  "some development manifest",
 					},
 				},
 			},
@@ -116,13 +114,13 @@ func TestRequestCreation(t *testing.T) {
 				"manifests[development]": {
 					{
 						filename: "development-manifest",
-						content: "some development manifest",
+						content:  "some development manifest",
 					},
 				},
 				"manifests[production]": {
 					{
 						filename: "production-manifest",
-						content: "some production manifest",
+						content:  "some production manifest",
 					},
 				},
 			},
@@ -144,13 +142,13 @@ func TestRequestCreation(t *testing.T) {
 				"manifests[development]": {
 					{
 						filename: "development-manifest",
-						content: "some development manifest",
+						content:  "some development manifest",
 					},
 				},
 				"manifests[production]": {
 					{
 						filename: "production-manifest",
-						content: "some production manifest",
+						content:  "some production manifest",
 					},
 				},
 			},
@@ -169,19 +167,51 @@ func TestRequestCreation(t *testing.T) {
 			},
 			expectedMultipartFormValue: map[string][]string{
 				"application": {"potato"},
-				"team": {"potato-team"},
+				"team":        {"potato-team"},
 			},
 			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
 				"manifests[development]": {
 					{
 						filename: "development-manifest",
-						content: "some development manifest",
+						content:  "some development manifest",
 					},
 				},
 				"manifests[production]": {
 					{
 						filename: "production-manifest",
-						content: "some production manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name: "source commit ID is set",
+			params: &ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string]string{
+					"development": "some development manifest",
+					"production":  "some production manifest",
+				},
+				Team:           strPtr("potato-team"),
+				SourceCommitId: strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":      {"potato"},
+				"team":             {"potato-team"},
+				"source_commit_id": {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
 					},
 				},
 			},
@@ -193,7 +223,7 @@ func TestRequestCreation(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			
+
 			mockServer := &mockHttpServer{
 				response: tc.responseCode,
 			}
@@ -221,7 +251,7 @@ func TestRequestCreation(t *testing.T) {
 					if err != nil {
 						t.Fatalf("error encountered while opening the multipart file header for key \"%s\" file \"%s\", error: %v", key, header.Filename, err)
 					}
-					defer file.Close()  
+					defer file.Close()
 
 					bytes := make([]byte, MAXIMUM_MULTIPART_SIZE)
 					n, err := file.Read(bytes)
@@ -232,7 +262,7 @@ func TestRequestCreation(t *testing.T) {
 					content := string(bytes)
 					simpleHeader := simpleMultipartFormFileHeader{
 						filename: header.Filename,
-						content: content,
+						content:  content,
 					}
 
 					simpleHeaders = append(simpleHeaders, simpleHeader)

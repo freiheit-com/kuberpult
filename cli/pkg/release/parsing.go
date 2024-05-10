@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/freiheit-com/kuberpult/cli/pkg/cli_utils"
@@ -28,10 +29,11 @@ import (
 // a simple container for the command line args, not meant for anything except the use of flag.Parse
 // unless you're working on the readArgs and parseArgs functions, you probably don't need this type, see releaseParameters instead
 type cmdArguments struct {
-	application  cli_utils.RepeatedString // code-simplifying hack: we use RepeatingString for application even though it's not meant to be repeated so that we can raise and error when it's repeated more or less than once
-	environments cli_utils.RepeatedString
-	manifests    cli_utils.RepeatedString
-	team         cli_utils.RepeatedString // same hack as application field here
+	application    cli_utils.RepeatedString // code-simplifying hack: we use RepeatingString for application even though it's not meant to be repeated so that we can raise and error when it's repeated more or less than once
+	environments   cli_utils.RepeatedString
+	manifests      cli_utils.RepeatedString
+	team           cli_utils.RepeatedString // same hack as application field here
+	sourceCommitId cli_utils.RepeatedString // same hack as application field here
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
@@ -53,6 +55,12 @@ func environmentManifestsPaired(args []string) (result bool, message string) {
 	return true, ""
 }
 
+// checks if a string is a hexadecimal SHA1 hash, used for validating a commit ID
+func isHexSHA1(s string) bool {
+	regex := regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+	return regex.MatchString(s)
+}
+
 func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
 	if len(cmdArgs.application.Values) != 1 {
 		return false, "the --application arg must be set exactly once"
@@ -64,6 +72,16 @@ func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
 
 	if len(cmdArgs.team.Values) > 1 {
 		return false, "the --team arg must be set at most once"
+	}
+
+	if len(cmdArgs.sourceCommitId.Values) > 1 {
+		return false, "the --source_commit_id arg must be set at most once"
+	}
+
+	if len(cmdArgs.sourceCommitId.Values) == 1 {
+		if !isHexSHA1(cmdArgs.sourceCommitId.Values[0]) {
+			return false, "the --source_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal"
+		}
 	}
 
 	return true, ""
@@ -78,6 +96,7 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	fs.Var(&cmdArgs.environments, "environment", "an environment to deploy to (must have --manifest set immediately afterwards)")
 	fs.Var(&cmdArgs.manifests, "manifest", "the name of the file containing manifests to be deployed (must be set immediately after --environment)")
 	fs.Var(&cmdArgs.team, "team", "the name of the team to which this release belongs (must not be set more than once)")
+	fs.Var(&cmdArgs.sourceCommitId, "source_commit_id", "the SHA1 hash of the source commit (must not be set more than once)")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -119,6 +138,9 @@ func ProcessArgs(args []string) (*ReleaseParameters, error) {
 	}
 	if len(cmdArgs.team.Values) == 1 {
 		rp.Team = &cmdArgs.team.Values[0]
+	}
+	if len(cmdArgs.sourceCommitId.Values) == 1 {
+		rp.SourceCommitId = &cmdArgs.sourceCommitId.Values[0]
 	}
 
 	return &rp, nil

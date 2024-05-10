@@ -50,6 +50,12 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 		}
 	}
 
+	if parsedArgs.SourceCommitId != nil {
+		if err := writer.WriteField("source_commit_id", *parsedArgs.SourceCommitId); err != nil {
+			return nil, fmt.Errorf("error writing team field, error: %w", err)
+		}
+	}
+
 	if err := writer.Close(); err != nil {
 		return nil, fmt.Errorf("error closing the writer, error: %w", err)
 	}
