@@ -52,7 +52,13 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 
 	if parsedArgs.SourceCommitId != nil {
 		if err := writer.WriteField("source_commit_id", *parsedArgs.SourceCommitId); err != nil {
-			return nil, fmt.Errorf("error writing team field, error: %w", err)
+			return nil, fmt.Errorf("error writing source_commit_id field, error: %w", err)
+		}
+	}
+
+	if parsedArgs.PreviousCommitId != nil {
+		if err := writer.WriteField("previous_commit_id", *parsedArgs.PreviousCommitId); err != nil {
+			return nil, fmt.Errorf("error writing previous_commit_id field, error: %w", err)
 		}
 	}
 

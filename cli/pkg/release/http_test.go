@@ -217,6 +217,40 @@ func TestRequestCreation(t *testing.T) {
 			},
 			responseCode: http.StatusOK,
 		},
+		{
+			name: "previous commit ID is set",
+			params: &ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string]string{
+					"development": "some development manifest",
+					"production":  "some production manifest",
+				},
+				Team:             strPtr("potato-team"),
+				SourceCommitId:   strPtr("0123abcdef0123abcdef0123abcdef0123abcdef"),
+				PreviousCommitId: strPtr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application":        {"potato"},
+				"team":               {"potato-team"},
+				"source_commit_id":   {"0123abcdef0123abcdef0123abcdef0123abcdef"},
+				"previous_commit_id": {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content:  "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content:  "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
+		},
 	}
 
 	for _, tc := range tcs {

@@ -172,6 +172,57 @@ func TestReadArgs(t *testing.T) {
 			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "potato-commit"},
 			expectedErrorMsg: "the --source_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal",
 		},
+		{
+			name:             "--source_commit_id is specified twice",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef"},
+			expectedErrorMsg: "the --source_commit_id arg must be set at most once",
+		},
+		{
+			name: "--previous_commit_id is specified",
+			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			expectedCmdArgs: &cmdArguments{
+				application: cli_utils.RepeatedString{
+					Values: []string{
+						"potato",
+					},
+				},
+				environments: cli_utils.RepeatedString{
+					Values: []string{
+						"production",
+					},
+				},
+				manifests: cli_utils.RepeatedString{
+					Values: []string{
+						"manifest-file.yaml",
+					},
+				},
+				team: cli_utils.RepeatedString{
+					Values: []string{
+						"potato-team",
+					},
+				},
+				sourceCommitId: cli_utils.RepeatedString{
+					Values: []string{
+						"0123abcdef0123abcdef0123abcdef0123abcdef",
+					},
+				},
+				previousCommitId: cli_utils.RepeatedString{
+					Values: []string{
+						"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					},
+				},
+			},
+		},
+		{
+			name:             "--previous_commit_id is specified without --source_commit_id",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			expectedErrorMsg: "the --previous_commit_id arg can be set only if --source_commit_id is set",
+		},
+		{
+			name:             "--previous_commit_id is specified twice",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--previous_commit_id", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+			expectedErrorMsg: "the --previous_commit_id arg must be set at most once",
+		},
 	}
 
 	for _, tc := range tcs {

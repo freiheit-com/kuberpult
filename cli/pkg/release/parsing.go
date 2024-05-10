@@ -29,11 +29,12 @@ import (
 // a simple container for the command line args, not meant for anything except the use of flag.Parse
 // unless you're working on the readArgs and parseArgs functions, you probably don't need this type, see releaseParameters instead
 type cmdArguments struct {
-	application    cli_utils.RepeatedString // code-simplifying hack: we use RepeatingString for application even though it's not meant to be repeated so that we can raise and error when it's repeated more or less than once
-	environments   cli_utils.RepeatedString
-	manifests      cli_utils.RepeatedString
-	team           cli_utils.RepeatedString // same hack as application field here
-	sourceCommitId cli_utils.RepeatedString // same hack as application field here
+	application      cli_utils.RepeatedString // code-simplifying hack: we use RepeatingString for application even though it's not meant to be repeated so that we can raise and error when it's repeated more or less than once
+	environments     cli_utils.RepeatedString
+	manifests        cli_utils.RepeatedString
+	team             cli_utils.RepeatedString // same hack as application field here
+	sourceCommitId   cli_utils.RepeatedString // same hack as application field here
+	previousCommitId cli_utils.RepeatedString // same hack as application field here
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
@@ -84,6 +85,19 @@ func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
 		}
 	}
 
+	if len(cmdArgs.previousCommitId.Values) > 1 {
+		return false, "the --previous_commit_id arg must be set at most once"
+	}
+
+	if len(cmdArgs.previousCommitId.Values) == 1 {
+		if len(cmdArgs.sourceCommitId.Values) != 1 { // not a requirement from the API, but it is a reasonable restriction to make
+			return false, "the --previous_commit_id arg can be set only if --source_commit_id is set"
+		}
+		if !isHexSHA1(cmdArgs.previousCommitId.Values[0]) {
+			return false, "the --previous_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal"
+		}
+	}
+
 	return true, ""
 }
 
@@ -97,6 +111,7 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	fs.Var(&cmdArgs.manifests, "manifest", "the name of the file containing manifests to be deployed (must be set immediately after --environment)")
 	fs.Var(&cmdArgs.team, "team", "the name of the team to which this release belongs (must not be set more than once)")
 	fs.Var(&cmdArgs.sourceCommitId, "source_commit_id", "the SHA1 hash of the source commit (must not be set more than once)")
+	fs.Var(&cmdArgs.previousCommitId, "previous_commit_id", "the SHA1 hash of the previous commit (must not be set more than once and can only be set when source_commit_id is set)")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -141,6 +156,9 @@ func ProcessArgs(args []string) (*ReleaseParameters, error) {
 	}
 	if len(cmdArgs.sourceCommitId.Values) == 1 {
 		rp.SourceCommitId = &cmdArgs.sourceCommitId.Values[0]
+	}
+	if len(cmdArgs.previousCommitId.Values) == 1 {
+		rp.PreviousCommitId = &cmdArgs.previousCommitId.Values[0]
 	}
 
 	return &rp, nil
