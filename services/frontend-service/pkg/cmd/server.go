@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/MicahParks/keyfunc/v2"
 	"io"
 	"net/http"
 	"os"
@@ -32,7 +33,6 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/interceptors"
 
-	"github.com/MicahParks/keyfunc/v2"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/service"
 
@@ -46,7 +46,6 @@ import (
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
-	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/idtoken"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -236,6 +235,7 @@ func runServer(ctx context.Context) error {
 	http.DefaultServeMux = mux
 	if c.DexEnabled {
 		// Registers Dex handlers.
+		logger.FromContext(ctx).Info("Dex is enabled. Creating client...")
 		_, err := auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes))
 		if err != nil {
 			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))

@@ -100,6 +100,7 @@ func NewDexAppClient(clientID, clientSecret, baseURL string, scopes []string) (*
 		T:      a.Client.Transport,
 	}
 
+	fmt.Println("Registering Dex hanlers...")
 	// Register Dex handlers.
 	a.registerDexHandlers()
 	return &a, nil
@@ -183,6 +184,7 @@ func (a *DexAppClient) handleDexLogin(w http.ResponseWriter, r *http.Request) {
 
 // HandleCallback is the callback handler for an OAuth2 login flow.
 func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("[DEX] Callback!")
 	oauth2Config, err := a.oauth2Config(nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -196,25 +198,26 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := r.FormValue("code")
+	fmt.Printf("Reading code: %s\n", code)
 	ctx := oidc.ClientContext(r.Context(), a.Client)
 	token, err := oauth2Config.Exchange(ctx, code)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get token: %v", err), http.StatusInternalServerError)
 		return
 	}
-
+	fmt.Println("Token Exchange performed.")
 	idTokenRAW, ok := token.Extra("id_token").(string)
 	if !ok {
 		http.Error(w, "no id_token in token response", http.StatusInternalServerError)
 		return
 	}
-
+	fmt.Println("Validating OIDC Token...")
 	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID)
 	if err != nil {
 		http.Error(w, "failed to verify the token", http.StatusInternalServerError)
 		return
 	}
-
+	fmt.Println("Checking claims...")
 	var claims jwt.MapClaims
 	err = idToken.Claims(&claims)
 	if err != nil {
@@ -232,8 +235,10 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 			Expires: expiration,
 			Path:    "/",
 		}
+		fmt.Printf("%v\n", cookie)
 		http.SetCookie(w, &cookie)
 	}
+	fmt.Printf("Redirecting back to kuberpult!")
 	http.Redirect(w, r, a.BaseURL, http.StatusSeeOther)
 }
 
