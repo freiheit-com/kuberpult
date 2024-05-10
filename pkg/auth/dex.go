@@ -187,6 +187,7 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("[DEX] Callback!")
 	oauth2Config, err := a.oauth2Config(nil)
 	if err != nil {
+		fmt.Printf("oauth2Config error: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
