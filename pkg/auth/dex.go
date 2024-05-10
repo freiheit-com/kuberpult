@@ -213,9 +213,9 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println("Validating OIDC Token...")
-	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID)
+	idToken, err := ValidateOIDCToken(ctx, "https://kuberpult.dev.freiheit.systems/dex", idTokenRAW, a.ClientID)
 	if err != nil {
-		http.Error(w, "failed to verify the token", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to verify the token: %v", err), http.StatusInternalServerError)
 		return
 	}
 	fmt.Println("Checking claims...")
