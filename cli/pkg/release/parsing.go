@@ -30,7 +30,7 @@ type cmdArguments struct {
 	application  cli_utils.RepeatedString // code-simplifying hack: we use RepeatingString for application even though it's not meant to be repeated so that we can raise and error when it's repeated more or less than once
 	environments cli_utils.RepeatedString
 	manifests    cli_utils.RepeatedString
-	team         cli_utils.RepeatedString
+	team         cli_utils.RepeatedString // same hack as application field here
 }
 
 func parseArgs(args []string) (*cmdArguments, error) {
