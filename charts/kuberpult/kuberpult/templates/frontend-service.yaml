@@ -1,0 +1,212 @@
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright 2023 freiheit.com
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright 2023 freiheit.com
+
+{{- if .Values.frontend.tag }}
+{{ fail "Values.frontend.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
+{{ end -}}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kuberpult-frontend-service
+  labels:
+    app: kuberpult-frontend-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kuberpult-frontend-service
+  template:
+    metadata:
+      labels:
+        app: kuberpult-frontend-service
+{{- if .Values.datadogTracing.enabled }}
+        tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
+        tags.datadoghq.com/service: kuberpult-frontend-service
+        tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
+      annotations:
+        apm.datadoghq.com/env: '{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"{{ .Values.datadogTracing.environment }}","DD_VERSION":"{{ $.Chart.AppVersion }}"}'
+{{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: service
+        image: "{{ .Values.hub }}/{{ .Values.frontend.image }}:{{ $.Chart.AppVersion }}"
+        ports:
+          - name: http
+            containerPort: 8081
+            protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+        resources:
+          limits:
+            cpu: "{{ .Values.frontend.resources.limits.cpu }}"
+            memory: "{{ .Values.frontend.resources.limits.memory }}"
+          requests:
+            cpu: "{{ .Values.frontend.resources.requests.cpu }}"
+            memory: "{{ .Values.frontend.resources.requests.memory }}"
+        env:
+        - name: KUBERPULT_GIT_AUTHOR_NAME
+          value: {{ .Values.git.author.name | quote }}
+        - name: KUBERPULT_GIT_AUTHOR_EMAIL
+          value: {{ .Values.git.author.email | quote }}
+        - name: KUBERPULT_CDSERVER
+          value: kuberpult-cd-service:8443
+        - name: KUBERPULT_ARGOCD_BASE_URL
+          value: {{ .Values.argocd.baseUrl | quote }}
+        - name: KUBERPULT_ARGOCD_NAMESPACE
+          value: {{ .Values.argocd.namespace | quote }}
+        - name: KUBERPULT_BATCH_CLIENT_TIMEOUT
+          value: {{ .Values.frontend.batchClient.timeout | quote }}
+        - name: KUBERPULT_VERSION
+          value: {{ $.Chart.AppVersion | quote}}
+        - name: KUBERPULT_SOURCE_REPO_URL
+          value: {{ .Values.git.sourceRepoUrl | quote}}
+        - name: KUBERPULT_MANIFEST_REPO_URL
+          value: {{ .Values.git.manifestRepoUrl | quote}}
+        - name: LOG_FORMAT
+          value: {{ .Values.log.format | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.log.level | quote }}
+        - name: KUBERPULT_GKE_BACKEND_SERVICE_ID
+          value: "{{ .Values.gke.backend_service_id }}"
+        - name: KUBERPULT_GKE_BACKEND_SERVICE_NAME
+          value: "{{ .Values.gke.backend_service_name }}"
+        - name: KUBERPULT_GKE_PROJECT_NUMBER
+          value: "{{ .Values.gke.project_number }}"
+        - name: KUBERPULT_ALLOWED_ORIGINS
+          value: "https://{{ .Values.ingress.domainName }}"
+        - name: KUBERPULT_GIT_BRANCH
+          value: {{ .Values.git.branch | quote }}
+        - name: KUBERPULT_IAP_ENABLED
+          value: {{ .Values.ingress.iap.enabled | quote }}
+        - name: KUBERPULT_API_ENABLE_DESPITE_NO_AUTH
+          value: {{ .Values.auth.api.enableDespiteNoAuth | quote }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_AGENT_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: DD_ENV
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/env']
+        - name: DD_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/service']
+        - name: DD_VERSION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/version']
+        - name: KUBERPULT_ENABLE_TRACING
+          value: "{{ .Values.datadogTracing.enabled }}"
+{{- end }}
+        - name: KUBERPULT_DEX_ENABLED
+          value: "{{ .Values.auth.dexAuth.enabled }}"
+{{- if .Values.auth.dexAuth.enabled }}
+        - name: KUBERPULT_DEX_CLIENT_ID
+          value: "{{ .Values.auth.dexAuth.clientId }}"
+        - name: KUBERPULT_DEX_CLIENT_SECRET
+          value: "{{ .Values.auth.dexAuth.clientSecret }}"
+        - name: KUBERPULT_DEX_BASE_URL
+          value: "{{ .Values.auth.dexAuth.baseURL }}"
+        - name: KUBERPULT_DEX_SCOPES
+          value: "{{ .Values.auth.dexAuth.scopes }}"
+{{- end }}
+{{- if .Values.pgp.keyRing }}
+        - name: KUBERPULT_PGP_KEY_RING_PATH
+          value: /keyring/keyring.gpg
+{{- end }}
+        - name: KUBERPULT_AZURE_ENABLE_AUTH
+          value: "{{ .Values.auth.azureAuth.enabled }}"
+{{- if .Values.auth.azureAuth.enabled }}
+        - name: KUBERPULT_AZURE_CLOUD_INSTANCE
+          value: "{{ .Values.auth.azureAuth.cloudInstance }}"
+        - name: KUBERPULT_AZURE_CLIENT_ID
+          value: "{{ .Values.auth.azureAuth.clientId }}"
+        - name: KUBERPULT_AZURE_TENANT_ID
+          value: "{{ .Values.auth.azureAuth.tenantId }}"
+        - name: KUBERPULT_AZURE_REDIRECT_URL
+          value: "https://{{ .Values.ingress.domainName }}"
+{{- end }}
+        - name: KUBERPULT_ROLLOUTSERVER
+{{- if .Values.rollout.enabled }}
+          value: "kuberpult-rollout-service:8443"
+{{- else }}
+          value: ""
+{{- end }}
+        - name: KUBERPULT_MAX_WAIT_DURATION
+          value: {{ .Values.frontend.maxWaitDuration | quote }}
+        volumeMounts:
+{{- if .Values.pgp.keyRing }}
+        - name: keyring
+          mountPath: /keyring
+{{- end }}
+      volumes:
+{{- if .Values.pgp.keyRing }}
+      - name: keyring
+        configMap:
+          name: kuberpult-keyring
+{{- end }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kuberpult-frontend-service
+  annotations:
+{{- if .Values.ingress.iap.enabled }}
+    cloud.google.com/backend-config: '{"default": "kuberpult"}'
+{{- end }}
+{{- range $key, $value := .Values.frontend.service.annotations }}
+    {{ $key | quote}}: {{ $value | quote}}
+{{- end }}
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  selector:
+    app: kuberpult-frontend-service
+  type: NodePort

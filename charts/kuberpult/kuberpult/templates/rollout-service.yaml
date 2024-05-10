@@ -1,0 +1,199 @@
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright 2023 freiheit.com
+# This file is part of kuberpult.
+{{- if .Values.rollout.tag }}
+{{ fail "Values.rollout.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
+{{ end -}}
+
+{{- if .Values.rollout.enabled }}
+{{- if not (regexMatch "^https?://[^:]+:[0-9]+$" .Values.argocd.server) -}}
+{{ fail "argocd.server must be a valid http/https url including the port"}}
+{{- end -}}
+{{- if not (eq .Values.argocd.refreshEnabled nil) }}
+{{ fail "argocd.refreshEnabled is removed in favour of argocd.refresh.enabled"}}
+{{- end -}}
+{{- $podAnnotations := mustMergeOverwrite (dict) (include "rollout-podAnnotations" . | fromYaml ) .Values.rollout.podAnnotations -}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kuberpult-rollout-service
+  labels:
+    app: kuberpult-rollout-service
+{{- if .Values.datadogTracing.enabled }}
+    tags.datadoghq.com/service: kuberpult-rollout-service
+    tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
+    tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
+{{- end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kuberpult-rollout-service
+  template:
+    metadata:
+      labels:
+        app: kuberpult-rollout-service
+{{- if .Values.datadogTracing.enabled }}
+        tags.datadoghq.com/env: {{ .Values.datadogTracing.environment }}
+        tags.datadoghq.com/service: kuberpult-rollout-service
+        tags.datadoghq.com/version: {{ $.Chart.AppVersion }}
+{{- end }}
+      annotations:
+{{ $podAnnotations | toYaml | indent 8}}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: service
+        image: "{{ .Values.hub }}/{{ .Values.rollout.image }}:{{ $.Chart.AppVersion }}"
+        ports:
+          - name: http
+            containerPort: 8080
+            protocol: TCP
+          - name: grpc
+            containerPort: 8443
+            protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+        resources:
+          limits:
+            cpu: "{{ .Values.rollout.resources.limits.cpu }}"
+            memory: "{{ .Values.rollout.resources.limits.memory }}"
+          requests:
+            cpu: "{{ .Values.rollout.resources.requests.cpu }}"
+            memory: "{{ .Values.rollout.resources.requests.memory }}"
+        env:
+        - name: KUBERPULT_CDSERVER
+          value: kuberpult-cd-service:8443
+        - name: KUBERPULT_ARGOCD_SERVER
+          value: {{ .Values.argocd.server | quote }}
+        - name: KUBERPULT_ARGOCD_INSECURE
+          value: {{ .Values.argocd.insecure | quote }}
+        - name: KUBERPULT_ARGOCD_REFRESH_ENABLED
+          value: {{ .Values.argocd.refresh.enabled | quote }}
+        - name: KUBERPULT_ARGOCD_REFRESH_CONCURRENCY
+          value: {{ .Values.argocd.refresh.concurrency | quote }}
+        - name: KUBERPULT_MANAGE_ARGO_APPLICATIONS_ENABLED
+          value: {{ .Values.manageArgoApplications.enabled | quote }}
+        - name: KUBERPULT_MANAGE_ARGO_APPLICATIONS_FILTER
+          value: {{ .Values.manageArgoApplications.filter | quote }}
+        - name: LOG_FORMAT
+          value: {{ .Values.log.format | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.log.level | quote }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_AGENT_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: DD_ENV
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/env']
+        - name: DD_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/service']
+        - name: DD_VERSION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tags.datadoghq.com/version']
+        - name: KUBERPULT_ENABLE_TRACING
+          value: "{{ .Values.datadogTracing.enabled }}"
+{{- end }}
+{{- if .Values.datadogTracing.enabled }}
+        - name: DD_TRACE_DEBUG
+          value: "{{ .Values.datadogTracing.debugging }}"
+{{- end }}
+{{- if .Values.dogstatsdMetrics.enabled }}
+        - name: KUBERPULT_ENABLE_METRICS
+          value: "{{ .Values.dogstatsdMetrics.enabled }}"
+        - name: KUBERPULT_DOGSTATSD_ADDR
+          value: "{{ .Values.dogstatsdMetrics.address }}"
+{{- end }}
+        - name: KUBERPULT_ARGOCD_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-rollout-service
+              key: KUBERPULT_ARGOCD_TOKEN
+        - name: KUBERPULT_REVOLUTION_DORA_ENABLED
+          value: {{ .Values.revolution.dora.enabled | quote }}
+        - name: KUBERPULT_REVOLUTION_DORA_URL
+          value: {{ .Values.revolution.dora.url | quote }}
+        - name: KUBERPULT_REVOLUTION_DORA_CONCURRENCY
+          value: {{ .Values.revolution.dora.concurrency | quote }}
+        - name: KUBERPULT_REVOLUTION_DORA_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: kuberpult-rollout-service
+              key: KUBERPULT_REVOLUTION_DORA_TOKEN
+        - name: KUBERPULT_REVOLUTION_DORA_MAX_EVENT_AGE
+          value: "2h"
+        volumeMounts:
+        # We need to mount a writeable tmp directory for argocd connections to work correctly. https://github.com/argoproj/argo-cd/issues/14115
+        - name: tmp
+          mountPath: /tmp
+          readOnly: false
+{{- if .Values.dogstatsdMetrics.enabled }}
+        - name: dsdsocket
+          mountPath: {{ .Values.dogstatsdMetrics.hostSocketPath }}
+          readOnly: true
+{{- end }}
+      volumes:
+      - name: tmp
+        emptyDir: {}
+{{- if .Values.dogstatsdMetrics.enabled }}
+      - name: dsdsocket
+        hostPath:
+          path: {{ .Values.dogstatsdMetrics.hostSocketPath }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kuberpult-rollout-service
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  - name: grpc
+    port: 8443
+    targetPort: grpc
+  selector:
+    app: kuberpult-rollout-service
+  type: NodePort
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kuberpult-rollout-service
+type: Opaque
+data:
+  KUBERPULT_ARGOCD_TOKEN: {{ .Values.argocd.token | b64enc | quote }}
+  KUBERPULT_REVOLUTION_DORA_TOKEN: {{ .Values.revolution.dora.token | b64enc | quote }}
+{{- end }}

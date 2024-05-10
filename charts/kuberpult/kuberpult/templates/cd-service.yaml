@@ -426,7 +426,16 @@ kind: ConfigMap
 metadata:
   name: kuberpult-migrations
 data:
+  1713956693027648_all_apps.up.sql: "CREATE TABLE IF NOT EXISTS all_apps(version BIGINT, created TIMESTAMP, json VARCHAR(255), PRIMARY KEY(version));"
+  1714726277027648_events.up.sql: "CREATE TABLE IF NOT EXISTS events(uuid VARCHAR(64), timestamp TIMESTAMP, commitHash VARCHAR(64), eventType VARCHAR(32), json VARCHAR(255), PRIMARY KEY(uuid)); CREATE INDEX commitHashIdx on events (commitHash);"
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kuberpult-migrations-124
+data:
   {{- range $k, $v := .Files.Glob  "migrations/**.sql" }}
   {{ $k | trimPrefix "migrations/" }}: {{ $.Files.Get $k | toYaml | indent 2 }}
   {{- end }}
-{{- end }}
+

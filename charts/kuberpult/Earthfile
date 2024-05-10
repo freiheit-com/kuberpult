@@ -56,11 +56,13 @@ chart-tarball:
     ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
     
     FROM +deps
+
     WORKDIR /kp
 
     COPY +chart.yaml/Chart.yaml .
     COPY values.yaml .
     COPY templates templates
+    COPY migrations migrations
 
     RUN helm dependency update
     RUN rm -rf charts

@@ -1,0 +1,96 @@
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright 2023 freiheit.com
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright 2023 freiheit.com
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+
+#You should have received a copy of the GNU General Public License
+#along with kuberpult.  If not, see <http://www.gnu.org/licenses/>.
+
+#Copyright 2022 freiheit.com
+
+{{- if .Values.ingress.exposeReleaseEndpoint }}
+{{ fail "Values.ingress.exposeReleaseEndpoint cannot be used anymore. Use the frontend service to call the /release endpoint"}}
+{{ end -}}
+
+{{- if .Values.ingress.create }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/acme-challenge-type: dns01
+    cert-manager.io/cluster-issuer: letsencrypt
+{{- range $key, $value := .Values.ingress.annotations }}
+    {{ $key | quote}}: {{ $value | quote}}
+{{- end }}
+  name: kuberpult
+spec:
+{{- if .Values.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.ingress.ingressClassName | quote }}
+{{- end }}
+  rules:
+  - host: {{ required ".ingress.domainName is required" .Values.ingress.domainName | quote }}
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        backend:
+          service:
+            name: kuberpult-frontend-service
+            port:
+              name: http
+  tls:
+  - hosts:
+    - {{ default .Values.ingress.domainName .Values.ingress.tls.host | quote}}
+    secretName: {{.Values.ingress.tls.secretName | quote}}
+---
+{{- if .Values.ingress.iap.enabled }}
+apiVersion: cloud.google.com/v1beta1
+kind: BackendConfig
+metadata:
+  name: kuberpult
+spec:
+  healthCheck:
+    requestPath: /healthz
+    type: HTTP
+  iap:
+    enabled: true
+    oauthclientCredentials:
+      secretName: {{ required ".ingress.iap.secretName is required" .Values.ingress.iap.secretName }}
+{{- end }}
+{{- end }}
