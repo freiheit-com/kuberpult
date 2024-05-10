@@ -185,9 +185,12 @@ func (a *DexAppClient) handleDexLogin(w http.ResponseWriter, r *http.Request) {
 // HandleCallback is the callback handler for an OAuth2 login flow.
 func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("[DEX] Callback!")
+	fmt.Printf("Base URL: %v\n", a.BaseURL)
+	fmt.Printf("Issuer URL: %v\n", a.IssuerURL)
+	fmt.Printf("Redirect URI: %v\n", a.RedirectURI)
+
 	oauth2Config, err := a.oauth2Config(nil)
 	if err != nil {
-		fmt.Printf("oauth2Config error: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
