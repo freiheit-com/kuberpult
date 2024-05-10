@@ -24,6 +24,7 @@ import (
 type ReleaseParameters struct {
 	Application string
 	Manifests   map[string]string // key is name of the environment and value is the manifest.yaml content
+	Team        *string
 }
 
 // calls the Release endpoint with the specified parameters

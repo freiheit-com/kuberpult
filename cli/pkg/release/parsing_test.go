@@ -95,6 +95,37 @@ func TestReadArgs(t *testing.T) {
 			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--manifest", "something-else.yaml"},
 			expectedErrorMsg: "all --manifest args must be set immediately after an --environment arg",
 		},
+		{
+			name: "--team is specified",
+			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team"},
+			expectedCmdArgs: &cmdArguments{
+				application: cli_utils.RepeatedString{
+					Values: []string{
+						"potato",
+					},
+				},
+				environments: cli_utils.RepeatedString{
+					Values: []string{
+						"production",
+					},
+				},
+				manifests: cli_utils.RepeatedString{
+					Values: []string{
+						"manifest-file.yaml",
+					},
+				},
+				team: cli_utils.RepeatedString{
+					Values: []string{
+						"potato-team",
+					},
+				},
+			},
+		},
+		{
+			name: "--team is specified twice",
+			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--team", "tomato-team"},
+			expectedErrorMsg: "the --team arg must be set at most once",
+		},		
 	}
 
 	for _, tc := range tcs {

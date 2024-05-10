@@ -44,6 +44,10 @@ func (s *mockHttpServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 const MAXIMUM_MULTIPART_SIZE = 12 * 1024 * 1024 // = 12Mi, taken from environments.go
 
+func strPtr(s string) *string {
+	return &s
+}
+
 func TestRequestCreation(t *testing.T) {
 	// simplified version of multipart.FileHeader
 	type simpleMultipartFormFileHeader struct {
@@ -152,6 +156,36 @@ func TestRequestCreation(t *testing.T) {
 			},
 			expectedErrorMsg: "error while issuing HTTP request, error: response was not OK or Accepted, response code: 400",
 			responseCode:     http.StatusBadRequest,
+		},
+		{
+			name: "multiple environment manifests with teams set",
+			params: &ReleaseParameters{
+				Application: "potato",
+				Manifests: map[string]string{
+					"development": "some development manifest",
+					"production":  "some production manifest",
+				},
+				Team: strPtr("potato-team"),
+			},
+			expectedMultipartFormValue: map[string][]string{
+				"application": {"potato"},
+				"team": {"potato-team"},
+			},
+			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
+				"manifests[development]": {
+					{
+						filename: "development-manifest",
+						content: "some development manifest",
+					},
+				},
+				"manifests[production]": {
+					{
+						filename: "production-manifest",
+						content: "some production manifest",
+					},
+				},
+			},
+			responseCode: http.StatusOK,
 		},
 	}
 

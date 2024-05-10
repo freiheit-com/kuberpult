@@ -30,6 +30,7 @@ type cmdArguments struct {
 	application  cli_utils.RepeatedString // code-simplifying hack: we use RepeatingString for application even though it's not meant to be repeated so that we can raise and error when it's repeated more or less than once
 	environments cli_utils.RepeatedString
 	manifests    cli_utils.RepeatedString
+	team         cli_utils.RepeatedString
 }
 
 func parseArgs(args []string) (*cmdArguments, error) {
@@ -40,6 +41,7 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	fs.Var(&cmdArgs.application, "application", "the name of the application to deploy (must be set exactly once)")
 	fs.Var(&cmdArgs.environments, "environment", "an environment to deploy to (must have --manifest set immediately afterwards)")
 	fs.Var(&cmdArgs.manifests, "manifest", "the name of the file containing manifests to be deployed (must be set immediately after --environment)")
+	fs.Var(&cmdArgs.team, "team", "the name of the team to which this release belongs (must not be set more than once)")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -72,6 +74,10 @@ func parseArgs(args []string) (*cmdArguments, error) {
 		return nil, fmt.Errorf("the args --enviornment and --manifest must be set at least once")
 	}
 
+	if len(cmdArgs.team.Values) > 1 {
+		return nil, fmt.Errorf("the --team arg must be set at most once")
+	}
+
 	return &cmdArgs, nil
 }
 
@@ -93,6 +99,9 @@ func ProcessArgs(args []string) (*ReleaseParameters, error) {
 			return nil, fmt.Errorf("error while reading the manifest file %s, error: %w", manifestFile, err)
 		}
 		rp.Manifests[environemnt] = string(manifestBytes)
+	}
+	if len(cmdArgs.team.Values) == 1 {
+		rp.Team = &cmdArgs.team.Values[0]
 	}
 
 	return &rp, nil
