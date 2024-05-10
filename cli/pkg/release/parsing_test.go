@@ -50,6 +50,16 @@ func TestReadArgs(t *testing.T) {
 
 	tcs := []testCase{
 		{
+			name: "some unrecognized positional arguments",
+			args: []string{"potato", "tomato"},
+			expectedErrorMsg: "these arguments are not recognized: \"potato tomato\"",
+		},
+		{
+			name: "some flags that don't exist",
+			args: []string{"--potato", "tomato"},
+			expectedErrorMsg: "error while parsing command line arguments, error: flag provided but not defined: -potato",
+		},
+		{
 			name:             "nothing provided",
 			args:             []string{},
 			expectedErrorMsg: "the --application arg must be set exactly once",
@@ -125,7 +135,7 @@ func TestReadArgs(t *testing.T) {
 			name: "--team is specified twice",
 			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--team", "tomato-team"},
 			expectedErrorMsg: "the --team arg must be set at most once",
-		},		
+		},
 	}
 
 	for _, tc := range tcs {
