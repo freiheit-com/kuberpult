@@ -274,7 +274,7 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 		ClientSecret: a.ClientSecret,
 		Endpoint:     p.Endpoint(),
 		Scopes:       scopes,
-		RedirectURL:  a.RedirectURI,
+		RedirectURL:  "https://kuberpult.dev.freiheit.systems/callback",
 	}, nil
 }
 
