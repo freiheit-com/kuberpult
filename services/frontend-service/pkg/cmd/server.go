@@ -236,7 +236,6 @@ func runServer(ctx context.Context) error {
 	http.DefaultServeMux = mux
 	if c.DexEnabled {
 		// Registers Dex handlers.
-		logger.FromContext(ctx).Info("Dex is enabled. Creating client...")
 		_, err := auth.NewDexAppClient(c.DexClientId, c.DexClientSecret, c.DexBaseURL, auth.ReadScopes(c.DexScopes))
 		if err != nil {
 			logger.FromContext(ctx).Fatal("error registering dex handlers: ", zap.Error(err))

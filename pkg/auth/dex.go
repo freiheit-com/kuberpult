@@ -100,7 +100,6 @@ func NewDexAppClient(clientID, clientSecret, baseURL string, scopes []string) (*
 		T:      a.Client.Transport,
 	}
 
-	fmt.Println("Registering Dex hanlers...")
 	// Register Dex handlers.
 	a.registerDexHandlers()
 	return &a, nil
@@ -184,10 +183,6 @@ func (a *DexAppClient) handleDexLogin(w http.ResponseWriter, r *http.Request) {
 
 // HandleCallback is the callback handler for an OAuth2 login flow.
 func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("[DEX] Callback!")
-	fmt.Printf("Base URL: %v\n", a.BaseURL)
-	fmt.Printf("Issuer URL: %v\n", a.IssuerURL)
-	fmt.Printf("Redirect URI: %v\n", a.RedirectURI)
 
 	oauth2Config, err := a.oauth2Config(nil)
 	if err != nil {
@@ -202,7 +197,6 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := r.FormValue("code")
-	fmt.Printf("Reading code: %s\n", code)
 	ctx := oidc.ClientContext(r.Context(), a.Client)
 	token, err := oauth2Config.Exchange(ctx, code)
 	if err != nil {
@@ -216,7 +210,7 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println("Validating OIDC Token...")
-	idToken, err := ValidateOIDCToken(ctx, "https://kuberpult.dev.freiheit.systems/dex", idTokenRAW, a.ClientID)
+	idToken, err := ValidateOIDCToken(ctx, a.IssuerURL, idTokenRAW, a.ClientID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to verify the token: %v", err), http.StatusInternalServerError)
 		return
@@ -239,10 +233,8 @@ func (a *DexAppClient) handleCallback(w http.ResponseWriter, r *http.Request) {
 			Expires: expiration,
 			Path:    "/",
 		}
-		fmt.Printf("%v\n", cookie)
 		http.SetCookie(w, &cookie)
 	}
-	fmt.Printf("Redirecting back to kuberpult!")
 	http.Redirect(w, r, a.BaseURL, http.StatusSeeOther)
 }
 
@@ -266,8 +258,7 @@ func ValidateOIDCToken(ctx context.Context, issuerURL, rawToken string, allowedA
 
 func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err error) {
 	ctx := oidc.ClientContext(context.Background(), a.Client)
-	fmt.Printf("Issuer URL: %s\n", a.IssuerURL)
-	p, err := oidc.NewProvider(ctx, "https://kuberpult.dev.freiheit.systems/dex")
+	p, err := oidc.NewProvider(ctx, a.IssuerURL)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +268,7 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 		ClientSecret: a.ClientSecret,
 		Endpoint:     p.Endpoint(),
 		Scopes:       scopes,
-		RedirectURL:  "https://kuberpult.dev.freiheit.systems/callback",
+		RedirectURL:  a.RedirectURI,
 	}, nil
 }
 
