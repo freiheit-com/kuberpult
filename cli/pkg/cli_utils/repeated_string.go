@@ -16,18 +16,7 @@ Copyright 2023 freiheit.com*/
 
 package cli_utils
 
-import "regexp"
-import "fmt"
 import "strings"
-
-const wellBehavedStringRegex = "^[a-zA-Z0-9_\\./@-]+$"
-
-// checks if a string is free of surprises.
-// many Kuberpult endpoints don't mind special characters, this is meant to make the CLI simpler
-func isWellBehavedString(s string) bool {
-	match, err := regexp.MatchString(wellBehavedStringRegex, s)
-	return match && err == nil
-}
 
 // a RepeatedString corresponds to a command line string argument that can be specified multiple times (possibly zero times)
 // we further make the simplifying assumption that the string must be well-behaved
@@ -36,10 +25,6 @@ type RepeatedString struct {
 }
 
 func (rs *RepeatedString) Set(s string) error {
-	if !isWellBehavedString(s) {
-		return fmt.Errorf("the string \"%s\" may not be used as a flag value, all values must match the regex %s", s, wellBehavedStringRegex)
-	}
-
 	rs.Values = append(rs.Values, s)
 	return nil
 }

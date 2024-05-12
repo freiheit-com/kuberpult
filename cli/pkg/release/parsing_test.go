@@ -70,11 +70,6 @@ func TestReadArgs(t *testing.T) {
 			expectedErrorMsg: "the args --enviornment and --manifest must be set at least once",
 		},
 		{
-			name:             "--application has some improper value",
-			args:             []string{"--application", "something,not,allowed"},
-			expectedErrorMsg: "error while parsing command line arguments, error: invalid value \"something,not,allowed\" for flag -application: the string \"something,not,allowed\" may not be used as a flag value, all values must match the regex ^[a-zA-Z0-9_\\./@-]+$",
-		},
-		{
 			name:             "--environment is specified without --manifest",
 			args:             []string{"--application", "potato", "--environment", "production"},
 			expectedErrorMsg: "all --environment args must have a --manifest arg set immediately afterwards",
@@ -273,11 +268,6 @@ func TestReadArgs(t *testing.T) {
 			name:             "--source_author is specified twice",
 			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_author", "foo@bar.com"},
 			expectedErrorMsg: "the --source_author arg must be set at most once",
-		},
-		{
-			name:             "--source_author is specified but with an invalid value",
-			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "some thing with spa ces"},
-			expectedErrorMsg: "error while parsing command line arguments, error: invalid value \"some thing with spa ces\" for flag -source_author: the string \"some thing with spa ces\" may not be used as a flag value, all values must match the regex ^[a-zA-Z0-9_\\./@-]+$",
 		},
 	}
 

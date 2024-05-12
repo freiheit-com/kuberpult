@@ -38,53 +38,6 @@ func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
 }
 
-func TestIsWellBehaved(t *testing.T) {
-	type testCase struct {
-		name string
-		str  string
-		res  bool
-	}
-
-	tcs := []testCase{
-		{
-			name: "okay string",
-			str:  "totally-okay",
-			res:  true,
-		},
-		{
-			name: "comma",
-			str:  "bad,comma",
-			res:  false,
-		},
-		{
-			name: "space",
-			str:  "bad space",
-			res:  false,
-		},
-		{
-			name: "dot",
-			str:  "something.yaml",
-			res:  true,
-		},
-		{
-			name: "slashes",
-			str:  "path/to/something",
-			res:  true,
-		},
-	}
-
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			res := isWellBehavedString(tc.str)
-			if res != tc.res {
-				t.Fatalf("incorrect result for string %s, expected %v, got %v", tc.str, tc.res, res)
-			}
-		})
-	}
-}
-
 func TestParseCommandLineArgs(t *testing.T) {
 	type testCase struct {
 		name             string
