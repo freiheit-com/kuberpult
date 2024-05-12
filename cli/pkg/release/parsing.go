@@ -36,6 +36,7 @@ type cmdArguments struct {
 	sourceCommitId   cli_utils.RepeatedString // same hack as application field here
 	previousCommitId cli_utils.RepeatedString // same hack as application field here
 	sourceAuthor     cli_utils.RepeatedString // same hack as application field here
+	sourceMessage	 cli_utils.RepeatedString // same hack as application field here
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
@@ -112,6 +113,10 @@ func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
 			return false, fmt.Sprintf("the --source_author must be assigned a proper author identifier, matching the regex %s", authorIDRegex)
 		}
 	}
+	
+	if len(cmdArgs.sourceMessage.Values) > 1 {
+		return false, "the --source_message arg must be set at most once"
+	}
 
 	return true, ""
 }
@@ -128,6 +133,7 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	fs.Var(&cmdArgs.sourceCommitId, "source_commit_id", "the SHA1 hash of the source commit (must not be set more than once)")
 	fs.Var(&cmdArgs.previousCommitId, "previous_commit_id", "the SHA1 hash of the previous commit (must not be set more than once and can only be set when source_commit_id is set)")
 	fs.Var(&cmdArgs.sourceAuthor, "source_author", "the souce author (must not be set more than once)")
+	fs.Var(&cmdArgs.sourceMessage, "source_message", "the source commit message (must not be set more than once)")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -178,6 +184,9 @@ func ProcessArgs(args []string) (*ReleaseParameters, error) {
 	}
 	if len(cmdArgs.sourceAuthor.Values) == 1 {
 		rp.SourceAuthor = &cmdArgs.sourceAuthor.Values[0]
+	}
+	if len(cmdArgs.sourceMessage.Values) == 1 {
+		rp.SourceMessage = &cmdArgs.sourceMessage.Values[0]
 	}
 
 	return &rp, nil

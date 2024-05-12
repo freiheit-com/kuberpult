@@ -68,6 +68,12 @@ func prepareHttpRequest(url string, parsedArgs *ReleaseParameters) (*http.Reques
 		}
 	}
 
+	if parsedArgs.SourceMessage != nil {
+		if err := writer.WriteField("source_message", *parsedArgs.SourceMessage); err != nil {
+			return nil, fmt.Errorf("error writing source_message field, error: %w", err)
+		}
+	}
+
 	if err := writer.Close(); err != nil {
 		return nil, fmt.Errorf("error closing the writer, error: %w", err)
 	}
