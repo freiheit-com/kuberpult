@@ -27,6 +27,8 @@ type ReleaseParameters struct {
 	Team             *string
 	SourceCommitId   *string
 	PreviousCommitId *string
+	SourceAuthor     *string
+	SourceMessage    *string
 }
 
 // calls the Release endpoint with the specified parameters

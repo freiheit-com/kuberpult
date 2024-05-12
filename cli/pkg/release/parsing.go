@@ -35,6 +35,7 @@ type cmdArguments struct {
 	team             cli_utils.RepeatedString // same hack as application field here
 	sourceCommitId   cli_utils.RepeatedString // same hack as application field here
 	previousCommitId cli_utils.RepeatedString // same hack as application field here
+	sourceAuthor     cli_utils.RepeatedString // same hack as application field here
 }
 
 // checks whether every --environment arg is matched with a --manifest arg
@@ -56,10 +57,14 @@ func environmentManifestsPaired(args []string) (result bool, message string) {
 	return true, ""
 }
 
-// checks if a string is a hexadecimal SHA1 hash, used for validating a commit ID
-func isHexSHA1(s string) bool {
-	regex := regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
-	return regex.MatchString(s)
+var commitIDRegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+func isCommitID(s string) bool {
+	return commitIDRegex.MatchString(s)
+}
+
+var authorIDRegex = regexp.MustCompile(`^[^<\n]+( <[^@\n]+@[^>\n]+>)?$`)
+func isAuthorID(s string) bool {
+	return authorIDRegex.MatchString(s)
 }
 
 func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
@@ -80,7 +85,7 @@ func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
 	}
 
 	if len(cmdArgs.sourceCommitId.Values) == 1 {
-		if !isHexSHA1(cmdArgs.sourceCommitId.Values[0]) {
+		if !isCommitID(cmdArgs.sourceCommitId.Values[0]) {
 			return false, "the --source_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal"
 		}
 	}
@@ -93,8 +98,18 @@ func parsedArgsValid(cmdArgs *cmdArguments) (result bool, message string) {
 		if len(cmdArgs.sourceCommitId.Values) != 1 { // not a requirement from the API, but it is a reasonable restriction to make
 			return false, "the --previous_commit_id arg can be set only if --source_commit_id is set"
 		}
-		if !isHexSHA1(cmdArgs.previousCommitId.Values[0]) {
+		if !isCommitID(cmdArgs.previousCommitId.Values[0]) {
 			return false, "the --previous_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal"
+		}
+	}
+
+	if len(cmdArgs.sourceAuthor.Values) > 1 {
+		return false, "the --source_author arg must be set at most once"
+	}
+
+	if len(cmdArgs.sourceAuthor.Values) == 1 {
+		if !isAuthorID(cmdArgs.sourceAuthor.Values[0]) {
+			return false, fmt.Sprintf("the --source_author must be assigned a proper author identifier, matching the regex %s", authorIDRegex)
 		}
 	}
 
@@ -112,6 +127,7 @@ func parseArgs(args []string) (*cmdArguments, error) {
 	fs.Var(&cmdArgs.team, "team", "the name of the team to which this release belongs (must not be set more than once)")
 	fs.Var(&cmdArgs.sourceCommitId, "source_commit_id", "the SHA1 hash of the source commit (must not be set more than once)")
 	fs.Var(&cmdArgs.previousCommitId, "previous_commit_id", "the SHA1 hash of the previous commit (must not be set more than once and can only be set when source_commit_id is set)")
+	fs.Var(&cmdArgs.sourceAuthor, "source_author", "the souce author (must not be set more than once)")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("error while parsing command line arguments, error: %w", err)
@@ -159,6 +175,9 @@ func ProcessArgs(args []string) (*ReleaseParameters, error) {
 	}
 	if len(cmdArgs.previousCommitId.Values) == 1 {
 		rp.PreviousCommitId = &cmdArgs.previousCommitId.Values[0]
+	}
+	if len(cmdArgs.sourceAuthor.Values) == 1 {
+		rp.SourceAuthor = &cmdArgs.sourceAuthor.Values[0]
 	}
 
 	return &rp, nil

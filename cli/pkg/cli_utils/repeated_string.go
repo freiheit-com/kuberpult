@@ -20,7 +20,7 @@ import "regexp"
 import "fmt"
 import "strings"
 
-const wellBehavedStringRegex = "^[a-zA-Z0-9_\\./-]+$"
+const wellBehavedStringRegex = "^[a-zA-Z0-9_\\./@-]+$"
 
 // checks if a string is free of surprises.
 // many Kuberpult endpoints don't mind special characters, this is meant to make the CLI simpler

@@ -72,7 +72,7 @@ func TestReadArgs(t *testing.T) {
 		{
 			name:             "--application has some improper value",
 			args:             []string{"--application", "something,not,allowed"},
-			expectedErrorMsg: "error while parsing command line arguments, error: invalid value \"something,not,allowed\" for flag -application: the string \"something,not,allowed\" may not be used as a flag value, all values must match the regex ^[a-zA-Z0-9_\\./-]+$",
+			expectedErrorMsg: "error while parsing command line arguments, error: invalid value \"something,not,allowed\" for flag -application: the string \"something,not,allowed\" may not be used as a flag value, all values must match the regex ^[a-zA-Z0-9_\\./@-]+$",
 		},
 		{
 			name:             "--environment is specified without --manifest",
@@ -223,6 +223,62 @@ func TestReadArgs(t *testing.T) {
 			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--previous_commit_id", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
 			expectedErrorMsg: "the --previous_commit_id arg must be set at most once",
 		},
+		{
+			name:             "--previous_commit_id is specified but with an invalid value",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "potato"},
+			expectedErrorMsg: "the --previous_commit_id arg must be assigned a complete SHA1 commit hash in hexadecimal",
+		},
+		{
+			name: "--source_author is specified",
+			args: []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com"},
+			expectedCmdArgs: &cmdArguments{
+				application: cli_utils.RepeatedString{
+					Values: []string{
+						"potato",
+					},
+				},
+				environments: cli_utils.RepeatedString{
+					Values: []string{
+						"production",
+					},
+				},
+				manifests: cli_utils.RepeatedString{
+					Values: []string{
+						"manifest-file.yaml",
+					},
+				},
+				team: cli_utils.RepeatedString{
+					Values: []string{
+						"potato-team",
+					},
+				},
+				sourceCommitId: cli_utils.RepeatedString{
+					Values: []string{
+						"0123abcdef0123abcdef0123abcdef0123abcdef",
+					},
+				},
+				previousCommitId: cli_utils.RepeatedString{
+					Values: []string{
+						"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					},
+				},
+				sourceAuthor: cli_utils.RepeatedString{
+					Values: []string{
+						"potato@tomato.com",
+					},
+				},
+			},
+		},
+		{
+			name:             "--source_author is specified twice",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "potato@tomato.com", "--source_author", "foo@bar.com"},
+			expectedErrorMsg: "the --source_author arg must be set at most once",
+		},
+		{
+			name:             "--source_author is specified but with an invalid value",
+			args:             []string{"--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--team", "potato-team", "--source_commit_id", "0123abcdef0123abcdef0123abcdef0123abcdef", "--previous_commit_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--source_author", "some thing with spa ces"},
+			expectedErrorMsg: "error while parsing command line arguments, error: invalid value \"some thing with spa ces\" for flag -source_author: the string \"some thing with spa ces\" may not be used as a flag value, all values must match the regex ^[a-zA-Z0-9_\\./@-]+$",
+		},
 	}
 
 	for _, tc := range tcs {
@@ -322,7 +378,7 @@ func TestParseArgs(t *testing.T) {
 				os.RemoveAll(dir)
 			})
 
-			for i, _ := range tc.setup {
+			for i := range tc.setup {
 				tc.setup[i].filename = filepath.Join(dir, tc.setup[i].filename)
 
 			}
