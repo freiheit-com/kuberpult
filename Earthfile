@@ -45,7 +45,10 @@ deps:
     SAVE ARTIFACT $BUF_BIN_PATH/buf
 
 migration-deps:
-   COPY cd_database/migrations migrations
+    LOCALLY
+    COPY cd_database/migrations migrations
+    RUN echo A: $(readlink -f migrations)
+    SAVE ARTIFACT migrations
 
 
 cd-service:

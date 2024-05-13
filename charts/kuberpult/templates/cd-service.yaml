@@ -419,14 +419,3 @@ metadata:
 data:
   policy.csv: {{ .Values.auth.dexAuth.policy_csv | quote}}
 {{- end }}
-{{- if or (eq .Values.cd.db.dbOption "cloudsql") (eq .Values.cd.db.dbOption "sqlite") }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kuberpult-migrations
-data:
-  {{- range $k, $v := .Files.Glob  "migrations/**.sql" }}
-  {{ $k | trimPrefix "migrations/" }}: {{ $.Files.Get $k | toYaml | indent 2 }}
-  {{- end }}
-{{- end }}

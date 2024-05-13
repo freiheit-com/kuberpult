@@ -50,13 +50,11 @@ chart.yaml:
     SAVE ARTIFACT Chart.yaml AS LOCAL Chart.yaml
 
 chart-tarball:
-    LOCALLY
+    FROM +deps
     ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
 
-    FROM ../../+migration-deps
-    RUN echo $(readlink -f migrations/)
-    FROM +deps
-
+    COPY +../../migration-deps/migrations migrations
+    RUN echo B:$(readlink -f migrations)
     WORKDIR /kp
 
     COPY +chart.yaml/Chart.yaml .
