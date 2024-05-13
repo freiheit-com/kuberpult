@@ -562,7 +562,7 @@ func (c *CreateApplicationVersion) Transform(
 				LockBehaviour:   api.LockBehavior_RECORD,
 				Authentication:  c.Authentication,
 				WriteCommitData: c.WriteCommitData,
-				author:          c.SourceAuthor,
+				Author:          c.SourceAuthor,
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {
@@ -913,7 +913,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 				LockBehaviour:   api.LockBehavior_RECORD,
 				Authentication:  c.Authentication,
 				WriteCommitData: c.WriteCommitData,
-				author:          "",
+				Author:          "",
 			}
 			err := t.Execute(d, transaction)
 			if err != nil {
@@ -1843,7 +1843,7 @@ type DeployApplicationVersion struct {
 	LockBehaviour   api.LockBehavior                `json:"lockBehaviour"`
 	WriteCommitData bool                            `json:"writeCommitData"`
 	SourceTrain     *DeployApplicationVersionSource `json:"sourceTrain"`
-	author          string                          `json:"author"`
+	Author          string                          `json:"author"`
 }
 
 func (c *DeployApplicationVersion) GetDBEventType() EventType {
@@ -2051,7 +2051,7 @@ func (c *DeployApplicationVersion) Transform(
 			gen := getGenerator(ctx)
 			eventUuid := gen.Generate()
 
-			err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, eventUuid, newReleaseCommitId, c.author, deploymentEvent)
+			err = state.DBHandler.DBWriteDeploymentEvent(ctx, transaction, eventUuid, newReleaseCommitId, c.Author, deploymentEvent)
 			if err != nil {
 				return "", GetCreateReleaseGeneralFailure(err)
 			}
@@ -2799,7 +2799,7 @@ func (c *envReleaseTrain) Transform(
 				Upstream:    upstreamEnvName,
 				TargetGroup: c.TrainGroup,
 			},
-			author: "",
+			Author: "",
 		}
 		if err := t.Execute(d, transaction); err != nil {
 			return "", grpc.InternalError(ctx, fmt.Errorf("unexpected error while deploying app %q to env %q: %w", appName, c.Env, err))
