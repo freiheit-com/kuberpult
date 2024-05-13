@@ -282,10 +282,12 @@ auth:
       p, role:Developer, CreateEnvironment, *:*, *, allow
       p, role:Developer, DeleteEnvironmentApplication, *:*, *, allow
       p, role:Developer, DeployReleaseTrain, *:*, *, allow
+      
+      g,
     clientId: "kuberpult-dex"
     clientSecret: "kuberpult-dex-secret"
-    baseURL: "https://kuberpult.dev.freiheit.systems/"
-    scopes: "openid, email, profile"
+    baseURL: "https://kuberpult.dev.freiheit.systems"
+    scopes: openid, groups, email, profile, federated:id
   api:
     # New api endpoints (starting with `/api/`), are by default only turned on when IAP is enabled.
     # As of now this applies only to the manifest endpoint `/api/application/<application>/release/<release>/manifests`.
@@ -341,7 +343,7 @@ dex:
         config:
           issuer: accounts.google.com
           redirectURI: "https://kuberpult.dev.freiheit.systems/dex/callback"
-          clientID: "855333057980-f2m0tp6rnpuqg92fnsmh6kkg4vqiojlf.apps.googleusercontent.com"
+          clientID: "client_id"
           clientSecret: "client_secret"
 # Configuration for revolution dora metrics. If you are not using revolution you can safely ignore this.
 revolution:
