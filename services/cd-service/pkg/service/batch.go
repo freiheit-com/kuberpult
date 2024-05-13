@@ -370,6 +370,11 @@ func (d *BatchServer) ProcessBatch(
 		case *repository.TeamNotFoundErr:
 			return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", applyErr.TransformerError.Error()))
 		default:
+			tmp, ok := status.FromError(applyErr.TransformerError)
+			if tmp != nil && ok {
+				// in order to pass the right status code, we need to return the inner error:
+				return nil, applyErr.TransformerError
+			}
 			return nil, err
 		}
 	}
