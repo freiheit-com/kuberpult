@@ -44,6 +44,10 @@ deps:
     SAVE ARTIFACT go.sum
     SAVE ARTIFACT $BUF_BIN_PATH/buf
 
+migration-deps:
+   COPY cd_database/migrations migrations
+
+
 cd-service:
     BUILD ./services/cd-service+$target --UID=$UID --service=cd-service
 

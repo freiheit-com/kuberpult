@@ -1,7 +1,5 @@
 VERSION 0.7
 
-
-
 godeps:
     FROM golang:1.22-alpine
 
@@ -54,7 +52,9 @@ chart.yaml:
 chart-tarball:
     LOCALLY
     ARG VERSION=$(git describe --always --long --tags || echo 0.0.1)
-    
+
+    FROM ../../+migration-deps
+    RUN echo $(readlink -f migrations/)
     FROM +deps
 
     WORKDIR /kp
@@ -62,12 +62,11 @@ chart-tarball:
     COPY +chart.yaml/Chart.yaml .
     COPY values.yaml .
     COPY templates templates
-    COPY migrations migrations
 
     RUN helm dependency update
     RUN rm -rf charts
     RUN helm dependency update
-    RUN tar -xzvf charts/*.tgz --directory=charts
+    RUN tar -xzvf charts/*.tgz migrations/*.sql --directory=charts
 
     RUN helm package .
 
