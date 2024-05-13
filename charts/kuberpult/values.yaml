@@ -270,9 +270,9 @@ auth:
     clientId: ""
     tenantId: ""
   dexAuth:
-    enabled: true
-    installDex: true
-    defaultUserEnabled: false
+    enabled: false
+    # Indicates if dex is to be installed. If you want to use your own Dex instance do not enable this flag.
+    installDex: false
     # Defines the rbac policy when using Dex.
     # The permissions are added using the following format (<ROLE>, <ACTION>, <ENVIRONMENT_GROUP>:<ENVIRONMENT>, <APPLICATION>, allow).
     #
@@ -287,7 +287,7 @@ auth:
     clientId: ""
     clientSecret: ""
     baseURL: ""
-    scopes: openid, groups, email, profile, federated:id
+    scopes: ""
   api:
     # New api endpoints (starting with `/api/`), are by default only turned on when IAP is enabled.
     # As of now this applies only to the manifest endpoint `/api/application/<application>/release/<release>/manifests`.
@@ -308,8 +308,7 @@ dex:
   #      name: kuberpult-oauth-client-id
   #        key: kuberpult-oauth-client-id
   service:
-    annotations:
-    - cloud.google.com/backend-config: {"default": "kuberpult-dex"}
+    annotations: {}
   envVars: []
   # The configuration of the OAUTH provider.
   # For more information on the connectors to use see https://dexidp.io/docs/connectors/
@@ -323,28 +322,7 @@ dex:
   #       clientID: $GOOGLE_CLIENT_ID
   #       clientSecret: $GOOGLE_CLIENT_SECRET
   #       redirectURI: http://127.0.0.1:5556/callback
-  config:
-    issuer: ""
-    web:
-      http: 0.0.0.0:8080
-    # See https://dexidp.io/docs/storage/ for more options
-    storage:
-      type: memory
-    staticClients:
-      - id: "kuberpult-dex"
-        secret: "kuberpult-dex-secret"
-        name: 'kuberpult'
-        redirectURIs: {}
-    connectors:
-      - type: google
-        id: google
-        name: Google
-        config:
-          issuer: accounts.google.com
-          redirectURI: ""
-          clientID: "client_id"
-          clientSecret: "client_secret"
-# Configuration for revolution dora metrics. If you are not using revolution you can safely ignore this.
+  config: {}
 revolution:
   dora:
     enabled: false
